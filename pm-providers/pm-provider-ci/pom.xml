@@ -4,7 +4,7 @@
     <parent>
         <groupId>de.planmarshall</groupId>
         <artifactId>pm-providers</artifactId>
-        <version>0.1.1-SNAPSHOT</version>
+        <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>pm-provider-ci</artifactId>
@@ -12,6 +12,8 @@
     <name>pm-provider-ci</name>
     <description>CI contract and the shared HTTP base over cui-http.</description>
     <properties>
+        <!-- Switches on the rule of the root POM for a provider contract module -->
+        <pm.guard.provider-contract.skip>false</pm.guard.provider-contract.skip>
         <maven.jar.plugin.automatic.module.name>de.planmarshall.provider.ci</maven.jar.plugin.automatic.module.name>
     </properties>
     <dependencies>

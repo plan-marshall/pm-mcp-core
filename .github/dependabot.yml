@@ -1,0 +1,40 @@
+# Dependabot version updates, see
+# https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+# Cooldown: semver-* keys are only valid for maven; github-actions takes default-days only.
+
+version: 2
+# Dependabot resolves outside the workflows and gets neither the GITHUB_TOKEN of a run nor the Actions secrets.
+# Without this entry it asks Maven Central alone, gets 404 for the parent POM de.planmarshall:pm-mcp-parent, and
+# cannot read what the parent manages. The password is an organisation *Dependabot* secret: a classic token with
+# read:packages. No replaces-base: Maven Central stays the base registry.
+registries:
+  plan-marshall-packages:
+    type: maven-repository
+    url: https://maven.pkg.github.com/plan-marshall/*
+    username: x-access-token
+    password: ${{ secrets.PLAN_MARSHALL_PACKAGES_TOKEN }}
+updates:
+  - package-ecosystem: maven
+    directory: "/"
+    registries:
+      - plan-marshall-packages
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+      semver-minor-days: 3
+      semver-patch-days: 1
+    ignore:
+      # Maven 3.10.0 produces a Central bundle that the Central Portal rejects for modules
+      # excluded from publishing (it failed the cui-http 3.2 release, cuioss/cui-http#270). Stay on
+      # 3.9.x until https://github.com/mavenplugins/central-publishing-maven-plugin/issues/78
+      # is resolved.
+      - dependency-name: "org.apache.maven:apache-maven"
+        versions: [">= 3.10.0"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 3

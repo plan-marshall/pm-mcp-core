@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cuioss/cuioss-organization/main/.github/actions/read-project-config/schema.json
+name: pm-mcp-core
+description: The plain-Java engine of plan-marshall-mcp
+
+# The modules are deployed as SNAPSHOT versions to the GitHub Packages registry of the organisation
+# plan-marshall on every merge to main and are never released; no GitHub release and no Pages deploy.
+release:
+  current-version: 0.1.0
+  next-version: 0.1.0-SNAPSHOT
+  create-github-release: false
+
+maven-build:
+  java-versions: '["25","26"]'
+  java-version: '25'
+  # The parent POM and pm-api are resolved from the organisation registry, which answers no anonymous request: every
+  # Maven step gets the workflow token, which the server of .mvn/settings.xml reads.
+  github-token-env: true
+  # Snapshot deploy to the registry of the organisation and nowhere else. The server id is the one of the
+  # distributionManagement in the parent POM. No profile: the release profiles of the cui parent sign and
+  # publish to Maven Central.
+  enable-snapshot-deploy: true
+  deploy-target: github-packages
+  packages-server-id: plan-marshall
+  maven-profiles-snapshot: ''
+  maven-profiles-release: ''
+  npm-cache: false
+
+# Switched on once the repository is imported into the SonarCloud organisation plan-marshall (Automatic
+# Analysis off) under this key.
+sonar:
+  project-key: plan-marshall_pm-mcp-core
+  enabled: false
+  skip-on-dependabot: true
+
+pages:
+  reference: pm-mcp-core
+  deploy-at-release: false
+
+github-automation:
+  auto-merge-build-versions: true
+
+cuioss-review-bot:
+  enabled: true
+  packs: [java]
+  additional_rules: []

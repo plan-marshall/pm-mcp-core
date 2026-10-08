@@ -1,0 +1,32 @@
+# Runs the integration tests of the modules on the JVM (the build guard controls, and the Secret Service store
+# against a session keyring where one is reachable) via Maven (reusable workflow from cuioss-organization).
+name: Integration Tests
+
+# Integration tests are the long-running suite: they build only on the default
+# branch (post-merge) and on pull requests, never on every feature-branch push.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  # Required when the repo uses a GitHub merge queue: without it the queued
+  # checks never report and the queue times out.
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-tests:
+    uses: cuioss/cuioss-organization/.github/workflows/reusable-maven-integration-tests.yml@ae4ad6937ec755800c4a77d22e426aba679bf91c # v0.38.0
+    with:
+      report-name: integration-tests
+      maven-args-input: |
+        verify -Pintegration-tests
+      reports-folder: |
+        pm-core/target/failsafe-reports
+        pm-runtime/target/failsafe-reports
+      # The report upload publishes to cuioss.github.io with the cuioss release App, which this
+      # organisation neither has nor uses; the reports stay available as the run's artifact.
+      deploy-reports: false

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <!-- Resolved from the package registry of the organisation plan-marshall (.mvn/settings.xml). It holds the
+         Java release, the licence, the quality-gate recipes, the managed third-party versions, the plugin
+         management, and the deployment target with the build check that guards it. -->
+    <parent>
+        <groupId>de.planmarshall</groupId>
+        <artifactId>pm-mcp-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath />
+    </parent>
+    <artifactId>pm-mcp-core</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>pm-mcp-core</name>
+    <description>The plain-Java engine of plan-marshall-mcp: the foundation pm-core, the provider modules, and
+        the daemon logic without a framework, pm-runtime.
+    </description>
+    <url>https://github.com/plan-marshall/pm-mcp-core/</url>
+    <!-- Restated: the licence URL of the parent names the parent's repository. -->
+    <licenses>
+        <license>
+            <name>Proprietary - all rights reserved</name>
+            <url>https://github.com/plan-marshall/pm-mcp-core/blob/main/LICENSE.md</url>
+            <distribution>manual</distribution>
+        </license>
+    </licenses>
+    <modules>
+        <module>pm-core</module>
+        <module>pm-providers</module>
+        <module>pm-runtime</module>
+    </modules>
+    <scm>
+        <url>https://github.com/plan-marshall/pm-mcp-core/</url>
+        <connection>
+            scm:git:https://github.com/plan-marshall/pm-mcp-core.git
+        </connection>
+        <developerConnection>
+            scm:git:https://github.com/plan-marshall/pm-mcp-core/
+        </developerConnection>
+        <tag>HEAD</tag>
+    </scm>
+    <issueManagement>
+        <url>https://github.com/plan-marshall/pm-mcp-core/issues</url>
+        <system>GitHub Issues</system>
+    </issueManagement>
+
+    <properties>
+        <!-- The repository of this POM: the deployment target of the parent is
+             https://maven.pkg.github.com/plan-marshall/${pm.repository}, and its enforcer rule fails without it. -->
+        <pm.repository>pm-mcp-core</pm.repository>
+        <!-- pm-api of pm-mcp-clients, resolved from the organisation registry: always the latest SNAPSHOT, it
+             is never released. -->
+        <version.pm-mcp-clients>0.1.0-SNAPSHOT</version.pm-mcp-clients>
+        <!-- Switches of the dependency rules that hold for some modules only (see the enforcer executions) -->
+        <pm.guard.foundation.skip>true</pm.guard.foundation.skip>
+        <pm.guard.runtime.skip>true</pm.guard.runtime.skip>
+        <pm.guard.runtime-libraries.skip>false</pm.guard.runtime-libraries.skip>
+        <pm.guard.provider.skip>true</pm.guard.provider.skip>
+        <pm.guard.provider-contract.skip>true</pm.guard.provider-contract.skip>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-api</artifactId>
+                <version>${version.pm-mcp-clients}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-runtime</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-git</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-ci</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-github</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-gitlab</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <!-- The dependency rules of this repository and its content rule (PM-IMPL-1). Their controls are the
+                 fixture projects below src/guard-controls, which BuildGuardsIT of pm-core builds and expects to
+                 fail. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <!-- Every module: the engine is plain Java. No Quarkus, CDI, Vert.x or MCP library, no module of the
+                         repository that comes later in the artifact flow, and of pm-mcp-clients only pm-api. -->
+                    <execution>
+                        <id>no-framework-no-later-repository</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>io.quarkus:*</exclude>
+                                        <exclude>io.quarkiverse.*:*</exclude>
+                                        <exclude>io.vertx:*</exclude>
+                                        <exclude>jakarta.enterprise:*</exclude>
+                                        <exclude>jakarta.inject:*</exclude>
+                                        <exclude>de.planmarshall:pm-mcp-server</exclude>
+                                        <exclude>de.planmarshall:pm-exec</exclude>
+                                        <exclude>de.planmarshall:pm-relay</exclude>
+                                        <exclude>de.planmarshall:pm-operator</exclude>
+                                    </excludes>
+                                    <message>A module of pm-mcp-core never depends on Quarkus, CDI, Vert.x or an MCP library, nor on the assembly or a client binary module.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- pm-core: the foundation depends on no other module of the product except pm-api, whose
+                         host-detection table its client profiles read, and never on JGit or cui-http. Switched on in
+                         its POM. -->
+                    <execution>
+                        <id>foundation</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.foundation.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.planmarshall:*</exclude>
+                                        <exclude>org.eclipse.jgit:*</exclude>
+                                        <exclude>de.cuioss:cui-http</exclude>
+                                    </excludes>
+                                    <includes>
+                                        <include>de.planmarshall:pm-api</include>
+                                    </includes>
+                                    <message>pm-core depends on pm-api alone among the modules of the product, and never on JGit or cui-http.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- pm-runtime: pm-core and pm-api alone among the modules of the product, never a provider module.
+                         Switched on in its POM. -->
+                    <execution>
+                        <id>runtime</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.runtime.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.planmarshall:*</exclude>
+                                    </excludes>
+                                    <includes>
+                                        <include>de.planmarshall:pm-core</include>
+                                        <include>de.planmarshall:pm-api</include>
+                                    </includes>
+                                    <message>pm-runtime depends on pm-core and pm-api alone among the modules of the product.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- Every module but pm-runtime: commonmark and LSP4J belong to pm-runtime alone. Switched off in its
+                         POM. -->
+                    <execution>
+                        <id>runtime-libraries</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.runtime-libraries.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.commonmark:*</exclude>
+                                        <exclude>org.eclipse.lsp4j:*</exclude>
+                                    </excludes>
+                                    <message>Only pm-runtime depends on commonmark and LSP4J.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- Provider modules: pm-core and pm-provider-ci (its shared HTTP base) alone among the modules of the
+                         product; never the engine, pm-runtime or another provider implementation. Switched on in
+                         pm-providers. -->
+                    <execution>
+                        <id>provider</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.provider.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.planmarshall:*</exclude>
+                                    </excludes>
+                                    <includes>
+                                        <include>de.planmarshall:pm-core</include>
+                                        <include>de.planmarshall:pm-api</include>
+                                        <include>de.planmarshall:pm-provider-ci</include>
+                                    </includes>
+                                    <message>A provider module depends on pm-core and, for the shared HTTP base, on pm-provider-ci alone among the modules of the product.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- The contract modules pm-provider-git and pm-provider-ci: no other provider module. Switched on in
+                         their POMs. -->
+                    <execution>
+                        <id>provider-contract</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.provider-contract.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.planmarshall:pm-provider-*</exclude>
+                                    </excludes>
+                                    <message>pm-provider-git and pm-provider-ci depend on pm-core alone among the modules of the product.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- No model-facing content in a public artifact: a default workflow unit, a shipped role
+                         artifact, a skill or a client bundle in a module of this repository would be published
+                         with its JAR. The modules read such content by its classpath location and carry none;
+                         test fixtures are written for the test, never copied from the content. -->
+                    <execution>
+                        <id>no-model-facing-content</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireFilesDontExist>
+                                    <files>
+                                        <file>${project.build.outputDirectory}/workflows</file>
+                                        <file>${project.build.outputDirectory}/roles</file>
+                                        <file>${project.build.outputDirectory}/bundles</file>
+                                        <file>${project.build.outputDirectory}/skills</file>
+                                    </files>
+                                    <message>Model-facing content (workflows/, roles/, bundles/, skills/) belongs to the assembly pm-mcp-server, never to a module of this repository.</message>
+                                </requireFilesDontExist>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

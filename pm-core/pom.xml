@@ -3,8 +3,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.planmarshall</groupId>
-        <artifactId>pm-modules</artifactId>
-        <version>0.1.1-SNAPSHOT</version>
+        <artifactId>pm-mcp-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>pm-core</artifactId>
@@ -12,6 +12,10 @@
     <name>pm-core</name>
     <description>Plain-Java foundation: SPIs, stores, TOON encoder.</description>
     <properties>
+        <!-- Switches on the rule of the root POM for the foundation -->
+        <pm.guard.foundation.skip>false</pm.guard.foundation.skip>
+        <!-- Enabled by the integration-tests profile -->
+        <skipITs>true</skipITs>
         <maven.jar.plugin.automatic.module.name>de.planmarshall.core</maven.jar.plugin.automatic.module.name>
     </properties>
     <dependencies>
@@ -57,6 +61,42 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <pm.root>${maven.multiModuleProjectDirectory}</pm.root>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+    <profiles>
+        <!-- Runs the *IT tests -->
+        <profile>
+            <id>integration-tests</id>
+            <properties>
+                <skipITs>false</skipITs>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <skipITs>${skipITs}</skipITs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -3,8 +3,8 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>de.planmarshall</groupId>
-        <artifactId>pm-modules</artifactId>
-        <version>0.1.1-SNAPSHOT</version>
+        <artifactId>pm-mcp-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>pm-runtime</artifactId>
@@ -13,6 +13,10 @@
     <description>The daemon's logic that needs no framework: runtime start, credential stores, web
         certificates, language server client, ingestion validator.</description>
     <properties>
+        <!-- Switches on the rule of the root POM for pm-runtime, and off the rule that keeps commonmark and LSP4J
+             out of every other module -->
+        <pm.guard.runtime.skip>false</pm.guard.runtime.skip>
+        <pm.guard.runtime-libraries.skip>true</pm.guard.runtime-libraries.skip>
         <maven.jar.plugin.automatic.module.name>de.planmarshall.runtime</maven.jar.plugin.automatic.module.name>
         <skipITs>true</skipITs>
     </properties>

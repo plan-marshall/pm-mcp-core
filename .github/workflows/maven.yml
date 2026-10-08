@@ -1,0 +1,36 @@
+# Example: Copy this to your repo as .github/workflows/maven.yml
+# Configuration is read from .github/project.yml - no inputs needed!
+name: Maven Build
+
+on:
+  # Required so the 'build / conclusion' status check runs on the merge-queue
+  # branch; without it, queued PRs stay CLEAN but never merge (queue times out).
+  merge_group:
+  push:
+    branches: [main, "feature/*", "fix/*", "chore/*", "release/*", "dependabot/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read        # the conclusion job verifies a covering run exists
+
+jobs:
+  build:
+    uses: cuioss/cuioss-organization/.github/workflows/reusable-maven-build.yml@ae4ad6937ec755800c4a77d22e426aba679bf91c # v0.38.0
+    # No publishing credentials: the modules go to the package registry of the organisation and nowhere else.
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Deploys the SNAPSHOT to https://maven.pkg.github.com/plan-marshall/pm-mcp-core after a green build on
+  # main (project.yml: enable-snapshot-deploy, deploy-target github-packages). The only credential is the
+  # GITHUB_TOKEN of the run, which needs packages: write for it.
+  deploy-snapshot:
+    needs: build
+    if: needs.build.outputs.github-packages-deploy == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: cuioss/cuioss-organization/.github/workflows/reusable-maven-github-packages-deploy.yml@ae4ad6937ec755800c4a77d22e426aba679bf91c # v0.38.0
