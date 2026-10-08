@@ -14,7 +14,9 @@ The only listing of the repositories, the modules, their responsibilities and al
 Structure Specification of the product (`doc/specification/module-structure.adoc` in
 `plan-marshall/plan-marshall-mcp`, later in `plan-marshall/plan-marshall-documentation`); name modules from there and
 never repeat the listing here. All project documentation (requirements, specifications, implementation watch,
-roadmap, concept, developer and user documentation) lives there, not in this repository.
+roadmap, concept, developer and user documentation) lives there, not in this repository. Every concrete
+implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
+the same names here only point to them.
 
 ## Build
 
