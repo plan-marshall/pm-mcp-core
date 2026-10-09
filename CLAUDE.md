@@ -20,12 +20,28 @@ the same names here only point to them.
 
 ## Build
 
-- Compile: `./mvnw compile`
-- Quality gate: `./mvnw verify -Ppre-commit` (rewrites files: licence headers, OpenRewrite recipes, import order;
-  review every resulting diff and commit it, then run the full verify again)
-- Full verify: `./mvnw verify`
-- Coverage: `./mvnw verify -Pcoverage` (minimum 80% instruction and branch coverage per module)
-- Integration tests: `./mvnw verify -Pintegration-tests`
+### Build Commands
+
+- Never hard-code a build tool command; call the build by its canonical name through the commands below.
+- Compile: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "compile"`
+- Quality gate: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Ppre-commit"`
+  (rewrites files: licence headers, OpenRewrite recipes, import order; review every resulting diff and commit it,
+  then run the full verify again)
+- Full verify: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify"`
+- Coverage: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pcoverage"`
+  (minimum 80% instruction and branch coverage per module)
+- Tests (`{module}`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl {path} -am"`
+  — only on the modules with tests: `pm-core`, `pm-workflow`, `pm-runtime`, and below `pm-providers/` each of
+  `pm-provider-ci`, `pm-provider-git`, `pm-provider-github`, `pm-provider-gitlab`, `pm-provider-sonar`
+- Integration tests (`pm-core`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-core -am"`
+  — only on `pm-core`
+- Integration tests (`pm-runtime`): `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-runtime -am"`
+  — only on `pm-runtime`
+- Run a build with a Bash timeout of 600000ms.
+- Analyse the TOON result of every build: `status`, `errors[N]{file,line,message,category}`, `log_file`.
+
+### Build Rules
+
 - This repository builds no binary. Native-image metadata of a class travels with its module
   (`META-INF/native-image/de.planmarshall/<name>/`); a change to it is verified by the native build of `pm-mcpd` in
   plan-marshall-mcp against the deployed `SNAPSHOT`.
@@ -107,3 +123,12 @@ merge without the user's word. Commits end with `Co-Authored-By: plan-marshall <
 
 CI: reusable workflows of `cuioss/cuioss-organization`, pinned by full SHA with a version comment; configuration in
 `.github/project.yml`.
+
+## Temporary Files
+
+Use `.plan/temp/` for ALL temporary and generated files (covered by `Edit(.plan/**)` permission — avoids permission prompts).
+
+## Tool Usage
+
+- Use proper tools (Edit, Read, Write) instead of shell commands (echo, cat)
+- Never use Bash for file operations (find, grep, cat, ls) — use Glob, Read, Grep tools instead

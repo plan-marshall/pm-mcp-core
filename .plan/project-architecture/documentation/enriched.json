@@ -1,0 +1,45 @@
+{
+  "best_practices": [],
+  "generation": {
+    "by": "architecture",
+    "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+  },
+  "insights": [],
+  "internal_dependencies": [],
+  "key_dependencies": [],
+  "key_dependencies_reasoning": "",
+  "key_packages": {
+    "doc/plans": {
+      "description": "The work package files and their index, the only place that states package status and dependencies."
+    }
+  },
+  "purpose": "library",
+  "purpose_reasoning": "documentation-only virtual module; no closer purpose value",
+  "responsibility": "The work package plans of this repository below doc/plans, one AsciiDoc file per package with the index README.adoc. All other project documentation lives in plan-marshall-documentation.",
+  "responsibility_reasoning": "CLAUDE.md Work Packages section and doc/plans/README.adoc",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        {
+          "description": "AsciiDoc formatting, validation, link verification, and template creation",
+          "skill": "pm-documents:ref-asciidoc"
+        },
+        {
+          "description": "Content quality, tone analysis, organization standards, and review orchestration",
+          "skill": "pm-documents:ref-documentation"
+        },
+        {
+          "description": "Narrative styles for technical documentation \u2014 tone, voice, and arc for the engineering-narrative style",
+          "skill": "pm-documents:ref-narrative-styles"
+        },
+        {
+          "description": "SVG diagram authoring standards \u2014 visual language, theme handling, AsciiDoc embedding, per-diagram-type patterns",
+          "skill": "pm-documents:ref-svg-diagrams"
+        }
+      ]
+    }
+  },
+  "skills_by_profile_reasoning": "",
+  "tips": [],
+  "type": "module"
+}

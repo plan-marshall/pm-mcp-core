@@ -1,0 +1,111 @@
+{
+  "best_practices": [],
+  "generation": {
+    "by": "architecture",
+    "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+  },
+  "insights": [],
+  "internal_dependencies": [
+    "pm-core"
+  ],
+  "key_dependencies": [
+    "de.planmarshall:pm-api",
+    "org.commonmark:commonmark",
+    "org.eclipse.lsp4j:org.eclipse.lsp4j"
+  ],
+  "key_dependencies_reasoning": "pm-runtime depends on pm-core and pm-api alone and is the only module allowed commonmark and LSP4J",
+  "key_packages": {
+    "pm-runtime/src/main/java/de/planmarshall/runtime/credentials": {
+      "description": "The credential stores, with the D-Bus Secret Service client below dbus."
+    },
+    "pm-runtime/src/main/java/de/planmarshall/runtime/lock": {
+      "description": "The runtime lock manager."
+    },
+    "pm-runtime/src/main/java/de/planmarshall/runtime/security": {
+      "description": "Security primitives of the daemon."
+    },
+    "pm-runtime/src/main/java/de/planmarshall/runtime/start": {
+      "description": "Runtime start and lifecycle, the landing place of the lifecycle and service-unit work packages."
+    }
+  },
+  "purpose": "runtime",
+  "purpose_reasoning": "holds the daemon's start and lifecycle logic that pm-mcp-server wires",
+  "responsibility": "The daemon logic that needs no framework: runtime start and lifecycle, the lock manager, credential stores (Secret Service, Keychain), the web layer, the language server client and the ingestion validator. It also builds the test JAR with the fixtures the assembly's tests share.",
+  "responsibility_reasoning": "pm-runtime/pom.xml description, README.md, CLAUDE.md",
+  "skills_by_profile": {
+    "implementation": {
+      "defaults": [
+        {
+          "description": "Foundational agent behavior rules (user interaction, tool usage, research, dependency management)",
+          "skill": "plan-marshall:persona-plan-marshall-agent"
+        },
+        {
+          "description": "Language-agnostic code quality, refactoring, and documentation principles",
+          "skill": "plan-marshall:ref-code-quality"
+        },
+        {
+          "description": "marshalld build-server consumption client (submit/wait/ping/preflight) \u2014 build-dispatch routes builds through the daemon when the project is registered, else falls back in-process",
+          "skill": "plan-marshall:build-server-client"
+        },
+        {
+          "description": "Core Java patterns including modern features and performance optimization",
+          "skill": "pm-dev-java:java-core"
+        },
+        "pm-dev-java-cui:cui-logging"
+      ]
+    },
+    "module_testing": {
+      "defaults": [
+        {
+          "description": "Foundational agent behavior rules (user interaction, tool usage, research, dependency management)",
+          "skill": "plan-marshall:persona-plan-marshall-agent"
+        },
+        {
+          "description": "Language-agnostic code quality principles (SRP, CQS, complexity, error handling)",
+          "skill": "plan-marshall:ref-code-quality"
+        },
+        {
+          "description": "Language-agnostic testing methodology (AAA, coverage, reliability, determinism)",
+          "skill": "plan-marshall:persona-module-tester"
+        },
+        {
+          "description": "marshalld build-server consumption client (submit/wait/ping/preflight) \u2014 test-run dispatch routes through the daemon when the project is registered, else falls back in-process",
+          "skill": "plan-marshall:build-server-client"
+        },
+        {
+          "description": "Core Java patterns including modern features and performance optimization",
+          "skill": "pm-dev-java:java-core"
+        },
+        {
+          "description": "JUnit 5 testing patterns with AAA structure, coverage analysis, and assertion standards",
+          "skill": "pm-dev-java:junit-core"
+        },
+        "pm-dev-java-cui:cui-logging"
+      ]
+    },
+    "quality": {
+      "defaults": [
+        {
+          "description": "Foundational agent behavior rules (user interaction, tool usage, research, dependency management)",
+          "skill": "plan-marshall:persona-plan-marshall-agent"
+        },
+        {
+          "description": "Language-agnostic code quality, refactoring, and documentation principles",
+          "skill": "plan-marshall:ref-code-quality"
+        },
+        {
+          "description": "Core Java patterns including modern features and performance optimization",
+          "skill": "pm-dev-java:java-core"
+        },
+        {
+          "description": "JavaDoc documentation standards including class, method, and code example patterns",
+          "skill": "pm-dev-java:javadoc"
+        },
+        "pm-dev-java-cui:cui-logging"
+      ]
+    }
+  },
+  "skills_by_profile_reasoning": "",
+  "tips": [],
+  "type": "module"
+}
