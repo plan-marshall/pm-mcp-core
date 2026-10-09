@@ -282,5 +282,4 @@
             </plugin>
         </plugins>
     </build>
-    <!-- temporary: triggers one full build to prove the SonarCloud analysis; reverted before merge -->
 </project>
