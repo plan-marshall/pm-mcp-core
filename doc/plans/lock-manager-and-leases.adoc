@@ -1,0 +1,28 @@
+= Runtime lock manager, lease records, and the stale lease sweep
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `lock-manager-and-leases`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 2
+Where:: pm-core packages `core.service`, `core.store`; pm-runtime package `runtime.lock`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* One lock manager for every acquisition: one in-process lock per key and at most one OS `FileChannel.lock()` per lock file; the one total lock order asserted on every acquisition, an out-of-order acquisition refused as `internal_fault` with an audit record.
+* Sibling lock files for every store replaced by atomic rename; lock paths outside the directories they protect.
+* Lease records for the long-lived claims, claimed and released under a short transaction lock; the stale lease sweep.
+* Lock-free snapshot reads of the stores.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[§ Machine Lease Stores]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/02-machine-runtime.adoc[Filesystem Layout § Machine & Runtime]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]
+
+== Done When
+
+Each deliverable has its test: a unit test per rule of the lock order; an out-of-order acquisition is refused as `internal_fault` and its audit record is asserted; a two-process test of the OS lock; a store replaced by atomic rename is guarded by its sibling lock file and never by a lock on the store file; a lease is claimed and released under the short transaction lock and survives a restart; the stale lease sweep removes a lease of a dead holder and keeps a live one; a snapshot read takes no lock and never sees a half-written store.

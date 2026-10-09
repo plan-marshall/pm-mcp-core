@@ -1,0 +1,27 @@
+= Workspace confinement
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `workspace-confinement`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 2
+Where:: pm-core (path types and checks), pm-runtime
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* Every file and repository operation the daemon performs for a project is confined to the enrolled repository root and its worktrees; path traversal and symbolic links out of the root are refused.
+* The daemon's own machine files are outside this rule and have their own: the stores below `<PM_MCP_BASE>`, and the per-user service unit that link:service-unit.adoc[`service-unit`] writes to the fixed location of the platform. The trace matrix names each such path and the rule that governs it.
+* The per-use checks of enrolment files belong to the enrolment store of Milestone 3 and are `out of slice` here.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-2[PM-SEC-2]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/filesystem-layout.adoc[Filesystem Layout]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/01-repository-workspace.adoc[§ Repository & Workspace]; link:../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI, Coordination & Security]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/filesystem-layout.adoc[Filesystem Layout]; link:../../../plan-marshall-documentation/doc/implementation-watch/cli-and-security.adoc[CLI & Security]
+
+== Done When
+
+Adversarial path fixtures (`..`, absolute paths, symbolic links, case and Unicode variants) each refused with the specified error.

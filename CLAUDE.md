@@ -89,6 +89,16 @@ deployment target, its pin and the build check that guards it come from the pare
 POM names this repository. No workflow receives a Sonatype or GPG credential. Never weaken any of this, and never
 add a deployment target, without the user's explicit decision.
 
+## Work Packages
+
+The work of this repository is planned as work packages in `doc/plans/`, one file per package, with the index
+`doc/plans/README.adoc`, the only place that states the status of a package and what it depends on (also packages
+of the other repositories). A package is ready when it is open and everything it depends on is done; the roadmap milestone it serves says for which exit it
+is needed, not when it may start. The plan files hold the tasks only: requirements, specifications and watch
+items stay in `plan-marshall-documentation` and are linked by relative paths that assume the repositories checked
+out beside each other. Claim a package with a draft pull request that names it and sets it to `in progress`,
+after checking that no open pull request already names it.
+
 ## Git Workflow
 
 `main` is protected by rulesets and merges go through the merge queue; direct pushes to `main` are not allowed.

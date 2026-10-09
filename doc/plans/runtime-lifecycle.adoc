@@ -1,0 +1,29 @@
+= Runtime lifecycle: bounded verification, drain, recovery, sweep, version mismatch
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `runtime-lifecycle`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 2
+Where:: pm-runtime package `runtime.start`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The bounded verification step of the startup order.
+* Drain: the runtime ends only after its drain, bounded by the drain timeout of the machine configuration.
+* Per-project crash recovery, run lazily per project and in a background pass after the bind.
+* The periodic sweep, and the detection of a runtime whose version differs from the installed binaries.
+* Jobs and workers join each of these in Milestone 4; this task leaves the seams they need.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-1[PM-ARCH-1], link:../../../plan-marshall-documentation/doc/requirements/09-technology.adoc#PM-TECH-3[PM-TECH-3]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]; link:../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#per-project-recovery[§ Per-Project Recovery]; link:../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[§ Periodic Sweep]; link:../../../plan-marshall-documentation/doc/specification/timeouts/02-runtime-leases-operator-web.adoc#runtime-lifecycle[Timeouts § Runtime Lifecycle]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/runtime-model.adoc[Runtime Model]
+
+== Done When
+
+Tests of each step with a killed-runtime fixture; the cold start bound of PM-TECH-3 is measured again after the change.
