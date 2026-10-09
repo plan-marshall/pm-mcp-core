@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>de.planmarshall</groupId>
+        <artifactId>pm-mcp-core</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>pm-workflow</artifactId>
+    <packaging>jar</packaging>
+    <name>pm-workflow</name>
+    <description>The workflow language and the process it runs: plain Java on pm-core, no framework.</description>
+    <properties>
+        <!-- Switches on the rule of the root POM for pm-workflow -->
+        <pm.guard.workflow.skip>false</pm.guard.workflow.skip>
+        <maven.jar.plugin.automatic.module.name>de.planmarshall.workflow</maven.jar.plugin.automatic.module.name>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

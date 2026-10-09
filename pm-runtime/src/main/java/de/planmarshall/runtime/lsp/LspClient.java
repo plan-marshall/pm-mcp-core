@@ -9,8 +9,8 @@
  */
 package de.planmarshall.runtime.lsp;
 
-import static de.planmarshall.runtime.PmMcpLogMessages.INFO;
-import static de.planmarshall.runtime.PmMcpLogMessages.WARN;
+import static de.planmarshall.core.log.PmMcpLogMessages.INFO;
+import static de.planmarshall.core.log.PmMcpLogMessages.WARN;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

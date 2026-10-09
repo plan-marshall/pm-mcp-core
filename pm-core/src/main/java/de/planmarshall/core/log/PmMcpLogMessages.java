@@ -7,7 +7,7 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.runtime;
+package de.planmarshall.core.log;
 
 import de.cuioss.tools.logging.LogRecord;
 import de.cuioss.tools.logging.LogRecordModel;

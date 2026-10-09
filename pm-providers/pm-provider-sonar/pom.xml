@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>de.planmarshall</groupId>
+        <artifactId>pm-providers</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>pm-provider-sonar</artifactId>
+    <packaging>jar</packaging>
+    <name>pm-provider-sonar</name>
+    <description>Sonar as a code analysis provider: the adapter of the code-analysis and findings contracts of pm-core.</description>
+    <properties>
+        <maven.jar.plugin.automatic.module.name>de.planmarshall.provider.sonar</maven.jar.plugin.automatic.module.name>
+    </properties>
+    <dependencies>
+        <!-- For the shared HTTP base alone: Sonar is no CI provider -->
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-provider-ci</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>de.planmarshall</groupId>
+            <artifactId>pm-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

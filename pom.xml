@@ -14,8 +14,8 @@
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>pm-mcp-core</name>
-    <description>The plain-Java engine of plan-marshall-mcp: the foundation pm-core, the provider modules, and
-        the daemon logic without a framework, pm-runtime.
+    <description>The plain-Java engine of plan-marshall-mcp: the foundation pm-core, the provider modules, the
+        workflow engine pm-workflow, and the daemon logic without a framework, pm-runtime.
     </description>
     <url>https://github.com/plan-marshall/pm-mcp-core/</url>
     <!-- Restated: the licence URL of the parent names the parent's repository. -->
@@ -28,6 +28,7 @@
     </licenses>
     <modules>
         <module>pm-core</module>
+        <module>pm-workflow</module>
         <module>pm-providers</module>
         <module>pm-runtime</module>
     </modules>
@@ -55,6 +56,7 @@
         <version.pm-mcp-clients>0.1.0-SNAPSHOT</version.pm-mcp-clients>
         <!-- Switches of the dependency rules that hold for some modules only (see the enforcer executions) -->
         <pm.guard.foundation.skip>true</pm.guard.foundation.skip>
+        <pm.guard.workflow.skip>true</pm.guard.workflow.skip>
         <pm.guard.runtime.skip>true</pm.guard.runtime.skip>
         <pm.guard.runtime-libraries.skip>false</pm.guard.runtime-libraries.skip>
         <pm.guard.provider.skip>true</pm.guard.provider.skip>
@@ -71,6 +73,11 @@
             <dependency>
                 <groupId>de.planmarshall</groupId>
                 <artifactId>pm-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-workflow</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -96,6 +103,11 @@
             <dependency>
                 <groupId>de.planmarshall</groupId>
                 <artifactId>pm-provider-gitlab</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.planmarshall</groupId>
+                <artifactId>pm-provider-sonar</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>
@@ -159,6 +171,32 @@
                                         <include>de.planmarshall:pm-api</include>
                                     </includes>
                                     <message>pm-core depends on pm-api alone among the modules of the product, and never on JGit or cui-http.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- pm-workflow: pm-core alone among the modules of the product (pm-api arrives through it), never a
+                         provider module or pm-runtime, and never JGit or cui-http. Switched on in its POM. -->
+                    <execution>
+                        <id>workflow</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${pm.guard.workflow.skip}</skip>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>de.planmarshall:*</exclude>
+                                        <exclude>org.eclipse.jgit:*</exclude>
+                                        <exclude>de.cuioss:cui-http</exclude>
+                                    </excludes>
+                                    <includes>
+                                        <include>de.planmarshall:pm-core</include>
+                                        <include>de.planmarshall:pm-api</include>
+                                    </includes>
+                                    <message>pm-workflow depends on pm-core alone among the modules of the product, and never on JGit or cui-http.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
