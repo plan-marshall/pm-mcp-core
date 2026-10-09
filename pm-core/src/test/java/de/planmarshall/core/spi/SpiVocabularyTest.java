@@ -36,4 +36,12 @@ class SpiVocabularyTest {
         assertEquals(List.of("NONE", "JOB_SETTLED", "TASK_SETTLED", "OPERATOR_WAIVER", "MODEL_SUBMIT", "TIME",
                 "EXTERNAL_STATE", "QUESTION_ANSWER"), names);
     }
+
+    @Test
+    @DisplayName("the cycle measures are the four of the contract, in its order")
+    void cycleMeasures() {
+        var names = Arrays.stream(CycleMeasure.values()).map(Enum::name).toList();
+
+        assertEquals(List.of("NONE", "STEP_LIST", "ARCHIVE_STEPS", "ATTEMPT_CAP"), names);
+    }
 }
