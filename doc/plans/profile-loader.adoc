@@ -1,0 +1,28 @@
+= Profile loader and validation
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `profile-loader`
+
+[horizontal]
+Status:: `open`
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 2
+Where:: pm-core package `core.profile`
+Depends on:: link:../../../pm-mcp-clients/doc/plans/profile-documents.adoc[`pm-mcp-clients` / `profile-documents`]
+Unblocks:: nothing
+
+== What
+
+* The loader reads the whole profile documents that are resources of `pm-api` and validates them against the profile schema; a failing profile is refused as a whole.
+* Build test: every shipped profile validates.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#harness-as-data[Client Profiles § The Profile Is the Harness]; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#profile-hardening[§ A Profile Is Untrusted Input]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]
+
+== Done When
+
+The refusing fixtures of the hardening rules that concern the parts this milestone reads; no class of the loader names a harness.
