@@ -23,4 +23,4 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 
 == Done When
 
-The refusing fixtures of the hardening rules that concern the parts this milestone reads; no class of the loader names a harness.
+Every shipped profile loads and validates; for each hardening rule that concerns the parts read here there is a fixture profile that the loader refuses as a whole, with the document and the JSON Pointer of the failing value asserted; a build test fails when a class of the loader names a harness, proven by a control fixture.

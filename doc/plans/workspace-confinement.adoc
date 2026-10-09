@@ -10,7 +10,8 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* Every file and repository operation of the daemon is confined to the enrolled repository root and its worktrees; path traversal and symbolic links out of the root are refused.
+* Every file and repository operation the daemon performs for a project is confined to the enrolled repository root and its worktrees; path traversal and symbolic links out of the root are refused.
+* The daemon's own machine files are outside this rule and have their own: the stores below `<PM_MCP_BASE>`, and the per-user service unit that link:service-unit.adoc[`service-unit`] writes to the fixed location of the platform. The trace matrix names each such path and the rule that governs it.
 * The per-use checks of enrolment files belong to the enrolment store of Milestone 3 and are `out of slice` here.
 
 == Trace
