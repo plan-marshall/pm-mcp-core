@@ -27,7 +27,8 @@ import org.junit.jupiter.params.provider.CsvSource;
  * <p>
  * Hazards the guards answer: a framework dependency in the engine ties the plain-Java modules to the
  * assembly; a dependency of the foundation on a module of the product other than {@code pm-api}, or on JGit
- * or {@code cui-http}, turns the dependency direction; a provider module that reaches the engine or
+ * or {@code cui-http}, turns the dependency direction; so does the engine {@code pm-workflow} when it reaches a
+ * provider module, {@code pm-runtime}, JGit or {@code cui-http}; a provider module that reaches the engine or
  * {@code pm-runtime} sees internals it must not; {@code commonmark} or LSP4J outside {@code pm-runtime}
  * spreads its dependencies; model-facing content in a module of this repository is published with its JAR; a
  * public repository that is asked for a coordinate of the product before the organisation registry learns the
@@ -42,6 +43,8 @@ class BuildGuardsIT {
             "framework, validate, no-framework-no-later-repository",
             "foundation-product-module, validate, foundation",
             "foundation-jgit, validate, foundation",
+            "workflow-product-module, validate, workflow",
+            "workflow-cui-http, validate, workflow",
             "runtime-product-module, validate, runtime",
             "runtime-library, validate, runtime-libraries",
             "provider-product-module, validate, provider",

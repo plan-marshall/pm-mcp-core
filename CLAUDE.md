@@ -4,8 +4,8 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 ## Project
 
-`pm-mcp-core` holds the plain-Java engine of plan-marshall-mcp (PM-MCP): the foundation `pm-core`, the provider
-modules under `pm-providers`, and `pm-runtime`, the daemon's logic that needs no framework. The Quarkus assembly
+`pm-mcp-core` holds the plain-Java engine of plan-marshall-mcp (PM-MCP): the foundation `pm-core`, the workflow
+engine `pm-workflow`, the provider modules under `pm-providers`, and `pm-runtime`, the daemon's logic that needs no framework. The Quarkus assembly
 `pm-mcp-server` that wires these modules into the daemon `pm-mcpd`, and all model-facing content, live in
 `plan-marshall/plan-marshall-mcp`; the client contract `pm-api` and the client binaries in
 `plan-marshall/pm-mcp-clients`.
@@ -50,6 +50,7 @@ them with a fixture project below `src/guard-controls`:
 
 - No module depends on Quarkus, CDI, Vert.x or an MCP library, nor on `pm-mcp-server` or a client binary module.
 - `pm-core` depends on `pm-api` alone among the modules of the product, and never on JGit or `cui-http`.
+- `pm-workflow` depends on `pm-core` alone among the modules of the product, and never on JGit or `cui-http`.
 - A provider module depends on `pm-core` and, for the shared HTTP base, on `pm-provider-ci`; the contract modules
   `pm-provider-git` and `pm-provider-ci` on no other provider module.
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
@@ -71,7 +72,7 @@ them with a fixture project below `src/guard-controls`:
 - Never catch or throw generic `Exception`/`RuntimeException` in production code.
 - Logging: `private static final CuiLogger LOGGER = new CuiLogger(X.class);` (cui-java-tools), `%s` placeholders,
   exception first; no slf4j, log4j, `System.out`/`System.err`. INFO/WARN/ERROR messages are `LogRecord` constants in
-  `PmMcpLogMessages` of `pm-runtime` (prefix `PM_MCP`), each documented in `doc/LogMessages.adoc` of the
+  `PmMcpLogMessages` of `pm-core` (package `de.planmarshall.core.log`, prefix `PM_MCP`), each documented in `doc/LogMessages.adoc` of the
   documentation.
 - JUnit 5 only (`@DisplayName`, `@Nested`, AAA, `@ParameterizedTest` for 3+ variants), on the JVM without Quarkus.
   Forbidden: Mockito, PowerMock, Hamcrest. Test data: cui-test-generator; log assertions: cui-test-juli-logger.

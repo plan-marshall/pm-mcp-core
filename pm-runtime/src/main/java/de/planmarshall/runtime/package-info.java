@@ -12,6 +12,6 @@
  * the certificate of the web listener, the language server client, the ingestion validator, and the registries
  * the authentication of {@code pm-mcpd} resolves tokens through. No class of this module references a Quarkus,
  * CDI, Vert.x or MCP type; the assembly {@code pm-mcp-server} produces its services through CDI.
- * {@link de.planmarshall.runtime.PmMcpLogMessages} holds the log messages of the daemon.
+ * The log messages of the daemon are registered in {@code PmMcpLogMessages} of {@code pm-core}.
  */
 package de.planmarshall.runtime;
