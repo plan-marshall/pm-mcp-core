@@ -1,0 +1,1 @@
+Run /plan-orchestrator next slug=pm-mcp-core-m2-m4. Ready now: PLAN-01 lock-manager-and-leases, PLAN-02 primitive-spi-and-validators, PLAN-03 workspace-confinement, PLAN-04 service-unit, PLAN-05 http-baseline, PLAN-36 code-analysis-base (queue end; ask for it by id). Parallelization scope 3.
