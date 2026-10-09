@@ -81,13 +81,6 @@ public final class PmMcpLogMessages {
                 .template("Web listener open requested on %s:%s (lan: %s), cause: %s")
                 .build();
 
-        /** Logged when the web listener has bound, with the local address the operating system reports. */
-        public static final LogRecord WEB_LISTENER_BOUND = LogRecordModel.builder()
-                .prefix(PREFIX)
-                .identifier(16)
-                .template("Web listener bound to %s")
-                .build();
-
         /** Logged before the web listener closes, with what caused the close. */
         public static final LogRecord WEB_LISTENER_CLOSING = LogRecordModel.builder()
                 .prefix(PREFIX)
