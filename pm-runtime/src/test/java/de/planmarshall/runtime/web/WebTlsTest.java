@@ -17,8 +17,10 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.SecureRandom;
+import java.security.Signature;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
@@ -32,6 +34,8 @@ import org.junit.jupiter.api.Test;
 
 @DisplayName("Self-signed certificate of the web listener")
 class WebTlsTest {
+
+    private static final int GENERATED_PAIRS = 2000;
 
     @Test
     @DisplayName("generates a verifiable ECDSA P-256 certificate with host, interface and loopback names")
@@ -90,5 +94,82 @@ class WebTlsTest {
     void shouldInspectHost() {
         assertFalse(WebTls.hostName().isBlank());
         assertTrue(WebTls.interfaceAddresses().stream().noneMatch(InetAddress::isLinkLocalAddress));
+    }
+
+    @Test
+    @DisplayName("every generated key pair yields strict DER, a matching key and a certificate that verifies")
+    void shouldGenerateValidMaterialForManyKeyPairs() throws Exception {
+        var random = new SecureRandom();
+        var addresses = List.of(InetAddress.getByName("192.168.1.20"));
+        for (int i = 0; i < GENERATED_PAIRS; i++) {
+            var tls = WebTls.generate("studio", addresses, random, Instant.now());
+
+            var certificateDer = der(tls.certificatePem());
+            assertEquals(certificateDer.length, strictLength(certificateDer, 0), "certificate " + i);
+            var keyDer = der(tls.privateKeyPem());
+            assertEquals(keyDer.length, strictLength(keyDer, 0), "key " + i);
+            var certificate = tls.certificate();
+            certificate.verify(certificate.getPublicKey());
+            certificate.checkValidity();
+            assertTrue(certificate.getSerialNumber().signum() > 0, "serial " + i);
+            var key = KeyFactory.getInstance("EC").generatePrivate(new PKCS8EncodedKeySpec(keyDer));
+            var signer = Signature.getInstance("SHA256withECDSA");
+            signer.initSign(key, random);
+            signer.update(certificateDer);
+            var verifier = Signature.getInstance("SHA256withECDSA");
+            verifier.initVerify(certificate.getPublicKey());
+            verifier.update(certificateDer);
+            assertTrue(verifier.verify(signer.sign()), "key and certificate " + i + " do not match");
+        }
+    }
+
+    private static byte[] der(String pem) {
+        return Base64.getMimeDecoder().decode(pem.replaceAll("-----[A-Z ]+-----", ""));
+    }
+
+    /**
+     * Walks one DER element: definite lengths in their shortest form, and the children of a constructed element
+     * filling it exactly.
+     *
+     * @return the offset behind the element
+     */
+    private static int strictLength(byte[] der, int offset) throws GeneralSecurityException {
+        var tag = der[offset] & 0xFF;
+        var first = der[offset + 1] & 0xFF;
+        var position = offset + 2;
+        int length;
+        if (first < 0x80) {
+            length = first;
+        } else {
+            var count = first & 0x7F;
+            if (count == 0 || count > 3 || (der[position] & 0xFF) == 0) {
+                throw new GeneralSecurityException("length form at " + offset);
+            }
+            length = 0;
+            for (int i = 0; i < count; i++) {
+                length = length << 8 | der[position++] & 0xFF;
+            }
+            if (length < 0x80) {
+                throw new GeneralSecurityException("long form for a short length at " + offset);
+            }
+        }
+        var end = position + length;
+        if (end > der.length) {
+            throw new GeneralSecurityException("element at " + offset + " exceeds the encoding");
+        }
+        if (tag == Der.TAG_INTEGER && length > 1 && (der[position] == 0 && (der[position + 1] & 0x80) == 0
+                || der[position] == (byte) 0xFF && (der[position + 1] & 0x80) != 0)) {
+            throw new GeneralSecurityException("integer with a redundant leading byte at " + offset);
+        }
+        if ((tag & 0x20) != 0) {
+            var child = position;
+            while (child < end) {
+                child = strictLength(der, child);
+            }
+            if (child != end) {
+                throw new GeneralSecurityException("children of the element at " + offset + " overrun it");
+            }
+        }
+        return end;
     }
 }
