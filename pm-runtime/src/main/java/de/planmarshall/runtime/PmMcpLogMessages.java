@@ -74,6 +74,27 @@ public final class PmMcpLogMessages {
                 .template("Core tools registered: %s")
                 .build();
 
+        /** Logged for every attempt to open the web listener, with the request and what caused it. */
+        public static final LogRecord WEB_LISTENER_OPEN_REQUESTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(15)
+                .template("Web listener open requested on %s:%s (lan: %s), cause: %s")
+                .build();
+
+        /** Logged when the web listener has bound, with the local address the operating system reports. */
+        public static final LogRecord WEB_LISTENER_BOUND = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(16)
+                .template("Web listener bound to %s")
+                .build();
+
+        /** Logged before the web listener closes, with what caused the close. */
+        public static final LogRecord WEB_LISTENER_CLOSING = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(17)
+                .template("Web listener on port %s closing, cause: %s")
+                .build();
+
         /** Logged at start with the one active credential backend and the keyring service name. */
         public static final LogRecord CREDENTIAL_STORE_SELECTED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -114,6 +135,13 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(112)
                 .template("Web listener could not open on port %s: %s")
+                .build();
+
+        /** Logged when a connection to the web listener fails before its first request, a failed TLS handshake included. */
+        public static final LogRecord WEB_LISTENER_CONNECTION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(113)
+                .template("Web listener on port %s: connection failed before a request (TLS handshake or connection setup): %s")
                 .build();
 
         /** Logged at start when no OS keyring is usable and the file credential store serves. */
