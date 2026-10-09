@@ -51,8 +51,10 @@ class BuildGuardsIT {
     void fixtureFails(String fixture, String phase, String execution) throws Exception {
         var root = Path.of(System.getProperty("pm.root"));
         var pom = root.resolve("src/guard-controls").resolve(fixture).resolve("pom.xml");
+        // Started in the fixture's directory, so that Maven takes the .mvn of the fixture where it has one
+        // (central-before-registry) and the one of the repository otherwise.
         var builder = new ProcessBuilder(root.resolve("mvnw").toString(), "-B", "--no-transfer-progress", "-f",
-                pom.toString(), phase).directory(root.toFile()).redirectErrorStream(true);
+                pom.toString(), phase).directory(pom.getParent().toFile()).redirectErrorStream(true);
 
         var process = builder.start();
         var output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
