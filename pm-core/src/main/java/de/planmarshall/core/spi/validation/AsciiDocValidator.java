@@ -51,8 +51,20 @@ public final class AsciiDocValidator implements ContentValidator {
     /** The delimiter of an open block: exactly two hyphens, so that three are ordinary text. */
     private static final String OPEN_BLOCK_DELIMITER = "--";
 
-    private static final Pattern BLOCK_DELIMITER = Pattern.compile(
-            "--|-{4,}|\\.{4,}|={4,}|\\*{4,}|_{4,}|\\+{4,}|/{4,}|\\|={3,}");
+    /** The least length of a delimiter that repeats one character. */
+    private static final int MINIMUM_REPEATED_DELIMITER_LENGTH = 4;
+
+    /**
+     * The characters a delimiter repeats: one each for the listing, literal, example, sidebar, quote, passthrough
+     * and comment block.
+     */
+    private static final String REPEATED_DELIMITER_CHARACTERS = "-.=*_+/";
+
+    /** The shortest delimiter of a table; a longer one goes on with {@link #TABLE_DELIMITER_FILL}. */
+    private static final String TABLE_DELIMITER_PREFIX = "|===";
+
+    /** The character a table delimiter repeats after its first one. */
+    private static final char TABLE_DELIMITER_FILL = '=';
 
     private static final Pattern TITLE = Pattern.compile("= \\S.*");
 
@@ -96,7 +108,7 @@ public final class AsciiDocValidator implements ContentValidator {
         var outline = new Outline(violations);
         for (var index = 0; index < lines.size(); index++) {
             var line = lines.get(index).stripTrailing();
-            if (BLOCK_DELIMITER.matcher(line).matches()) {
+            if (isBlockDelimiter(line)) {
                 openOrClose(line, index + 1, openBlocks);
                 outline.acceptBlock();
             } else if (openBlocks.isEmpty() && !line.isBlank()) {
@@ -106,6 +118,28 @@ public final class AsciiDocValidator implements ContentValidator {
         openBlocks.descendingIterator().forEachRemaining(block -> violations.add(new ContentViolation(
                 RULE_UNCLOSED_BLOCK, block.line(), "the block opened with '%s' is never closed"
                 .formatted(block.delimiter()))));
+    }
+
+    /** Tells whether a line, taken without its trailing white space, delimits a block of any kind. */
+    private static boolean isBlockDelimiter(String line) {
+        return OPEN_BLOCK_DELIMITER.equals(line) || isRepeatedDelimiter(line) || isTableDelimiter(line);
+    }
+
+    /** Tells whether a line is four or more times one of the characters that delimit a block by repetition. */
+    private static boolean isRepeatedDelimiter(String line) {
+        return line.length() >= MINIMUM_REPEATED_DELIMITER_LENGTH
+                && REPEATED_DELIMITER_CHARACTERS.indexOf(line.charAt(0)) >= 0
+                && consistsOf(line, line.charAt(0));
+    }
+
+    /** Tells whether a line is the shortest table delimiter or that delimiter with further fill characters. */
+    private static boolean isTableDelimiter(String line) {
+        return line.startsWith(TABLE_DELIMITER_PREFIX)
+                && consistsOf(line.substring(TABLE_DELIMITER_PREFIX.length()), TABLE_DELIMITER_FILL);
+    }
+
+    private static boolean consistsOf(String text, char expected) {
+        return text.chars().allMatch(character -> character == expected);
     }
 
     private static void openOrClose(String delimiter, int line, Deque<OpenBlock> openBlocks) {

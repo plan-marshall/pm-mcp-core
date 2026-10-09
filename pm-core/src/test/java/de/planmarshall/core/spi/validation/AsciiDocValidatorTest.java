@@ -67,7 +67,18 @@ class AsciiDocValidatorTest {
                 Arguments.of("a title, sections, closed blocks and a tab", DOCUMENT),
                 Arguments.of("no title", "A paragraph.\n\n== Section\n\nText."),
                 Arguments.of("a section that starts below the title level", "== Section\n\n=== Sub\n\n== Next"),
-                Arguments.of("a delimiter with trailing white space", "----  \ncode\n----\t"));
+                Arguments.of("a delimiter with trailing white space", "----  \ncode\n----\t"),
+                Arguments.of("a commented-out title below the title", "= Title\n\n////\n= Draft\n////\n\nText."),
+                Arguments.of("a listing delimiter inside a comment block", "////\n----\n////"),
+                Arguments.of("a comment delimiter inside a listing", "----\n////\n----"),
+                Arguments.of("a closed open block", "= Title\n\n--\nText.\n--"),
+                Arguments.of("a listing inside an open block", "--\n----\ncode\n----\n--"),
+                Arguments.of("an open block delimiter inside a listing", "----\n--\n----"),
+                Arguments.of("a title and a deep section inside an open block",
+                        "= Title\n\n--\n= Draft\n==== Deep\n--"),
+                Arguments.of("a line of three hyphens, which opens nothing", "= Title\n\n---\n\nText."),
+                Arguments.of("a title inside a table with a longer delimiter", "= Title\n\n|====\n= Draft\n|===="),
+                Arguments.of("a line that only starts like a table delimiter", "= Title\n\n|===x\n\nText."));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -108,28 +119,6 @@ class AsciiDocValidatorTest {
         var violations = validator.validate(text);
 
         assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations), label);
-    }
-
-    static Stream<Arguments> acceptedCommentAndOpenBlocks() {
-        return Stream.of(
-                Arguments.of("a commented-out title below the title", "= Title\n\n////\n= Draft\n////\n\nText."),
-                Arguments.of("a listing delimiter inside a comment block", "////\n----\n////"),
-                Arguments.of("a comment delimiter inside a listing", "----\n////\n----"),
-                Arguments.of("a closed open block", "= Title\n\n--\nText.\n--"),
-                Arguments.of("a listing inside an open block", "--\n----\ncode\n----\n--"),
-                Arguments.of("an open block delimiter inside a listing", "----\n--\n----"),
-                Arguments.of("a title and a deep section inside an open block",
-                        "= Title\n\n--\n= Draft\n==== Deep\n--"),
-                Arguments.of("a line of three hyphens, which opens nothing", "= Title\n\n---\n\nText."));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("acceptedCommentAndOpenBlocks")
-    @DisplayName("accepts comment and open blocks:")
-    void acceptsCommentAndOpenBlocks(String label, String text) {
-        var violations = validator.validate(text);
-
-        assertTrue(violations.isEmpty(), () -> label + " must be accepted, but: " + violations);
     }
 
     static Stream<Arguments> unclosedCommentAndOpenBlocks() {
