@@ -1,0 +1,25 @@
+= Consultation through the server
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `consultation`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-workflow package `workflow.consult`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* A worker's consultation of another role, served by the server with its own wait.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/05-consultation.adoc[Model Work § Consultation]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]
+
+== Done When
+
+A consultation is answered once, a second answer refused; a consultation whose asker was replaced is closed.

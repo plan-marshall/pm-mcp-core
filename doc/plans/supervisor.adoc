@@ -1,0 +1,25 @@
+= Worker supervisor
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `supervisor`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-runtime package `runtime.worker`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* One supervisor per project and role: starting fresh and warm workers within the role's count and the model slots, acknowledgement, silence and exit detection, idle and token-budget recycling, ending and fencing, the start-failure guard.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/03-supervision-and-recycling.adoc[Model Work § Supervision & Recycling]; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#worker-block[Client Profiles § Worker Block]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]
+
+== Done When
+
+With a fixture harness and a virtual clock: each loss is detected at its deadline and never before; a start failure repeated to the guard's count ends the role's starts.

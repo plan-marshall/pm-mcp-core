@@ -1,0 +1,25 @@
+= Operator and question stores of the scopes
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `operator-and-question-stores`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-core package `core.store`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The append-only stores of waivers, waiver requests and question records of the plan, epic and workspace scopes.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-2[PM-IMPL-2], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers & Questions]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+
+== Done When
+
+Round-trip and append-only tests per store; a changed record is a new line and the last readable line of its key is current.

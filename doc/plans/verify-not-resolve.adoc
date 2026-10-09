@@ -1,0 +1,27 @@
+= Verify-not-resolve pipeline and wrapper verification
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `verify-not-resolve`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-runtime package `runtime.job`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The verify-not-resolve pipeline over the enrolment store: nothing a job runs is resolved at launch, everything is verified against what the operator enrolled.
+* Wrapper verification over the pinned files recorded at enrolment; a changed build configuration is refused until re-enrolment.
+* Adversarial confinement tests with their positive controls.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-2[PM-SEC-2], link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-5[PM-TEST-5]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime § Verify-Not-Resolve Execution Pipeline]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/job-runtime.adoc[Job Runtime]; link:../../../plan-marshall-documentation/doc/implementation-watch/cli-and-security.adoc[CLI & Security]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]
+
+== Done When
+
+Each adversarial fixture of `PM-TEST-5` for the pipeline is refused, and its positive control runs; a changed wrapper file refuses the job with the file named.

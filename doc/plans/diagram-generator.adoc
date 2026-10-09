@@ -1,0 +1,26 @@
+= Diagram and table generators
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `diagram-generator`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-workflow package `workflow.diagram`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* Mermaid state diagrams, AsciiDoc state, link and outcome tables, and the ASCII table for terminal output, from a verified unit.
+* The drift tests over the default units run in `plan-marshall-mcp`, where the units are: link:../../../plan-marshall-mcp/doc/plans/default-units-and-drift-tests.adoc[`plan-marshall-mcp` / `default-units-and-drift-tests`].
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc[Workflow DSL § Loop-Back, Diagrams & Verification]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/workflow-dsl.adoc[Workflow DSL]
+
+== Done When
+
+Golden files for a fixture unit in all three forms; the output is byte-stable across runs.

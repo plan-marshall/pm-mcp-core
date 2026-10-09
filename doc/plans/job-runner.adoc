@@ -1,0 +1,26 @@
+= Subprocess job runner
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `job-runner`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-runtime package `runtime.job`; job records in pm-core `core.store`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The runner behind the `JobRunner` interface, through `pm-exec`: in-memory `stdin`, termination escalation, the write-ahead job record and log, the orphan rules of recovery, the fixed write order at job end.
+* `pm-exec` already makes the job the leader of its process group and reports its PID and start instant.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/10-job-and-lesson-records.adoc[Store Schemas § Job & Lesson Records]; link:../../../plan-marshall-documentation/doc/specification/identifiers.adoc[Identifiers]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/job-runtime.adoc[Job Runtime]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+
+== Done When
+
+A job that ignores `SIGTERM` is killed after the grace period with its whole group; a runtime killed at each point of the job's life recovers to the specified fate; the outcome table of the specification is covered row by row.

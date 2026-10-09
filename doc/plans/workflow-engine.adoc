@@ -1,0 +1,27 @@
+= State machine interpreter and sub-workflow execution
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `workflow-engine`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-workflow package `workflow.engine`; the workflow state store in pm-core `core.store`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The deterministic interpreter: call stack, guards, loop-back budgets, sub-workflow execution with exit contracts.
+* The workflow state store of a scope, written through the store substrate.
+* Every wait an engine event; the waits a model holds are link:waits.adoc[`waits`].
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-6[PM-ARCH-6], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-2[PM-WF-2], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-6[PM-WF-6], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl.adoc[Workflow DSL]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[§ Reusable Sub-Workflows]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue.adoc[State Catalogue]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/workflow-dsl.adoc[Workflow DSL]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]
+
+== Done When
+
+Fixture units run to each kind of end; a killed run resumes from the store at the same state; an outcome without a transition cannot occur in a verified unit.

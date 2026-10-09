@@ -1,0 +1,26 @@
+= Per-project machine store and project resolution
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `project-machine-store`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-core packages `core.store`, `core.config`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The per-project machine store below `<PM_MCP_BASE>/projects/<project_id>/` and the state-free repository directory `.marshall/local/`.
+* The project resolution rule that `pm-mcp enter` and every request rest on.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-1[PM-ARCH-1], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-2[PM-SEC-2], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout § Per-Project Machine Store]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/03-project-store.adoc#project-resolution[§ Project Resolution]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/01-repository-workspace.adoc[§ Repository & Workspace]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/filesystem-layout.adoc[Filesystem Layout]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+
+== Done When
+
+Resolution fixtures: a worktree, a nested checkout, a moved checkout and an unenrolled directory each resolve as specified; nothing with state is written below the repository.

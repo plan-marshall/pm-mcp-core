@@ -1,0 +1,26 @@
+= Plan instance composition
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `plan-instance`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-workflow package `workflow.plan`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* Composition of a plan instance from templates and facts with provenance; immutable versions with the composition log and the closed set of composition events; the position rule.
+* The instance in force rendered by the diagram generator as a read-only resource.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl.adoc[Workflow DSL]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers & Questions]; link:../../../plan-marshall-documentation/doc/specification/domain-extensions/06-configuration.adoc[Domain Extensions § Configuration]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/workflow-dsl.adoc[Workflow DSL]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+
+== Done When
+
+A composed instance verifies; each composition event produces a new version with its cause; a version that lacks the current state or a state of the call stack is refused and the old one kept.

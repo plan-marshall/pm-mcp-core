@@ -1,0 +1,27 @@
+= Role artifacts, role sets and the model caller
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `role-sets-and-model-caller`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-core package `core.role`; pm-workflow package `workflow.model`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The role artifact schema, the shipped, machine and project sets with their override, validation against the client profiles, and the composition checks.
+* The one model caller that turns a `job llm` state into queue tasks from the artifact of the role it names.
+* The shipped set is read from `classpath:/roles/`, which the assembly supplies; tests use fixture roles.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-1[PM-WORK-1], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/01-roles-and-configuration.adoc[Model Work § Roles & Configuration]; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#role-classes[Client Profiles § Role Classes of a Harness]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]; link:../../../plan-marshall-documentation/doc/implementation-watch/module-structure.adoc[Module Structure]
+
+== Done When
+
+The validation table of the specification row by row, each reason with a refusing fixture; a role of a class its harness cannot run is `harness_class_not_runnable`.

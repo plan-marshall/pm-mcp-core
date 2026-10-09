@@ -1,0 +1,27 @@
+= Worker launch and harness enrolment
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `worker-launch`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-runtime packages `runtime.launch`, `runtime.security`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The job kind `llm`: the launch composed from role artifact and client profile, the job-private directory, the MCP configuration delivered as the profile says.
+* The job token: minted at spawn, only its hash in the job record, revoked with the job's fate; the registry over the job records.
+* The harness enrolment store and the confinement exceptions of `llm` jobs.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-5[PM-SEC-5], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-2[PM-ARCH-2]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/04-worker-launch.adoc[Model Work § Worker Launch]; link:../../../plan-marshall-documentation/doc/specification/model-work/04-worker-launch.adoc#job-token[§ Job Token, Generation & Connection Binding]; link:../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc[CLI & Security § Credentials & Operator]; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#headless-block[Client Profiles § `headless`]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/cli-and-security.adoc[CLI & Security]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]; link:../../../plan-marshall-documentation/doc/implementation-watch/job-runtime.adoc[Job Runtime]
+
+== Done When
+
+A launch-vector test per role class against a fixture profile; a tampered harness enrolment refuses the launch; a `zero_tool` launch has no tool, no MCP entry and no loaded setting.
