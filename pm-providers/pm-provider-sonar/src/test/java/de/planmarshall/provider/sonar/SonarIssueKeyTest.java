@@ -28,7 +28,8 @@ class SonarIssueKeyTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", " ", "AYx3 kQ9h", "AYx3\tkQ9h", "AYx3\nkQ9h", "AYx3\u0000kQ9h"})
+    @ValueSource(strings = {"", " ", "AYx3 kQ9h", "AYx3\tkQ9h", "AYx3\nkQ9h", "AYx3\u0000kQ9h", "AYx3\u00a0kQ9h", "AYx3\u2007kQ9h",
+            "AYx3\u202fkQ9h"})
     @DisplayName("refuses a key that is empty or holds white space or a control character")
     void refuses(String value) {
         assertThrows(IllegalArgumentException.class, () -> new SonarIssueKey(value));
