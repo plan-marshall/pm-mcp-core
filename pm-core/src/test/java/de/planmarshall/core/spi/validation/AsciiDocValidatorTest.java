@@ -110,6 +110,56 @@ class AsciiDocValidatorTest {
         assertEquals(List.of(ruleKey + "@" + line), keysAndLines(violations), label);
     }
 
+    static Stream<Arguments> acceptedCommentAndOpenBlocks() {
+        return Stream.of(
+                Arguments.of("a commented-out title below the title", "= Title\n\n////\n= Draft\n////\n\nText."),
+                Arguments.of("a listing delimiter inside a comment block", "////\n----\n////"),
+                Arguments.of("a comment delimiter inside a listing", "----\n////\n----"),
+                Arguments.of("a closed open block", "= Title\n\n--\nText.\n--"),
+                Arguments.of("a listing inside an open block", "--\n----\ncode\n----\n--"),
+                Arguments.of("an open block delimiter inside a listing", "----\n--\n----"),
+                Arguments.of("a title and a deep section inside an open block",
+                        "= Title\n\n--\n= Draft\n==== Deep\n--"),
+                Arguments.of("a line of three hyphens, which opens nothing", "= Title\n\n---\n\nText."));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("acceptedCommentAndOpenBlocks")
+    @DisplayName("accepts comment and open blocks:")
+    void acceptsCommentAndOpenBlocks(String label, String text) {
+        var violations = validator.validate(text);
+
+        assertTrue(violations.isEmpty(), () -> label + " must be accepted, but: " + violations);
+    }
+
+    static Stream<Arguments> unclosedCommentAndOpenBlocks() {
+        return Stream.of(
+                Arguments.of("a comment block that is never closed", "= Title\n\n////\ncomment", 3),
+                Arguments.of("a comment block closed by a longer delimiter", "////\ncomment\n/////", 1),
+                Arguments.of("an open block that is never closed", "= Title\n\n--\nText.", 3),
+                Arguments.of("an open block followed by three hyphens", "--\nText.\n---", 1));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unclosedCommentAndOpenBlocks")
+    @DisplayName("reports as unclosed, on the line that opened it,")
+    void rejectsUnclosedCommentAndOpenBlocks(String label, String text, int line) {
+        var violations = validator.validate(text);
+
+        assertEquals(List.of(AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@" + line), keysAndLines(violations), label);
+    }
+
+    @Test
+    @DisplayName("a listing left open inside an open block is reported with the open block")
+    void unclosedListingInsideOpenBlock() {
+        var text = "--\n----\ncode";
+
+        var violations = validator.validate(text);
+
+        assertEquals(List.of(AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@1", AsciiDocValidator.RULE_UNCLOSED_BLOCK + "@2"),
+                keysAndLines(violations));
+    }
+
     @Test
     @DisplayName("reports every block left open, the outer one first")
     void nestedUnclosedBlocks() {

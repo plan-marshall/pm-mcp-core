@@ -23,7 +23,8 @@ import java.util.regex.Pattern;
  * document title and that title comes first, and no section level is skipped on the way down.
  * <p>
  * A line inside a delimited block is content of the block: it is neither a title nor a section, and inside a listing,
- * literal or passthrough block it does not open a further block.
+ * literal, passthrough or comment block it does not open a further block. An open block, delimited by a line of
+ * exactly two hyphens, is a block like every other that is not verbatim: a further block may open inside it.
  *
  * @since 0.1
  */
@@ -47,14 +48,21 @@ public final class AsciiDocValidator implements ContentValidator {
     /** A section is more than one level below the section before it. */
     public static final String RULE_SECTION_LEVEL_SKIPPED = "asciidoc.section-level-skipped";
 
-    private static final Pattern BLOCK_DELIMITER = Pattern.compile("-{4,}|\\.{4,}|={4,}|\\*{4,}|_{4,}|\\+{4,}|\\|={3,}");
+    /** The delimiter of an open block: exactly two hyphens, so that three are ordinary text. */
+    private static final String OPEN_BLOCK_DELIMITER = "--";
+
+    private static final Pattern BLOCK_DELIMITER = Pattern.compile(
+            "--|-{4,}|\\.{4,}|={4,}|\\*{4,}|_{4,}|\\+{4,}|/{4,}|\\|={3,}");
 
     private static final Pattern TITLE = Pattern.compile("= \\S.*");
 
     private static final Pattern SECTION = Pattern.compile("(?<marker>={2,6}) \\S.*");
 
-    /** The delimiters of the blocks whose content is taken verbatim: listing, literal and passthrough. */
-    private static final String VERBATIM_DELIMITERS = "-.+";
+    /**
+     * The characters that delimit the blocks whose content is taken verbatim: listing, literal, passthrough and
+     * comment. The open block starts with the character of the listing block and is told apart by its length.
+     */
+    private static final String VERBATIM_DELIMITERS = "-.+/";
 
     @Override
     public List<ContentViolation> validate(String text) {
@@ -112,7 +120,7 @@ public final class AsciiDocValidator implements ContentValidator {
     private record OpenBlock(String delimiter, int line) {
 
         boolean isVerbatim() {
-            return VERBATIM_DELIMITERS.indexOf(delimiter.charAt(0)) >= 0;
+            return !OPEN_BLOCK_DELIMITER.equals(delimiter) && VERBATIM_DELIMITERS.indexOf(delimiter.charAt(0)) >= 0;
         }
     }
 
