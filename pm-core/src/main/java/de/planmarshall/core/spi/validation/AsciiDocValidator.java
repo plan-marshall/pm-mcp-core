@@ -97,7 +97,7 @@ public final class AsciiDocValidator implements ContentValidator {
         }
         openBlocks.descendingIterator().forEachRemaining(block -> violations.add(new ContentViolation(
                 RULE_UNCLOSED_BLOCK, block.line(), "the block opened with '%s' is never closed"
-                        .formatted(block.delimiter()))));
+                .formatted(block.delimiter()))));
     }
 
     private static void openOrClose(String delimiter, int line, Deque<OpenBlock> openBlocks) {

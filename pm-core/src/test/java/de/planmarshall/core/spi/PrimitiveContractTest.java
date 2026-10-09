@@ -24,6 +24,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import de.planmarshall.core.spi.TestPrimitives.CompleteOutcome;
+import de.planmarshall.core.spi.TestPrimitives.CompleteParams;
+import de.planmarshall.core.spi.TestPrimitives.FailOutcome;
+import de.planmarshall.core.spi.TestPrimitives.StartJobParams;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,11 +36,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import de.planmarshall.core.spi.TestPrimitives.CompleteOutcome;
-import de.planmarshall.core.spi.TestPrimitives.CompleteParams;
-import de.planmarshall.core.spi.TestPrimitives.FailOutcome;
-import de.planmarshall.core.spi.TestPrimitives.StartJobParams;
 
 @DisplayName("Contract of the primitive SPI")
 class PrimitiveContractTest {

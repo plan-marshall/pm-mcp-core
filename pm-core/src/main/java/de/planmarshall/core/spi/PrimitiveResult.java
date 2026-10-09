@@ -28,9 +28,9 @@ import java.util.Optional;
  * @since 0.1
  */
 public record PrimitiveResult<R extends Enum<R> & PrimitiveOutcome>(
-        R outcome,
-        Map<String, Object> updatedFacts,
-        Optional<String> spawnedJobId) {
+R outcome,
+Map<String, Object> updatedFacts,
+Optional<String> spawnedJobId) {
 
     /**
      * @throws NullPointerException if a component, a fact name or a fact value is {@code null}
