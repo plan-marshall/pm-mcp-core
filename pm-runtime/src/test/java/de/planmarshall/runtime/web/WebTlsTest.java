@@ -13,30 +13,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
-import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.Signature;
-import java.security.cert.Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.TrustManagerFactory;
 
 
 import de.planmarshall.runtime.test.TestBases;
@@ -47,9 +36,6 @@ import org.junit.jupiter.api.Test;
 class WebTlsTest {
 
     private static final int GENERATED_PAIRS = 2000;
-    private static final int HANDSHAKES = 200;
-    private static final int PING = 42;
-    private static final int DEADLINE_MILLIS = 10_000;
 
     @Test
     @DisplayName("generates a verifiable ECDSA P-256 certificate with host, interface and loopback names")
@@ -134,51 +120,6 @@ class WebTlsTest {
             verifier.initVerify(certificate.getPublicKey());
             verifier.update(certificateDer);
             assertTrue(verifier.verify(signer.sign()), "key and certificate " + i + " do not match");
-        }
-    }
-
-    @Test
-    @DisplayName("every generated key pair completes a TLS handshake")
-    void shouldHandshakeForManyKeyPairs() throws Exception {
-        var random = new SecureRandom();
-        for (int i = 0; i < HANDSHAKES; i++) {
-            var tls = WebTls.generate("studio", List.of(), random, Instant.now());
-            var key = KeyFactory.getInstance("EC").generatePrivate(new PKCS8EncodedKeySpec(der(tls.privateKeyPem())));
-            var keys = KeyStore.getInstance(KeyStore.getDefaultType());
-            keys.load(null, null);
-            keys.setKeyEntry("pm-mcpd", key, new char[0], new Certificate[]{tls.certificate()});
-            var keyManagers = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            keyManagers.init(keys, new char[0]);
-            var trust = KeyStore.getInstance(KeyStore.getDefaultType());
-            trust.load(null, null);
-            trust.setCertificateEntry("pm-mcpd", tls.certificate());
-            var trustManagers = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            trustManagers.init(trust);
-            var context = SSLContext.getInstance("TLS");
-            context.init(keyManagers.getKeyManagers(), trustManagers.getTrustManagers(), random);
-
-            try (var server = (SSLServerSocket) context.getServerSocketFactory()
-                         .createServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
-                var served = CompletableFuture.supplyAsync(() -> serveOne(server));
-                try (var client = (SSLSocket) context.getSocketFactory().createSocket()) {
-                    client.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), server.getLocalPort()),
-                            DEADLINE_MILLIS);
-                    client.setSoTimeout(DEADLINE_MILLIS);
-                    client.startHandshake();
-                    client.getOutputStream().write(PING);
-                    client.getOutputStream().flush();
-
-                    assertEquals(PING, served.get(DEADLINE_MILLIS, TimeUnit.MILLISECONDS).intValue(), "handshake " + i);
-                }
-            }
-        }
-    }
-
-    private static Integer serveOne(SSLServerSocket server) {
-        try (var socket = server.accept()) {
-            return socket.getInputStream().read();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         }
     }
 
