@@ -54,6 +54,10 @@ them with a fixture project below `src/guard-controls`:
   `pm-provider-git` and `pm-provider-ci` on no other provider module.
 - `pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and it is the only module
   that depends on `commonmark` and LSP4J.
+- The coordinates of the product come from the organisation registry: `.mvn/settings.xml` lists it before Maven
+  Central, and the group id filter of `.mvn/rrf` (switched on in `.mvn/maven.config`) lets it be asked for
+  `de.planmarshall` only. This check is inherited from the parent POM; its fixture here has its own `.mvn` with Maven
+  Central listed first.
 - No module carries model-facing content: nothing below `workflows/`, `roles/`, `bundles/` or `skills/` in a JAR.
   The modules read such content by its classpath location; test fixtures are written for the test, never copied
   from the content of the product.

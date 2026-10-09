@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
+  CONTROL FIXTURE: Maven Central is listed before the organisation registry here, which the build check
+  product-coordinates-from-the-organisation-registry must refuse. Otherwise as the settings of the repository.
+
   Repository-wide Maven settings, passed as global settings through .mvn/maven.config, so the personal
   ~/.m2/settings.xml stays in force and takes precedence. This file holds no token.
 
@@ -20,6 +23,14 @@
         <profile>
             <id>plan-marshall</id>
             <repositories>
+                <!-- Asked second: everything that is not a coordinate of the product -->
+                <repository>
+                    <id>central</id>
+                    <url>https://repo.maven.apache.org/maven2</url>
+                    <snapshots>
+                        <enabled>false</enabled>
+                    </snapshots>
+                </repository>
                 <!-- Asked first, and only for the coordinates of the product (.mvn/rrf/groupId-plan-marshall.txt), so
                      that an artifact of the product is found here before any other repository is asked -->
                 <repository>
@@ -31,14 +42,6 @@
                     <snapshots>
                         <enabled>true</enabled>
                         <updatePolicy>always</updatePolicy>
-                    </snapshots>
-                </repository>
-                <!-- Asked second: everything that is not a coordinate of the product -->
-                <repository>
-                    <id>central</id>
-                    <url>https://repo.maven.apache.org/maven2</url>
-                    <snapshots>
-                        <enabled>false</enabled>
                     </snapshots>
                 </repository>
             </repositories>

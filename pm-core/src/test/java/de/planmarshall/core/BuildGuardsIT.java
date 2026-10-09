@@ -29,8 +29,10 @@ import org.junit.jupiter.params.provider.CsvSource;
  * assembly; a dependency of the foundation on a module of the product other than {@code pm-api}, or on JGit
  * or {@code cui-http}, turns the dependency direction; a provider module that reaches the engine or
  * {@code pm-runtime} sees internals it must not; {@code commonmark} or LSP4J outside {@code pm-runtime}
- * spreads its dependencies; model-facing content in a module of this repository is published with its JAR. A
- * guard that never fails proves nothing, hence these controls.
+ * spreads its dependencies; model-facing content in a module of this repository is published with its JAR; a
+ * public repository that is asked for a coordinate of the product before the organisation registry learns the
+ * coordinate and could answer (the fixture {@code central-before-registry} has its own {@code .mvn} with Maven
+ * Central listed first). A guard that never fails proves nothing, hence these controls.
  */
 @DisplayName("Build guards of the repository")
 class BuildGuardsIT {
@@ -43,7 +45,8 @@ class BuildGuardsIT {
             "runtime-product-module, validate, runtime",
             "runtime-library, validate, runtime-libraries",
             "provider-product-module, validate, provider",
-            "model-facing-content, prepare-package, no-model-facing-content"})
+            "model-facing-content, prepare-package, no-model-facing-content",
+            "central-before-registry, validate, product-coordinates-from-the-organisation-registry"})
     @DisplayName("a fixture that breaks a rule fails the build")
     void fixtureFails(String fixture, String phase, String execution) throws Exception {
         var root = Path.of(System.getProperty("pm.root"));
