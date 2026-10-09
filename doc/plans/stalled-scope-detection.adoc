@@ -4,23 +4,21 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `stalled-scope-detection`
 
 [horizontal]
-Status:: `blocked`
 Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 2
 Where:: pm-runtime; the status model in pm-core
-Depends on:: nothing
-Unblocks:: link:../../../plan-marshall-mcp/doc/plans/operator-channel-api.adoc[`plan-marshall-mcp` / `operator-channel-api`]
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == What
 
 * The detection of a stalled scope for `pm-operator status`. It reads scope stores that Milestone 3 delivers: plan this task after the store substrate of Milestone 3, or deliver the detection over a fixture store and wire the real stores then; decide in the trace matrix.
 
-*Blocked:* it reads the scope stores of the store substrate, a work package of roadmap Milestone 3 that has no plan yet. Add the dependency when that plan exists.
+It reads the scope stores, which do not exist yet. Replace the external dependency by the package when it is planned.
 
 == Trace
 
 Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
-* Requirements: link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-8[PM-ARCH-8]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
 * Specification: link:../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#stalled-plans[Runtime Model § Stalled Plans]; link:../../../plan-marshall-documentation/doc/specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts § Stalled Threshold]
 * Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/runtime-model.adoc[Runtime Model]
 
