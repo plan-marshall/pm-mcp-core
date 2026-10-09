@@ -83,9 +83,9 @@ public final class PathConfinement {
                 return new Confined(canonical.get());
             }
             return new Rejected(Reason.OUTSIDE_WORKSPACE);
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             return new Rejected(Reason.UNPARSEABLE_PATH);
-        } catch (IOException e) {
+        } catch (IOException _) {
             return new Rejected(Reason.CANONICALIZATION_FAILED);
         }
     }
@@ -127,7 +127,7 @@ public final class PathConfinement {
         try {
             Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             return true;
-        } catch (NoSuchFileException e) {
+        } catch (NoSuchFileException _) {
             return false;
         }
     }
@@ -139,7 +139,7 @@ public final class PathConfinement {
                 if (canonical.startsWith(worktreeRoot) && isLinkedTo(worktreeRoot, root)) {
                     return true;
                 }
-            } catch (IOException | InvalidPathException e) {
+            } catch (IOException | InvalidPathException _) {
                 // A worktree that cannot be read or whose pointers name no path is not a worktree of the root.
             }
         }
