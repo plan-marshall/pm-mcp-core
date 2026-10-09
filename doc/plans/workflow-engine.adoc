@@ -12,7 +12,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * The deterministic interpreter: call stack, guards, loop-back budgets, sub-workflow execution with exit contracts.
 * The workflow state store of a scope, written through the store substrate.
-* Every wait an engine event; the waits a model holds are link:waits.adoc[`waits`].
+* Every wait is an engine event; the waits a model holds are link:waits.adoc[`waits`].
 
 == Trace
 

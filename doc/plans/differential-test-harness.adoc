@@ -10,7 +10,8 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* Python reference scripts of `plan-marshall` against the Java primitives over shared fixtures; the legacy mapping lives in test code only; each legacy format is re-verified against the latest `plan-marshall`.
+* Python reference scripts of `plan-marshall` against the Java primitives over shared fixtures; the legacy mapping lives in test code only.
+* The reference is `plan-marshall` at the commit the migration inventory pins, so that every run uses the same oracle. The pin is advanced deliberately, in one change that updates the inventory and verifies each legacy format again at the new commit; that is how the formats stay verified against the latest `plan-marshall`.
 * First used by the `Ported` stores and primitives of this stage.
 
 == Trace
