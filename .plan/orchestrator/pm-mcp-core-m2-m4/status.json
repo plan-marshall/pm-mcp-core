@@ -1,0 +1,19 @@
+{
+  "kind": "orchestrator",
+  "title": "pm-mcp-core work packages, roadmap Milestones 2 to 4",
+  "phase": "orchestrating",
+  "workstreams": [
+    "WS-01-runtime-foundation",
+    "WS-02-stores",
+    "WS-03-workflow-language-and-engine",
+    "WS-04-jobs-and-workers",
+    "WS-05-profiles-roles-and-tasks",
+    "WS-06-test-harnesses",
+    "WS-07-code-analysis-base",
+    "WS-08-http-baseline"
+  ],
+  "metadata": {
+    "parallelization_scope": "3"
+  },
+  "created": "2026-10-09T19:49:58Z"
+}
