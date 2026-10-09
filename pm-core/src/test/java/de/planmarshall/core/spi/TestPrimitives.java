@@ -14,9 +14,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
+
 /**
  * Primitives written for the tests of the SPI: one well-formed primitive for every {@link OutcomeClass}, each with
- * its own parameter record and its own closed outcome enum, and one primitive that starts a job.
+ * its own parameter record and its own closed outcome enum, one primitive that starts a job, one with an attempt
+ * cap, and the malformed primitives a registry refuses.
  */
 final class TestPrimitives {
 
@@ -78,6 +81,126 @@ final class TestPrimitives {
     static <P extends Record, R extends Enum<R> & PrimitiveOutcome> Fixed<P, R> fixed(String id,
             Class<P> parameterType, Class<R> outcomeType, R outcome) {
         return new Fixed<>(id, parameterType, outcomeType, outcome);
+    }
+
+    /**
+     * @return a well-formed primitive with an attempt cap: once the cap is spent it returns an outcome of class
+     *         {@link OutcomeClass#FAILURE}
+     */
+    static Primitive<?, ?> capped() {
+        return new Capped("test.retry-capped", Optional.of("attempts_exhausted"));
+    }
+
+    /**
+     * @return malformed primitives, at least one case for every reason a registry refuses a primitive for
+     */
+    static List<Refusal> refused() {
+        return List.of(
+                new Refusal(Reason.DUPLICATE_ID, "two primitives with one id", "test.fail",
+                        List.of(failing("test.fail"), failing("test.fail"))),
+                new Refusal(Reason.MALFORMED_ID, "an id without a dot", failing("commit")),
+                new Refusal(Reason.MALFORMED_ID, "an id in upper case", failing("Git.Commit")),
+                new Refusal(Reason.MALFORMED_ID, "an id of three segments", failing("git.commit.now")),
+                new Refusal(Reason.MALFORMED_ID, "no id", failing(null)),
+                new Refusal(Reason.PARAMETER_TYPE_NOT_A_RECORD, "no parameter type",
+                        new Fixed<FailParams, FailOutcome>("test.no-parameters", null, FailOutcome.class,
+                                FailOutcome.FAILED)),
+                new Refusal(Reason.PARAMETER_TYPE_NOT_A_RECORD, "a parameter type that is no record",
+                        new Fixed<FailParams, FailOutcome>("test.class-parameters", outsideItsBound(String.class),
+                                FailOutcome.class, FailOutcome.FAILED)),
+                new Refusal(Reason.OPEN_OUTCOME_SET, "no outcome type",
+                        new Fixed<FailParams, FailOutcome>("test.no-outcomes", FailParams.class, null,
+                                FailOutcome.FAILED)),
+                new Refusal(Reason.OPEN_OUTCOME_SET, "an outcome type that is no enum",
+                        new Fixed<FailParams, FailOutcome>("test.class-outcomes", FailParams.class,
+                                outsideItsBound(String.class), FailOutcome.FAILED)),
+                new Refusal(Reason.OPEN_OUTCOME_SET, "an outcome enum without a constant",
+                        new Fixed<FailParams, NoOutcome>("test.empty-outcomes", FailParams.class, NoOutcome.class,
+                                null)),
+                new Refusal(Reason.DUPLICATE_WIRE_NAME, "two outcomes with one wire name",
+                        fixed("test.twin-outcomes", FailParams.class, TwinOutcome.class, TwinOutcome.FIRST)),
+                new Refusal(Reason.MALFORMED_WIRE_NAME, "a wire name in upper case",
+                        fixed("test.upper-case-outcome", FailParams.class, UpperCaseOutcome.class,
+                                UpperCaseOutcome.HOOK_FAILED)),
+                new Refusal(Reason.MALFORMED_WIRE_NAME, "an outcome without a wire name",
+                        fixed("test.unnamed-outcome", FailParams.class, UnnamedOutcome.class,
+                                UnnamedOutcome.UNNAMED)),
+                new Refusal(Reason.RESERVED_WIRE_NAME, "the wire name of the engine's step-out",
+                        fixed("test.reserved-outcome", FailParams.class, ReservedOutcome.class,
+                                ReservedOutcome.STEPPED_OUT)),
+                new Refusal(Reason.UNDECLARED_JOB_SIDE_EFFECT, "a job enqueued without a job-starting outcome",
+                        enqueuingWithoutJobStartingOutcome()),
+                new Refusal(Reason.UNDECLARED_JOB_SIDE_EFFECT, "a job-starting outcome without a declared job",
+                        fixed("test.start-silently", StartJobParams.class, StartJobOutcome.class,
+                                StartJobOutcome.STARTED)),
+                new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an attempt cap without an exhaustion",
+                        new Capped("test.cap-open", Optional.empty())),
+                new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an exhaustion that is null",
+                        new Capped("test.cap-null", null)),
+                new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an exhaustion that is no outcome",
+                        new Capped("test.cap-unknown", Optional.of("unknown"))),
+                new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an exhaustion that is no failure",
+                        cappedWithSuccessAsExhaustion()),
+                new Refusal(Reason.MISSING_AWAITED_EVENT, "no awaited event", awaitingNothingDeclared()));
+    }
+
+    /**
+     * @return a primitive that enqueues a job although none of its outcomes starts one
+     */
+    static Primitive<?, ?> enqueuingWithoutJobStartingOutcome() {
+        return new Fixed<>("test.enqueue-silently", FailParams.class, FailOutcome.class, FailOutcome.FAILED) {
+
+            @Override
+            public boolean enqueuesJob() {
+                return true;
+            }
+        };
+    }
+
+    /**
+     * @return a primitive with an attempt cap whose exhaustion outcome is of class {@link OutcomeClass#SUCCESS}
+     */
+    static Primitive<?, ?> cappedWithSuccessAsExhaustion() {
+        return new Capped("test.cap-succeeds", Optional.of("retried"));
+    }
+
+    /**
+     * @return a primitive whose awaited event is {@code null}
+     */
+    static Primitive<?, ?> awaitingNothingDeclared() {
+        return new Fixed<>("test.await-undeclared", FailParams.class, FailOutcome.class, FailOutcome.FAILED) {
+
+            @Override
+            public AwaitedEvent awaitedEvent() {
+                return null;
+            }
+        };
+    }
+
+    private static Primitive<?, ?> failing(String id) {
+        return fixed(id, FailParams.class, FailOutcome.class, FailOutcome.FAILED);
+    }
+
+    /**
+     * Hands a class out as if it satisfied the bound of a type parameter. Code compiled against a raw
+     * {@link Primitive} can do the same, which is why a registry checks the classes it is given.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> Class<T> outsideItsBound(Class<?> type) {
+        return (Class<T>) type;
+    }
+
+    /** Primitives a registry refuses, with the reason of the refusal and the id it names. */
+    record Refusal(Reason reason, String description, String refusedId, List<Primitive<?, ?>> primitives) {
+
+        Refusal(Reason reason, String description, Primitive<?, ?> primitive) {
+            this(reason, description, String.valueOf(primitive.id()), List.of(primitive));
+        }
+
+        @Override
+        public String toString() {
+            return reason + ": " + description;
+        }
     }
 
     /** A primitive with the parameters to run it with and what its outcome is expected to be. */
@@ -167,6 +290,106 @@ final class TestPrimitives {
         public boolean enqueuesJob() {
             return true;
         }
+    }
+
+    /** Retries under an attempt cap and names the outcome it returns once the cap is spent. */
+    static final class Capped extends Fixed<CapParams, CapOutcome> {
+
+        private final Optional<String> exhaustion;
+
+        Capped(String id, Optional<String> exhaustion) {
+            super(id, CapParams.class, CapOutcome.class, CapOutcome.RETRIED);
+            this.exhaustion = exhaustion;
+        }
+
+        @Override
+        public CycleMeasure cycleMeasure() {
+            return CycleMeasure.ATTEMPT_CAP;
+        }
+
+        @Override
+        public Optional<String> exhaustionOutcome() {
+            return exhaustion;
+        }
+    }
+
+    /** An outcome of class {@link OutcomeClass#FAILURE}; the malformed outcome enums differ in their wire names. */
+    interface FailureOutcome extends PrimitiveOutcome {
+
+        @Override
+        default OutcomeClass outcomeClass() {
+            return OutcomeClass.FAILURE;
+        }
+    }
+
+    enum NoOutcome implements FailureOutcome {
+        ;
+
+        @Override
+        public String wireName() {
+            return "none";
+        }
+    }
+
+    enum TwinOutcome implements FailureOutcome {
+        FIRST, SECOND;
+
+        @Override
+        public String wireName() {
+            return "twin";
+        }
+    }
+
+    enum UpperCaseOutcome implements FailureOutcome {
+        HOOK_FAILED;
+
+        @Override
+        public String wireName() {
+            return "Hook-Failed";
+        }
+    }
+
+    enum UnnamedOutcome implements FailureOutcome {
+        UNNAMED;
+
+        @Override
+        public String wireName() {
+            return null;
+        }
+    }
+
+    enum ReservedOutcome implements FailureOutcome {
+        STEPPED_OUT;
+
+        @Override
+        public String wireName() {
+            return "stepped_out";
+        }
+    }
+
+    enum CapOutcome implements PrimitiveOutcome {
+        RETRIED("retried", OutcomeClass.SUCCESS), ATTEMPTS_EXHAUSTED("attempts_exhausted", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        CapOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    record CapParams() {
     }
 
     record CompleteParams(@FreeParam(minLength = 1, maxLength = 80) String subject) {
