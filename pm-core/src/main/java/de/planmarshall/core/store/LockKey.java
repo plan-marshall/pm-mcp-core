@@ -285,8 +285,11 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
         return Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
     }
 
-    /** An identifier becomes a path segment, so one outside the grammar is refused before it reaches a path. */
-    private static String identifier(String value, String name) {
+    /**
+     * An identifier becomes a path segment, so one outside the grammar is refused before it reaches a path. The
+     * records of this package that carry an identifier validate it here, so the grammar has one definition.
+     */
+    static String identifier(String value, String name) {
         Objects.requireNonNull(value, name);
         if (!IDENTIFIER.matcher(value).matches()) {
             throw new IllegalArgumentException("Not a valid identifier for " + name + ": " + value);
