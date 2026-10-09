@@ -11,3 +11,9 @@
 .asciidoctorconfig.adoc
 .factorypath
 src/guard-controls/**/target
+
+# Planning system (managed by plan-marshall)
+# Runtime state (plans, run-configuration, lessons-learned, memory, logs — managed by plan-marshall)
+.plan/*
+!.plan/marshal.json
+!.plan/project-architecture/

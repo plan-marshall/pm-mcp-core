@@ -1,0 +1,158 @@
+{
+  "description": "pm-mcp-core holds the plain-Java engine of plan-marshall-mcp: the foundation pm-core, the workflow engine pm-workflow, the provider modules under pm-providers, and pm-runtime, the daemon logic that needs no framework. It builds no binary; the modules are deployed as SNAPSHOT artifacts that the Quarkus assembly in plan-marshall-mcp consumes.",
+  "description_reasoning": "CLAUDE.md Project section and README.md introduction",
+  "extensions_used": [
+    "plan-marshall",
+    "pm-documents"
+  ],
+  "modules": {
+    "documentation": {
+      "description": "The work package plans of this repository below doc/plans, one AsciiDoc file per package with the index README.adoc. All other project documentation lives in plan-marshall-documentation.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-central-before-registry": {
+      "description": "Fixture project below src/guard-controls/central-before-registry that BuildGuardsIT of pm-core builds to prove a build guard: product coordinates must come from the organisation registry before Maven Central. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-foundation-jgit": {
+      "description": "Fixture project below src/guard-controls/foundation-jgit that BuildGuardsIT of pm-core builds to prove a build guard: pm-core must never depend on JGit. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-foundation-product-module": {
+      "description": "Fixture project below src/guard-controls/foundation-product-module that BuildGuardsIT of pm-core builds to prove a build guard: pm-core may depend on pm-api alone among the modules of the product. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-framework": {
+      "description": "Fixture project below src/guard-controls/framework that BuildGuardsIT of pm-core builds to prove a build guard: no module may depend on Quarkus, CDI, Vert.x or an MCP library. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-model-facing-content": {
+      "description": "Fixture project below src/guard-controls/model-facing-content that BuildGuardsIT of pm-core builds to prove a build guard: no module JAR may carry model-facing content. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-provider-product-module": {
+      "description": "Fixture project below src/guard-controls/provider-product-module that BuildGuardsIT of pm-core builds to prove a build guard: a provider module may depend on pm-core and pm-provider-ci only. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-runtime-library": {
+      "description": "Fixture project below src/guard-controls/runtime-library that BuildGuardsIT of pm-core builds to prove a build guard: only pm-runtime may depend on commonmark and LSP4J. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-runtime-product-module": {
+      "description": "Fixture project below src/guard-controls/runtime-product-module that BuildGuardsIT of pm-core builds to prove a build guard: pm-runtime may depend on pm-core and pm-api alone among the modules of the product. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-workflow-cui-http": {
+      "description": "Fixture project below src/guard-controls/workflow-cui-http that BuildGuardsIT of pm-core builds to prove a build guard: pm-workflow must never depend on cui-http. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "guard-control-workflow-product-module": {
+      "description": "Fixture project below src/guard-controls/workflow-product-module that BuildGuardsIT of pm-core builds to prove a build guard: pm-workflow may depend on pm-core alone among the modules of the product. It is test data and never part of the reactor.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-core": {
+      "description": "Plain-Java foundation every other module builds on: the service interfaces (SPIs), the stores, the TOON encoder, the findings and status models, and the log message registry PmMcpLogMessages. Depends on pm-api alone among the modules of the product.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-mcp-core": {
+      "description": "Root aggregator POM of the repository. It inherits pm-mcp-parent, names the pm-api SNAPSHOT version, and carries the enforcer executions that fail the build for a violated module dependency rule.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-provider-ci": {
+      "description": "The CI contract and the shared HTTP base over cui-http that the hosting providers build on. A contract module: it depends on no other provider module.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-provider-git": {
+      "description": "The Git contract and its JGit native variant. A contract module: it depends on no other provider module.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-provider-github": {
+      "description": "The GitHub provider: App tokens, REST and GraphQL access.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-provider-gitlab": {
+      "description": "The GitLab provider: a thin REST client and the glab adapter.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-provider-sonar": {
+      "description": "Sonar as a code analysis provider: the adapter of the code-analysis and findings contracts of pm-core.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-providers": {
+      "description": "Aggregator POM of the external integrations; it holds no code of its own.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-runtime": {
+      "description": "The daemon logic that needs no framework: runtime start and lifecycle, the lock manager, credential stores (Secret Service, Keychain), the web layer, the language server client and the ingestion validator. It also builds the test JAR with the fixtures the assembly's tests share.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    },
+    "pm-workflow": {
+      "description": "The workflow language and the process it runs: the DSL and its AST, the engine, and the plan, task, epic and finalize models. Plain Java on pm-core, no framework.",
+      "generation": {
+        "by": "architecture",
+        "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"
+      }
+    }
+  },
+  "name": "pm-mcp-core"
+}
