@@ -13,10 +13,12 @@ engine `pm-workflow`, the provider modules under `pm-providers`, and `pm-runtime
 The only listing of the repositories, the modules, their responsibilities and allowed dependencies is the Module
 Structure Specification of the product (`doc/specification/module-structure.adoc` in
 `plan-marshall/plan-marshall-mcp`, later in `plan-marshall/plan-marshall-documentation`); name modules from there and
-never repeat the listing here. All project documentation (requirements, specifications, implementation watch,
-roadmap, concept, developer and user documentation) lives there, not in this repository. Every concrete
-implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
-the same names here only point to them.
+never repeat the listing here. The requirements, specifications, implementation watch, roadmap, concept, developer
+and user documentation live in the documentation repository `plan-marshall/plan-marshall-documentation`. The code
+documentation (Javadoc and `package-info.java`) and the work package files with their index below `doc/plans/` live
+here. A plan that changes what a specification or requirement states updates the documents concerned there directly,
+as part of its own work. Every concrete implementation follows the project skill `traced-implementation`, which
+lives there with `doc-review`; the skills of the same names here only point to them.
 
 ## Build
 
@@ -112,8 +114,8 @@ The work of this repository is planned as work packages in `doc/plans/`, one fil
 of the other repositories). A package is ready when it is open and everything it depends on is done; the roadmap milestone it serves says for which exit it
 is needed, not when it may start. The plan files hold the tasks only: requirements, specifications and watch
 items stay in `plan-marshall-documentation` and are linked by relative paths that assume the repositories checked
-out beside each other. Claim a package with a draft pull request that names it and sets it to `in progress`,
-after checking that no open pull request already names it.
+out beside each other. A package is worked in the usual plan-marshall flow of the section "Git Workflow" (branch,
+commits, pull request at finalize), and its row in the index is set to `done` within those commits.
 
 ## Git Workflow
 
