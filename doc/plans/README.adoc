@@ -17,7 +17,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |Package |Deliverable |Status |Depends on |Serves
 |link:lock-manager-and-leases.adoc[`lock-manager-and-leases`]
 |Runtime lock manager, lease records, and the stale lease sweep
-|`in progress`
+|`done`
 |nothing
 |Milestone 2
 
