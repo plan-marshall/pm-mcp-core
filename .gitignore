@@ -17,3 +17,13 @@ src/guard-controls/**/target
 .plan/*
 !.plan/marshal.json
 !.plan/project-architecture/
+
+# The orchestrator ledger is git-tracked, repo-local state: both homes of an epic
+# (active and archived) are un-ignored.
+!.plan/orchestrator/
+!.plan/archived-orchestrators/
+
+# Re-ignored after the negations above, because a later rule wins: the per-verb
+# append log is machine-local.
+.plan/orchestrator/*/logs/
+.plan/archived-orchestrators/*/logs/
