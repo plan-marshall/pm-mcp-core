@@ -155,12 +155,12 @@ class PrimitiveContractTest {
         @Test
         @DisplayName("a job-starting primitive reports the job with its job-starting outcome")
         void jobStartingPrimitive() {
-            var primitive = new TestPrimitives.StartJob();
+            var jobStarter = new TestPrimitives.StartJob();
 
-            var result = primitive.execute(TestPrimitives.scope(PLAN_ID), new StartJobParams());
+            var result = jobStarter.execute(TestPrimitives.scope(PLAN_ID), new StartJobParams());
 
             assertAll(
-                    () -> assertTrue(primitive.enqueuesJob()),
+                    () -> assertTrue(jobStarter.enqueuesJob()),
                     () -> assertTrue(result.outcome().startsJob()),
                     () -> assertEquals(Optional.of(TestPrimitives.SPAWNED_JOB_ID), result.spawnedJobId()));
         }

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.spi;
 
+import java.lang.reflect.RecordComponent;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -30,8 +31,17 @@ import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
  * <p>
  * The constructor checks every primitive before the registry exists, so a registry never holds a primitive it
  * would have refused, and one malformed primitive leaves no registry at all. What it checks is what the
- * declarations of a primitive decide on their own: its name, its parameter and outcome types, the wire names of its
- * outcomes, and that its declarations of a job, an attempt cap and an awaited event agree with its outcomes.
+ * declarations of a primitive decide on their own:
+ * <ul>
+ * <li>its name, which no other primitive of the registry has;</li>
+ * <li>its parameter type, a record class whose free parameters are texts with bounds that can hold;</li>
+ * <li>its outcome type, a closed enum whose outcomes each have a class and a wire name of their own that is not
+ * reserved for the engine;</li>
+ * <li>its job: it enqueues one exactly when one of its outcomes starts one;</li>
+ * <li>its cycle measure, which it declares, and its exhaustion outcome: a primitive with an attempt cap names one
+ * of its outcomes of class {@link OutcomeClass#FAILURE}, and every other primitive names none;</li>
+ * <li>its awaited event, which it declares.</li>
+ * </ul>
  *
  * @since 0.1
  */
@@ -66,7 +76,7 @@ public final class PrimitiveRegistry {
             checkParameterType(id, primitive);
             var outcomes = checkedOutcomes(id, primitive);
             checkJobSideEffect(id, primitive, outcomes);
-            checkAttemptCap(id, primitive, outcomes);
+            checkCycle(id, primitive, outcomes);
             if (primitive.awaitedEvent() == null) {
                 throw new PrimitiveRegistrationException(id, Reason.MISSING_AWAITED_EVENT,
                         "declares no awaited event");
@@ -105,6 +115,37 @@ public final class PrimitiveRegistry {
             throw new PrimitiveRegistrationException(id, Reason.PARAMETER_TYPE_NOT_A_RECORD,
                     "declares the parameter type %s, which is not a record class".formatted(nameOf(type)));
         }
+        for (RecordComponent component : type.getRecordComponents()) {
+            var freeParam = component.getAnnotation(FreeParam.class);
+            if (freeParam != null) {
+                checkFreeParameter(id, component, freeParam);
+            }
+        }
+    }
+
+    private static void checkFreeParameter(String id, RecordComponent component, FreeParam freeParam) {
+        if (component.getType() != String.class) {
+            throw malformedFreeParameter(id, component,
+                    "is of the type %s and not a text".formatted(component.getType().getName()));
+        }
+        if (freeParam.minLength() < 0) {
+            throw malformedFreeParameter(id, component,
+                    "has the negative least length %d".formatted(freeParam.minLength()));
+        }
+        if (freeParam.maxLength() < 0) {
+            throw malformedFreeParameter(id, component,
+                    "has the negative greatest length %d".formatted(freeParam.maxLength()));
+        }
+        if (freeParam.minLength() > freeParam.maxLength()) {
+            throw malformedFreeParameter(id, component, "has the least length %d above the greatest length %d"
+                    .formatted(freeParam.minLength(), freeParam.maxLength()));
+        }
+    }
+
+    private static PrimitiveRegistrationException malformedFreeParameter(String id, RecordComponent component,
+            String detail) {
+        return new PrimitiveRegistrationException(id, Reason.MALFORMED_FREE_PARAMETER,
+                "declares the free parameter '%s', which %s".formatted(component.getName(), detail));
     }
 
     private static List<PrimitiveOutcome> checkedOutcomes(String id, Primitive<?, ?> primitive) {
@@ -136,6 +177,10 @@ public final class PrimitiveRegistry {
                 throw new PrimitiveRegistrationException(id, Reason.DUPLICATE_WIRE_NAME,
                         "has the outcomes %s and %s with the same wire name '%s'".formatted(first, outcome, wireName));
             }
+            if (outcome.outcomeClass() == null) {
+                throw new PrimitiveRegistrationException(id, Reason.MISSING_OUTCOME_CLASS,
+                        "has the outcome %s without an outcome class".formatted(outcome));
+            }
         }
         return outcomes;
     }
@@ -153,18 +198,35 @@ public final class PrimitiveRegistry {
         }
     }
 
-    private static void checkAttemptCap(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
-        if (primitive.cycleMeasure() != CycleMeasure.ATTEMPT_CAP) {
+    private static void checkCycle(String id, Primitive<?, ?> primitive, List<PrimitiveOutcome> outcomes) {
+        var measure = primitive.cycleMeasure();
+        if (measure == null) {
+            throw new PrimitiveRegistrationException(id, Reason.MISSING_CYCLE_MEASURE, "declares no cycle measure");
+        }
+        var exhaustions = declaredExhaustions(primitive);
+        if (measure != CycleMeasure.ATTEMPT_CAP) {
+            if (!exhaustions.isEmpty()) {
+                throw new PrimitiveRegistrationException(id, Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP,
+                        "declares the exhaustion outcome '%s' but the cycle measure %s, which no cap exhausts"
+                                .formatted(exhaustions.getFirst(), measure));
+            }
             return;
         }
-        var exhaustion = primitive.exhaustionOutcome();
-        var exhausts = exhaustion != null && exhaustion.isPresent() && outcomes.stream()
-                .anyMatch(outcome -> outcome.wireName().equals(exhaustion.get())
-                        && outcome.outcomeClass() == OutcomeClass.FAILURE);
+        var exhausts = outcomes.stream().anyMatch(outcome -> exhaustions.contains(outcome.wireName())
+                && outcome.outcomeClass() == OutcomeClass.FAILURE);
         if (!exhausts) {
             throw new PrimitiveRegistrationException(id, Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION,
                     "declares an attempt cap but no exhaustion outcome among its outcomes of class FAILURE");
         }
+    }
+
+    /**
+     * Reads the exhaustion outcome of a primitive as the wire names it declares, none or one. A primitive that
+     * returns no {@link Optional} at all declares none, like one that returns an empty one, so the checks of the
+     * cycle never hold an {@link Optional} that may be missing.
+     */
+    private static List<String> declaredExhaustions(Primitive<?, ?> primitive) {
+        return Stream.ofNullable(primitive.exhaustionOutcome()).flatMap(Optional::stream).toList();
     }
 
     private static String nameOf(Class<?> type) {

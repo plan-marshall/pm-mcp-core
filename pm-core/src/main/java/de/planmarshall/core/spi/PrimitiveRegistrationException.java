@@ -32,6 +32,11 @@ public final class PrimitiveRegistrationException extends IllegalArgumentExcepti
         /** The parameter type is missing or is not a record class. */
         PARAMETER_TYPE_NOT_A_RECORD,
         /**
+         * A component of the parameter record annotated with {@link FreeParam} is not a {@link String}, or its
+         * bounds cannot hold: one of them is negative, or the least length is above the greatest.
+         */
+        MALFORMED_FREE_PARAMETER,
+        /**
          * The outcome set is not closed: the outcome type is missing, is not an enum of outcomes, or has no
          * constant.
          */
@@ -42,16 +47,25 @@ public final class PrimitiveRegistrationException extends IllegalArgumentExcepti
         MALFORMED_WIRE_NAME,
         /** An outcome uses a wire name that is reserved for the engine. */
         RESERVED_WIRE_NAME,
+        /** An outcome declares no {@link OutcomeClass}, so a workflow could not tell what follows from it. */
+        MISSING_OUTCOME_CLASS,
         /**
          * The job side effect is not declared consistently: the primitive enqueues a job but has no job-starting
          * outcome, or it has a job-starting outcome but does not declare that it enqueues a job.
          */
         UNDECLARED_JOB_SIDE_EFFECT,
+        /** The primitive declares no {@link CycleMeasure}. */
+        MISSING_CYCLE_MEASURE,
         /**
          * The primitive declares an attempt cap but no exhaustion outcome that names one of its outcomes of class
          * {@link OutcomeClass#FAILURE}.
          */
         ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION,
+        /**
+         * The primitive declares an exhaustion outcome although its cycle measure is not
+         * {@link CycleMeasure#ATTEMPT_CAP}, so no cap is ever spent.
+         */
+        EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP,
         /** The primitive declares no awaited event. */
         MISSING_AWAITED_EVENT
     }

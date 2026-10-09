@@ -21,6 +21,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import de.planmarshall.core.spi.PrimitiveRegistrationException.Reason;
 
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @DisplayName("Registry of primitives")
@@ -120,6 +123,40 @@ class PrimitiveRegistryTest {
         }
 
         @Test
+        @DisplayName("a free parameter whose bounds meet registers, beside a component that is no free parameter")
+        void acceptsFreeParameterWithMeetingBounds() {
+            var exact = TestPrimitives.withParameters("test.free-exact", TestPrimitives.ExactParams.class);
+
+            var registry = new PrimitiveRegistry(List.of(exact));
+
+            assertSame(exact, registry.find("test.free-exact").orElseThrow());
+        }
+
+        @ParameterizedTest(name = "with the measure {0}")
+        @EnumSource(value = CycleMeasure.class, names = "ATTEMPT_CAP", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("a primitive without an attempt cap registers when it declares no exhaustion outcome")
+        void acceptsOtherMeasureWithoutExhaustion(CycleMeasure measure) {
+            var measured = new TestPrimitives.Measured("test.measured", measure, Optional.empty());
+
+            var registry = new PrimitiveRegistry(List.of(measured));
+
+            assertSame(measured, registry.find("test.measured").orElseThrow());
+        }
+
+        /**
+         * A primitive that returns no exhaustion at all declares none, exactly like one that returns an empty one.
+         */
+        @Test
+        @DisplayName("a primitive without an attempt cap registers when its exhaustion outcome is null")
+        void acceptsMissingExhaustionWithoutAttemptCap() {
+            var measured = new TestPrimitives.Measured("test.measured", CycleMeasure.NONE, null);
+
+            var registry = new PrimitiveRegistry(List.of(measured));
+
+            assertSame(measured, registry.find("test.measured").orElseThrow());
+        }
+
+        @Test
         @DisplayName("a missing collection and a missing primitive are refused")
         void refusesNull() {
             var withNull = Arrays.<Primitive<?, ?>>asList(TestPrimitives.capped(), null);
@@ -187,6 +224,48 @@ class PrimitiveRegistryTest {
             var thrown = refusalOf(List.of(TestPrimitives.enqueuingWithoutJobStartingOutcome()));
 
             assertEquals(Reason.UNDECLARED_JOB_SIDE_EFFECT, thrown.getReason());
+        }
+
+        static Stream<Arguments> malformedFreeParameters() {
+            return Stream.of(
+                    Arguments.of(TestPrimitives.NumberParams.class,
+                            "declares the free parameter 'count', which is of the type int and not a text"),
+                    Arguments.of(TestPrimitives.NegativeLeastParams.class,
+                            "declares the free parameter 'subject', which has the negative least length -1"),
+                    Arguments.of(TestPrimitives.NegativeGreatestParams.class,
+                            "declares the free parameter 'subject', which has the negative greatest length -1"),
+                    Arguments.of(TestPrimitives.InvertedParams.class,
+                            "declares the free parameter 'subject', which has the least length 5 above the greatest "
+                                    + "length 4"));
+        }
+
+        @ParameterizedTest(name = "{1}")
+        @MethodSource("malformedFreeParameters")
+        @DisplayName("the refusal of a free parameter names the parameter and what is wrong with it")
+        void refusesMalformedFreeParameter(Class<? extends Record> parameterType, String detail) {
+            var thrown = refusalOf(List.of(TestPrimitives.withParameters("test.free", parameterType)));
+
+            assertAll(
+                    () -> assertEquals(Reason.MALFORMED_FREE_PARAMETER, thrown.getReason()),
+                    () -> assertEquals("MALFORMED_FREE_PARAMETER: primitive 'test.free' " + detail,
+                            thrown.getMessage()));
+        }
+
+        /**
+         * A primitive without an attempt cap never spends one, so an exhaustion outcome it names is one no pass can
+         * return: a workflow that routes on it would wait for an outcome that never comes (PM-IMPL-5).
+         */
+        @Test
+        @DisplayName("an exhaustion outcome on a primitive without an attempt cap is refused, and named")
+        void refusesExhaustionWithoutAttemptCap() {
+            var measured = new TestPrimitives.Measured("test.measured", CycleMeasure.STEP_LIST, Optional.of("failed"));
+
+            var thrown = refusalOf(List.of(measured));
+
+            assertAll(
+                    () -> assertEquals(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP, thrown.getReason()),
+                    () -> assertTrue(thrown.getMessage().contains("'failed'"), thrown.getMessage()),
+                    () -> assertTrue(thrown.getMessage().contains("STEP_LIST"), thrown.getMessage()));
         }
 
         /**

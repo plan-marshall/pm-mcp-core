@@ -108,6 +108,15 @@ final class TestPrimitives {
                 new Refusal(Reason.PARAMETER_TYPE_NOT_A_RECORD, "a parameter type that is no record",
                         new Fixed<FailParams, FailOutcome>("test.class-parameters", outsideItsBound(String.class),
                                 FailOutcome.class, FailOutcome.FAILED)),
+                new Refusal(Reason.MALFORMED_FREE_PARAMETER, "a free parameter that is no text",
+                        withParameters("test.free-number", NumberParams.class)),
+                new Refusal(Reason.MALFORMED_FREE_PARAMETER, "a free parameter with a negative least length",
+                        withParameters("test.free-negative-least", NegativeLeastParams.class)),
+                new Refusal(Reason.MALFORMED_FREE_PARAMETER, "a free parameter with a negative greatest length",
+                        withParameters("test.free-negative-greatest", NegativeGreatestParams.class)),
+                new Refusal(Reason.MALFORMED_FREE_PARAMETER,
+                        "a free parameter whose least length is above its greatest",
+                        withParameters("test.free-inverted", InvertedParams.class)),
                 new Refusal(Reason.OPEN_OUTCOME_SET, "no outcome type",
                         new Fixed<FailParams, FailOutcome>("test.no-outcomes", FailParams.class, null,
                                 FailOutcome.FAILED)),
@@ -128,11 +137,16 @@ final class TestPrimitives {
                 new Refusal(Reason.RESERVED_WIRE_NAME, "the wire name of the engine's step-out",
                         fixed("test.reserved-outcome", FailParams.class, ReservedOutcome.class,
                                 ReservedOutcome.STEPPED_OUT)),
+                new Refusal(Reason.MISSING_OUTCOME_CLASS, "an outcome without an outcome class",
+                        fixed("test.classless-outcome", FailParams.class, ClasslessOutcome.class,
+                                ClasslessOutcome.CLASSLESS)),
                 new Refusal(Reason.UNDECLARED_JOB_SIDE_EFFECT, "a job enqueued without a job-starting outcome",
                         enqueuingWithoutJobStartingOutcome()),
                 new Refusal(Reason.UNDECLARED_JOB_SIDE_EFFECT, "a job-starting outcome without a declared job",
                         fixed("test.start-silently", StartJobParams.class, StartJobOutcome.class,
                                 StartJobOutcome.STARTED)),
+                new Refusal(Reason.MISSING_CYCLE_MEASURE, "no cycle measure",
+                        new Measured("test.measure-undeclared", null, Optional.empty())),
                 new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an attempt cap without an exhaustion",
                         new Capped("test.cap-open", Optional.empty())),
                 new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an exhaustion that is null",
@@ -141,6 +155,14 @@ final class TestPrimitives {
                         new Capped("test.cap-unknown", Optional.of("unknown"))),
                 new Refusal(Reason.ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION, "an exhaustion that is no failure",
                         cappedWithSuccessAsExhaustion()),
+                new Refusal(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP, "an exhaustion without a measure",
+                        new Measured("test.exhaust-unmeasured", CycleMeasure.NONE, Optional.of("failed"))),
+                new Refusal(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP,
+                        "an exhaustion with the step list as measure",
+                        new Measured("test.exhaust-step-list", CycleMeasure.STEP_LIST, Optional.of("failed"))),
+                new Refusal(Reason.EXHAUSTION_OUTCOME_WITHOUT_ATTEMPT_CAP,
+                        "an exhaustion with the archive steps as measure",
+                        new Measured("test.exhaust-archive", CycleMeasure.ARCHIVE_STEPS, Optional.of("failed"))),
                 new Refusal(Reason.MISSING_AWAITED_EVENT, "no awaited event", awaitingNothingDeclared()));
     }
 
@@ -179,6 +201,13 @@ final class TestPrimitives {
 
     private static Primitive<?, ?> failing(String id) {
         return fixed(id, FailParams.class, FailOutcome.class, FailOutcome.FAILED);
+    }
+
+    /**
+     * @return a primitive that is well-formed but for what its parameter record declares
+     */
+    static <P extends Record> Primitive<P, FailOutcome> withParameters(String id, Class<P> parameterType) {
+        return fixed(id, parameterType, FailOutcome.class, FailOutcome.FAILED);
     }
 
     /**
@@ -313,6 +342,29 @@ final class TestPrimitives {
         }
     }
 
+    /** Declares the cycle measure and the exhaustion outcome it is given, whether or not the two agree. */
+    static final class Measured extends Fixed<FailParams, FailOutcome> {
+
+        private final CycleMeasure measure;
+        private final Optional<String> exhaustion;
+
+        Measured(String id, CycleMeasure measure, Optional<String> exhaustion) {
+            super(id, FailParams.class, FailOutcome.class, FailOutcome.FAILED);
+            this.measure = measure;
+            this.exhaustion = exhaustion;
+        }
+
+        @Override
+        public CycleMeasure cycleMeasure() {
+            return measure;
+        }
+
+        @Override
+        public Optional<String> exhaustionOutcome() {
+            return exhaustion;
+        }
+    }
+
     /** An outcome of class {@link OutcomeClass#FAILURE}; the malformed outcome enums differ in their wire names. */
     interface FailureOutcome extends PrimitiveOutcome {
 
@@ -367,6 +419,20 @@ final class TestPrimitives {
         }
     }
 
+    enum ClasslessOutcome implements PrimitiveOutcome {
+        CLASSLESS;
+
+        @Override
+        public String wireName() {
+            return "classless";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return null;
+        }
+    }
+
     enum CapOutcome implements PrimitiveOutcome {
         RETRIED("retried", OutcomeClass.SUCCESS), ATTEMPTS_EXHAUSTED("attempts_exhausted", OutcomeClass.FAILURE);
 
@@ -393,6 +459,22 @@ final class TestPrimitives {
     }
 
     record CompleteParams(@FreeParam(minLength = 1, maxLength = 80) String subject) {
+    }
+
+    record NumberParams(@FreeParam int count) {
+    }
+
+    record NegativeLeastParams(@FreeParam(minLength = -1) String subject) {
+    }
+
+    record NegativeGreatestParams(@FreeParam(maxLength = -1) String subject) {
+    }
+
+    record InvertedParams(@FreeParam(minLength = 5, maxLength = 4) String subject) {
+    }
+
+    /** A free parameter whose bounds meet, beside a component the engine resolves and the registry leaves alone. */
+    record ExactParams(@FreeParam(minLength = 7, maxLength = 7) String sha, int attempt) {
     }
 
     record SkipParams() {
