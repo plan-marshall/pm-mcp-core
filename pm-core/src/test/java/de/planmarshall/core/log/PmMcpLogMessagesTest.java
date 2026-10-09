@@ -13,13 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.tools.logging.LogRecord;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
-import de.cuioss.tools.logging.LogRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,7 +35,7 @@ class PmMcpLogMessagesTest {
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
     @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
     @DisplayName("every message lies in the range of its level and carries the prefix")
-    void ranges(String level, int first, int last) throws ReflectiveOperationException {
+    void ranges(String level, int first, int last) throws Exception {
         var records = records(level);
 
         assertFalse(records.isEmpty(), level);
@@ -48,7 +48,7 @@ class PmMcpLogMessagesTest {
 
     @Test
     @DisplayName("no identifier is used twice")
-    void unique() throws ReflectiveOperationException {
+    void unique() throws Exception {
         var all = new ArrayList<LogRecord>();
         for (String level : List.of("INFO", "WARN", "ERROR")) {
             all.addAll(records(level));
