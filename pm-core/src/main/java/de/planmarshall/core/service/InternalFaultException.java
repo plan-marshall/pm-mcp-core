@@ -35,7 +35,9 @@ public class InternalFaultException extends RuntimeException {
      */
     public enum Reason {
         /** A transaction asked for a lock that must not be acquired after the locks it holds. */
-        LOCK_ORDER_VIOLATION("lock_order_violation");
+        LOCK_ORDER_VIOLATION("lock_order_violation"),
+        /** A store was accessed by a transaction that does not hold the lock of the store. */
+        STORE_LOCK_NOT_HELD("store_lock_not_held");
 
         private final String code;
 
