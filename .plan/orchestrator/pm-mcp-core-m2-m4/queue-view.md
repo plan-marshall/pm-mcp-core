@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: Run /plan-orchestrator next slug=pm-mcp-core-m2-m4. Ready now: PLAN-01 lock-manager-and-leases, PLAN-02 primitive-spi-and-validators, PLAN-03 workspace-confinement, PLAN-04 service-unit, PLAN-05 http-baseline, PLAN-36 code-analysis-base (queue end; ask for it by id). Parallelization scope 3.
+**Resume anchor**: Emitted, awaiting operator-confirmed launch: PLAN-01 lock-manager-and-leases, PLAN-02 primitive-spi-and-validators, PLAN-03 workspace-confinement. On confirmation record launched per plan (queue --transition PLAN-NN --status launched). Then: analyze each landing; next ready candidates are PLAN-04 service-unit, PLAN-05 http-baseline, PLAN-36 code-analysis-base. Known CI issue: the review bot fails on a Docker Hub pull rate limit.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-19 (WS-05)
