@@ -10,12 +10,15 @@
 package de.planmarshall.core.store;
 
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import de.planmarshall.core.service.InternalFaultException;
@@ -151,6 +154,46 @@ public final class LeaseStore {
         Objects.requireNonNull(orphanedAt, "orphanedAt");
         return change(key,
                 lease -> lease.owner().isOrphaned() ? lease : lease.withOwner(lease.owner().orphaned(orphanedAt)));
+    }
+
+    /**
+     * Revises every lease of the store in one transaction: each lease is replaced by what the revision returns for
+     * it, or removed if the revision returns nothing. The leases are read, revised and written under the one lock of
+     * the store, so no claim, release or adoption comes between the read and the write. The store is written only
+     * if a lease changed or was removed.
+     * <p>
+     * The revision runs while the lock of the store is held: it is short, it takes no lock, and it returns a lease
+     * with the key of the lease it was given.
+     *
+     * @param revision what becomes of a lease: the lease to keep in its place, or empty to remove it
+     * @return the leases the store held before the revision, in its order; empty if the store does not exist
+     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
+     * @throws UncheckedIOException       if the store cannot be read or written
+     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     * @throws IllegalArgumentException   if the revision returns two leases with one key; nothing was written then
+     */
+    public Optional<List<LeaseRecord>> reviseAll(Function<LeaseRecord, Optional<LeaseRecord>> revision) {
+        Objects.requireNonNull(revision, "revision");
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(storeFile.lockKey());
+            var before = storeFile.read(transaction).map(this::decode);
+            if (before.isEmpty()) {
+                return before;
+            }
+            var after = new ArrayList<LeaseRecord>();
+            for (var lease : before.get()) {
+                revision.apply(lease).ifPresent(after::add);
+            }
+            if (!after.equals(before.get())) {
+                storeFile.write(transaction, LeaseCodec.write(after));
+            }
+            return before;
+        }
+    }
+
+    /** @return the store file, absolute and normalized */
+    public Path store() {
+        return storeFile.store();
     }
 
     /**

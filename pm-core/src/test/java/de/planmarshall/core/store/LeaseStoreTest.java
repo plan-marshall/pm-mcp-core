@@ -330,6 +330,95 @@ class LeaseStoreTest {
     }
 
     @Nested
+    @DisplayName("revision of every lease")
+    class ReviseAll {
+
+        private final Instant orphanedAt = Instant.parse("2026-10-09T10:00:01Z");
+
+        @Test
+        @DisplayName("each lease is replaced or removed in one transaction on the machine store key")
+        void revise() {
+            var kept = planLease("lock-manager", FIRST_RUNTIME);
+            var removed = new LeaseRecord("removed/repository", kept.owner(), ACQUIRED_AT, null);
+            var changed = new LeaseRecord("changed/repository", kept.owner(), ACQUIRED_AT, null);
+            leaseStore.claim(kept);
+            leaseStore.claim(removed);
+            leaseStore.claim(changed);
+            locks.acquisitions.clear();
+            locks.transactions = 0;
+            var orphaned = changed.withOwner(changed.owner().orphaned(orphanedAt));
+
+            var before = leaseStore.reviseAll(lease -> switch (lease.key()) {
+                case "removed/repository" -> Optional.empty();
+                case "changed/repository" -> Optional.of(orphaned);
+                default -> Optional.of(lease);
+            });
+
+            assertAll(
+                    () -> assertEquals(Optional.of(List.of(kept, removed, changed)), before),
+                    () -> assertEquals(List.of(kept, orphaned), leaseStore.snapshot()),
+                    LeaseStoreTest.this::assertOneTransactionOnTheStoreKey);
+        }
+
+        @Test
+        @DisplayName("a revision that changes nothing does not write the store")
+        void unchanged() throws IOException {
+            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            leaseStore.claim(lease);
+            var fileBefore = fileIdentity();
+
+            var before = leaseStore.reviseAll(Optional::of);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(List.of(lease)), before),
+                    () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
+                    () -> assertEquals(List.of(), locks.held));
+        }
+
+        @Test
+        @DisplayName("a store that does not exist is told apart from an empty one, and is not created")
+        void absentAndEmpty() {
+            var revised = new ArrayList<LeaseRecord>();
+            var absent = leaseStore.reviseAll(lease -> {
+                revised.add(lease);
+                return Optional.of(lease);
+            });
+            var absentStoreExists = Files.exists(store);
+            leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
+            leaseStore.release(KEY);
+
+            var empty = leaseStore.reviseAll(Optional::of);
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), absent),
+                    () -> assertFalse(absentStoreExists),
+                    () -> assertEquals(List.of(), revised),
+                    () -> assertEquals(Optional.of(List.of()), empty));
+        }
+
+        @Test
+        @DisplayName("a revision that gives two leases one key is refused, and the store stays as it was")
+        void duplicateKey() throws IOException {
+            var first = planLease("lock-manager", FIRST_RUNTIME);
+            leaseStore.claim(first);
+            leaseStore.claim(new LeaseRecord("another/repository", first.owner(), ACQUIRED_AT, null));
+            var written = Files.readAllBytes(store);
+
+            assertThrows(IllegalArgumentException.class, () -> leaseStore.reviseAll(lease -> Optional.of(first)));
+
+            assertAll(
+                    () -> assertArrayEquals(written, Files.readAllBytes(store)),
+                    () -> assertEquals(List.of(), locks.held));
+        }
+
+        @Test
+        @DisplayName("the store names its file")
+        void storePath() {
+            assertEquals(store.toAbsolutePath().normalize(), leaseStore.store());
+        }
+    }
+
+    @Nested
     @DisplayName("snapshot")
     class Snapshot {
 
@@ -419,6 +508,7 @@ class LeaseStoreTest {
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.adopt(null, SECOND_RUNTIME)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.adopt(KEY, null)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.orphan(KEY, null)),
+                    () -> assertThrows(NullPointerException.class, () -> leaseStore.reviseAll(null)),
                     () -> assertThrows(NullPointerException.class, () -> new LeaseStore.Claim(true, null)),
                     () -> assertEquals(0, locks.transactions));
         }
