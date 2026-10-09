@@ -25,11 +25,10 @@ maven-build:
   maven-profiles-release: ''
   npm-cache: false
 
-# Switched on once the repository is imported into the SonarCloud organisation plan-marshall (Automatic
-# Analysis off) under this key.
+# The project of the SonarCloud organisation plan-marshall; its Automatic Analysis is off, the CI build analyses.
 sonar:
   project-key: plan-marshall_pm-mcp-core
-  enabled: false
+  enabled: true
   skip-on-dependabot: true
 
 pages:
