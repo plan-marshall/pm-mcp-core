@@ -1,0 +1,27 @@
+= Loader of project-owned units and the compiled invariants
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `project-units-and-invariants`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-workflow packages `workflow.unit`, `workflow.verify`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The loader of project-owned units (`.marshall/config/*.pmwf`) with their declarations within compiled bounds.
+* The compiled invariants of each phase and `FinalizePipelineValidator` over the project roster; a violation refuses the project's plan lifecycle with file and line and is never replaced by a default unit.
+* The loader of the default units from `classpath:/workflows/`, which the assembly supplies.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[§ Unit Declarations]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/workflow-dsl.adoc[Workflow DSL]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]; link:../../../plan-marshall-documentation/doc/implementation-watch/module-structure.adoc[Module Structure]
+
+== Done When
+
+One refusing fixture per invariant and per declaration bound; a fixture project unit that violates an invariant refuses the lifecycle and names file and line.

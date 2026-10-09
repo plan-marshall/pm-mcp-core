@@ -1,0 +1,28 @@
+= Versioned store substrate
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `store-substrate`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-core package `core.store`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* Atomic writes, the per-scope transaction journal with roll-forward at recovery, and the fixed write order of a transaction that writes outside its scope.
+* The JSONL append discipline with tail repair under the store's lock.
+* Store digest verification through the journal, with the sidecar outside the protected stores; a mismatch decided only under the store's lock.
+* `format_version` on every document and record: exactly the current version is accepted, any other refused as `format_outdated` or `format_newer`.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-2[PM-IMPL-2], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[§ Store Digest Verification]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[§ Lock-Free Snapshot Reads, Transaction Locks & Leases]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]
+
+== Done When
+
+Crash-point tests: a kill between any two writes of a transaction is completed by recovery; a torn last JSONL line is repaired at the tail only; an out-of-band edit is detected on the next locked read and reported unverified by a lock-free reader; a document of another `format_version` is refused with its file named.

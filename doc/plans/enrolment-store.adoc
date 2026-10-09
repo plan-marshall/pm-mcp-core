@@ -1,0 +1,28 @@
+= Enrolment store, lifecycle gate and enrolment integrity
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `enrolment-store`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-core package `core.store`; pm-runtime
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The enrolment store, one file per project, with `--pilot` and the compiled lifecycle gate.
+* Enrolment integrity: the HMAC sidecar under the keyring key, verified in recovery and before every verify-not-resolve check, re-baselined only by the operator.
+* The per-use checks of enrolment files that Milestone 2 left out (owner, mode, no symbolic link).
+* `unenrol` is refused while the project has live work and leaves the project store in place.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-2[PM-SEC-2], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/11-enrolment-store.adoc[Store Schemas § Enrolment Store]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/cli-and-security.adoc[CLI & Security]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/filesystem-layout.adoc[Filesystem Layout]
+
+== Done When
+
+A tampered enrolment, a sidecar without its file and a file without its sidecar are each refused and audited; the lifecycle gate refuses a plan lifecycle on a closed gate; a pilot enrolment passes it.

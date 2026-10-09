@@ -1,0 +1,27 @@
+= Scope session log and session generations
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `session-log-and-generations`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-core packages `core.store`, `core.queue`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The scope session log with its entry rows and the pending entry record.
+* The session-generation store: a new generation at every entry, fencing the earlier ones.
+* This is what the generation header of the session relay is answered from.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-3[PM-CLIENT-3], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8], link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-2[PM-WORK-2]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session Log]; link:../../../plan-marshall-documentation/doc/specification/model-work/02-task-protocol.adoc#leases-fencing[Model Work § Leases, Generations & Fencing]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc[Store Schemas § Task Queue]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/runtime-model.adoc[Runtime Model]
+
+== Done When
+
+A second entry fences the first generation; a call of a fenced generation is refused; the log is append-only and survives a torn tail.

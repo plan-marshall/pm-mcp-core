@@ -12,8 +12,6 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * The detection of a stalled scope for `pm-operator status`. It reads scope stores that Milestone 3 delivers: plan this task after the store substrate of Milestone 3, or deliver the detection over a fixture store and wire the real stores then; decide in the trace matrix.
 
-It reads the scope stores, which do not exist yet. Replace the external dependency by the package when it is planned.
-
 == Trace
 
 Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
