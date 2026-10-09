@@ -31,6 +31,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
@@ -48,6 +49,7 @@ class WebTlsTest {
     private static final int GENERATED_PAIRS = 2000;
     private static final int HANDSHAKES = 200;
     private static final int PING = 42;
+    private static final int DEADLINE_MILLIS = 10_000;
 
     @Test
     @DisplayName("generates a verifiable ECDSA P-256 certificate with host, interface and loopback names")
@@ -159,12 +161,14 @@ class WebTlsTest {
                          .createServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
                 var served = CompletableFuture.supplyAsync(() -> serveOne(server));
                 try (var client = (SSLSocket) context.getSocketFactory().createSocket()) {
-                    client.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), server.getLocalPort()));
+                    client.connect(new InetSocketAddress(InetAddress.getLoopbackAddress(), server.getLocalPort()),
+                            DEADLINE_MILLIS);
+                    client.setSoTimeout(DEADLINE_MILLIS);
                     client.startHandshake();
                     client.getOutputStream().write(PING);
                     client.getOutputStream().flush();
 
-                    assertEquals(PING, served.get().intValue(), "handshake " + i);
+                    assertEquals(PING, served.get(DEADLINE_MILLIS, TimeUnit.MILLISECONDS).intValue(), "handshake " + i);
                 }
             }
         }
