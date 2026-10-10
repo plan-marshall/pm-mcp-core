@@ -18,13 +18,11 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.function.Function;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -66,7 +64,6 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
 
     private static final byte NEWLINE = '\n';
     private static final int SCAN_CHUNK = 8192;
-    private static final String OWNER_ONLY = "rw-------";
 
     /**
      * Makes the store path absolute and normalized.
@@ -227,15 +224,11 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
      */
     public void append(LockTransaction transaction, byte[] records, AuditSink auditSink) {
         requireHeld(transaction);
-        Objects.requireNonNull(records, "records");
+        requireBlock(store, records);
         Objects.requireNonNull(auditSink, "auditSink");
-        if (records.length == 0 || records[records.length - 1] != NEWLINE) {
-            throw new IllegalArgumentException(
-                    "A block appended to a JSONL store is not empty and ends with a newline: " + store);
-        }
         repairTail(transaction, auditSink);
         try {
-            appendBlock(records);
+            SyncedFiles.append(store, records);
         } catch (IOException e) {
             throw new UncheckedIOException("JSONL store cannot be appended to: " + store, e);
         }
@@ -311,26 +304,16 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
         return new Content(store, lines, tornTail);
     }
 
-    private void appendBlock(byte[] records) throws IOException {
-        var created = !Files.exists(store, LinkOption.NOFOLLOW_LINKS);
-        var ownerOnly = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(OWNER_ONLY));
-        try (var channel = FileChannel.open(store,
-                Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND), ownerOnly)) {
-            var buffer = ByteBuffer.wrap(records);
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-            channel.force(true);
-        }
-        if (created) {
-            forceDirectory(store.getParent());
-        }
-    }
-
-    /** A new file is an entry of the directory: it is on disk when the directory is. */
-    private static void forceDirectory(Path directory) throws IOException {
-        try (var channel = FileChannel.open(directory, StandardOpenOption.READ)) {
-            channel.force(true);
+    /**
+     * @param store   the store the block is for, named by the refusal
+     * @param records a block of records
+     * @throws IllegalArgumentException if the block is empty or does not end with a newline
+     */
+    static void requireBlock(Path store, byte[] records) {
+        Objects.requireNonNull(records, "records");
+        if (records.length == 0 || records[records.length - 1] != NEWLINE) {
+            throw new IllegalArgumentException(
+                    "A block appended to a JSONL store is not empty and ends with a newline: " + store);
         }
     }
 

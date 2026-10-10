@@ -11,16 +11,11 @@ package de.planmarshall.core.store;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import de.planmarshall.core.service.InternalFaultException;
@@ -47,8 +42,6 @@ import de.planmarshall.core.service.LockTransaction;
  * @since 0.1
  */
 public record AtomicStoreFile(Path store, LockKey lockKey) {
-
-    private static final String OWNER_ONLY = "rw-------";
 
     /**
      * Makes the store path absolute and normalized, so that it is compared with the lock file as the file it names.
@@ -88,45 +81,54 @@ public record AtomicStoreFile(Path store, LockKey lockKey) {
     public void write(LockTransaction transaction, byte[] content) {
         requireHeld(transaction);
         Objects.requireNonNull(content, "content");
+        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + UUID.randomUUID());
         try {
-            replace(content);
+            try {
+                replace(temporary, content);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("Store cannot be written: " + store, e);
         }
+        forceDirectoryOfStore();
+    }
+
+    /**
+     * Replaces the store as {@link #write(LockTransaction, byte[])} does, for a journaled transaction: the temporary
+     * file is {@code <store>.tmp.<transaction id>}, and it is not removed when the write fails. A write stopped at any
+     * point thus leaves what a killed process leaves, and only files that the recovery of the transaction recognises
+     * as its own.
+     *
+     * @param transaction   a transaction that holds the key of the store
+     * @param content       the new content of the store
+     * @param transactionId the transaction the write belongs to
+     * @throws InternalFaultException if the transaction does not hold the key; nothing was written then
+     * @throws UncheckedIOException   if the content cannot be written or the directory cannot be forced to disk
+     */
+    void write(LockTransaction transaction, byte[] content, TransactionId transactionId) {
+        requireHeld(transaction);
+        Objects.requireNonNull(content, "content");
+        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + transactionId.value());
         try {
-            forceDirectory(store.getParent());
+            replace(temporary, content);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Store cannot be written: " + store, e);
+        }
+        forceDirectoryOfStore();
+    }
+
+    private void replace(Path temporary, byte[] content) throws IOException {
+        SyncedFiles.writeNew(temporary, content);
+        Files.move(temporary, store, StandardCopyOption.ATOMIC_MOVE);
+    }
+
+    private void forceDirectoryOfStore() {
+        try {
+            SyncedFiles.forceDirectory(store.getParent());
         } catch (IOException e) {
             throw new UncheckedIOException(
                     "Store was replaced, but its directory cannot be forced to disk: " + store, e);
-        }
-    }
-
-    private void replace(byte[] content) throws IOException {
-        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + UUID.randomUUID());
-        try {
-            writeSynced(temporary, content);
-            Files.move(temporary, store, StandardCopyOption.ATOMIC_MOVE);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
-    }
-
-    /** The rename is an entry of the directory: it is on disk when the directory is. */
-    private static void forceDirectory(Path directory) throws IOException {
-        try (var channel = FileChannel.open(directory, StandardOpenOption.READ)) {
-            channel.force(true);
-        }
-    }
-
-    private static void writeSynced(Path temporary, byte[] content) throws IOException {
-        var ownerOnly = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(OWNER_ONLY));
-        try (var channel = FileChannel.open(temporary,
-                     Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE), ownerOnly)) {
-            var buffer = ByteBuffer.wrap(content);
-            while (buffer.hasRemaining()) {
-                channel.write(buffer);
-            }
-            channel.force(true);
         }
     }
 
