@@ -27,14 +27,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-
-import de.planmarshall.core.store.StoreRefusal.Outcome;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The leases of a machine lease store (PM-IMPL-7): records that are claimed and released in one short transaction

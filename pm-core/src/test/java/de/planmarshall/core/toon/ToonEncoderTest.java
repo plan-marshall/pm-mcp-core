@@ -22,6 +22,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import de.planmarshall.core.toon.ToonEncodingException.Reason;
 import de.planmarshall.core.toon.ToonValue.ToonArray;
@@ -29,12 +34,6 @@ import de.planmarshall.core.toon.ToonValue.ToonNull;
 import de.planmarshall.core.toon.ToonValue.ToonNumber;
 import de.planmarshall.core.toon.ToonValue.ToonObject;
 import de.planmarshall.core.toon.ToonValue.ToonString;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 @DisplayName("ToonEncoder")
 class ToonEncoderTest {

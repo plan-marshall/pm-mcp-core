@@ -20,15 +20,14 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.OptionalInt;
 import java.util.stream.Stream;
-
-import de.planmarshall.core.store.StoreRefusal.Outcome;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The one refusal of a store document or record (PM-IMPL-2): a closed set of outcomes, each naming the file, the

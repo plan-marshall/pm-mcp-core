@@ -24,11 +24,6 @@ import java.text.Normalizer;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
-
-import de.planmarshall.core.store.ConfinementOutcome.Confined;
-import de.planmarshall.core.store.ConfinementOutcome.Reason;
-import de.planmarshall.core.store.ConfinementOutcome.Rejected;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -42,6 +37,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.store.ConfinementOutcome.Confined;
+import de.planmarshall.core.store.ConfinementOutcome.Reason;
+import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 
 /**
  * The adversarial fixtures of the path confinement (PM-SEC-2). Every refusal stands beside the positive control

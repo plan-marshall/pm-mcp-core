@@ -17,11 +17,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
-
-import de.planmarshall.core.store.ConfinementOutcome.Confined;
-import de.planmarshall.core.store.ConfinementOutcome.Reason;
-import de.planmarshall.core.store.ConfinementOutcome.Rejected;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +26,10 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.store.ConfinementOutcome.Confined;
+import de.planmarshall.core.store.ConfinementOutcome.Reason;
+import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 
 /**
  * The linked worktrees of the path confinement (PM-SEC-2). The fixtures are the plain files git writes for a
