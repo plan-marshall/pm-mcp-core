@@ -35,8 +35,10 @@ decision or a dependency outside this repository.
   It gates PLAN-25 `waits` and PLAN-26 `role-sets-and-model-caller`, and through them most of
   WS-04 and WS-05 — the first external dependency on the critical path.
 - PLAN-27 — staged, but also waits on `pm-mcp-clients` / `exec-read-denied-paths`.
-- PLAN-04 — emitted on 2026-10-10 and not started. Its package `runtime.start` is touched by
-  PLAN-01's open PR #20 in files the gate cannot see; see Watches.
+- PLAN-04 — emitted on 2026-10-10 and not started. The operator's hold lifted on 2026-10-10:
+  #20 merged without touching `runtime.start`.
+- PLAN-06, PLAN-08, PLAN-09 — unblocked on 2026-10-10: PLAN-01 shipped. PLAN-06 `store-substrate`
+  also gates PLAN-15 and most of `core.store`; PLAN-08 and PLAN-09 share the WS-01 identifier block.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
 - PLAN-38 — configuration only (`.plan/marshal.json`); owns the review-bot Open Defect. Emitted
@@ -111,18 +113,28 @@ decision or a dependency outside this repository.
   Docker Hub pull rate limit of the reviewer image is a change in `cuioss/cuioss-organization`
   and was handed to the operator as a command for that repository; it is not a plan of this epic.
 
+- 2026-10-10 — PLAN-01 `lock-manager-and-leases` landed as #20 (c2b608b); landing record
+  `landings/PLAN-01.md`. Inbox drain of its 20 messages: the landing reconciled; of the 19
+  candidate lessons, 15 promoted (002, 003, 007 to 019 as lessons 2026-10-10-14-001 to -015 in that
+  order), 4 folded: 001 into lesson -14-011 (same `scope_creep_check` failure, also filed as 015),
+  004 as a recurrence into lesson -07-016, 005 as a recurrence into lesson -07-013 and the
+  review-bot Open Defect (PLAN-38 owns it), 006 into the same-block identifier Open Defect.
+  Lessons 007 to 009 are dispatcher reports the plan itself marks as not confirmed in its logs.
+
 ## Open Defects
 
 - `cuioss-review-bot` is a required reviewer that does not re-review after a fix commit, so the
   review step of every plan with a fix round stalls until the operator makes the bot optional for
-  that plan. It happened on PLAN-02 and PLAN-03 and will happen on PLAN-01. The fix is a project
+  that plan. It happened on PLAN-02, PLAN-03 and PLAN-01. PLAN-38 owns the fix. The fix is a project
   configuration decision in `.plan/marshal.json` — source: landings PLAN-02 and PLAN-03, lessons
   2026-10-10-07-013 (with recurrence).
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
   package to adopt the check itself — source: landing PLAN-03.
 - Two plans of one workstream can take the same log identifier; it surfaced as a merge conflict
-  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03.
+  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03;
+  confirmed by PLAN-01 (inbox 006), which moved to WARN 151. PLAN-04, PLAN-08 and PLAN-09 share the
+  same WS-01 block.
 
 - The roadmap item behind PLAN-02 is only partly delivered and no staged plan owns the rest:
   validators for `request.md` and pull request bodies (PM-WF-6), the `OutlineValidator` rules that
@@ -135,20 +147,24 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- PLAN-01's PR #20 changes about 20 files outside its packages (`runtime.credentials`, `runtime.lsp`,
-  `runtime.web`, `runtime.start`, `runtime.ingest`). The plan's recorded footprint does not show
-  them, so the gate cannot see them; PLAN-04 `service-unit` works in `runtime.start`. Cause not
-  established (an uncorroborated report says the pre-commit profile rewrites unrelated files).
-  Re-check when #20 is rebased.
-- #20 reads CONFLICTING against `main` since #19 merged — retire when PLAN-01 has rebased.
+- Documentation of PLAN-01 owed in `plan-marshall-documentation`: `doc/LogMessages.adoc` entries
+  INFO 050, WARN 151, ERROR 250 and the amendment of Format & Atomic Write Discipline for the
+  parent-directory force. Not started, no plan owns it — retire when merged there.
+- The `plan-marshall-mcp` package that wires `FileLockManager` must create one instance per runtime
+  (a second one can release the first holder's OS lock on POSIX); stated only in the Javadoc.
+  Outside this repository — carry to whoever stages that wiring.
+- `verify -Ppre-commit` of `pm-mcp-parent` is not idempotent and rewrites files a plan never
+  touched (27 `pm-runtime` files on PLAN-01; lesson 2026-10-10-14-001). Every running plan can
+  pull unrelated diffs into its PR. A parent POM change, outside this repository.
 
 - `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
   PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
 - `cuioss-review-bot` reviewed only the first commit of #18 (no push trigger) and was made
   optional for that plan; on #17 it failed on a Docker Hub pull rate limit. Confirmed again on
   PLAN-03 (#19) and raised to an Open Defect on 2026-10-10.
-- 22 plan-marshall tooling lessons (2026-10-10-07-001, -002, -011 to -024 and 2026-10-10-08-001
-  to -006) sit in this repository's lessons store — retire when routed to plan-marshall.
+- 32 plan-marshall tooling lessons (2026-10-10-07-001, -002, -011 to -024, 2026-10-10-08-001 to
+  -006 and 2026-10-10-14-002 to -006, -011 to -015) sit in this repository's lessons store —
+  retire when routed to plan-marshall.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 

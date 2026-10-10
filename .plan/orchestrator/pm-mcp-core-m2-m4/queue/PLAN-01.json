@@ -2,9 +2,9 @@
   "id": "PLAN-01",
   "slug": "lock-manager-and-leases",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "lock-manager-and-leases",
-  "pr": "",
-  "landing": "",
+  "pr": "#20",
+  "landing": "landings/PLAN-01.md",
   "seq": 1
 }
