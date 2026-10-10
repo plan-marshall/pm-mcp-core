@@ -97,18 +97,23 @@ class AstNodeModelTest {
         }
 
         @Test
-        @DisplayName("a map passed to a record is copied and cannot be changed through the accessor")
-        void mapIsCopied() {
-            var digests = new LinkedHashMap<String, String>();
-            digests.put("units", "sha-1");
-            var header = new InstanceHeader("plan-1", 1, "plan", digests, "{}");
+        @DisplayName("the unit lists of the instance inputs are copied and cannot be changed through the accessor")
+        void instanceInputsAreCopied() {
+            var unit = new InstanceInputs.UnitRef("plan", Optional.empty(), "sha-1", "default");
+            var templates = new ArrayList<>(List.of(unit));
+            var subUnits = new ArrayList<InstanceInputs.UnitRef>();
+            var inputs = new InstanceInputs("config", templates, subUnits, new InstanceInputs.CompositionRules("1",
+                    "sha-2"), "facts", Optional.empty(), Optional.empty(), Optional.empty());
+            var header = new InstanceHeader("plan-1", 1, "plan", inputs, "{}");
 
-            digests.put("rules", "sha-2");
+            templates.clear();
+            subUnits.add(unit);
 
             assertAll(
-                    () -> assertEquals(Map.of("units", "sha-1"), header.inputDigests()),
+                    () -> assertEquals(List.of(unit), header.inputs().templates()),
+                    () -> assertEquals(List.of(), header.inputs().subUnits()),
                     () -> assertThrows(UnsupportedOperationException.class,
-                            () -> header.inputDigests().put("other", "sha-3")));
+                            () -> header.inputs().templates().add(unit)));
         }
 
         @Test

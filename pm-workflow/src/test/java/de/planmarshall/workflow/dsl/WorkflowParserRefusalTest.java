@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -29,6 +30,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.UnitOrigin;
 
 /**
@@ -42,8 +44,12 @@ class WorkflowParserRefusalTest {
     private static final Pattern EXPECTATION = Pattern.compile("^#\\s*expect:\\s*([A-Z_]+)\\s+line\\s+(\\d+)");
 
     private static final String HEADER = "workflow demo version 1 format 1";
+    private static final String TEMPLATES = "\"templates\": []";
+    private static final String COMPOSITION_RULES = "\"composition_rules\": {\"revision\": \"r\", \"digest\": \"d\"}";
+    private static final String INPUTS = "{\"config_hash\": \"c\", " + TEMPLATES + ", \"sub_units\": [], "
+            + COMPOSITION_RULES + ", \"plan_facts_digest\": \"f\"}";
     private static final String INSTANCE_MEMBERS =
-            "\"plan_id\": \"p\", \"version\": 1, \"event\": \"compose\", \"input_digests\": {}";
+            "\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\", \"inputs\": " + INPUTS;
 
     private static Diagnostic refuse(String resource, String source) {
         var result = WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT);
@@ -58,6 +64,16 @@ class WorkflowParserRefusalTest {
     private static String withInstance(String instanceLine) {
         return lines(HEADER, instanceLine, "scope plan", "start demo.end", "state demo.end terminal done success",
                 "phase init");
+    }
+
+    /** A unit whose instance header carries the given members. */
+    private static String withHeaderMembers(String members) {
+        return withInstance("instance {" + members + "}");
+    }
+
+    /** A unit whose instance header is valid but for the given member of its inputs, replaced as stated. */
+    private static String withInputs(String member, String replacement) {
+        return withHeaderMembers(INSTANCE_MEMBERS.replace(member, replacement));
     }
 
     /** A unit of the scope whose header lines from line 3 on are the given lines. */
@@ -149,20 +165,42 @@ class WorkflowParserRefusalTest {
                             withInstance("instance {" + INSTANCE_MEMBERS + "} {}")),
                     refusal("instance member twice", RefusalRule.INSTANCE_HEADER, 2,
                             withInstance("instance {" + INSTANCE_MEMBERS + ", \"event\": \"again\"}")),
-                    refusal("instance plan_id not a string", RefusalRule.INSTANCE_HEADER, 2, withInstance(
-                            "instance {\"plan_id\": 1, \"version\": 1, \"event\": \"e\", \"input_digests\": {}}")),
-                    refusal("instance version not an integer", RefusalRule.INSTANCE_HEADER, 2, withInstance(
-                            "instance {\"plan_id\": \"p\", \"version\": \"1\", \"event\": \"e\", \"input_digests\": {}}")),
-                    refusal("instance event not a string", RefusalRule.INSTANCE_HEADER, 2, withInstance(
-                            "instance {\"plan_id\": \"p\", \"version\": 1, \"event\": 2, \"input_digests\": {}}")),
-                    refusal("instance digests not an object", RefusalRule.INSTANCE_HEADER, 2, withInstance(
-                            "instance {\"plan_id\": \"p\", \"version\": 1, \"event\": \"e\", \"input_digests\": []}")),
-                    refusal("instance digest not a string", RefusalRule.INSTANCE_HEADER, 2, withInstance(
-                            "instance {\"plan_id\": \"p\", \"version\": 1, \"event\": \"e\", "
-                                    + "\"input_digests\": {\"plan\": 1}}")),
-                    refusal("instance digest twice", RefusalRule.INSTANCE_HEADER, 2, withInstance(
-                            "instance {\"plan_id\": \"p\", \"version\": 1, \"event\": \"e\", "
-                                    + "\"input_digests\": {\"plan\": \"a\", \"plan\": \"b\"}}")),
+                    refusal("instance plan_id not a string", RefusalRule.INSTANCE_HEADER, 2,
+                            withHeaderMembers(INSTANCE_MEMBERS.replace("\"plan_id\": \"p\"", "\"plan_id\": 1"))),
+                    refusal("instance version not an integer", RefusalRule.INSTANCE_HEADER, 2,
+                            withHeaderMembers(INSTANCE_MEMBERS.replace("\"version\": 1", "\"version\": \"1\""))),
+                    refusal("instance event not a string", RefusalRule.INSTANCE_HEADER, 2,
+                            withHeaderMembers(INSTANCE_MEMBERS.replace("\"event\": \"plan\"", "\"event\": 2"))),
+                    refusal("instance inputs missing", RefusalRule.INSTANCE_HEADER, 2,
+                            withHeaderMembers("\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\"")),
+                    refusal("instance input digests in the old shape", RefusalRule.INSTANCE_HEADER, 2,
+                            withHeaderMembers("\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\", "
+                                    + "\"input_digests\": {\"plan\": \"a\"}")),
+                    refusal("instance inputs not an object", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(INPUTS, "[]")),
+                    refusal("instance input missing", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(", \"plan_facts_digest\": \"f\"", "")),
+                    refusal("instance input twice", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, TEMPLATES + ", " + TEMPLATES)),
+                    refusal("instance config hash not a string", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs("\"config_hash\": \"c\"", "\"config_hash\": 1")),
+                    refusal("instance optional input neither string nor null", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, TEMPLATES + ", \"change_type\": 1")),
+                    refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": {}")),
+                    refusal("instance unit reference not an object", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": [\"plan\"]")),
+                    refusal("instance unit reference without origin", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": [{\"unit\": \"plan\", \"digest\": \"t\"}]")),
+                    refusal("instance unit file neither string nor null", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": [{\"unit\": \"plan\", \"digest\": \"t\", "
+                                    + "\"origin\": \"project\", \"file\": 1}]")),
+                    refusal("instance unit member twice", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": [{\"unit\": \"plan\", \"unit\": \"other\"}]")),
+                    refusal("instance composition rules not an object", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(COMPOSITION_RULES, "\"composition_rules\": \"r\"")),
+                    refusal("instance composition rules without digest", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(COMPOSITION_RULES, "\"composition_rules\": {\"revision\": \"r\"}")),
                     refusal("scope missing at the end of the unit", RefusalRule.MISSING_SCOPE, 1, lines(HEADER)),
                     refusal("unknown scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope team")),
                     refusal("bare scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope")),
@@ -498,16 +536,42 @@ class WorkflowParserRefusalTest {
         @Test
         @DisplayName("keeps the JSON as read and ignores members it does not interpret")
         void readsHeader() {
-            var json = "{\"extra\": {\"deep\": [true]}, " + INSTANCE_MEMBERS + "}";
+            var json = "{\"extra\": {\"deep\": [true]}, \"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\", "
+                    + "\"inputs\": {\"extra\": [1], \"config_hash\": \"c\", \"templates\": [{\"unit\": \"plan\", "
+                    + "\"digest\": \"t\", \"origin\": \"project\", \"extra\": null}], \"sub_units\": [], "
+                    + "\"composition_rules\": {\"revision\": \"r\", \"digest\": \"d\", \"extra\": true}, "
+                    + "\"plan_facts_digest\": \"f\", \"realized_footprint_digest\": \"g\"}}";
 
             var header = InstanceHeaderReader.read(json);
+            var inputs = header.inputs();
 
             assertAll(
                     () -> assertEquals("p", header.planId()),
                     () -> assertEquals(1, header.version()),
-                    () -> assertEquals("compose", header.event()),
-                    () -> assertTrue(header.inputDigests().isEmpty()),
+                    () -> assertEquals("plan", header.event()),
+                    () -> assertEquals("c", inputs.configHash()),
+                    () -> assertEquals(
+                            List.of(new InstanceInputs.UnitRef("plan", Optional.empty(), "t", "project")),
+                            inputs.templates()),
+                    () -> assertEquals(List.of(), inputs.subUnits()),
+                    () -> assertEquals(new InstanceInputs.CompositionRules("r", "d"), inputs.compositionRules()),
+                    () -> assertEquals("f", inputs.planFactsDigest()),
+                    () -> assertEquals(Optional.of("g"), inputs.realizedFootprintDigest()),
+                    () -> assertEquals(Optional.empty(), inputs.changeType()),
+                    () -> assertEquals(Optional.empty(), inputs.providersDigest()),
                     () -> assertEquals(json, header.json()));
+        }
+
+        @Test
+        @DisplayName("names the nested member a refusal lies in")
+        void nestedMemberPath() {
+            var json = "{" + INSTANCE_MEMBERS.replace(TEMPLATES,
+                    "\"templates\": [{\"unit\": \"plan\", \"digest\": 7, \"origin\": \"project\"}]") + "}";
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> InstanceHeaderReader.read(json));
+
+            assertEquals("member 'inputs.templates[0].digest' of the instance header must be a string",
+                    refusal.getMessage());
         }
     }
 }

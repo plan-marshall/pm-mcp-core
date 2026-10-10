@@ -39,6 +39,7 @@ import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.GuardSpec;
 import de.planmarshall.workflow.ast.InstanceHeader;
+import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkForm;
 import de.planmarshall.workflow.ast.LinkRelation;
@@ -73,9 +74,28 @@ class WorkflowParserTest {
     private static final String ADJUDICATE_UNIT = "dsl/valid/adjudicate-unit.pmwf";
     private static final String INSTANCE_UNIT = "dsl/valid/instance-unit.pmwf";
 
-    private static final String INSTANCE_JSON = "{\"plan_id\": \"demo-plan\", \"version\": 4, \"event\": \"compose\", "
-            + "\"input_digests\": {\"plan\": \"sha256:ab#12\", \"roles\": \"sha256:cd\"}, "
-            + "\"note\": {\"nested\": [1, 2]}}";
+    private static final String CONFIG_HASH = "a".repeat(64);
+    private static final String RULES_DIGEST = "b".repeat(64);
+    private static final String PLAN_FACTS_DIGEST = "d".repeat(64);
+    private static final String COMMIT_DIGEST = "e".repeat(64);
+    private static final String REMEDIATION_DIGEST = "0".repeat(64);
+    private static final String TEMPLATE_DIGEST = "f".repeat(64);
+
+    private static final String INSTANCE_JSON = "{\"composed_at\":\"2026-10-10T12:00:00Z\",\"event\":\"plan\","
+            + "\"format_version\":1,\"inputs\":{\"change_type\":\"feature\",\"composition_rules\":{\"digest\":\""
+            + RULES_DIGEST + "\",\"revision\":\"r#3\"},\"config_hash\":\"" + CONFIG_HASH
+            + "\",\"plan_facts_digest\":\"" + PLAN_FACTS_DIGEST + "\",\"providers_digest\":null,"
+            + "\"sub_units\":[{\"digest\":\"" + COMMIT_DIGEST
+            + "\",\"file\":null,\"origin\":\"default\",\"unit\":\"git.commit_and_push\"},{\"digest\":\""
+            + REMEDIATION_DIGEST + "\",\"origin\":\"default\",\"unit\":\"remediation.ci-failure\"}],"
+            + "\"templates\":[{\"digest\":\"" + TEMPLATE_DIGEST
+            + "\",\"file\":\".marshall/config/plan.pmwf\",\"origin\":\"project\",\"unit\":\"plan\"}]},"
+            + "\"lane\":\"deep\",\"plan_id\":\"demo-plan\",\"policy_calls\":[{\"args\":{\"retry_budget\":"
+            + "{\"source\":\"template\",\"value\":2}},\"call_site\":\"plan.run\",\"unit\":\"remediation.ci-failure\"}],"
+            + "\"posture\":\"standard\",\"pruned\":[{\"element\":\"step\",\"id\":\"default:sonar-roundtrip\","
+            + "\"reason\":\"provider_unconfigured\",\"source_fact\":\"providers.sonar\"}],"
+            + "\"steps\":{\"phase_5_verification\":[\"verify:quality-gate\"],"
+            + "\"phase_6\":[\"default:push\",\"default:create-pr\"]},\"version\":4,\"waived_gates\":[]}";
 
     private static final Optional<Integer> UNBOUNDED = Optional.empty();
     private static final GuardExpr IN_WORKTREE = new GuardExpr.InWorktree();
@@ -335,13 +355,19 @@ class WorkflowParserTest {
         }
 
         @Test
-        @DisplayName("plan instance: the instance header line with its digests and the JSON as read")
+        @DisplayName("plan instance: the instance header line with its nested inputs and the JSON as read")
         void instanceUnit() {
-            var digests = new LinkedHashMap<String, String>();
-            digests.put("plan", "sha256:ab#12");
-            digests.put("roles", "sha256:cd");
-            var expected = new WorkflowDefinition("plan", 7, WorkflowScope.PLAN, List.of(), Optional.empty(),
-                    Optional.of(new InstanceHeader("demo-plan", 4, "compose", digests, INSTANCE_JSON)), Map.of(),
+            var inputs = new InstanceInputs(CONFIG_HASH,
+                    List.of(new InstanceInputs.UnitRef("plan", Optional.of(".marshall/config/plan.pmwf"),
+                            TEMPLATE_DIGEST, "project")),
+                    List.of(new InstanceInputs.UnitRef("git.commit_and_push", Optional.empty(), COMMIT_DIGEST,
+                                    "default"),
+                            new InstanceInputs.UnitRef("remediation.ci-failure", Optional.empty(), REMEDIATION_DIGEST,
+                                    "default")),
+                    new InstanceInputs.CompositionRules("r#3", RULES_DIGEST), PLAN_FACTS_DIGEST, Optional.empty(),
+                    Optional.of("feature"), Optional.empty());
+            var expected = new WorkflowDefinition("plan", 4, WorkflowScope.PLAN, List.of(), Optional.empty(),
+                    Optional.of(new InstanceHeader("demo-plan", 4, "plan", inputs, INSTANCE_JSON)), Map.of(),
                     Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "plan.run", List.of(),
                     states(state("plan.run", "execute",
                             new StateBehavior.AutoStep("plan.execute", List.of(to("done", "plan.end")))),
@@ -389,7 +415,7 @@ class WorkflowParserTest {
         }
 
         @Test
-        @DisplayName("keeps the declaration order of states, declarations, decisions, bindings and digests")
+        @DisplayName("keeps the declaration order of states, declarations, decisions, bindings and sub-units")
         void order() {
             var plan = DslFixtures.parseValid(PLAN_UNIT);
             var call = (StateBehavior.SubWorkflowCall) plan.states().get("review.check").behavior();
@@ -406,7 +432,8 @@ class WorkflowParserTest {
                             List.copyOf(call.paramBindings().keySet())),
                     () -> assertEquals(List.of("interpretation", "approach", "scope"),
                             List.copyOf(adjudicate.decisions().keySet())),
-                    () -> assertEquals(List.of("plan", "roles"), List.copyOf(instance.inputDigests().keySet())));
+                    () -> assertEquals(List.of("git.commit_and_push", "remediation.ci-failure"),
+                            instance.inputs().subUnits().stream().map(InstanceInputs.UnitRef::unit).toList()));
         }
     }
 

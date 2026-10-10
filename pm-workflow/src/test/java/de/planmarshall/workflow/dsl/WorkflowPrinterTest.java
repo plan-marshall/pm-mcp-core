@@ -61,7 +61,9 @@ class WorkflowPrinterTest {
     /** Canonical source covering the header clauses and every state body form, as the printer writes it. */
     private static final String CANONICAL = """
             workflow git.flow version 2 format 1
-            instance {"plan_id": "p", "version": 1, "event": "compose", "input_digests": {"a": "b"}}
+            instance {"plan_id": "p", "version": 1, "event": "plan", "inputs": {"config_hash": "c", \
+            "templates": [{"unit": "git.flow", "digest": "t", "origin": "default"}], "sub_units": [], \
+            "composition_rules": {"revision": "r", "digest": "d"}, "plan_facts_digest": "f"}}
             scope subworkflow
             param mode : enum[fast|Slow]
             param tries : int[1..3]
@@ -264,10 +266,15 @@ class WorkflowPrinterTest {
         @DisplayName("prints the instance line second, with the header JSON exactly as it was read")
         void instanceLine() {
             var definition = DslFixtures.parseValid("dsl/valid/instance-unit.pmwf");
+            var header = definition.instance().orElseThrow();
 
             var lines = WorkflowPrinter.print(definition).lines().toList();
 
-            assertEquals("instance " + definition.instance().orElseThrow().json(), lines.get(1));
+            assertAll(
+                    () -> assertEquals("instance " + header.json(), lines.get(1)),
+                    () -> assertTrue(header.json().contains("\"inputs\":{"), header::json),
+                    () -> assertEquals(header, parse("printed-instance.pmwf", String.join("\n", lines))
+                            .instance().orElseThrow()));
         }
 
         @Test

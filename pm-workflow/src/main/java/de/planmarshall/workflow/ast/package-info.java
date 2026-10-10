@@ -33,7 +33,7 @@
  * <li><b>Call values</b>: {@link de.planmarshall.workflow.ast.CallValue}, the literals bound at a {@code call} site or
  * declared by a {@code declare} line (PM-WF-16).</li>
  * <li><b>Instance header</b>: {@link de.planmarshall.workflow.ast.InstanceHeader}, the parsed {@code instance} line of
- * a plan instance version.</li>
+ * a plan instance version, with its composition inputs ({@link de.planmarshall.workflow.ast.InstanceInputs}).</li>
  * <li><b>Call frame</b>: {@link de.planmarshall.workflow.ast.CallFrame}, one frame of a scope's call stack
  * (PM-WF-16).</li>
  * <li><b>Guard result</b>: {@link de.planmarshall.workflow.ast.GuardResult}, the three-valued result of evaluating a
