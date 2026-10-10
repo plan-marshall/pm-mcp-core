@@ -39,6 +39,8 @@ decision or a dependency outside this repository.
   PLAN-01's open PR #20 in files the gate cannot see; see Watches.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
+- PLAN-38 — configuration only (`.plan/marshal.json`); owns the review-bot Open Defect. Emitted
+  on 2026-10-10 at the operator's request, outside queue order.
 - PLAN-36 — serves Milestone 6; ready now and disjoint by package from every other plan, so it
   is a good filler for a free slot. It sits at the queue end because a row's order is fixed when
   it is staged; ask for it by id when a slot is free.
@@ -102,6 +104,12 @@ decision or a dependency outside this repository.
 - 2026-10-10 — Collision recorded: PLAN-01 (#20) and PLAN-03 (#19) both took WARN 150 in the shared
   WS-01 block of `PmMcpLogMessages`, which no spec declares by the block decision of 2026-10-09.
   The pairing gate could not predict it. PLAN-01 was told through its mailbox.
+
+- 2026-10-10 — Operator asked for the review-bot fix as a plan. Staged PLAN-38
+  `review-bot-re-review` in a new workstream WS-09 `project-configuration`: set
+  `re_review_on_loopback` to `true` so the review step posts `/review` after a fix commit. The
+  Docker Hub pull rate limit of the reviewer image is a change in `cuioss/cuioss-organization`
+  and was handed to the operator as a command for that repository; it is not a plan of this epic.
 
 ## Open Defects
 

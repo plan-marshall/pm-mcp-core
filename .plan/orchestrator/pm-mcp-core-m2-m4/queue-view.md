@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-01 lock-manager-and-leases (PR #20, CONFLICTING against main, advisory in its mailbox). Shipped: PLAN-02 (#18), PLAN-03 (#19). Emitted, awaiting operator-confirmed launch: PLAN-05 http-baseline, PLAN-07 workflow-dsl-parser-and-ast. Held back by the operator until #20 merges: PLAN-04 service-unit. Next action: record launched/running on confirmation; analyze when PLAN-01 lands; land the ledger. Open for the operator: review-bot configuration (blocks every plan with a fix round); unowned remainder of PLAN-02's roadmap item; routing of 22 plan-marshall lessons.
+**Resume anchor**: Running: PLAN-01 lock-manager-and-leases (PR #20, CONFLICTING against main, advisory in its mailbox). Shipped: PLAN-02 (#18), PLAN-03 (#19). Emitted, awaiting operator-confirmed launch: PLAN-05 http-baseline, PLAN-07 workflow-dsl-parser-and-ast, PLAN-38 review-bot-re-review (configuration, at the operator's request). Held back by the operator until #20 merges: PLAN-04 service-unit. Next action: record launched/running on confirmation; analyze when PLAN-01 lands; land the ledger. Open for the operator: unowned remainder of PLAN-02's roadmap item; routing of 22 plan-marshall lessons; the image-mirror change in cuioss/cuioss-organization.
 **Phase**: orchestrating
 **Running**:
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases
@@ -44,6 +44,7 @@
 30. PLAN-34 (WS-05)
 31. PLAN-35 (WS-06)
 32. PLAN-36 (WS-07)
+33. PLAN-38 (WS-09)
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
 
@@ -86,3 +87,4 @@
 | 33 | PLAN-35 | WS-06 | staged | doc/plans/README.adoc; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ |
 | 34 | PLAN-36 | WS-07 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/analysis/; pm-core/src/main/java/de/planmarshall/core/findings/; pm-core/src/test/java/de/planmarshall/core/analysis/; pm-core/src/test/java/de/planmarshall/core/findings/; src/guard-controls/ |
 | 35 | PLAN-37 | WS-06 | parked | doc/plans/README.adoc; pm-core/src/test/java/de/planmarshall/core/differential/ |
+| 36 | PLAN-38 | WS-09 | staged | .plan/marshal.json |
