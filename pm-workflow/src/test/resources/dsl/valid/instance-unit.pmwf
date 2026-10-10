@@ -1,0 +1,14 @@
+# A plan instance written for the parser tests, not taken from any composed instance.
+# The instance header line follows the unit header and precedes the scope clause.
+workflow plan version 7 format 1
+instance {"plan_id": "demo-plan", "version": 4, "event": "compose", "input_digests": {"plan": "sha256:ab#12", "roles": "sha256:cd"}, "note": {"nested": [1, 2]}}
+scope plan
+start plan.run
+
+state plan.run
+    phase execute
+    auto plan.execute
+        done -> plan.end
+
+state plan.end terminal done success
+    phase finalize

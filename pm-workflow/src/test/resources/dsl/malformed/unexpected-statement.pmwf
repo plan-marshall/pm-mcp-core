@@ -1,0 +1,7 @@
+# expect: STRUCTURE line 5
+workflow demo version 1 format 1
+scope plan
+start demo.begin
+declare rounds = 2
+state demo.begin terminal done success
+    phase init

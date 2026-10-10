@@ -1,0 +1,8 @@
+# expect: DUPLICATE_ID line 5
+workflow demo version 1 format 1
+scope plan
+declare rounds = 2
+declare rounds = 3
+start demo.begin
+state demo.begin terminal done success
+    phase init

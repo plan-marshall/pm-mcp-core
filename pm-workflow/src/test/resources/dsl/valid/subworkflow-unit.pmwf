@@ -1,0 +1,34 @@
+# A sub-workflow written for the parser tests, not taken from any default unit.
+# It covers the param and result declarations, phase inherit and the task states.
+workflow git.commit_and_push version 1 format 1
+scope subworkflow
+param push : enum[enabled|disabled]
+param attempts: int[1..5]
+param depth : int
+param targets : list<enum[origin|Mirror]>
+result schema[commit-result]
+start git.stage
+
+state git.stage
+    phase inherit
+    job llm change role implementer each git.list-changes ask
+    consult role reviewer
+    consult role architect
+        done -> git.review
+        lost -> git.stepped-out
+
+state git.review
+    phase inherit
+    facts git.read-diff
+    job llm change role reviewer
+        approved -> git.done
+        rejected -> git.stage
+
+state git.done terminal done success
+    phase inherit
+
+state git.skipped terminal skipped skip
+    phase inherit
+
+state git.stepped-out terminal stepped_out stepped_out
+    phase inherit

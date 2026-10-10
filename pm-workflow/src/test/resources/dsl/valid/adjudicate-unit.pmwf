@@ -1,0 +1,19 @@
+# An adjudication unit written for the parser tests, not taken from any default unit.
+# It covers decide ask and quorum lines between declare lines, and a role-each task state.
+workflow adjudicate.decisions version 1 format 1
+scope entity
+declare max_rounds = 2
+decide interpretation -> ask
+decide approach -> quorum(architect, reviewer, 75)
+decide scope -> quorum(architect, 60)
+declare panel = [Lead, second]
+start adjudicate.vote
+
+state adjudicate.vote
+    phase inherit
+    job llm decision role each adjudicate.list-roles
+        decided -> adjudicate.settled
+        lost -> adjudicate.settled
+
+state adjudicate.settled terminal settled success
+    phase inherit
