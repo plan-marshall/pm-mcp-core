@@ -193,11 +193,11 @@ class LockContractTest {
     class LogMessages {
 
         @Test
-        @DisplayName("the messages of locks and leases carry the identifiers 50, 150 and 250")
+        @DisplayName("the messages of locks and leases carry the identifiers 50, 151 and 250")
         void identifiers() {
             assertAll(
                     () -> assertEquals(50, PmMcpLogMessages.INFO.STALE_LEASE_SWEEP_FINISHED.getIdentifier()),
-                    () -> assertEquals(150, PmMcpLogMessages.WARN.LEASE_ORPHANED.getIdentifier()),
+                    () -> assertEquals(151, PmMcpLogMessages.WARN.LEASE_ORPHANED.getIdentifier()),
                     () -> assertEquals(250, PmMcpLogMessages.ERROR.LOCK_ORDER_VIOLATION.getIdentifier()));
         }
 
