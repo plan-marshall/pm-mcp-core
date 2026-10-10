@@ -101,6 +101,15 @@ public final class PmMcpLogMessages {
                 .identifier(40)
                 .template("Language server '%s' started (pid %s, position encoding %s)")
                 .build();
+
+        // WS-01, locks and leases: identifiers from 50
+
+        /** Logged when the stale lease sweep of a lease store has finished, with what it did to the leases. */
+        public static final LogRecord STALE_LEASE_SWEEP_FINISHED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(50)
+                .template("Stale lease sweep of '%s' finished: %s kept, %s orphaned, %s removed")
+                .build();
     }
 
     /** WARN level messages. */
@@ -159,6 +168,13 @@ public final class PmMcpLogMessages {
                 .identifier(150)
                 .template("Project path refused with outcome '%s': %s")
                 .build();
+
+        /** Logged when a lease is marked orphaned because the runtime that served it is no longer alive. */
+        public static final LogRecord LEASE_ORPHANED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(151)
+                .template("Lease '%s' in '%s' orphaned: its holder (pid %s) is no longer alive")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -179,6 +195,15 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(230)
                 .template("Credential store '%s' failed: %s")
+                .build();
+
+        // WS-01, locks and leases: identifiers from 250
+
+        /** Logged when a lock acquisition against the total lock order is refused; nothing was acquired. */
+        public static final LogRecord LOCK_ORDER_VIOLATION = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(250)
+                .template("Lock order violation: '%s' requested while holding %s")
                 .build();
     }
 }
