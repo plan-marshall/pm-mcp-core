@@ -42,7 +42,10 @@ import de.planmarshall.runtime.start.PosixModes;
 /**
  * The one lock manager of the runtime (PM-IMPL-7). Every transaction lock of the runtime is acquired through one
  * instance of it; a second instance in the same process, or a lock taken on a lock file past it, breaks the rules
- * below.
+ * below. An acquisition that meets such a lock fails with {@link IllegalStateException} and closes the channel it has
+ * just opened, and on POSIX that close can release the lock of the operating system that the first holder has on the
+ * file: the first holder then goes on without excluding other processes. Exactly one instance per runtime is
+ * therefore a precondition that the assembly must meet; the manager cannot repair its breach.
  * <p>
  * A lock of the operating system excludes other processes but not the threads of its own process: a second lock on
  * the same file from the same process fails with {@link OverlappingFileLockException}, and closing any channel on a
@@ -308,7 +311,8 @@ public final class FileLockManager implements LockManager {
             } catch (OverlappingFileLockException e) {
                 closeAfterFailure(opened, e);
                 throw new IllegalStateException(
-                        "This process holds a lock on '%s' that was not taken through the lock manager"
+                        ("This process holds a lock on '%s' that this lock manager did not take: either a lock taken "
+                                + "past the lock manager, or a second FileLockManager on the same lock file")
                                 .formatted(lockFile), e);
             }
         }

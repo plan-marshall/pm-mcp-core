@@ -48,6 +48,7 @@ import de.planmarshall.runtime.lock.StaleLeaseSweep.Action;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Decision;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.EmptyPopulation;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Rule;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -77,6 +78,9 @@ class StaleLeaseSweepTest {
     private HolderInstance alive;
     private HolderInstance dead;
 
+    /** The channels the probes opened; closed after the test, when the lock of the store is released. */
+    private final List<FileChannel> probes = new ArrayList<>();
+
     @BeforeEach
     void createStore() throws IOException {
         store = Files.createDirectories(base.resolve("state")).resolve("build-slots.json");
@@ -100,9 +104,24 @@ class StaleLeaseSweepTest {
         return Files.readAttributes(store, BasicFileAttributes.class).fileKey();
     }
 
-    /** @return whether this process holds a lock of the operating system on the file */
-    private static boolean isLocked(Path file) {
-        try (var channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+    @AfterEach
+    void closeProbes() throws IOException {
+        for (var probe : probes) {
+            probe.close();
+        }
+    }
+
+    /**
+     * The channel of a probe stays open until the test has ended: closing any channel on a file releases every lock
+     * the process holds on it, so a probe that closed its channel would drop the lock of the store for the rest of
+     * the sweep. No test fails without this, because the loss is visible from another process only.
+     *
+     * @return whether this process holds a lock of the operating system on the file
+     */
+    private boolean isLocked(Path file) {
+        try {
+            var channel = FileChannel.open(file, StandardOpenOption.WRITE);
+            probes.add(channel);
             var lock = channel.tryLock();
             if (lock != null) {
                 lock.release();

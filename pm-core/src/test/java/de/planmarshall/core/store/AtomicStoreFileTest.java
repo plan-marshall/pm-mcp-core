@@ -99,7 +99,7 @@ class AtomicStoreFileTest {
 
         @Test
         @DisplayName("a write replaces the store, with mode 0600, and leaves no temporary file behind")
-        void write() throws Exception {
+        void write() {
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(siblingKey);
 

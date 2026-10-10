@@ -29,6 +29,7 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -46,6 +47,7 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LockKey;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,15 +76,33 @@ class FileLockManagerTest {
     private RecordingAuditSink auditSink;
     private FileLockManager manager;
 
+    /** The channels the probes opened; closed after the test, when the manager holds no lock any more. */
+    private final List<FileChannel> probes = new ArrayList<>();
+
     @BeforeEach
     void createManager() {
         auditSink = new RecordingAuditSink();
         manager = new FileLockManager(auditSink);
     }
 
-    /** @return whether this process holds a lock of the operating system on the file */
-    private static boolean isLocked(Path file) throws IOException {
-        try (var channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+    @AfterEach
+    void closeProbes() throws IOException {
+        for (var probe : probes) {
+            probe.close();
+        }
+    }
+
+    /**
+     * The channel of a probe stays open until the test has ended: closing any channel on a file releases every lock
+     * the process holds on it, so a probe that closed its channel would drop the lock of the manager it has just
+     * seen. No test fails without this, because the loss is visible from another process only.
+     *
+     * @return whether this process holds a lock of the operating system on the file
+     */
+    private boolean isLocked(Path file) throws IOException {
+        var channel = FileChannel.open(file, StandardOpenOption.WRITE);
+        probes.add(channel);
+        try {
             var lock = channel.tryLock();
             if (lock != null) {
                 lock.release();
@@ -208,7 +228,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a closed transaction acquires nothing, and closing it again does nothing")
-        void closedTransaction() throws Exception {
+        void closedTransaction() {
             var key = LockKey.mergeQueue(base);
             var transaction = manager.openTransaction();
             transaction.acquire(key);
@@ -354,7 +374,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a lock file is created with mode 0600 and its directories with mode 0700")
-        void modes() throws Exception {
+        void modes() {
             var machine = LockKey.enrolment(base, PROJECT);
             var project = LockKey.queue(base, PROJECT);
             try (var transaction = manager.openTransaction()) {
@@ -503,7 +523,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("held keys have an entry each, and none is left after the transaction closed")
-        void noEntryAfterLastRelease() throws Exception {
+        void noEntryAfterLastRelease() {
             var transaction = manager.openTransaction();
             transaction.acquire(LockKey.workspace(base, PROJECT));
             transaction.acquire(LockKey.plan(base, PROJECT, "a-plan"));
@@ -545,7 +565,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("an acquisition that fails leaves no entry")
-        void noEntryAfterFailedAcquisition() throws Exception {
+        void noEntryAfterFailedAcquisition() {
             var audit = LockKey.auditLog(base);
             try (var transaction = manager.openTransaction()) {
                 assertThrows(UncheckedIOException.class, () -> transaction.acquire(audit));
