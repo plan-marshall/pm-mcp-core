@@ -20,9 +20,9 @@ import java.util.function.Predicate;
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.log.PmMcpLogMessages.INFO;
 import de.planmarshall.core.log.PmMcpLogMessages.WARN;
-import de.planmarshall.core.store.LeaseCodec;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
+import de.planmarshall.core.store.StoreRefusal;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -142,13 +142,14 @@ public class StaleLeaseSweep {
      *
      * @param decisions       the decision on each lease, in the order of the store
      * @param emptyPopulation why nothing was removed; empty if a lease was removed
-     * @param refusal         why the store could not be read; empty unless the store was refused
+     * @param refusal         why the store could not be read, as the outcome of its {@link StoreRefusal}; empty
+     *                        unless the store was refused
      * @since 0.1
      */
     public record Result(
     List<Decision> decisions,
     Optional<EmptyPopulation> emptyPopulation,
-    Optional<LeaseCodec.Refusal> refusal) {
+    Optional<StoreRefusal.Outcome> refusal) {
 
         /** @throws NullPointerException if a component or a decision is {@code null} */
         public Result {
@@ -172,7 +173,9 @@ public class StaleLeaseSweep {
      * @param store     the lease store
      * @param abandoned the caller's evidence: whether a lease whose holder is not alive was abandoned
      * @param now       the instant of the sweep, which a lease that is orphaned by it records
-     * @return the decision on each lease, and why nothing was removed if nothing was
+     * @return the decision on each lease, and why nothing was removed if nothing was; a store that is refused as a
+     *         {@link StoreRefusal} is reported as {@link EmptyPopulation#ROOT_UNREADABLE} with the outcome of the
+     *         refusal, and is neither judged nor written
      * @throws java.io.UncheckedIOException if the store cannot be read or written
      */
     public static Result sweep(LeaseStore store, Predicate<LeaseRecord> abandoned, Instant now) {
@@ -187,9 +190,9 @@ public class StaleLeaseSweep {
                 decisions.add(decision);
                 return decision.action() == Action.REMOVED ? Optional.empty() : Optional.of(decision.lease());
             });
-        } catch (LeaseCodec.FormatException e) {
+        } catch (StoreRefusal e) {
             LOGGER.debug(e, "Stale lease sweep of '%s' refused the store", store.store());
-            return new Result(List.of(), Optional.of(EmptyPopulation.ROOT_UNREADABLE), Optional.of(e.refusal()));
+            return new Result(List.of(), Optional.of(EmptyPopulation.ROOT_UNREADABLE), Optional.of(e.outcome()));
         }
         if (swept.isEmpty()) {
             return new Result(List.of(), Optional.of(EmptyPopulation.ROOT_ABSENT), Optional.empty());

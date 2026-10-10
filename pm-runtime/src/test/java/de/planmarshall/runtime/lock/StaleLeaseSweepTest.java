@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 
 import de.cuioss.test.juli.LogAsserts;
@@ -38,12 +39,12 @@ import de.planmarshall.core.log.PmMcpLogMessages.INFO;
 import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.HolderInstance;
-import de.planmarshall.core.store.LeaseCodec;
 import de.planmarshall.core.store.LeaseOwner;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeType;
+import de.planmarshall.core.store.StoreRefusal.Outcome;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Action;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Decision;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.EmptyPopulation;
@@ -54,6 +55,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The sweep of a lease store at a runtime start (PM-IMPL-7), over a real lease store and the lock manager of the
@@ -132,6 +136,13 @@ class StaleLeaseSweepTest {
         } catch (IOException e) {
             throw new AssertionError(e);
         }
+    }
+
+    static Stream<Arguments> refusedStores() {
+        return Stream.of(
+                Arguments.of("{\"format_version\":2,\"slots\":[]}", Outcome.FORMAT_NEWER),
+                Arguments.of("{\"format_version\":0,\"leases\":[]}", Outcome.FORMAT_OUTDATED),
+                Arguments.of("{\"format_version\":1,\"leases\":[", Outcome.UNREADABLE));
     }
 
     private static String sweepFinished(Path store, int kept, int orphaned, int removed) {
@@ -360,11 +371,12 @@ class StaleLeaseSweepTest {
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, StaleLeaseSweep.class));
         }
 
-        @Test
+        @ParameterizedTest(name = "{1}")
+        @MethodSource("de.planmarshall.runtime.lock.StaleLeaseSweepTest#refusedStores")
         @DisplayName("a store that is refused is reported as root_unreadable with the refusal and left byte-identical")
-        void rootUnreadable() throws Exception {
-            var newer = "{\"format_version\":2,\"slots\":[]}".getBytes(StandardCharsets.UTF_8);
-            Files.write(store, newer);
+        void rootUnreadable(String document, Outcome outcome) throws Exception {
+            var refused = document.getBytes(StandardCharsets.UTF_8);
+            Files.write(store, refused);
 
             var result = StaleLeaseSweep.sweep(leaseStore, ABANDONED, NOW);
 
@@ -372,8 +384,8 @@ class StaleLeaseSweepTest {
                     () -> assertEquals(List.of(), result.decisions()),
                     () -> assertEquals(Optional.of(EmptyPopulation.ROOT_UNREADABLE), result.emptyPopulation()),
                     () -> assertEquals("root_unreadable", result.emptyPopulation().orElseThrow().code()),
-                    () -> assertEquals(Optional.of(LeaseCodec.Refusal.FORMAT_NEWER), result.refusal()),
-                    () -> assertArrayEquals(newer, Files.readAllBytes(store)),
+                    () -> assertEquals(Optional.of(outcome), result.refusal()),
+                    () -> assertArrayEquals(refused, Files.readAllBytes(store)),
                     () -> assertFalse(isLocked(storeKey.lockFile())),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, StaleLeaseSweep.class));
         }
