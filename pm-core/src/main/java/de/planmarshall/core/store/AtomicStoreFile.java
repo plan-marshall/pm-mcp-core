@@ -39,38 +39,31 @@ import de.planmarshall.core.service.LockTransaction;
  * <p>
  * The store file itself is never locked: the rename replaces the inode, and a lock on the old file would exclude
  * nobody. A key whose lock file is the store is therefore refused.
+ * <p>
+ * After the rename the directory of the store is forced to disk as well, so that the rename itself, and not only
+ * the content it moved into place, survives a crash of the machine. This goes beyond what the specification of the
+ * write states (temporary file, sync, atomic rename); it is a recorded decision of the operator.
  *
+ * @param store   the store file; kept absolute and normalized
+ * @param lockKey the key of the sibling lock file that guards the store
  * @since 0.1
  */
-public final class AtomicStoreFile {
+public record AtomicStoreFile(Path store, LockKey lockKey) {
 
     private static final String OWNER_ONLY = "rw-------";
 
-    private final Path store;
-    private final LockKey lockKey;
-
     /**
-     * @param store   the store file
-     * @param lockKey the key of the sibling lock file that guards the store
+     * Makes the store path absolute and normalized, so that it is compared with the lock file as the file it names.
+     *
      * @throws IllegalArgumentException if the lock file of the key is the store file
      */
-    public AtomicStoreFile(Path store, LockKey lockKey) {
-        this.store = Objects.requireNonNull(store, "store").toAbsolutePath().normalize();
-        this.lockKey = Objects.requireNonNull(lockKey, "lockKey");
-        if (this.store.equals(lockKey.lockFile())) {
+    public AtomicStoreFile {
+        store = Objects.requireNonNull(store, "store").toAbsolutePath().normalize();
+        Objects.requireNonNull(lockKey, "lockKey");
+        if (store.equals(lockKey.lockFile())) {
             throw new IllegalArgumentException(
-                    "A store replaced by rename is guarded by a sibling lock file, never by itself: " + this.store);
+                    "A store replaced by rename is guarded by a sibling lock file, never by itself: " + store);
         }
-    }
-
-    /** @return the store file, absolute and normalized */
-    public Path store() {
-        return store;
-    }
-
-    /** @return the key of the sibling lock file that guards the store */
-    public LockKey lockKey() {
-        return lockKey;
     }
 
     /**
@@ -85,26 +78,45 @@ public final class AtomicStoreFile {
     }
 
     /**
-     * Replaces the store by the content in one atomic rename.
+     * Replaces the store by the content in one atomic rename, and forces the directory of the store to disk.
      *
      * @param transaction a transaction that holds the key of the store
      * @param content     the new content of the store
      * @throws InternalFaultException if the transaction does not hold the key; nothing was written then
-     * @throws UncheckedIOException   if the content cannot be written; the store is unchanged then
+     * @throws UncheckedIOException   if the content cannot be written, and the store is unchanged then; or if the
+     *                                store was replaced and its directory cannot be forced to disk, and the store has
+     *                                the new content then, which is what the message says
      */
     public void write(LockTransaction transaction, byte[] content) {
         requireHeld(transaction);
         Objects.requireNonNull(content, "content");
-        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + UUID.randomUUID());
         try {
-            try {
-                writeSynced(temporary, content);
-                Files.move(temporary, store, StandardCopyOption.ATOMIC_MOVE);
-            } finally {
-                Files.deleteIfExists(temporary);
-            }
+            replace(content);
         } catch (IOException e) {
             throw new UncheckedIOException("Store cannot be written: " + store, e);
+        }
+        try {
+            forceDirectory(store.getParent());
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "Store was replaced, but its directory cannot be forced to disk: " + store, e);
+        }
+    }
+
+    private void replace(byte[] content) throws IOException {
+        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + UUID.randomUUID());
+        try {
+            writeSynced(temporary, content);
+            Files.move(temporary, store, StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    /** The rename is an entry of the directory: it is on disk when the directory is. */
+    private static void forceDirectory(Path directory) throws IOException {
+        try (var channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
         }
     }
 

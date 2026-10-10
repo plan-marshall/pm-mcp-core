@@ -63,6 +63,17 @@ public final class LeaseStore {
     }
 
     /**
+     * The outcome of a release that names the owner it expects.
+     *
+     * @param released whether the lease was removed
+     * @param found    the lease found under the key: the removed one if released, else the one that holds the key
+     *                 under another owner; {@code null} if the key is not held
+     * @since 0.1
+     */
+    public record Release(boolean released, LeaseRecord found) {
+    }
+
+    /**
      * @param storeFile   the lease store file with the key of its machine store lock
      * @param lockManager the lock manager of the runtime
      * @throws IllegalArgumentException if the key of the store file is not a machine store lock
@@ -124,6 +135,34 @@ public final class LeaseStore {
     }
 
     /**
+     * Releases the lease of the key if it still has the owner the caller knows. A caller that releases what it once
+     * claimed names the owner it last saw: a lease that was adopted, orphaned or claimed anew since then has another
+     * owner and is left in place, and nothing is written.
+     *
+     * @param key           the key of a lease
+     * @param expectedOwner the owner the lease must have to be released, equal in every field
+     * @return whether the lease was released, and the lease found under the key
+     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
+     * @throws UncheckedIOException       if the store cannot be read or written
+     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     */
+    public Release release(String key, LeaseOwner expectedOwner) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(expectedOwner, "expectedOwner");
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(storeFile.lockKey());
+            var leases = load(transaction);
+            var found = leases.get(key);
+            if (found == null || !found.owner().equals(expectedOwner)) {
+                return new Release(false, found);
+            }
+            leases.remove(key);
+            save(transaction, leases);
+            return new Release(true, found);
+        }
+    }
+
+    /**
      * Adopts the lease of the key for a runtime: the runtime becomes its holder, and the lease is no longer
      * orphaned. The owning scope is unchanged.
      *
@@ -170,7 +209,8 @@ public final class LeaseStore {
      * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
      * @throws UncheckedIOException       if the store cannot be read or written
      * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
-     * @throws IllegalArgumentException   if the revision returns two leases with one key; nothing was written then
+     * @throws IllegalArgumentException   if the revision returns a lease with another key than the key of the lease
+     *                                    it was given; nothing was written then
      */
     public Optional<List<LeaseRecord>> reviseAll(Function<LeaseRecord, Optional<LeaseRecord>> revision) {
         Objects.requireNonNull(revision, "revision");
@@ -182,7 +222,7 @@ public final class LeaseStore {
             }
             var after = new ArrayList<LeaseRecord>();
             for (var lease : before.get()) {
-                revision.apply(lease).ifPresent(after::add);
+                revision.apply(lease).ifPresent(revised -> after.add(requireSameKey(lease, revised)));
             }
             if (!after.equals(before.get())) {
                 storeFile.write(transaction, LeaseCodec.write(after));
@@ -207,6 +247,14 @@ public final class LeaseStore {
      */
     public List<LeaseRecord> snapshot() {
         return StoreSnapshot.read(storeFile.store()).content().map(this::decode).orElseGet(List::of);
+    }
+
+    private static LeaseRecord requireSameKey(LeaseRecord given, LeaseRecord revised) {
+        if (!revised.key().equals(given.key())) {
+            throw new IllegalArgumentException("The revision of the lease '%s' returned a lease with the key '%s'"
+                    .formatted(given.key(), revised.key()));
+        }
+        return revised;
     }
 
     private Optional<LeaseRecord> change(String key, UnaryOperator<LeaseRecord> change) {

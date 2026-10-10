@@ -54,6 +54,8 @@ class LeaseStoreTest {
             Instant.parse("2026-10-09T08:15:30.123456Z"));
     private static final HolderInstance SECOND_RUNTIME = new HolderInstance(4712,
             Instant.parse("2026-10-09T10:00:00Z"));
+    private static final LeaseOwner FIRST_OWNER = new LeaseOwner("pm-mcp-core", ScopeType.PLAN, "lock-manager",
+            FIRST_RUNTIME, null);
 
     @TempDir
     Path base;
@@ -225,6 +227,57 @@ class LeaseStoreTest {
             assertAll(
                     () -> assertTrue(claim.granted()),
                     () -> assertEquals(List.of(next), leaseStore.snapshot()));
+        }
+
+        @Test
+        @DisplayName("a release that names the owner of the lease removes it in one transaction on the store key")
+        void releaseByOwner() {
+            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            leaseStore.claim(lease);
+            locks.acquisitions.clear();
+            locks.transactions = 0;
+
+            var release = leaseStore.release(KEY, lease.owner());
+
+            assertAll(
+                    () -> assertEquals(new LeaseStore.Release(true, lease), release),
+                    () -> assertEquals(List.of(), leaseStore.snapshot()),
+                    LeaseStoreTest.this::assertOneTransactionOnTheStoreKey);
+        }
+
+        /**
+         * The claimer still knows the owner it wrote. Meanwhile another runtime adopted the lease, so the lease in
+         * the store is the claim of the newer holder, and a release by the first one must not take it away.
+         */
+        @Test
+        @DisplayName("a release that names a stale owner leaves the lease of the newer holder and writes nothing")
+        void staleOwner() throws Exception {
+            var claimed = planLease("lock-manager", FIRST_RUNTIME);
+            leaseStore.claim(claimed);
+            var adopted = leaseStore.adopt(KEY, SECOND_RUNTIME).orElseThrow();
+            var written = Files.readAllBytes(store);
+            var fileBefore = fileIdentity();
+
+            var release = leaseStore.release(KEY, claimed.owner());
+
+            assertAll(
+                    () -> assertEquals(new LeaseStore.Release(false, adopted), release),
+                    () -> assertArrayEquals(written, Files.readAllBytes(store)),
+                    () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
+                    () -> assertEquals(List.of(), locks.held));
+        }
+
+        @Test
+        @DisplayName("a release that names an owner finds nothing under a key that is not held and writes nothing")
+        void releaseByOwnerOfUnknownKey() {
+            var owner = planLease("lock-manager", FIRST_RUNTIME).owner();
+
+            var release = leaseStore.release(KEY, owner);
+
+            assertAll(
+                    () -> assertEquals(new LeaseStore.Release(false, null), release),
+                    () -> assertFalse(Files.exists(store)),
+                    () -> assertEquals(List.of(), locks.held));
         }
 
         @Test
@@ -411,6 +464,30 @@ class LeaseStoreTest {
                     () -> assertEquals(List.of(), locks.held));
         }
 
+        /**
+         * A lease under another key would take the claim away from the key it was given for and write a claim
+         * nobody made. One lease is enough to show it: with a single lease no two leases share a key.
+         */
+        @Test
+        @DisplayName("a revision that returns a lease under another key is refused, and the store stays as it was")
+        void otherKey() throws Exception {
+            var lease = planLease("lock-manager", FIRST_RUNTIME);
+            leaseStore.claim(lease);
+            var written = Files.readAllBytes(store);
+            var fileBefore = fileIdentity();
+            var underOtherKey = new LeaseRecord("another/repository", lease.owner(), ACQUIRED_AT, EXPIRES_AT);
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> leaseStore.reviseAll(_ -> Optional.of(underOtherKey)));
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(KEY), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("another/repository"), refusal.getMessage()),
+                    () -> assertArrayEquals(written, Files.readAllBytes(store)),
+                    () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
+                    () -> assertEquals(List.of(), locks.held));
+        }
+
         @Test
         @DisplayName("the store names its file")
         void storePath() {
@@ -505,6 +582,9 @@ class LeaseStoreTest {
                     () -> assertThrows(NullPointerException.class, () -> new LeaseStore(storeFile, null)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.claim(null)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.release(null)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> leaseStore.release(null, FIRST_OWNER)),
+                    () -> assertThrows(NullPointerException.class, () -> leaseStore.release(KEY, null)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.adopt(null, SECOND_RUNTIME)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.adopt(KEY, null)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.orphan(KEY, null)),

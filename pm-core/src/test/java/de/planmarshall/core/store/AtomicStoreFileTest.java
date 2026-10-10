@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -160,6 +161,33 @@ class AtomicStoreFileTest {
                         () -> assertTrue(lockOnStore.isValid()),
                         () -> assertArrayEquals(NEW, Files.readAllBytes(store)));
             }
+        }
+
+        /**
+         * After the rename the write opens the directory of the store to force it to disk. Whether the directory
+         * reached the disk is not visible to a test. That the write opens it after the rename is: a directory that
+         * may be written but not read takes the temporary file and the rename, and refuses to be opened.
+         */
+        @Test
+        @DisplayName("a store whose directory cannot be opened is replaced, and the write reports the directory")
+        void directoryNotForced() throws Exception {
+            var directory = store.getParent();
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("-wx------"));
+            try (var transaction = new HeldKeys()) {
+                transaction.acquire(siblingKey);
+                assumeFalse(Files.isReadable(directory), "this user reads a directory without the read permission");
+
+                var failure = assertThrows(UncheckedIOException.class, () -> storeFile.write(transaction, NEW));
+
+                assertAll(
+                        () -> assertTrue(failure.getMessage().contains("directory cannot be forced to disk"),
+                                failure.getMessage()),
+                        () -> assertArrayEquals(NEW, Files.readAllBytes(store)));
+            } finally {
+                Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+            }
+
+            assertEquals(List.of("merge-queue.json"), filesBesideStore());
         }
 
         @Test

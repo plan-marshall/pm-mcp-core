@@ -160,7 +160,7 @@ public class LeaseCodec {
      * @throws IllegalArgumentException if two leases have the same key
      */
     public static byte[] write(Collection<LeaseRecord> leases) {
-        Objects.requireNonNull(leases, "leases");
+        Objects.requireNonNull(leases, FIELD_LEASES);
         var keys = new HashSet<String>();
         var out = new ByteArrayOutputStream();
         try (var generator = JSON.createGenerator(out, JsonEncoding.UTF8)) {

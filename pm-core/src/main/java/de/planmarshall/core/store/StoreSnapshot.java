@@ -54,7 +54,7 @@ public final class StoreSnapshot {
      */
     public static StoreSnapshot read(Path store) {
         Objects.requireNonNull(store, "store");
-        return new StoreSnapshot(store, readIfPresent(store), StoreIntegrity.UNCHECKED);
+        return new StoreSnapshot(store, readIfPresent(store).orElse(null), StoreIntegrity.UNCHECKED);
     }
 
     /**
@@ -71,8 +71,11 @@ public final class StoreSnapshot {
         Objects.requireNonNull(store, "store");
         Objects.requireNonNull(recordedSha256, "recordedSha256");
         var bytes = readIfPresent(store);
-        var matches = bytes != null && bytes.length == recordedSize && sha256(bytes).equalsIgnoreCase(recordedSha256);
-        return new StoreSnapshot(store, bytes, matches ? StoreIntegrity.VERIFIED : StoreIntegrity.DIGEST_UNVERIFIED);
+        var matches = bytes
+                .filter(read -> read.length == recordedSize && sha256(read).equalsIgnoreCase(recordedSha256))
+                .isPresent();
+        return new StoreSnapshot(store, bytes.orElse(null),
+                matches ? StoreIntegrity.VERIFIED : StoreIntegrity.DIGEST_UNVERIFIED);
     }
 
     /** @return the store this snapshot was read from, which a report of an unverified digest names */
@@ -99,11 +102,11 @@ public final class StoreSnapshot {
     }
 
     /** One open of the file reads one inode in full; a rename during the read does not change what is read. */
-    private static byte[] readIfPresent(Path store) {
+    private static Optional<byte[]> readIfPresent(Path store) {
         try {
-            return Files.readAllBytes(store);
-        } catch (NoSuchFileException e) {
-            return null;
+            return Optional.of(Files.readAllBytes(store));
+        } catch (NoSuchFileException _) {
+            return Optional.empty();
         } catch (IOException e) {
             throw new UncheckedIOException("Store cannot be read: " + store, e);
         }
