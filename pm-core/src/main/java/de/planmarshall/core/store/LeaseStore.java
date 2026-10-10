@@ -93,9 +93,9 @@ public final class LeaseStore {
      *
      * @param lease the lease to write
      * @return whether the lease was written, and the lease that holds the key now
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store cannot be read or written
-     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     * @throws StoreRefusal           if the store is in another format version or unreadable
+     * @throws UncheckedIOException   if the store cannot be read or written
+     * @throws InternalFaultException if the lock of the store must not be acquired by the transaction
      */
     public Claim claim(LeaseRecord lease) {
         Objects.requireNonNull(lease, "lease");
@@ -117,9 +117,9 @@ public final class LeaseStore {
      *
      * @param key the key of a lease
      * @return the released lease; empty if the key was not held, and nothing was written then
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store cannot be read or written
-     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     * @throws StoreRefusal           if the store is in another format version or unreadable
+     * @throws UncheckedIOException   if the store cannot be read or written
+     * @throws InternalFaultException if the lock of the store must not be acquired by the transaction
      */
     public Optional<LeaseRecord> release(String key) {
         Objects.requireNonNull(key, "key");
@@ -142,9 +142,9 @@ public final class LeaseStore {
      * @param key           the key of a lease
      * @param expectedOwner the owner the lease must have to be released, equal in every field
      * @return whether the lease was released, and the lease found under the key
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store cannot be read or written
-     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     * @throws StoreRefusal           if the store is in another format version or unreadable
+     * @throws UncheckedIOException   if the store cannot be read or written
+     * @throws InternalFaultException if the lock of the store must not be acquired by the transaction
      */
     public Release release(String key, LeaseOwner expectedOwner) {
         Objects.requireNonNull(key, "key");
@@ -169,9 +169,9 @@ public final class LeaseStore {
      * @param key       the key of a lease
      * @param newHolder the runtime instance that serves the lease from now on
      * @return the adopted lease; empty if the key is not held
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store cannot be read or written
-     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     * @throws StoreRefusal           if the store is in another format version or unreadable
+     * @throws UncheckedIOException   if the store cannot be read or written
+     * @throws InternalFaultException if the lock of the store must not be acquired by the transaction
      */
     public Optional<LeaseRecord> adopt(String key, HolderInstance newHolder) {
         Objects.requireNonNull(newHolder, "newHolder");
@@ -185,9 +185,9 @@ public final class LeaseStore {
      * @param key        the key of a lease
      * @param orphanedAt the instant the holder was found dead
      * @return the orphaned lease; empty if the key is not held
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store cannot be read or written
-     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
+     * @throws StoreRefusal           if the store is in another format version or unreadable
+     * @throws UncheckedIOException   if the store cannot be read or written
+     * @throws InternalFaultException if the lock of the store must not be acquired by the transaction
      */
     public Optional<LeaseRecord> orphan(String key, Instant orphanedAt) {
         Objects.requireNonNull(orphanedAt, "orphanedAt");
@@ -206,11 +206,11 @@ public final class LeaseStore {
      *
      * @param revision what becomes of a lease: the lease to keep in its place, or empty to remove it
      * @return the leases the store held before the revision, in its order; empty if the store does not exist
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store cannot be read or written
-     * @throws InternalFaultException     if the lock of the store must not be acquired by the transaction
-     * @throws IllegalArgumentException   if the revision returns a lease with another key than the key of the lease
-     *                                    it was given; nothing was written then
+     * @throws StoreRefusal             if the store is in another format version or unreadable
+     * @throws UncheckedIOException     if the store cannot be read or written
+     * @throws InternalFaultException   if the lock of the store must not be acquired by the transaction
+     * @throws IllegalArgumentException if the revision returns a lease with another key than the key of the lease it
+     *                                  was given; nothing was written then
      */
     public Optional<List<LeaseRecord>> reviseAll(Function<LeaseRecord, Optional<LeaseRecord>> revision) {
         Objects.requireNonNull(revision, "revision");
@@ -242,8 +242,8 @@ public final class LeaseStore {
      * out of date as soon as it is returned, and nothing is decided on it that a write depends on.
      *
      * @return the leases of the store, in its order; empty if the store does not exist
-     * @throws LeaseCodec.FormatException if the store is in another format version or unreadable
-     * @throws UncheckedIOException       if the store exists and cannot be read
+     * @throws StoreRefusal         if the store is in another format version or unreadable
+     * @throws UncheckedIOException if the store exists and cannot be read
      */
     public List<LeaseRecord> snapshot() {
         return StoreSnapshot.read(storeFile.store()).content().map(this::decode).orElseGet(List::of);
@@ -287,10 +287,6 @@ public final class LeaseStore {
     }
 
     private List<LeaseRecord> decode(byte[] document) {
-        try {
-            return LeaseCodec.read(document);
-        } catch (LeaseCodec.FormatException e) {
-            throw e.at(storeFile.store());
-        }
+        return LeaseCodec.read(storeFile.store(), document);
     }
 }
