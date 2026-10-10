@@ -14,8 +14,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The unit file of the per-user service that starts {@code pm-mcpd} at login and restarts it on failure, the
@@ -41,6 +44,10 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
 
     /** The name of the {@code systemd} user unit. */
     public static final String SYSTEMD_UNIT = "pm-mcpd.service";
+
+    private static final Set<PosixFilePermission> DIRECTORY_PERMISSIONS = PosixFilePermissions.fromString("rwxr-xr-x");
+
+    private static final Set<PosixFilePermission> FILE_PERMISSIONS = PosixFilePermissions.fromString("rw-r--r--");
 
     private static final String LAUNCHD_TEMPLATE = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -109,12 +116,21 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     }
 
     /**
-     * @throws IllegalArgumentException if {@code daemon} is not absolute
+     * Validates the inputs. A daemon path with a line break or a NUL character is rejected because no quoting keeps
+     * it inside the {@code ExecStart} line or the {@code <string>} element: the text after a line break would be
+     * read as a directive of its own, so such a path never reaches a written unit.
+     *
+     * @throws IllegalArgumentException if {@code daemon} is not absolute or contains a carriage return, a line feed
+     *                                  or a NUL character
      */
     public ServiceUnitFile {
         Objects.requireNonNull(platform, "platform");
         Objects.requireNonNull(home, "home");
         Objects.requireNonNull(daemon, "daemon");
+        if (daemon.toString().chars().anyMatch(ServiceUnitFile::isForbiddenInDaemonPath)) {
+            throw new IllegalArgumentException(
+                    "The daemon path must not contain a carriage return, a line feed or a NUL character");
+        }
         if (!daemon.isAbsolute()) {
             throw new IllegalArgumentException("The daemon path must be absolute: " + daemon);
         }
@@ -144,6 +160,12 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     /**
      * Writes the unit, creating its parent directories and replacing an existing unit through a temporary sibling
      * and an atomic move.
+     * <p>
+     * Who may modify the unit does not depend on the process umask: parent directories created here get
+     * {@code rwxr-xr-x} and the unit {@code rw-r--r--}, set when they are created. A umask can only narrow these
+     * permissions, never widen them, so the unit and the directories created for it are never group- or
+     * world-writable. A stale temporary sibling of an interrupted write is deleted first; the move keeps the
+     * permissions of the temporary file, so a replaced unit gets them too.
      *
      * @throws ServiceUnitException if the unit cannot be written
      */
@@ -151,7 +173,9 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
         var file = path();
         var tmp = file.resolveSibling(file.getFileName() + ".tmp");
         try {
-            Files.createDirectories(file.getParent());
+            Files.createDirectories(file.getParent(), PosixFilePermissions.asFileAttribute(DIRECTORY_PERMISSIONS));
+            Files.deleteIfExists(tmp);
+            Files.createFile(tmp, PosixFilePermissions.asFileAttribute(FILE_PERMISSIONS));
             Files.writeString(tmp, render(), StandardCharsets.UTF_8);
             Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
@@ -160,10 +184,14 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     }
 
     /**
-     * @return whether the unit file is present
+     * Answers whether the unit may be present. Only a unit positively known to be absent counts as absent: when
+     * its existence cannot be determined, for example because a parent directory denies access, the unit counts
+     * as present, so an uninstall goes on and {@link #remove()} reports the failure instead of skipping it.
+     *
+     * @return {@code false} if the unit file is known to be absent, {@code true} otherwise
      */
     public boolean exists() {
-        return Files.exists(path());
+        return !Files.notExists(path());
     }
 
     /**
@@ -189,6 +217,10 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
             }
         }
         return home.resolve(".config");
+    }
+
+    private static boolean isForbiddenInDaemonPath(int c) {
+        return c == '\r' || c == '\n' || c == '\0';
     }
 
     private static String escapeXml(String value) {
