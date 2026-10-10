@@ -1,0 +1,9 @@
+[Unit]
+Description=plan-marshall-mcp runtime (pm-mcpd)
+
+[Service]
+ExecStart=/opt/plan-marshall-mcp/bin/pm-mcpd
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
