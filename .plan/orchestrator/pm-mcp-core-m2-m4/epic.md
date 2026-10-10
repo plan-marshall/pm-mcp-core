@@ -126,6 +126,12 @@ decision or a dependency outside this repository.
   (sender orchestrator, kind candidate-lesson), then retired here with verdict `superseded`. The
   13 lessons left here are `pm-core`, `pm-runtime` and `pm-mcp-parent` rules.
 
+- 2026-10-10 — The reviewer image no longer comes from Docker Hub: cuioss-organization #321
+  (merged 0faf9b2, released v0.41.0) pulls it from `ghcr.io/cuioss/pr-agent-mirror` by digest
+  sha256:b253845c…, byte-identical to `pragent/pr-agent`. The pin moved here with #23 (067032c,
+  opened and merged by plan-marshall-release-bot): `reusable-cuioss-review-bot.yml@73712a1 # v0.41.0`,
+  checked against the dereferenced tag. Not a plan of this epic.
+
 ## Open Defects
 
 - `cuioss-review-bot` is a required reviewer that does not re-review after a fix commit, so the
@@ -164,9 +170,9 @@ decision or a dependency outside this repository.
 
 - `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
   PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
-- `cuioss-review-bot` reviewed only the first commit of #18 (no push trigger) and was made
-  optional for that plan; on #17 it failed on a Docker Hub pull rate limit. Confirmed again on
-  PLAN-03 (#19) and raised to an Open Defect on 2026-10-10.
+- The ghcr.io image path of `cuioss-review-bot` is unproven in this repository: the bot's run on
+  #23 was skipped (bot author, by design). Retire at the first review it publishes on a plan's
+  pull request; PLAN-38's own pull request is the natural proof.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
