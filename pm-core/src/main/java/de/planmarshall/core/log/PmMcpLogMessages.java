@@ -120,7 +120,7 @@ public final class PmMcpLogMessages {
                 .template("Service unit '%s' installed for daemon '%s'")
                 .build();
 
-        /** Logged when the per-user service unit is unloaded and removed, also when no unit was present. */
+        /** Logged when the per-user service unit is removed and unloaded, also when no unit was present. */
         public static final LogRecord SERVICE_UNIT_UNINSTALLED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(52)
