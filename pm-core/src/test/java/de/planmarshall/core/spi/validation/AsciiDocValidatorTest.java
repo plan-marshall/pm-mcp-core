@@ -78,7 +78,19 @@ class AsciiDocValidatorTest {
                         "= Title\n\n--\n= Draft\n==== Deep\n--"),
                 Arguments.of("a line of three hyphens, which opens nothing", "= Title\n\n---\n\nText."),
                 Arguments.of("a title inside a table with a longer delimiter", "= Title\n\n|====\n= Draft\n|===="),
-                Arguments.of("a line that only starts like a table delimiter", "= Title\n\n|===x\n\nText."));
+                Arguments.of("a line that only starts like a table delimiter", "= Title\n\n|===x\n\nText."),
+                Arguments.of("a title inside a comma table", "= Title\n\n,===\n= Draft\n,==="),
+                Arguments.of("a title inside a colon table", "= Title\n\n:===\n= Draft\n:==="),
+                Arguments.of("a title inside an exclamation table", "= Title\n\n!===\n= Draft\n!==="),
+                Arguments.of("a title inside a comma table with a longer delimiter",
+                        "= Title\n\n,====\n= Draft\n,===="),
+                Arguments.of("a title inside a colon table with a longer delimiter",
+                        "= Title\n\n:====\n= Draft\n:===="),
+                Arguments.of("a title inside an exclamation table with a longer delimiter",
+                        "= Title\n\n!====\n= Draft\n!===="),
+                Arguments.of("a line that only starts like a comma table delimiter", "= Title\n\n,===x\n\nText."),
+                Arguments.of("an exclamation mark with two equals signs, which opens nothing",
+                        "= Title\n\n!==\n\nText."));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -101,6 +113,12 @@ class AsciiDocValidatorTest {
                         AsciiDocValidator.RULE_UNCLOSED_BLOCK, 3),
                 Arguments.of("a listing closed by a longer delimiter", "----\ncode\n-----",
                         AsciiDocValidator.RULE_UNCLOSED_BLOCK, 1),
+                Arguments.of("a comma table that is never closed", "= Title\n\n,===\ncell",
+                        AsciiDocValidator.RULE_UNCLOSED_BLOCK, 3),
+                Arguments.of("a colon table that is never closed", "= Title\n\n:===\ncell",
+                        AsciiDocValidator.RULE_UNCLOSED_BLOCK, 3),
+                Arguments.of("an exclamation table that is never closed", "= Title\n\n!===\ncell",
+                        AsciiDocValidator.RULE_UNCLOSED_BLOCK, 3),
                 Arguments.of("a title below a paragraph", "A paragraph.\n\n= Title",
                         AsciiDocValidator.RULE_TITLE_NOT_FIRST, 3),
                 Arguments.of("a title below a block", "----\ncode\n----\n= Title",

@@ -60,11 +60,17 @@ public final class AsciiDocValidator implements ContentValidator {
      */
     private static final String REPEATED_DELIMITER_CHARACTERS = "-.=*_+/";
 
-    /** The shortest delimiter of a table; a longer one goes on with {@link #TABLE_DELIMITER_FILL}. */
-    private static final String TABLE_DELIMITER_PREFIX = "|===";
+    /**
+     * The characters a table delimiter starts with: the pipe of the table whose cells a pipe separates, the comma of
+     * the CSV table, the colon of the DSV table and the exclamation mark of the nested table.
+     */
+    private static final String TABLE_DELIMITER_SEPARATORS = "|,:!";
 
     /** The character a table delimiter repeats after its first one. */
     private static final char TABLE_DELIMITER_FILL = '=';
+
+    /** The least length of a table delimiter: its first character and three times {@link #TABLE_DELIMITER_FILL}. */
+    private static final int MINIMUM_TABLE_DELIMITER_LENGTH = 4;
 
     private static final Pattern TITLE = Pattern.compile("= \\S.*");
 
@@ -132,10 +138,14 @@ public final class AsciiDocValidator implements ContentValidator {
                 && consistsOf(line, line.charAt(0));
     }
 
-    /** Tells whether a line is the shortest table delimiter or that delimiter with further fill characters. */
+    /**
+     * Tells whether a line is one of the characters a table delimiter starts with, followed by three or more fill
+     * characters and nothing else.
+     */
     private static boolean isTableDelimiter(String line) {
-        return line.startsWith(TABLE_DELIMITER_PREFIX)
-                && consistsOf(line.substring(TABLE_DELIMITER_PREFIX.length()), TABLE_DELIMITER_FILL);
+        return line.length() >= MINIMUM_TABLE_DELIMITER_LENGTH
+                && TABLE_DELIMITER_SEPARATORS.indexOf(line.charAt(0)) >= 0
+                && consistsOf(line.substring(1), TABLE_DELIMITER_FILL);
     }
 
     private static boolean consistsOf(String text, char expected) {
