@@ -20,14 +20,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 
+import de.planmarshall.core.store.HolderInstance;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import de.planmarshall.core.store.HolderInstance;
 
 /**
  * Whether the holder of a lease is alive (PM-IMPL-7): a process id together with the start instant of the process,

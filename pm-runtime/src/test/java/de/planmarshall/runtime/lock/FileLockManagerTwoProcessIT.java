@@ -30,13 +30,12 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 
+import de.planmarshall.core.store.LockKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
-
-import de.planmarshall.core.store.LockKey;
 
 /**
  * The lock of the operating system that the lock manager takes on a lock file, seen from a second process

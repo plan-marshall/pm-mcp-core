@@ -31,12 +31,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -54,6 +48,11 @@ import de.planmarshall.runtime.lock.StaleLeaseSweep.Action;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Decision;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.EmptyPopulation;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Rule;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The sweep of a lease store at a runtime start (PM-IMPL-7), over a real lease store and the lock manager of the
