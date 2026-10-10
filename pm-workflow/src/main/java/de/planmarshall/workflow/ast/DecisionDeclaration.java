@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * A {@code decide <decision_kind> -> ask | quorum(<role>, ..., <score>)} line, declared only in the unit
- * {@code question.adjudicate} (PM-IMPL-5).
+ * {@code adjudicate.decisions} (PM-IMPL-5).
  *
  * @since 0.1
  */

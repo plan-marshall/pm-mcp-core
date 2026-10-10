@@ -94,7 +94,7 @@ public sealed interface StateBehavior
      * {@code job llm <entity_kind> role <role_name> [each <primitive_id>] [ask]} with its {@code consult role}
      * clauses: a task of the named role for one entity of the kind, or with {@code each} one task per element of the
      * list that primitive returns; with {@code role each <primitive_id>} (only in the unit
-     * {@code question.adjudicate}) one task per role that primitive returns. The transitions route the outcomes of the
+     * {@code adjudicate.decisions}) one task per role that primitive returns. The transitions route the outcomes of the
      * kind's return-evaluation primitive and the reserved {@code lost}.
      *
      * @param entityKind        the entity kind of the tasks

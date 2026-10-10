@@ -29,7 +29,7 @@ import java.util.Optional;
  * @param resultSchema  the named schema of the result record a sub-workflow returns with {@code done}
  * @param instance      the parsed {@code instance} header line of a plan instance version
  * @param declarations  the {@code declare} lines by name
- * @param decisions     the {@code decide} lines by decision kind; only in the unit {@code question.adjudicate}
+ * @param decisions     the {@code decide} lines by decision kind; only in the unit {@code adjudicate.decisions}
  * @param partVersions  the version of every part file of the merged plan unit; empty otherwise
  * @param formatVersion the DSL format every file of the unit declares
  * @param origin        whether the unit is compiled into the binary or owned by the project
