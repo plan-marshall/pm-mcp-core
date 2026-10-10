@@ -43,7 +43,7 @@ permissions:
 
 jobs:
   review:
-    uses: cuioss/cuioss-organization/.github/workflows/reusable-cuioss-review-bot.yml@8e6a0c7cca322b3e3189933a130a1df11e0b08e6 # v0.40.0
+    uses: cuioss/cuioss-organization/.github/workflows/reusable-cuioss-review-bot.yml@9f2d69ac1ce4ffbae1eb2578bd397fb3a81decd1 # unreleased: cuioss-organization#321
     with:
       # The settings repository of this organisation: a fork of cuioss/cuioss-review-bot under
       # the name PR-Agent looks its organisation-level settings up by.
