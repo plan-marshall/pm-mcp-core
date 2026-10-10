@@ -35,7 +35,10 @@ decision or a dependency outside this repository.
   It gates PLAN-25 `waits` and PLAN-26 `role-sets-and-model-caller`, and through them most of
   WS-04 and WS-05 — the first external dependency on the critical path.
 - PLAN-27 — staged, but also waits on `pm-mcp-clients` / `exec-read-denied-paths`.
+- PLAN-04 — emitted on 2026-10-10 and not started. Its package `runtime.start` is touched by
+  PLAN-01's open PR #20 in files the gate cannot see; see Watches.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
+- PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
 - PLAN-36 — serves Milestone 6; ready now and disjoint by package from every other plan, so it
   is a good filler for a free slot. It sits at the queue end because a row's order is fixed when
   it is staged; ask for it by id when a slot is free.
@@ -79,7 +82,39 @@ decision or a dependency outside this repository.
   plan-marshall tooling; the store of this repository does not own that bundle, so they were
   filed with the foreign-store override and still need routing to plan-marshall.
 
+- 2026-10-10 — PLAN-03 `workspace-confinement` landed as #19 (7d99648); landing record
+  `landings/PLAN-03.md`. Inbox drain of its 20 messages: the landing reconciled; of the 19
+  candidate lessons, 6 promoted (009, 010, 014, 017, 018, 019 as lessons 2026-10-10-08-001 to
+  -006), 11 folded (001 to 003, 012, 015 as recurrences into lessons -07-001, -07-013, -07-016;
+  004 to 008 and 011 into the specs not yet started), 2 discarded as uncorroborated (013, 016).
+- 2026-10-10 — #19 reworded the working rules on `main` by operator decision: no draft pull
+  request claims a package, and the documentation pull request need not name the code pull
+  request. The 34 specs not yet started (PLAN-04 to PLAN-37) were regenerated with these rules,
+  with the settled confinement design (a refused project path is a `ConfinementOutcome` value, no
+  checked exception) and with a rule against leaving open a design choice that changes the file
+  set. The specs of PLAN-01, PLAN-02 and PLAN-03 were left as launched.
+- 2026-10-10 — Package homes re-checked against the package table after PLAN-03 refuted both of
+  its inferred homes. Covered by a package description and kept: PLAN-17 `workflow.finalize`,
+  PLAN-20 `core.service`, PLAN-25 `workflow.hypermedia`, PLAN-31 `runtime.launch`. Not covered and
+  now labelled as guesses that will need an operator answer at refine: PLAN-09 and PLAN-23
+  (`runtime.start`, and `core.store` for PLAN-23), PLAN-11 (`runtime.security`), PLAN-34
+  (`workflow.model`). Their declared surfaces are unchanged, because no better home is known.
+- 2026-10-10 — Collision recorded: PLAN-01 (#20) and PLAN-03 (#19) both took WARN 150 in the shared
+  WS-01 block of `PmMcpLogMessages`, which no spec declares by the block decision of 2026-10-09.
+  The pairing gate could not predict it. PLAN-01 was told through its mailbox.
+
 ## Open Defects
+
+- `cuioss-review-bot` is a required reviewer that does not re-review after a fix commit, so the
+  review step of every plan with a fix round stalls until the operator makes the bot optional for
+  that plan. It happened on PLAN-02 and PLAN-03 and will happen on PLAN-01. The fix is a project
+  configuration decision in `.plan/marshal.json` — source: landings PLAN-02 and PLAN-03, lessons
+  2026-10-10-07-013 (with recurrence).
+- No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
+  by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
+  package to adopt the check itself — source: landing PLAN-03.
+- Two plans of one workstream can take the same log identifier; it surfaced as a merge conflict
+  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03.
 
 - The roadmap item behind PLAN-02 is only partly delivered and no staged plan owns the rest:
   validators for `request.md` and pull request bodies (PM-WF-6), the `OutlineValidator` rules that
@@ -92,13 +127,20 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- `plan-marshall-documentation` #20 (documentation of PLAN-02) is open and unmerged; its checks
-  read green on 2026-10-10. The index already says `done`. Retire when #20 is merged.
+- PLAN-01's PR #20 changes about 20 files outside its packages (`runtime.credentials`, `runtime.lsp`,
+  `runtime.web`, `runtime.start`, `runtime.ingest`). The plan's recorded footprint does not show
+  them, so the gate cannot see them; PLAN-04 `service-unit` works in `runtime.start`. Cause not
+  established (an uncorroborated report says the pre-commit profile rewrites unrelated files).
+  Re-check when #20 is rebased.
+- #20 reads CONFLICTING against `main` since #19 merged — retire when PLAN-01 has rebased.
+
+- `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
+  PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
 - `cuioss-review-bot` reviewed only the first commit of #18 (no push trigger) and was made
-  optional for that plan; on #17 it failed on a Docker Hub pull rate limit. Re-check on the PRs
-  of PLAN-01 (#20) and PLAN-03 (#19).
-- 16 plan-marshall tooling lessons (2026-10-10-07-001, -002, -011 to -024) sit in this
-  repository's lessons store — retire when routed to plan-marshall.
+  optional for that plan; on #17 it failed on a Docker Hub pull rate limit. Confirmed again on
+  PLAN-03 (#19) and raised to an Open Defect on 2026-10-10.
+- 22 plan-marshall tooling lessons (2026-10-10-07-001, -002, -011 to -024 and 2026-10-10-08-001
+  to -006) sit in this repository's lessons store — retire when routed to plan-marshall.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
