@@ -138,6 +138,10 @@ decision or a dependency outside this repository.
   plan-marshall tooling, routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-033.md` to
   `-038.md` under the routing decision above, nothing kept in this store.
 
+- 2026-10-10 — Operator decision: `parallelization_scope` raised from 3 to 4, because PLAN-05
+  `http-baseline` is disjoint from the running PLAN-04, PLAN-06 and PLAN-07 (only
+  `doc/plans/README.adoc` shared). PLAN-36 is also disjoint and is the next filler.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
