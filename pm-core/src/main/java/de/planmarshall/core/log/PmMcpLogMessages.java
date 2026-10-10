@@ -150,6 +150,15 @@ public final class PmMcpLogMessages {
                 .identifier(140)
                 .template("Language server (pid %s) did not end cleanly, terminating it: %s")
                 .build();
+
+        // Workspace and enrolment (WS-01): identifiers 150-159
+
+        /** Logged when a project path is refused by the workspace confinement; names the outcome code and the reason, never the path. */
+        public static final LogRecord PROJECT_PATH_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(150)
+                .template("Project path refused with outcome '%s': %s")
+                .build();
     }
 
     /** ERROR level messages. */
