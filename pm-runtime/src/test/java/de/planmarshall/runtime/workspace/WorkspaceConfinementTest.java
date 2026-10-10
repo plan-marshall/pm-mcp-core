@@ -73,6 +73,7 @@ class WorkspaceConfinementTest {
         worktree = Files.createDirectories(base.resolve("linked"));
         Files.writeString(worktree.resolve("Main.java"), "worktree");
         Files.writeString(worktree.resolve(".git"), "gitdir: " + gitDirectory + "\n");
+        Files.writeString(gitDirectory.resolve("gitdir"), worktree.resolve(".git") + "\n");
 
         beside = Files.createDirectories(base.resolve("beside"));
         Files.writeString(beside.resolve("file.txt"), "beside");

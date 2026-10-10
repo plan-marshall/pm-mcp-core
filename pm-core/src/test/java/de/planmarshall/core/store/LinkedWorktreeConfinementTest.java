@@ -34,8 +34,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The linked worktrees of the path confinement (PM-SEC-2). The fixtures are the plain files git writes for a
- * linked worktree, written by the test: the {@code .git} pointer file of the worktree and the {@code commondir}
- * file of its git directory. No git process runs.
+ * linked worktree, written by the test: the {@code .git} pointer file of the worktree and, in its git directory
+ * below {@code .git/worktrees} of the repository, the {@code commondir} file and the {@code gitdir} record that
+ * names the worktree back. No git process runs.
  */
 @DisplayName("PathConfinement with linked worktrees")
 class LinkedWorktreeConfinementTest {
@@ -72,10 +73,19 @@ class LinkedWorktreeConfinementTest {
         return repository;
     }
 
-    /** Writes the two pointer files that make {@code linkedWorktree} a linked worktree of {@code repository}. */
+    /** Writes the three pointer files that make {@code linkedWorktree} a linked worktree of {@code repository}. */
     private static void link(Path linkedWorktree, Path repository, String name) throws IOException {
-        var gitDirectory = Files.createDirectories(repository.resolve(".git/worktrees").resolve(name));
-        Files.writeString(gitDirectory.resolve("commondir"), "../..\n");
+        register(linkedWorktree, repository.resolve(".git/worktrees").resolve(name), "../..");
+    }
+
+    /**
+     * Writes the pointer files of a linked worktree with its git directory at any place: the {@code commondir}
+     * file, the {@code gitdir} record naming the worktree back, and the {@code .git} file of the worktree.
+     */
+    private static void register(Path linkedWorktree, Path gitDirectory, String commonDirectory) throws IOException {
+        Files.createDirectories(gitDirectory);
+        Files.writeString(gitDirectory.resolve("commondir"), commonDirectory + "\n");
+        Files.writeString(gitDirectory.resolve("gitdir"), linkedWorktree.resolve(".git") + "\n");
         Files.writeString(linkedWorktree.resolve(".git"), "gitdir: " + gitDirectory + "\n");
     }
 
@@ -259,6 +269,140 @@ class LinkedWorktreeConfinementTest {
             var beside = directoryBesideRoot("beside");
 
             assertRefused(confine(beside.resolve("file.txt"), base.resolve("absent")));
+        }
+    }
+
+    @Nested
+    @DisplayName("the registration of a linked worktree with the enrolled root")
+    class Registration {
+
+        /** A canonical live candidate beside the enrolled root, registered and named back like a worktree of git. */
+        private Path candidate;
+
+        /** The git directory of the candidate, registered below {@code .git/worktrees} of the enrolled root. */
+        private Path gitDirectory;
+
+        @BeforeEach
+        void registered() throws IOException {
+            candidate = directoryBesideRoot("candidate");
+            link(candidate, root, "candidate");
+            gitDirectory = root.resolve(".git/worktrees/candidate");
+        }
+
+        @Test
+        @DisplayName("accepts a worktree that is registered below .git/worktrees and named back by its record")
+        void acceptsRegisteredWorktree() {
+            assertAccepted(candidate.resolve("file.txt"), confine(candidate.resolve("file.txt"), candidate));
+        }
+
+        @Test
+        @DisplayName("accepts a gitdir record that names the worktree by a path relative to the git directory")
+        void acceptsRelativeBackPointer() throws Exception {
+            var relative = gitDirectory.relativize(candidate.resolve(".git"));
+            Files.writeString(gitDirectory.resolve("gitdir"), relative + "\n");
+
+            var outcome = confine(candidate.resolve("file.txt"), candidate);
+
+            assertAccepted(candidate.resolve("file.txt"), outcome);
+        }
+
+        @ParameterizedTest(name = "git directory at <base>/{0}")
+        @ValueSource(strings = {"repo/.git/unregistered", "outside/admin", "repo/.git/worktrees/nested/admin"})
+        @DisplayName("refuses a git directory that is not registered directly below .git/worktrees of the root")
+        void refusesUnregisteredGitDirectory(String belowBase) throws Exception {
+            var forged = directoryBesideRoot("forged");
+            register(forged, base.resolve(belowBase), root.resolve(".git").toString());
+
+            assertRefused(confine(forged.resolve("file.txt"), forged));
+        }
+
+        @Test
+        @DisplayName("refuses a registered git directory without a gitdir record")
+        void refusesMissingBackPointer() throws Exception {
+            Files.delete(gitDirectory.resolve("gitdir"));
+
+            assertRefused(confine(candidate.resolve("file.txt"), candidate));
+        }
+
+        @ParameterizedTest(name = "gitdir {index}")
+        @ValueSource(strings = {"%s/linked/.git", "%s/candidate", "%s/absent/.git", "", "  \n"})
+        @DisplayName("refuses a gitdir record that does not name the .git file of the candidate")
+        void refusesBackPointerElsewhere(String content) throws Exception {
+            Files.writeString(gitDirectory.resolve("gitdir"), content.formatted(base));
+
+            assertRefused(confine(candidate.resolve("file.txt"), candidate));
+        }
+
+        @Test
+        @DisplayName("refuses a gitdir record that is too large for a pointer")
+        void refusesOversizedBackPointer() throws Exception {
+            var backPointer = Files.readString(gitDirectory.resolve("gitdir"));
+            Files.writeString(gitDirectory.resolve("gitdir"), backPointer + "\n".repeat(8192));
+
+            assertRefused(confine(candidate.resolve("file.txt"), candidate));
+        }
+
+        @Test
+        @DisplayName("refuses a gitdir record that is a directory")
+        void refusesBackPointerDirectory() throws Exception {
+            Files.delete(gitDirectory.resolve("gitdir"));
+            Files.createDirectories(gitDirectory.resolve("gitdir"));
+
+            assertRefused(confine(candidate.resolve("file.txt"), candidate));
+        }
+
+        @Test
+        @DisplayName("refuses a second directory that points at the git directory of a registered worktree")
+        void refusesSharedGitDirectory() throws Exception {
+            var second = directoryBesideRoot("second");
+            Files.writeString(second.resolve(".git"), "gitdir: " + gitDirectory + "\n");
+
+            assertAll(
+                    () -> assertRefused(confine(second.resolve("file.txt"), candidate, second)),
+                    () -> assertAccepted(candidate.resolve("file.txt"),
+                            confine(candidate.resolve("file.txt"), candidate, second)));
+        }
+
+        @Test
+        @DisplayName("refuses a worktree moved by hand until its gitdir record is rewritten")
+        void refusesMovedWorktreeUntilRepaired() throws Exception {
+            var moved = Files.move(candidate, base.resolve("moved"));
+            var stale = confine(moved.resolve("file.txt"), moved);
+            Files.writeString(gitDirectory.resolve("gitdir"), moved.resolve(".git") + "\n");
+
+            var repaired = confine(moved.resolve("file.txt"), moved);
+
+            assertAll(
+                    () -> assertRefused(stale),
+                    () -> assertAccepted(moved.resolve("file.txt"), repaired));
+        }
+
+        @Nested
+        @DisabledOnOs(value = OS.WINDOWS, disabledReason = "creating a symbolic link needs a privilege there")
+        @DisplayName("through a symbolic link")
+        class ThroughLinks {
+
+            @Test
+            @DisplayName("refuses a git directory below .git/worktrees that is a link to a directory outside")
+            void refusesLinkedGitDirectory() throws Exception {
+                var forged = directoryBesideRoot("forged");
+                var registered = root.resolve(".git/worktrees/forged");
+                register(forged, base.resolve("outside/admin"), root.resolve(".git").toString());
+                Files.createSymbolicLink(registered, base.resolve("outside/admin"));
+                Files.writeString(forged.resolve(".git"), "gitdir: " + registered + "\n");
+
+                assertRefused(confine(forged.resolve("file.txt"), forged));
+            }
+
+            @Test
+            @DisplayName("refuses every worktree when .git/worktrees of the root is itself a link")
+            void refusesLinkedRegistry() throws Exception {
+                var registry = Files.move(root.resolve(".git/worktrees"), base.resolve("registry"));
+                Files.createSymbolicLink(root.resolve(".git/worktrees"), registry);
+                Files.writeString(gitDirectory.resolve("commondir"), root.resolve(".git") + "\n");
+
+                assertRefused(confine(candidate.resolve("file.txt"), candidate));
+            }
         }
     }
 

@@ -28,8 +28,14 @@ import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 /**
  * Confines a project path to the workspace (PM-SEC-2): a path is accepted only when its canonical form, with
  * all symbolic links resolved, lies inside the enrolled repository root or inside a live linked git worktree
- * whose git common directory resolves to that root. Everything else is refused with the outcome code
- * {@link ConfinementOutcome#PATH_TRAVERSAL_REJECTED}.
+ * of that root. A linked worktree counts as one of the root only when its git directory is registered directly
+ * below the {@code .git/worktrees} directory of the root, names the {@code .git} directory of the root as its
+ * common directory and names the worktree back in its {@code gitdir} record. Everything else is refused with
+ * the outcome code {@link ConfinementOutcome#PATH_TRAVERSAL_REJECTED}.
+ * <p>
+ * The record that names the worktree back makes the rule stricter than the common directory alone: a worktree
+ * directory moved by hand, with {@code mv} instead of {@code git worktree move}, leaves a stale {@code gitdir}
+ * record and is refused until {@code git worktree repair} has rewritten it.
  * <p>
  * The check takes the path as text, so that a text that is no path is a refusal like any other, and it never
  * throws for a path it refuses: an I/O failure during canonicalization is a refusal too.
@@ -48,6 +54,10 @@ public final class PathConfinement {
     private static final String GITDIR_PREFIX = "gitdir:";
 
     private static final String COMMONDIR = "commondir";
+
+    private static final String GITDIR = "gitdir";
+
+    private static final String WORKTREES = "worktrees";
 
     private static final String PARENT = "..";
 
@@ -147,12 +157,30 @@ public final class PathConfinement {
     }
 
     /**
-     * Follows the two pointer files of a linked worktree: its {@code .git} file names the worktree's git
-     * directory, whose {@code commondir} file names the common git directory. The worktree belongs to the
-     * root when that directory is the {@code .git} directory of the root.
+     * Follows the three pointer files of a linked worktree and accepts it only when all of them agree. Its
+     * {@code .git} file names the worktree's git directory, whose {@code commondir} file names the common git
+     * directory and whose {@code gitdir} file names the {@code .git} file of the worktree. The worktree
+     * belongs to the root when
+     * <ul>
+     * <li>the common directory is the {@code .git} directory of the root,</li>
+     * <li>the git directory is registered with the root, that is, it lies directly below the
+     * {@code .git/worktrees} directory of the root, and</li>
+     * <li>the {@code gitdir} record of the git directory names this worktree back.</li>
+     * </ul>
+     * A directory that merely carries a git directory with a fitting {@code commondir} file is therefore no
+     * worktree of the root. This is stricter than the common directory alone: a worktree moved by hand, with
+     * {@code mv} instead of {@code git worktree move}, keeps a stale {@code gitdir} record and is refused
+     * until {@code git worktree repair} has rewritten it.
+     *
+     * @param worktreeRoot the canonical root of the candidate worktree
+     * @param root         the canonical enrolled root
+     * @return {@code true} when the candidate is a linked worktree registered with the root
+     * @throws IOException when a pointer file or the path it names cannot be read; the caller treats it as
+     *                     a refusal
      */
     private static boolean isLinkedTo(Path worktreeRoot, Path root) throws IOException {
-        var gitDirectoryTarget = pointer(worktreeRoot.resolve(GIT), GITDIR_PREFIX);
+        var pointerFile = worktreeRoot.resolve(GIT);
+        var gitDirectoryTarget = pointer(pointerFile, GITDIR_PREFIX);
         if (gitDirectoryTarget.isEmpty()) {
             return false;
         }
@@ -164,7 +192,36 @@ public final class PathConfinement {
         var commonDirectory = gitDirectory.resolve(commonDirectoryTarget.get()).toRealPath();
         var rootGitDirectory = root.resolve(GIT);
         return Files.isDirectory(rootGitDirectory, LinkOption.NOFOLLOW_LINKS)
-                && commonDirectory.equals(rootGitDirectory);
+                && commonDirectory.equals(rootGitDirectory)
+                && isRegistered(gitDirectory, rootGitDirectory)
+                && namesBack(gitDirectory, pointerFile);
+    }
+
+    /**
+     * The root is canonical and its {@code .git} is a directory that is no link, so the {@code worktrees}
+     * directory below it is canonical as soon as it is no link either.
+     *
+     * @param gitDirectory     the canonical git directory of the candidate worktree
+     * @param rootGitDirectory the canonical {@code .git} directory of the enrolled root
+     * @return {@code true} when the git directory is a direct child of the {@code worktrees} directory of
+     *         the root, and that directory is not reached through a symbolic link
+     */
+    private static boolean isRegistered(Path gitDirectory, Path rootGitDirectory) {
+        var registry = rootGitDirectory.resolve(WORKTREES);
+        return Files.isDirectory(registry, LinkOption.NOFOLLOW_LINKS) && registry.equals(gitDirectory.getParent());
+    }
+
+    /**
+     * @param gitDirectory the canonical git directory of the candidate worktree
+     * @param pointerFile  the {@code .git} file of the candidate worktree
+     * @return {@code true} when the {@code gitdir} record of the git directory, resolved against that
+     *         directory when it is relative, names the {@code .git} file of the candidate
+     * @throws IOException when the record cannot be read or names a path that does not exist
+     */
+    private static boolean namesBack(Path gitDirectory, Path pointerFile) throws IOException {
+        var backPointer = pointer(gitDirectory.resolve(GITDIR), "");
+        return backPointer.isPresent()
+                && gitDirectory.resolve(backPointer.get()).toRealPath().equals(pointerFile.toRealPath());
     }
 
     /**
