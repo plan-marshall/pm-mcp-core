@@ -20,13 +20,14 @@ import java.util.Map;
 import java.util.Optional;
 
 
-import de.planmarshall.runtime.credentials.dbus.FakeBus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.runtime.credentials.dbus.FakeBus;
 
 /**
  * The Secret Service backend against an in-memory secret service on a fake bus (runs on every

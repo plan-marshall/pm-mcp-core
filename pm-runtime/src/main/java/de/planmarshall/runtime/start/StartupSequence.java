@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.security.SecureRandom;
 
-
 import de.planmarshall.api.MachinePaths;
 
 /**

@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-
 import de.planmarshall.runtime.credentials.dbus.DbusConnection;
 import de.planmarshall.runtime.credentials.dbus.DbusException;
 import de.planmarshall.runtime.credentials.dbus.Variant;

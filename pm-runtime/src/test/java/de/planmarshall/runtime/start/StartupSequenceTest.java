@@ -23,8 +23,6 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 
 
-import de.planmarshall.api.MachinePaths;
-import de.planmarshall.runtime.test.TestBases;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +30,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.api.MachinePaths;
+import de.planmarshall.runtime.test.TestBases;
 
 @DisplayName("Startup steps 1 to 5")
 class StartupSequenceTest {

@@ -16,7 +16,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
-
 import de.planmarshall.api.MachinePaths;
 import lombok.experimental.UtilityClass;
 

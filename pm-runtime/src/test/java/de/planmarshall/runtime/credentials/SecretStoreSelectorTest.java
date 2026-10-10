@@ -21,10 +21,11 @@ import java.util.Map;
 import java.util.Optional;
 
 
-import de.planmarshall.api.MachinePaths;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.api.MachinePaths;
 
 @DisplayName("SecretStoreSelector: one active backend per machine")
 class SecretStoreSelectorTest {
