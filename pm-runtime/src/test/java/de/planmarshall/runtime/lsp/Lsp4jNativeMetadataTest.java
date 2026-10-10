@@ -26,14 +26,13 @@ import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
 
+import org.eclipse.lsp4j.jsonrpc.Endpoint;
+import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.services.LanguageServer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import org.eclipse.lsp4j.jsonrpc.Endpoint;
-import org.eclipse.lsp4j.jsonrpc.Launcher;
-import org.eclipse.lsp4j.services.LanguageServer;
 
 /**
  * Drift test of the GraalVM reachability metadata for LSP4J.

@@ -19,14 +19,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 
+import de.planmarshall.runtime.credentials.dbus.DbusConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-
-import de.planmarshall.runtime.credentials.dbus.DbusConnection;
 
 /**
  * Gate 5 on the JVM: the Secret Service of the Linux session (gnome-keyring or KWallet) over the
