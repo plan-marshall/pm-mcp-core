@@ -110,6 +110,22 @@ public final class PmMcpLogMessages {
                 .identifier(50)
                 .template("Stale lease sweep of '%s' finished: %s kept, %s orphaned, %s removed")
                 .build();
+
+        // WS-01, per-user service unit: identifiers from 51
+
+        /** Logged when the per-user service unit is written and loaded, with the unit path and the daemon path. */
+        public static final LogRecord SERVICE_UNIT_INSTALLED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(51)
+                .template("Service unit '%s' installed for daemon '%s'")
+                .build();
+
+        /** Logged when the per-user service unit is unloaded and removed, also when no unit was present. */
+        public static final LogRecord SERVICE_UNIT_UNINSTALLED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(52)
+                .template("Service unit '%s' uninstalled")
+                .build();
     }
 
     /** WARN level messages. */
@@ -204,6 +220,15 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(250)
                 .template("Lock order violation: '%s' requested while holding %s")
+                .build();
+
+        // WS-01, per-user service unit: identifiers from 251
+
+        /** Logged when a service-manager command fails; names the command and the exit code or failure reason, never an environment value. */
+        public static final LogRecord SERVICE_MANAGER_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(251)
+                .template("Service manager command '%s' failed: %s")
                 .build();
     }
 }
