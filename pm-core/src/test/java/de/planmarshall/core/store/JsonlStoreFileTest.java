@@ -125,7 +125,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a store whose last line is complete is appended to without an audit record, earlier bytes kept")
-        void completeTail() throws IOException {
+        void completeTail() throws Exception {
             var before = bytes(FIRST, SECOND);
             Files.write(store, before);
 
@@ -189,7 +189,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("the first append creates the store with mode 0600")
-        void createsStore() throws IOException {
+        void createsStore() throws Exception {
             appendUnderLock(bytes(FIRST, SECOND));
 
             assertAll(
@@ -201,7 +201,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("an append without the lock of the store is refused and writes and repairs nothing")
-        void withoutLock() throws IOException {
+        void withoutLock() throws Exception {
             var before = bytes(FIRST, TORN);
             Files.write(store, before);
 
@@ -212,7 +212,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("an append under another key than the key of the store is refused")
-        void underAnotherKey() throws IOException {
+        void underAnotherKey() throws Exception {
             var before = bytes(FIRST);
             Files.write(store, before);
 
@@ -224,7 +224,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a block without a trailing newline is refused and nothing is written, not even a repair")
-        void blockWithoutNewline() throws IOException {
+        void blockWithoutNewline() throws Exception {
             var before = bytes(FIRST, TORN);
             Files.write(store, before);
             var block = bytes(SECOND.strip());
@@ -241,7 +241,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("an empty block is refused and nothing is written")
-        void emptyBlock() throws IOException {
+        void emptyBlock() throws Exception {
             var before = bytes(FIRST);
             Files.write(store, before);
             var empty = new byte[0];
@@ -256,7 +256,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a malformed complete line before the tail is kept byte for byte by a repairing append")
-        void malformedLineKept() throws IOException {
+        void malformedLineKept() throws Exception {
             var malformed = "{\"format_version\":1,\"n\":\n";
             var kept = bytes(FIRST, malformed, SECOND);
             var stored = new ByteArrayOutputStream();
@@ -293,7 +293,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("an empty store is left as it is, and nothing is recorded")
-        void emptyStore() throws IOException {
+        void emptyStore() throws Exception {
             Files.write(store, new byte[0]);
 
             try (var transaction = locks.openTransaction()) {
@@ -324,7 +324,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a repair without the lock of the store is refused and cuts nothing")
-        void withoutLock() throws IOException {
+        void withoutLock() throws Exception {
             var before = bytes(FIRST, TORN);
             Files.write(store, before);
 
@@ -340,7 +340,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a torn tail is reported by its offset and never as a record, and neither read repairs it")
-        void tornTailReported() throws IOException {
+        void tornTailReported() throws Exception {
             var before = bytes(FIRST, SECOND, TORN);
             Files.write(store, before);
             var expected = new Content(store, List.of(new Line(1, bytes(FIRST.strip())),
@@ -358,7 +358,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a store that ends with a newline has no torn tail")
-        void completeStore() throws IOException {
+        void completeStore() throws Exception {
             Files.write(store, bytes(FIRST));
 
             var content = storeFile.snapshot();
@@ -380,7 +380,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a read under the lock is refused without the lock of the store")
-        void readWithoutLock() throws IOException {
+        void readWithoutLock() throws Exception {
             var before = bytes(FIRST);
             Files.write(store, before);
 
@@ -391,7 +391,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("the snapshot takes no lock")
-        void snapshotTakesNoLock() throws IOException {
+        void snapshotTakesNoLock() throws Exception {
             Files.write(store, bytes(FIRST));
 
             storeFile.snapshot();
@@ -416,7 +416,7 @@ class JsonlStoreFileTest {
                 format_version 2             | '{"format_version":2,"n":2}' | FORMAT_NEWER    | 2
                 format_version 0             | '{"format_version":0,"n":2}' | FORMAT_OUTDATED | 0
                 """)
-        void refusedLine(String name, String line, Outcome outcome, int found) throws IOException {
+        void refusedLine(String name, String line, Outcome outcome, int found) throws Exception {
             var before = bytes(FIRST, line, "\n", THIRD);
             Files.write(store, before);
 
@@ -439,7 +439,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a record of format_version 2 reads format_newer naming the file")
-        void formatNewerNamesFile() throws IOException {
+        void formatNewerNamesFile() throws Exception {
             Files.write(store, bytes("{\"format_version\":2,\"n\":1}\n"));
 
             var entry = storeFile.snapshot().decode(FORMAT_VERSION, AS_TEXT).getFirst();
@@ -454,7 +454,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a record the decoder refuses is reported with its line number")
-        void decoderRefusal() throws IOException {
+        void decoderRefusal() throws Exception {
             Files.write(store, bytes(FIRST, SECOND));
             var refusal = StoreRefusal.unreadable(store, FORMAT_VERSION, "'n' must be odd", null);
 
@@ -470,7 +470,7 @@ class JsonlStoreFileTest {
 
         @Test
         @DisplayName("a decoder that answers nothing for a record is a fault of the decoder")
-        void decoderAnswersNothing() throws IOException {
+        void decoderAnswersNothing() throws Exception {
             Files.write(store, bytes(FIRST));
             var content = storeFile.snapshot();
 

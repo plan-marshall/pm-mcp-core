@@ -44,7 +44,7 @@ import java.util.Objects;
  * @since 0.1
  */
 public record JournalScope(JournalScopeType type, String scopeId, Path pathBase, Path journalFile, Path sidecarFile,
-        List<Path> ownedDirectories, LockKey lockKey) {
+List<Path> ownedDirectories, LockKey lockKey) {
 
     private static final String MCP = "mcp";
     private static final String JOURNAL = "transaction-journal.json";

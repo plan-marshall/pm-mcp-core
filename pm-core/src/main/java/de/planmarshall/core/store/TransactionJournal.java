@@ -60,7 +60,7 @@ import java.util.OptionalLong;
  * @since 0.1
  */
 public record TransactionJournal(TransactionId transactionId, JournalScopeType scopeType, String scopeId,
-        Instant createdAt, List<Target> targets) {
+Instant createdAt, List<Target> targets) {
 
     /** The format version of a transaction journal that is read and written. */
     public static final int FORMAT_VERSION = 1;

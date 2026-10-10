@@ -101,7 +101,7 @@ class JournalScopeTest {
                     () -> assertEquals(List.of(pathBase.resolve("workspace"), pathBase.resolve("pending")),
                             scope.ownedDirectories()),
                     () -> assertFalse(scope.ownedDirectories().stream()
-                            .anyMatch(owned -> pathBase.resolve("plans").startsWith(owned)),
+                                    .anyMatch(owned -> pathBase.resolve("plans").startsWith(owned)),
                             "the workspace owns no directory of a plan"),
                     () -> assertEquals(LockKey.workspace(base, PROJECT), scope.lockKey()));
         }

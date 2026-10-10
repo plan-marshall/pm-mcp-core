@@ -76,7 +76,7 @@ class AuditEventTest {
                     () -> assertEquals("store", event.category()),
                     () -> assertEquals("succeeded", event.outcome()),
                     () -> assertEquals(Map.of("scope_type", "plan", "scope_id", "a-plan", "transaction_id",
-                            TRANSACTION_ID, "targets", List.of("mcp/status.json", "findings.jsonl")),
+                                    TRANSACTION_ID, "targets", List.of("mcp/status.json", "findings.jsonl")),
                             event.details()));
         }
 

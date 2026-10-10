@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -153,7 +152,7 @@ class DigestSidecarTest {
 
         @Test
         @DisplayName("a sidecar file is read as its document")
-        void present() throws IOException {
+        void present() throws Exception {
             Files.writeString(file(), DOCUMENT);
 
             assertEquals(DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS, "pending/entry-1.json",
@@ -162,7 +161,7 @@ class DigestSidecarTest {
 
         @Test
         @DisplayName("an empty sidecar file is unreadable, never an empty sidecar")
-        void emptyFile() throws IOException {
+        void emptyFile() throws Exception {
             var file = Files.write(file(), new byte[0]);
 
             var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.load(file));
