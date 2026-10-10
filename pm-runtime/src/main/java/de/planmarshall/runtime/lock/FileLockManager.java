@@ -91,6 +91,7 @@ public final class FileLockManager implements LockManager {
         return new Transaction();
     }
 
+    @SuppressWarnings("java:S2222") // held on return by design: unlock(key) releases it when the transaction closes
     private void lock(LockKey key) {
         var threadLock = threadLocks.computeIfAbsent(key, _ -> new ReentrantLock());
         threadLock.lock();
