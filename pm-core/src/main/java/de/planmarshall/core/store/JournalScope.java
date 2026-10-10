@@ -9,9 +9,13 @@
  */
 package de.planmarshall.core.store;
 
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A scope that writes its stores through a transaction journal (PM-IMPL-7): where its journal and its digest sidecar
@@ -33,6 +37,10 @@ import java.util.Objects;
  * </ul>
  * The owned directories of the workspace exclude {@code plans/} and {@code epics/}, although they lie below its path
  * base: a recovery of the workspace never touches a staged file of a plan or an epic.
+ * <p>
+ * A store path is confined to the path base lexically by {@link #resolve(String)}; a transaction, a recovery and a
+ * verification also refuse a store reached through a symbolic link below the path base, because the file operations
+ * on a store follow links.
  *
  * @param type             the type of the scope
  * @param scopeId          the plan or epic id; {@code null} for the workspace and the lesson store
@@ -145,6 +153,75 @@ List<Path> ownedDirectories, LockKey lockKey) {
                     "Store path '%s' does not lie below the path base %s".formatted(relativePath, pathBase));
         }
         return resolved;
+    }
+
+    /**
+     * Resolves a store path of the scope as {@link #resolve(String)} does and refuses a path that passes through a
+     * symbolic link below the path base. Writes, moves and the tail repair of a store follow links, so a link inside
+     * the scope would let them modify a file outside it.
+     *
+     * @param relativePath a path relative to the path base
+     * @return the store file, absolute and normalized, reached without a symbolic link below the path base
+     * @throws IllegalArgumentException if the path is absolute, empty, does not lie below the path base, or an
+     *                                  existing component of it below the path base, the store included, is a
+     *                                  symbolic link
+     */
+    Path resolveWithoutLinks(String relativePath) {
+        var store = resolve(relativePath);
+        var link = linkBelowPathBase(store);
+        if (link.isPresent()) {
+            throw new IllegalArgumentException("Store path '%s' passes through the symbolic link %s below %s"
+                    .formatted(relativePath, link.get(), pathBase));
+        }
+        return store;
+    }
+
+    /**
+     * Walks the components of a file from the path base down, without following a link, up to the first that does
+     * not exist. The path base itself and what lies above it are not looked at.
+     *
+     * @param file a file below the path base, absolute and normalized
+     * @return the first existing component below the path base, the file included, that is a symbolic link; empty if
+     *         there is none
+     */
+    Optional<Path> linkBelowPathBase(Path file) {
+        if (!file.startsWith(pathBase)) {
+            throw new IllegalArgumentException("%s does not lie below the path base %s".formatted(file, pathBase));
+        }
+        var component = pathBase;
+        for (var name : pathBase.relativize(file)) {
+            component = component.resolve(name);
+            if (Files.isSymbolicLink(component)) {
+                return Optional.of(component);
+            }
+            if (!Files.exists(component, LinkOption.NOFOLLOW_LINKS)) {
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Whether a path is a store path as a journal or a sidecar names it: relative, normalized, with {@code /} as
+     * separator, not empty, and without an empty, {@code .} or {@code ..} segment.
+     *
+     * @param path a path read from a journal or a sidecar
+     * @return whether it has the one form of a store path
+     */
+    static boolean isStorePath(String path) {
+        if (path == null || path.isEmpty()) {
+            return false;
+        }
+        for (var segment : path.split("/", -1)) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) {
+                return false;
+            }
+        }
+        try {
+            return !Path.of(path).isAbsolute();
+        } catch (InvalidPathException _) {
+            return false;
+        }
     }
 
     private static void requireNormalized(Path path, String name) {

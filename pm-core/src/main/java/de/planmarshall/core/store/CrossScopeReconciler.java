@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import java.util.List;
 import java.util.Objects;
 
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LockManager;
 
 /**
@@ -23,6 +24,12 @@ import de.planmarshall.core.service.LockManager;
  * does not show it yet, a check-then-act it runs under the lock of the derived store, one transaction per store. It
  * holds no lock when it returns. A reconciler that finds every derived write in place changes nothing and reports
  * nothing.
+ * <p>
+ * A derived write is a {@link ScopeTransaction} of the derived scope that owes the {@code cross_scope_reconciled}
+ * record of the write ({@link OrderedWrite#oweReconciled(ScopeTransaction, Reconciliation)}) before it commits. The
+ * record is thus in the journal before the derived store changes and is delivered at least once; a record owed only
+ * after the write would be lost by a stop in between, because the next run finds the derived store in place and
+ * records nothing.
  *
  * @since 0.1
  */
@@ -49,7 +56,8 @@ public interface CrossScopeReconciler {
      * Derives the later writes from the authoritative store and applies those that are missing.
      *
      * @param lockManager the lock manager to take the lock of each store from, one transaction per store
+     * @param auditSink   the audit sink of the scope transactions of the derived writes
      * @return the derived writes applied, in the order they were applied; empty if every one was in place
      */
-    List<Reconciliation> reconcile(LockManager lockManager);
+    List<Reconciliation> reconcile(LockManager lockManager, AuditSink auditSink);
 }

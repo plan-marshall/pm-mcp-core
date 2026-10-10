@@ -191,6 +191,18 @@ public final class PmMcpLogMessages {
                 .identifier(151)
                 .template("Lease '%s' in '%s' orphaned: its holder (pid %s) is no longer alive")
                 .build();
+
+        // WS-02, store substrate: identifiers 160-169
+
+        /**
+         * Logged when the audit sink refused the record of a completed store mutation; the record stays owed in its
+         * durable intent and is handed over again by the next recovery or repair.
+         */
+        public static final LogRecord AUDIT_RECORD_DEFERRED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(160)
+                .template("Audit record '%s' of transaction '%s' not handed over, kept owed in '%s': %s")
+                .build();
     }
 
     /** ERROR level messages. */

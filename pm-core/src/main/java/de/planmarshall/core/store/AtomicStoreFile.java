@@ -81,7 +81,7 @@ public record AtomicStoreFile(Path store, LockKey lockKey) {
     public void write(LockTransaction transaction, byte[] content) {
         requireHeld(transaction);
         Objects.requireNonNull(content, "content");
-        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + UUID.randomUUID());
+        var temporary = store.resolveSibling(store.getFileName() + TransactionId.STAGED_TMP + UUID.randomUUID());
         try {
             try {
                 replace(temporary, content);
@@ -99,6 +99,10 @@ public record AtomicStoreFile(Path store, LockKey lockKey) {
      * file is {@code <store>.tmp.<transaction id>}, and it is not removed when the write fails. A write stopped at any
      * point thus leaves what a killed process leaves, and only files that the recovery of the transaction recognises
      * as its own.
+     * <p>
+     * A temporary file of the same transaction that a stopped write left is deleted before the write: the recovery of
+     * the transaction writes the same store again under the same id, and the name belongs to this transaction only,
+     * whose scope lock the caller holds.
      *
      * @param transaction   a transaction that holds the key of the store
      * @param content       the new content of the store
@@ -109,8 +113,10 @@ public record AtomicStoreFile(Path store, LockKey lockKey) {
     void write(LockTransaction transaction, byte[] content, TransactionId transactionId) {
         requireHeld(transaction);
         Objects.requireNonNull(content, "content");
-        var temporary = store.resolveSibling(store.getFileName() + ".tmp." + transactionId.value());
+        var temporary = store.resolveSibling(
+                transactionId.stagedName(store.getFileName().toString(), TransactionJournal.Mode.REPLACE));
         try {
+            Files.deleteIfExists(temporary);
             replace(temporary, content);
         } catch (IOException e) {
             throw new UncheckedIOException("Store cannot be written: " + store, e);

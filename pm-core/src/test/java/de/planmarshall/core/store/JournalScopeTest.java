@@ -16,10 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -278,6 +278,78 @@ class JournalScopeTest {
             var absolute = scope.pathBase().resolve("references.json").toString();
 
             assertThrows(IllegalArgumentException.class, () -> scope.resolve(absolute));
+        }
+    }
+
+    @Nested
+    @DisplayName("symbolic links below the path base")
+    class Links {
+
+        @Test
+        @DisplayName("a store reached without a link resolves, also when it does not exist yet")
+        void withoutLink() throws Exception {
+            var scope = JournalScope.plan(base, PROJECT, PLAN);
+            Files.createDirectories(scope.pathBase().resolve("logs"));
+
+            var store = scope.resolveWithoutLinks("logs/work.jsonl");
+
+            assertAll(
+                    () -> assertEquals(scope.pathBase().resolve("logs/work.jsonl"), store),
+                    () -> assertEquals(Optional.empty(), scope.linkBelowPathBase(store)));
+        }
+
+        @Test
+        @DisplayName("a store that is a symbolic link to a file outside the scope is refused")
+        void linkedStore() throws Exception {
+            var scope = JournalScope.plan(base, PROJECT, PLAN);
+            var outside = Files.writeString(base.resolve("outside.json"), "{}");
+            var store = scope.pathBase().resolve("status.json");
+            SymbolicLinks.createOrSkip(store, outside);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> scope.resolveWithoutLinks("status.json")),
+                    () -> assertEquals(Optional.of(store), scope.linkBelowPathBase(store)));
+        }
+
+        @Test
+        @DisplayName("a store below a parent directory that is a symbolic link to a directory outside is refused")
+        void linkedParent() throws Exception {
+            var scope = JournalScope.plan(base, PROJECT, PLAN);
+            var outside = Files.createDirectories(base.resolve("outside"));
+            var parent = scope.pathBase().resolve("logs");
+            SymbolicLinks.createOrSkip(parent, outside);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> scope.resolveWithoutLinks("logs/work.jsonl")),
+                    () -> assertEquals(Optional.of(parent),
+                            scope.linkBelowPathBase(scope.resolve("logs/work.jsonl"))));
+        }
+
+        @Test
+        @DisplayName("a dangling symbolic link in place of a store is refused")
+        void danglingLink() {
+            var scope = JournalScope.plan(base, PROJECT, PLAN);
+            var store = scope.pathBase().resolve("status.json");
+            SymbolicLinks.createOrSkip(store, base.resolve("missing.json"));
+
+            assertThrows(IllegalArgumentException.class, () -> scope.resolveWithoutLinks("status.json"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"status.json", "mcp/status.json", "a/b/c.jsonl"})
+        @DisplayName("a relative, normalized path is a store path")
+        void storePath(String path) {
+            assertTrue(JournalScope.isStorePath(path));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"", "/status.json", "../status.json", "a/../status.json", "./status.json",
+                "a//status.json", "a/", "a/."})
+        @DisplayName("an empty, absolute or not normalized path is no store path")
+        void noStorePath(String path) {
+            assertFalse(JournalScope.isStorePath(path));
         }
     }
 }

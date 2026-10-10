@@ -9,6 +9,10 @@
  */
 package de.planmarshall.core.store;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,8 +22,10 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
@@ -44,7 +50,8 @@ import de.planmarshall.core.service.LockTransaction;
  * then forces the file to disk. Every record ends with a newline, so a last line without one is a torn tail that an
  * interrupted append left behind. The next append, still under the lock and before it writes, cuts the store back
  * to the end of its last complete line, forces it to disk, and hands a {@code jsonl_tail_repaired} record to the
- * audit sink. Nothing before the last newline is ever touched: a malformed complete line stays in place and is
+ * audit sink, owed in an intent file beside the store until the sink accepted it. Nothing before the last newline is
+ * ever touched: a malformed complete line stays in place and is
  * reported as unreadable with its line number, while the other records of the store stay readable.
  * <p>
  * A leaf key names the store file itself, and on POSIX closing any channel on a file releases every lock of the
@@ -64,6 +71,9 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
 
     private static final byte NEWLINE = '\n';
     private static final int SCAN_CHUNK = 8192;
+    private static final String AUDIT_INTENT_SUFFIX = ".audit-intent";
+    private static final int AUDIT_INTENT_FORMAT_VERSION = 1;
+    private static final String FIELD_OWED_EVENTS = "owed_events";
 
     /**
      * Makes the store path absolute and normalized.
@@ -102,7 +112,8 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof Line line && number == line.number && Arrays.equals(content, line.content);
+            return other instanceof Line(long otherNumber, byte[] otherContent) && number == otherNumber
+                    && Arrays.equals(content, otherContent);
         }
 
         @Override
@@ -149,11 +160,7 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
          */
         public <T> List<Entry<T>> decode(int formatVersion, Function<byte[], T> decoder) {
             Objects.requireNonNull(decoder, "decoder");
-            var entries = new ArrayList<Entry<T>>(lines.size());
-            for (var line : lines) {
-                entries.add(decodeLine(line, formatVersion, decoder));
-            }
-            return List.copyOf(entries);
+            return lines.stream().map(line -> decodeLine(line, formatVersion, decoder)).toList();
         }
 
         private <T> Entry<T> decodeLine(Line line, int formatVersion, Function<byte[], T> decoder) {
@@ -173,6 +180,8 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
      * @param <T> what a record holds
      * @since 0.1
      */
+    // phantom type parameter: carries the decoded record type to the callers of decode; Accepted<T> uses it
+    @SuppressWarnings("java:S2326")
     public sealed interface Entry<T> permits Accepted, Refused {
 
         /** @return the line number of the record, counted from 1 */
@@ -236,34 +245,139 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
 
     /**
      * Repairs a torn tail: cuts the store back to the end of its last complete line, forces it to disk and hands a
-     * {@code jsonl_tail_repaired} record with the number and the SHA-256 of the bytes cut off to the audit sink. A
-     * store that ends with a newline, is empty or does not exist is left as it is, and nothing is recorded.
+     * {@code jsonl_tail_repaired} record with the number and the SHA-256 of the bytes cut off and the id of the repair
+     * to the audit sink. A store that ends with a newline, is empty or does not exist is left as it is, and nothing
+     * new is recorded.
+     * <p>
+     * The record is delivered at least once. Before the cut it is owed in the intent file of the store
+     * ({@link #auditIntentFile()}), forced to disk; the intent is deleted only after the sink accepted every record it
+     * owes. A sink that refuses a record, or a stop before the hand-over, leaves the intent, and the next repair of
+     * the store, which every append runs first, hands the owed records over again, with their ids. The cut itself is
+     * done either way.
      *
      * @param transaction a transaction that holds the key of the store
      * @param auditSink   where the record of the repair is handed over
      * @throws InternalFaultException if the transaction does not hold the key; nothing was cut then
-     * @throws UncheckedIOException   if the store cannot be read or cut
+     * @throws StoreRefusal           if the intent file is unreadable or of another format version; nothing was cut
+     *                                then
+     * @throws UncheckedIOException   if the store or its intent file cannot be read or written
      */
     public void repairTail(LockTransaction transaction, AuditSink auditSink) {
         requireHeld(transaction);
         Objects.requireNonNull(auditSink, "auditSink");
+        var owed = new ArrayList<>(readAuditIntent());
+        try {
+            cutTornTail(transaction, owed);
+            handOver(transaction, owed, auditSink);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Torn tail of the JSONL store cannot be repaired: " + store, e);
+        }
+    }
+
+    /**
+     * @return the intent file of the audit records the tail repairs of the store owe, beside the store; it exists
+     *         only while a record is owed
+     */
+    public Path auditIntentFile() {
+        return store.resolveSibling(store.getFileName() + AUDIT_INTENT_SUFFIX);
+    }
+
+    /**
+     * Cuts a torn tail off. The record of the cut is owed in the intent file, forced to disk, before the cut: an
+     * intent that already owes the record of this very tail (a repair stopped between its intent and its cut) is
+     * completed and not owed twice.
+     */
+    private void cutTornTail(LockTransaction transaction, List<AuditEvent> owed) throws IOException {
         if (!Files.exists(store, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
-        byte[] torn;
         try (var channel = FileChannel.open(store, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
             var size = channel.size();
             var end = endOfLastCompleteLine(channel, size);
             if (end == size) {
                 return;
             }
-            torn = readFully(channel, end, Math.toIntExact(size - end));
+            var torn = readFully(channel, end, Math.toIntExact(size - end));
+            var sha256 = StoreSnapshot.sha256(torn);
+            if (owed.stream().noneMatch(event -> isRepairOf(event, torn.length, sha256))) {
+                owed.add(AuditEvent.jsonlTailRepaired(store, torn.length, sha256,
+                        TransactionId.generate(Clock.systemUTC()).value()));
+                writeAuditIntent(transaction, owed);
+            }
             channel.truncate(end);
             channel.force(true);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Torn tail of the JSONL store cannot be repaired: " + store, e);
         }
-        auditSink.append(AuditEvent.jsonlTailRepaired(store, torn.length, StoreSnapshot.sha256(torn)));
+    }
+
+    /** Hands the owed records over; the intent file is deleted once every one was, and keeps the rest otherwise. */
+    private void handOver(LockTransaction transaction, List<AuditEvent> owed, AuditSink auditSink)
+            throws IOException {
+        if (owed.isEmpty()) {
+            return;
+        }
+        var intent = auditIntentFile();
+        var remaining = OwedAuditEvents.deliver(owed, auditSink, intent);
+        if (remaining.isEmpty()) {
+            Files.delete(intent);
+            SyncedFiles.forceDirectory(intent.getParent());
+        } else if (remaining.size() < owed.size()) {
+            writeAuditIntent(transaction, remaining);
+        }
+    }
+
+    private static boolean isRepairOf(AuditEvent event, long truncatedBytes, String truncatedSha256) {
+        return AuditEvent.JSONL_TAIL_REPAIRED.equals(event.event())
+                && Long.valueOf(truncatedBytes).equals(event.details().get(AuditEvent.DETAIL_TRUNCATED_BYTES))
+                && truncatedSha256.equals(event.details().get(AuditEvent.DETAIL_TRUNCATED_SHA256));
+    }
+
+    private List<AuditEvent> readAuditIntent() {
+        var intent = auditIntentFile();
+        return StoreSnapshot.read(intent).content()
+                .map(document -> StrictJson.read(intent, document, AUDIT_INTENT_FORMAT_VERSION,
+                        JsonlStoreFile::readAuditIntentDocument))
+                .orElseGet(List::of);
+    }
+
+    private void writeAuditIntent(LockTransaction transaction, List<AuditEvent> owed) {
+        var out = new ByteArrayOutputStream();
+        try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
+            generator.writeStartObject();
+            generator.writeNumberField(StrictJson.FIELD_FORMAT_VERSION, AUDIT_INTENT_FORMAT_VERSION);
+            generator.writeArrayFieldStart(FIELD_OWED_EVENTS);
+            for (var event : owed) {
+                OwedAuditEvents.write(generator, event);
+            }
+            generator.writeEndArray();
+            generator.writeEndObject();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Audit intent cannot be written: " + auditIntentFile(), e);
+        }
+        new AtomicStoreFile(auditIntentFile(), lockKey).write(transaction, out.toByteArray());
+    }
+
+    private static List<AuditEvent> readAuditIntentDocument(JsonParser parser) throws IOException {
+        List<AuditEvent> owed = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = StrictJson.nextField(parser, seen);
+            switch (field) {
+                case StrictJson.FIELD_FORMAT_VERSION -> parser.skipChildren();
+                case FIELD_OWED_EVENTS -> owed = readOwedEvents(parser);
+                default -> throw StrictJson.undeclared(field);
+            }
+        }
+        StrictJson.requireFields(seen, "audit intent", FIELD_OWED_EVENTS);
+        return owed;
+    }
+
+    private static List<AuditEvent> readOwedEvents(JsonParser parser) throws IOException {
+        StrictJson.requireArray(parser, FIELD_OWED_EVENTS);
+        var owed = new ArrayList<AuditEvent>();
+        while (parser.nextToken() != JsonToken.END_ARRAY) {
+            owed.add(OwedAuditEvents.read(parser));
+        }
+        return List.copyOf(owed);
     }
 
     /**

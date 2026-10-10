@@ -24,15 +24,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.TreeMap;
-
-import de.planmarshall.core.store.StoreRefusal.Outcome;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The digest sidecar of a scope (PM-IMPL-7, PM-IMPL-2): the size and SHA-256 of each store by its path relative to the
@@ -206,6 +205,33 @@ class DigestSidecarTest {
         @DisplayName("a document without its stores is refused")
         void missingStores() {
             assertRefused(Outcome.UNREADABLE, "{\"format_version\":1}");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', textBlock = """
+                absolute key      | /etc/passwd
+                parent segment    | ../other-plan/status.json
+                inner parent      | workspace/../../status.json
+                current segment   | ./workspace/mcp/status.json
+                """)
+        @DisplayName("a store key that is no relative, normalized store path is refused naming the sidecar")
+        void invalidKey(String name, String key) throws Exception {
+            var file = Files.writeString(file(), DOCUMENT.replace("pending/entry-1.json", key));
+
+            var refusal = assertThrows(StoreRefusal.class, () -> DigestSidecar.load(file));
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(file, refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains(key), "the message names the key"));
+        }
+
+        @Test
+        @DisplayName("a store key that is no store path is rejected when the sidecar is built")
+        void invalidKeyRecord() {
+            var stores = Map.of("../escape.json", STATUS);
+
+            assertThrows(IllegalArgumentException.class, () -> DigestSidecar.of(stores));
         }
     }
 }

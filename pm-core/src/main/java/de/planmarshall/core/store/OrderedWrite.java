@@ -119,12 +119,14 @@ public final class OrderedWrite {
 
     /**
      * Runs the reconcilers of the writes across scopes, as the recovery of a project does at startup after the
-     * journals of its scopes were rolled forward, and hands one {@code cross_scope_reconciled} record to the audit
-     * sink for each derived write a reconciler applied. A reconciler that finds nothing to do leaves no record.
+     * journals of its scopes were rolled forward. Each derived write a reconciler applies owes one
+     * {@code cross_scope_reconciled} record on its own scope transaction ({@link CrossScopeReconciler}), so the record
+     * is in the journal before the write and handed to the audit sink with the transaction, or by the next recovery of
+     * its scope. A reconciler that finds nothing to do leaves no record.
      *
      * @param lockManager  the lock manager the reconcilers take their locks from
      * @param reconcilers  the reconcilers, run in this order
-     * @param auditSink    where the records are handed over; no lock is held when it is called
+     * @param auditSink    where the transactions of the reconcilers hand their records over
      * @return every derived write applied, in the order of the reconcilers
      */
     public static List<CrossScopeReconciler.Reconciliation> reconcile(LockManager lockManager,
@@ -133,11 +135,22 @@ public final class OrderedWrite {
         Objects.requireNonNull(auditSink, "auditSink");
         var applied = new ArrayList<CrossScopeReconciler.Reconciliation>();
         for (var reconciler : List.copyOf(reconcilers)) {
-            for (var reconciliation : List.copyOf(reconciler.reconcile(lockManager))) {
-                auditSink.append(AuditEvent.crossScopeReconciled(reconciliation.name(), reconciliation.store()));
-                applied.add(reconciliation);
-            }
+            applied.addAll(reconciler.reconcile(lockManager, auditSink));
         }
         return List.copyOf(applied);
+    }
+
+    /**
+     * Owes the {@code cross_scope_reconciled} record of a derived write on the scope transaction that applies it, as a
+     * {@link CrossScopeReconciler} does before it commits the write.
+     *
+     * @param write          the open transaction of the derived write
+     * @param reconciliation the reconciliation rule that applies and the store it writes
+     */
+    public static void oweReconciled(ScopeTransaction write, CrossScopeReconciler.Reconciliation reconciliation) {
+        Objects.requireNonNull(write, "write");
+        Objects.requireNonNull(reconciliation, "reconciliation");
+        write.owe(AuditEvent.crossScopeReconciled(reconciliation.name(), reconciliation.store(),
+                write.transactionId().value()));
     }
 }

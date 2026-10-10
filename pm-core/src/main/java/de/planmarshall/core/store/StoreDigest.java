@@ -9,7 +9,14 @@
  */
 package de.planmarshall.core.store;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
@@ -55,5 +62,90 @@ public record StoreDigest(long size, String sha256) {
     public boolean matches(byte[] content) {
         Objects.requireNonNull(content, "content");
         return content.length == size && StoreSnapshot.sha256(content).equals(sha256);
+    }
+
+    /**
+     * @param file a store file
+     * @return the digest of the file, computed by streaming it; empty if the file does not exist
+     * @throws IOException if the file exists and cannot be read
+     */
+    static Optional<StoreDigest> ofFile(Path file) throws IOException {
+        try {
+            return Optional.of(builder().update(file).build());
+        } catch (NoSuchFileException _) {
+            return Optional.empty();
+        }
+    }
+
+    /** @return a digest computed incrementally from chunks, with a bounded buffer for files */
+    static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Computes the digest of content that arrives in chunks: bytes in memory and files streamed through a bounded
+     * buffer, in the order they are added. No chunk is kept; the digest equals {@link #of(byte[])} of the
+     * concatenation.
+     *
+     * @since 0.1
+     */
+    static final class Builder {
+
+        /** The size of the buffer a file is streamed through. */
+        static final int BUFFER_SIZE = 8192;
+
+        private final MessageDigest digest = StoreSnapshot.newSha256();
+        private long size;
+
+        private Builder() {
+        }
+
+        /**
+         * @param bytes the next chunk
+         * @return this builder
+         */
+        Builder update(byte[] bytes) {
+            Objects.requireNonNull(bytes, "bytes");
+            digest.update(bytes);
+            size += bytes.length;
+            return this;
+        }
+
+        /**
+         * @param file a file whose whole content is the next chunk
+         * @return this builder
+         * @throws IOException if the file cannot be read, a {@link NoSuchFileException} if it does not exist
+         */
+        Builder update(Path file) throws IOException {
+            return update(file, Long.MAX_VALUE);
+        }
+
+        /**
+         * @param file  a file whose first bytes are the next chunk
+         * @param limit how many bytes of the file to add; all of them if the file is shorter
+         * @return this builder
+         * @throws IOException if the file cannot be read, a {@link NoSuchFileException} if it does not exist
+         */
+        Builder update(Path file, long limit) throws IOException {
+            try (var in = Files.newInputStream(file)) {
+                var buffer = new byte[BUFFER_SIZE];
+                var remaining = limit;
+                while (remaining > 0) {
+                    var read = in.read(buffer, 0, (int) Math.min(buffer.length, remaining));
+                    if (read < 0) {
+                        break;
+                    }
+                    digest.update(buffer, 0, read);
+                    size += read;
+                    remaining -= read;
+                }
+            }
+            return this;
+        }
+
+        /** @return the digest of every chunk added, in their order */
+        StoreDigest build() {
+            return new StoreDigest(size, HexFormat.of().formatHex(digest.digest()));
+        }
     }
 }

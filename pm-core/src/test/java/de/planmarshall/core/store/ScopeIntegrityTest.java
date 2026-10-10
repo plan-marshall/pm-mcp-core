@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serial;
 import java.nio.file.Files;
@@ -26,6 +27,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.InternalFaultException;
@@ -36,12 +42,6 @@ import de.planmarshall.core.store.ScopeIntegrity.Untracked;
 import de.planmarshall.core.store.ScopeIntegrity.Verification;
 import de.planmarshall.core.store.ScopeIntegrity.Verified;
 import de.planmarshall.core.store.ScopeTransaction.Step;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The digest verification of a scope (PM-IMPL-7): an edit outside a transaction is decided only under the lock of the
@@ -267,6 +267,26 @@ class ScopeIntegrityTest {
                     () -> assertEquals(List.of(), audit.events()));
         }
 
+        /**
+         * The journal that appears between the first look and the end of the read cannot be provoked without a
+         * production hook; the second look is covered by its structure: a read already taken is reported unverified
+         * with the content it read, without a second read.
+         */
+        @Test
+        @DisplayName("race guard: a journal found after the read turns a VERIFIED read into DIGEST_UNVERIFIED, same bytes")
+        void journalAfterRead() {
+            var digest = StoreDigest.of(bytes(OLD_STATUS));
+            var read = StoreSnapshot.read(store(STATUS), digest.size(), digest.sha256());
+
+            var unverified = read.asUnverified();
+
+            assertAll(
+                    () -> assertEquals(StoreIntegrity.VERIFIED, read.integrity()),
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, unverified.integrity()),
+                    () -> assertEquals(read.store(), unverified.store()),
+                    () -> assertArrayEquals(read.content().orElseThrow(), unverified.content().orElseThrow()));
+        }
+
         @Test
         @DisplayName("verify rolls the journal forward first and answers Verified")
         void verifyRollsForward() {
@@ -333,6 +353,127 @@ class ScopeIntegrityTest {
                     () -> assertFalse(Files.exists(store(REFERENCES))),
                     () -> assertFalse(Files.exists(scope.journalFile())),
                     () -> assertArrayEquals(sidecarBytes, Files.readAllBytes(scope.sidecarFile())),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+    }
+
+    @Nested
+    @DisplayName("digests computed by streaming")
+    class Streamed {
+
+        private byte[] large() {
+            var large = new ByteArrayOutputStream();
+            while (large.size() < 4 * StoreDigest.Builder.BUFFER_SIZE + 5) {
+                large.writeBytes(bytes(FIRST));
+            }
+            return large.toByteArray();
+        }
+
+        @Test
+        @DisplayName("a store of several buffer sizes is Verified, and a change of its last byte a Mismatch")
+        void largeStore() throws Exception {
+            var content = large();
+            Files.write(store(REFERENCES), content);
+            rebaseline(REFERENCES);
+            var verified = verify(REFERENCES);
+            content[content.length - 2] = '9';
+            Files.write(store(REFERENCES), content);
+
+            var mismatch = verify(REFERENCES);
+
+            assertAll(
+                    () -> assertEquals(new Verified(REFERENCES, StoreDigest.of(large())), verified),
+                    () -> assertEquals(new Mismatch(REFERENCES, StoreDigest.of(large()),
+                            Optional.of(StoreDigest.of(content))), mismatch));
+        }
+
+        @Test
+        @DisplayName("a store of zero bytes is Verified against its recorded digest, as before")
+        void emptyStore() throws Exception {
+            Files.write(store(REFERENCES), new byte[0]);
+            rebaseline(REFERENCES);
+
+            var outcome = verify(REFERENCES);
+
+            assertEquals(new Verified(REFERENCES, StoreDigest.of(new byte[0])), outcome);
+        }
+    }
+
+    @Nested
+    @DisplayName("a store path that leaves the scope")
+    class Confinement {
+
+        private void writeSidecarWithKey(String key) throws IOException {
+            Files.writeString(scope.sidecarFile(), "{\"format_version\":1,\"stores\":{\"" + key
+                    + "\":{\"size\":1,\"sha256\":\"" + "a".repeat(64) + "\"}}}");
+        }
+
+        @Test
+        @DisplayName("an absolute sidecar key makes verifyAll a StoreRefusal naming the sidecar")
+        void absoluteKey() throws Exception {
+            writeSidecarWithKey(base.resolve("outside.json").toString());
+
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+
+            assertAll(
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(scope.sidecarFile(), refusal.file()));
+        }
+
+        @Test
+        @DisplayName("a sidecar key with a parent segment makes verifyAll a StoreRefusal naming the sidecar")
+        void parentKey() throws Exception {
+            writeSidecarWithKey("../another-plan/status.json");
+
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+
+            assertAll(
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(scope.sidecarFile(), refusal.file()));
+        }
+
+        @Test
+        @DisplayName("a sidecar entry whose store is a symbolic link makes verifyAll a StoreRefusal naming the sidecar")
+        void linkedStoreOfSidecar() throws Exception {
+            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            Files.delete(store(STATUS));
+            SymbolicLinks.createOrSkip(store(STATUS), outside);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+
+            assertEquals(scope.sidecarFile(), refusal.file());
+        }
+
+        @Test
+        @DisplayName("a caller path through a symbolic link is refused by verify, snapshot and rebaseline")
+        void linkedCallerPath() throws Exception {
+            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            Files.delete(store(STATUS));
+            SymbolicLinks.createOrSkip(store(STATUS), outside);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> verify(STATUS)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> ScopeIntegrity.snapshot(scope, STATUS)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> rebaseline(STATUS)),
+                    () -> assertEquals(OLD_STATUS, Files.readString(outside)));
+        }
+
+        @Test
+        @DisplayName("a journal whose store became a symbolic link is refused naming the journal, and nothing moves")
+        void linkedStoreOfJournal() throws Exception {
+            stopAfterJournal();
+            var outside = Files.writeString(base.resolve("outside.json"), OLD_STATUS);
+            Files.delete(store(STATUS));
+            SymbolicLinks.createOrSkip(store(STATUS), outside);
+            var journalBytes = Files.readAllBytes(scope.journalFile());
+
+            var refusal = assertThrows(StoreRefusal.class, () -> verifyAll());
+
+            assertAll(
+                    () -> assertEquals(scope.journalFile(), refusal.file()),
+                    () -> assertArrayEquals(journalBytes, Files.readAllBytes(scope.journalFile())),
+                    () -> assertEquals(OLD_STATUS, Files.readString(outside), "nothing written outside the scope"),
+                    () -> assertTrue(Files.isSymbolicLink(store(STATUS)), "the link was not replaced"),
                     () -> assertEquals(List.of(), audit.events()));
         }
     }

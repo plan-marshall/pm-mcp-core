@@ -19,6 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,16 +36,6 @@ import java.util.Map;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Function;
-
-import de.planmarshall.core.service.AuditEvent;
-import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.InternalFaultException.Reason;
-import de.planmarshall.core.store.JsonlStoreFile.Accepted;
-import de.planmarshall.core.store.JsonlStoreFile.Content;
-import de.planmarshall.core.store.JsonlStoreFile.Line;
-import de.planmarshall.core.store.JsonlStoreFile.Refused;
-import de.planmarshall.core.store.StoreRefusal.Outcome;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,6 +44,17 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.InternalFaultException;
+import de.planmarshall.core.service.InternalFaultException.Reason;
+import de.planmarshall.core.store.JsonlStoreFile.Accepted;
+import de.planmarshall.core.store.JsonlStoreFile.Content;
+import de.planmarshall.core.store.JsonlStoreFile.Line;
+import de.planmarshall.core.store.JsonlStoreFile.Refused;
+import de.planmarshall.core.store.StoreRefusal.Outcome;
+
 /**
  * The append path of a JSONL store (PM-IMPL-7, PM-IMPL-2): appended only under the lock of the store, a torn tail
  * repaired at the tail only, with one audit record, and a refused record reported with its line number and never
@@ -58,6 +62,7 @@ import org.junit.jupiter.params.provider.CsvSource;
  * <p>
  * A torn tail is what an append stopped mid-write leaves: the file is written here as such a crash leaves it.
  */
+@EnableTestLogger
 @DisplayName("JSONL store file")
 class JsonlStoreFileTest {
 
@@ -148,8 +153,11 @@ class JsonlStoreFileTest {
 
             assertAll(
                     () -> assertArrayEquals(bytes(FIRST, SECOND, THIRD), Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(AuditEvent.jsonlTailRepaired(store, torn.length, sha256(torn))),
-                            audit.events()),
+                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, torn)),
+                            RecordingAuditSink.withoutTransactionIds(audit.events())),
+                    () -> assertTrue(TransactionId.ofSuffix("." + audit.events().getFirst().details()
+                            .get(AuditEvent.DETAIL_TRANSACTION_ID)).isPresent(), "the repair carries an id"),
+                    () -> assertFalse(Files.exists(storeFile.auditIntentFile()), "the intent was closed"),
                     () -> assertEquals((long) torn.length,
                             audit.events().getFirst().details().get(AuditEvent.DETAIL_TRUNCATED_BYTES)),
                     () -> assertEquals(sha256(torn),
@@ -170,8 +178,8 @@ class JsonlStoreFileTest {
 
             assertAll(
                     () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(AuditEvent.jsonlTailRepaired(store, torn.length, sha256(torn))),
-                            audit.events()));
+                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, torn)),
+                            RecordingAuditSink.withoutTransactionIds(audit.events())));
         }
 
         @Test
@@ -183,13 +191,13 @@ class JsonlStoreFileTest {
 
             assertAll(
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(AuditEvent.jsonlTailRepaired(store, TORN.length(),
-                            sha256(bytes(TORN)))), audit.events()));
+                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
+                            RecordingAuditSink.withoutTransactionIds(audit.events())));
         }
 
         @Test
         @DisplayName("the first append creates the store with mode 0600")
-        void createsStore() throws Exception {
+        void createsStore() {
             appendUnderLock(bytes(FIRST, SECOND));
 
             assertAll(
@@ -318,8 +326,8 @@ class JsonlStoreFileTest {
 
             assertAll(
                     () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(AuditEvent.jsonlTailRepaired(store, TORN.length(),
-                            sha256(bytes(TORN)))), audit.events()));
+                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
+                            RecordingAuditSink.withoutTransactionIds(audit.events())));
         }
 
         @Test
@@ -331,6 +339,112 @@ class JsonlStoreFileTest {
             try (var transaction = locks.openTransaction()) {
                 assertRefusedWithoutLock(before, () -> storeFile.repairTail(transaction, audit));
             }
+        }
+    }
+
+    /** The record of a tail repair is delivered at least once: the intent file beside the store owes it. */
+    @Nested
+    @DisplayName("audit delivery of a repair")
+    class RepairDelivery {
+
+        private void repairWith(AuditSink sink) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scopeKey);
+                storeFile.repairTail(transaction, sink);
+            }
+        }
+
+        @Test
+        @DisplayName("a sink that refuses the record keeps the intent; the next repair delivers it exactly once")
+        void sinkRefuses() throws Exception {
+            Files.write(store, bytes(FIRST, TORN));
+            var refusing = FailingAuditSink.refusing(1);
+
+            repairWith(refusing);
+
+            assertAll(
+                    () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store), "the cut is done"),
+                    () -> assertTrue(Files.exists(storeFile.auditIntentFile()), "the intent survives"),
+                    () -> assertEquals(List.of(), refusing.events()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()));
+
+            appendUnderLock(bytes(SECOND));
+
+            assertAll(
+                    () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store)),
+                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
+                            RecordingAuditSink.withoutTransactionIds(audit.events()), "delivered exactly once"),
+                    () -> assertFalse(Files.exists(storeFile.auditIntentFile()), "the intent was closed"));
+        }
+
+        @Test
+        @DisplayName("a replay after the record was delivered delivers no second record")
+        void noSecondRecord() throws Exception {
+            Files.write(store, bytes(FIRST, TORN));
+            repairWith(FailingAuditSink.refusing(1));
+            repairWith(audit);
+
+            repairWith(audit);
+
+            assertEquals(1, audit.events().size());
+        }
+
+        @Test
+        @DisplayName("a process stopped between the cut and the append delivers the record at the next repair")
+        void stoppedBeforeAppend() throws Exception {
+            Files.write(store, bytes(FIRST, TORN));
+            var stopping = FailingAuditSink.stopping(1);
+
+            assertThrows(FailingAuditSink.ProcessStopped.class, () -> repairWith(stopping));
+            var intentSurvived = Files.exists(storeFile.auditIntentFile());
+            repairWith(audit);
+
+            assertAll(
+                    () -> assertTrue(intentSurvived),
+                    () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store)),
+                    () -> assertEquals(List.of(RecordingAuditSink.tailRepairWithoutId(store, bytes(TORN))),
+                            RecordingAuditSink.withoutTransactionIds(audit.events())));
+        }
+
+        @Test
+        @DisplayName("a repair stopped between its intent and its cut is completed once, with the id of its intent")
+        void stoppedBeforeCut() throws Exception {
+            var stopping = FailingAuditSink.stopping(1);
+            Files.write(store, bytes(FIRST, TORN));
+            assertThrows(FailingAuditSink.ProcessStopped.class, () -> repairWith(stopping));
+            var owedId = auditIntentTransactionId();
+            Files.write(store, bytes(FIRST, TORN));
+
+            repairWith(audit);
+
+            assertAll(
+                    () -> assertArrayEquals(bytes(FIRST), Files.readAllBytes(store)),
+                    () -> assertEquals(1, audit.events().size(), "one record for one cut"),
+                    () -> assertEquals(owedId,
+                            audit.events().getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID)));
+        }
+
+        @Test
+        @DisplayName("an unreadable intent file is refused naming it, and nothing is cut")
+        void unreadableIntent() throws Exception {
+            var before = bytes(FIRST, TORN);
+            Files.write(store, before);
+            Files.writeString(storeFile.auditIntentFile(), "{\"format_version\":1,");
+
+            var refusal = assertThrows(StoreRefusal.class, () -> repairWith(audit));
+
+            assertAll(
+                    () -> assertEquals(storeFile.auditIntentFile(), refusal.file()),
+                    () -> assertArrayEquals(before, Files.readAllBytes(store)),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+
+        private Object auditIntentTransactionId() throws IOException {
+            var intent = Files.readString(storeFile.auditIntentFile());
+            var marker = "\"transaction_id\":\"";
+            var start = intent.indexOf(marker) + marker.length();
+            return intent.substring(start, intent.indexOf('"', start));
         }
     }
 

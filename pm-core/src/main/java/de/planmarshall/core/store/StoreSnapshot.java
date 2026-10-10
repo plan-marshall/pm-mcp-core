@@ -34,6 +34,7 @@ import java.util.Optional;
 public final class StoreSnapshot {
 
     private static final String SHA_256 = "SHA-256";
+    private static final String STORE = "store";
 
     private final Path store;
     private final byte[] content;
@@ -53,7 +54,7 @@ public final class StoreSnapshot {
      * @throws UncheckedIOException if the store exists and cannot be read
      */
     public static StoreSnapshot read(Path store) {
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STORE);
         return new StoreSnapshot(store, readIfPresent(store).orElse(null), StoreIntegrity.UNCHECKED);
     }
 
@@ -68,7 +69,7 @@ public final class StoreSnapshot {
      * @throws UncheckedIOException if the store exists and cannot be read
      */
     public static StoreSnapshot read(Path store, long recordedSize, String recordedSha256) {
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STORE);
         Objects.requireNonNull(recordedSha256, "recordedSha256");
         var bytes = readIfPresent(store);
         var matches = bytes
@@ -87,8 +88,16 @@ public final class StoreSnapshot {
      * @throws UncheckedIOException if the store exists and cannot be read
      */
     static StoreSnapshot unverified(Path store) {
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STORE);
         return new StoreSnapshot(store, readIfPresent(store).orElse(null), StoreIntegrity.DIGEST_UNVERIFIED);
+    }
+
+    /**
+     * @return the same read, reported as {@link StoreIntegrity#DIGEST_UNVERIFIED}: the caller learned after the read
+     *         that its content cannot be decided, for example because a journal of the store appeared
+     */
+    StoreSnapshot asUnverified() {
+        return new StoreSnapshot(store, content, StoreIntegrity.DIGEST_UNVERIFIED);
     }
 
     /** @return the store this snapshot was read from, which a report of an unverified digest names */
@@ -111,8 +120,13 @@ public final class StoreSnapshot {
      * @return the SHA-256 of the bytes, in lower-case hexadecimal digits
      */
     static String sha256(byte[] bytes) {
+        return HexFormat.of().formatHex(newSha256().digest(bytes));
+    }
+
+    /** @return a new SHA-256 message digest */
+    static MessageDigest newSha256() {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance(SHA_256).digest(bytes));
+            return MessageDigest.getInstance(SHA_256);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("Every Java platform provides " + SHA_256, e);
         }

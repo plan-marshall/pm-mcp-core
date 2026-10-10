@@ -19,6 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Serial;
 import java.nio.file.Files;
@@ -32,19 +36,10 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-
-import de.planmarshall.core.service.AuditEvent;
-import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.InternalFaultException.Reason;
-import de.planmarshall.core.store.JournalRecovery.InvariantViolation;
-import de.planmarshall.core.store.JournalRecovery.NothingToRecover;
-import de.planmarshall.core.store.JournalRecovery.Outcome;
-import de.planmarshall.core.store.JournalRecovery.RolledForward;
-import de.planmarshall.core.store.ScopeTransaction.Step;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,6 +48,17 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.InternalFaultException;
+import de.planmarshall.core.service.InternalFaultException.Reason;
+import de.planmarshall.core.store.JournalRecovery.InvariantViolation;
+import de.planmarshall.core.store.JournalRecovery.NothingToRecover;
+import de.planmarshall.core.store.JournalRecovery.Outcome;
+import de.planmarshall.core.store.JournalRecovery.RolledForward;
+import de.planmarshall.core.store.ScopeTransaction.Step;
 
 /**
  * The roll-forward recovery of a scope (PM-IMPL-7): a commit stopped at any step boundary is completed by the next
@@ -63,6 +69,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * A stop is what a killed process leaves: the step hook of the commit throws at the boundary, and nothing the commit
  * wrote is removed. The recovery then runs in a new transaction of the lock manager, as after a restart.
  */
+@EnableTestLogger
 @DisplayName("Journal recovery")
 class JournalRecoveryTest {
 
@@ -256,6 +263,28 @@ class JournalRecoveryTest {
                     () -> assertEquals(1, rolledForward().size()));
         }
 
+        /**
+         * A commit stopped while it wrote the sidecar leaves the temporary sidecar of its transaction id beside the
+         * journal; the recovery writes the sidecar under the same id and must not fail on that file.
+         */
+        @Test
+        @DisplayName("a temporary sidecar of the transaction left by a stop inside the digests step is replaced")
+        void leftoverSidecarTemporary() throws Exception {
+            var journal = stopAt(Step.APPLY, 2);
+            var leftover = scope.sidecarFile().resolveSibling(journal.transactionId()
+                    .stagedName(scope.sidecarFile().getFileName().toString(), TransactionJournal.Mode.REPLACE));
+            Files.write(leftover, bytes(OLD_STATUS));
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, List.of()), outcome),
+                    () -> assertArrayEquals(committedSidecar(), Files.readAllBytes(scope.sidecarFile())),
+                    () -> assertFalse(Files.exists(leftover), "the temporary sidecar was consumed"),
+                    () -> assertFalse(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), rolledForward()));
+        }
+
         /** PM-WATCH-STORE-49, the crash half: an append torn after the journal is never applied twice. */
         @Test
         @DisplayName("an append torn after the journal is cut back to its size before and appended once")
@@ -272,6 +301,28 @@ class JournalRecoveryTest {
                     () -> assertArrayEquals(committedSidecar(), Files.readAllBytes(scope.sidecarFile())),
                     () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(),
                             "the cut is part of the roll-forward, not a tail repair"));
+        }
+
+        @Test
+        @DisplayName("a torn append to a store of several buffer sizes is cut back and appended once, digests streamed")
+        void tornAppendToLargeStore() throws Exception {
+            var large = new ByteArrayOutputStream();
+            while (large.size() < 4 * StoreDigest.Builder.BUFFER_SIZE + 5) {
+                large.writeBytes(bytes(FIRST));
+            }
+            Files.write(store(WORK_LOG), large.toByteArray());
+            var journal = stopAt(Step.APPLY, 1);
+            var block = bytes(SECOND);
+            Files.write(store(WORK_LOG), Arrays.copyOf(block, block.length / 2), StandardOpenOption.APPEND);
+            large.writeBytes(block);
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, List.of(WORK_LOG)), outcome),
+                    () -> assertArrayEquals(large.toByteArray(), Files.readAllBytes(store(WORK_LOG))),
+                    () -> assertEquals(Optional.of(StoreDigest.of(large.toByteArray())),
+                            DigestSidecar.load(scope.sidecarFile()).digest(WORK_LOG)));
         }
 
         @Test
@@ -350,6 +401,75 @@ class JournalRecoveryTest {
                     () -> assertArrayEquals(unreadable, Files.readAllBytes(scope.journalFile())),
                     () -> assertEquals(List.of(), audit.events()));
         }
+
+        @Test
+        @DisplayName("a replace whose staged bytes changed after the journal is an invariant violation, nothing applied")
+        void replaceStagedCorrupted() throws Exception {
+            var journal = stopAt(Step.JOURNAL, 0);
+            Files.write(scope.resolve(journal.targets().getFirst().stagedPath()), bytes(OLD_STATUS));
+            var before = snapshot(scope.pathBase());
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new InvariantViolation(journal, List.of(STATUS)), outcome),
+                    () -> assertEquals(before, snapshot(scope.pathBase()), "no store modified, the journal in place"),
+                    () -> assertTrue(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+
+        @Test
+        @DisplayName("an append whose staged block changed after the journal is an invariant violation, nothing applied")
+        void appendStagedCorrupted() throws Exception {
+            var journal = stopAt(Step.JOURNAL, 0);
+            Files.write(scope.resolve(journal.targets().get(2).stagedPath()), bytes(FIRST));
+            var before = snapshot(scope.pathBase());
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new InvariantViolation(journal, List.of(WORK_LOG)), outcome),
+                    () -> assertEquals(before, snapshot(scope.pathBase()), "no store modified, the journal in place"),
+                    () -> assertTrue(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+
+        @Test
+        @DisplayName("an append whose store prefix changed after the journal is an invariant violation, nothing applied")
+        void appendPrefixChanged() throws Exception {
+            var journal = stopAt(Step.JOURNAL, 0);
+            Files.write(store(WORK_LOG), bytes(FIRST.replace('1', '9')));
+            var before = snapshot(scope.pathBase());
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new InvariantViolation(journal, List.of(WORK_LOG)), outcome),
+                    () -> assertEquals(before, snapshot(scope.pathBase()), "no store modified, the journal in place"),
+                    () -> assertTrue(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+
+        @Test
+        @DisplayName("an altered journal naming another file of the scope as staged path is refused and moves nothing")
+        void foreignStagedPath() throws Exception {
+            var journal = stopAt(Step.JOURNAL, 0);
+            var notes = store("notes.json");
+            Files.write(notes, bytes(NEW_REFERENCES));
+            var altered = new String(Files.readAllBytes(scope.journalFile()), UTF_8)
+                    .replace(journal.targets().getFirst().stagedPath(), "notes.json").getBytes(UTF_8);
+            Files.write(scope.journalFile(), altered);
+            var before = snapshot(scope.pathBase());
+
+            var refusal = assertThrows(StoreRefusal.class, () -> recover());
+
+            assertAll(
+                    () -> assertEquals(scope.journalFile(), refusal.file()),
+                    () -> assertEquals(before, snapshot(scope.pathBase()), "no file moved, the journal in place"),
+                    () -> assertArrayEquals(bytes(NEW_REFERENCES), Files.readAllBytes(notes)),
+                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS))),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
     }
 
     @Nested
@@ -410,6 +530,122 @@ class JournalRecoveryTest {
                     () -> assertEquals(new NothingToRecover(List.of(planStaged)), planOutcome),
                     () -> assertFalse(Files.exists(planStaged)),
                     () -> assertTrue(Files.exists(otherPlanStaged), "a sibling plan's staged file is not touched"));
+        }
+    }
+
+    /**
+     * The audit records of a roll-forward are delivered at least once: the journal is their durable intent and is
+     * closed only after the sink accepted them.
+     */
+    @Nested
+    @DisplayName("audit delivery")
+    class AuditDelivery {
+
+        private Outcome recoverWith(AuditSink sink) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                return JournalRecovery.recover(transaction, scope, sink);
+            }
+        }
+
+        @Test
+        @DisplayName("a sink that refuses the record keeps the journal; the next recovery delivers it exactly once")
+        void sinkRefuses() throws Exception {
+            var journal = stopAt(Step.JOURNAL, 0);
+            var refusing = FailingAuditSink.refusing(1);
+
+            var first = recoverWith(refusing);
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, TARGETS), first, "the data outcome as before"),
+                    () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS))),
+                    () -> assertArrayEquals(committedSidecar(), Files.readAllBytes(scope.sidecarFile())),
+                    () -> assertTrue(Files.exists(scope.journalFile()), "the journal stays as the intent"),
+                    () -> assertEquals(List.of(), refusing.events()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()));
+
+            var second = recover();
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, List.of()), second),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events(), "delivered exactly once"),
+                    () -> assertEquals(Set.of(STATUS, REFERENCES, WORK_LOG, "mcp/digests.json"),
+                            snapshot(scope.pathBase()).keySet(), "journal and staged files closed"),
+                    () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store(WORK_LOG))));
+        }
+
+        @Test
+        @DisplayName("a replay after the record was delivered finds nothing and delivers no second record")
+        void noSecondRecord() {
+            var journal = stopAt(Step.JOURNAL, 0);
+            recoverWith(FailingAuditSink.refusing(1));
+            recover();
+
+            var third = recover();
+
+            assertAll(
+                    () -> assertEquals(new NothingToRecover(List.of()), third),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events()));
+        }
+
+        @Test
+        @DisplayName("a process stopped between the roll-forward and the append delivers the record at the next recovery")
+        void stoppedBeforeAppend() throws Exception {
+            var journal = stopAt(Step.JOURNAL, 0);
+            var stopping = FailingAuditSink.stopping(1);
+
+            assertThrows(FailingAuditSink.ProcessStopped.class, () -> recoverWith(stopping));
+            var afterStop = snapshot(scope.pathBase());
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertTrue(afterStop.containsKey("mcp/transaction-journal.json"), "the intent survived"),
+                    () -> assertEquals(new RolledForward(journal, List.of()), outcome),
+                    () -> assertEquals(List.of(rollForwardOf(journal)), audit.events()),
+                    () -> assertFalse(Files.exists(scope.journalFile())));
+        }
+
+        @Test
+        @DisplayName("a record a transaction owes is delivered with it, or by the recovery when the sink refused it")
+        void owedByTransaction() throws Exception {
+            var refusing = FailingAuditSink.refusing(1);
+            TransactionJournal journal;
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = ScopeTransaction.open(transaction, scope, refusing, CLOCK);
+                write.replace(STATUS, bytes(NEW_STATUS));
+                write.owe(AuditEvent.crossScopeReconciled("rule", STATUS, write.transactionId().value()));
+                write.commit();
+                journal = TransactionJournal.read(scope.journalFile(), Files.readAllBytes(scope.journalFile()));
+            }
+            var owed = journal.owedEvents().getFirst();
+            var blocked = refusedCommit();
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS)),
+                            "the commit completed its data"),
+                    () -> assertEquals(List.of(), refusing.events()),
+                    () -> assertInstanceOf(IllegalStateException.class, blocked,
+                            "no transaction overwrites a journal that owes a record"),
+                    () -> assertEquals(new RolledForward(journal, List.of()), outcome),
+                    () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
+                            PLAN, journal.transactionId().value(), List.of(STATUS)), owed), audit.events()),
+                    () -> assertEquals(journal.transactionId().value(),
+                            owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID)),
+                    () -> assertFalse(Files.exists(scope.journalFile())));
+        }
+
+        /** @return what a commit of the scope throws while the journal of an earlier transaction is open */
+        private RuntimeException refusedCommit() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+                write.replace(REFERENCES, bytes(NEW_REFERENCES));
+                return assertThrows(IllegalStateException.class, write::commit);
+            }
         }
     }
 

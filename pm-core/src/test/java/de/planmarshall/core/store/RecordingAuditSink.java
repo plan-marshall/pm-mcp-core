@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -31,5 +33,29 @@ final class RecordingAuditSink implements AuditSink {
     /** @return the records handed over so far, in their order */
     List<AuditEvent> events() {
         return List.copyOf(events);
+    }
+
+    /**
+     * @param records records whose transaction id a test cannot know in advance, such as the id of a tail repair
+     * @return the records without their transaction id, in their order
+     */
+    static List<AuditEvent> withoutTransactionIds(List<AuditEvent> records) {
+        return records.stream().map(RecordingAuditSink::withoutTransactionId).toList();
+    }
+
+    /**
+     * @param store the JSONL store
+     * @param torn  the bytes a repair cut off
+     * @return the record of the repair without its transaction id
+     */
+    static AuditEvent tailRepairWithoutId(Path store, byte[] torn) {
+        return withoutTransactionId(AuditEvent.jsonlTailRepaired(store, torn.length, StoreSnapshot.sha256(torn),
+                "unknown"));
+    }
+
+    private static AuditEvent withoutTransactionId(AuditEvent event) {
+        var details = new HashMap<>(event.details());
+        details.remove(AuditEvent.DETAIL_TRANSACTION_ID);
+        return new AuditEvent(event.event(), event.category(), event.outcome(), details);
     }
 }

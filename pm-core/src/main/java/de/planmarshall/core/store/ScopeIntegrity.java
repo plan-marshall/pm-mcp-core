@@ -9,11 +9,11 @@
  */
 package de.planmarshall.core.store;
 
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -44,6 +44,9 @@ import de.planmarshall.core.store.JournalRecovery.InvariantViolation;
 @UtilityClass
 public class ScopeIntegrity {
 
+    private static final String STORE = "store";
+    private static final String SCOPE = "scope";
+
     /**
      * The answer of a locked verification of one store.
      *
@@ -63,7 +66,7 @@ public class ScopeIntegrity {
 
         /** @throws NullPointerException if a component is {@code null} */
         public Verified {
-            Objects.requireNonNull(store, "store");
+            Objects.requireNonNull(store, STORE);
             Objects.requireNonNull(digest, "digest");
         }
     }
@@ -81,7 +84,7 @@ public class ScopeIntegrity {
 
         /** @throws NullPointerException if a component is {@code null} */
         public Mismatch {
-            Objects.requireNonNull(store, "store");
+            Objects.requireNonNull(store, STORE);
             Objects.requireNonNull(recorded, "recorded");
             Objects.requireNonNull(current, "current");
         }
@@ -97,7 +100,7 @@ public class ScopeIntegrity {
 
         /** @throws NullPointerException if the store is {@code null} */
         public Untracked {
-            Objects.requireNonNull(store, "store");
+            Objects.requireNonNull(store, STORE);
         }
     }
 
@@ -111,14 +114,15 @@ public class ScopeIntegrity {
      * @return the answer for the store; the {@link InvariantViolation} of the recovery if it could not roll the
      *         journal forward, and then nothing was compared
      * @throws InternalFaultException   if the transaction does not hold the key of the scope; nothing was touched then
-     * @throws IllegalArgumentException if the path does not lie below the path base of the scope
+     * @throws IllegalArgumentException if the path does not lie below the path base of the scope, or passes through
+     *                                  a symbolic link below it
      * @throws StoreRefusal             if the journal or the sidecar is unreadable or of another format version
      * @throws UncheckedIOException     if a file of the scope cannot be read or written
      */
     public static Verification verify(LockTransaction transaction, JournalScope scope, String relativePath,
             AuditSink auditSink) {
-        Objects.requireNonNull(scope, "scope");
-        scope.resolve(relativePath);
+        Objects.requireNonNull(scope, SCOPE);
+        scope.resolveWithoutLinks(relativePath);
         if (JournalRecovery.recover(transaction, scope, auditSink) instanceof InvariantViolation violation) {
             return violation;
         }
@@ -134,45 +138,52 @@ public class ScopeIntegrity {
      * @return one answer per sidecar entry, in the sorted order of the store paths; or the {@link InvariantViolation}
      *         of the recovery alone if it could not roll the journal forward, and then nothing was compared
      * @throws InternalFaultException if the transaction does not hold the key of the scope; nothing was touched then
-     * @throws StoreRefusal           if the journal or the sidecar is unreadable or of another format version
+     * @throws StoreRefusal           if the journal or the sidecar is unreadable or of another format version, or a
+     *                                store of the sidecar passes through a symbolic link below the path base
      * @throws UncheckedIOException   if a file of the scope cannot be read or written
      */
     public static List<Verification> verifyAll(LockTransaction transaction, JournalScope scope,
             AuditSink auditSink) {
-        Objects.requireNonNull(scope, "scope");
+        Objects.requireNonNull(scope, SCOPE);
         if (JournalRecovery.recover(transaction, scope, auditSink) instanceof InvariantViolation violation) {
             return List.of(violation);
         }
         var sidecar = DigestSidecar.load(scope.sidecarFile());
-        var answers = new ArrayList<Verification>();
-        for (var store : sidecar.stores().keySet()) {
-            answers.add(compare(scope, sidecar, store));
-        }
-        return List.copyOf(answers);
+        return sidecar.stores().keySet().stream().map(store -> compareConfined(scope, sidecar, store)).toList();
     }
 
     /**
      * Reads a store without a lock and compares it with its sidecar entry. The result never decides that the store was
      * edited.
+     * <p>
+     * The journal of the scope is looked for before and again after the sidecar and the store are read: a transaction
+     * that writes its journal between the two looks may have replaced the store or the sidecar during the read, so the
+     * snapshot is then reported unverified as well.
      *
      * @param scope        the scope
      * @param relativePath the store, relative to the path base of the scope
      * @return the snapshot of the store: {@link StoreIntegrity#DIGEST_UNVERIFIED} while the journal of the scope
      *         exists or if the content differs from the sidecar entry, {@link StoreIntegrity#VERIFIED} if it matches,
      *         and {@link StoreIntegrity#UNCHECKED} if the sidecar has no entry for the store
-     * @throws IllegalArgumentException if the path does not lie below the path base of the scope
+     * @throws IllegalArgumentException if the path does not lie below the path base of the scope, or passes through
+     *                                  a symbolic link below it
      * @throws StoreRefusal             if the sidecar is unreadable or of another format version
      * @throws UncheckedIOException     if the store or the sidecar exists and cannot be read
      */
     public static StoreSnapshot snapshot(JournalScope scope, String relativePath) {
-        Objects.requireNonNull(scope, "scope");
-        var store = scope.resolve(relativePath);
-        if (Files.exists(scope.journalFile(), LinkOption.NOFOLLOW_LINKS)) {
+        Objects.requireNonNull(scope, SCOPE);
+        var store = scope.resolveWithoutLinks(relativePath);
+        if (journalExists(scope)) {
             return StoreSnapshot.unverified(store);
         }
-        return DigestSidecar.load(scope.sidecarFile()).digest(relativePath)
+        var snapshot = DigestSidecar.load(scope.sidecarFile()).digest(relativePath)
                 .map(recorded -> StoreSnapshot.read(store, recorded.size(), recorded.sha256()))
                 .orElseGet(() -> StoreSnapshot.read(store));
+        return journalExists(scope) ? snapshot.asUnverified() : snapshot;
+    }
+
+    private static boolean journalExists(JournalScope scope) {
+        return Files.exists(scope.journalFile(), LinkOption.NOFOLLOW_LINKS);
     }
 
     /**
@@ -193,8 +204,8 @@ public class ScopeIntegrity {
      */
     public static List<Verification> rebaseline(LockTransaction transaction, JournalScope scope, String relativePath,
             AuditSink auditSink) {
-        Objects.requireNonNull(scope, "scope");
-        var store = scope.resolve(relativePath);
+        Objects.requireNonNull(scope, SCOPE);
+        var store = scope.resolveWithoutLinks(relativePath);
         if (JournalRecovery.recover(transaction, scope, auditSink) instanceof InvariantViolation violation) {
             return List.of(violation);
         }
@@ -206,12 +217,27 @@ public class ScopeIntegrity {
         return verifyAll(transaction, scope, auditSink);
     }
 
+    /** A sidecar entry reached through a symbolic link below the path base names no store of the scope. */
+    private static Verification compareConfined(JournalScope scope, DigestSidecar sidecar, String store) {
+        var link = scope.linkBelowPathBase(scope.resolve(store));
+        if (link.isPresent()) {
+            throw StoreRefusal.unreadable(scope.sidecarFile(), DigestSidecar.FORMAT_VERSION,
+                    "the store '%s' passes through the symbolic link %s".formatted(store, link.get()), null);
+        }
+        return compare(scope, sidecar, store);
+    }
+
     private static Verification compare(JournalScope scope, DigestSidecar sidecar, String relativePath) {
         var recorded = sidecar.digest(relativePath);
         if (recorded.isEmpty()) {
             return new Untracked(relativePath);
         }
-        var current = StoreSnapshot.read(scope.resolve(relativePath)).content().map(StoreDigest::of);
+        Optional<StoreDigest> current;
+        try {
+            current = StoreDigest.ofFile(scope.resolve(relativePath));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Store cannot be read: " + scope.resolve(relativePath), e);
+        }
         if (current.filter(recorded.get()::equals).isPresent()) {
             return new Verified(relativePath, recorded.get());
         }

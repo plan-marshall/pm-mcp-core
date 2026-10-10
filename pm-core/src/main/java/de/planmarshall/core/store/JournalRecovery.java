@@ -42,21 +42,25 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  * A journal is rolled forward or, where that is impossible, left alone:
  * <ul>
  * <li>A target is <em>applied</em> when its store has the size and SHA-256 the journal records, and
- * <em>appliable</em> when its staged file is present. An appliable replace is renamed over its store; an appliable
- * append cuts its store back to the size before the append and appends the staged block once.</li>
- * <li>A target that is neither has lost what the transaction wrote. Then nothing is applied, the journal and every
- * store stay in place, and the stores are reported for the caller to raise the integrity breach.</li>
- * <li>A journal that is refused (unreadable or of another format version) is never deleted; the refusal
- * propagates.</li>
+ * <em>appliable</em> when applying its staged file yields exactly that: the staged bytes of a replace have the
+ * recorded digest, and the store of an append, cut back to its size before, followed by the staged block, has it. An
+ * appliable replace is renamed over its store; an appliable append cuts its store back to the size before the append
+ * and appends the staged block once.</li>
+ * <li>A target that is neither has lost or changed what the transaction wrote. Then nothing is applied, the journal
+ * and every store stay in place, and the stores are reported for the caller to raise the integrity breach. Every
+ * target is checked before the first is applied, so no store is modified when one of them fails.</li>
+ * <li>A journal that is refused (unreadable or of another format version, or naming a store or staged path that
+ * passes through a symbolic link below the path base) is never deleted; the refusal propagates.</li>
  * </ul>
+ * The audit records of a roll-forward are delivered at least once: the journal is deleted only after the
+ * {@code transaction_rolled_forward} record and the records the journal owes were handed to the sink. A sink that
+ * refuses one, or a stop before the hand-over, leaves the journal; the next recovery finds every target applied,
+ * writes the same digests and hands the records over again, with the same transaction id.
  *
  * @since 0.1
  */
 @UtilityClass
 public class JournalRecovery {
-
-    private static final String STAGED_TMP = ".tmp.";
-    private static final String STAGED_APPEND = ".append.";
 
     /**
      * What a recovery of a scope found and did.
@@ -81,9 +85,10 @@ public class JournalRecovery {
     }
 
     /**
-     * The journal was rolled forward: every target is applied, the sidecar holds the digests of the journal, the
-     * journal and the staged files are deleted, and one {@code transaction_rolled_forward} record was handed to the
-     * audit sink.
+     * The journal was rolled forward: every target is applied and the sidecar holds the digests of the journal. The
+     * {@code transaction_rolled_forward} record and the records the journal owes were handed to the audit sink, and
+     * then the journal and the staged files were deleted. If the sink refused a record, the data outcome is the same,
+     * but the journal stays as the intent of the records, and the next recovery hands them over again.
      *
      * @param journal the journal that was rolled forward
      * @param applied the targets the recovery applied, relative to the path base; the others were applied already
@@ -99,10 +104,11 @@ public class JournalRecovery {
     }
 
     /**
-     * The journal cannot be rolled forward: a target has neither the digest the journal records nor its staged file,
-     * or an append target's store is shorter than it was before the append. Nothing was applied, and the journal and
-     * every store are as they were. It is also the answer of a {@link ScopeIntegrity} verification that ran the
-     * recovery first.
+     * The journal cannot be rolled forward: a target has neither the digest the journal records nor a staged file
+     * whose application yields that digest, for example because the staged file is missing or changed, or an append
+     * target's store is shorter than, or differs from, what it was before the append. Nothing was applied, and the
+     * journal and every store are as they were. It is also the answer of a {@link ScopeIntegrity} verification that
+     * ran the recovery first.
      *
      * @param journal the journal that was left in place
      * @param stores  the violating stores, relative to the path base, in the order of the journal
@@ -140,19 +146,41 @@ public class JournalRecovery {
                 return new NothingToRecover(deleteStagedFiles(scope));
             }
             var journal = TransactionJournal.read(scope.journalFile(), document.get());
+            requireNoLinks(scope, journal);
             var violating = violatingStores(scope, journal);
             if (!violating.isEmpty()) {
                 return new InvariantViolation(journal, violating);
             }
             var applied = applyPending(scope, journal);
             ScopeTransaction.writeDigests(scope, transaction, journal);
-            ScopeTransaction.close(scope);
-            deleteStagedFiles(scope);
-            auditSink.append(AuditEvent.transactionRolledForward(scope.type().wireName(), scope.scopeId(),
+            var owed = new ArrayList<AuditEvent>();
+            owed.add(AuditEvent.transactionRolledForward(scope.type().wireName(), scope.scopeId(),
                     journal.transactionId().value(), journal.targets().stream().map(Target::path).toList()));
+            owed.addAll(journal.owedEvents());
+            if (OwedAuditEvents.deliver(owed, auditSink, scope.journalFile()).isEmpty()) {
+                ScopeTransaction.close(scope);
+                deleteStagedFiles(scope);
+            }
             return new RolledForward(journal, applied);
         } catch (IOException e) {
             throw new UncheckedIOException("Scope cannot be recovered: " + scope.pathBase(), e);
+        }
+    }
+
+    /**
+     * A journal whose store or staged path passes through a symbolic link below the path base would make the
+     * roll-forward write outside the scope; it is refused as a journal no transaction of the scope wrote.
+     */
+    private static void requireNoLinks(JournalScope scope, TransactionJournal journal) {
+        for (var target : journal.targets()) {
+            for (var path : List.of(target.path(), target.stagedPath())) {
+                var link = scope.linkBelowPathBase(scope.resolve(path));
+                if (link.isPresent()) {
+                    throw StoreRefusal.unreadable(scope.journalFile(), TransactionJournal.FORMAT_VERSION,
+                            "the target path '%s' passes through the symbolic link %s".formatted(path, link.get()),
+                            null);
+                }
+            }
         }
     }
 
@@ -163,13 +191,35 @@ public class JournalRecovery {
             if (isApplied(store, target)) {
                 continue;
             }
-            var stagedMissing = !exists(scope.resolve(target.stagedPath()));
-            var cutShort = target.mode() == Mode.APPEND && size(store) < target.sizeBefore().orElseThrow();
-            if (stagedMissing || cutShort) {
+            if (!isAppliable(store, scope.resolve(target.stagedPath()), target)) {
                 violating.add(target.path());
             }
         }
         return violating;
+    }
+
+    /**
+     * Whether applying the staged file yields the store the journal records: for a replace the staged bytes have the
+     * new digest, for an append the store cut to its size before, followed by the staged block, has it. A staged file
+     * that is missing or changed, and an append store that is shorter than before or whose prefix changed, make the
+     * target not appliable.
+     */
+    private static boolean isAppliable(Path store, Path staged, Target target) throws IOException {
+        if (!exists(staged)) {
+            return false;
+        }
+        if (target.mode() == Mode.REPLACE) {
+            return target.newDigest().equals(StoreDigest.builder().update(staged).build());
+        }
+        var sizeBefore = target.sizeBefore().orElseThrow();
+        if (size(store) < sizeBefore) {
+            return false;
+        }
+        var result = StoreDigest.builder();
+        if (sizeBefore > 0) {
+            result.update(store, sizeBefore);
+        }
+        return target.newDigest().equals(result.update(staged).build());
     }
 
     private static List<String> applyPending(JournalScope scope, TransactionJournal journal) throws IOException {
@@ -200,7 +250,8 @@ public class JournalRecovery {
     }
 
     private static boolean isApplied(Path store, Target target) throws IOException {
-        return exists(store) && target.newDigest().matches(Files.readAllBytes(store));
+        return exists(store) && Files.size(store) == target.newDigest().size()
+                && target.newDigest().equals(StoreDigest.builder().update(store).build());
     }
 
     /** Deletes the staged files of the scope's owned directories; no journal may name them when this runs. */
@@ -228,11 +279,7 @@ public class JournalRecovery {
     }
 
     private static boolean isStagedFile(Path file) {
-        var name = file.getFileName().toString();
-        return TransactionId.ofSuffix(name).filter(id -> {
-            var prefix = name.substring(0, name.length() - id.value().length());
-            return prefix.endsWith(STAGED_TMP) || prefix.endsWith(STAGED_APPEND);
-        }).isPresent();
+        return TransactionId.isStagedName(file.getFileName().toString());
     }
 
     private static boolean exists(Path file) {

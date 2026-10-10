@@ -34,6 +34,12 @@ public record TransactionId(String value) {
     private static final Pattern FORM =
             Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
 
+    /** The segment before the id in the name of the staged file of a replaced store or sidecar. */
+    static final String STAGED_TMP = ".tmp.";
+
+    /** The segment before the id in the name of the staged block of an append. */
+    static final String STAGED_APPEND = ".append.";
+
     private static final int LENGTH = 36;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -71,6 +77,34 @@ public record TransactionId(String value) {
         }
         var suffix = fileName.substring(dot + 1);
         return FORM.matcher(suffix).matches() ? Optional.of(new TransactionId(suffix)) : Optional.empty();
+    }
+
+    /**
+     * The one definition of the name of a staged file: {@code <file>.tmp.<id>} for a replace,
+     * {@code <file>.append.<id>} for an append.
+     *
+     * @param file the store or sidecar, as a path or a file name
+     * @param mode how the store is written
+     * @return the staged file of the store in this transaction, in the form of the given path
+     */
+    String stagedName(String file, TransactionJournal.Mode mode) {
+        Objects.requireNonNull(file, "file");
+        var segment = switch (Objects.requireNonNull(mode, "mode")) {
+            case REPLACE -> STAGED_TMP;
+            case APPEND -> STAGED_APPEND;
+        };
+        return file + segment + value;
+    }
+
+    /**
+     * @param fileName the name of a file
+     * @return whether the name is the name of a staged file of some transaction
+     */
+    static boolean isStagedName(String fileName) {
+        return ofSuffix(fileName).filter(id -> {
+            var prefix = fileName.substring(0, fileName.length() - id.value().length());
+            return prefix.endsWith(STAGED_TMP) || prefix.endsWith(STAGED_APPEND);
+        }).isPresent();
     }
 
     /** @return the id in its one written form */

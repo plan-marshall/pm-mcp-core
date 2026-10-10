@@ -72,7 +72,11 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a roll-forward that names the scope; left out for a scope without an id. */
     public static final String DETAIL_SCOPE_ID = "scope_id";
 
-    /** The detail of a roll-forward that names the transaction of the journal. */
+    /**
+     * The detail that names the transaction of a store mutation: of a roll-forward the transaction of the journal, of
+     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write. A record handed
+     * over again after a failed or interrupted hand-over carries the same id, so a reader drops the duplicate.
+     */
     public static final String DETAIL_TRANSACTION_ID = "transaction_id";
 
     /** The detail of a roll-forward that lists the store paths of the journal's targets, in its order. */
@@ -106,13 +110,15 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @param store           the JSONL store whose torn last line was cut off
      * @param truncatedBytes  the number of bytes cut off
      * @param truncatedSha256 the SHA-256 of the bytes cut off, in lower-case hex
+     * @param transactionId   the id of the repair, by which a record handed over again is recognised as the same
      * @return the record of the repair
      */
-    public static AuditEvent jsonlTailRepaired(Path store, long truncatedBytes, String truncatedSha256) {
+    public static AuditEvent jsonlTailRepaired(Path store, long truncatedBytes, String truncatedSha256,
+            String transactionId) {
         Objects.requireNonNull(store, DETAIL_STORE);
         return new AuditEvent(JSONL_TAIL_REPAIRED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_STORE, store.toString(), DETAIL_TRUNCATED_BYTES, truncatedBytes,
-                        DETAIL_TRUNCATED_SHA256, truncatedSha256));
+                        DETAIL_TRUNCATED_SHA256, truncatedSha256, DETAIL_TRANSACTION_ID, transactionId));
     }
 
     /**
@@ -138,11 +144,14 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /**
      * @param reconciliation the reconciliation rule that applied
      * @param store          the store it wrote
+     * @param transactionId  the transaction that wrote the store, by which a record handed over again is recognised
+     *                       as the same
      * @return the record of the reconciliation
      */
-    public static AuditEvent crossScopeReconciled(String reconciliation, String store) {
+    public static AuditEvent crossScopeReconciled(String reconciliation, String store, String transactionId) {
         return new AuditEvent(CROSS_SCOPE_RECONCILED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_RECONCILIATION, reconciliation, DETAIL_STORE, store));
+                Map.of(DETAIL_RECONCILIATION, reconciliation, DETAIL_STORE, store, DETAIL_TRANSACTION_ID,
+                        transactionId));
     }
 
     private static String lockPath(LockKey key) {

@@ -23,20 +23,24 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-
-import de.planmarshall.core.store.StoreRefusal.Outcome;
-import de.planmarshall.core.store.TransactionJournal.Mode;
-import de.planmarshall.core.store.TransactionJournal.Target;
-
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.store.StoreRefusal.Outcome;
+import de.planmarshall.core.store.TransactionJournal.Mode;
+import de.planmarshall.core.store.TransactionJournal.Target;
 
 /**
  * The transaction journal document of a scope (PM-IMPL-7, PM-IMPL-2): written and read in exactly one shape, every
@@ -49,6 +53,7 @@ class TransactionJournalTest {
     private static final Path FILE = Path.of("/base/projects/pm-mcp-core/plans/store-substrate/mcp",
             "transaction-journal.json");
     private static final TransactionId ID = new TransactionId("0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b");
+    private static final TransactionId OTHER_ID = new TransactionId("0192a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6c");
     private static final Instant CREATED_AT = Instant.parse("2026-10-10T08:16:00.123Z");
     private static final StoreDigest STATUS_DIGEST = new StoreDigest(42, "a".repeat(64));
     private static final StoreDigest FINDINGS_DIGEST = new StoreDigest(4711, "0123456789abcdef".repeat(4));
@@ -61,12 +66,25 @@ class TransactionJournalTest {
     private static byte[] document(String formatVersion, String targets) {
         return ("{\"format_version\":" + formatVersion + ",\"transaction_id\":\"" + ID.value()
                 + "\",\"scope_type\":\"plan\",\"scope_id\":\"store-substrate\","
-                + "\"created_at\":\"2026-10-10T08:16:00.123Z\",\"targets\":[" + targets + "]}").getBytes(UTF_8);
+                + "\"created_at\":\"2026-10-10T08:16:00.123Z\",\"targets\":[" + targets + "],\"owed_events\":[]}")
+                .getBytes(UTF_8);
     }
 
     private static String replaceTarget() {
         return "{\"path\":\"mcp/status.json\",\"mode\":\"replace\",\"staged_path\":\"mcp/status.json.tmp."
                 + ID.value() + "\",\"size_before\":null,\"new_size\":42,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
+    }
+
+    /** @return a name and the owed events field that replaces the empty one of a valid document */
+    static Stream<Arguments> owedEventShapes() {
+        var record = "{\"event\":\"x\",\"category\":\"store\",\"outcome\":\"succeeded\"";
+        return Stream.of(
+                Arguments.of("owed events missing", ""),
+                Arguments.of("owed events not an array", ",\"owed_events\":{}"),
+                Arguments.of("owed event without details", ",\"owed_events\":[" + record + "}]"),
+                Arguments.of("owed detail of a boolean", ",\"owed_events\":[" + record + ",\"details\":{\"f\":true}}]"),
+                Arguments.of("owed event with an undeclared field",
+                        ",\"owed_events\":[" + record + ",\"details\":{},\"note\":1}]"));
     }
 
     private static StoreRefusal assertRefused(Outcome outcome, byte[] document) {
@@ -102,7 +120,35 @@ class TransactionJournalTest {
             var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
                     List.of(REPLACE));
 
-            assertArrayEquals(document("1", replaceTarget()), journal.write());
+            assertArrayEquals(document("2", replaceTarget()), journal.write());
+        }
+
+        @Test
+        @DisplayName("a journal that owes audit records reads them back equal, in their order, byte for byte")
+        void owedEvents() {
+            var owed = List.of(
+                    AuditEvent.crossScopeReconciled("queue-entry", "workspace/queue.json", ID.value()),
+                    AuditEvent.transactionRolledForward("plan", "store-substrate", ID.value(),
+                            List.of("mcp/status.json", "findings.jsonl")),
+                    AuditEvent.jsonlTailRepaired(Path.of("/base/findings.jsonl"), 17, "a".repeat(64), ID.value()));
+            var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
+                    List.of(REPLACE), owed);
+
+            var written = journal.write();
+            var read = TransactionJournal.read(FILE, written);
+
+            assertAll(
+                    () -> assertEquals(owed, read.owedEvents()),
+                    () -> assertEquals(journal, read),
+                    () -> assertArrayEquals(written, read.write()));
+        }
+
+        @Test
+        @DisplayName("an owed record with a detail that is no string, integer or list of strings is rejected")
+        void unwritableOwedEvent() {
+            var event = new AuditEvent("x", "store", "succeeded", Map.of("flag", true));
+
+            assertThrows(IllegalArgumentException.class, () -> OwedAuditEvents.requireWritable(event));
         }
 
         @Test
@@ -125,10 +171,10 @@ class TransactionJournalTest {
         @DisplayName("an append target without a size before is rejected when the record is built")
         void appendRecordRejected() {
             var empty = OptionalLong.empty();
+            var staged = "findings.jsonl.append." + ID.value();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> new Target("findings.jsonl", Mode.APPEND, "findings.jsonl.append." + ID.value(), empty,
-                            FINDINGS_DIGEST));
+                    () -> new Target("findings.jsonl", Mode.APPEND, staged, empty, FINDINGS_DIGEST));
         }
 
         @ParameterizedTest(name = "size_before {0}")
@@ -139,16 +185,16 @@ class TransactionJournalTest {
             var target = "{\"path\":\"findings.jsonl\",\"mode\":\"append\",\"staged_path\":\"findings.jsonl.append."
                     + ID.value() + "\"," + field + "\"new_size\":4711,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
 
-            assertRefused(Outcome.UNREADABLE, document("1", target));
+            assertRefused(Outcome.UNREADABLE, document("2", target));
         }
 
         @Test
         @DisplayName("a replace target without a size before is accepted, as a record and as a document")
         void replaceAccepted() {
-            var withoutField = "{\"path\":\"mcp/status.json\",\"mode\":\"replace\",\"staged_path\":\"s.tmp\","
-                    + "\"new_size\":42,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
+            var withoutField = "{\"path\":\"mcp/status.json\",\"mode\":\"replace\",\"staged_path\":\"mcp/status.json.tmp."
+                    + ID.value() + "\",\"new_size\":42,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
 
-            var read = TransactionJournal.read(FILE, document("1", withoutField));
+            var read = TransactionJournal.read(FILE, document("2", withoutField));
 
             assertAll(
                     () -> assertEquals(OptionalLong.empty(), REPLACE.sizeBefore()),
@@ -179,11 +225,11 @@ class TransactionJournalTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
                                     none)),
-                    () -> assertRefused(Outcome.UNREADABLE, document("1", "")));
+                    () -> assertRefused(Outcome.UNREADABLE, document("2", "")));
         }
 
         @ParameterizedTest(name = "format_version {0}")
-        @CsvSource({"2, FORMAT_NEWER", "0, FORMAT_OUTDATED"})
+        @CsvSource({"3, FORMAT_NEWER", "1, FORMAT_OUTDATED"})
         @DisplayName("a document of another format version is refused as such, with the version found and current")
         void otherVersion(int version, Outcome outcome) {
             var refusal = assertRefused(outcome, document(Integer.toString(version), replaceTarget()));
@@ -198,7 +244,7 @@ class TransactionJournalTest {
         void undeclaredField() {
             var target = replaceTarget().replace("}", ",\"note\":\"x\"}");
 
-            assertRefused(Outcome.UNREADABLE, document("1", target));
+            assertRefused(Outcome.UNREADABLE, document("2", target));
         }
 
         @Test
@@ -206,13 +252,13 @@ class TransactionJournalTest {
         void duplicateField() {
             var target = replaceTarget().replace("\"mode\":\"replace\",", "\"mode\":\"replace\",\"mode\":\"replace\",");
 
-            assertRefused(Outcome.UNREADABLE, document("1", target));
+            assertRefused(Outcome.UNREADABLE, document("2", target));
         }
 
         @Test
         @DisplayName("an instant with an offset is refused, although it names the same moment")
         void instantWithOffset() {
-            var withOffset = new String(document("1", replaceTarget()), UTF_8)
+            var withOffset = new String(document("2", replaceTarget()), UTF_8)
                     .replace("2026-10-10T08:16:00.123Z", "2026-10-10T10:16:00.123+02:00").getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, withOffset);
@@ -223,7 +269,7 @@ class TransactionJournalTest {
                 "0192a3b4-c5d6-7e8f-ca0b-1c2d3e4f5a6b", "not-an-id"})
         @DisplayName("a transaction id that is not a lower-case UUID of version 7 is refused")
         void notVersion7(String transactionId) {
-            var document = new String(document("1", replaceTarget()), UTF_8).replace(ID.value(), transactionId)
+            var document = new String(document("2", replaceTarget()), UTF_8).replace(ID.value(), transactionId)
                     .getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, document);
@@ -241,8 +287,45 @@ class TransactionJournalTest {
                 """)
         @DisplayName("a field outside its one shape is refused")
         void fieldShape(String name, String valid, String invalid) {
-            var document = new String(document("1", replaceTarget()), UTF_8).replace(valid, invalid)
+            var document = new String(document("2", replaceTarget()), UTF_8).replace(valid, invalid)
                     .getBytes(UTF_8);
+
+            assertRefused(Outcome.UNREADABLE, document);
+        }
+
+        /**
+         * A recovery moves the staged path of a target over its store, so a journal is read only when every staged
+         * path is the staged file of its own store in this transaction, and every path is relative and normalized.
+         */
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', textBlock = """
+                staged path of another store       | mcp/status.json        | mcp/references.json.tmp.{id}
+                staged path of another transaction | mcp/status.json        | mcp/status.json.tmp.{other}
+                suffix of an append for a replace  | mcp/status.json        | mcp/status.json.append.{id}
+                absolute path                      | /mcp/status.json       | /mcp/status.json.tmp.{id}
+                parent segment in the path         | ../other/status.json   | ../other/status.json.tmp.{id}
+                parent segment in the staged path  | mcp/status.json        | mcp/../mcp/status.json.tmp.{id}
+                current segment in the path        | ./mcp/status.json      | ./mcp/status.json.tmp.{id}
+                """)
+        @DisplayName("a target whose staged path is not the staged file of its store in this transaction is refused")
+        void foreignStagedPath(String name, String path, String stagedPath) {
+            var target = replaceTarget().replace("\"path\":\"mcp/status.json\"", "\"path\":\"" + path + "\"")
+                    .replace("\"staged_path\":\"mcp/status.json.tmp." + ID.value() + "\"",
+                            "\"staged_path\":\"" + stagedPath.replace("{id}", ID.value())
+                                    .replace("{other}", OTHER_ID.value()) + "\"");
+
+            var refusal = assertRefused(Outcome.UNREADABLE, document("2", target));
+
+            assertTrue(refusal.getMessage().contains("staged") || refusal.getMessage().contains("path"),
+                    "the refusal names the path: " + refusal.getMessage());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.core.store.TransactionJournalTest#owedEventShapes")
+        @DisplayName("owed audit records outside their one shape are refused")
+        void owedEventShape(String name, String owedEvents) {
+            var document = new String(document("2", replaceTarget()), UTF_8)
+                    .replace(",\"owed_events\":[]", owedEvents).getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, document);
         }
@@ -252,7 +335,7 @@ class TransactionJournalTest {
         void missingField() {
             var target = replaceTarget().replace(",\"new_size\":42", "");
 
-            assertRefused(Outcome.UNREADABLE, document("1", target));
+            assertRefused(Outcome.UNREADABLE, document("2", target));
         }
 
         @Test

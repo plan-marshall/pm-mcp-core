@@ -12,17 +12,20 @@ package de.planmarshall.core.store;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 
+import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
@@ -44,7 +47,9 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  * directories of the stores are forced to disk.</li>
  * <li><em>Digests</em>: the digest sidecar of the scope is written with the size and SHA-256 the journal records for
  * each target.</li>
- * <li><em>Close</em>: the journal is deleted and its directory forced to disk.</li>
+ * <li><em>Close</em>: the audit records the transaction owes ({@link #owe(AuditEvent)}) are handed to the audit sink,
+ * then the journal is deleted and its directory forced to disk. A refused record keeps the journal for the recovery,
+ * which hands it over again.</li>
  * </ol>
  * Every step is a check-then-act on files that only the holder of the scope lock writes, so the transaction is opened
  * and committed only by a transaction that holds the key of the scope. Nothing removes a staged file or the journal
@@ -99,10 +104,35 @@ public final class ScopeTransaction {
     private final AuditSink auditSink;
     private final Clock clock;
     private final StepHook hook;
-    private final Map<String, PendingTarget> targets = new LinkedHashMap<>();
+    private final TransactionId transactionId;
+    private final Map<Path, PendingTarget> targets = new LinkedHashMap<>();
+    private final List<AuditEvent> owedEvents = new ArrayList<>();
     private boolean committed;
 
+    /**
+     * A target collected before the commit.
+     *
+     * @param path    the store, relative to the path base in normalized form with {@code /} as separator
+     * @param mode    replace or append
+     * @param content the new content or the appended block; held, not copied
+     */
     private record PendingTarget(String path, Mode mode, byte[] content) {
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof PendingTarget(String otherPath, Mode otherMode, byte[] otherContent)
+                    && path.equals(otherPath) && mode == otherMode && Arrays.equals(content, otherContent);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(path, mode) * 31 + Arrays.hashCode(content);
+        }
+
+        @Override
+        public String toString() {
+            return "PendingTarget[path=%s, mode=%s, %d bytes]".formatted(path, mode, content.length);
+        }
     }
 
     private ScopeTransaction(LockTransaction transaction, JournalScope scope, AuditSink auditSink, Clock clock,
@@ -112,6 +142,27 @@ public final class ScopeTransaction {
         this.auditSink = auditSink;
         this.clock = clock;
         this.hook = hook;
+        this.transactionId = TransactionId.generate(clock);
+    }
+
+    /** @return the id of the transaction, which its journal, its staged files and the records it owes carry */
+    public TransactionId transactionId() {
+        return transactionId;
+    }
+
+    /**
+     * Owes an audit record that the transaction hands over once its targets are applied, such as the
+     * {@code cross_scope_reconciled} record of a derived write. The record is written into the journal before the
+     * first store is touched, and the journal is deleted only after the sink accepted it; if the sink refuses it, or
+     * the commit stops, the next recovery of the scope hands it over again.
+     *
+     * @param event the record, carrying {@link #transactionId()} so that a record handed over again is recognised
+     * @throws IllegalArgumentException if a detail of the record is not a string, an integer or a list of strings
+     * @throws IllegalStateException    if the transaction was committed
+     */
+    public void owe(AuditEvent event) {
+        requireOpen();
+        owedEvents.add(OwedAuditEvents.requireWritable(event));
     }
 
     /**
@@ -146,8 +197,9 @@ public final class ScopeTransaction {
      *
      * @param relativePath the store, relative to the path base of the scope
      * @param content      the new content of the store
-     * @throws IllegalArgumentException if the store does not lie in a directory the scope owns, is the journal or the
-     *                                  sidecar of the scope, or is a target of this transaction already
+     * @throws IllegalArgumentException if the store does not lie in a directory the scope owns, is reached through a
+     *                                  symbolic link below the path base, is the journal or the sidecar of the
+     *                                  scope, or is a target of this transaction already
      * @throws IllegalStateException    if the transaction was committed
      */
     public void replace(String relativePath, byte[] content) {
@@ -171,9 +223,14 @@ public final class ScopeTransaction {
     /**
      * Writes every target in the five steps of the journal. A commit is tried once: a transaction whose commit
      * failed leaves its journal and its staged files to the recovery of the scope, and is not committed again.
+     * <p>
+     * The records the transaction owes are handed to the audit sink after the digests and before the close. If the
+     * sink refuses one, the commit still completes its data, but the journal stays as the intent of the records, and
+     * the next recovery of the scope hands them over again.
      *
      * @throws InternalFaultException if the transaction no longer holds the key of the scope; nothing was written then
-     * @throws IllegalStateException  if the transaction has no target or was committed
+     * @throws IllegalStateException  if the transaction has no target or was committed, or if the scope has a journal
+     *                                that its recovery has not closed yet; nothing was written then
      * @throws UncheckedIOException   if a file cannot be written; what was written stays for the recovery
      */
     public void commit() {
@@ -182,17 +239,22 @@ public final class ScopeTransaction {
             throw new IllegalStateException("A transaction of the scope " + scope.pathBase() + " has no target");
         }
         StoreLockGuard.requireHeld(transaction, scope.journalFile(), scope.lockKey());
+        if (Files.exists(scope.journalFile(), LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalStateException("The scope %s has a journal to recover before a new transaction"
+                    .formatted(scope.pathBase()));
+        }
         committed = true;
-        var transactionId = TransactionId.generate(clock);
         try {
-            var journal = stage(transactionId);
+            var journal = stage();
             new AtomicStoreFile(scope.journalFile(), scope.lockKey()).write(transaction, journal.write(),
                     transactionId);
             hook.after(Step.JOURNAL, 0);
             apply(journal);
             writeDigests(scope, transaction, journal);
             hook.after(Step.DIGESTS, 0);
-            close(scope);
+            if (OwedAuditEvents.deliver(journal.owedEvents(), auditSink, scope.journalFile()).isEmpty()) {
+                close(scope);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("Transaction %s of the scope %s cannot be written"
                     .formatted(transactionId, scope.pathBase()), e);
@@ -201,7 +263,7 @@ public final class ScopeTransaction {
 
     private void add(String relativePath, Mode mode, byte[] content) {
         requireOpen();
-        var store = scope.resolve(relativePath);
+        var store = scope.resolveWithoutLinks(relativePath);
         if (store.equals(scope.journalFile()) || store.equals(scope.sidecarFile())) {
             throw new IllegalArgumentException("The journal and the sidecar are not stores of a transaction: "
                     + relativePath);
@@ -210,39 +272,55 @@ public final class ScopeTransaction {
             throw new IllegalArgumentException("Store '%s' does not lie in a directory the scope owns: %s"
                     .formatted(relativePath, scope.ownedDirectories()));
         }
-        if (targets.putIfAbsent(relativePath, new PendingTarget(relativePath, mode, content)) != null) {
+        if (targets.putIfAbsent(store, new PendingTarget(storePath(scope, store), mode, content)) != null) {
             throw new IllegalArgumentException("Store '%s' is a target of the transaction already"
                     .formatted(relativePath));
         }
     }
 
-    private TransactionJournal stage(TransactionId transactionId) throws IOException {
+    /**
+     * @param scope the scope the store belongs to
+     * @param store a store of the scope, absolute and normalized
+     * @return the store path relative to the path base, normalized, with {@code /} as separator
+     */
+    static String storePath(JournalScope scope, Path store) {
+        var relative = scope.pathBase().relativize(store);
+        var names = new ArrayList<String>(relative.getNameCount());
+        for (var name : relative) {
+            names.add(name.toString());
+        }
+        return String.join("/", names);
+    }
+
+    private TransactionJournal stage() throws IOException {
         var staged = new ArrayList<Target>();
         var index = 0;
         for (var target : targets.values()) {
-            staged.add(stageTarget(target, transactionId));
+            staged.add(stageTarget(target));
             hook.after(Step.STAGE, index++);
         }
-        return new TransactionJournal(transactionId, scope.type(), scope.scopeId(), clock.instant(), staged);
+        return new TransactionJournal(transactionId, scope.type(), scope.scopeId(), clock.instant(), staged,
+                owedEvents);
     }
 
-    private Target stageTarget(PendingTarget target, TransactionId transactionId) throws IOException {
+    private Target stageTarget(PendingTarget target) throws IOException {
         var store = scope.resolve(target.path());
+        var stagedPath = transactionId.stagedName(target.path(), target.mode());
         if (target.mode() == Mode.REPLACE) {
-            var stagedPath = target.path() + ".tmp." + transactionId.value();
             SyncedFiles.writeNew(scope.resolve(stagedPath), target.content());
             return new Target(target.path(), Mode.REPLACE, stagedPath, OptionalLong.empty(),
                     StoreDigest.of(target.content()));
         }
         new JsonlStoreFile(store, scope.lockKey()).repairTail(transaction, auditSink);
-        var before = readIfPresent(store);
-        var stagedPath = target.path() + ".append." + transactionId.value();
+        var after = StoreDigest.builder();
+        var sizeBefore = 0L;
+        if (Files.exists(store, LinkOption.NOFOLLOW_LINKS)) {
+            sizeBefore = Files.size(store);
+            after.update(store, sizeBefore);
+        }
         SyncedFiles.writeNew(scope.resolve(stagedPath), target.content());
-        var after = new byte[before.length + target.content().length];
-        System.arraycopy(before, 0, after, 0, before.length);
-        System.arraycopy(target.content(), 0, after, before.length, target.content().length);
-        return new Target(target.path(), Mode.APPEND, stagedPath, OptionalLong.of(before.length),
-                StoreDigest.of(after));
+        return new Target(target.path(), Mode.APPEND, stagedPath, OptionalLong.of(sizeBefore),
+                after.update(target.content()).build());
     }
 
     private void apply(TransactionJournal journal) throws IOException {
@@ -282,14 +360,6 @@ public final class ScopeTransaction {
     static void close(JournalScope scope) throws IOException {
         Files.delete(scope.journalFile());
         SyncedFiles.forceDirectory(scope.journalFile().getParent());
-    }
-
-    private static byte[] readIfPresent(Path store) throws IOException {
-        try {
-            return Files.readAllBytes(store);
-        } catch (NoSuchFileException _) {
-            return new byte[0];
-        }
     }
 
     private void requireOpen() {

@@ -31,13 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
-
-import de.planmarshall.core.service.AuditEvent;
-import de.planmarshall.core.service.LockManager;
-import de.planmarshall.core.service.LockTransaction;
-import de.planmarshall.core.store.CrossScopeReconciler.Reconciliation;
-import de.planmarshall.core.store.ScopeIntegrity.Verified;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,6 +39,13 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
+import de.planmarshall.core.store.CrossScopeReconciler.Reconciliation;
+import de.planmarshall.core.store.ScopeIntegrity.Verified;
 
 /**
  * The write across scopes in its fixed order (PM-IMPL-7): the authoritative store first, each step in a lock
@@ -175,7 +175,7 @@ class OrderedWriteTest {
      * entry only where it is not in place yet, each under the lock of its own scope.
      */
     private CrossScopeReconciler reconciler() {
-        return lockManager -> {
+        return (lockManager, sink) -> {
             byte[] authoritative;
             try (var transaction = lockManager.openTransaction()) {
                 transaction.acquire(plan.lockKey());
@@ -186,23 +186,43 @@ class OrderedWriteTest {
                 return List.of();
             }
             var applied = new ArrayList<Reconciliation>();
-            deriveIfMissing(lockManager, workspace, QUEUE, derived(QUEUE_RULE, authoritative), QUEUE_RULE, applied);
-            deriveIfMissing(lockManager, epic, EPIC_PLANS, derived(EPIC_RULE, authoritative), EPIC_RULE, applied);
+            deriveIfMissing(lockManager, sink, workspace, new Reconciliation(QUEUE_RULE, QUEUE),
+                    derived(QUEUE_RULE, authoritative), applied);
+            deriveIfMissing(lockManager, sink, epic, new Reconciliation(EPIC_RULE, EPIC_PLANS),
+                    derived(EPIC_RULE, authoritative), applied);
             return applied;
         };
     }
 
-    private void deriveIfMissing(LockManager lockManager, JournalScope scope, String path, byte[] content,
-            String rule, List<Reconciliation> applied) {
+    /** Applies a derived write where it is missing, in a scope transaction that owes its reconciliation record. */
+    private static void deriveIfMissing(LockManager lockManager, AuditSink sink, JournalScope scope,
+            Reconciliation reconciliation, byte[] content, List<Reconciliation> applied) {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var current = new AtomicStoreFile(scope.resolve(path), scope.lockKey()).read(transaction);
+            var current = new AtomicStoreFile(scope.resolve(reconciliation.store()), scope.lockKey())
+                    .read(transaction);
             if (current.isPresent() && Arrays.equals(current.get(), content)) {
                 return;
             }
-            replace(transaction, scope, path, content, false);
-            applied.add(new Reconciliation(rule, path));
+            var write = ScopeTransaction.open(transaction, scope, sink, CLOCK);
+            write.replace(reconciliation.store(), content);
+            OrderedWrite.oweReconciled(write, reconciliation);
+            write.commit();
+            applied.add(reconciliation);
         }
+    }
+
+    /** @return the cross_scope_reconciled records among the records, by rule and store, without their ids */
+    private static List<AuditEvent> reconciledOf(List<AuditEvent> records) {
+        return RecordingAuditSink.withoutTransactionIds(records.stream()
+                .filter(event -> AuditEvent.CROSS_SCOPE_RECONCILED.equals(event.event())).toList());
+    }
+
+    private static List<AuditEvent> reconciledOf(Reconciliation... reconciliations) {
+        return RecordingAuditSink.withoutTransactionIds(Arrays.stream(reconciliations)
+                .map(reconciliation -> AuditEvent.crossScopeReconciled(reconciliation.name(), reconciliation.store(),
+                        "unknown"))
+                .toList());
     }
 
     /** Runs what a start runs: the recovery of every scope, then the reconcilers. */
@@ -217,8 +237,7 @@ class OrderedWriteTest {
     }
 
     private List<AuditEvent> reconciledRecords() {
-        return audit.events().stream().filter(event -> AuditEvent.CROSS_SCOPE_RECONCILED.equals(event.event()))
-                .toList();
+        return reconciledOf(audit.events());
     }
 
     private void assertConsistent() {
@@ -276,8 +295,7 @@ class OrderedWriteTest {
 
             assertAll(
                     () -> assertEquals(expected, applied),
-                    () -> assertEquals(expected.stream().map(reconciliation -> AuditEvent.crossScopeReconciled(
-                                    reconciliation.name(), reconciliation.store())).toList(), reconciledRecords(),
+                    () -> assertEquals(reconciledOf(expected.toArray(Reconciliation[]::new)), reconciledRecords(),
                             "one cross_scope_reconciled per applied reconciliation"),
                     OrderedWriteTest.this::assertConsistent);
         }
@@ -353,21 +371,86 @@ class OrderedWriteTest {
     }
 
     @Test
-    @DisplayName("reconcile records the reconciliations of every reconciler, in their order")
+    @DisplayName("reconcile returns the reconciliations of every reconciler in their order, and records none itself")
     void severalReconcilers() {
         var first = new Reconciliation("first-rule", "a.json");
         var second = new Reconciliation("second-rule", "b.json");
         var third = new Reconciliation("third-rule", "c.json");
-        List<CrossScopeReconciler> reconcilers = List.of(_ -> List.of(first, second), _ -> List.of(),
-                _ -> List.of(third));
+        var sinks = new ArrayList<AuditSink>();
+        List<CrossScopeReconciler> reconcilers = List.of((_, sink) -> {
+            sinks.add(sink);
+            return List.of(first, second);
+        }, (_, _) -> List.of(), (_, _) -> List.of(third));
 
         var applied = OrderedWrite.reconcile(locks, reconcilers, audit);
 
         assertAll(
                 () -> assertEquals(List.of(first, second, third), applied),
-                () -> assertEquals(List.of(AuditEvent.crossScopeReconciled("first-rule", "a.json"),
-                        AuditEvent.crossScopeReconciled("second-rule", "b.json"),
-                        AuditEvent.crossScopeReconciled("third-rule", "c.json")), audit.events()));
+                () -> assertEquals(List.of(audit), sinks, "the reconciler gets the sink of its transactions"),
+                () -> assertEquals(List.of(), audit.events(), "the records come with the transactions"));
+    }
+
+    /** The record of a reconciliation is owed in the journal of its derived write and delivered at least once. */
+    @Nested
+    @DisplayName("audit delivery of a reconciliation")
+    class ReconciliationDelivery {
+
+        @Test
+        @DisplayName("a sink that refuses the record keeps it owed; the next restart delivers it exactly once")
+        void sinkRefuses() {
+            var write = flow(0, NO_STOP, new ArrayList<>());
+            assertThrows(StopWrite.class, () -> write.run(locks));
+            var refusing = FailingAuditSink.refusing(1);
+
+            var applied = OrderedWrite.reconcile(locks, List.of(reconciler()), refusing);
+            var journalKept = Files.exists(workspace.journalFile());
+            var restarted = restart();
+
+            assertAll(
+                    () -> assertEquals(List.of(new Reconciliation(QUEUE_RULE, QUEUE),
+                            new Reconciliation(EPIC_RULE, EPIC_PLANS)), applied, "the data outcome as before"),
+                    () -> assertTrue(journalKept, "the journal of the derived write keeps the record owed"),
+                    () -> assertEquals(reconciledOf(new Reconciliation(EPIC_RULE, EPIC_PLANS)),
+                            reconciledOf(refusing.events())),
+                    () -> assertEquals(List.of(), restarted, "the derived writes were in place"),
+                    () -> assertEquals(reconciledOf(new Reconciliation(QUEUE_RULE, QUEUE)), reconciledRecords(),
+                            "the refused record delivered exactly once"),
+                    OrderedWriteTest.this::assertConsistent);
+        }
+
+        @Test
+        @DisplayName("a replay after the record was delivered delivers no second record")
+        void noSecondRecord() {
+            var write = flow(0, NO_STOP, new ArrayList<>());
+            assertThrows(StopWrite.class, () -> write.run(locks));
+            OrderedWrite.reconcile(locks, List.of(reconciler()), FailingAuditSink.refusing(1));
+            restart();
+            var records = audit.events().size();
+
+            restart();
+
+            assertEquals(records, audit.events().size());
+        }
+
+        @Test
+        @DisplayName("a process stopped between the derived write and the append delivers the record at the restart")
+        void stoppedBeforeAppend() {
+            var write = flow(0, NO_STOP, new ArrayList<>());
+            assertThrows(StopWrite.class, () -> write.run(locks));
+            var reconcilers = List.of(reconciler());
+            var stopping = FailingAuditSink.stopping(1);
+
+            assertThrows(FailingAuditSink.ProcessStopped.class,
+                    () -> OrderedWrite.reconcile(locks, reconcilers, stopping));
+            var applied = restart();
+
+            assertAll(
+                    () -> assertEquals(List.of(new Reconciliation(EPIC_RULE, EPIC_PLANS)), applied),
+                    () -> assertEquals(reconciledOf(new Reconciliation(QUEUE_RULE, QUEUE),
+                            new Reconciliation(EPIC_RULE, EPIC_PLANS)), reconciledRecords(),
+                            "the stopped record and the later one, each once"),
+                    OrderedWriteTest.this::assertConsistent);
+        }
     }
 
     @Test

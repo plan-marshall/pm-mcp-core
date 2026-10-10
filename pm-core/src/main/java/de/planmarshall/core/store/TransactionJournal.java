@@ -38,32 +38,40 @@ import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
 
+import de.planmarshall.core.service.AuditEvent;
+
 /**
  * The transaction journal of a scope (PM-IMPL-7, PM-IMPL-2): the document that a transaction writes and syncs before
  * it touches a store, and from which a recovery rolls an interrupted transaction forward.
  * <p>
- * The document is
- * {@code {"format_version": 1, "transaction_id", "scope_type", "scope_id", "created_at", "targets": [<target>]}}, a
- * target {@code {"path", "mode", "staged_path", "size_before", "new_size", "new_sha256"}}. The paths are relative to
+ * The document is {@code {"format_version": 2, "transaction_id", "scope_type", "scope_id", "created_at",
+ * "targets": [<target>], "owed_events": [<owed event>]}}, a target
+ * {@code {"path", "mode", "staged_path", "size_before", "new_size", "new_sha256"}}, an owed event the audit record the
+ * transaction hands over once its targets are applied ({@link OwedAuditEvents}). The journal is the durable intent of
+ * these records: it is deleted only after the sink accepted them, and a recovery hands them over again otherwise.
+ * Version 1 had no owed events and is refused as outdated. The paths are relative to
  * the path base of the scope ({@link JournalScope}). A journal lists at least one target, and an {@code append}
  * target always carries the size of its store before the append: it is the point a recovery cuts the store back to
  * before it appends the staged block again, so a torn append is never applied twice.
  * <p>
  * The reader accepts exactly one shape through {@link StrictJson}; every refusal is a {@link StoreRefusal} naming the
- * journal file.
+ * journal file. A target is part of that shape only with both paths relative and normalized and with the staged path
+ * that {@link TransactionId#stagedName(String, Mode)} derives from its path, its mode and the transaction id, so a
+ * recovery never moves another file over a store.
  *
  * @param transactionId the transaction the journal records
  * @param scopeType     the type of the scope
  * @param scopeId       the plan or epic id; {@code null} for the workspace and the lesson store
  * @param createdAt     the instant the journal was written
  * @param targets       the stores the transaction writes, in the order it applies them
+ * @param owedEvents    the audit records the transaction hands over once its targets are applied, in their order
  * @since 0.1
  */
 public record TransactionJournal(TransactionId transactionId, JournalScopeType scopeType, String scopeId,
-Instant createdAt, List<Target> targets) {
+Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
 
     /** The format version of a transaction journal that is read and written. */
-    public static final int FORMAT_VERSION = 1;
+    public static final int FORMAT_VERSION = 2;
 
     private static final String FIELD_TRANSACTION_ID = "transaction_id";
     private static final String FIELD_SCOPE_TYPE = "scope_type";
@@ -76,6 +84,7 @@ Instant createdAt, List<Target> targets) {
     private static final String FIELD_SIZE_BEFORE = "size_before";
     private static final String FIELD_NEW_SIZE = "new_size";
     private static final String FIELD_NEW_SHA256 = "new_sha256";
+    private static final String FIELD_OWED_EVENTS = "owed_events";
 
     /**
      * How a target store is written.
@@ -150,6 +159,7 @@ Instant createdAt, List<Target> targets) {
         Objects.requireNonNull(scopeType, "scopeType");
         Objects.requireNonNull(createdAt, "createdAt");
         targets = List.copyOf(targets);
+        owedEvents = List.copyOf(owedEvents);
         if (scopeType.scopeIdRequired() != (scopeId != null)) {
             throw new IllegalArgumentException("A %s journal %s a scope id: %s".formatted(scopeType.wireName(),
                     scopeType.scopeIdRequired() ? "requires" : "has no", scopeId));
@@ -157,6 +167,16 @@ Instant createdAt, List<Target> targets) {
         if (targets.isEmpty()) {
             throw new IllegalArgumentException("A journal lists at least one target");
         }
+    }
+
+    /**
+     * A journal that owes no audit record.
+     *
+     * @see #TransactionJournal(TransactionId, JournalScopeType, String, Instant, List, List)
+     */
+    public TransactionJournal(TransactionId transactionId, JournalScopeType scopeType, String scopeId,
+            Instant createdAt, List<Target> targets) {
+        this(transactionId, scopeType, scopeId, createdAt, targets, List.of());
     }
 
     /** @return the document, UTF-8 encoded */
@@ -176,6 +196,11 @@ Instant createdAt, List<Target> targets) {
             generator.writeArrayFieldStart(FIELD_TARGETS);
             for (var target : targets) {
                 writeTarget(generator, target);
+            }
+            generator.writeEndArray();
+            generator.writeArrayFieldStart(FIELD_OWED_EVENTS);
+            for (var event : owedEvents) {
+                OwedAuditEvents.write(generator, event);
             }
             generator.writeEndArray();
             generator.writeEndObject();
@@ -218,6 +243,7 @@ Instant createdAt, List<Target> targets) {
         String scopeId = null;
         Instant createdAt = null;
         List<Target> targets = null;
+        List<AuditEvent> owedEvents = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -228,15 +254,42 @@ Instant createdAt, List<Target> targets) {
                 case FIELD_SCOPE_ID -> scopeId = nullableString(parser, field);
                 case FIELD_CREATED_AT -> createdAt = instant(parser, field);
                 case FIELD_TARGETS -> targets = readTargets(parser);
+                case FIELD_OWED_EVENTS -> owedEvents = readOwedEvents(parser);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, "journal", FIELD_TRANSACTION_ID, FIELD_SCOPE_TYPE, FIELD_SCOPE_ID, FIELD_CREATED_AT,
-                FIELD_TARGETS);
+                FIELD_TARGETS, FIELD_OWED_EVENTS);
+        TransactionJournal journal;
         try {
-            return new TransactionJournal(transactionId, scopeType, scopeId, createdAt, targets);
+            journal = new TransactionJournal(transactionId, scopeType, scopeId, createdAt, targets, owedEvents);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
+        }
+        for (var target : journal.targets()) {
+            requireStagedFileOf(journal.transactionId(), target);
+        }
+        return journal;
+    }
+
+    /**
+     * A recovery moves the staged file of a target over its store, so the staged file must be the one the
+     * transaction staged for that store and nothing else: both paths in the one form of a store path, and the staged
+     * path the name {@link TransactionId#stagedName(String, Mode)} derives from the store, the mode and the id.
+     */
+    private static void requireStagedFileOf(TransactionId transactionId, Target target) {
+        if (!JournalScope.isStorePath(target.path())) {
+            throw unreadable("'%s' of a target is not a normalized relative path: '%s'".formatted(FIELD_PATH,
+                    target.path()));
+        }
+        if (!JournalScope.isStorePath(target.stagedPath())) {
+            throw unreadable("'%s' of the target '%s' is not a normalized relative path: '%s'"
+                    .formatted(FIELD_STAGED_PATH, target.path(), target.stagedPath()));
+        }
+        var expected = transactionId.stagedName(target.path(), target.mode());
+        if (!expected.equals(target.stagedPath())) {
+            throw unreadable("'%s' of the target '%s' is not its staged file in this transaction: '%s'"
+                    .formatted(FIELD_STAGED_PATH, target.path(), target.stagedPath()));
         }
     }
 
@@ -247,6 +300,15 @@ Instant createdAt, List<Target> targets) {
             targets.add(readTarget(parser));
         }
         return targets;
+    }
+
+    private static List<AuditEvent> readOwedEvents(JsonParser parser) throws IOException {
+        requireArray(parser, FIELD_OWED_EVENTS);
+        var events = new ArrayList<AuditEvent>();
+        while (parser.nextToken() != JsonToken.END_ARRAY) {
+            events.add(OwedAuditEvents.read(parser));
+        }
+        return events;
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {

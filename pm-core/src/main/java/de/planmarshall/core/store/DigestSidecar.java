@@ -43,7 +43,9 @@ import java.util.TreeMap;
  * transaction journal of the scope; this type reads and writes the document and decides nothing.
  * <p>
  * The reader accepts exactly one shape through {@link StrictJson}; every refusal is a {@link StoreRefusal} naming the
- * sidecar file. A sidecar that does not exist holds no digest.
+ * sidecar file. A key that is not a relative, normalized store path (empty, absolute, with a {@code ..} segment) is
+ * part of no such shape, so a loaded sidecar never names a file outside its scope. A sidecar that does not exist holds
+ * no digest.
  *
  * @param stores the digest of each store by its relative path, in sorted order; unmodifiable
  * @since 0.1
@@ -61,14 +63,17 @@ public record DigestSidecar(SortedMap<String, StoreDigest> stores) {
      * Copies the digests into their sorted order.
      *
      * @throws NullPointerException     if a key or a digest is {@code null}
-     * @throws IllegalArgumentException if a key is empty
+     * @throws IllegalArgumentException if a key is not a store path: empty, absolute, not normalized, or with a
+     *                                  {@code ..} segment
      */
     public DigestSidecar {
         var sorted = new TreeMap<String, StoreDigest>();
         for (var entry : Objects.requireNonNull(stores, FIELD_STORES).entrySet()) {
             var path = Objects.requireNonNull(entry.getKey(), "path");
-            if (path.isEmpty()) {
-                throw new IllegalArgumentException("A store of a digest sidecar has a path");
+            if (!JournalScope.isStorePath(path)) {
+                throw new IllegalArgumentException(
+                        "A store of a digest sidecar has a normalized path relative to the path base: '%s'"
+                                .formatted(path));
             }
             sorted.put(path, Objects.requireNonNull(entry.getValue(), "digest"));
         }
