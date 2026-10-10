@@ -78,6 +78,19 @@ public final class StoreSnapshot {
                 matches ? StoreIntegrity.VERIFIED : StoreIntegrity.DIGEST_UNVERIFIED);
     }
 
+    /**
+     * Reads the store without comparing its content, and reports it as unverified: the caller knows that the content
+     * cannot be decided now, for example because a transaction of the store is in flight.
+     *
+     * @param store the store file
+     * @return the snapshot, with {@link StoreIntegrity#DIGEST_UNVERIFIED}
+     * @throws UncheckedIOException if the store exists and cannot be read
+     */
+    static StoreSnapshot unverified(Path store) {
+        Objects.requireNonNull(store, "store");
+        return new StoreSnapshot(store, readIfPresent(store).orElse(null), StoreIntegrity.DIGEST_UNVERIFIED);
+    }
+
     /** @return the store this snapshot was read from, which a report of an unverified digest names */
     public Path store() {
         return store;

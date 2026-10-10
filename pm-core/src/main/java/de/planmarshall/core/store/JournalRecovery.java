@@ -101,13 +101,15 @@ public class JournalRecovery {
     /**
      * The journal cannot be rolled forward: a target has neither the digest the journal records nor its staged file,
      * or an append target's store is shorter than it was before the append. Nothing was applied, and the journal and
-     * every store are as they were.
+     * every store are as they were. It is also the answer of a {@link ScopeIntegrity} verification that ran the
+     * recovery first.
      *
      * @param journal the journal that was left in place
      * @param stores  the violating stores, relative to the path base, in the order of the journal
      * @since 0.1
      */
-    public record InvariantViolation(TransactionJournal journal, List<String> stores) implements Outcome {
+    public record InvariantViolation(TransactionJournal journal, List<String> stores)
+            implements Outcome, ScopeIntegrity.Verification {
 
         /** @throws NullPointerException if a component is {@code null} */
         public InvariantViolation {
