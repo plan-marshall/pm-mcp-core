@@ -31,6 +31,7 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -101,6 +102,15 @@ class FileLockManagerTest {
     private static void awaitWaitingOrEnded(Thread thread) {
         while (thread.getState() != Thread.State.WAITING && thread.getState() != Thread.State.TERMINATED) {
             Thread.onSpinWait();
+        }
+    }
+
+    /** Waits for the latch; a thread that is interrupted meanwhile goes on with its interrupt flag set. */
+    private static void awaitUninterrupted(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -480,6 +490,144 @@ class FileLockManagerTest {
 
                 assertTrue(transaction.holds(key));
             }
+        }
+    }
+
+    /**
+     * The manager keeps the in-process lock of a key and the channel of a lock file only while a thread uses them.
+     * The lock of a key must outlive every thread that holds or waits for it: a waiting thread that was handed a
+     * lock which is no longer the lock of the key would hold the key together with the next thread that asks for it.
+     */
+    @Nested
+    @DisplayName("entries per key")
+    class Entries {
+
+        @Test
+        @DisplayName("held keys have an entry each, and none is left after the transaction closed")
+        void noEntryAfterLastRelease() throws Exception {
+            var transaction = manager.openTransaction();
+            transaction.acquire(LockKey.workspace(base, PROJECT));
+            transaction.acquire(LockKey.plan(base, PROJECT, "a-plan"));
+            transaction.acquire(LockKey.mergeQueue(base));
+            var threadLocksWhileHeld = manager.threadLockCount();
+            var osLocksWhileHeld = manager.osLockCount();
+
+            transaction.close();
+
+            assertAll(
+                    () -> assertEquals(3, threadLocksWhileHeld),
+                    () -> assertEquals(3, osLocksWhileHeld),
+                    () -> assertEquals(0, manager.threadLockCount()),
+                    () -> assertEquals(0, manager.osLockCount()));
+        }
+
+        @Test
+        @DisplayName("a key held by two transactions keeps its entry and its lock until the last of them closes")
+        void entryKeptWhileHeld() throws Exception {
+            var key = LockKey.mergeQueue(base);
+            var first = manager.openTransaction();
+            var second = manager.openTransaction();
+            first.acquire(key);
+            second.acquire(key);
+
+            first.close();
+            var threadLocksAfterFirstClose = manager.threadLockCount();
+            var osLocksAfterFirstClose = manager.osLockCount();
+            var lockedAfterFirstClose = isLocked(key.lockFile());
+            second.close();
+
+            assertAll(
+                    () -> assertEquals(1, threadLocksAfterFirstClose),
+                    () -> assertEquals(1, osLocksAfterFirstClose),
+                    () -> assertTrue(lockedAfterFirstClose),
+                    () -> assertEquals(0, manager.threadLockCount()),
+                    () -> assertEquals(0, manager.osLockCount()));
+        }
+
+        @Test
+        @DisplayName("an acquisition that fails leaves no entry")
+        void noEntryAfterFailedAcquisition() throws Exception {
+            try (var transaction = manager.openTransaction()) {
+                assertThrows(UncheckedIOException.class, () -> transaction.acquire(LockKey.auditLog(base)));
+
+                assertAll(
+                        () -> assertEquals(0, manager.threadLockCount()),
+                        () -> assertEquals(0, manager.osLockCount()));
+            }
+        }
+
+        /**
+         * The first holder gives the key back while the second thread waits for it. The second thread then holds
+         * the key, and a third thread that asks for it has to wait: the lock the second thread was waiting for is
+         * still the lock of the key.
+         */
+        @Test
+        @DisplayName("a key given back while another thread waits for it still excludes a third thread")
+        void releasedWhileAwaited() throws Exception {
+            var key = LockKey.mergeQueue(base);
+            var heldBySecond = new CountDownLatch(1);
+            var secondMayClose = new CountDownLatch(1);
+            var acquiredByThird = new AtomicBoolean();
+            var first = manager.openTransaction();
+            first.acquire(key);
+            var second = Thread.ofPlatform().start(() -> {
+                try (var transaction = manager.openTransaction()) {
+                    transaction.acquire(key);
+                    heldBySecond.countDown();
+                    awaitUninterrupted(secondMayClose);
+                }
+            });
+            awaitWaitingOrEnded(second);
+
+            first.close();
+            var secondHolds = heldBySecond.await(10, TimeUnit.SECONDS);
+            var third = Thread.ofPlatform().start(() -> {
+                try (var transaction = manager.openTransaction()) {
+                    transaction.acquire(key);
+                    acquiredByThird.set(true);
+                }
+            });
+            awaitWaitingOrEnded(third);
+            var acquiredWhileSecondHeld = acquiredByThird.get();
+            var threadLocksWhileAwaited = manager.threadLockCount();
+            secondMayClose.countDown();
+            second.join();
+            third.join();
+
+            assertAll(
+                    () -> assertTrue(secondHolds, "the waiting thread got the key"),
+                    () -> assertFalse(acquiredWhileSecondHeld, "acquired while the second thread held the key"),
+                    () -> assertEquals(1, threadLocksWhileAwaited),
+                    () -> assertTrue(acquiredByThird.get(), "acquired after the second thread closed"),
+                    () -> assertEquals(0, manager.threadLockCount()),
+                    () -> assertEquals(0, manager.osLockCount()),
+                    () -> assertFalse(isLocked(key.lockFile())));
+        }
+
+        @Test
+        @DisplayName("a key whose entry was dropped is acquired again, locked and released")
+        void reacquired() throws Exception {
+            var key = LockKey.mergeQueue(base);
+            try (var transaction = manager.openTransaction()) {
+                transaction.acquire(key);
+            }
+            var threadLocksAfterFirstUse = manager.threadLockCount();
+            var osLocksAfterFirstUse = manager.osLockCount();
+
+            var again = manager.openTransaction();
+            again.acquire(key);
+            var heldAgain = again.holds(key);
+            var lockedAgain = isLocked(key.lockFile());
+            again.close();
+
+            assertAll(
+                    () -> assertEquals(0, threadLocksAfterFirstUse),
+                    () -> assertEquals(0, osLocksAfterFirstUse),
+                    () -> assertTrue(heldAgain),
+                    () -> assertTrue(lockedAgain),
+                    () -> assertFalse(isLocked(key.lockFile())),
+                    () -> assertEquals(0, manager.threadLockCount()),
+                    () -> assertEquals(0, manager.osLockCount()));
         }
     }
 

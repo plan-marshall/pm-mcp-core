@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
@@ -53,6 +54,12 @@ import de.planmarshall.runtime.start.PosixModes;
  * remains.</li>
  * </ul>
  * <p>
+ * Neither is kept past its use. The lock of a key exists from the moment the first thread asks for the key until
+ * the last thread that holds or waits for it has given it back, and the entry of a lock file from the first thread
+ * that takes its lock until the last holder has closed the channel. A lock is therefore never replaced under a
+ * thread that waits for it, an entry never dropped while its channel is locked, and a runtime that has acquired
+ * many keys holds entries only for the keys in use.
+ * <p>
  * The order assertion and the acquisition are the one call {@link LockTransaction#acquire(LockKey)}. A key that
  * must not be acquired after the keys the transaction holds is refused: the refusal is logged, a
  * {@code lock_order_violation} record is handed to the audit sink, nothing is acquired and no lock file is created,
@@ -74,10 +81,11 @@ public final class FileLockManager implements LockManager {
 
     private final AuditSink auditSink;
 
-    /** One entry per key ever acquired; an entry is small and is kept for the lifetime of the runtime. */
-    private final ConcurrentMap<LockKey, ReentrantLock> threadLocks = new ConcurrentHashMap<>();
+    /** The in-process lock of every key that a thread holds or waits for. */
+    private final UsedEntries<LockKey, ReentrantLock> threadLocks = new UsedEntries<>(ReentrantLock::new);
 
-    private final ConcurrentMap<Path, OsLock> osLocks = new ConcurrentHashMap<>();
+    /** The channel and the lock of the operating system of every lock file that a thread holds or is taking. */
+    private final UsedEntries<Path, OsLock> osLocks = new UsedEntries<>(OsLock::new);
 
     /**
      * @param auditSink where the record of a refused acquisition is handed over
@@ -91,35 +99,14 @@ public final class FileLockManager implements LockManager {
         return new Transaction();
     }
 
-    @SuppressWarnings("java:S2222") // held on return by design: unlock(key) releases it when the transaction closes
-    private void lock(LockKey key) {
-        var threadLock = threadLocks.computeIfAbsent(key, _ -> new ReentrantLock());
-        threadLock.lock();
-        var taken = false;
-        try {
-            osLocks.computeIfAbsent(key.lockFile(), _ -> new OsLock()).retain(key);
-            taken = true;
-        } finally {
-            if (!taken) {
-                threadLock.unlock();
-            }
-        }
+    /** @return the number of keys that a thread holds or waits for */
+    int threadLockCount() {
+        return threadLocks.size();
     }
 
-    private void unlock(LockKey key) {
-        try {
-            osLocks.get(key.lockFile()).release(key.lockFile());
-        } finally {
-            threadLocks.get(key).unlock();
-        }
-    }
-
-    private InternalFaultException refuse(LockOrder.Violation violation) {
-        var event = AuditEvent.lockOrderViolation(violation.held(), violation.requested());
-        LOGGER.error(ERROR.LOCK_ORDER_VIOLATION, event.details().get(AuditEvent.DETAIL_REQUESTED),
-                event.details().get(AuditEvent.DETAIL_HELD));
-        auditSink.append(event);
-        return InternalFaultException.lockOrderViolation(violation.held(), violation.requested());
+    /** @return the number of lock files that a thread holds or is taking */
+    int osLockCount() {
+        return osLocks.size();
     }
 
     /** The locks of one transaction, in the order they were acquired, which is the lock order. */
@@ -127,6 +114,58 @@ public final class FileLockManager implements LockManager {
 
         private final List<LockKey> held = new ArrayList<>();
         private boolean closed;
+
+        // held on return by design: unlock(key) releases it when the transaction closes
+        @SuppressWarnings("java:S2222")
+        private void lock(LockKey key) {
+            var threadLock = threadLocks.enter(key);
+            threadLock.lock();
+            var taken = false;
+            try {
+                lockFile(key);
+                taken = true;
+            } finally {
+                if (!taken) {
+                    threadLock.unlock();
+                    threadLocks.leave(key);
+                }
+            }
+        }
+
+        private void lockFile(LockKey key) {
+            var lockFile = key.lockFile();
+            var osLock = osLocks.enter(lockFile);
+            var taken = false;
+            try {
+                osLock.retain(key);
+                taken = true;
+            } finally {
+                if (!taken) {
+                    osLocks.leave(lockFile);
+                }
+            }
+        }
+
+        // The thread leaves the key after it gave the lock back: a waiting thread entered the key before it began
+        // to wait, so the lock it waits for stays the lock of the key.
+        private void unlock(LockKey key) {
+            var lockFile = key.lockFile();
+            try {
+                osLocks.get(lockFile).release(lockFile);
+            } finally {
+                osLocks.leave(lockFile);
+                threadLocks.get(key).unlock();
+                threadLocks.leave(key);
+            }
+        }
+
+        private InternalFaultException refuse(LockOrder.Violation violation) {
+            var event = AuditEvent.lockOrderViolation(violation.held(), violation.requested());
+            LOGGER.error(ERROR.LOCK_ORDER_VIOLATION, event.details().get(AuditEvent.DETAIL_REQUESTED),
+                    event.details().get(AuditEvent.DETAIL_HELD));
+            auditSink.append(event);
+            return InternalFaultException.lockOrderViolation(violation.held(), violation.requested());
+        }
 
         @Override
         public void acquire(LockKey key) {
@@ -171,6 +210,45 @@ public final class FileLockManager implements LockManager {
         }
     }
 
+    /**
+     * Values that exist while a thread uses them. A thread enters a key before it uses the value of the key and
+     * leaves it afterwards; the value is created for the first thread that enters and dropped with the last one that
+     * leaves. Entering and leaving a key are atomic, so every thread between the two sees the same value.
+     */
+    private static final class UsedEntries<K, V> {
+
+        private final ConcurrentMap<K, Entry<V>> entries = new ConcurrentHashMap<>();
+        private final Supplier<V> factory;
+
+        UsedEntries(Supplier<V> factory) {
+            this.factory = factory;
+        }
+
+        V enter(K key) {
+            return entries.compute(key, (_, entry) -> entry == null
+                    ? new Entry<>(factory.get(), 1)
+                    : new Entry<>(entry.value(), entry.users() + 1)).value();
+        }
+
+        /** @return the value of a key that the calling thread has entered and not left */
+        V get(K key) {
+            return entries.get(key).value();
+        }
+
+        void leave(K key) {
+            entries.computeIfPresent(key, (_, entry) -> entry.users() == 1
+                    ? null
+                    : new Entry<>(entry.value(), entry.users() - 1));
+        }
+
+        int size() {
+            return entries.size();
+        }
+
+        private record Entry<V>(V value, int users) {
+        }
+    }
+
     /** The one channel and the one lock of the operating system on a lock file, counted by its holders. */
     private static final class OsLock {
 
@@ -212,21 +290,25 @@ public final class FileLockManager implements LockManager {
                 if (key.level() != LockLevel.LEAF) {
                     Files.createDirectories(lockFile.getParent(), PosixModes.directoryAttribute());
                 }
-                var opened = open(lockFile);
-                try {
-                    opened.lock();
-                    return opened;
-                } catch (IOException e) {
-                    closeAfterFailure(opened, e);
-                    throw e;
-                } catch (OverlappingFileLockException e) {
-                    closeAfterFailure(opened, e);
-                    throw new IllegalStateException(
-                            "This process holds a lock on '%s' that was not taken through the lock manager"
-                                    .formatted(lockFile), e);
-                }
+                return locked(open(lockFile), lockFile);
             } catch (IOException e) {
                 throw new UncheckedIOException("Lock cannot be acquired: " + lockFile, e);
+            }
+        }
+
+        /** Locks the channel, or closes it when it cannot be locked. */
+        private static FileChannel locked(FileChannel opened, Path lockFile) throws IOException {
+            try {
+                opened.lock();
+                return opened;
+            } catch (IOException e) {
+                closeAfterFailure(opened, e);
+                throw e;
+            } catch (OverlappingFileLockException e) {
+                closeAfterFailure(opened, e);
+                throw new IllegalStateException(
+                        "This process holds a lock on '%s' that was not taken through the lock manager"
+                                .formatted(lockFile), e);
             }
         }
 
