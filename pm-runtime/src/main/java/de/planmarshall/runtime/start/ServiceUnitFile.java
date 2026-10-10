@@ -14,11 +14,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * The unit file of the per-user service that starts {@code pm-mcpd} at login and restarts it on failure, the
@@ -44,10 +41,6 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
 
     /** The name of the {@code systemd} user unit. */
     public static final String SYSTEMD_UNIT = "pm-mcpd.service";
-
-    private static final Set<PosixFilePermission> DIRECTORY_PERMISSIONS = PosixFilePermissions.fromString("rwxr-xr-x");
-
-    private static final Set<PosixFilePermission> FILE_PERMISSIONS = PosixFilePermissions.fromString("rw-r--r--");
 
     private static final String LAUNCHD_TEMPLATE = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -161,10 +154,11 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
      * Writes the unit, creating its parent directories and replacing an existing unit through a temporary sibling
      * and an atomic move.
      * <p>
-     * Who may modify the unit does not depend on the process umask: parent directories created here get
-     * {@code rwxr-xr-x} and the unit {@code rw-r--r--}, set when they are created. A umask can only narrow these
-     * permissions, never widen them, so the unit and the directories created for it are never group- or
-     * world-writable. A stale temporary sibling of an interrupted write is deleted first; the move keeps the
+     * Who may access the unit does not depend on the process umask: new parent directories get the directory mode
+     * {@code 0700} and the unit the file mode {@code 0600} ({@link PosixModes}), set when they are created. The
+     * service manager of a per-user service runs as the same user and needs nothing more. A umask can only narrow
+     * these modes, never widen them, so the unit and the directories created for it are never readable or writable
+     * by group or others. A stale temporary sibling of an interrupted write is deleted first; the move keeps the
      * permissions of the temporary file, so a replaced unit gets them too.
      *
      * @throws ServiceUnitException if the unit cannot be written
@@ -173,9 +167,9 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
         var file = path();
         var tmp = file.resolveSibling(file.getFileName() + ".tmp");
         try {
-            Files.createDirectories(file.getParent(), PosixFilePermissions.asFileAttribute(DIRECTORY_PERMISSIONS));
+            Files.createDirectories(file.getParent(), PosixModes.directoryAttribute());
             Files.deleteIfExists(tmp);
-            Files.createFile(tmp, PosixFilePermissions.asFileAttribute(FILE_PERMISSIONS));
+            Files.createFile(tmp, PosixModes.fileAttribute());
             Files.writeString(tmp, render(), StandardCharsets.UTF_8);
             Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {

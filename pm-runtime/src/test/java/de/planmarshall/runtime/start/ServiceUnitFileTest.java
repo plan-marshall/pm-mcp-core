@@ -314,6 +314,37 @@ class ServiceUnitFileTest {
 
             assertNotGroupOrWorldWritable(unit.path());
         }
+
+        @Test
+        @DisplayName("writes the unit with mode 0600 and its new parent directories with mode 0700")
+        void shouldWriteOwnerOnlyModes() throws Exception {
+            Files.setPosixFilePermissions(home, PosixFilePermissions.fromString("rwxrwxrwx"));
+            var unit = unit(Platform.SYSTEMD);
+
+            unit.write();
+
+            assertAll(
+                    () -> assertEquals(PosixModes.FILE, Files.getPosixFilePermissions(unit.path())),
+                    () -> assertEquals(PosixModes.DIRECTORY,
+                            Files.getPosixFilePermissions(unit.path().getParent())),
+                    () -> assertEquals(PosixModes.DIRECTORY,
+                            Files.getPosixFilePermissions(home.resolve(".config/systemd"))),
+                    () -> assertEquals(PosixModes.DIRECTORY,
+                            Files.getPosixFilePermissions(home.resolve(".config"))));
+        }
+
+        @Test
+        @DisplayName("narrows a world-readable unit it replaces to mode 0600")
+        void shouldNarrowReplacedUnitToOwnerOnly() throws Exception {
+            var unit = unit(Platform.LAUNCHD);
+            Files.createDirectories(unit.path().getParent());
+            Files.writeString(unit.path(), "a unit of an older version");
+            Files.setPosixFilePermissions(unit.path(), PosixFilePermissions.fromString("rw-r--r--"));
+
+            unit.write();
+
+            assertEquals(PosixModes.FILE, Files.getPosixFilePermissions(unit.path()));
+        }
     }
 
     @Nested
