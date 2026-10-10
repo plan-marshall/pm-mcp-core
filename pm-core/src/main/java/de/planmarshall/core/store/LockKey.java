@@ -273,7 +273,12 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
         return projectStore(base, projectId).resolve(LOCK_DIRECTORY);
     }
 
-    private static Path projectStore(Path base, String projectId) {
+    /**
+     * @param base      the base directory of the runtime
+     * @param projectId the project
+     * @return the per-project machine store {@code projects/<project_id>/}, absolute and normalized
+     */
+    static Path projectStore(Path base, String projectId) {
         return canonical(base).resolve("projects").resolve(identifier(projectId, "projectId"));
     }
 
