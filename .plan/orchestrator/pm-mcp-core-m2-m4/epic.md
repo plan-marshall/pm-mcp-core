@@ -121,6 +121,11 @@ decision or a dependency outside this repository.
   review-bot Open Defect (PLAN-38 owns it), 006 into the same-block identifier Open Defect.
   Lessons 007 to 009 are dispatcher reports the plan itself marks as not confirmed in its logs.
 
+- 2026-10-10 — Operator decision: all 32 plan-marshall tooling lessons of this repository's store
+  routed to plan-marshall's `lessons-routing` epic inbox as `pm-mcp-core-m2-m4-001.md` to `-032.md`
+  (sender orchestrator, kind candidate-lesson), then retired here with verdict `superseded`. The
+  13 lessons left here are `pm-core`, `pm-runtime` and `pm-mcp-parent` rules.
+
 ## Open Defects
 
 - `cuioss-review-bot` is a required reviewer that does not re-review after a fix commit, so the
@@ -162,9 +167,6 @@ decision or a dependency outside this repository.
 - `cuioss-review-bot` reviewed only the first commit of #18 (no push trigger) and was made
   optional for that plan; on #17 it failed on a Docker Hub pull rate limit. Confirmed again on
   PLAN-03 (#19) and raised to an Open Defect on 2026-10-10.
-- 32 plan-marshall tooling lessons (2026-10-10-07-001, -002, -011 to -024, 2026-10-10-08-001 to
-  -006 and 2026-10-10-14-002 to -006, -011 to -015) sit in this repository's lessons store —
-  retire when routed to plan-marshall.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
