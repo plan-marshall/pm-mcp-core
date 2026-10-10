@@ -93,7 +93,11 @@ public final class StoreSnapshot {
         return integrity;
     }
 
-    private static String sha256(byte[] bytes) {
+    /**
+     * @param bytes the bytes to digest
+     * @return the SHA-256 of the bytes, in lower-case hexadecimal digits
+     */
+    static String sha256(byte[] bytes) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance(SHA_256).digest(bytes));
         } catch (NoSuchAlgorithmException e) {

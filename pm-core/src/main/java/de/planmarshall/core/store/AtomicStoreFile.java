@@ -18,14 +18,12 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.service.LockTransaction;
 
 /**
@@ -133,11 +131,6 @@ public record AtomicStoreFile(Path store, LockKey lockKey) {
     }
 
     private void requireHeld(LockTransaction transaction) {
-        Objects.requireNonNull(transaction, "transaction");
-        if (!transaction.holds(lockKey)) {
-            throw new InternalFaultException(Reason.STORE_LOCK_NOT_HELD,
-                    "Store '%s' accessed without its lock '%s'".formatted(store, lockKey.lockFile()),
-                    Map.of("store", store.toString(), "lock", lockKey.lockFile().toString()));
-        }
+        StoreLockGuard.requireHeld(transaction, store, lockKey);
     }
 }
