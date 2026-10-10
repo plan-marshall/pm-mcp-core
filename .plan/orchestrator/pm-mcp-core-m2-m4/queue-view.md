@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19). Emitted, awaiting operator-confirmed launch: PLAN-04 service-unit, PLAN-05 http-baseline, PLAN-07 workflow-dsl-parser-and-ast, PLAN-38 review-bot-re-review. Ready for the next free slot: PLAN-06 store-substrate, PLAN-08 runtime-lifecycle, PLAN-09 audit-trail. Review-bot pin is on v0.41.0 (#23, ghcr mirror); first real review on a plan PR still to be seen. Next action: record launched/running on confirmation; land the ledger. Open for the operator: PLAN-01 documentation unowned; unowned remainder of PLAN-02's roadmap item.
+**Resume anchor**: Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19). Emitted 2026-10-10, awaiting operator-confirmed launch: PLAN-06 store-substrate, PLAN-07 workflow-dsl-parser-and-ast, PLAN-04 service-unit, PLAN-38 review-bot-re-review. Next free slot: PLAN-05 http-baseline (disjoint); PLAN-08 waits on PLAN-04 (runtime.start), PLAN-09 on PLAN-06 (core.store). Next action: record running on confirmation; analyze landings; land the ledger. Open for the operator: PLAN-01 documentation unowned; unowned remainder of PLAN-02's roadmap item.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-19 (WS-05)
