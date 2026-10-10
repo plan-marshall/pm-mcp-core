@@ -14,5 +14,12 @@
  * ({@link de.planmarshall.runtime.start.BaseDirectoryCheck}), and a fresh runtime token
  * ({@link de.planmarshall.runtime.start.RuntimeTokenFile}), in the order of
  * {@link de.planmarshall.runtime.start.StartupSequence}.
+ * <p>
+ * Besides the on-demand start, the runtime can register itself as a per-user service that starts it at login and
+ * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
+ * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,
+ * {@link de.planmarshall.runtime.start.ServiceManager} loads and unloads it through {@code launchctl} or
+ * {@code systemctl}, and {@link de.planmarshall.runtime.start.ServiceUnitInstaller} combines both into install and
+ * uninstall.
  */
 package de.planmarshall.runtime.start;
