@@ -35,6 +35,7 @@ decision or a dependency outside this repository.
   It gates PLAN-25 `waits` and PLAN-26 `role-sets-and-model-caller`, and through them most of
   WS-04 and WS-05 — the first external dependency on the critical path.
 - PLAN-27 — staged, but also waits on `pm-mcp-clients` / `exec-read-denied-paths`.
+- PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-36 — serves Milestone 6; ready now and disjoint by package from every other plan, so it
   is a good filler for a free slot. It sits at the queue end because a row's order is fixed when
   it is staged; ask for it by id when a slot is free.
@@ -70,9 +71,36 @@ decision or a dependency outside this repository.
   under-declaration: plans of one workstream still share a block, and the guard is
   `PmMcpLogMessagesTest`, which refuses an identifier used twice.
 
+- 2026-10-10 — PLAN-02 `primitive-spi-and-validators` landed as #18 (abaf95d); landing record
+  `landings/PLAN-02.md`. Inbox drain of its 25 messages: the landing reconciled, and the 24
+  candidate lessons `primitive-spi-and-validators-001.md` to `-024.md` each promoted to the
+  lessons store as 2026-10-10-07-001 to -024 in the same order. Messages 003 to 010 are `pm-core`
+  engineering rules from defects fixed inside #18. Messages 001, 002 and 011 to 024 concern
+  plan-marshall tooling; the store of this repository does not own that bundle, so they were
+  filed with the foreign-store override and still need routing to plan-marshall.
+
 ## Open Defects
 
+- The roadmap item behind PLAN-02 is only partly delivered and no staged plan owns the rest:
+  validators for `request.md` and pull request bodies (PM-WF-6), the `OutlineValidator` rules that
+  need the working tree, task derivation or build extensions, the registry checks that need the
+  closed gate list or the keyword list, and the binding of free parameters — source: landing
+  PLAN-02 (plan's own statement; not checked against the roadmap).
+- `AsciiDocValidator` treats `!===` as the nested-table delimiter; CodeRabbit named `!==`. Neither
+  was checked against the AsciiDoc documentation. If `!==` is valid, such a nested table is read
+  as ordinary text — source: landing PLAN-02 and lesson 2026-10-10-07-010.
+
 ## Watches
+
+- `plan-marshall-documentation` #20 (documentation of PLAN-02) is open and unmerged; its checks
+  read green on 2026-10-10. The index already says `done`. Retire when #20 is merged.
+- `cuioss-review-bot` reviewed only the first commit of #18 (no push trigger) and was made
+  optional for that plan; on #17 it failed on a Docker Hub pull rate limit. Re-check on the PRs
+  of PLAN-01 (#20) and PLAN-03 (#19).
+- 16 plan-marshall tooling lessons (2026-10-10-07-001, -002, -011 to -024) sit in this
+  repository's lessons store — retire when routed to plan-marshall.
+- Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
+  6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
 - PR #16 must be on `main`, and the ledger worktree on that base, before the first `land`:
   until then the worktree's `.gitignore` still ignores the ledger.

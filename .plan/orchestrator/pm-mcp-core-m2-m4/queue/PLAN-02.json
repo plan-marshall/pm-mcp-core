@@ -2,9 +2,9 @@
   "id": "PLAN-02",
   "slug": "primitive-spi-and-validators",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "primitive-spi-and-validators",
-  "pr": "",
-  "landing": "",
+  "pr": "#18",
+  "landing": "landings/PLAN-02.md",
   "seq": 2
 }
