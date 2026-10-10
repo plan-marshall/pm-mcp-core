@@ -2,8 +2,8 @@
   "id": "PLAN-07",
   "slug": "workflow-dsl-parser-and-ast",
   "workstream": "WS-03",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
+  "status": "running",
+  "plan_marshall_plan_id": "workflow-dsl-parser-and-ast",
   "pr": "",
   "landing": "",
   "seq": 7
