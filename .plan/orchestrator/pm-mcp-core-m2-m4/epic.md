@@ -41,8 +41,7 @@ decision or a dependency outside this repository.
   also gates PLAN-15 and most of `core.store`; PLAN-08 and PLAN-09 share the WS-01 identifier block.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
-- PLAN-38 — configuration only (`.plan/marshal.json`); owns the review-bot Open Defect. Emitted
-  on 2026-10-10 at the operator's request, outside queue order.
+- PLAN-38 — shipped as #24 on 2026-10-10; WS-09 closes with it.
 - PLAN-36 — serves Milestone 6; ready now and disjoint by package from every other plan, so it
   is a good filler for a free slot. It sits at the queue end because a row's order is fixed when
   it is staged; ask for it by id when a slot is free.
@@ -132,13 +131,15 @@ decision or a dependency outside this repository.
   opened and merged by plan-marshall-release-bot): `reusable-cuioss-review-bot.yml@73712a1 # v0.41.0`,
   checked against the dereferenced tag. Not a plan of this epic.
 
+- 2026-10-10 — PLAN-38 `review-bot-re-review` landed as #24 (66950bb); landing record
+  `landings/PLAN-38.md`. `re_review_on_loopback` is `true` on `main`; the proof on a pull request
+  was not possible on #24 (both required bots skip `.plan/` paths) and became a Watch by operator
+  decision. Inbox drain of its 7 messages: the landing reconciled; the 6 candidate lessons, all
+  plan-marshall tooling, routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-033.md` to
+  `-038.md` under the routing decision above, nothing kept in this store.
+
 ## Open Defects
 
-- `cuioss-review-bot` is a required reviewer that does not re-review after a fix commit, so the
-  review step of every plan with a fix round stalls until the operator makes the bot optional for
-  that plan. It happened on PLAN-02, PLAN-03 and PLAN-01. PLAN-38 owns the fix. The fix is a project
-  configuration decision in `.plan/marshal.json` — source: landings PLAN-02 and PLAN-03, lessons
-  2026-10-10-07-013 (with recurrence).
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
   package to adopt the check itself — source: landing PLAN-03.
@@ -170,9 +171,13 @@ decision or a dependency outside this repository.
 
 - `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
   PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
-- The ghcr.io image path of `cuioss-review-bot` is unproven in this repository: the bot's run on
-  #23 was skipped (bot author, by design). Retire at the first review it publishes on a plan's
-  pull request; PLAN-38's own pull request is the natural proof.
+- The review bot's re-review is configured (PLAN-38, #24) but unproven, and so is its ghcr.io
+  image path. Check on the next plan PRs with a loop-back fix commit on reviewable code (first
+  candidate: PLAN-04's #25): (1) plan-marshall posts `/review` after the fix commit; (2) the
+  `cuioss-review-bot` workflow run starts from it, so the posting account passes the
+  OWNER/MEMBER/COLLABORATOR guard; (3) the bot reviews the new head and the review step does not
+  stall. A guard rejection is a finding for `cuioss/cuioss-organization` or the posting identity.
+  Retire when all three are seen once. A plan touching only `.plan/` cannot give this proof.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 

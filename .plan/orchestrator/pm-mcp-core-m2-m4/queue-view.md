@@ -4,13 +4,12 @@
 
 ## START HERE
 
-**Resume anchor**: Running since 2026-10-10: PLAN-06 store-substrate, PLAN-07 workflow-dsl-parser-and-ast, PLAN-04 service-unit, PLAN-38 review-bot-re-review (configuration; its PR is the first real ghcr.io review-bot run). Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19). Next free slot: PLAN-05 http-baseline; PLAN-08 waits on PLAN-04 (runtime.start), PLAN-09 on PLAN-06 (core.store). Next action: analyze landings as they arrive; land the ledger. Open for the operator: PLAN-01 documentation unowned; unowned remainder of PLAN-02's roadmap item.
+**Resume anchor**: Running: PLAN-04 service-unit (PR #25 open), PLAN-06 store-substrate, PLAN-07 workflow-dsl-parser-and-ast. Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19), PLAN-38 (#24). Slots full (scope 3). Next free slot: PLAN-05 http-baseline; PLAN-08 waits on PLAN-04, PLAN-09 on PLAN-06. Watch: first review-bot re-review proof, likely on #25. Next action: analyze landings; land the ledger. Open for the operator: PLAN-01 documentation unowned; unowned remainder of PLAN-02's roadmap item.
 **Phase**: orchestrating
 **Running**:
 - PLAN-04 (WS-01) — plan=plan-04-service-unit
 - PLAN-06 (WS-02) — plan=plan-06-store-substrate
 - PLAN-07 (WS-03) — plan=workflow-dsl-parser-and-ast
-- PLAN-38 (WS-09) — plan=plan-38-review-bot-re-review
 **Parked**:
 - PLAN-19 (WS-05)
 - PLAN-37 (WS-06)
@@ -47,6 +46,7 @@
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
+- PLAN-38 (WS-09) — plan=plan-38-review-bot-re-review — PR #24 — landing=landings/PLAN-38.md — status: shipped
 
 ## Ordered Queue
 
@@ -86,4 +86,3 @@
 | 32 | PLAN-35 | WS-06 | staged | doc/plans/README.adoc; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ |
 | 33 | PLAN-36 | WS-07 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/analysis/; pm-core/src/main/java/de/planmarshall/core/findings/; pm-core/src/test/java/de/planmarshall/core/analysis/; pm-core/src/test/java/de/planmarshall/core/findings/; src/guard-controls/ |
 | 34 | PLAN-37 | WS-06 | parked | doc/plans/README.adoc; pm-core/src/test/java/de/planmarshall/core/differential/ |
-| 35 | PLAN-38 | WS-09 | running | .plan/marshal.json |
