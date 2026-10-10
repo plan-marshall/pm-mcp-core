@@ -9,15 +9,19 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 
 
 import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
@@ -157,6 +161,24 @@ class ServiceUnitFileTest {
             assertThrows(IllegalArgumentException.class,
                     () -> new ServiceUnitFile(Platform.LAUNCHD, home, null, relative));
         }
+
+        /**
+         * A line break in the daemon path would end the {@code ExecStart} line, and systemd would read the text after
+         * it as a directive of its own; the constructor rejects it, so no such unit is ever written. The default file
+         * system refuses a NUL character in a path itself, so the NUL branch of the guard has no reachable fixture
+         * here.
+         */
+        @ParameterizedTest(name = "line break {index}")
+        @ValueSource(strings = {"\n", "\r", "\r\n"})
+        @DisplayName("rejects a daemon path with a line break without echoing it")
+        void shouldRejectLineBreakInDaemon(String lineBreak) {
+            var daemon = Path.of("/opt/pm" + lineBreak + "ExecStartPre=/bin/evil/pm-mcpd");
+
+            var thrown = assertThrows(IllegalArgumentException.class,
+                    () -> new ServiceUnitFile(Platform.SYSTEMD, home, null, daemon));
+
+            assertFalse(thrown.getMessage().contains(lineBreak), thrown.getMessage());
+        }
     }
 
     @Nested
@@ -230,6 +252,111 @@ class ServiceUnitFileTest {
             var thrown = assertThrows(ServiceUnitException.class, unit::remove);
 
             assertTrue(thrown.getMessage().contains(unit.path().toString()), thrown.getMessage());
+        }
+    }
+
+    /**
+     * Who may modify the unit must not depend on the process umask: the unit and the directories created for it are
+     * never group- or world-writable, even under a home whose permissions would allow it.
+     */
+    @Nested
+    @EnabledOnOs({OS.MAC, OS.LINUX})
+    @DisplayName("permissions")
+    class Permissions {
+
+        private static void assertNotGroupOrWorldWritable(Path path) throws IOException {
+            var permissions = Files.getPosixFilePermissions(path);
+
+            assertAll(path.toString(),
+                    () -> assertFalse(permissions.contains(PosixFilePermission.GROUP_WRITE), permissions::toString),
+                    () -> assertFalse(permissions.contains(PosixFilePermission.OTHERS_WRITE), permissions::toString));
+        }
+
+        @Test
+        @DisplayName("writes the unit and its new parent directories without group or world write permission")
+        void shouldWriteOwnerOnlyWritable() throws Exception {
+            Files.setPosixFilePermissions(home, PosixFilePermissions.fromString("rwxrwxrwx"));
+            var unit = unit(Platform.LAUNCHD);
+
+            unit.write();
+
+            assertNotGroupOrWorldWritable(unit.path());
+            assertNotGroupOrWorldWritable(home.resolve("Library/LaunchAgents"));
+            assertNotGroupOrWorldWritable(home.resolve("Library"));
+        }
+
+        @Test
+        @DisplayName("replaces a world-writable stale temporary file instead of reusing it")
+        void shouldNotReuseStaleTemporaryFile() throws Exception {
+            var unit = unit(Platform.SYSTEMD);
+            var stale = unit.path().resolveSibling("pm-mcpd.service.tmp");
+            Files.createDirectories(stale.getParent());
+            Files.writeString(stale, "left by an interrupted write");
+            Files.setPosixFilePermissions(stale, PosixFilePermissions.fromString("rw-rw-rw-"));
+
+            unit.write();
+
+            assertAll(
+                    () -> assertEquals(unit.render(), Files.readString(unit.path())),
+                    () -> assertFalse(Files.exists(stale)),
+                    () -> assertNotGroupOrWorldWritable(unit.path()));
+        }
+
+        @Test
+        @DisplayName("narrows the permissions of a world-writable unit it replaces")
+        void shouldNarrowReplacedUnit() throws Exception {
+            var unit = unit(Platform.SYSTEMD);
+            Files.createDirectories(unit.path().getParent());
+            Files.writeString(unit.path(), "a unit of an older version");
+            Files.setPosixFilePermissions(unit.path(), PosixFilePermissions.fromString("rw-rw-rw-"));
+
+            unit.write();
+
+            assertNotGroupOrWorldWritable(unit.path());
+        }
+    }
+
+    @Nested
+    @DisplayName("exists")
+    class Exists {
+
+        @Test
+        @DisplayName("is true for a present unit")
+        void shouldBeTrueForPresentUnit() {
+            var unit = unit(Platform.SYSTEMD);
+            unit.write();
+
+            assertTrue(unit.exists());
+        }
+
+        @Test
+        @DisplayName("is false for an absent unit")
+        void shouldBeFalseForAbsentUnit() {
+            var unit = unit(Platform.SYSTEMD);
+
+            assertFalse(unit.exists());
+        }
+
+        /**
+         * When the existence of the unit cannot be determined, an uninstall must not take the unit for absent and
+         * report success; the unit counts as present, so the removal is tried and its failure reported. A parent
+         * directory without search permission makes the existence undeterminable, except for root, who is not
+         * subject to it.
+         */
+        @Test
+        @EnabledOnOs({OS.MAC, OS.LINUX})
+        @DisplayName("is true when the presence of the unit cannot be determined")
+        void shouldBeTrueForUndeterminableUnit() throws Exception {
+            assumeFalse("root".equals(System.getProperty("user.name")), "root may search any directory");
+            var unit = unit(Platform.LAUNCHD);
+            unit.write();
+            var agents = unit.path().getParent();
+            Files.setPosixFilePermissions(agents, PosixFilePermissions.fromString("rw-------"));
+            try {
+                assertTrue(unit.exists());
+            } finally {
+                Files.setPosixFilePermissions(agents, PosixFilePermissions.fromString("rwx------"));
+            }
         }
     }
 

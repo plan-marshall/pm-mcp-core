@@ -9,7 +9,6 @@
  */
 package de.planmarshall.runtime.start;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -22,9 +21,6 @@ import java.util.List;
  */
 @FunctionalInterface
 public interface ProcessCall {
-
-    /** The empty standard input of every command. */
-    File NULL_DEVICE = new File("/dev/null");
 
     /**
      * The end of a command.
@@ -46,7 +42,11 @@ public interface ProcessCall {
     Result run(List<String> command);
 
     /**
-     * @return the call that starts the command as a child process of the runtime, with an empty standard input
+     * Answers the call that starts the command as a child process of the runtime. Every command gets an empty
+     * standard input: the pipe to it is closed right after the start, so a command that reads its input sees the
+     * end at once instead of waiting.
+     *
+     * @return the call that runs commands as child processes
      */
     static ProcessCall system() {
         return ProcessCall::runProcess;
@@ -57,8 +57,8 @@ public interface ProcessCall {
         try {
             var process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
-                    .redirectInput(ProcessBuilder.Redirect.from(NULL_DEVICE))
                     .start();
+            process.getOutputStream().close();
             var output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             return new Result(process.waitFor(), output);
         } catch (IOException e) {

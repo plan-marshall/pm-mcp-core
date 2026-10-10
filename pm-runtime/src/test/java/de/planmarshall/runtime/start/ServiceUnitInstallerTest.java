@@ -108,7 +108,7 @@ class ServiceUnitInstallerTest {
         @Test
         @EnabledOnOs(OS.MAC)
         @DisplayName("installs and uninstalls the LaunchAgent on macOS")
-        void shouldInstallAndUninstallOnMac() throws Exception {
+        void shouldInstallAndUninstallOnMac() {
             var unit = unit(Platform.current());
             var call = new RecordingProcessCall(unit.path());
             var installer = installer(unit, call);
@@ -132,7 +132,7 @@ class ServiceUnitInstallerTest {
         @Test
         @EnabledOnOs(OS.LINUX)
         @DisplayName("installs and uninstalls the systemd user unit on Linux")
-        void shouldInstallAndUninstallOnLinux() throws Exception {
+        void shouldInstallAndUninstallOnLinux() {
             var unit = unit(Platform.current());
             var call = new RecordingProcessCall(unit.path());
             var installer = installer(unit, call);
@@ -232,7 +232,7 @@ class ServiceUnitInstallerTest {
         @ParameterizedTest(name = "{0}")
         @EnumSource(Platform.class)
         @DisplayName("keeps the unit, logs and rethrows when the service manager fails")
-        void shouldKeepUnitOnManagerFailure(Platform platform) throws Exception {
+        void shouldKeepUnitOnManagerFailure(Platform platform) {
             var unit = unit(platform);
             var failure = new ServiceUnitException("Command could not run");
             var call = new RecordingProcessCall(unit.path()).thenFail(failure);
@@ -280,6 +280,7 @@ class ServiceUnitInstallerTest {
 
             assertAll(
                     () -> assertEquals(List.of(), call.calls()),
+                    () -> assertFalse(unit.exists()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO, uninstalled(unit)),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, ServiceUnitInstaller.class));
         }

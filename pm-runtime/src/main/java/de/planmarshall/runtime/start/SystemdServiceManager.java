@@ -10,6 +10,8 @@
 package de.planmarshall.runtime.start;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -31,6 +33,10 @@ final class SystemdServiceManager implements ServiceManager {
     /** The exit code of {@code systemctl stop} for a unit that is not loaded. */
     static final Set<Integer> NOT_LOADED = Set.of(5);
 
+    private static final String SYSTEMCTL = "systemctl";
+
+    private static final String USER = "--user";
+
     private final ProcessCall call;
 
     SystemdServiceManager(ProcessCall call) {
@@ -39,19 +45,27 @@ final class SystemdServiceManager implements ServiceManager {
 
     @Override
     public void load(Path unit) {
-        run(List.of("systemctl", "--user", "daemon-reload"), Set.of());
-        run(List.of("systemctl", "--user", "enable", "--now", name(unit)), Set.of());
+        run(systemctl("daemon-reload"), Set.of());
+        run(systemctl("enable", "--now", name(unit)), Set.of());
     }
 
     @Override
     public void disable(Path unit) {
-        run(List.of("systemctl", "--user", "disable", name(unit)), Set.of());
+        run(systemctl("disable", name(unit)), Set.of());
     }
 
     @Override
     public void unload(Path unit) {
-        run(List.of("systemctl", "--user", "stop", name(unit)), NOT_LOADED);
-        run(List.of("systemctl", "--user", "daemon-reload"), Set.of());
+        run(systemctl("stop", name(unit)), NOT_LOADED);
+        run(systemctl("daemon-reload"), Set.of());
+    }
+
+    private static List<String> systemctl(String... arguments) {
+        var command = new ArrayList<String>(arguments.length + 2);
+        command.add(SYSTEMCTL);
+        command.add(USER);
+        command.addAll(Arrays.asList(arguments));
+        return List.copyOf(command);
     }
 
     private static String name(Path unit) {
