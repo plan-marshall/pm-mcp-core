@@ -71,7 +71,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 
 |link:workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]
 |Workflow DSL parser and immutable AST
-|`open`
+|`done`
 |link:primitive-spi-and-validators.adoc[`primitive-spi-and-validators`]
 |Milestone 3
 
