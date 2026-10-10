@@ -32,14 +32,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
+import de.planmarshall.core.service.LockTransaction;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
-
-import de.planmarshall.core.service.LockTransaction;
 
 /**
  * The lock-free read of a store (PM-IMPL-7): it takes no lock, never sees a part of a write, and reports a digest
@@ -200,7 +200,7 @@ class StoreSnapshotTest {
 
         @Test
         @DisplayName("a store that does not exist is a snapshot without content, not a failure")
-        void absentStore() throws IOException {
+        void absentStore() throws Exception {
             Files.delete(store);
 
             var snapshot = StoreSnapshot.read(store);

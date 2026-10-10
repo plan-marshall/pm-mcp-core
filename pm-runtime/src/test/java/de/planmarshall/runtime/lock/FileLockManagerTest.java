@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -109,7 +110,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a second thread waits for a held key and gets it when the holder closes")
-        void threadsExcludeEachOther() throws InterruptedException {
+        void threadsExcludeEachOther() throws Exception {
             var key = LockKey.mergeQueue(base);
             var acquiredBySecond = new AtomicBoolean();
             var first = manager.openTransaction();
@@ -134,7 +135,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a thread that holds one key does not make another thread wait for another key")
-        void otherKeyIsFree() throws InterruptedException {
+        void otherKeyIsFree() throws Exception {
             var acquiredBySecond = new AtomicBoolean();
             try (var first = manager.openTransaction()) {
                 first.acquire(LockKey.mergeQueue(base));
@@ -153,7 +154,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("re-entry of a held key succeeds, and one close releases it")
-        void reentry() throws IOException {
+        void reentry() throws Exception {
             var key = LockKey.mergeQueue(base);
             var transaction = manager.openTransaction();
             transaction.acquire(key);
@@ -178,7 +179,7 @@ class FileLockManagerTest {
          */
         @Test
         @DisplayName("two transactions on one lock file share one channel, and the lock is held until the last closes")
-        void sharedChannel() throws IOException {
+        void sharedChannel() throws Exception {
             var key = LockKey.mergeQueue(base);
             var first = manager.openTransaction();
             var second = manager.openTransaction();
@@ -198,7 +199,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a closed transaction acquires nothing, and closing it again does nothing")
-        void closedTransaction() throws IOException {
+        void closedTransaction() throws Exception {
             var key = LockKey.mergeQueue(base);
             var transaction = manager.openTransaction();
             transaction.acquire(key);
@@ -219,7 +220,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("keys in the lock order are all held, and close releases all of them")
-        void inOrder() throws IOException {
+        void inOrder() throws Exception {
             var workspace = LockKey.workspace(base, PROJECT);
             var plan = LockKey.plan(base, PROJECT, "a-plan");
             var merge = LockKey.mergeQueue(base);
@@ -277,7 +278,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a refused key is not held in the process: another thread acquires it at once")
-        void refusedKeyStaysFree() throws InterruptedException {
+        void refusedKeyStaysFree() throws Exception {
             var plan = LockKey.plan(base, PROJECT, "a-plan");
             var acquiredByOther = new AtomicBoolean();
             try (var transaction = manager.openTransaction()) {
@@ -298,7 +299,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("nothing is acquired after a leaf lock")
-        void nothingAfterLeaf() throws IOException {
+        void nothingAfterLeaf() throws Exception {
             Files.createDirectories(base.resolve("logs"));
             var audit = LockKey.auditLog(base);
             var merge = LockKey.mergeQueue(base);
@@ -319,7 +320,7 @@ class FileLockManagerTest {
          */
         @Test
         @DisplayName("the epic lock and then the mailbox leaf lock of a plan is accepted without an audit record")
-        void epicThenMailbox() throws IOException {
+        void epicThenMailbox() throws Exception {
             var epic = LockKey.epic(base, PROJECT, "an-epic");
             var mailbox = LockKey.mailbox(base, PROJECT, "a-plan");
             Files.createDirectories(mailbox.lockFile().getParent());
@@ -344,7 +345,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a lock file is created with mode 0600 and its directories with mode 0700")
-        void modes() throws IOException {
+        void modes() throws Exception {
             var machine = LockKey.enrolment(base, PROJECT);
             var project = LockKey.queue(base, PROJECT);
             try (var transaction = manager.openTransaction()) {
@@ -364,7 +365,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("acquiring an existing lock file changes neither its content nor its modification time")
-        void existingLockFileUntouched() throws IOException {
+        void existingLockFileUntouched() throws Exception {
             var key = LockKey.mergeQueue(base);
             var content = "kept".getBytes(StandardCharsets.UTF_8);
             var modified = FileTime.from(Instant.parse("2026-01-02T03:04:05Z"));
@@ -387,7 +388,7 @@ class FileLockManagerTest {
          */
         @Test
         @DisplayName("a leaf lock creates its file with mode 0600 but never its directory")
-        void leafLock() throws IOException, InterruptedException {
+        void leafLock() throws Exception {
             var audit = LockKey.auditLog(base);
             var failure = new AtomicReference<RuntimeException>();
             try (var transaction = manager.openTransaction()) {
@@ -419,7 +420,7 @@ class FileLockManagerTest {
          */
         @Test
         @DisplayName("a store written under its sibling key is not locked itself, the lock file below locks is")
-        void storeFileUnlocked() throws IOException {
+        void storeFileUnlocked() throws Exception {
             var key = LockKey.mergeQueue(base);
             var store = Files.createDirectories(base.resolve("state")).resolve("merge-queue.json");
             var storeFile = new AtomicStoreFile(store, key);
@@ -439,7 +440,7 @@ class FileLockManagerTest {
 
         @Test
         @DisplayName("a transaction that does not hold the sibling key cannot write the store")
-        void storeNeedsSiblingKey() throws IOException {
+        void storeNeedsSiblingKey() throws Exception {
             var store = Files.createDirectories(base.resolve("state")).resolve("merge-queue.json");
             var storeFile = new AtomicStoreFile(store, LockKey.mergeQueue(base));
             try (var transaction = manager.openTransaction()) {
@@ -460,13 +461,13 @@ class FileLockManagerTest {
          */
         @Test
         @DisplayName("a lock taken past the manager is reported, and the key is free again once it is gone")
-        void lockPastTheManager() throws IOException {
+        void lockPastTheManager() throws Exception {
             var key = LockKey.mergeQueue(base);
             Files.createDirectories(key.lockFile().getParent());
             Files.createFile(key.lockFile());
             try (var transaction = manager.openTransaction()) {
                 try (var foreign = FileChannel.open(key.lockFile(), StandardOpenOption.WRITE);
-                        var foreignLock = foreign.lock()) {
+                     var foreignLock = foreign.lock()) {
                     var refused = assertThrows(IllegalStateException.class, () -> transaction.acquire(key));
 
                     assertAll(

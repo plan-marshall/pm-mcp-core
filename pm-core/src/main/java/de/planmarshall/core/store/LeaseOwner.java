@@ -27,8 +27,12 @@ import java.util.Objects;
  * @param orphanedAt     the instant the holder was found dead at a runtime start; {@code null} unless orphaned
  * @since 0.1
  */
-public record LeaseOwner(String projectId, ScopeType scopeType, String scopeId, HolderInstance holderInstance,
-        Instant orphanedAt) {
+public record LeaseOwner(
+String projectId,
+ScopeType scopeType,
+String scopeId,
+HolderInstance holderInstance,
+Instant orphanedAt) {
 
     /**
      * @throws NullPointerException     if the project id, the scope type or the holder is {@code null}, or the scope

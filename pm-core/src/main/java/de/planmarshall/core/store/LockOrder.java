@@ -12,7 +12,6 @@ package de.planmarshall.core.store;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-
 import lombok.experimental.UtilityClass;
 
 /**

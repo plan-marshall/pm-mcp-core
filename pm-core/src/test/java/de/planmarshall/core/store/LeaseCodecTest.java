@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.stream.Stream;
 
+import de.planmarshall.core.store.LeaseCodec.FormatException;
+import de.planmarshall.core.store.LeaseCodec.Refusal;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,9 +34,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import de.planmarshall.core.store.LeaseCodec.FormatException;
-import de.planmarshall.core.store.LeaseCodec.Refusal;
 
 /**
  * The document of a lease store (PM-IMPL-7, PM-IMPL-2): one format version, one closed shape, and one shape per
@@ -225,7 +225,7 @@ class LeaseCodecTest {
                 "\"\"",
                 "1791533760",
                 "1791533760.5",
-                "null" })
+                "null"})
         @DisplayName("an instant in another spelling, an epoch number or no instant is unreadable")
         void otherSpelling(String acquiredAt) {
             var lease = PLAN_LEASE.replace(ACQUIRED_AT, "\"acquired_at\":" + acquiredAt);
@@ -282,7 +282,7 @@ class LeaseCodecTest {
                 "{\"format_version\":1.0,\"leases\":[]}",
                 "{\"format_version\":null,\"leases\":[]}",
                 "{\"format_version\":1,\"format_version\":1,\"leases\":[]}",
-                "{\"format_version\":99999999999,\"leases\":[]}" })
+                "{\"format_version\":99999999999,\"leases\":[]}"})
         @DisplayName("a document without one integer format version is unreadable, never an empty store")
         void missingVersion(String document) {
             var refusal = refusalOf(utf8(document));
@@ -332,7 +332,7 @@ class LeaseCodecTest {
                 "{\"format_version\":1,\"leases\":[]} x",
                 "{\"format_version\":1,\"leases\":[",
                 "{\"format_version\":1,\"leases\":[{\"key\":\"a\"}]}",
-                "{\"format_version\":1,\"leases\":[{\"owner\":null}]}" })
+                "{\"format_version\":1,\"leases\":[{\"owner\":null}]}"})
         @DisplayName("a document outside the shape is unreadable, never an empty store")
         void invalidDocument(String document) {
             var refusal = refusalOf(utf8(document));
@@ -341,7 +341,7 @@ class LeaseCodecTest {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = { KEY + ",", "," + ACQUIRED_AT, "," + EXPIRES_AT })
+        @ValueSource(strings = {KEY + ",", "," + ACQUIRED_AT, "," + EXPIRES_AT})
         @DisplayName("a lease without one of its fields is unreadable")
         void missingLeaseField(String field) {
             var lease = PLAN_LEASE.replace(field, "");

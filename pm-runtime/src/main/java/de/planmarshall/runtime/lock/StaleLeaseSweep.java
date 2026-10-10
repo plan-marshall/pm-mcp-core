@@ -144,8 +144,10 @@ public class StaleLeaseSweep {
      * @param refusal         why the store could not be read; empty unless the store was refused
      * @since 0.1
      */
-    public record Result(List<Decision> decisions, Optional<EmptyPopulation> emptyPopulation,
-            Optional<LeaseCodec.Refusal> refusal) {
+    public record Result(
+    List<Decision> decisions,
+    Optional<EmptyPopulation> emptyPopulation,
+    Optional<LeaseCodec.Refusal> refusal) {
 
         /** @throws NullPointerException if a component or a decision is {@code null} */
         public Result {

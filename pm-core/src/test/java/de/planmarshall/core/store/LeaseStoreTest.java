@@ -29,16 +29,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
+import de.planmarshall.core.store.LeaseCodec.FormatException;
+import de.planmarshall.core.store.LeaseCodec.Refusal;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
-import de.planmarshall.core.service.LockManager;
-import de.planmarshall.core.service.LockTransaction;
-import de.planmarshall.core.store.LeaseCodec.FormatException;
-import de.planmarshall.core.store.LeaseCodec.Refusal;
 
 /**
  * The leases of a machine lease store (PM-IMPL-7): records that are claimed and released in one short transaction
@@ -162,7 +162,7 @@ class LeaseStoreTest {
 
         @Test
         @DisplayName("a second claim of a held key writes nothing and names the holder")
-        void contended() throws IOException {
+        void contended() throws Exception {
             var held = planLease("lock-manager", FIRST_RUNTIME);
             leaseStore.claim(held);
             var written = Files.readAllBytes(store);
@@ -267,7 +267,7 @@ class LeaseStoreTest {
 
         @Test
         @DisplayName("a lease that is orphaned already keeps the instant it was first found orphaned")
-        void orphanTwice() throws IOException {
+        void orphanTwice() throws Exception {
             leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
             leaseStore.orphan(KEY, orphanedAt);
             var fileBefore = fileIdentity();
@@ -362,7 +362,7 @@ class LeaseStoreTest {
 
         @Test
         @DisplayName("a revision that changes nothing does not write the store")
-        void unchanged() throws IOException {
+        void unchanged() throws Exception {
             var lease = planLease("lock-manager", FIRST_RUNTIME);
             leaseStore.claim(lease);
             var fileBefore = fileIdentity();
@@ -398,7 +398,7 @@ class LeaseStoreTest {
 
         @Test
         @DisplayName("a revision that gives two leases one key is refused, and the store stays as it was")
-        void duplicateKey() throws IOException {
+        void duplicateKey() throws Exception {
             var first = planLease("lock-manager", FIRST_RUNTIME);
             leaseStore.claim(first);
             leaseStore.claim(new LeaseRecord("another/repository", first.owner(), ACQUIRED_AT, null));
@@ -450,7 +450,7 @@ class LeaseStoreTest {
 
         @Test
         @DisplayName("a store in a newer format is refused with its path, left byte-identical, and the lock released")
-        void newerFormat() throws IOException {
+        void newerFormat() throws Exception {
             var newer = "{\"format_version\":2,\"leases\":[]}".getBytes(StandardCharsets.UTF_8);
             Files.write(store, newer);
             var lease = planLease("lock-manager", FIRST_RUNTIME);
@@ -466,7 +466,7 @@ class LeaseStoreTest {
 
         @Test
         @DisplayName("an unreadable store is never taken for an empty one, by a write or by a snapshot")
-        void unreadable() throws IOException {
+        void unreadable() throws Exception {
             var torn = "{\"format_version\":1,\"leases\":[".getBytes(StandardCharsets.UTF_8);
             Files.write(store, torn);
             var lease = planLease("lock-manager", FIRST_RUNTIME);

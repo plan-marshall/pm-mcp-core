@@ -27,13 +27,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-
 import de.planmarshall.core.log.PmMcpLogMessages;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.store.LockKey;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 /**
  * The contract of the lock manager towards its callers (PM-IMPL-7): what a refused out-of-order acquisition hands to

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -126,7 +127,7 @@ class StaleLeaseSweepTest {
 
         @Test
         @DisplayName("its lease is kept, and the store is left byte-identical and unwritten")
-        void kept() throws IOException {
+        void kept() throws Exception {
             var lease = claim("slot-1", alive);
             var bytesBefore = Files.readAllBytes(store);
             var fileBefore = fileIdentity();
@@ -220,7 +221,7 @@ class StaleLeaseSweepTest {
 
         @Test
         @DisplayName("a lease that is orphaned already keeps its first orphaned_at, and the store is not written")
-        void orphanedOnce() throws IOException {
+        void orphanedOnce() throws Exception {
             claim("slot-1", dead);
             StaleLeaseSweep.sweep(leaseStore, NO_EVIDENCE, NOW);
             var fileBefore = fileIdentity();
@@ -274,7 +275,7 @@ class StaleLeaseSweepTest {
             var withEvidence = claim("slot-abandoned", dead);
             var withoutEvidence = claim("slot-waiting", dead);
 
-            var result = StaleLeaseSweep.sweep(leaseStore, lease -> lease.key().equals("slot-abandoned"), NOW);
+            var result = StaleLeaseSweep.sweep(leaseStore, lease -> "slot-abandoned".equals(lease.key()), NOW);
 
             var orphaned = withoutEvidence.withOwner(withoutEvidence.owner().orphaned(NOW));
             assertAll(
@@ -313,7 +314,7 @@ class StaleLeaseSweepTest {
 
         @Test
         @DisplayName("a store without leases is reported as nothing_listed and is not written")
-        void nothingListed() throws IOException {
+        void nothingListed() throws Exception {
             claim("slot-1", alive);
             leaseStore.release("slot-1");
             var fileBefore = fileIdentity();
@@ -343,7 +344,7 @@ class StaleLeaseSweepTest {
 
         @Test
         @DisplayName("a store that is refused is reported as root_unreadable with the refusal and left byte-identical")
-        void rootUnreadable() throws IOException {
+        void rootUnreadable() throws Exception {
             var newer = "{\"format_version\":2,\"slots\":[]}".getBytes(StandardCharsets.UTF_8);
             Files.write(store, newer);
 

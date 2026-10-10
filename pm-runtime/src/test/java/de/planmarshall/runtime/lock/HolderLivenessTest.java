@@ -13,12 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,7 +74,7 @@ class HolderLivenessTest {
     @Test
     @Timeout(value = 60, unit = TimeUnit.SECONDS)
     @DisplayName("the process id of an ended child process is not alive")
-    void endedProcess() throws IOException, InterruptedException {
+    void endedProcess() throws Exception {
         var java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
         var child = new ProcessBuilder(java, "-version")
                 .redirectOutput(ProcessBuilder.Redirect.DISCARD)

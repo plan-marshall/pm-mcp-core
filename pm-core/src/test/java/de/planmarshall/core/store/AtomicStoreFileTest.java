@@ -30,15 +30,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import de.planmarshall.core.service.InternalFaultException;
+import de.planmarshall.core.service.InternalFaultException.Reason;
+import de.planmarshall.core.service.LockTransaction;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
-import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.InternalFaultException.Reason;
-import de.planmarshall.core.service.LockTransaction;
 
 /**
  * The write path of a store replaced by atomic rename (PM-IMPL-7): written only under its sibling lock key, and the
@@ -98,7 +98,7 @@ class AtomicStoreFileTest {
 
         @Test
         @DisplayName("a write replaces the store, with mode 0600, and leaves no temporary file behind")
-        void write() throws IOException {
+        void write() throws Exception {
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(siblingKey);
 
@@ -113,7 +113,7 @@ class AtomicStoreFileTest {
 
         @Test
         @DisplayName("a write creates a store that does not exist yet")
-        void writeNewStore() throws IOException {
+        void writeNewStore() throws Exception {
             Files.delete(store);
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(siblingKey);
@@ -126,7 +126,7 @@ class AtomicStoreFileTest {
 
         @Test
         @DisplayName("a read returns the current content, and nothing for a store that does not exist")
-        void read() throws IOException {
+        void read() throws Exception {
             try (var transaction = new HeldKeys()) {
                 transaction.acquire(siblingKey);
 
@@ -147,10 +147,10 @@ class AtomicStoreFileTest {
          */
         @Test
         @DisplayName("the store file is never locked: a write runs while another channel holds a lock on the store")
-        void storeFileIsNotLocked() throws IOException {
+        void storeFileIsNotLocked() throws Exception {
             try (var channel = FileChannel.open(store, StandardOpenOption.WRITE);
-                    var lockOnStore = channel.tryLock();
-                    var transaction = new HeldKeys()) {
+                 var lockOnStore = channel.tryLock();
+                 var transaction = new HeldKeys()) {
                 transaction.acquire(siblingKey);
 
                 storeFile.write(transaction, NEW);
@@ -164,7 +164,7 @@ class AtomicStoreFileTest {
 
         @Test
         @DisplayName("a write that fails leaves the store as it was and no temporary file")
-        void failedWrite() throws IOException {
+        void failedWrite() throws Exception {
             var directory = Files.createDirectory(base.resolve("state").resolve("install-records.json"));
             Files.writeString(directory.resolve("entry"), "keeps the directory non-empty");
             var blocked = new AtomicStoreFile(directory, LockKey.installRecords(base));

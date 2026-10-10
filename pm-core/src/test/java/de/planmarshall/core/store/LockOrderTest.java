@@ -21,6 +21,10 @@ import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import de.planmarshall.core.store.LockOrder.Permitted;
+import de.planmarshall.core.store.LockOrder.Reentry;
+import de.planmarshall.core.store.LockOrder.Violation;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,10 +32,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import de.planmarshall.core.store.LockOrder.Permitted;
-import de.planmarshall.core.store.LockOrder.Reentry;
-import de.planmarshall.core.store.LockOrder.Violation;
 
 /**
  * The rules of the total lock order (PM-IMPL-7): one case per rule and one per boundary between two adjacent

@@ -111,7 +111,7 @@ public final class AtomicStoreFile {
     private static void writeSynced(Path temporary, byte[] content) throws IOException {
         var ownerOnly = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(OWNER_ONLY));
         try (var channel = FileChannel.open(temporary,
-                Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE), ownerOnly)) {
+                     Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE), ownerOnly)) {
             var buffer = ByteBuffer.wrap(content);
             while (buffer.hasRemaining()) {
                 channel.write(buffer);

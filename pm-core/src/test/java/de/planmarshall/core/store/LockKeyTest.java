@@ -217,7 +217,7 @@ class LockKeyTest {
     class Refusals {
 
         @ParameterizedTest(name = "\"{0}\"")
-        @ValueSource(strings = { "", "ab", "../other", "a/b", "Upper-case", "-leading", "trailing-", "with space" })
+        @ValueSource(strings = {"", "ab", "../other", "a/b", "Upper-case", "-leading", "trailing-", "with space"})
         @DisplayName("an identifier outside the grammar never reaches a lock path")
         void invalidIdentifier(String identifier) {
             assertAll(
