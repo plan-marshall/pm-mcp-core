@@ -26,14 +26,14 @@ import java.util.Optional;
  * @since 0.1
  */
 public record LinkSpec(
-        LinkRelation rel,
-        String idPattern,
-        LinkForm form,
-        List<ParamSpec> freeParams,
-        Optional<GuardSpec> guard,
-        LinkAction action,
-        List<OutcomeTransition> transitions,
-        SourceLocation location) {
+LinkRelation rel,
+String idPattern,
+LinkForm form,
+List<ParamSpec> freeParams,
+Optional<GuardSpec> guard,
+LinkAction action,
+List<OutcomeTransition> transitions,
+SourceLocation location) {
 
     /**
      * Copies the free parameters and the transitions into immutable lists.

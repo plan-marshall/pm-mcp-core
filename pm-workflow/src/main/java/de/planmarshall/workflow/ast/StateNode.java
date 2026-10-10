@@ -24,11 +24,11 @@ import java.util.Optional;
  * @since 0.1
  */
 public record StateNode(
-        String id,
-        String phase,
-        Optional<TerminalOutcome> terminalOutcome,
-        Optional<String> skillPath,
-        Optional<String> factsPrimitiveId,
-        StateBehavior behavior,
-        SourceLocation location) {
+String id,
+String phase,
+Optional<TerminalOutcome> terminalOutcome,
+Optional<String> skillPath,
+Optional<String> factsPrimitiveId,
+StateBehavior behavior,
+SourceLocation location) {
 }

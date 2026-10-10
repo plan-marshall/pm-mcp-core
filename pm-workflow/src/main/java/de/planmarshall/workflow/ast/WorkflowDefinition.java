@@ -41,22 +41,22 @@ import java.util.Optional;
  * @since 0.1
  */
 public record WorkflowDefinition(
-        String id,
-        int version,
-        WorkflowScope scope,
-        List<ParamDecl> params,
-        Optional<String> resultSchema,
-        Optional<InstanceHeader> instance,
-        Map<String, CallValue> declarations,
-        Map<String, DecisionDeclaration> decisions,
-        Map<String, Integer> partVersions,
-        int formatVersion,
-        UnitOrigin origin,
-        Map<String, Integer> derivedFrom,
-        String startState,
-        List<StateMigration> migrations,
-        Map<String, StateNode> states,
-        SourceLocation location) {
+String id,
+int version,
+WorkflowScope scope,
+List<ParamDecl> params,
+Optional<String> resultSchema,
+Optional<InstanceHeader> instance,
+Map<String, CallValue> declarations,
+Map<String, DecisionDeclaration> decisions,
+Map<String, Integer> partVersions,
+int formatVersion,
+UnitOrigin origin,
+Map<String, Integer> derivedFrom,
+String startState,
+List<StateMigration> migrations,
+Map<String, StateNode> states,
+SourceLocation location) {
 
     /**
      * Copies the lists into immutable lists and the maps into unmodifiable maps that keep declaration order.

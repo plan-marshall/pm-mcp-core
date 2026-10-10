@@ -106,8 +106,8 @@ public sealed interface StateBehavior
      * @param transitions       the transitions of the evaluated outcomes
      */
     record ModelJob(String entityKind, Optional<String> roleName, Optional<String> fanOutPrimitiveId,
-            Optional<String> rolesPrimitiveId, boolean ask, List<String> consultRoles,
-            List<OutcomeTransition> transitions) implements StateBehavior {
+    Optional<String> rolesPrimitiveId, boolean ask, List<String> consultRoles,
+    List<OutcomeTransition> transitions) implements StateBehavior {
 
         /**
          * Copies the consult roles and the transitions into immutable lists.
@@ -134,7 +134,7 @@ public sealed interface StateBehavior
      * @param transitions   the transitions of the callee's exits
      */
     record SubWorkflowCall(String subWorkflowId, Map<String, CallValue> paramBindings,
-            List<OutcomeTransition> transitions) implements StateBehavior {
+    List<OutcomeTransition> transitions) implements StateBehavior {
 
         /**
          * Copies the bindings into an unmodifiable map that keeps source order and the transitions into an immutable

@@ -24,11 +24,11 @@ import java.util.Optional;
  * @since 0.1
  */
 public record OutcomeTransition(
-        String outcomeName,
-        String targetStateId,
-        Optional<ResultGuard> resultGuard,
-        List<StepCompletion> completions,
-        SourceLocation location) {
+String outcomeName,
+String targetStateId,
+Optional<ResultGuard> resultGuard,
+List<StepCompletion> completions,
+SourceLocation location) {
 
     /**
      * Copies the completions into an immutable list.

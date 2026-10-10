@@ -26,12 +26,12 @@ import java.util.Map;
  * @since 0.1
  */
 public record CallFrame(
-        String callerWorkflowId,
-        String callerStateId,
-        String callerPhase,
-        String subWorkflowId,
-        Map<String, CallValue> boundArgs,
-        String pushedAt) {
+String callerWorkflowId,
+String callerStateId,
+String callerPhase,
+String subWorkflowId,
+Map<String, CallValue> boundArgs,
+String pushedAt) {
 
     /**
      * Copies the bound arguments into an unmodifiable map that keeps their order.
