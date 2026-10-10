@@ -258,8 +258,9 @@ class AtomicStoreFileTest {
         @DisplayName("a key whose lock file is the store file itself is refused")
         void lockOnStoreRefused() {
             var audit = LockKey.auditLog(base);
+            var lockFile = audit.lockFile();
 
-            assertThrows(IllegalArgumentException.class, () -> new AtomicStoreFile(audit.lockFile(), audit));
+            assertThrows(IllegalArgumentException.class, () -> new AtomicStoreFile(lockFile, audit));
         }
 
         @Test

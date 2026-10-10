@@ -254,12 +254,14 @@ class LockOrderTest {
         @DisplayName("a missing argument is refused")
         void missingArguments() {
             var plan = LockKey.plan(BASE, PROJECT, "plan-one");
+            var heldKeys = Set.of(plan);
+            var heldInOrder = List.of(plan);
 
             assertAll(
                     () -> assertThrows(NullPointerException.class, () -> LockOrder.check(null, plan)),
-                    () -> assertThrows(NullPointerException.class, () -> LockOrder.check(Set.of(plan), null)),
+                    () -> assertThrows(NullPointerException.class, () -> LockOrder.check(heldKeys, null)),
                     () -> assertThrows(NullPointerException.class, () -> new Violation(null, plan)),
-                    () -> assertThrows(NullPointerException.class, () -> new Violation(List.of(plan), null)));
+                    () -> assertThrows(NullPointerException.class, () -> new Violation(heldInOrder, null)));
         }
     }
 }

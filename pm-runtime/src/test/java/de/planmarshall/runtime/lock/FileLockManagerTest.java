@@ -547,8 +547,9 @@ class FileLockManagerTest {
         @Test
         @DisplayName("an acquisition that fails leaves no entry")
         void noEntryAfterFailedAcquisition() throws Exception {
+            var audit = LockKey.auditLog(base);
             try (var transaction = manager.openTransaction()) {
-                assertThrows(UncheckedIOException.class, () -> transaction.acquire(LockKey.auditLog(base)));
+                assertThrows(UncheckedIOException.class, () -> transaction.acquire(audit));
 
                 assertAll(
                         () -> assertEquals(0, manager.threadLockCount()),

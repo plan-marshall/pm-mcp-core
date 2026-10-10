@@ -242,13 +242,14 @@ class LockKeyTest {
         @DisplayName("a key is refused for a relative or unnormalized lock file and for a missing component")
         void invalidComponents() {
             var lockFile = MACHINE_LOCKS.resolve("merge.lock");
+            var relative = Path.of("locks/merge.lock");
+            var unnormalized = BASE.resolve("state/../locks/merge.lock");
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LockKey(LockLevel.MACHINE_STORE, Path.of("locks/merge.lock"), "merge")),
+                            () -> new LockKey(LockLevel.MACHINE_STORE, relative, "merge")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new LockKey(LockLevel.MACHINE_STORE, BASE.resolve("state/../locks/merge.lock"),
-                                    "merge")),
+                            () -> new LockKey(LockLevel.MACHINE_STORE, unnormalized, "merge")),
                     () -> assertThrows(NullPointerException.class, () -> new LockKey(null, lockFile, "merge")),
                     () -> assertThrows(NullPointerException.class,
                             () -> new LockKey(LockLevel.MACHINE_STORE, null, "merge")),

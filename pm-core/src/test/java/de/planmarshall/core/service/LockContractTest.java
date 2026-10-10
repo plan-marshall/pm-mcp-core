@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.log.PmMcpLogMessages;
@@ -81,11 +82,12 @@ class LockContractTest {
             var event = new AuditEvent("lock_order_violation", "store", "refused", source);
 
             source.put("held", List.of());
+            var details = event.details();
+            var held = List.of();
 
             assertAll(
                     () -> assertEquals(Set.of("requested"), event.details().keySet()),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> event.details().put("held", List.of())));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> details.put("held", held)));
         }
 
         @Test
@@ -141,7 +143,7 @@ class LockContractTest {
             var fault = InternalFaultException.lockOrderViolation(List.of(WORKSPACE, QUEUE), PLAN);
 
             var paths = Pattern.compile("/[^\\s',\\]]+").matcher(fault.getMessage()).results()
-                    .map(match -> match.group()).toList();
+                    .map(MatchResult::group).toList();
 
             assertEquals(List.of(PLAN_LOCK, WORKSPACE_LOCK, QUEUE_LOCK), paths);
         }
