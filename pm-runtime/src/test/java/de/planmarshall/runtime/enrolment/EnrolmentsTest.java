@@ -81,7 +81,7 @@ class EnrolmentsTest {
 
     @BeforeEach
     void create() throws IOException {
-        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY));
+        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
         var state = Files.createDirectories(base.resolve("state"));
         store = new EnrolmentStore(base);
         key = new EnrolmentKey(new FileSecretStore(base.resolve("credentials")), state, USER, new SecureRandom());
@@ -111,7 +111,7 @@ class EnrolmentsTest {
 
         @Test
         @DisplayName("writes the file and a sidecar record that pass the check, creating the key")
-        void writesCheckedPair() throws Exception {
+        void writesCheckedPair() {
             var written = enrolments.enrol(enrolment(false, null), false);
 
             assertAll(

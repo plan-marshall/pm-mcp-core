@@ -149,7 +149,7 @@ class EnrolmentKeyTest {
 
         @Test
         @DisplayName("is created once with mode 0600 and reused")
-        void createdOnceAndReused() throws Exception {
+        void createdOnceAndReused() {
             var created = key.readOrCreate();
 
             var again = key.readOrCreate();

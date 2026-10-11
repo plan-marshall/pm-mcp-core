@@ -84,12 +84,14 @@ class EnrolmentHmacTest {
     @Test
     @DisplayName("refuses missing arguments and a key without key material")
     void refused() {
+        var withoutMaterial = new WithoutMaterial();
+
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.hmac(null, CONTENT)),
                 () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.hmac(KEY, null)),
                 () -> assertThrows(NullPointerException.class, () -> EnrolmentHmac.verify(KEY, CONTENT, null)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> EnrolmentHmac.hmac(new WithoutMaterial(), CONTENT)));
+                        () -> EnrolmentHmac.hmac(withoutMaterial, CONTENT)));
     }
 
     /** A key that carries no key material, which a MAC refuses to be initialised with. */

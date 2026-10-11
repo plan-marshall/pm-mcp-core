@@ -39,8 +39,9 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * Each write runs in one transaction that holds the project's enrolment lock, so two writes of one project never
  * interleave the file and its sidecar, and every write leaves the file and a sidecar record over its exact bytes
  * (size, SHA-256 and HMAC under the integrity key), or neither. {@code unenrol} asks for the project's live work while
- * it holds that lock, so the answer and the removal belong to one transaction; a scope creation closes the remaining
- * window by reading the enrolment under the same lock. Every write is logged and handed to the audit sink.
+ * it holds that lock, so the answer and the removal belong to one transaction; a future scope-creation path must close
+ * the remaining window by reading the enrolment under the same lock. Every write is logged and handed to the audit
+ * sink.
  *
  * @since 0.1
  */

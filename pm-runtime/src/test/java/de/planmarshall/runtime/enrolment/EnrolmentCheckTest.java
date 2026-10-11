@@ -76,7 +76,7 @@ class EnrolmentCheckTest {
 
     @BeforeEach
     void enrolTwoProjects() throws IOException {
-        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY));
+        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
         var state = Files.createDirectories(base.resolve("state"));
         store = new EnrolmentStore(base);
         key = new EnrolmentKey(new FileSecretStore(base.resolve("credentials")), state, USER, new SecureRandom());

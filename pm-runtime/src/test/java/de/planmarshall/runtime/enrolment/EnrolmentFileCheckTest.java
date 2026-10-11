@@ -102,8 +102,9 @@ class EnrolmentFileCheckTest {
     @DisplayName("a file owned by another user than the expected one is refused as a foreign owner")
     void foreignOwner() throws Exception {
         mode("rw-------");
+        var foreignCheck = new EnrolmentFileCheck("someone-else");
 
-        var refusal = assertThrows(StoreRefusal.class, () -> new EnrolmentFileCheck("someone-else").check(file));
+        var refusal = assertThrows(StoreRefusal.class, () -> foreignCheck.check(file));
 
         assertAll(
                 () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
