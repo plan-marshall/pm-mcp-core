@@ -78,7 +78,8 @@ public final class LeaseRecoveryStep implements RecoveryStep {
      * Sweeps the leases of the project in every store.
      *
      * @param projectId the id of the enrolled project
-     * @return the counts per store; a failure when a store cannot be read or written, after which the remaining
+     * @return the counts per store; a failure when a store cannot be read or written, or is refused (unreadable, of
+     *         another format version, unsupported) so that none of its leases was judged, after which the remaining
      *         stores are not swept
      */
     @Override
@@ -92,6 +93,10 @@ public final class LeaseRecoveryStep implements RecoveryStep {
             } catch (UncheckedIOException e) {
                 return new Outcome.Failed("lease store " + store.store() + " not swept: " + e.getMessage());
             }
+            if (result.refusal().isPresent()) {
+                // A refused store was never read: its leases are not recovered, so the step is not either
+                return new Outcome.Failed("lease store " + store.store() + " refused: " + result.refusal().get());
+            }
             reports.add(report(store, result));
         }
         return new Outcome.Done(reports.isEmpty() ? "no lease store" : String.join("; ", reports));
@@ -101,7 +106,6 @@ public final class LeaseRecoveryStep implements RecoveryStep {
         var counts = "%s kept, %s orphaned, %s removed".formatted(result.count(Action.KEPT),
                 result.count(Action.ORPHANED), result.count(Action.REMOVED));
         var empty = result.emptyPopulation().map(population -> " (" + population.code() + ")").orElse("");
-        var refusal = result.refusal().map(outcome -> ", refused: " + outcome).orElse("");
-        return store.store() + ": " + counts + empty + refusal;
+        return store.store() + ": " + counts + empty;
     }
 }

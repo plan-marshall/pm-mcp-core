@@ -28,7 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LeaseStore;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
@@ -49,11 +51,13 @@ class LeaseRecoveryStepTest {
     @TempDir
     Path base;
 
+    private FileLockManager lockManager;
     private LeaseStore store;
 
     @BeforeEach
     void createStore() throws IOException {
-        store = RecoveryStepFixtures.buildSlots(base, new FileLockManager(new RecordingAuditSink()));
+        lockManager = new FileLockManager(new RecordingAuditSink());
+        store = RecoveryStepFixtures.buildSlots(base, lockManager);
     }
 
     private LeaseRecoveryStep step(LeaseRecoveryStep.AbandonmentEvidence evidence) {
@@ -129,16 +133,39 @@ class LeaseRecoveryStepTest {
     }
 
     @Test
-    @DisplayName("a store that does not exist is reported as root_absent, a refused store with its refusal")
-    void shouldReportAbsentAndRefusedStores() throws Exception {
+    @DisplayName("a store that does not exist is reported as root_absent and the step is done")
+    void shouldReportAbsentStore() {
         var absent = report(step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A));
+
+        assertTrue(absent.endsWith("0 kept, 0 orphaned, 0 removed (root_absent)"), absent);
+    }
+
+    @Test
+    @DisplayName("an empty store is reported with its counts and the step is done")
+    void shouldReportEmptyStore() {
+        var own = claim(store, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
+        store.release(own.key(), own.owner());
+
+        var empty = report(step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A));
+
+        assertTrue(empty.contains("0 kept, 0 orphaned, 0 removed"), empty);
+    }
+
+    @Test
+    @DisplayName("a refused store fails the step with its name and refusal, and the following stores are not swept")
+    void shouldFailOnRefusedStore() throws Exception {
+        var following = new LeaseStore(new AtomicStoreFile(base.resolve("state").resolve("model-slots.json"),
+                LockKey.modelSlots(base)), lockManager);
+        var untouched = claim(following, "model-a", PROJECT_A, RecoveryStepFixtures.dead());
         Files.writeString(store.store(), "{\"format_version\":1,\"leases\":[", StandardCharsets.UTF_8);
 
-        var refused = report(step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A));
+        var outcome = new LeaseRecoveryStep(List.of(store, following), LeaseRecoveryStep.AbandonmentEvidence.NONE,
+                CLOCK).run(PROJECT_A);
 
         assertAll(
-                () -> assertTrue(absent.endsWith("0 kept, 0 orphaned, 0 removed (root_absent)"), absent),
-                () -> assertTrue(refused.endsWith("(root_unreadable), refused: UNREADABLE"), refused));
+                () -> assertEquals(new Outcome.Failed("lease store " + store.store() + " refused: UNREADABLE"),
+                        outcome),
+                () -> assertEquals(List.of(untouched), following.snapshot()));
     }
 
     @Test
