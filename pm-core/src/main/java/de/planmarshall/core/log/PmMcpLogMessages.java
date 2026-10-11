@@ -126,6 +126,43 @@ public final class PmMcpLogMessages {
                 .identifier(52)
                 .template("Service unit '%s' uninstalled")
                 .build();
+
+        // WS-01, runtime lifecycle: identifiers from 53
+
+        /** Logged when the bounded verification (startup step 4) has finished, with the audit chain outcome. */
+        public static final LogRecord BOUNDED_VERIFICATION_FINISHED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(53)
+                .template("Bounded verification finished: audit chain %s")
+                .build();
+
+        /** Logged when the runtime drain starts, with the drain timeout in seconds. */
+        public static final LogRecord RUNTIME_DRAIN_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(54)
+                .template("Runtime drain started, drain timeout %s seconds")
+                .build();
+
+        /** Logged when the runtime drain has ended, with what was ended and what was terminated. */
+        public static final LogRecord RUNTIME_DRAINED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(55)
+                .template("Runtime drained: %s ended, %s terminated, exit code %s")
+                .build();
+
+        /** Logged when the recovery of a project has finished, with the project id and the step reports. */
+        public static final LogRecord PROJECT_RECOVERY_FINISHED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(56)
+                .template("Recovery of project '%s' finished: %s")
+                .build();
+
+        /** Logged when a run of the periodic sweep has finished, with the projects swept, skipped and failed. */
+        public static final LogRecord PERIODIC_SWEEP_FINISHED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(57)
+                .template("Periodic sweep finished: %s projects swept, %s skipped, %s failed")
+                .build();
     }
 
     /** WARN level messages. */
@@ -192,6 +229,43 @@ public final class PmMcpLogMessages {
                 .template("Lease '%s' in '%s' orphaned: its holder (pid %s) is no longer alive")
                 .build();
 
+        // WS-01, runtime lifecycle: identifiers from 152
+
+        /** Logged when the bounded verification finds the audit chain broken; the start goes on. */
+        public static final LogRecord AUDIT_CHAIN_BROKEN = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(152)
+                .template("Audit chain broken, the start goes on: %s")
+                .build();
+
+        /** Logged when the drain timeout expires and the runtime terminates what still runs. */
+        public static final LogRecord DRAIN_TIMEOUT_EXPIRED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(153)
+                .template("Drain timeout of %s seconds expired, terminating what still runs")
+                .build();
+
+        /** Logged when {@code drain_timeout_seconds} is negative or not an integer, and the default is used. */
+        public static final LogRecord DRAIN_TIMEOUT_INVALID = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(154)
+                .template("drain_timeout_seconds in '%s' is invalid (%s), using the default of %s seconds")
+                .build();
+
+        /** Logged when a call waited the project recovery wait in vain; the recovery continues. */
+        public static final LogRecord PROJECT_RECOVERY_WAIT_EXPIRED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(155)
+                .template("Recovery of project '%s' not finished within %s, answering runtime_recovering")
+                .build();
+
+        /** Logged once per distinct relay version that differs from the runtime version. */
+        public static final LogRecord RELAY_VERSION_MISMATCH = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(156)
+                .template("Relay version '%s' differs from runtime version '%s', recommended: pm-operator drain")
+                .build();
+
         // WS-02, store substrate: identifiers 160-169
 
         /**
@@ -241,6 +315,15 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(251)
                 .template("Service manager command '%s' failed: %s")
+                .build();
+
+        // WS-01, runtime lifecycle: identifiers from 252
+
+        /** Logged when a recovery step of a project fails; the recovery of that project stops, other projects go on. */
+        public static final LogRecord PROJECT_RECOVERY_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(252)
+                .template("Recovery of project '%s' failed in step '%s': %s")
                 .build();
     }
 }
