@@ -10,19 +10,23 @@
 package de.planmarshall.core.findings;
 
 /**
- * Answers a finding on the provider it came from, with the disposition triage gave it (PM-IMPL-1). Implemented
- * by the provider modules.
+ * Answers a finding on the provider it came from, with the disposition triage gave it (PM-IMPL-1). Implemented by
+ * the provider modules and registered in a {@link FindingRegistry} under its {@link #key()}, the same key as the
+ * {@link FindingSource} whose findings it answers.
  *
- * @param <F> the normalized finding
  * @since 0.1
  */
-@FunctionalInterface
-public interface FindingResponder<F> {
+public interface FindingResponder {
+
+    /**
+     * @return the key this responder is registered under
+     */
+    FindingSourceKey key();
 
     /**
      * @param finding     the finding to answer
      * @param disposition the disposition of triage
      * @param reason      why the finding got this disposition
      */
-    void respond(F finding, Disposition disposition, String reason);
+    void respond(Finding finding, Disposition disposition, String reason);
 }
