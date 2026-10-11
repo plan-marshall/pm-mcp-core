@@ -95,7 +95,7 @@ class InstallationTokensTest {
                 return next == null ? NOT_FOUND : next;
             }
         });
-        endpoint = CiEndpoint.of(URI.create("http://127.0.0.1:" + server.getPort() + "/"));
+        endpoint = CiEndpoint.of(URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/"));
         clock = new MovableClock();
         redacted = new ArrayList<>();
         tokens = new InstallationTokens(endpoint, "Iv23liClient", () -> TestKeys.PKCS8_PEM, redacted::add, clock);

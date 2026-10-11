@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.http.client.handler.RedirectPolicy.RedirectRefusal;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import java.io.IOException;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.URI;
@@ -100,13 +101,25 @@ class CiHttpClientTest {
         return response(status, body, Map.of("Content-Type", "application/json"));
     }
 
-    /** Base URI with the given host name (127.0.0.1 or localhost give two origins on one server). */
+    /**
+     * Base URI with the given host name; the literal of the bound address and {@code localhost} give two origins
+     * on one server.
+     */
     private URI base(String host) {
         return URI.create("http://" + host + ":" + server.getPort() + "/");
     }
 
     private URI base() {
-        return base("127.0.0.1");
+        return base(boundHost());
+    }
+
+    /**
+     * The literal of the address the mock web server bound: {@code 127.0.0.1} for an IPv4 address, {@code [::1]}
+     * for an IPv6 address, in the bracketed form a URI needs.
+     */
+    private String boundHost() {
+        InetAddress address = server.getSocketAddress().getAddress();
+        return address instanceof Inet6Address ? "[::1]" : "127.0.0.1";
     }
 
     private RecordedRequest nextRequest() throws InterruptedException {
@@ -215,7 +228,8 @@ class CiHttpClientTest {
                 assertEquals("log text", response.body());
                 var origin = nextRequest();
                 var redirected = nextRequest();
-                assertTrue(header(origin, "Host").startsWith("127.0.0.1:"), "first request to the endpoint origin");
+                assertTrue(header(origin, "Host").startsWith(boundHost() + ":"),
+                        "first request to the endpoint origin");
                 assertEquals("Bearer s3cret", header(origin, "Authorization"));
                 assertTrue(header(redirected, "Host").startsWith("localhost:"), "redirect followed to the other origin");
                 assertNull(header(redirected, "Authorization"), "token dropped across origins");

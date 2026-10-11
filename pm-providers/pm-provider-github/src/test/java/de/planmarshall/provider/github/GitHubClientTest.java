@@ -67,8 +67,8 @@ class GitHubClientTest {
                 return next == null ? NOT_FOUND : next;
             }
         });
-        http = new CiHttpClient(CiEndpoint.of(URI.create("http://127.0.0.1:" + server.getPort() + "/")),
-                () -> Optional.of("ghs_installation"), InstallationTokens.HEADERS);
+        var base = URI.create("http://" + server.getHostName() + ":" + server.getPort() + "/");
+        http = new CiHttpClient(CiEndpoint.of(base), () -> Optional.of("ghs_installation"), InstallationTokens.HEADERS);
         client = new GitHubClient(http, GitHubClient.GRAPHQL_PATH);
     }
 

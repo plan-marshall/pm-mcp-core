@@ -69,7 +69,7 @@ class GitLabClientTest {
                 return next == null ? NOT_FOUND : next;
             }
         });
-        base = "http://127.0.0.1:" + server.getPort() + "/";
+        base = "http://" + server.getHostName() + ":" + server.getPort() + "/";
         http = new CiHttpClient(CiEndpoint.of(URI.create(base + "api/v4")), () -> Optional.of("glpat-secret"),
                 Map.of());
         client = new GitLabClient(http, "group/project");
