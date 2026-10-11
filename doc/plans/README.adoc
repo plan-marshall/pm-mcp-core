@@ -57,6 +57,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:../../../pm-mcp-clients/doc/plans/profile-documents.adoc[`pm-mcp-clients` / `profile-documents`]
 |Milestone 2
 
+|link:http-baseline.adoc[`http-baseline`]
+|HTTP baseline: `cui-http` for calls, the mock web server for tests
+|`done`
+|nothing
+|Milestone 2
+
 |link:store-substrate.adoc[`store-substrate`]
 |Versioned store substrate
 |`done`

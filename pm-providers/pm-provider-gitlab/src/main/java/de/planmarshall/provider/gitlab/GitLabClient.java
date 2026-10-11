@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-
 import de.planmarshall.provider.ci.CiHttpClient;
 import de.planmarshall.provider.ci.CiResponse;
 import de.planmarshall.provider.ci.CiResult;
