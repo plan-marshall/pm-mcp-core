@@ -109,7 +109,7 @@ class WorkflowParserRefusalTest {
         @Test
         @DisplayName("finds one fixture per refusal class")
         void fixturesPresent() {
-            assertEquals(12, malformedFixtures().size());
+            assertEquals(13, malformedFixtures().size());
         }
 
         @ParameterizedTest(name = "{0}")
@@ -201,6 +201,16 @@ class WorkflowParserRefusalTest {
                             withInputs(COMPOSITION_RULES, "\"composition_rules\": \"r\"")),
                     refusal("instance composition rules without digest", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs(COMPOSITION_RULES, "\"composition_rules\": {\"revision\": \"r\"}")),
+                    refusal("instance nested member twice in an uninterpreted member of the root",
+                            RefusalRule.INSTANCE_HEADER, 2,
+                            withHeaderMembers(INSTANCE_MEMBERS + ", \"extra\": {\"a\": 1, \"a\": 2}")),
+                    refusal("instance nested member twice in an uninterpreted member of the inputs",
+                            RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, TEMPLATES + ", \"extra\": [{\"a\": 1, \"a\": 2}]")),
+                    refusal("instance nested member twice in an uninterpreted member of a unit reference",
+                            RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": [{\"unit\": \"plan\", \"digest\": \"t\", "
+                                    + "\"origin\": \"project\", \"extra\": {\"deep\": {\"a\": 1, \"a\": 2}}}]")),
                     refusal("scope missing at the end of the unit", RefusalRule.MISSING_SCOPE, 1, lines(HEADER)),
                     refusal("unknown scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope team")),
                     refusal("bare scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope")),
@@ -498,6 +508,56 @@ class WorkflowParserRefusalTest {
         }
 
         @Test
+        @DisplayName("points a member named twice in the instance header at the second name, inside the JSON")
+        void instanceDuplicateColumn() {
+            var instanceLine = "instance {" + INSTANCE_MEMBERS + ", \"event\": \"again\"}";
+
+            var diagnostic = refuse("dup.pmwf", withInstance(instanceLine));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule()),
+                    () -> assertEquals(instanceLine.lastIndexOf("\"event\"") + 1, diagnostic.column(),
+                            diagnostic::message),
+                    () -> assertEquals("member 'event' of the instance header twice", diagnostic.message()));
+        }
+
+        @Test
+        @DisplayName("points a mistyped member of the instance header at its value, inside the JSON")
+        void instanceMistypedColumn() {
+            var instanceLine = "instance {" + INSTANCE_MEMBERS.replace("\"version\": 1", "\"version\": \"1\"") + "}";
+
+            var diagnostic = refuse("type.pmwf", withInstance(instanceLine));
+
+            assertEquals(instanceLine.indexOf("\"1\"") + 1, diagnostic.column(), diagnostic::message);
+        }
+
+        @Test
+        @DisplayName("points a syntax error late in the instance header into the JSON, not at its first character")
+        void instanceSyntaxErrorColumn() {
+            var instanceLine = "instance {" + INSTANCE_MEMBERS + ", \"extra\": }";
+            var jsonColumn = "instance ".length() + 1;
+
+            var diagnostic = refuse("syntax.pmwf", withInstance(instanceLine));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.INSTANCE_HEADER, diagnostic.rule()),
+                    () -> assertTrue(diagnostic.column() > instanceLine.indexOf("\"extra\""), diagnostic::message),
+                    () -> assertTrue(diagnostic.column() > jsonColumn, diagnostic::message),
+                    () -> assertTrue(diagnostic.column() <= instanceLine.length() + 1, diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("points a missing member of the instance header at the start of the JSON")
+        void instanceMissingMemberColumn() {
+            var diagnostic = refuse("missing.pmwf",
+                    withHeaderMembers("\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\""));
+
+            assertAll(
+                    () -> assertEquals("member 'inputs' of the instance header is missing", diagnostic.message()),
+                    () -> assertEquals("instance ".length() + 1, diagnostic.column()));
+        }
+
+        @Test
         @DisplayName("names the reserved keyword and the position it stands in")
         void reservedKeywordMessage() {
             var diagnostic = refuse("reserved.pmwf", unitWithBody("plan", "auto demo.run", "as -> demo.begin"));
@@ -572,6 +632,22 @@ class WorkflowParserRefusalTest {
 
             assertEquals("member 'inputs.templates[0].digest' of the instance header must be a string",
                     refusal.getMessage());
+        }
+
+        @Test
+        @DisplayName("names the nested member a duplicate lies in, inside a member it does not interpret")
+        void nestedDuplicatePath() {
+            var json = "{" + INSTANCE_MEMBERS.replace(TEMPLATES, "\"templates\": [{\"unit\": \"plan\", "
+                    + "\"digest\": \"t\", \"origin\": \"project\", \"extra\": [{\"deep\": {\"a\": 1, \"a\": 2}}]}]")
+                    + "}";
+
+            var refusal = assertThrows(InstanceHeaderReader.HeaderRefusal.class,
+                    () -> InstanceHeaderReader.read(json));
+
+            assertAll(
+                    () -> assertEquals("member 'inputs.templates[0].extra[0].deep.a' of the instance header twice",
+                            refusal.getMessage()),
+                    () -> assertEquals(json.lastIndexOf("\"a\"") + 1, refusal.column().orElseThrow()));
         }
     }
 }

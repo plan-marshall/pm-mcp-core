@@ -14,10 +14,12 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
+import java.io.Serial;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import de.planmarshall.workflow.ast.InstanceHeader;
@@ -34,12 +36,14 @@ import de.planmarshall.workflow.ast.InstanceInputs;
  * object with the strings {@code unit}, {@code digest} and {@code origin} and an optional {@code file}, a string or
  * {@code null}) and {@code composition_rules} (an object with the strings {@code revision} and {@code digest}); its
  * members {@code realized_footprint_digest}, {@code change_type} and {@code providers_digest} may be absent, a string
- * or {@code null}. No object may name a member twice. Further members are kept in the header's JSON and not
+ * or {@code null}. No object may name a member twice, at any depth: the objects inside the value of a member the
+ * reader does not interpret are held to the same rule. Further members are kept in the header's JSON and not
  * interpreted: the checks of the schema beyond this structure (constants, enumerations, patterns, members it does not
  * allow) belong to the composition of the plan instance, not to the parser.
  * <p>
- * Anything else is refused with an {@link IllegalArgumentException} whose message names the defect and the member it
- * lies in; a jackson-core {@link IOException} is mapped to that refusal and never rethrown.
+ * Anything else is refused with a {@link HeaderRefusal} whose message names the defect and the member it lies in, and
+ * which carries the column of the JSON text the defect lies at, when the defect has one; a jackson-core
+ * {@link IOException} is mapped to that refusal and never rethrown.
  */
 final class InstanceHeaderReader {
 
@@ -63,6 +67,8 @@ final class InstanceHeaderReader {
     private static final String FIELD_ORIGIN = "origin";
     private static final String FIELD_REVISION = "revision";
 
+    private static final String KIND_OBJECT = "an object";
+
     private static final String ROOT = "";
 
     private static final JsonFactory JSON = new JsonFactory();
@@ -75,12 +81,13 @@ final class InstanceHeaderReader {
      *
      * @param json the JSON of the {@code instance} line
      * @return the header, holding {@code json} as read
-     * @throws IllegalArgumentException if the line is no JSON object or lacks or mistypes a required member
+     * @throws HeaderRefusal if the line is no JSON object, names a member of an object twice, or lacks or mistypes a
+     *                       required member
      */
     static InstanceHeader read(String json) {
         try (var parser = JSON.createParser(json)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
-                throw new IllegalArgumentException("the instance header is not a JSON object");
+                throw new HeaderRefusal("the instance header is not a JSON object", tokenColumn(parser));
             }
             String planId = null;
             var version = 0;
@@ -93,21 +100,21 @@ final class InstanceHeaderReader {
                     case FIELD_VERSION -> version = integer(parser, field);
                     case FIELD_EVENT -> event = string(parser, field);
                     case FIELD_INPUTS -> inputs = inputs(parser, field);
-                    default -> parser.skipChildren();
+                    default -> skipValue(parser, field);
                 }
             }
             if (parser.nextToken() != null) {
-                throw new IllegalArgumentException("content after the instance header object");
+                throw new HeaderRefusal("content after the instance header object", tokenColumn(parser));
             }
             requireMembers(ROOT, seen, FIELD_PLAN_ID, FIELD_VERSION, FIELD_EVENT, FIELD_INPUTS);
             return new InstanceHeader(planId, version, event, inputs, json);
         } catch (IOException e) {
-            throw new IllegalArgumentException("the instance header is not valid JSON: " + describe(e), e);
+            throw new HeaderRefusal("the instance header is not valid JSON: " + describe(e), errorColumn(e), e);
         }
     }
 
     private static InstanceInputs inputs(JsonParser parser, String path) throws IOException {
-        requireToken(parser, JsonToken.START_OBJECT, path, "an object");
+        requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
         String configHash = null;
         List<InstanceInputs.UnitRef> templates = List.of();
         List<InstanceInputs.UnitRef> subUnits = List.of();
@@ -128,7 +135,7 @@ final class InstanceHeaderReader {
                 case FIELD_REALIZED_FOOTPRINT_DIGEST -> realizedFootprintDigest = optionalString(parser, member);
                 case FIELD_CHANGE_TYPE -> changeType = optionalString(parser, member);
                 case FIELD_PROVIDERS_DIGEST -> providersDigest = optionalString(parser, member);
-                default -> parser.skipChildren();
+                default -> skipValue(parser, member);
             }
         }
         requireMembers(path, seen, FIELD_CONFIG_HASH, FIELD_TEMPLATES, FIELD_SUB_UNITS, FIELD_COMPOSITION_RULES,
@@ -141,13 +148,13 @@ final class InstanceHeaderReader {
         requireToken(parser, JsonToken.START_ARRAY, path, "an array");
         var refs = new ArrayList<InstanceInputs.UnitRef>();
         while (parser.nextToken() != JsonToken.END_ARRAY) {
-            refs.add(unitRef(parser, "%s[%d]".formatted(path, refs.size())));
+            refs.add(unitRef(parser, element(path, refs.size())));
         }
         return refs;
     }
 
     private static InstanceInputs.UnitRef unitRef(JsonParser parser, String path) throws IOException {
-        requireToken(parser, JsonToken.START_OBJECT, path, "an object");
+        requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
         String unit = null;
         Optional<String> file = Optional.empty();
         String digest = null;
@@ -160,7 +167,7 @@ final class InstanceHeaderReader {
                 case FIELD_FILE -> file = optionalString(parser, member);
                 case FIELD_DIGEST -> digest = string(parser, member);
                 case FIELD_ORIGIN -> origin = string(parser, member);
-                default -> parser.skipChildren();
+                default -> skipValue(parser, member);
             }
         }
         requireMembers(path, seen, FIELD_UNIT, FIELD_DIGEST, FIELD_ORIGIN);
@@ -169,7 +176,7 @@ final class InstanceHeaderReader {
 
     private static InstanceInputs.CompositionRules compositionRules(JsonParser parser, String path)
             throws IOException {
-        requireToken(parser, JsonToken.START_OBJECT, path, "an object");
+        requireToken(parser, JsonToken.START_OBJECT, path, KIND_OBJECT);
         String revision = null;
         String digest = null;
         var seen = new HashSet<String>();
@@ -178,11 +185,29 @@ final class InstanceHeaderReader {
             switch (field) {
                 case FIELD_REVISION -> revision = string(parser, member);
                 case FIELD_DIGEST -> digest = string(parser, member);
-                default -> parser.skipChildren();
+                default -> skipValue(parser, member);
             }
         }
         requireMembers(path, seen, FIELD_REVISION, FIELD_DIGEST);
         return new InstanceInputs.CompositionRules(revision, digest);
+    }
+
+    /**
+     * Passes over the value of a member the reader does not interpret, and holds every object inside it to the rule
+     * that no object names a member twice. The depth of the recursion is bounded by the nesting limit of jackson-core.
+     */
+    private static void skipValue(JsonParser parser, String path) throws IOException {
+        if (parser.currentToken() == JsonToken.START_OBJECT) {
+            var seen = new HashSet<String>();
+            for (var field = nextMember(parser, path, seen); field != null; field = nextMember(parser, path, seen)) {
+                skipValue(parser, qualify(path, field));
+            }
+        } else if (parser.currentToken() == JsonToken.START_ARRAY) {
+            var index = 0;
+            while (parser.nextToken() != JsonToken.END_ARRAY) {
+                skipValue(parser, element(path, index++));
+            }
+        }
     }
 
     /**
@@ -195,8 +220,8 @@ final class InstanceHeaderReader {
         }
         var field = parser.currentName();
         if (!seen.add(field)) {
-            throw new IllegalArgumentException(
-                    "member '%s' of the instance header twice".formatted(qualify(path, field)));
+            throw new HeaderRefusal("member '%s' of the instance header twice".formatted(qualify(path, field)),
+                    tokenColumn(parser));
         }
         parser.nextToken();
         return field;
@@ -205,15 +230,17 @@ final class InstanceHeaderReader {
     private static void requireMembers(String path, Set<String> seen, String... fields) {
         for (var field : fields) {
             if (!seen.contains(field)) {
-                throw new IllegalArgumentException(
-                        "member '%s' of the instance header is missing".formatted(qualify(path, field)));
+                throw new HeaderRefusal(
+                        "member '%s' of the instance header is missing".formatted(qualify(path, field)),
+                        OptionalInt.empty());
             }
         }
     }
 
     private static void requireToken(JsonParser parser, JsonToken token, String path, String kind) {
         if (parser.currentToken() != token) {
-            throw new IllegalArgumentException("member '%s' of the instance header must be %s".formatted(path, kind));
+            throw new HeaderRefusal("member '%s' of the instance header must be %s".formatted(path, kind),
+                    tokenColumn(parser));
         }
     }
 
@@ -227,8 +254,8 @@ final class InstanceHeaderReader {
             return Optional.empty();
         }
         if (parser.currentToken() != JsonToken.VALUE_STRING) {
-            throw new IllegalArgumentException(
-                    "member '%s' of the instance header must be a string or null".formatted(path));
+            throw new HeaderRefusal("member '%s' of the instance header must be a string or null".formatted(path),
+                    tokenColumn(parser));
         }
         return Optional.of(parser.getText());
     }
@@ -242,11 +269,65 @@ final class InstanceHeaderReader {
         return path.isEmpty() ? field : path + "." + field;
     }
 
+    private static String element(String path, int index) {
+        return "%s[%d]".formatted(path, index);
+    }
+
+    /** The 1-based column of the JSON text at which the current token starts. */
+    private static OptionalInt tokenColumn(JsonParser parser) {
+        return column(parser.currentTokenLocation().getColumnNr());
+    }
+
+    /** The 1-based column of the JSON text at which jackson-core stopped reading, if it names one. */
+    private static OptionalInt errorColumn(IOException e) {
+        if (e instanceof JsonProcessingException malformed && malformed.getLocation() != null) {
+            return column(malformed.getLocation().getColumnNr());
+        }
+        return OptionalInt.empty();
+    }
+
+    private static OptionalInt column(int columnNr) {
+        return columnNr >= 1 ? OptionalInt.of(columnNr) : OptionalInt.empty();
+    }
+
     /** Names where the line stops being JSON, without the source excerpt the parser may append. */
     private static String describe(IOException e) {
         if (e instanceof JsonProcessingException malformed && malformed.getLocation() != null) {
             return "%s (column %d)".formatted(malformed.getOriginalMessage(), malformed.getLocation().getColumnNr());
         }
         return String.valueOf(e.getMessage());
+    }
+
+    /**
+     * The refusal of an instance header: its message names the defect and the member it lies in, and its column, when
+     * present, is the 1-based column of the JSON text the defect lies at. A structural defect of an object as a whole,
+     * such as a missing member, has no column.
+     */
+    static final class HeaderRefusal extends IllegalArgumentException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** The 1-based column, or {@code 0} when the defect has none. */
+        private final int column;
+
+        private HeaderRefusal(String message, OptionalInt column) {
+            super(message);
+            this.column = column.orElse(0);
+        }
+
+        private HeaderRefusal(String message, OptionalInt column, Throwable cause) {
+            super(message, cause);
+            this.column = column.orElse(0);
+        }
+
+        /**
+         * The column of the JSON text the defect lies at.
+         *
+         * @return the 1-based column, or empty when the defect concerns an object as a whole
+         */
+        OptionalInt column() {
+            return column >= 1 ? OptionalInt.of(column) : OptionalInt.empty();
+        }
     }
 }

@@ -190,8 +190,9 @@ public final class WorkflowParser {
         var json = line.next("the instance header");
         try {
             return Optional.of(InstanceHeaderReader.read(json.text()));
-        } catch (IllegalArgumentException e) {
-            throw refuse(RefusalRule.INSTANCE_HEADER, json, e.getMessage());
+        } catch (InstanceHeaderReader.HeaderRefusal refusal) {
+            var column = json.column() + refusal.column().orElse(1) - 1;
+            throw refuse(RefusalRule.INSTANCE_HEADER, json.line(), column, refusal.getMessage());
         }
     }
 
