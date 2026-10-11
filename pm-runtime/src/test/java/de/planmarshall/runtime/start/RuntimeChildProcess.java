@@ -27,6 +27,8 @@ import java.util.List;
 
 
 import de.planmarshall.api.MachinePaths;
+import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.runtime.lock.FileLockManager;
 
 /**
  * The child of the killed-runtime tests ({@link KilledRuntimeFixture}): it runs one named lifecycle step against the
@@ -48,6 +50,13 @@ import de.planmarshall.api.MachinePaths;
  * {@link RuntimeDrain} blocked in the drain wait on a participant that never gets quiet.</li>
  * <li>{@value #RECOVERY}: a {@link ProjectRecovery} of project {@value #RECOVERED_PROJECT} by the background pass; its
  * first step appends a line to the marker file {@link #recoveryRuns(Path)} and its second step blocks.</li>
+ * <li>{@value #LEASES}: a live runtime holding one build-slot lease of each of the projects of
+ * {@link RecoveryStepFixtures}, blocked after the claims.</li>
+ * <li>{@value #ROLLFORWARD}: blocked inside a scope transaction of the plan {@value #ROLLED_PLAN} of
+ * {@link RecoveryStepFixtures#PROJECT_A}, with the scope lock held, after the journal was written and before the
+ * rename.</li>
+ * <li>{@value #ORDERED_WRITE}: an {@link de.planmarshall.core.store.OrderedWrite} from the plan {@value #ROLLED_PLAN}
+ * to the plan {@value #DERIVED_PLAN}, blocked between the authoritative and the derived write.</li>
  * </ul>
  */
 final class RuntimeChildProcess {
@@ -66,6 +75,24 @@ final class RuntimeChildProcess {
 
     /** The project the mode {@value #RECOVERY} recovers. */
     static final String RECOVERED_PROJECT = "project-a";
+
+    /** Mode: a live runtime holding leases of two projects. */
+    static final String LEASES = "leases";
+
+    /** Mode: blocked inside a scope transaction after its journal was written. */
+    static final String ROLLFORWARD = "rollforward";
+
+    /** Mode: blocked between the authoritative and the derived write of an ordered write. */
+    static final String ORDERED_WRITE = "ordered-write";
+
+    /** The plan whose scope the modes {@value #ROLLFORWARD} and {@value #ORDERED_WRITE} write first. */
+    static final String ROLLED_PLAN = "plan-a";
+
+    /** The plan the mode {@value #ORDERED_WRITE} derives. */
+    static final String DERIVED_PLAN = "plan-b";
+
+    /** The content the modes {@value #ROLLFORWARD} and {@value #ORDERED_WRITE} write. */
+    static final byte[] WRITTEN = "{\"state\":\"written\"}".getBytes(StandardCharsets.UTF_8);
 
     /** Exit code of a child whose standard input ended while it was blocked. */
     static final int EXIT_ORPHANED = 3;
@@ -118,8 +145,47 @@ final class RuntimeChildProcess {
             case STARTUP_READY -> startup(paths, markers, AuditChainVerification.NONE, STARTUP_READY);
             case DRAIN -> drain(paths, markers);
             case RECOVERY -> recovery(paths, markers);
+            case LEASES -> leases(paths.base(), markers);
+            case ROLLFORWARD -> rollForward(paths.base(), markers);
+            case ORDERED_WRITE -> orderedWrite(paths.base(), markers);
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         }
+    }
+
+    private static void leases(Path base, PrintStream markers) throws IOException {
+        markers.println(before(LEASES));
+        var store = RecoveryStepFixtures.buildSlots(base, new FileLockManager(_ -> {
+        }));
+        var self = RecoveryStepFixtures.self();
+        RecoveryStepFixtures.claim(store, "slot-a", RecoveryStepFixtures.PROJECT_A, self);
+        RecoveryStepFixtures.claim(store, "slot-b", RecoveryStepFixtures.PROJECT_B, self);
+        markers.println(inside(LEASES));
+        awaitKill();
+    }
+
+    private static void rollForward(Path base, PrintStream markers) throws IOException {
+        markers.println(before(ROLLFORWARD));
+        var scope = JournalScope.plan(base, RecoveryStepFixtures.PROJECT_A, ROLLED_PLAN);
+        // The transaction stays open: the child dies holding the scope lock, as a runtime killed in a commit does
+        var transaction = new FileLockManager(_ -> {
+        }).openTransaction();
+        transaction.acquire(scope.lockKey());
+        RecoveryStepFixtures.interruptedReplace(scope, WRITTEN);
+        markers.println(inside(ROLLFORWARD));
+        awaitKill();
+    }
+
+    private static void orderedWrite(Path base, PrintStream markers) {
+        markers.println(before(ORDERED_WRITE));
+        var lockManager = new FileLockManager(_ -> {
+        });
+        RecoveryStepFixtures.orderedWrite(JournalScope.plan(base, RecoveryStepFixtures.PROJECT_A, ROLLED_PLAN),
+                JournalScope.plan(base, RecoveryStepFixtures.PROJECT_A, DERIVED_PLAN), WRITTEN, _ -> {
+                }, () -> {
+                    markers.println(inside(ORDERED_WRITE));
+                    awaitKill();
+                }).run(lockManager);
+        throw new IllegalStateException("the ordered write ended although its derived step blocks");
     }
 
     /**

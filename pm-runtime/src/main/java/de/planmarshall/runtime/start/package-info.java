@@ -39,6 +39,19 @@
  * stops the recovery of its project only. A step whose store or component does not exist yet is a named seam that
  * reports that it is not implemented in this runtime.
  * <p>
+ * Three steps are implemented, each over a seam that a later store fills:
+ * <ul>
+ * <li>{@link de.planmarshall.runtime.start.LeaseRecoveryStep} marks the leases of the project whose holder is dead
+ * as orphaned in the machine lease stores it is given, and releases one only on positive evidence of abandonment
+ * ({@link de.planmarshall.runtime.start.LeaseRecoveryStep.AbandonmentEvidence}, which finds none by default).</li>
+ * <li>{@link de.planmarshall.runtime.start.JournalRollForwardStep} rolls forward the interrupted journal of every
+ * scope of the project ({@link de.planmarshall.runtime.start.JournalRollForwardStep.ProjectScopes}) under the key of
+ * the scope; an invariant violation or a refused store is a failure of its scope and modifies nothing.</li>
+ * <li>{@link de.planmarshall.runtime.start.CrossScopeReconciliationStep} runs, after the roll-forward, the cross-scope
+ * reconcilers registered for the project
+ * ({@link de.planmarshall.runtime.start.CrossScopeReconciliationStep.ProjectReconcilers}).</li>
+ * </ul>
+ * <p>
  * Besides the on-demand start, the runtime can register itself as a per-user service that starts it at login and
  * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
  * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,
