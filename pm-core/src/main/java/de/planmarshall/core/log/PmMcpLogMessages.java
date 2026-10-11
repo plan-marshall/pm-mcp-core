@@ -266,6 +266,13 @@ public final class PmMcpLogMessages {
                 .template("Relay version '%s' differs from runtime version '%s', recommended: pm-operator drain")
                 .build();
 
+        /** Logged when the audit sink refused the record of a broken audit chain; the start goes on. */
+        public static final LogRecord AUDIT_CHAIN_BROKEN_NOT_RECORDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(157)
+                .template("Record of the broken audit chain not handed over to the audit sink: %s")
+                .build();
+
         // WS-02, store substrate: identifiers 160-169
 
         /**

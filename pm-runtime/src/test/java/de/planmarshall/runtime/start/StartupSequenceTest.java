@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -16,14 +17,26 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.api.MachinePaths;
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.runtime.test.TestBases;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,10 +46,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+@EnableTestLogger
 @DisplayName("Startup steps 1 to 5")
 class StartupSequenceTest {
 
     private static final String USER = System.getProperty("user.name");
+
+    private final List<AuditEvent> records = new CopyOnWriteArrayList<>();
 
     private Path base;
     private MachinePaths paths;
@@ -53,7 +69,149 @@ class StartupSequenceTest {
     }
 
     private StartupSequence.Outcome run() throws IOException {
-        return new StartupSequence(paths, USER).run(new SecureRandom());
+        return run(AuditChainVerification.NONE);
+    }
+
+    private StartupSequence.Outcome run(AuditChainVerification auditChain) throws IOException {
+        return new StartupSequence(paths, USER, auditChain, records::add).run(new SecureRandom());
+    }
+
+    @Nested
+    @DisplayName("step 4, bounded verification")
+    class BoundedVerification {
+
+        private static final String DIAGNOSTIC = "logs/audit.jsonl line 7: prev_hash does not match line 6";
+
+        @Test
+        @DisplayName("a broken chain appends exactly one audit_chain_broken record and the start goes on")
+        void shouldRecordBrokenChainAndGoOn() throws Exception {
+            var outcome = run(() -> new AuditChainVerification.Outcome.Broken(DIAGNOSTIC));
+
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, outcome);
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> assertEquals(new AuditChainVerification.Outcome.Broken(DIAGNOSTIC),
+                                ready.verification()),
+                        () -> assertEquals(43, Files.readString(paths.runtimeToken()).length()),
+                        () -> assertEquals(List.of(new AuditEvent(StartupSequence.AUDIT_CHAIN_BROKEN,
+                                StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
+                                Map.of(StartupSequence.DETAIL_DIAGNOSTIC, DIAGNOSTIC))), records),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                "Audit chain broken, the start goes on: " + DIAGNOSTIC),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                                "Bounded verification finished: audit chain broken (" + DIAGNOSTIC + ")"));
+            }
+        }
+
+        @Test
+        @DisplayName("an intact chain appends nothing")
+        void shouldAppendNothingForIntactChain() throws Exception {
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class,
+                    run(AuditChainVerification.Outcome.Intact::new));
+
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> assertEquals(new AuditChainVerification.Outcome.Intact(), ready.verification()),
+                        () -> assertTrue(records.isEmpty(), records::toString),
+                        () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, StartupSequence.class),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                                "Bounded verification finished: audit chain intact"));
+            }
+        }
+
+        @Test
+        @DisplayName("a start without an audit chain appends nothing and reports the chain as not verified")
+        void shouldAppendNothingWithoutChain() throws Exception {
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, run(AuditChainVerification.NONE));
+
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> assertEquals(new AuditChainVerification.Outcome.NotVerified("no audit chain"),
+                                ready.verification()),
+                        () -> assertTrue(records.isEmpty(), records::toString),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                                "Bounded verification finished: audit chain not verified (no audit chain)"));
+            }
+        }
+
+        @Test
+        @DisplayName("runs after the directory check and before the token is written")
+        void shouldRunBetweenDirectoryCheckAndToken() throws Exception {
+            var seen = new ArrayList<Boolean>();
+            AuditChainVerification probe = () -> {
+                seen.add(Files.isDirectory(paths.runDir()));
+                seen.add(Files.exists(paths.runtimeToken()));
+                return new AuditChainVerification.Outcome.Intact();
+            };
+
+            try (var _ = ((StartupSequence.Outcome.Ready) run(probe)).lock()) {
+                assertEquals(List.of(true, false), seen, "[run/ created, token present] when step 4 ran");
+                assertTrue(Files.exists(paths.runtimeToken()));
+            }
+        }
+
+        @Test
+        @DisplayName("a refusing audit sink does not stop the start")
+        void shouldGoOnWhenSinkRefuses() throws Exception {
+            AuditSink refusing = _ -> {
+                throw new UncheckedIOException(new IOException("audit log not writable"));
+            };
+            var sequence = new StartupSequence(paths, USER,
+                    () -> new AuditChainVerification.Outcome.Broken(DIAGNOSTIC), refusing);
+
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, sequence.run(new SecureRandom()));
+
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> assertTrue(Files.exists(paths.runtimeToken())),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                "Record of the broken audit chain not handed over to the audit sink"));
+            }
+        }
+
+        @Test
+        @DisplayName("a start refused in step 3 never runs step 4")
+        void shouldNotVerifyRefusedStart() throws Exception {
+            paths = new MachinePaths(base.resolve("x".repeat(MachinePaths.Os.current().sunPathLimit())),
+                    MachinePaths.Os.current());
+            var calls = new AtomicInteger();
+
+            var outcome = run(() -> {
+                calls.incrementAndGet();
+                return new AuditChainVerification.Outcome.Broken(DIAGNOSTIC);
+            });
+
+            assertAll(
+                    () -> assertInstanceOf(StartupSequence.Outcome.Refused.class, outcome),
+                    () -> assertEquals(0, calls.get(), "calls of the audit chain verification"),
+                    () -> assertTrue(records.isEmpty(), records::toString),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, StartupSequence.class));
+        }
+
+        @Test
+        @DisplayName("reads nothing below enrolments/, projects/ or a plan directory")
+        void shouldReadNoStoreOrUnit() throws Exception {
+            ((StartupSequence.Outcome.Ready) run()).lock().close();
+            var enrolment = Files.writeString(base.resolve("enrolments").resolve("a-project.json"), "{}");
+            var plan = Files.createDirectories(base.resolve("projects/a-project/plans/a-plan"));
+            Files.writeString(plan.resolve("status.json"), "{}");
+            var projects = base.resolve("projects");
+            Files.setPosixFilePermissions(enrolment, Set.of());
+            Files.setPosixFilePermissions(projects, Set.of());
+            try {
+                var outcome = run(AuditChainVerification.Outcome.Intact::new);
+
+                // A read of the unreadable enrolment file or a walk of the closed projects directory would throw
+                try (var _ = assertInstanceOf(StartupSequence.Outcome.Ready.class, outcome).lock()) {
+                    assertAll(
+                            () -> assertEquals(Set.of(), Files.getPosixFilePermissions(enrolment)),
+                            () -> assertEquals(Set.of(), Files.getPosixFilePermissions(projects)));
+                }
+            } finally {
+                Files.setPosixFilePermissions(projects, PosixModes.DIRECTORY);
+                Files.setPosixFilePermissions(enrolment, PosixModes.FILE);
+            }
+        }
     }
 
     @Nested
@@ -184,7 +342,8 @@ class StartupSequenceTest {
         void shouldRefuseForeignOwner() throws Exception {
             ((StartupSequence.Outcome.Ready) run()).lock().close();
 
-            var outcome = new StartupSequence(paths, "somebody-else").run(new SecureRandom());
+            var outcome = new StartupSequence(paths, "somebody-else", AuditChainVerification.NONE, records::add)
+                    .run(new SecureRandom());
 
             var refused = assertInstanceOf(StartupSequence.Outcome.Refused.class, outcome);
             assertTrue(refused.diagnostic().contains("owned by"), refused.diagnostic());
