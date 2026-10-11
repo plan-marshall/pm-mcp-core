@@ -10,16 +10,19 @@
 package de.planmarshall.runtime.start;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 
 
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -49,6 +52,9 @@ class DrainTimeoutTest {
             fraction         | {"drain_timeout_seconds": 1.5}               | 600 | true
             string           | {"drain_timeout_seconds": "42"}              | 600 | true
             beyond a long    | {"drain_timeout_seconds": 99999999999999999999} | 600 | true
+            the maximum      | {"drain_timeout_seconds": 3153600000}        | 3153600000 | false
+            maximum plus one | {"drain_timeout_seconds": 3153600001}        | 600 | true
+            the largest long | {"drain_timeout_seconds": 9223372036854775807} | 600 | true
             not an object    | [42]                                         | 600 | true
             unreadable JSON  | {"drain_timeout_seconds": 4                  | 600 | true
             trailing content | {"drain_timeout_seconds": 42} []             | 600 | true
@@ -69,5 +75,27 @@ class DrainTimeoutTest {
         } else {
             LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, DrainTimeout.class);
         }
+    }
+
+    @Test
+    @DisplayName("names a value beyond the maximum as too large and falls back to the default")
+    void shouldRejectTooLargeValue() throws Exception {
+        var tooLarge = DrainTimeout.MAX_SECONDS + 1;
+        Files.writeString(base.resolve(DrainTimeout.MACHINE_CONFIG), "{\"drain_timeout_seconds\": %d}".formatted(tooLarge));
+
+        var timeout = DrainTimeout.read(base);
+
+        assertEquals(Duration.ofSeconds(DrainTimeout.DEFAULT_SECONDS), timeout);
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN, "too large: " + tooLarge);
+    }
+
+    @Test
+    @DisplayName("the maximum added to the current instant can be represented")
+    void shouldKeepMaximumRepresentable() {
+        var now = Instant.now();
+
+        var deadline = now.plus(Duration.ofSeconds(DrainTimeout.MAX_SECONDS));
+
+        assertTrue(deadline.isAfter(now));
     }
 }

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,9 +24,15 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 import de.cuioss.test.juli.LogAsserts;
@@ -37,6 +44,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The drain of the runtime (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade)
@@ -198,6 +207,103 @@ class RuntimeDrainTest {
                         "Drain participant 'workers' failed in stopAdmitting: worker registry not writable"));
     }
 
+    @ParameterizedTest(name = "unchecked failure in {0}")
+    @ValueSource(strings = {"stopAdmitting", "endIdle", "awaitQuiet", "terminateRemaining", "close"})
+    @DisplayName("an unchecked failure of a participant is recorded, and the drain still removes the files and releases the lock")
+    void shouldCompleteDespiteUncheckedFailure(String phase) {
+        var failing = new ThrowingParticipant("workers", phase);
+
+        var outcome = drain(TIMEOUT, failing, new FakeParticipant("web", true)).drain();
+
+        assertAll(
+                () -> assertEquals(List.of("workers " + phase + ": boom in " + phase), outcome.failures()),
+                () -> assertEquals(RuntimeDrain.EXIT_DRAINED, outcome.exitCode()),
+                () -> assertTrue(calls.contains("web close"), calls::toString),
+                () -> assertFalse(Files.exists(paths.runtimeRecord())),
+                () -> assertFalse(Files.exists(paths.runtimeToken())),
+                () -> assertFalse(Files.exists(paths.socket(), LinkOption.NOFOLLOW_LINKS)),
+                () -> assertFalse(lock.isHeld()),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        "Drain participant 'workers' failed in " + phase + ": boom in " + phase));
+    }
+
+    @Test
+    @DisplayName("a drain that ends exceptionally still removes the files and releases the lock, and every caller gets the cause")
+    void shouldTellEveryCallerTheCauseOfAnExceptionalEnd() {
+        var broken = new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return ZoneOffset.UTC;
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                throw new IllegalStateException("clock broken");
+            }
+        };
+        var drain = new RuntimeDrain(paths, lock, List.of(new FakeParticipant("jobs", true)), TIMEOUT, broken);
+
+        var first = assertThrows(CompletionException.class, drain::drain);
+        var second = assertThrows(CompletionException.class, drain::drain);
+
+        assertAll(
+                () -> assertInstanceOf(IllegalStateException.class, first.getCause()),
+                () -> assertSame(first.getCause(), second.getCause()),
+                () -> assertFalse(Files.exists(paths.runtimeRecord())),
+                () -> assertFalse(Files.exists(paths.runtimeToken())),
+                () -> assertFalse(Files.exists(paths.socket(), LinkOption.NOFOLLOW_LINKS)),
+                () -> assertFalse(lock.isHeld()));
+    }
+
+    @Test
+    @DisplayName("a concurrent drain waits for the running drain and gets its outcome, an unchecked failure included")
+    void shouldNotLeaveConcurrentCallerWaiting() throws Exception {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var waiting = new FakeParticipant("jobs", true) {
+            @Override
+            public boolean awaitQuiet(Instant deadline) {
+                entered.countDown();
+                awaitUninterruptibly(release);
+                return true;
+            }
+        };
+        var broken = new FakeParticipant("lsp", true) {
+            @Override
+            public void close() {
+                throw new IllegalStateException("listener already gone");
+            }
+        };
+        var drain = drain(TIMEOUT, waiting, broken);
+        var firstOutcome = new AtomicReference<RuntimeDrain.Outcome>();
+        var first = Thread.ofPlatform().start(() -> firstOutcome.set(drain.drain()));
+        assertTrue(entered.await(10, TimeUnit.SECONDS));
+
+        var second = CompletableFuture.supplyAsync(drain::drain);
+        release.countDown();
+        first.join(Duration.ofSeconds(10));
+
+        var secondOutcome = second.get(10, TimeUnit.SECONDS);
+        assertAll(
+                () -> assertSame(firstOutcome.get(), secondOutcome),
+                () -> assertEquals(List.of("lsp close: listener already gone"),
+                        secondOutcome.failures()),
+                () -> assertFalse(lock.isHeld()));
+    }
+
+    private static void awaitUninterruptibly(CountDownLatch latch) {
+        try {
+            latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     @Test
     @DisplayName("leaves the merge-queue and review-bot lease stores byte-identical (PM-WATCH-RUN-6)")
     void shouldLeaveProviderLeasesInPlace() throws Exception {
@@ -206,6 +312,22 @@ class RuntimeDrainTest {
         drain(Duration.ZERO, new FakeParticipant("jobs", false, "job-1")).drain();
 
         ProviderLeaseStores.assertUnchanged(seeded);
+    }
+
+    @Test
+    @DisplayName("a deadline beyond the last representable instant waits until that instant instead of failing")
+    void shouldSaturateDeadlineOfFarFutureClock() {
+        var farFuture = Clock.fixed(Instant.MAX.minusSeconds(10), ZoneOffset.UTC);
+        var jobs = new FakeParticipant("jobs", true);
+        var drain = new RuntimeDrain(paths, lock, List.of(jobs), Duration.ofSeconds(DrainTimeout.MAX_SECONDS),
+                farFuture);
+
+        var outcome = drain.drain();
+
+        assertAll(
+                () -> assertTrue(calls.contains("jobs awaitQuiet " + Instant.MAX), calls::toString),
+                () -> assertEquals(List.of(), outcome.failures()),
+                () -> assertFalse(lock.isHeld()));
     }
 
     @Test
@@ -261,6 +383,55 @@ class RuntimeDrainTest {
         @Override
         public void close() {
             calls.add(name + " close");
+        }
+    }
+
+    /** A participant that is never quiet and throws an unchecked exception in one phase. */
+    private class ThrowingParticipant extends FakeParticipant {
+
+        private final String failingPhase;
+
+        ThrowingParticipant(String name, String failingPhase) {
+            super(name, false, "job-1");
+            this.failingPhase = failingPhase;
+        }
+
+        private void failIn(String phase) {
+            if (failingPhase.equals(phase)) {
+                throw new IllegalStateException("boom in " + phase);
+            }
+        }
+
+        @Override
+        public void stopAdmitting() throws IOException {
+            super.stopAdmitting();
+            failIn("stopAdmitting");
+        }
+
+        @Override
+        public void endIdle() {
+            super.endIdle();
+            failIn("endIdle");
+        }
+
+        @Override
+        public boolean awaitQuiet(Instant deadline) {
+            var quiet = super.awaitQuiet(deadline);
+            failIn("awaitQuiet");
+            return quiet;
+        }
+
+        @Override
+        public List<String> terminateRemaining() {
+            var running = super.terminateRemaining();
+            failIn("terminateRemaining");
+            return running;
+        }
+
+        @Override
+        public void close() {
+            super.close();
+            failIn("close");
         }
     }
 }

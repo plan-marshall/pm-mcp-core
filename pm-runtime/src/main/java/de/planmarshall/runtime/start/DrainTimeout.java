@@ -28,9 +28,10 @@ import lombok.experimental.UtilityClass;
  * (doc/specification/timeouts/02-runtime-leases-operator-web.adoc, Drain timeout).
  * <p>
  * The default of {@value #DEFAULT_SECONDS} seconds applies when the file or the key is absent. The minimum is
- * {@code 0}, which terminates running jobs at once. A negative or non-integer value, and a file that cannot be read
- * or does not parse as a JSON object, falls back to the default and is logged as invalid; the start and the drain
- * never fail for it.
+ * {@code 0}, which terminates running jobs at once; the maximum is {@value #MAX_SECONDS} seconds (100 years of 365
+ * days), so the deadline of the drain, the current instant plus the timeout, can always be represented. A negative,
+ * non-integer or larger value, and a file that cannot be read or does not parse as a JSON object, falls back to the
+ * default and is logged as invalid; the start and the drain never fail for it.
  *
  * @since 0.1
  */
@@ -41,6 +42,12 @@ public class DrainTimeout {
 
     /** The drain timeout when none or an invalid one is configured, in seconds. */
     public static final long DEFAULT_SECONDS = 600;
+
+    /**
+     * The largest accepted drain timeout, in seconds: 100 years of 365 days. A larger value is invalid, because its
+     * deadline could lie beyond the instants that can be represented.
+     */
+    public static final long MAX_SECONDS = 3_153_600_000L;
 
     /** The key of the drain timeout in {@code machine-config.json}. */
     public static final String KEY = "drain_timeout_seconds";
@@ -102,6 +109,9 @@ public class DrainTimeout {
         }
         if (parser.getLongValue() < 0) {
             return "negative: " + parser.getLongValue();
+        }
+        if (parser.getLongValue() > MAX_SECONDS) {
+            return "too large: " + parser.getLongValue();
         }
         return null;
     }
