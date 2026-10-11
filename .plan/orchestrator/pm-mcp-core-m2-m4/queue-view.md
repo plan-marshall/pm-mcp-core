@@ -4,10 +4,11 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-08 runtime-lifecycle, PLAN-11 enrolment-store, PLAN-36 code-analysis-base. Emitted 2026-10-11, awaiting operator-confirmed launch: PLAN-10 static-verifier-and-fuzzer. Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19), PLAN-38 (#24), PLAN-04 (#25), PLAN-06 (#26), PLAN-05 (#28), PLAN-07 (#27). Next: PLAN-16 diagram-generator (ready, disjoint); PLAN-09/12/14 wait on PLAN-11 (core.store). Pending outside the epic: documentation-structure session plan (.plan/temp/doc-structure-single-pr-plan.md); its report rewrites the Standing Constraints. Next action: record running on confirmation; analyze landings; land the ledger. Open for the operator: one-review merge rule; PLAN-02 documentation (#20 there open); unowned remainder of PLAN-02's roadmap item.
+**Resume anchor**: Running (scope 4, full): PLAN-08 runtime-lifecycle, PLAN-10 static-verifier-and-fuzzer, PLAN-11 enrolment-store, PLAN-36 code-analysis-base. Shipped: PLAN-01, 02, 03, 04, 05, 06, 07, 38. Next: PLAN-16 diagram-generator (ready, disjoint); PLAN-09/12/14 wait on PLAN-11 (core.store). Pending outside the epic: documentation-structure session plan; its report rewrites the Standing Constraints. Next action: analyze landings; land the ledger. Open for the operator: one-review merge rule; PLAN-02 documentation (#20 there open); unowned remainder of PLAN-02's roadmap item.
 **Phase**: orchestrating
 **Running**:
 - PLAN-08 (WS-01) — plan=runtime-lifecycle
+- PLAN-10 (WS-03) — plan=static-verifier-and-fuzzer
 - PLAN-11 (WS-02) — plan=plan-11-enrolment-store
 - PLAN-36 (WS-07) — plan=code-analysis-base
 **Parked**:
@@ -15,30 +16,29 @@
 - PLAN-37 (WS-06)
 **Queue** (staged, in order):
 1. PLAN-09 (WS-01)
-2. PLAN-10 (WS-03)
-3. PLAN-12 (WS-02)
-4. PLAN-13 (WS-03)
-5. PLAN-14 (WS-02)
-6. PLAN-15 (WS-02)
-7. PLAN-16 (WS-03)
-8. PLAN-17 (WS-03)
-9. PLAN-18 (WS-04)
-10. PLAN-20 (WS-04)
-11. PLAN-21 (WS-03)
-12. PLAN-22 (WS-06)
-13. PLAN-23 (WS-01)
-14. PLAN-24 (WS-03)
-15. PLAN-25 (WS-05)
-16. PLAN-26 (WS-05)
-17. PLAN-27 (WS-04)
-18. PLAN-28 (WS-05)
-19. PLAN-29 (WS-04)
-20. PLAN-30 (WS-04)
-21. PLAN-31 (WS-04)
-22. PLAN-32 (WS-05)
-23. PLAN-33 (WS-05)
-24. PLAN-34 (WS-05)
-25. PLAN-35 (WS-06)
+2. PLAN-12 (WS-02)
+3. PLAN-13 (WS-03)
+4. PLAN-14 (WS-02)
+5. PLAN-15 (WS-02)
+6. PLAN-16 (WS-03)
+7. PLAN-17 (WS-03)
+8. PLAN-18 (WS-04)
+9. PLAN-20 (WS-04)
+10. PLAN-21 (WS-03)
+11. PLAN-22 (WS-06)
+12. PLAN-23 (WS-01)
+13. PLAN-24 (WS-03)
+14. PLAN-25 (WS-05)
+15. PLAN-26 (WS-05)
+16. PLAN-27 (WS-04)
+17. PLAN-28 (WS-05)
+18. PLAN-29 (WS-04)
+19. PLAN-30 (WS-04)
+20. PLAN-31 (WS-04)
+21. PLAN-32 (WS-05)
+22. PLAN-33 (WS-05)
+23. PLAN-34 (WS-05)
+24. PLAN-35 (WS-06)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -54,7 +54,7 @@
 |---|------|------------|--------|--------------------|
 | 1 | PLAN-08 | WS-01 | running | doc/plans/README.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/start/; pm-runtime/src/test/java/de/planmarshall/runtime/start/ |
 | 2 | PLAN-09 | WS-01 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/store/; pm-runtime/src/main/java/de/planmarshall/runtime/start/; pm-runtime/src/test/java/de/planmarshall/runtime/start/ |
-| 3 | PLAN-10 | WS-03 | staged | doc/plans/README.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/ |
+| 3 | PLAN-10 | WS-03 | running | doc/plans/README.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/ |
 | 4 | PLAN-11 | WS-02 | running | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/store/; pm-runtime/src/main/java/de/planmarshall/runtime/security/; pm-runtime/src/test/java/de/planmarshall/runtime/security/ |
 | 5 | PLAN-12 | WS-02 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/queue/; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/queue/; pm-core/src/test/java/de/planmarshall/core/store/ |
 | 6 | PLAN-13 | WS-03 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/engine/; pm-workflow/src/test/java/de/planmarshall/workflow/engine/ |
