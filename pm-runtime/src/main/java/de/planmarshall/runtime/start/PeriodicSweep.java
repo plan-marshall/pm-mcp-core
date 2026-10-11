@@ -9,12 +9,13 @@
  */
 package de.planmarshall.runtime.start;
 
-import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -22,9 +23,9 @@ import java.util.function.Predicate;
 
 
 import de.cuioss.tools.logging.CuiLogger;
+import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
 import de.planmarshall.core.log.PmMcpLogMessages.INFO;
 import de.planmarshall.core.log.PmMcpLogMessages.WARN;
-import de.planmarshall.core.store.StoreRefusal;
 
 /**
  * The periodic sweep of the runtime over the enrolled projects
@@ -33,9 +34,10 @@ import de.planmarshall.core.store.StoreRefusal;
  * {@link #PENDING_ENTRY_MAX_AGE} as the ones to remove. Both durations are compiled constants and not configurable.
  * <p>
  * A project whose recovery has not finished is skipped in a run and taken up by the next; a project whose recovery
- * failed is skipped as well, because its stores wait for the integrity breach to be resolved. A failing step is
- * logged and stops neither the other steps nor the other projects. Each run logs its counts. {@link #stop()} ends the
- * schedule for the drain; a run in progress finishes.
+ * failed is skipped as well, because its stores wait for the integrity breach to be resolved. A failing step, one
+ * that reports a failure or throws whatever exception, is logged and stops neither the other steps nor the other
+ * projects. Each run logs its counts. A scheduled run that fails outside its steps is logged, and the schedule stays
+ * alive for the next run. {@link #stop()} ends the schedule for the drain; a run in progress finishes.
  *
  * @since 0.1
  */
@@ -91,8 +93,21 @@ public final class PeriodicSweep {
             throw new IllegalStateException("The periodic sweep was started already");
         }
         var interval = INTERVAL.toMillis();
-        schedule = executor.scheduleAtFixedRate(() -> runOnce(clock.instant()), interval, interval,
-                TimeUnit.MILLISECONDS);
+        schedule = executor.scheduleAtFixedRate(this::scheduledRun, interval, interval, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * One scheduled run. A scheduled task that throws suppresses every later execution, so whatever the run throws,
+     * outside its steps too (the enrolled projects, the recovered predicate, the clock), is logged and contained here:
+     * the run happens on the calling thread, and its failure is received by the future's handler without a catch
+     * clause. The task therefore never throws, and the schedule stays alive.
+     */
+    void scheduledRun() {
+        CompletableFuture.runAsync(() -> runOnce(clock.instant()), Runnable::run).exceptionally(thrown -> {
+            var cause = cause(thrown);
+            LOGGER.error(cause, ERROR.PERIODIC_SWEEP_RUN_FAILED, cause);
+            return null;
+        });
     }
 
     /**
@@ -134,17 +149,21 @@ public final class PeriodicSweep {
     private boolean sweep(String projectId, Instant olderThan) {
         var clean = true;
         for (var step : steps) {
-            RecoveryStep.Outcome outcome;
-            try {
-                outcome = step.run(projectId, olderThan);
-            } catch (StoreRefusal | UncheckedIOException e) {
-                outcome = new RecoveryStep.Outcome.Failed("the step threw " + e);
-            }
+            // The step runs on the calling thread; whatever it throws, a store refusal, an I/O failure or a broken
+            // contract, reaches the future's handler and becomes a failed outcome of this step alone
+            RecoveryStep.Outcome outcome = CompletableFuture
+                    .supplyAsync(() -> step.run(projectId, olderThan), Runnable::run)
+                    .exceptionally(thrown -> new RecoveryStep.Outcome.Failed("the step threw " + cause(thrown)))
+                    .join();
             if (outcome instanceof RecoveryStep.Outcome.Failed(var reason)) {
                 LOGGER.warn(WARN.PERIODIC_SWEEP_STEP_FAILED, projectId, step.name(), reason);
                 clean = false;
             }
         }
         return clean;
+    }
+
+    private static Throwable cause(Throwable thrown) {
+        return thrown instanceof CompletionException && thrown.getCause() != null ? thrown.getCause() : thrown;
     }
 }

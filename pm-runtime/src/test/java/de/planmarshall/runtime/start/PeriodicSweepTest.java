@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.start;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,6 +27,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
@@ -165,9 +167,80 @@ class PeriodicSweepTest {
                         "Periodic sweep finished: 1 projects swept, 0 skipped, 2 failed"));
     }
 
+    @Test
+    @DisplayName("a step throwing an unchecked exception is failed, and the following steps and projects still run")
+    void shouldGoOnAfterUncheckedStepFailure() {
+        var throwing = new RecordingStep(SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
+            if ("p1".equals(projectId)) {
+                throw new IllegalStateException("contract broken");
+            }
+            return new Outcome.Done("done");
+        });
+
+        var summary = sweep(() -> List.of("p1", "p2"), _ -> true, throwing,
+                step(SweepStep.Name.FENCED_SESSION_GENERATIONS)).runOnce(NOW);
+
+        assertAll(
+                () -> assertEquals(List.of(
+                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p1 " + OLDER_THAN,
+                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p2 " + OLDER_THAN),
+                        calls),
+                () -> assertEquals(new PeriodicSweep.Summary(1, 0, 1), summary),
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        "Periodic sweep of project 'p1' failed in step 'PENDING_ENTRY_RECORDS': the step threw "
+                                + "java.lang.IllegalStateException: contract broken"));
+    }
+
     @Nested
     @DisplayName("schedule")
     class Schedule {
+
+        @Test
+        @DisplayName("a scheduled run whose enrolled projects throw is logged, and the next scheduled run still sweeps")
+        void shouldKeepScheduleAfterThrowingProjectIds() {
+            var first = new AtomicBoolean(true);
+            EnrolledProjects flaky = () -> {
+                if (first.getAndSet(false)) {
+                    throw new IllegalStateException("enrolments unreadable");
+                }
+                return List.of("p1");
+            };
+            var sweep = sweep(flaky, _ -> true, step(SweepStep.Name.PENDING_ENTRY_RECORDS));
+            sweep.start(executor);
+
+            assertDoesNotThrow(executor.command::run);
+            executor.command.run();
+
+            assertAll(
+                    () -> assertEquals(List.of("PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
+                    () -> assertFalse(executor.future.isDone(), "the schedule stays alive"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            "Periodic sweep run failed, the next run takes place at the interval: "
+                                    + "java.lang.IllegalStateException: enrolments unreadable"));
+        }
+
+        @Test
+        @DisplayName("a scheduled run whose recovered predicate throws is logged, and the next scheduled run still sweeps")
+        void shouldKeepScheduleAfterThrowingPredicate() {
+            var first = new AtomicBoolean(true);
+            Predicate<String> flaky = _ -> {
+                if (first.getAndSet(false)) {
+                    throw new IllegalStateException("recovery state gone");
+                }
+                return true;
+            };
+            var sweep = sweep(() -> List.of("p1"), flaky, step(SweepStep.Name.PENDING_ENTRY_RECORDS));
+            sweep.start(executor);
+
+            assertDoesNotThrow(executor.command::run);
+            executor.command.run();
+
+            assertAll(
+                    () -> assertEquals(List.of("PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
+                    () -> assertFalse(executor.future.isDone(), "the schedule stays alive"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            "java.lang.IllegalStateException: recovery state gone"));
+        }
 
         @Test
         @DisplayName("a scheduled run fires at the interval, with the instant of the clock")
@@ -206,18 +279,20 @@ class PeriodicSweepTest {
         @Test
         @DisplayName("a project counts as recovered only once its recovery finished without a failure")
         void shouldTakeUpRecoveredProjectsOnly() {
-            var recovery = new ProjectRecovery(() -> List.of("p1", "p2"), List.of(new RecoveryStep() {
+            var recovery = new ProjectRecovery(() -> List.of("p1", "p2"),
+                    RecoveryStepFixtures.completeSteps(new RecoveryStep() {
 
-                @Override
-                public Name name() {
-                    return Name.ENROLMENT_INTEGRITY;
-                }
+                        @Override
+                        public Name name() {
+                            return Name.ENROLMENT_INTEGRITY;
+                        }
 
-                @Override
-                public Outcome run(String projectId) {
-                    return "p2".equals(projectId) ? new Outcome.Failed("breach") : new Outcome.Done("verified");
-                }
-            }), Runnable::run);
+                        @Override
+                        public Outcome run(String projectId) {
+                            return "p2".equals(projectId) ? new Outcome.Failed("breach")
+                                    : new Outcome.Done("verified");
+                        }
+                    }), Runnable::run);
             var sweep = sweep(() -> List.of("p1", "p2"), recovery::isRecovered,
                     step(SweepStep.Name.PENDING_ENTRY_RECORDS));
 

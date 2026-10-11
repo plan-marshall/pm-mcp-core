@@ -346,5 +346,15 @@ public final class PmMcpLogMessages {
                 .identifier(252)
                 .template("Recovery of project '%s' failed in step '%s': %s")
                 .build();
+
+        /**
+         * Logged when a scheduled run of the periodic sweep ends with a failure outside its steps; the schedule stays
+         * alive and the next run takes place at the interval.
+         */
+        public static final LogRecord PERIODIC_SWEEP_RUN_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(253)
+                .template("Periodic sweep run failed, the next run takes place at the interval: %s")
+                .build();
     }
 }
