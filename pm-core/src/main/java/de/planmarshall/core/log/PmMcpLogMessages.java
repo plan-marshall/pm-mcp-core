@@ -163,6 +163,29 @@ public final class PmMcpLogMessages {
                 .identifier(57)
                 .template("Periodic sweep finished: %s projects swept, %s skipped, %s failed")
                 .build();
+
+        // WS-02, enrolment store: identifiers 60-69
+
+        /** Logged when an enrolment file and its sidecar are written by {@code enrol}. */
+        public static final LogRecord ENROLMENT_WRITTEN = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(60)
+                .template("Enrolment of project '%s' written (pilot: %s)")
+                .build();
+
+        /** Logged when an enrolment file and its sidecar are removed by {@code unenrol}; the project store stays. */
+        public static final LogRecord ENROLMENT_REMOVED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(61)
+                .template("Enrolment of project '%s' removed, its project store kept")
+                .build();
+
+        /** Logged when the sidecar of an enrolment is rewritten over the current file by {@code accept-edit}. */
+        public static final LogRecord ENROLMENT_REBASELINED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(62)
+                .template("Enrolment of project '%s' re-baselined")
+                .build();
     }
 
     /** WARN level messages. */
@@ -298,6 +321,29 @@ public final class PmMcpLogMessages {
                 .identifier(160)
                 .template("Audit record '%s' of transaction '%s' not handed over, kept owed in '%s': %s")
                 .build();
+
+        // WS-02, enrolment store: identifiers 161-169
+
+        /** Logged when an enrolment is refused because it does not match its sidecar; only its project is blocked. */
+        public static final LogRecord ENROLMENT_TAMPERED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(161)
+                .template("Enrolment of project '%s' refused with outcome 'enrolment_tampered': %s")
+                .build();
+
+        /** Logged when an enrolment file or its sidecar fails a per-use check; only its project is blocked. */
+        public static final LogRecord ENROLMENT_INSECURE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(162)
+                .template("Enrolment of project '%s' refused with outcome 'enrolment_insecure': %s")
+                .build();
+
+        /** Logged when {@code unenrol} is refused because the project has live work; names the items. */
+        public static final LogRecord UNENROL_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(163)
+                .template("Unenrol of project '%s' refused with outcome 'scope_active', live work: %s")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -355,6 +401,15 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(253)
                 .template("Periodic sweep run failed, the next run takes place at the interval: %s")
+                .build();
+
+        // WS-02, enrolment store: identifiers 260-269
+
+        /** Logged when the enrolment integrity key cannot be read or created; never contains the key. */
+        public static final LogRecord ENROLMENT_KEY_UNAVAILABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(260)
+                .template("Enrolment integrity key unavailable from '%s': %s")
                 .build();
     }
 }
