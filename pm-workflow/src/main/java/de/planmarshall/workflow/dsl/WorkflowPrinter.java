@@ -114,24 +114,24 @@ public final class WorkflowPrinter {
 
     private void printBehavior(StateBehavior behavior) {
         switch (behavior) {
-            case StateBehavior.InteractiveLinks links -> printLinks(links.links());
-            case StateBehavior.AutoStep auto -> {
-                line(1, "auto " + auto.primitiveId());
-                printTransitions(2, auto.transitions());
+            case StateBehavior.InteractiveLinks(var links) -> printLinks(links);
+            case StateBehavior.AutoStep(var primitiveId, var transitions) -> {
+                line(1, "auto " + primitiveId);
+                printTransitions(2, transitions);
             }
-            case StateBehavior.JobStep job -> {
-                line(1, (job.composite() ? "composite_job " : "job ") + job.primitiveId());
-                printTransitions(2, job.transitions());
+            case StateBehavior.JobStep(var primitiveId, var composite, var transitions) -> {
+                line(1, (composite ? "composite_job " : "job ") + primitiveId);
+                printTransitions(2, transitions);
             }
             case StateBehavior.ModelJob job -> printModelJob(job);
-            case StateBehavior.SubWorkflowCall call -> {
-                line(1, "call " + call.subWorkflowId() + bindings(call.paramBindings()));
-                printTransitions(2, call.transitions());
+            case StateBehavior.SubWorkflowCall(var subWorkflowId, var paramBindings, var transitions) -> {
+                line(1, "call " + subWorkflowId + bindings(paramBindings));
+                printTransitions(2, transitions);
             }
-            case StateBehavior.QuestionWait question -> {
-                line(1, "question " + question.questionClass());
-                printTransitions(2, question.transitions());
-                printLinks(question.links());
+            case StateBehavior.QuestionWait(var questionClass, var transitions, var links) -> {
+                line(1, "question " + questionClass);
+                printTransitions(2, transitions);
+                printLinks(links);
             }
             case StateBehavior.TerminalState _ -> {
                 // a terminal state has no body
@@ -189,7 +189,7 @@ public final class WorkflowPrinter {
 
     private static String action(LinkAction action) {
         return switch (action) {
-            case LinkAction.ExecutePrimitive execute -> execute.primitiveId();
+            case LinkAction.ExecutePrimitive(var primitiveId) -> primitiveId;
         };
     }
 
@@ -199,11 +199,11 @@ public final class WorkflowPrinter {
 
     private static String type(ParamType type) {
         return switch (type) {
-            case ParamType.Text text -> "text" + range(text.minLength(), text.maxLength());
-            case ParamType.Int integer -> "int" + range(integer.min(), integer.max());
-            case ParamType.EnumOf enumOf -> "enum[" + String.join("|", enumOf.values()) + "]";
-            case ParamType.SchemaRef schema -> "schema[" + schema.schemaName() + "]";
-            case ParamType.ListOf list -> "list<" + type(list.elementType()) + ">";
+            case ParamType.Text(var minLength, var maxLength) -> "text" + range(minLength, maxLength);
+            case ParamType.Int(var min, var max) -> "int" + range(min, max);
+            case ParamType.EnumOf(var values) -> "enum[" + String.join("|", values) + "]";
+            case ParamType.SchemaRef(var schemaName) -> "schema[" + schemaName + "]";
+            case ParamType.ListOf(var elementType) -> "list<" + type(elementType) + ">";
         };
     }
 
@@ -216,9 +216,9 @@ public final class WorkflowPrinter {
 
     private static String value(CallValue value) {
         return switch (value) {
-            case CallValue.EnumValue enumValue -> enumValue.value();
-            case CallValue.IntValue intValue -> String.valueOf(intValue.value());
-            case CallValue.EnumList list -> "[" + String.join(LIST_SEPARATOR, list.values()) + "]";
+            case CallValue.EnumValue(var enumValue) -> enumValue;
+            case CallValue.IntValue(var intValue) -> String.valueOf(intValue);
+            case CallValue.EnumList(var values) -> "[" + String.join(LIST_SEPARATOR, values) + "]";
         };
     }
 
@@ -234,8 +234,8 @@ public final class WorkflowPrinter {
     private static String decision(DecisionDeclaration decision) {
         return switch (decision) {
             case DecisionDeclaration.Ask _ -> "ask";
-            case DecisionDeclaration.Quorum quorum -> "quorum(" + String.join(LIST_SEPARATOR, quorum.roles())
-                    + LIST_SEPARATOR + quorum.score() + ")";
+            case DecisionDeclaration.Quorum(var roles, var score) -> "quorum(" + String.join(LIST_SEPARATOR, roles)
+                    + LIST_SEPARATOR + score + ")";
         };
     }
 
@@ -247,12 +247,12 @@ public final class WorkflowPrinter {
             case GuardExpr.InWorktree _ -> "in_worktree";
             case GuardExpr.HasOpenFindings _ -> "has_open_findings";
             case GuardExpr.AllTasksCompleted _ -> "all_tasks_completed";
-            case GuardExpr.CustomPredicate predicate -> "predicate:" + predicate.primitiveId();
-            case GuardExpr.Or or -> parenthesise(guard(or.left(), PRECEDENCE_OR) + " or "
-                    + guard(or.right(), PRECEDENCE_AND), PRECEDENCE_OR, context);
-            case GuardExpr.And and -> parenthesise(guard(and.left(), PRECEDENCE_AND) + " and "
-                    + guard(and.right(), PRECEDENCE_NOT), PRECEDENCE_AND, context);
-            case GuardExpr.Not not -> parenthesise("not " + guard(not.operand(), PRECEDENCE_NOT_OPERAND),
+            case GuardExpr.CustomPredicate(var primitiveId) -> "predicate:" + primitiveId;
+            case GuardExpr.Or(var left, var right) -> parenthesise(guard(left, PRECEDENCE_OR) + " or "
+                    + guard(right, PRECEDENCE_AND), PRECEDENCE_OR, context);
+            case GuardExpr.And(var left, var right) -> parenthesise(guard(left, PRECEDENCE_AND) + " and "
+                    + guard(right, PRECEDENCE_NOT), PRECEDENCE_AND, context);
+            case GuardExpr.Not(var operand) -> parenthesise("not " + guard(operand, PRECEDENCE_NOT_OPERAND),
                     PRECEDENCE_NOT, context);
         };
     }
