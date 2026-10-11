@@ -16,6 +16,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,10 +29,12 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.service.AuditEvent;
 import org.junit.jupiter.api.DisplayName;
@@ -126,7 +133,7 @@ class RelayVersionCheckTest {
                     executor.execute(() -> {
                         try {
                             start.await();
-                        } catch (InterruptedException e) {
+                        } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                             return;
                         }
@@ -158,26 +165,159 @@ class RelayVersionCheckTest {
         }
 
         @Test
-        @DisplayName("a record the audit sink refused is handed over again by the next request with that version")
+        @DisplayName("a record the audit sink refused is handed over again by a request after the retry interval")
         void shouldRetryRefusedRecord() {
             var refuse = new AtomicBoolean(true);
             var accepted = new CopyOnWriteArrayList<AuditEvent>();
+            var clock = new MutableClock();
             var refusing = new RelayVersionCheck(RUNTIME_VERSION, event -> {
                 if (refuse.getAndSet(false)) {
                     throw new UncheckedIOException(new IOException("audit log not writable"));
                 }
                 accepted.add(event);
-            });
+            }, clock);
 
             refusing.observe(OLD_RELAY);
             var afterRefusal = List.copyOf(accepted);
+            refusing.observe(OLD_RELAY);
+            var withinInterval = List.copyOf(accepted);
+            clock.advance(RelayVersionCheck.RETRY_INTERVAL);
             refusing.observe(OLD_RELAY);
             refusing.observe(OLD_RELAY);
 
             assertAll(
                     () -> assertEquals(List.of(), afterRefusal, "nothing recorded while refused"),
+                    () -> assertEquals(List.of(), withinInterval, "no retry within the interval"),
                     () -> assertEquals(List.of(expectedRecord(OLD_RELAY)), accepted, "recorded once afterwards"),
                     () -> assertEquals(OLD_RELAY, refusing.mismatch().orElseThrow().relayVersion()));
+        }
+
+        @Test
+        @DisplayName("a persistently refusing audit sink gets one attempt per retry interval, not one per request")
+        void shouldLimitAttemptsOfRefusingSink() {
+            var attempts = new AtomicInteger();
+            var clock = new MutableClock();
+            var refusing = new RelayVersionCheck(RUNTIME_VERSION, _ -> {
+                attempts.incrementAndGet();
+                throw new UncheckedIOException(new IOException("audit log not writable"));
+            }, clock);
+
+            for (var i = 0; i < 100; i++) {
+                refusing.observe(OLD_RELAY);
+            }
+            var inFirstInterval = attempts.get();
+            clock.advance(RelayVersionCheck.RETRY_INTERVAL.minusSeconds(1));
+            refusing.observe(OLD_RELAY);
+            var justBeforeInterval = attempts.get();
+            clock.advance(Duration.ofSeconds(1));
+            for (var i = 0; i < 100; i++) {
+                refusing.observe(OLD_RELAY);
+            }
+
+            assertAll(
+                    () -> assertEquals(1, inFirstInterval),
+                    () -> assertEquals(1, justBeforeInterval),
+                    () -> assertEquals(2, attempts.get()),
+                    () -> assertEquals(2, TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(
+                            TestLogLevel.WARN,
+                            "Relay version '" + OLD_RELAY + "'").size(), "warned once per attempt"));
+        }
+
+        @Test
+        @DisplayName("concurrent observers with a refusing audit sink attempt once and never lose the retry")
+        void shouldNotLoseRetryUnderConcurrency() throws Exception {
+            var attempts = new AtomicInteger();
+            var accepted = new CopyOnWriteArrayList<AuditEvent>();
+            var clock = new MutableClock();
+            var refusing = new RelayVersionCheck(RUNTIME_VERSION, event -> {
+                if (attempts.incrementAndGet() == 1) {
+                    throw new UncheckedIOException(new IOException("audit log not writable"));
+                }
+                accepted.add(event);
+            }, clock);
+            var start = new CountDownLatch(1);
+            try (var executor = Executors.newFixedThreadPool(8)) {
+                for (var i = 0; i < 100; i++) {
+                    executor.execute(() -> {
+                        try {
+                            start.await();
+                        } catch (InterruptedException _) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                        refusing.observe(OLD_RELAY);
+                    });
+                }
+                start.countDown();
+                executor.shutdown();
+                assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS), "the observing threads ended");
+            }
+            var attemptsOfBurst = attempts.get();
+
+            clock.advance(RelayVersionCheck.RETRY_INTERVAL);
+            refusing.observe(OLD_RELAY);
+
+            assertAll(
+                    () -> assertEquals(1, attemptsOfBurst, "one attempt for the whole burst"),
+                    () -> assertEquals(List.of(expectedRecord(OLD_RELAY)), accepted, "the retry is not lost"));
+        }
+
+        @Test
+        @DisplayName("a flood of distinct versions records at most the bound, and the latest stays visible")
+        void shouldBoundDistinctVersions() {
+            var flood = RelayVersionCheck.MAX_RECORDED_VERSIONS + 10;
+
+            for (var i = 0; i < flood; i++) {
+                check.observe("0.0." + i);
+            }
+
+            assertAll(
+                    () -> assertEquals(RelayVersionCheck.MAX_RECORDED_VERSIONS, records.size()),
+                    () -> assertEquals(expectedRecord("0.0." + (RelayVersionCheck.MAX_RECORDED_VERSIONS - 1)),
+                            records.getLast()),
+                    () -> assertEquals("0.0." + (flood - 1), check.mismatch().orElseThrow().relayVersion()),
+                    () -> assertEquals(RelayVersionCheck.MAX_RECORDED_VERSIONS,
+                            TestLoggerFactory.getTestHandler()
+                                    .resolveLogMessagesContaining(TestLogLevel.WARN, "Relay version '").size()));
+        }
+
+        @Test
+        @DisplayName("a version longer than the bound is truncated to it")
+        void shouldTruncateLongVersion() {
+            var longVersion = "9".repeat(RelayVersionCheck.MAX_VERSION_LENGTH * 3);
+            var truncated = longVersion.substring(0, RelayVersionCheck.MAX_VERSION_LENGTH);
+
+            check.observe(longVersion);
+            check.observe(longVersion + "-other-suffix");
+
+            assertAll(
+                    () -> assertEquals(List.of(expectedRecord(truncated)), records),
+                    () -> assertEquals(truncated, check.mismatch().orElseThrow().relayVersion()));
+        }
+    }
+
+    /** A clock the test moves forward by hand. */
+    private static final class MutableClock extends Clock {
+
+        private volatile Instant now = Instant.parse("2026-10-11T12:00:00Z");
+
+        void advance(Duration duration) {
+            now = now.plus(duration);
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
         }
     }
 

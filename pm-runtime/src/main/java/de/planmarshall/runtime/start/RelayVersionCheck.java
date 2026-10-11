@@ -10,11 +10,15 @@
 package de.planmarshall.runtime.start;
 
 import java.io.UncheckedIOException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -34,8 +38,15 @@ import de.planmarshall.core.service.AuditSink;
  * nothing, and only the operator status reads {@link #mismatch()}.
  * <p>
  * The record and the log message are written once per distinct relay version per runtime instance, so a busy relay
- * does not flood the audit log. The detection state lives in this instance only and is not persisted: a new runtime
- * records a mismatch it observes again. The class is safe for concurrent use by the threads of the relayed requests.
+ * does not flood the audit log. The header comes across a trust boundary, so what it can cost is bounded: a version
+ * longer than {@value #MAX_VERSION_LENGTH} characters is truncated to that length, and at most
+ * {@value #MAX_RECORDED_VERSIONS} distinct versions are kept and recorded; a further version is still reflected in
+ * {@link #mismatch()}, but produces no audit record and no WARN. A record the audit sink refuses is handed over again,
+ * and warned about again, by a later request with that version, but at most once per {@link #RETRY_INTERVAL}. The
+ * detection state lives in this instance only and is not persisted: a new runtime records a mismatch it observes
+ * again. The class is safe for concurrent use by the threads of the relayed requests: the decision to record a version,
+ * the hand-over to the audit sink and the outcome are taken atomically per version, so a version is recorded once and a
+ * refused record is never lost to a concurrent request.
  *
  * @since 0.1
  */
@@ -64,6 +75,15 @@ public final class RelayVersionCheck {
     /** The command recommended to the operator on a mismatch: it stops the old runtime. */
     public static final String RECOMMENDED_COMMAND = "pm-operator drain";
 
+    /** The longest relay version taken into account; a longer header value is truncated to this many characters. */
+    public static final int MAX_VERSION_LENGTH = 64;
+
+    /** The most distinct relay versions kept and recorded per runtime instance. */
+    public static final int MAX_RECORDED_VERSIONS = 32;
+
+    /** The shortest time between two attempts to hand over the record of one version the audit sink refused. */
+    public static final Duration RETRY_INTERVAL = Duration.ofMinutes(1);
+
     /**
      * The latest mismatch, as {@code pm-operator status} shows it.
      *
@@ -83,24 +103,58 @@ public final class RelayVersionCheck {
         }
     }
 
+    /** What became of the record of one version: handed over, or refused by the audit sink at an instant. */
+    private sealed interface Handover {
+
+        /** The record was handed over; nothing more is done for the version. */
+        record Recorded() implements Handover {
+        }
+
+        /**
+         * The audit sink refused the record.
+         *
+         * @param at the instant of the refused attempt
+         */
+        record Refused(Instant at) implements Handover {
+        }
+    }
+
+    private static final Handover RECORDED = new Handover.Recorded();
+
     private final String runtimeVersion;
     private final AuditSink auditSink;
-    private final Set<String> recorded = ConcurrentHashMap.newKeySet();
+    private final Clock clock;
+    private final ConcurrentMap<String, Handover> versions = new ConcurrentHashMap<>();
+    private final AtomicInteger slots = new AtomicInteger();
     private final AtomicReference<Mismatch> latest = new AtomicReference<>();
 
     /**
+     * A check on the system clock.
+     *
      * @param runtimeVersion the version of this runtime
      * @param auditSink      where a mismatch is handed over as a {@value #RELAY_VERSION_MISMATCH} record
      * @throws NullPointerException     if an argument is {@code null}
      * @throws IllegalArgumentException if the runtime version is blank
      */
     public RelayVersionCheck(String runtimeVersion, AuditSink auditSink) {
+        this(runtimeVersion, auditSink, Clock.systemUTC());
+    }
+
+    /**
+     * @param runtimeVersion the version of this runtime
+     * @param auditSink      where a mismatch is handed over as a {@value #RELAY_VERSION_MISMATCH} record
+     * @param clock          the clock of the {@link #RETRY_INTERVAL}
+     * @throws NullPointerException     if an argument is {@code null}
+     * @throws IllegalArgumentException if the runtime version is blank
+     */
+    public RelayVersionCheck(String runtimeVersion, AuditSink auditSink, Clock clock) {
         Objects.requireNonNull(runtimeVersion, "runtimeVersion");
         if (runtimeVersion.isBlank()) {
             throw new IllegalArgumentException("runtimeVersion must not be blank");
         }
         this.runtimeVersion = runtimeVersion.strip();
         this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
@@ -110,8 +164,12 @@ public final class RelayVersionCheck {
      * <p>
      * On a mismatch the latest mismatch is updated. The first request that names a given relay version in this
      * instance hands the {@value #RELAY_VERSION_MISMATCH} record to the audit sink and logs the mismatch; every later
-     * request with the same version does neither. If the audit sink refuses the record, the version is forgotten
-     * again, so the next request with it hands the record over anew.
+     * request with the same version does neither. If the audit sink refuses the record, a later request with the
+     * version hands it over anew, once the {@link #RETRY_INTERVAL} since the refused attempt has passed. A version
+     * beyond the first {@value #MAX_RECORDED_VERSIONS} distinct ones is not recorded.
+     * <p>
+     * The hand-over runs while the version's entry is held, so a concurrent request with the same version waits for
+     * it; the audit sink is synchronous by contract.
      *
      * @param relayVersion the value of the {@value #HEADER} header; {@code null} if the request carries none
      */
@@ -119,15 +177,18 @@ public final class RelayVersionCheck {
         if (relayVersion == null || relayVersion.isBlank()) {
             return;
         }
-        var version = relayVersion.strip();
+        var stripped = relayVersion.strip();
+        var version = stripped.length() > MAX_VERSION_LENGTH ? stripped.substring(0, MAX_VERSION_LENGTH) : stripped;
         if (version.equals(runtimeVersion)) {
             return;
         }
         latest.set(new Mismatch(version, runtimeVersion, RECOMMENDED_COMMAND));
-        if (recorded.add(version)) {
-            LOGGER.warn(WARN.RELAY_VERSION_MISMATCH, version, runtimeVersion);
-            record(version);
-        }
+        versions.compute(version, (key, handover) -> switch (handover) {
+            case Handover.Recorded recorded -> recorded;
+            case Handover.Refused refused when clock.instant().isBefore(refused.at().plus(RETRY_INTERVAL)) -> refused;
+            case Handover.Refused _ -> recordMismatch(key);
+            case null -> slots.incrementAndGet() <= MAX_RECORDED_VERSIONS ? recordMismatch(key) : untracked(key);
+        });
     }
 
     /**
@@ -138,15 +199,26 @@ public final class RelayVersionCheck {
         return Optional.ofNullable(latest.get());
     }
 
-    private void record(String version) {
+    /** Logs the mismatch and hands its record to the audit sink; called while the version's entry is held. */
+    private Handover recordMismatch(String version) {
+        LOGGER.warn(WARN.RELAY_VERSION_MISMATCH, version, runtimeVersion);
         var event = new AuditEvent(RELAY_VERSION_MISMATCH, CATEGORY_OPERATOR, OUTCOME_WARNING,
                 Map.of(DETAIL_RELAY_VERSION, version, DETAIL_RUNTIME_VERSION, runtimeVersion));
         try {
             auditSink.append(event);
+            return RECORDED;
         } catch (UncheckedIOException e) {
-            recorded.remove(version);
-            LOGGER.debug(e, "Audit sink refused the %s record of relay version '%s'; the next request retries",
-                    RELAY_VERSION_MISMATCH, version);
+            LOGGER.debug(e, "Audit sink refused the %s record of relay version '%s'; retried after %s",
+                    RELAY_VERSION_MISMATCH, version, RETRY_INTERVAL);
+            return new Handover.Refused(clock.instant());
         }
+    }
+
+    /** A version beyond the bound: it keeps no entry and is not recorded. */
+    private Handover untracked(String version) {
+        slots.decrementAndGet();
+        LOGGER.debug("Relay version '%s' not recorded: %s distinct relay versions recorded already", version,
+                MAX_RECORDED_VERSIONS);
+        return null;
     }
 }
