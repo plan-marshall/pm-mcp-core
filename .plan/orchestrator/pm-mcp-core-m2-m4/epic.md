@@ -162,6 +162,12 @@ decision or a dependency outside this repository.
   `lessons-routing` as `pm-mcp-core-m2-m4-057.md` to `-064.md`; 1 folded as a recurrence into lesson
   2026-10-10-14-001 (pre-commit recipe).
 
+- 2026-10-11 — Correction: the documentation of PLAN-01 was not missing. `plan-marshall-documentation`
+  #24 ("document the lock manager, lock order and leases of PM-IMPL-7", LogMessages 50/151/250)
+  merged on 2026-10-10; the plan's landing message predated it. Watch retired. Likewise PLAN-04's
+  documentation (#26 there) and PLAN-06's (#28 there) are merged; their Watches retired. PLAN-02's
+  (#20 there) and PLAN-07's (#27 there) are open.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
@@ -190,18 +196,11 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- Documentation of PLAN-04: `plan-marshall-documentation` #26 open, awaits the operator's merge.
-- Documentation of PLAN-06: the branch `feature/plan-06-store-substrate` of
-  `plan-marshall-documentation` is local and unpushed (worktree
-  `.plan/temp/plan-06-plan-marshall-documentation`); push it and open its pull request.
 - PLAN-06 changed the signatures of `AuditEvent` and `CrossScopeReconciler` and the journal format;
   `plan-marshall-mcp` must follow. Closing a channel on a POSIX file drops the process's OS locks on
   it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock — PLAN-09
   `audit-trail` must account for it; the fix belongs in the lock manager.
 
-- Documentation of PLAN-01 owed in `plan-marshall-documentation`: `doc/LogMessages.adoc` entries
-  INFO 050, WARN 151, ERROR 250 and the amendment of Format & Atomic Write Discipline for the
-  parent-directory force. Not started, no plan owns it — retire when merged there.
 - The `plan-marshall-mcp` package that wires `FileLockManager` must create one instance per runtime
   (a second one can release the first holder's OS lock on POSIX); stated only in the Javadoc.
   Outside this repository — carry to whoever stages that wiring.

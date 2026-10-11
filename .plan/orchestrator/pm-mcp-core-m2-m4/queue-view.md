@@ -4,12 +4,13 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-07 workflow-dsl-parser-and-ast (PR #27; stale re-review setting, advised), PLAN-08 runtime-lifecycle, PLAN-11 enrolment-store. Emitted 2026-10-11, awaiting operator-confirmed launch: PLAN-36 code-analysis-base. Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19), PLAN-38 (#24), PLAN-04 (#25), PLAN-06 (#26), PLAN-05 (#28). Next: PLAN-09/12/14 wait on PLAN-11 (shared core.store); PLAN-10 and PLAN-16 wait on PLAN-07. Next action: record running on confirmation; analyze landings; land the ledger. Open for the operator: documentation of PLAN-01 (unowned), PLAN-04 (#26 there to merge), PLAN-06 (branch unpushed); one-review merge rule; unowned remainder of PLAN-02's roadmap item.
+**Resume anchor**: Running (scope 4, full): PLAN-07 workflow-dsl-parser-and-ast (PR #27; stale re-review setting, advised), PLAN-08 runtime-lifecycle, PLAN-11 enrolment-store, PLAN-36 code-analysis-base. Shipped: PLAN-01 (#20), PLAN-02 (#18), PLAN-03 (#19), PLAN-38 (#24), PLAN-04 (#25), PLAN-06 (#26), PLAN-05 (#28). Next: PLAN-09/12/14 wait on PLAN-11 (shared core.store); PLAN-10 and PLAN-16 wait on PLAN-07. Next action: analyze landings; land the ledger. Open for the operator: documentation PRs (PLAN-02 #20 open there); documentation-repo structure question; one-review merge rule; unowned remainder of PLAN-02's roadmap item.
 **Phase**: orchestrating
 **Running**:
 - PLAN-07 (WS-03) — plan=workflow-dsl-parser-and-ast
 - PLAN-08 (WS-01) — plan=runtime-lifecycle
 - PLAN-11 (WS-02) — plan=plan-11-enrolment-store
+- PLAN-36 (WS-07) — plan=code-analysis-base
 **Parked**:
 - PLAN-19 (WS-05)
 - PLAN-37 (WS-06)
@@ -39,7 +40,6 @@
 23. PLAN-33 (WS-05)
 24. PLAN-34 (WS-05)
 25. PLAN-35 (WS-06)
-26. PLAN-36 (WS-07)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -81,5 +81,5 @@
 | 27 | PLAN-33 | WS-05 | staged | doc/plans/README.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/task/; pm-workflow/src/test/java/de/planmarshall/workflow/task/ |
 | 28 | PLAN-34 | WS-05 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/role/; pm-core/src/test/java/de/planmarshall/core/role/; pm-workflow/src/main/java/de/planmarshall/workflow/model/; pm-workflow/src/test/java/de/planmarshall/workflow/model/ |
 | 29 | PLAN-35 | WS-06 | staged | doc/plans/README.adoc; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ |
-| 30 | PLAN-36 | WS-07 | staged | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/analysis/; pm-core/src/main/java/de/planmarshall/core/findings/; pm-core/src/test/java/de/planmarshall/core/analysis/; pm-core/src/test/java/de/planmarshall/core/findings/; src/guard-controls/ |
+| 30 | PLAN-36 | WS-07 | running | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/analysis/; pm-core/src/main/java/de/planmarshall/core/findings/; pm-core/src/test/java/de/planmarshall/core/analysis/; pm-core/src/test/java/de/planmarshall/core/findings/; src/guard-controls/ |
 | 31 | PLAN-37 | WS-06 | parked | doc/plans/README.adoc; pm-core/src/test/java/de/planmarshall/core/differential/ |
