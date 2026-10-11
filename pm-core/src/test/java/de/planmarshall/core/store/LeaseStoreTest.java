@@ -24,21 +24,16 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-
-import de.planmarshall.core.service.LockManager;
-import de.planmarshall.core.service.LockTransaction;
-import de.planmarshall.core.store.LeaseCodec.FormatException;
-import de.planmarshall.core.store.LeaseCodec.Refusal;
-
+import java.util.OptionalInt;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The leases of a machine lease store (PM-IMPL-7): records that are claimed and released in one short transaction
@@ -65,45 +60,6 @@ class LeaseStoreTest {
     private RecordingLockManager locks;
     private LeaseStore leaseStore;
 
-    /**
-     * A lock manager that takes no lock and records what it is asked for: every transaction it opened, every key
-     * acquired, and the keys held at the moment, one entry per transaction that holds a key.
-     */
-    private static final class RecordingLockManager implements LockManager {
-
-        private final List<LockKey> acquisitions = new ArrayList<>();
-        private final List<LockKey> held = new ArrayList<>();
-        private int transactions;
-
-        @Override
-        public LockTransaction openTransaction() {
-            transactions++;
-            return new LockTransaction() {
-
-                private final Set<LockKey> own = new HashSet<>();
-
-                @Override
-                public void acquire(LockKey key) {
-                    acquisitions.add(key);
-                    if (own.add(key)) {
-                        held.add(key);
-                    }
-                }
-
-                @Override
-                public boolean holds(LockKey key) {
-                    return own.contains(key);
-                }
-
-                @Override
-                public void close() {
-                    own.forEach(held::remove);
-                    own.clear();
-                }
-            };
-        }
-    }
-
     private static LeaseRecord planLease(String planId, HolderInstance holder) {
         var owner = new LeaseOwner("pm-mcp-core", ScopeType.PLAN, planId, holder, null);
         return new LeaseRecord(KEY, owner, ACQUIRED_AT, EXPIRES_AT);
@@ -124,9 +80,9 @@ class LeaseStoreTest {
 
     private void assertOneTransactionOnTheStoreKey() {
         assertAll(
-                () -> assertEquals(1, locks.transactions, "transactions opened"),
-                () -> assertEquals(List.of(storeKey), locks.acquisitions, "keys acquired"),
-                () -> assertEquals(List.of(), locks.held, "keys held afterwards"));
+                () -> assertEquals(1, locks.transactions(), "transactions opened"),
+                () -> assertEquals(List.of(storeKey), locks.acquisitions(), "keys acquired"),
+                () -> assertEquals(List.of(), locks.held(), "keys held afterwards"));
     }
 
     @Nested
@@ -204,8 +160,7 @@ class LeaseStoreTest {
         void release() {
             var lease = planLease("lock-manager", FIRST_RUNTIME);
             leaseStore.claim(lease);
-            locks.acquisitions.clear();
-            locks.transactions = 0;
+            locks.reset();
 
             var released = leaseStore.release(KEY);
 
@@ -234,8 +189,7 @@ class LeaseStoreTest {
         void releaseByOwner() {
             var lease = planLease("lock-manager", FIRST_RUNTIME);
             leaseStore.claim(lease);
-            locks.acquisitions.clear();
-            locks.transactions = 0;
+            locks.reset();
 
             var release = leaseStore.release(KEY, lease.owner());
 
@@ -264,7 +218,7 @@ class LeaseStoreTest {
                     () -> assertEquals(new LeaseStore.Release(false, adopted), release),
                     () -> assertArrayEquals(written, Files.readAllBytes(store)),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         @Test
@@ -277,7 +231,7 @@ class LeaseStoreTest {
             assertAll(
                     () -> assertEquals(new LeaseStore.Release(false, null), release),
                     () -> assertFalse(Files.exists(store)),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         @Test
@@ -292,7 +246,7 @@ class LeaseStoreTest {
                     () -> assertEquals(Optional.empty(), adopted),
                     () -> assertEquals(Optional.empty(), orphaned),
                     () -> assertFalse(Files.exists(store)),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
     }
 
@@ -315,7 +269,7 @@ class LeaseStoreTest {
                     () -> assertEquals(orphanedAt, orphaned.owner().orphanedAt()),
                     () -> assertEquals(FIRST_RUNTIME, orphaned.owner().holderInstance()),
                     () -> assertEquals(List.of(orphaned), leaseStore.snapshot()),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         @Test
@@ -339,8 +293,7 @@ class LeaseStoreTest {
             var lease = planLease("lock-manager", FIRST_RUNTIME);
             leaseStore.claim(lease);
             leaseStore.orphan(KEY, orphanedAt);
-            locks.acquisitions.clear();
-            locks.transactions = 0;
+            locks.reset();
 
             var adopted = leaseStore.adopt(KEY, SECOND_RUNTIME).orElseThrow();
 
@@ -397,8 +350,7 @@ class LeaseStoreTest {
             leaseStore.claim(kept);
             leaseStore.claim(removed);
             leaseStore.claim(changed);
-            locks.acquisitions.clear();
-            locks.transactions = 0;
+            locks.reset();
             var orphaned = changed.withOwner(changed.owner().orphaned(orphanedAt));
 
             var before = leaseStore.reviseAll(lease -> switch (lease.key()) {
@@ -425,7 +377,7 @@ class LeaseStoreTest {
             assertAll(
                     () -> assertEquals(Optional.of(List.of(lease)), before),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         @Test
@@ -461,7 +413,7 @@ class LeaseStoreTest {
 
             assertAll(
                     () -> assertArrayEquals(written, Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         /**
@@ -485,7 +437,7 @@ class LeaseStoreTest {
                     () -> assertTrue(refusal.getMessage().contains("another/repository"), refusal.getMessage()),
                     () -> assertArrayEquals(written, Files.readAllBytes(store)),
                     () -> assertEquals(fileBefore, fileIdentity(), "the store file was not replaced"),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         @Test
@@ -503,15 +455,14 @@ class LeaseStoreTest {
         @DisplayName("a snapshot takes no lock and opens no transaction")
         void lockFree() {
             leaseStore.claim(planLease("lock-manager", FIRST_RUNTIME));
-            locks.acquisitions.clear();
-            locks.transactions = 0;
+            locks.reset();
 
             var leases = leaseStore.snapshot();
 
             assertAll(
                     () -> assertEquals(1, leases.size()),
-                    () -> assertEquals(0, locks.transactions),
-                    () -> assertEquals(List.of(), locks.acquisitions));
+                    () -> assertEquals(0, locks.transactions()),
+                    () -> assertEquals(List.of(), locks.acquisitions()));
         }
 
         @Test
@@ -532,13 +483,17 @@ class LeaseStoreTest {
             Files.write(store, newer);
             var lease = planLease("lock-manager", FIRST_RUNTIME);
 
-            var refusal = assertThrows(FormatException.class, () -> leaseStore.claim(lease));
+            var refusal = assertThrows(StoreRefusal.class, () -> leaseStore.claim(lease));
 
             assertAll(
-                    () -> assertEquals(Refusal.FORMAT_NEWER, refusal.refusal()),
-                    () -> assertTrue(refusal.getMessage().contains(store.toString()), refusal.getMessage()),
+                    () -> assertEquals(Outcome.FORMAT_NEWER, refusal.outcome()),
+                    () -> assertEquals(leaseStore.store(), refusal.file()),
+                    () -> assertEquals(OptionalInt.of(2), refusal.found()),
+                    () -> assertEquals(LeaseCodec.FORMAT_VERSION, refusal.current()),
+                    () -> assertTrue(refusal.getMessage().contains(leaseStore.store().toString()),
+                            refusal.getMessage()),
                     () -> assertArrayEquals(newer, Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
 
         @Test
@@ -549,14 +504,14 @@ class LeaseStoreTest {
             var lease = planLease("lock-manager", FIRST_RUNTIME);
 
             assertAll(
-                    () -> assertEquals(Refusal.UNREADABLE,
-                            assertThrows(FormatException.class, () -> leaseStore.claim(lease)).refusal()),
-                    () -> assertEquals(Refusal.UNREADABLE,
-                            assertThrows(FormatException.class, () -> leaseStore.release(KEY)).refusal()),
-                    () -> assertEquals(Refusal.UNREADABLE,
-                            assertThrows(FormatException.class, leaseStore::snapshot).refusal()),
+                    () -> assertEquals(Outcome.UNREADABLE,
+                            assertThrows(StoreRefusal.class, () -> leaseStore.claim(lease)).outcome()),
+                    () -> assertEquals(Outcome.UNREADABLE,
+                            assertThrows(StoreRefusal.class, () -> leaseStore.release(KEY)).outcome()),
+                    () -> assertEquals(leaseStore.store(),
+                            assertThrows(StoreRefusal.class, leaseStore::snapshot).file()),
                     () -> assertArrayEquals(torn, Files.readAllBytes(store)),
-                    () -> assertEquals(List.of(), locks.held));
+                    () -> assertEquals(List.of(), locks.held()));
         }
     }
 
@@ -590,7 +545,7 @@ class LeaseStoreTest {
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.orphan(KEY, null)),
                     () -> assertThrows(NullPointerException.class, () -> leaseStore.reviseAll(null)),
                     () -> assertThrows(NullPointerException.class, () -> new LeaseStore.Claim(true, null)),
-                    () -> assertEquals(0, locks.transactions));
+                    () -> assertEquals(0, locks.transactions()));
         }
     }
 }

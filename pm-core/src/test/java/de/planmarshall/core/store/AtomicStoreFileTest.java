@@ -30,16 +30,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.InternalFaultException.Reason;
-import de.planmarshall.core.service.LockTransaction;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.service.InternalFaultException;
+import de.planmarshall.core.service.InternalFaultException.Reason;
+import de.planmarshall.core.service.LockTransaction;
 
 /**
  * The write path of a store replaced by atomic rename (PM-IMPL-7): written only under its sibling lock key, and the

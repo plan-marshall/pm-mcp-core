@@ -8,19 +8,41 @@
  * the root of this repository.
  */
 /**
- * The JSON and JSONL state stores: the {@code format_version} envelopes, the digests, the store layout of
- * workspace, project and machine, and the global lock order.
+ * The JSON and JSONL state stores (PM-IMPL-2, PM-IMPL-7): how a store is read, written, recovered and verified, the
+ * store layout of workspace, project and machine, and the global lock order.
+ * <ul>
+ * <li><em>Format versions and refusals</em>: every document and record carries a {@code format_version}, and a reader
+ * accepts exactly the current one. What it refuses is a {@link de.planmarshall.core.store.StoreRefusal} naming the
+ * file and both versions, and it is never rewritten; the codecs read through the one strict reading of
+ * {@code StrictJson}.</li>
+ * <li><em>Writes and lock-free reads</em>: a store is replaced by atomic rename
+ * ({@link de.planmarshall.core.store.AtomicStoreFile}) and read without a lock
+ * ({@link de.planmarshall.core.store.StoreSnapshot}); a JSONL store grows only by appends under its lock, and a torn
+ * last line is repaired at the tail with an audit record ({@link de.planmarshall.core.store.JsonlStoreFile}).</li>
+ * <li><em>The transaction journal</em>: the stores of a scope ({@link de.planmarshall.core.store.JournalScope}) are
+ * written by a {@link de.planmarshall.core.store.ScopeTransaction} that stages every target, writes its
+ * {@link de.planmarshall.core.store.TransactionJournal}, applies the targets, records their digests and closes the
+ * journal; {@link de.planmarshall.core.store.JournalRecovery} rolls a stopped transaction forward.</li>
+ * <li><em>Digests</em>: the {@link de.planmarshall.core.store.DigestSidecar} of a scope records the size and SHA-256
+ * of its stores, only through the journal. {@link de.planmarshall.core.store.ScopeIntegrity} decides an edit outside
+ * a transaction only under the lock of the scope, reports it as unverified without the lock, and re-records a digest
+ * when an edit is accepted.</li>
+ * <li><em>Writes across scopes</em>: an {@link de.planmarshall.core.store.OrderedWrite} writes the authoritative store
+ * first and every derived store after it, one lock at a time, and a
+ * {@link de.planmarshall.core.store.CrossScopeReconciler} completes the derived writes a crash left undone.</li>
+ * <li><em>Locks and leases</em>: the key of every lock in the total lock order
+ * ({@link de.planmarshall.core.store.LockKey}) and the lease stores of the machine.</li>
+ * </ul>
  * <p>
- * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2):
- * {@link de.planmarshall.core.store.PathConfinement} accepts a project path only when its canonical form lies
- * inside the enrolled repository root or inside a live linked git worktree of it
- * ({@link de.planmarshall.core.store.WorkspaceRoots}), and answers with a
- * {@link de.planmarshall.core.store.ConfinementOutcome}. The machine files below the instance directory are
+ * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is
+ * accepted only when its canonical form lies inside the enrolled repository root or inside a live linked git worktree
+ * of it ({@link de.planmarshall.core.store.PathConfinement}). The machine files below the instance directory are
  * outside this rule and have their own.
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/store-schemas.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/01-format-and-session-log.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc}</li>
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>
  * </ul>
  */

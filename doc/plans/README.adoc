@@ -59,7 +59,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 
 |link:store-substrate.adoc[`store-substrate`]
 |Versioned store substrate
-|`open`
+|`done`
 |link:lock-manager-and-leases.adoc[`lock-manager-and-leases`]
 |Milestone 3
 
