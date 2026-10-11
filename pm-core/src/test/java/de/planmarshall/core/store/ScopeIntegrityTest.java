@@ -506,7 +506,7 @@ class ScopeIntegrityTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"./status.json", "logs/../status.json", "x/../status.json"})
         @DisplayName("is a Mismatch under the lock and DIGEST_UNVERIFIED lock-free for an edited store, not UNCHECKED")
-        void edited(String spelling) throws IOException {
+        void edited(String spelling) throws Exception {
             var edited = editStatus();
 
             var locked = verify(spelling);
