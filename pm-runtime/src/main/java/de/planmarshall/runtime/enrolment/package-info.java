@@ -24,7 +24,9 @@
  * {@code enrolment_insecure}) blocks only itself.</li>
  * <li>{@link de.planmarshall.runtime.enrolment.Enrolments}: the operator writes {@code enrol}, {@code unenrol}
  * (refused with {@code scope_active} while the project has live work) and the re-baseline of
- * {@code accept-edit enrolment}, each in one transaction under the project's enrolment lock and audited.</li>
+ * {@code accept-edit enrolment}, each in one transaction under the project's enrolment lock; each owes its audit
+ * record in the project's intent file before the mutation and hands it over after it, at least once, and
+ * {@code replayOwedAudit} is the recovery of a record a refused or stopped hand-over left owed.</li>
  * </ul>
  * <p>
  * Specification:

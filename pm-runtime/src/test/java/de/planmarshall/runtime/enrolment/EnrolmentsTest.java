@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +49,7 @@ import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.credentials.SecretStoreException.Reason;
@@ -58,11 +60,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The operator writes of the enrolment store (PM-EXEC-2, PM-MIG-1, PM-IMPL-7): {@code enrol} writes a file and a
  * sidecar record the check accepts, {@code unenrol} is refused while the project has live work and otherwise removes
- * only the file and its sidecar, and a re-baseline makes a reviewed file pass again.
+ * only the file and its sidecar, and a re-baseline makes a reviewed file pass again. Each write owes its audit record
+ * in the project's intent file before the mutation and hands it over after it; a refused or stopped hand-over leaves
+ * the record owed, and the next write or the replay hands it over with the same transaction id.
  */
 @EnableTestLogger
 @DisplayName("Enrolments")
@@ -118,6 +124,37 @@ class EnrolmentsTest {
         }
     }
 
+    /**
+     * @param event     the name of a succeeded operator event
+     * @param projectId the project
+     * @return the record of the event as it is without its transaction id, which a test cannot know in advance
+     */
+    private static AuditEvent succeeded(String event, String projectId) {
+        return new AuditEvent(event, AuditEvent.CATEGORY_OPERATOR, AuditEvent.OUTCOME_SUCCEEDED,
+                Map.of(AuditEvent.DETAIL_PROJECT_ID, projectId));
+    }
+
+    private static List<AuditEvent> withoutTransactionIds(List<AuditEvent> records) {
+        return records.stream().map(record -> {
+            var details = new HashMap<>(record.details());
+            details.remove(AuditEvent.DETAIL_TRANSACTION_ID);
+            return new AuditEvent(record.event(), record.category(), record.outcome(), details);
+        }).toList();
+    }
+
+    private static String transactionIdOf(AuditEvent record) {
+        return (String) record.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
+    }
+
+    /** Every record carries a transaction id that is a valid, non-empty {@link TransactionId}. */
+    private static void assertValidTransactionIds(List<AuditEvent> records) {
+        assertFalse(records.isEmpty(), "no record to check");
+        for (var record : records) {
+            var id = transactionIdOf(record);
+            assertEquals(id, new TransactionId(id).value());
+        }
+    }
+
     @Nested
     @DisplayName("enrol")
     class Enrol {
@@ -131,7 +168,9 @@ class EnrolmentsTest {
                     () -> assertEquals(written, verify()),
                     () -> assertArrayEquals(EnrolmentCodec.write(written), Files.readAllBytes(store.file(PROJECT))),
                     () -> assertTrue(Files.exists(key.keyFile())),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentWritten(PROJECT)), events),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, PROJECT)),
+                            withoutTransactionIds(events)),
+                    () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_WRITTEN.resolveIdentifierString()));
         }
@@ -379,7 +418,9 @@ class EnrolmentsTest {
                     () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
                     () -> assertArrayEquals(before, Files.readAllBytes(storeFile)),
                     () -> assertEquals(List.of(storeFile), listing(projectStore)),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentRemoved(PROJECT)), events),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
+                            withoutTransactionIds(events)),
+                    () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_REMOVED.resolveIdentifierString()));
         }
@@ -420,7 +461,9 @@ class EnrolmentsTest {
                     () -> assertEquals(Optional.of(recorded), outcome.recorded()),
                     () -> assertEquals(StoreDigest.of(edited), outcome.current()),
                     () -> assertTrue(verify().pilot()),
-                    () -> assertEquals(List.of(AuditEvent.enrolmentRebaselined(PROJECT)), events),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REBASELINED, PROJECT)),
+                            withoutTransactionIds(events)),
+                    () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_REBASELINED.resolveIdentifierString()));
         }
@@ -475,6 +518,409 @@ class EnrolmentsTest {
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
                     () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))));
+        }
+    }
+
+    /** What the audit log does with an append: the three ways it can fail and the working one. */
+    private enum SinkMode {
+        WORKING, REFUSING, STOPPING, ACCEPTING_THEN_STOPPING
+    }
+
+    /** What a killed process does to its caller: an unchecked failure that is not a refused append. */
+    private static final class ProcessStopped extends RuntimeException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        ProcessStopped() {
+            super("process stopped at the audit append");
+        }
+    }
+
+    /** The audit log of the intent tests: it records into {@link #events} while working. */
+    private final class SwitchableSink implements AuditSink {
+
+        private SinkMode mode = SinkMode.WORKING;
+
+        @Override
+        public void append(AuditEvent event) {
+            switch (mode) {
+                case WORKING -> events.add(event);
+                case REFUSING -> throw new UncheckedIOException(new IOException("the audit log cannot be written"));
+                case STOPPING -> throw new ProcessStopped();
+                case ACCEPTING_THEN_STOPPING -> {
+                    events.add(event);
+                    throw new ProcessStopped();
+                }
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("owe the audit record before the mutation and hand it over after it")
+    class AuditIntent {
+
+        private static final String ALPHA = "alpha-project";
+        private static final String ZETA = "zeta-project";
+        private static final String REPLAYED = "Owed audit record '%s'";
+
+        private SwitchableSink audit;
+        private Enrolments owing;
+
+        @BeforeEach
+        void owing() {
+            audit = new SwitchableSink();
+            owing = enrolmentsWith(key, audit);
+        }
+
+        private List<AuditEvent> owed(String projectId) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(store.lockKey(projectId));
+                return store.owedAudit(transaction, projectId);
+            }
+        }
+
+        private boolean owes(String projectId) {
+            return Files.exists(store.auditIntent(projectId));
+        }
+
+        /** Replays with a working sink: exactly the owed record, with its transaction id, once. */
+        private void assertReplayedOnce(AuditEvent owedRecord) {
+            audit.mode = SinkMode.WORKING;
+
+            var replayed = owing.replayOwedAudit();
+
+            assertAll(
+                    () -> assertEquals(1, replayed),
+                    () -> assertEquals(List.of(owedRecord), events),
+                    () -> assertFalse(owes(PROJECT)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.ENROLMENT_AUDIT_REPLAYED.resolveIdentifierString()));
+
+            var again = owing.replayOwedAudit();
+
+            assertAll(
+                    () -> assertEquals(0, again),
+                    () -> assertEquals(List.of(owedRecord), events));
+        }
+
+        private void assertOwedOnce(String event) {
+            var owed = owed(PROJECT);
+            assertAll(
+                    () -> assertTrue(owes(PROJECT)),
+                    () -> assertEquals(List.of(succeeded(event, PROJECT)), withoutTransactionIds(owed)),
+                    () -> assertValidTransactionIds(owed),
+                    () -> assertTrue(events.isEmpty()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            "'" + event + "' of transaction '" + transactionIdOf(owed.getFirst()) + "'"));
+        }
+
+        @Nested
+        @DisplayName("with a working audit log")
+        class Working {
+
+            @Test
+            @DisplayName("enrol records one enrolment_written with a valid transaction id and leaves no intent")
+            void enrol() {
+                owing.enrol(enrolment(false, null), false);
+
+                assertNormalPath(AuditEvent.ENROLMENT_WRITTEN);
+            }
+
+            @Test
+            @DisplayName("unenrol records one enrolment_removed with a valid transaction id and leaves no intent")
+            void unenrol() {
+                enrolments.enrol(enrolment(false, null), false);
+                events.clear();
+
+                owing.unenrol(PROJECT);
+
+                assertNormalPath(AuditEvent.ENROLMENT_REMOVED);
+            }
+
+            @Test
+            @DisplayName("rebaseline records one enrolment_rebaselined with a valid transaction id and leaves no intent")
+            void rebaseline() {
+                enrolments.enrol(enrolment(false, null), false);
+                events.clear();
+
+                owing.rebaseline(PROJECT);
+
+                assertNormalPath(AuditEvent.ENROLMENT_REBASELINED);
+            }
+
+            private void assertNormalPath(String event) {
+                assertAll(
+                        () -> assertEquals(List.of(succeeded(event, PROJECT)), withoutTransactionIds(events)),
+                        () -> assertValidTransactionIds(events),
+                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertEquals(0, owing.replayOwedAudit()),
+                        () -> assertEquals(1, events.size()),
+                        () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                                INFO.ENROLMENT_AUDIT_REPLAYED.resolveIdentifierString()));
+            }
+        }
+
+        @Nested
+        @DisplayName("with an audit log that refuses the append after the mutation")
+        class RefusedAppend {
+
+            @Test
+            @DisplayName("enrol writes without throwing, keeps enrolment_written owed and the replay hands it over once")
+            void enrol() {
+                audit.mode = SinkMode.REFUSING;
+
+                var written = owing.enrol(enrolment(false, null), false);
+
+                assertAll(
+                        () -> assertEquals(written, verify()),
+                        () -> assertOwedOnce(AuditEvent.ENROLMENT_WRITTEN));
+                assertReplayedOnce(owed(PROJECT).getFirst());
+            }
+
+            @Test
+            @DisplayName("unenrol removes the pair only, keeps enrolment_removed owed and the replay hands it over once")
+            void unenrol() throws IOException {
+                enrolments.enrol(enrolment(false, null), false);
+                events.clear();
+                var projectStore = Files.createDirectories(base.resolve("projects").resolve(PROJECT));
+                var storeFile = Files.writeString(projectStore.resolve("store.json"), "{\"project_root\":\"/r\"}");
+                var before = Files.readAllBytes(storeFile);
+                audit.mode = SinkMode.REFUSING;
+
+                var removed = owing.unenrol(PROJECT);
+
+                assertAll(
+                        () -> assertTrue(removed),
+                        () -> assertFalse(Files.exists(store.file(PROJECT))),
+                        () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                        () -> assertArrayEquals(before, Files.readAllBytes(storeFile)),
+                        () -> assertOwedOnce(AuditEvent.ENROLMENT_REMOVED));
+                assertReplayedOnce(owed(PROJECT).getFirst());
+            }
+
+            @Test
+            @DisplayName("rebaseline rewrites the sidecar, keeps enrolment_rebaselined owed and the replay hands it over")
+            void rebaseline() throws IOException {
+                enrolments.enrol(enrolment(false, null), false);
+                Files.write(store.file(PROJECT), EnrolmentCodec.write(enrolment(true, null)));
+                events.clear();
+                audit.mode = SinkMode.REFUSING;
+
+                owing.rebaseline(PROJECT);
+
+                assertAll(
+                        () -> assertTrue(verify().pilot()),
+                        () -> assertOwedOnce(AuditEvent.ENROLMENT_REBASELINED));
+                assertReplayedOnce(owed(PROJECT).getFirst());
+            }
+        }
+
+        @Nested
+        @DisplayName("with a process that stops at the append")
+        class Stopped {
+
+            @Test
+            @DisplayName("a stop after the mutation keeps the record, and a restarted runtime hands it over exactly once")
+            void stopBeforeTheAppend() {
+                audit.mode = SinkMode.STOPPING;
+                var enrolment = enrolment(false, null);
+
+                assertThrows(ProcessStopped.class, () -> owing.enrol(enrolment, false));
+
+                var owed = owed(PROJECT);
+                assertAll(
+                        () -> assertEquals(PROJECT, verify().projectId()),
+                        () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, PROJECT)),
+                                withoutTransactionIds(owed)),
+                        () -> assertTrue(events.isEmpty()));
+
+                var restarted = new Enrolments(new EnrolmentStore(base), key, new EnrolmentFileCheck(USER),
+                        new FileLockManager(sink), projectId -> List.of(), sink);
+                var replayed = restarted.replayOwedAudit();
+
+                assertAll(
+                        () -> assertEquals(1, replayed),
+                        () -> assertEquals(owed, events),
+                        () -> assertFalse(owes(PROJECT)));
+            }
+
+            @Test
+            @DisplayName("a record whose intent outlived an accepted append is handed over again with the same "
+                    + "transaction id")
+            void recordWhoseIntentOutlivedAnAcceptedAppendIsHandedOverAgainWithTheSameTransactionId() {
+                audit.mode = SinkMode.ACCEPTING_THEN_STOPPING;
+                var enrolment = enrolment(false, null);
+
+                assertThrows(ProcessStopped.class, () -> owing.enrol(enrolment, false));
+                assertTrue(owes(PROJECT));
+                audit.mode = SinkMode.WORKING;
+
+                var replayed = owing.replayOwedAudit();
+
+                assertAll(
+                        () -> assertEquals(1, replayed),
+                        () -> assertEquals(2, events.size()),
+                        () -> assertEquals(events.getFirst(), events.getLast()),
+                        () -> assertEquals(1, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
+                        () -> assertFalse(owes(PROJECT)));
+            }
+        }
+
+        @Nested
+        @DisplayName("the next operation")
+        class NextOperation {
+
+            @Test
+            @DisplayName("flushes what an earlier write still owes, in order, and logs only that record as replayed")
+            void flushesInOrder() {
+                audit.mode = SinkMode.REFUSING;
+                owing.enrol(enrolment(false, null), false);
+                audit.mode = SinkMode.WORKING;
+
+                owing.rebaseline(PROJECT);
+
+                assertAll(
+                        () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, PROJECT),
+                                succeeded(AuditEvent.ENROLMENT_REBASELINED, PROJECT)), withoutTransactionIds(events)),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                                INFO.ENROLMENT_AUDIT_REPLAYED.resolveIdentifierString()),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                                REPLAYED.formatted(AuditEvent.ENROLMENT_WRITTEN)),
+                        () -> assertFalse(owes(PROJECT)));
+            }
+
+            @Test
+            @DisplayName("an unenrol of a project no longer enrolled hands over what it owes and still returns false")
+            void unenrolOfNotEnrolled() {
+                enrolments.enrol(enrolment(false, null), false);
+                events.clear();
+                audit.mode = SinkMode.REFUSING;
+                owing.unenrol(PROJECT);
+                audit.mode = SinkMode.WORKING;
+
+                var removed = owing.unenrol(PROJECT);
+
+                assertAll(
+                        () -> assertFalse(removed),
+                        () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
+                                withoutTransactionIds(events)),
+                        () -> assertFalse(owes(PROJECT)));
+            }
+        }
+
+        @Nested
+        @DisplayName("nothing is owed for what changed nothing")
+        class NothingOwed {
+
+            @Test
+            @DisplayName("an enrol refused for a switched key source")
+            void keySourceRefusal() {
+                enrolments.enrol(enrolment(false, null), false);
+                var keyring = enrolmentsWith(new EnrolmentKey(new InMemoryKeyring(), state, USER, new SecureRandom()),
+                        audit);
+                var other = enrolment(ALPHA, false, null);
+
+                assertThrows(StoreRefusal.class, () -> keyring.enrol(other, false));
+
+                assertAll(
+                        () -> assertFalse(owes(ALPHA)),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+            }
+
+            @Test
+            @DisplayName("an enrol whose integrity key cannot be read")
+            void unreadableKey() throws IOException {
+                enrolments.enrol(enrolment(false, null), false);
+                Files.writeString(key.keyFile(), "not base64!");
+                var other = enrolment(ALPHA, false, null);
+
+                assertThrows(SecretStoreException.class, () -> owing.enrol(other, false));
+
+                assertAll(
+                        () -> assertFalse(owes(ALPHA)),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+            }
+
+            @Test
+            @DisplayName("an unenrol refused for live work, which still audits unenrol_refused directly")
+            void liveWorkRefusal() {
+                enrolments.enrol(enrolment(false, null), false);
+                events.clear();
+                liveWork.put(PROJECT, List.of(new Item(Kind.PLAN, "add-login")));
+
+                assertThrows(ScopeActiveException.class, () -> owing.unenrol(PROJECT));
+
+                assertAll(
+                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events));
+            }
+
+            @ParameterizedTest
+            @ValueSource(strings = {"absent", "insecure", "unreadable"})
+            @DisplayName("a refused re-baseline")
+            void refusedRebaseline(String damage) throws IOException {
+                if (!"absent".equals(damage)) {
+                    enrolments.enrol(enrolment(false, null), false);
+                }
+                if ("insecure".equals(damage)) {
+                    Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString("rw-rw-rw-"));
+                } else if ("unreadable".equals(damage)) {
+                    Files.writeString(store.file(PROJECT), "{\"format_version\":1}");
+                }
+                events.clear();
+
+                assertThrows(StoreRefusal.class, () -> owing.rebaseline(PROJECT));
+
+                assertAll(
+                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertTrue(events.stream()
+                                .noneMatch(event -> AuditEvent.ENROLMENT_REBASELINED.equals(event.event()))));
+            }
+        }
+
+        @Test
+        @DisplayName("the replay hands over every owing project in the order of its id, each with its own transaction")
+        void twoProjects() throws IOException {
+            audit.mode = SinkMode.REFUSING;
+            owing.enrol(enrolment(ZETA, false, null), false);
+            var zetaIntent = Files.readAllBytes(store.auditIntent(ZETA));
+            owing.enrol(enrolment(ALPHA, false, null), false);
+            var zetaAfter = Files.readAllBytes(store.auditIntent(ZETA));
+            audit.mode = SinkMode.WORKING;
+
+            var replayed = owing.replayOwedAudit();
+
+            assertAll(
+                    () -> assertArrayEquals(zetaIntent, zetaAfter),
+                    () -> assertEquals(2, replayed),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA),
+                            succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events)),
+                    () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("the intent file is not an enrolment: neither listed nor counted by the guard of the key")
+        void intentIsNotAnEnrolment() throws IOException {
+            enrolments.enrol(enrolment(false, null), false);
+            events.clear();
+            audit.mode = SinkMode.REFUSING;
+            owing.unenrol(PROJECT);
+            Files.delete(key.keyFile());
+            audit.mode = SinkMode.WORKING;
+
+            var written = owing.enrol(enrolment(ALPHA, false, null), false);
+
+            assertAll(
+                    () -> assertEquals(ALPHA, written.projectId()),
+                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertEquals(List.of(ALPHA), List.copyOf(store.projectIds())),
+                    () -> assertEquals(List.of(PROJECT), List.copyOf(store.auditOwingProjectIds())),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA)),
+                            withoutTransactionIds(events)));
         }
     }
 
