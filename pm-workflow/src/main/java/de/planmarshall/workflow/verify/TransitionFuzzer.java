@@ -117,7 +117,8 @@ public final class TransitionFuzzer {
             exits.add(engineTransitions);
         }
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
-            var holds = link.guard().map(guard -> holds(guard.expr(), assignment)).orElse(true);
+            var guard = link.guard();
+            var holds = guard.isEmpty() || holds(guard.get().expr(), assignment);
             if (holds && !link.transitions().isEmpty()) {
                 exits.add(link.transitions());
             }
@@ -133,10 +134,10 @@ public final class TransitionFuzzer {
             case GuardExpr.InWorktree _ -> assignment.get(IN_WORKTREE);
             case GuardExpr.HasOpenFindings _ -> assignment.get(HAS_OPEN_FINDINGS);
             case GuardExpr.AllTasksCompleted _ -> assignment.get(ALL_TASKS_COMPLETED);
-            case GuardExpr.CustomPredicate predicate -> assignment.get(PREDICATE_PREFIX + predicate.primitiveId());
-            case GuardExpr.And and -> holds(and.left(), assignment) && holds(and.right(), assignment);
-            case GuardExpr.Or or -> holds(or.left(), assignment) || holds(or.right(), assignment);
-            case GuardExpr.Not not -> !holds(not.operand(), assignment);
+            case GuardExpr.CustomPredicate(var primitiveId) -> assignment.get(PREDICATE_PREFIX + primitiveId);
+            case GuardExpr.And(var left, var right) -> holds(left, assignment) && holds(right, assignment);
+            case GuardExpr.Or(var left, var right) -> holds(left, assignment) || holds(right, assignment);
+            case GuardExpr.Not(var operand) -> !holds(operand, assignment);
         };
     }
 
