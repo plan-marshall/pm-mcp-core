@@ -21,13 +21,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
-import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
@@ -116,7 +114,7 @@ public final class WorkflowValidator {
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
             requireRegistered(state, primitiveOf(link), "do of the link '%s'".formatted(link.idPattern()),
                     link.location(), violations);
-            link.guard().ifPresent(guard -> predicatesOf(guard.expr()).forEach(id -> requireRegistered(state, id,
+            link.guard().ifPresent(guard -> UnitGraph.predicatesOf(guard.expr()).forEach(id -> requireRegistered(state, id,
                     "predicate of the link '%s'".formatted(link.idPattern()), link.location(), violations)));
         }
     }
@@ -312,16 +310,6 @@ public final class WorkflowValidator {
     private static String primitiveOf(LinkSpec link) {
         return switch (link.action()) {
             case LinkAction.ExecutePrimitive execute -> execute.primitiveId();
-        };
-    }
-
-    private static Stream<String> predicatesOf(GuardExpr expr) {
-        return switch (expr) {
-            case GuardExpr.CustomPredicate predicate -> Stream.of(predicate.primitiveId());
-            case GuardExpr.And and -> Stream.concat(predicatesOf(and.left()), predicatesOf(and.right()));
-            case GuardExpr.Or or -> Stream.concat(predicatesOf(or.left()), predicatesOf(or.right()));
-            case GuardExpr.Not not -> predicatesOf(not.operand());
-            case GuardExpr.InWorktree _, GuardExpr.HasOpenFindings _, GuardExpr.AllTasksCompleted _ -> Stream.empty();
         };
     }
 

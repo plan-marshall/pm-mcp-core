@@ -17,7 +17,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import de.planmarshall.workflow.ast.GuardExpr;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -30,7 +32,8 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the transitions of every {@link StateBehavior} variant and of every declared link. A target that is not a state of
  * the unit is kept as a successor; whether a target exists is not this graph's concern.
  * <p>
- * {@link WorkflowValidator} searches it for reachability and exit paths.
+ * {@link WorkflowValidator} searches it for reachability and exit paths, and {@link TransitionFuzzer} reads the exits
+ * of a state from the same behaviour switches.
  */
 final class UnitGraph {
 
@@ -157,6 +160,20 @@ final class UnitGraph {
                     .noneMatch(transition -> LOST_OUTCOME.equals(transition.outcomeName()));
             case StateBehavior.AutoStep _, StateBehavior.JobStep _, StateBehavior.SubWorkflowCall _,
                 StateBehavior.QuestionWait _, StateBehavior.TerminalState _ -> false;
+        };
+    }
+
+    /**
+     * @param expr a guard expression
+     * @return the primitive of every {@code predicate:} atom of the expression, in source order
+     */
+    static Stream<String> predicatesOf(GuardExpr expr) {
+        return switch (expr) {
+            case GuardExpr.CustomPredicate predicate -> Stream.of(predicate.primitiveId());
+            case GuardExpr.And and -> Stream.concat(predicatesOf(and.left()), predicatesOf(and.right()));
+            case GuardExpr.Or or -> Stream.concat(predicatesOf(or.left()), predicatesOf(or.right()));
+            case GuardExpr.Not not -> predicatesOf(not.operand());
+            case GuardExpr.InWorktree _, GuardExpr.HasOpenFindings _, GuardExpr.AllTasksCompleted _ -> Stream.empty();
         };
     }
 
