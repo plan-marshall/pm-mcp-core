@@ -24,8 +24,11 @@ import de.planmarshall.core.store.LockKey;
  * <p>
  * Every record is built by the factory of its event, which fixes its name, category and outcome and exactly the
  * details the specification names; the enrolment records (PM-EXEC-2, PM-SEC-4, PM-SEC-5) carry the project and, for
- * a refusal, its reason. The operator command that resolves a refused enrolment is named by the refusal, not by its
- * record.
+ * a refusal, its reason. The three records of a succeeded operator write ({@code enrolment_written},
+ * {@code enrolment_removed}, {@code enrolment_rebaselined}) also carry the transaction of the write: they are owed in
+ * a durable intent before the write and handed over at least once, and a record handed over again carries the same
+ * transaction id. A refusal changed nothing and is not owed; its record carries no transaction. The operator command
+ * that resolves a refused enrolment is named by the refusal, not by its record.
  *
  * @param event   the name of the event
  * @param category the category of the event
@@ -79,7 +82,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /**
      * The detail that names the transaction of a store mutation: of a roll-forward the transaction of the journal, of
-     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write. A record handed
+     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write, of a succeeded
+     * enrolment write the transaction of the write. A record handed
      * over again after a failed or interrupted hand-over carries the same id, so a reader drops the duplicate.
      */
     public static final String DETAIL_TRANSACTION_ID = "transaction_id";
@@ -212,27 +216,36 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * @param projectId the enrolled project
+     * @param projectId     the enrolled project
+     * @param transactionId the transaction of the write, by which a record handed over again is recognised as the
+     *                      same
      * @return the record of the enrolment file and its sidecar written
+     * @throws NullPointerException if the project id or the transaction id is {@code null}
      */
-    public static AuditEvent enrolmentWritten(String projectId) {
-        return operatorSucceeded(ENROLMENT_WRITTEN, projectId);
+    public static AuditEvent enrolmentWritten(String projectId, String transactionId) {
+        return operatorSucceeded(ENROLMENT_WRITTEN, projectId, transactionId);
     }
 
     /**
-     * @param projectId the unenrolled project
+     * @param projectId     the unenrolled project
+     * @param transactionId the transaction of the removal, by which a record handed over again is recognised as the
+     *                      same
      * @return the record of the enrolment file and its sidecar removed
+     * @throws NullPointerException if the project id or the transaction id is {@code null}
      */
-    public static AuditEvent enrolmentRemoved(String projectId) {
-        return operatorSucceeded(ENROLMENT_REMOVED, projectId);
+    public static AuditEvent enrolmentRemoved(String projectId, String transactionId) {
+        return operatorSucceeded(ENROLMENT_REMOVED, projectId, transactionId);
     }
 
     /**
-     * @param projectId the enrolled project
+     * @param projectId     the enrolled project
+     * @param transactionId the transaction of the re-baseline, by which a record handed over again is recognised as
+     *                      the same
      * @return the record of the sidecar of the enrolment rewritten over the current file
+     * @throws NullPointerException if the project id or the transaction id is {@code null}
      */
-    public static AuditEvent enrolmentRebaselined(String projectId) {
-        return operatorSucceeded(ENROLMENT_REBASELINED, projectId);
+    public static AuditEvent enrolmentRebaselined(String projectId, String transactionId) {
+        return operatorSucceeded(ENROLMENT_REBASELINED, projectId, transactionId);
     }
 
     /**
@@ -249,9 +262,10 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                         Objects.requireNonNull(reason, DETAIL_REASON)));
     }
 
-    private static AuditEvent operatorSucceeded(String event, String projectId) {
+    private static AuditEvent operatorSucceeded(String event, String projectId, String transactionId) {
         return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId")));
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_TRANSACTION_ID,
+                        Objects.requireNonNull(transactionId, "transactionId")));
     }
 
     private static String lockPath(LockKey key) {

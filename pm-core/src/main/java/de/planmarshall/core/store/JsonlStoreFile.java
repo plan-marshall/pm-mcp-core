@@ -9,10 +9,6 @@
  */
 package de.planmarshall.core.store;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -25,7 +21,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
@@ -71,9 +66,6 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
 
     private static final byte NEWLINE = '\n';
     private static final int SCAN_CHUNK = 8192;
-    private static final String AUDIT_INTENT_SUFFIX = ".audit-intent";
-    private static final int AUDIT_INTENT_FORMAT_VERSION = 1;
-    private static final String FIELD_OWED_EVENTS = "owed_events";
 
     /**
      * Makes the store path absolute and normalized.
@@ -265,10 +257,11 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
     public void repairTail(LockTransaction transaction, AuditSink auditSink) {
         requireHeld(transaction);
         Objects.requireNonNull(auditSink, "auditSink");
-        var owed = new ArrayList<>(readAuditIntent());
+        var intent = auditIntent();
+        var owed = new ArrayList<>(intent.read());
         try {
-            cutTornTail(transaction, owed);
-            handOver(transaction, owed, auditSink);
+            cutTornTail(transaction, intent, owed);
+            intent.handOver(transaction, owed, auditSink);
         } catch (IOException e) {
             throw new UncheckedIOException("Torn tail of the JSONL store cannot be repaired: " + store, e);
         }
@@ -279,7 +272,11 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
      *         only while a record is owed
      */
     public Path auditIntentFile() {
-        return store.resolveSibling(store.getFileName() + AUDIT_INTENT_SUFFIX);
+        return auditIntent().file();
+    }
+
+    private AuditIntentFile auditIntent() {
+        return AuditIntentFile.beside(store, lockKey);
     }
 
     /**
@@ -287,7 +284,8 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
      * intent that already owes the record of this very tail (a repair stopped between its intent and its cut) is
      * completed and not owed twice.
      */
-    private void cutTornTail(LockTransaction transaction, List<AuditEvent> owed) throws IOException {
+    private void cutTornTail(LockTransaction transaction, AuditIntentFile intent, List<AuditEvent> owed)
+            throws IOException {
         if (!Files.exists(store, LinkOption.NOFOLLOW_LINKS)) {
             return;
         }
@@ -302,26 +300,10 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
             if (owed.stream().noneMatch(event -> isRepairOf(event, torn.length, sha256))) {
                 owed.add(AuditEvent.jsonlTailRepaired(store, torn.length, sha256,
                         TransactionId.generate(Clock.systemUTC()).value()));
-                writeAuditIntent(transaction, owed);
+                intent.write(transaction, owed);
             }
             channel.truncate(end);
             channel.force(true);
-        }
-    }
-
-    /** Hands the owed records over; the intent file is deleted once every one was, and keeps the rest otherwise. */
-    private void handOver(LockTransaction transaction, List<AuditEvent> owed, AuditSink auditSink)
-            throws IOException {
-        if (owed.isEmpty()) {
-            return;
-        }
-        var intent = auditIntentFile();
-        var remaining = OwedAuditEvents.deliver(owed, auditSink, intent);
-        if (remaining.isEmpty()) {
-            Files.delete(intent);
-            SyncedFiles.forceDirectory(intent.getParent());
-        } else if (remaining.size() < owed.size()) {
-            writeAuditIntent(transaction, remaining);
         }
     }
 
@@ -329,55 +311,6 @@ public record JsonlStoreFile(Path store, LockKey lockKey) {
         return AuditEvent.JSONL_TAIL_REPAIRED.equals(event.event())
                 && Long.valueOf(truncatedBytes).equals(event.details().get(AuditEvent.DETAIL_TRUNCATED_BYTES))
                 && truncatedSha256.equals(event.details().get(AuditEvent.DETAIL_TRUNCATED_SHA256));
-    }
-
-    private List<AuditEvent> readAuditIntent() {
-        var intent = auditIntentFile();
-        return StoreSnapshot.read(intent).content()
-                .map(document -> StrictJson.read(intent, document, AUDIT_INTENT_FORMAT_VERSION,
-                        JsonlStoreFile::readAuditIntentDocument))
-                .orElseGet(List::of);
-    }
-
-    private void writeAuditIntent(LockTransaction transaction, List<AuditEvent> owed) {
-        var out = new ByteArrayOutputStream();
-        try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
-            generator.writeStartObject();
-            generator.writeNumberField(StrictJson.FIELD_FORMAT_VERSION, AUDIT_INTENT_FORMAT_VERSION);
-            generator.writeArrayFieldStart(FIELD_OWED_EVENTS);
-            for (var event : owed) {
-                OwedAuditEvents.write(generator, event);
-            }
-            generator.writeEndArray();
-            generator.writeEndObject();
-        } catch (IOException e) {
-            throw new UncheckedIOException("Audit intent cannot be written: " + auditIntentFile(), e);
-        }
-        new AtomicStoreFile(auditIntentFile(), lockKey).write(transaction, out.toByteArray());
-    }
-
-    private static List<AuditEvent> readAuditIntentDocument(JsonParser parser) throws IOException {
-        List<AuditEvent> owed = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = StrictJson.nextField(parser, seen);
-            switch (field) {
-                case StrictJson.FIELD_FORMAT_VERSION -> parser.skipChildren();
-                case FIELD_OWED_EVENTS -> owed = readOwedEvents(parser);
-                default -> throw StrictJson.undeclared(field);
-            }
-        }
-        StrictJson.requireFields(seen, "audit intent", FIELD_OWED_EVENTS);
-        return owed;
-    }
-
-    private static List<AuditEvent> readOwedEvents(JsonParser parser) throws IOException {
-        StrictJson.requireArray(parser, FIELD_OWED_EVENTS);
-        var owed = new ArrayList<AuditEvent>();
-        while (parser.nextToken() != JsonToken.END_ARRAY) {
-            owed.add(OwedAuditEvents.read(parser));
-        }
-        return List.copyOf(owed);
     }
 
     /**

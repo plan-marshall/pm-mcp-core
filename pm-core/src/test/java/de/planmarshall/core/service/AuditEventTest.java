@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -149,21 +150,41 @@ class AuditEventTest {
         }
 
         @Test
-        @DisplayName("a written enrolment is a succeeded operator event naming the project only")
+        @DisplayName("a written enrolment is a succeeded operator event naming the project and the transaction")
         void enrolmentWritten() {
-            assertSucceededOperatorEvent("enrolment_written", AuditEvent.enrolmentWritten(PROJECT));
+            assertSucceededOperatorEvent("enrolment_written", AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID));
         }
 
         @Test
-        @DisplayName("a removed enrolment is a succeeded operator event naming the project only")
+        @DisplayName("a removed enrolment is a succeeded operator event naming the project and the transaction")
         void enrolmentRemoved() {
-            assertSucceededOperatorEvent("enrolment_removed", AuditEvent.enrolmentRemoved(PROJECT));
+            assertSucceededOperatorEvent("enrolment_removed", AuditEvent.enrolmentRemoved(PROJECT, TRANSACTION_ID));
         }
 
         @Test
-        @DisplayName("a re-baselined enrolment is a succeeded operator event naming the project only")
+        @DisplayName("a re-baselined enrolment is a succeeded operator event naming the project and the transaction")
         void enrolmentRebaselined() {
-            assertSucceededOperatorEvent("enrolment_rebaselined", AuditEvent.enrolmentRebaselined(PROJECT));
+            assertSucceededOperatorEvent("enrolment_rebaselined",
+                    AuditEvent.enrolmentRebaselined(PROJECT, TRANSACTION_ID));
+        }
+
+        /** The matched control to the three above: a refusal changed nothing, is not owed and carries no transaction. */
+        @Test
+        @DisplayName("the refusal records carry no transaction id and equal what they were")
+        void refusalsWithoutTransaction() {
+            var refusals = List.of(AuditEvent.enrolmentTampered(PROJECT, "hmac_mismatch"),
+                    AuditEvent.enrolmentInsecure(PROJECT, "symbolic link"), AuditEvent.unenrolRefused(PROJECT));
+
+            assertAll(
+                    () -> assertTrue(refusals.stream()
+                            .noneMatch(event -> event.details().containsKey("transaction_id"))),
+                    () -> assertEquals(List.of(
+                            new AuditEvent("enrolment_tampered", "security", "refused",
+                                    Map.of("project_id", PROJECT, "reason", "hmac_mismatch")),
+                            new AuditEvent("enrolment_insecure", "security", "refused",
+                                    Map.of("project_id", PROJECT, "reason", "symbolic link")),
+                            new AuditEvent("unenrol_refused", "operator", "refused",
+                                    Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals));
         }
 
         private void assertSucceededOperatorEvent(String name, AuditEvent event) {
@@ -171,7 +192,8 @@ class AuditEventTest {
                     () -> assertEquals(name, event.event()),
                     () -> assertEquals("operator", event.category()),
                     () -> assertEquals("succeeded", event.outcome()),
-                    () -> assertEquals(Map.of("project_id", PROJECT), event.details()));
+                    () -> assertEquals(Map.of("project_id", PROJECT, "transaction_id", TRANSACTION_ID),
+                            event.details()));
         }
     }
 
@@ -204,9 +226,16 @@ class AuditEventTest {
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentTampered(project, null)),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(null, "r")),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(project, null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentRemoved(null)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentRebaselined(null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentWritten(null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentRemoved(null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentRemoved(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentRebaselined(null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentRebaselined(project, null)),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.unenrolRefused(null)));
     }
 }

@@ -12,14 +12,19 @@ package de.planmarshall.core.store;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
 
@@ -37,6 +42,15 @@ import de.planmarshall.core.service.LockTransaction;
  * it, and refuses a sidecar that does not record the size and SHA-256 of the file it is written with. A write replaces
  * the file before the sidecar, so a write stopped between the two leaves a pair that the runtime's integrity check
  * refuses, never one it trusts.
+ * <p>
+ * An operator write owes its audit record (PM-IMPL-7) in the project's intent file
+ * {@code <project_id>.json.audit-intent}, the document of the intent files of the JSONL stores, touched only under the
+ * project's lock. The order is: owe the record durably ({@link #oweAudit}), mutate, hand it over
+ * ({@link #deliverOwedAudit}); the intent is removed only after the sink accepted every record it owes. A sink that
+ * refuses a record, a stop between the mutation and the hand-over, or a mutation that fails after the record was owed
+ * leaves the intent, so an attempted operator write is audited rather than lost, and a later hand-over delivers it
+ * with the same transaction id: delivery is at least once. The intent file is not an enrolment, and
+ * {@link #auditOwingProjectIds()} lists the projects that still owe a record.
  * <p>
  * The directory {@code enrolments/} exists before the first write; this type does not create it.
  *
@@ -96,17 +110,33 @@ public final class EnrolmentStore {
 
     /**
      * Lists the enrolled projects without a lock: every file {@code <project_id>.json} whose name is a valid project
-     * id. A sidecar, a temporary file of a write and any other entry are not an enrolment.
+     * id. A sidecar, an audit intent, a temporary file of a write and any other entry are not an enrolment.
      *
      * @return the ids of the enrolled projects, sorted; empty if the directory does not exist
      * @throws UncheckedIOException if the directory exists and cannot be listed
      */
     public SortedSet<String> projectIds() {
+        return listProjectIds(SUFFIX);
+    }
+
+    /**
+     * Lists the projects that still owe an audit record, without a lock: every intent file
+     * {@code <project_id>.json.audit-intent} whose name carries a valid project id. It is what a recovery iterates to
+     * hand the owed records over.
+     *
+     * @return the ids of the projects whose intent file exists, sorted; empty if the directory does not exist
+     * @throws UncheckedIOException if the directory exists and cannot be listed
+     */
+    public SortedSet<String> auditOwingProjectIds() {
+        return listProjectIds(SUFFIX + AuditIntentFile.SUFFIX);
+    }
+
+    private SortedSet<String> listProjectIds(String suffix) {
         var ids = new TreeSet<String>();
         try (var entries = Files.list(directory)) {
             entries.map(entry -> entry.getFileName().toString())
-                    .filter(name -> name.endsWith(SUFFIX))
-                    .map(name -> name.substring(0, name.length() - SUFFIX.length()))
+                    .filter(name -> name.endsWith(suffix))
+                    .map(name -> name.substring(0, name.length() - suffix.length()))
                     .filter(EnrolmentStore::isProjectId)
                     .forEach(ids::add);
         } catch (NoSuchFileException _) {
@@ -115,6 +145,93 @@ public final class EnrolmentStore {
             throw new UncheckedIOException("Enrolment directory cannot be listed: " + directory, e);
         }
         return Collections.unmodifiableSortedSet(ids);
+    }
+
+    /**
+     * @param projectId the project
+     * @return the intent file of the audit records the project's enrolment writes owe,
+     *         {@code <project_id>.json.audit-intent}; it exists only while a record is owed and is not an enrolment
+     * @throws IllegalArgumentException if the project id is not a valid identifier
+     */
+    public Path auditIntent(String projectId) {
+        return auditIntentFile(projectId).file();
+    }
+
+    /**
+     * Owes an audit record in the project's intent file, written durably, before the mutation it records. A record
+     * whose transaction id is already owed is not owed twice.
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @param event       the record to owe; it carries the transaction of the mutation
+     * @throws InternalFaultException   if the transaction does not hold the project's lock; nothing was written then
+     * @throws IllegalArgumentException if a detail value of the record is not a string, an integer or a list of
+     *                                  strings; nothing was written then
+     * @throws StoreRefusal             if the intent file is unreadable or of another format version, naming it;
+     *                                  nothing was written then
+     * @throws UncheckedIOException     if the intent file cannot be read or written
+     */
+    public void oweAudit(LockTransaction transaction, String projectId, AuditEvent event) {
+        OwedAuditEvents.requireWritable(event);
+        var intent = heldIntent(transaction, projectId);
+        var owed = new ArrayList<>(intent.read());
+        var transactionId = event.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
+        if (transactionId != null && owed.stream()
+                .anyMatch(other -> transactionId.equals(other.details().get(AuditEvent.DETAIL_TRANSACTION_ID)))) {
+            return;
+        }
+        owed.add(event);
+        intent.write(transaction, owed);
+    }
+
+    /**
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @return the records the project's intent file still owes, in their order; empty if it does not exist
+     * @throws InternalFaultException if the transaction does not hold the project's lock
+     * @throws StoreRefusal           if the intent file is unreadable or of another format version, naming it
+     * @throws UncheckedIOException   if the intent file exists and cannot be read
+     */
+    public List<AuditEvent> owedAudit(LockTransaction transaction, String projectId) {
+        return heldIntent(transaction, projectId).read();
+    }
+
+    /**
+     * Hands the records the project's intent file owes over to the sink, in their order, and stops at the first the
+     * sink refuses with an {@link UncheckedIOException}, which is logged as deferred and stays owed; the intent file
+     * is removed once every record was handed over. Any other failure of the sink propagates and leaves the intent.
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @param sink        the audit sink
+     * @return the records that were handed over, in their order; empty if nothing was owed or the sink refused the
+     *         first
+     * @throws InternalFaultException if the transaction does not hold the project's lock; nothing was handed over then
+     * @throws StoreRefusal           if the intent file is unreadable or of another format version, naming it;
+     *                                nothing was handed over then
+     * @throws UncheckedIOException   if the intent file cannot be read, rewritten or removed
+     */
+    public List<AuditEvent> deliverOwedAudit(LockTransaction transaction, String projectId, AuditSink sink) {
+        Objects.requireNonNull(sink, "sink");
+        var intent = heldIntent(transaction, projectId);
+        try {
+            return intent.handOver(transaction, intent.read(), sink);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Audit intent cannot be removed: " + intent.file(), e);
+        }
+    }
+
+    /**
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @return whether the project's enrolment file or its sidecar exists
+     * @throws InternalFaultException if the transaction does not hold the project's lock
+     */
+    public boolean exists(LockTransaction transaction, String projectId) {
+        var file = file(projectId);
+        StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
+        return Files.exists(file, LinkOption.NOFOLLOW_LINKS)
+                || Files.exists(sidecar(projectId), LinkOption.NOFOLLOW_LINKS);
     }
 
     /**
@@ -236,6 +353,16 @@ public final class EnrolmentStore {
 
     private AtomicStoreFile storeFile(Path store, String projectId) {
         return new AtomicStoreFile(store, lockKey(projectId));
+    }
+
+    private AuditIntentFile auditIntentFile(String projectId) {
+        return AuditIntentFile.beside(file(projectId), lockKey(projectId));
+    }
+
+    private AuditIntentFile heldIntent(LockTransaction transaction, String projectId) {
+        var intent = auditIntentFile(projectId);
+        StoreLockGuard.requireHeld(transaction, intent.file(), intent.lockKey());
+        return intent;
     }
 
     /**

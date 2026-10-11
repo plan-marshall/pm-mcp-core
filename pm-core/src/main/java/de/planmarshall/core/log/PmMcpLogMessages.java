@@ -186,6 +186,16 @@ public final class PmMcpLogMessages {
                 .identifier(62)
                 .template("Enrolment of project '%s' re-baselined")
                 .build();
+
+        /**
+         * Logged when a record that an earlier enrolment write owed (its hand-over was refused or stopped) is handed
+         * over by a later enrolment operation or by the recovery sweep.
+         */
+        public static final LogRecord ENROLMENT_AUDIT_REPLAYED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(63)
+                .template("Owed audit record '%s' of transaction '%s' for project '%s' handed over after an earlier refusal or stop")
+                .build();
     }
 
     /** WARN level messages. */
@@ -314,7 +324,9 @@ public final class PmMcpLogMessages {
 
         /**
          * Logged when the audit sink refused the record of a completed store mutation; the record stays owed in its
-         * durable intent and is handed over again by the next recovery or repair.
+         * durable intent and is handed over again by the next recovery or repair. It covers an enrolment write as well,
+         * whose record stays owed in the intent {@code <project_id>.json.audit-intent} and is handed over by the next
+         * enrolment operation of the project or the recovery sweep.
          */
         public static final LogRecord AUDIT_RECORD_DEFERRED = LogRecordModel.builder()
                 .prefix(PREFIX)
