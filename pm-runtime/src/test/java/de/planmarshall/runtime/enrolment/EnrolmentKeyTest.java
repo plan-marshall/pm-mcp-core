@@ -15,19 +15,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.io.IOException;
+import java.io.Serial;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
 import de.planmarshall.runtime.credentials.CredentialAccount;
@@ -38,8 +45,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -124,6 +134,190 @@ class EnrolmentKeyTest {
             keyring.entries.put(EnrolmentKey.ACCOUNT, "c2hvcnQ");
 
             assertEquals(Reason.INVALID, assertThrows(SecretStoreException.class, key::read).reason());
+        }
+
+        @Test
+        @DisplayName("a new key is stored under the global account and leaves the state directory empty")
+        void stateDirectoryUntouched() throws Exception {
+            key.readOrCreate();
+
+            assertAll(
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
+                    () -> assertEquals(List.of(), entries(state)));
+        }
+    }
+
+    @Nested
+    @DisplayName("in the key file, created atomically")
+    class AtomicKeyFile {
+
+        @Test
+        @DisplayName("leaves exactly the complete 0600 key file and no temporary file, created once and reused")
+        void completeKeyFileOnly() throws Exception {
+            var key = new EnrolmentKey(new FileStoreName(), state, USER, new SecureRandom());
+
+            var created = key.readOrCreate();
+            var again = key.readOrCreate();
+
+            var content = Files.readString(key.keyFile(), StandardCharsets.US_ASCII);
+            assertAll(
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)),
+                    () -> assertEquals("rw-------",
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
+                    () -> assertEquals(EnrolmentKey.KEY_BYTES, Base64.getUrlDecoder().decode(content).length),
+                    () -> assertArrayEquals(created.getEncoded(), Base64.getUrlDecoder().decode(content)),
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()));
+        }
+
+        @ParameterizedTest
+        @MethodSource("de.planmarshall.runtime.enrolment.EnrolmentKeyTest#partialKeys")
+        @DisplayName("a partial or malformed key file is refused as invalid and never replaced")
+        void partialKeyNeverReplaced(String content) throws Exception {
+            var key = new EnrolmentKey(new FileStoreName(), state, USER, new SecureRandom());
+            Files.writeString(key.keyFile(), content, StandardCharsets.US_ASCII);
+            Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-------"));
+            var before = Files.readAllBytes(key.keyFile());
+
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+
+            assertAll(
+                    () -> assertEquals(Reason.INVALID, thrown.reason()),
+                    () -> assertArrayEquals(before, Files.readAllBytes(key.keyFile())),
+                    () -> assertEquals("rw-------",
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a key file with a mode broader than 0600 is refused as insecure and never replaced")
+        void insecureKeyNeverReplaced() throws Exception {
+            var key = new EnrolmentKey(new FileStoreName(), state, USER, new SecureRandom());
+            key.readOrCreate();
+            Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-r--r--"));
+            var before = Files.readAllBytes(key.keyFile());
+
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+
+            assertAll(
+                    () -> assertEquals(Reason.INSECURE, thrown.reason()),
+                    () -> assertArrayEquals(before, Files.readAllBytes(key.keyFile())),
+                    () -> assertEquals("rw-r--r--",
+                            PosixFilePermissions.toString(Files.getPosixFilePermissions(key.keyFile()))),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)));
+        }
+
+        @Test
+        @DisplayName("a key file another writer created between the read and the create is kept and returned")
+        void racingWriterKept() throws Exception {
+            var keyFile = state.resolve(EnrolmentKey.FILE_NAME);
+            var otherKey = filled((byte) 7);
+            var racing = new FixedRandom((byte) 1, () -> writeKeyFile(keyFile, otherKey));
+            var key = new EnrolmentKey(new FileStoreName(), state, USER, racing);
+
+            var returned = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(otherKey, returned.getEncoded()),
+                    () -> assertEquals(encode(otherKey), Files.readString(keyFile, StandardCharsets.US_ASCII)),
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(state)));
+        }
+
+        @Test
+        @DisplayName("a key file that cannot be created in a missing directory leaves nothing behind")
+        void missingDirectoryLeavesNothing() {
+            var missing = state.resolve("absent-dir");
+            var key = new EnrolmentKey(new FileStoreName(), missing, USER, new FixedRandom((byte) 3, () -> {
+            }));
+
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+
+            assertFailedWithoutKey(thrown, key, encode(filled((byte) 3)));
+            assertFalse(Files.exists(missing));
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a key file that cannot be created in an unwritable directory leaves nothing behind")
+        void unwritableDirectoryLeavesNothing() throws Exception {
+            assumeFalse("root".equals(USER), "root writes into an unwritable directory");
+            var locked = Files.createDirectory(state.resolve("locked"));
+            Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("r-x------"));
+            var key = new EnrolmentKey(new FileStoreName(), locked, USER, new FixedRandom((byte) 5, () -> {
+            }));
+            try {
+                var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+
+                assertFailedWithoutKey(thrown, key, encode(filled((byte) 5)));
+                assertEquals(List.of(), entries(locked));
+            } finally {
+                Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwx------"));
+            }
+        }
+
+        private void assertFailedWithoutKey(SecretStoreException thrown, EnrolmentKey key, String encoded) {
+            assertAll(
+                    () -> assertEquals(Reason.FAILED, thrown.reason()),
+                    () -> assertTrue(thrown.getMessage().contains(key.keyFile().toString())),
+                    () -> assertFalse(thrown.getMessage().contains(encoded)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()),
+                    () -> assertTrue(TestLoggerFactory.getTestHandler()
+                            .resolveLogMessagesContaining(TestLogLevel.ERROR, encoded).isEmpty()),
+                    () -> assertFalse(Files.exists(key.keyFile())));
+        }
+    }
+
+    static Stream<String> partialKeys() {
+        return Stream.of("", "A".repeat(42), "not base64!");
+    }
+
+    private static List<String> entries(Path directory) throws IOException {
+        try (var listing = Files.list(directory)) {
+            return listing.map(entry -> entry.getFileName().toString()).sorted().toList();
+        }
+    }
+
+    private static byte[] filled(byte value) {
+        var bytes = new byte[EnrolmentKey.KEY_BYTES];
+        Arrays.fill(bytes, value);
+        return bytes;
+    }
+
+    private static String encode(byte[] key) {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(key);
+    }
+
+    private static void writeKeyFile(Path keyFile, byte[] key) {
+        try {
+            Files.writeString(keyFile, encode(key), StandardCharsets.US_ASCII);
+            Files.setPosixFilePermissions(keyFile, PosixFilePermissions.fromString("rw-------"));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * A random source of the tests: fills every key with one byte value, after running a hook. The key calls it after
+     * its read found no key and before it creates one, so the hook can play a racing writer.
+     */
+    private static final class FixedRandom extends SecureRandom {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        private final byte value;
+        private final transient Runnable beforeFill;
+
+        FixedRandom(byte value, Runnable beforeFill) {
+            this.value = value;
+            this.beforeFill = beforeFill;
+        }
+
+        @Override
+        public void nextBytes(byte[] bytes) {
+            beforeFill.run();
+            Arrays.fill(bytes, value);
         }
     }
 
@@ -213,40 +407,6 @@ class EnrolmentKeyTest {
             var missing = new EnrolmentKey(new FileStoreName(), state.resolve("absent-dir"), USER, new SecureRandom());
 
             assertEquals(Reason.FAILED, assertThrows(SecretStoreException.class, missing::readOrCreate).reason());
-        }
-    }
-
-    /** A keyring of the tests: entries in memory, an optional failure of every read, an optional refused write. */
-    private static final class InMemoryKeyring implements SecretStore {
-
-        private final Map<String, String> entries = new HashMap<>();
-        private SecretStoreException failure;
-        private boolean refusePut;
-
-        @Override
-        public String name() {
-            return SecretStore.KEYCHAIN;
-        }
-
-        @Override
-        public void put(CredentialAccount account, String secret) {
-            if (refusePut) {
-                throw new SecretStoreException(Reason.FAILED, "write refused");
-            }
-            entries.put(account.account(), secret);
-        }
-
-        @Override
-        public Optional<String> get(CredentialAccount account) {
-            if (failure != null) {
-                throw failure;
-            }
-            return Optional.ofNullable(entries.get(account.account()));
-        }
-
-        @Override
-        public boolean delete(CredentialAccount account) {
-            return entries.remove(account.account()) != null;
         }
     }
 

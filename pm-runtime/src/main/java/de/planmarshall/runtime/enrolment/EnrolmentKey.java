@@ -25,6 +25,7 @@ import java.util.Base64;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -46,6 +47,11 @@ import de.planmarshall.runtime.start.PosixModes;
  * base64url-encoded without padding. It is created on the first enrolment write and never replaced; only the runtime
  * reads it.
  * <p>
+ * The key file is created atomically: the key is written to a temporary file in the state directory with mode
+ * {@code 0600} and synced, published under its name by a hard link that never replaces an existing file, and the
+ * directory is synced. A crash therefore leaves the complete key or no key file. A temporary file a crash leaves
+ * behind holds only key material at mode {@code 0600} and is read by no path.
+ * <p>
  * A read has three outcomes: the key is present, it is absent, or it cannot be read (an insecure or malformed key
  * file, a failing keyring), which is a {@link SecretStoreException}; an absent key is never confused with an
  * unreadable one. The key never appears in a log record or an exception message. One instance serves the runtime, so
@@ -66,6 +72,9 @@ public final class EnrolmentKey {
 
     /** The length of the key in bytes. */
     static final int KEY_BYTES = 32;
+
+    /** The name prefix of the temporary file a new key file is written to, followed by a random UUID. */
+    static final String TEMPORARY_PREFIX = FILE_NAME + ".tmp.";
 
     private static final CuiLogger LOGGER = new CuiLogger(EnrolmentKey.class);
 
@@ -105,6 +114,11 @@ public final class EnrolmentKey {
 
     /**
      * Reads the key, creating it if it does not exist yet: the path of an enrolment write.
+     * <p>
+     * The key is read first, and only a key that does not exist is created: a key that exists but cannot be read (an
+     * insecure, partial or malformed key file, a failing keyring) is a {@link SecretStoreException} of the read and is
+     * never replaced. If another writer creates the key file between the read and the create, its key is kept and
+     * returned.
      *
      * @return the key
      * @throws SecretStoreException if the key exists and cannot be read, or cannot be created
@@ -166,21 +180,56 @@ public final class EnrolmentKey {
         }
     }
 
-    /** @return whether this call created the file; {@code false} if it existed already */
+    /**
+     * Creates the key file atomically: the key is written to a temporary file {@value #TEMPORARY_PREFIX}{@code <uuid>}
+     * beside it with mode {@code 0600} and synced, the temporary file is published by a hard link, and the state
+     * directory is forced to disk. A hard link never replaces an existing file, so a key another writer created first
+     * is kept, and the name it publishes holds the complete key or does not exist. A rename is not used: on POSIX it
+     * silently replaces an existing key file, and every HMAC written under the replaced key would be stranded. The
+     * temporary file is removed on success and on failure. This path never deletes or overwrites an existing key file:
+     * {@link #readOrCreate()} reads first, and a partial or unreadable key file is refused there, never replaced.
+     *
+     * @return whether this call created the file; {@code false} if it existed already
+     * @throws SecretStoreException with {@link SecretStoreException.Reason#FAILED} if the key file cannot be created
+     *                              (also on a file system without hard links; there is no non-atomic fallback), or if
+     *                              it was created and the state directory cannot be forced to disk
+     */
     private boolean writeKeyFile(String encoded) {
-        try (var channel = FileChannel.open(keyFile, Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
+        var temporary = keyFile.resolveSibling(TEMPORARY_PREFIX + UUID.randomUUID());
+        try {
+            try {
+                writeSynced(temporary, encoded);
+                Files.createLink(keyFile, temporary);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        } catch (FileAlreadyExistsException _) {
+            return false;
+        } catch (IOException | UnsupportedOperationException e) {
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED, "key file %s cannot be created"
+                    .formatted(keyFile), e);
+        }
+        forceStateDirectory();
+        return true;
+    }
+
+    private static void writeSynced(Path file, String encoded) throws IOException {
+        try (var channel = FileChannel.open(file, Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
                      PosixModes.fileAttribute())) {
             var buffer = ByteBuffer.wrap(encoded.getBytes(StandardCharsets.US_ASCII));
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
             }
             channel.force(true);
-            return true;
-        } catch (FileAlreadyExistsException _) {
-            return false;
+        }
+    }
+
+    private void forceStateDirectory() {
+        try (var directory = FileChannel.open(keyFile.getParent(), StandardOpenOption.READ)) {
+            directory.force(true);
         } catch (IOException e) {
-            throw new SecretStoreException(SecretStoreException.Reason.FAILED, "key file %s cannot be created"
-                    .formatted(keyFile), e);
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                    "key file %s exists, but its directory cannot be forced to disk".formatted(keyFile), e);
         }
     }
 
