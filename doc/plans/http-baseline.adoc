@@ -1,0 +1,29 @@
+= HTTP baseline
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `http-baseline`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 2
+Where:: pm-provider-ci, pm-provider-github, pm-provider-gitlab (tests and test dependencies only)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* Every HTTP call goes through `cui-http`. `CiHttpClient` of `pm-provider-ci` already sends every request through the `HttpHandler` of `cui-http`, and the GitHub and GitLab clients reach HTTP through it; one guard test pins that, and no production code changes.
+* Every test that involves HTTP runs against `cui-test-mockwebserver-junit5`. The hand-made `FakeServer` doubles on `com.sun.net.httpserver.HttpServer` of the three provider modules are deleted; each test class that used one carries `@EnableMockWebServer` and serves its canned responses from its own dispatcher, with no helper class. The library is a test-scope dependency of the three modules, its version managed by the parent chain.
+* The cross-origin tests keep their meaning: the one mock web server is addressed as `127.0.0.1` and as `localhost`, two origins on one machine.
+* Out of slice: `pm-provider-sonar`, `pm-provider-git` and `pm-runtime`, which hold no HTTP test server; `FakeBus` of `pm-runtime`, a D-Bus fake on a Unix socket and not HTTP; any production change in `CiHttpClient`.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2] (`cui-http` for the provider clients; tokens only to their origin); link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3] (JUnit 5 suites per module on the `cuioss` testing standards); link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-1[PM-IMPL-1] (provider clients verified against recorded responses)
+* Specification: link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure] (the provider modules), read and unchanged
+* Watch: none
+* No statement of `plan-marshall-documentation` changes by this package: the requirements above already state what the code now satisfies, and no document names `FakeServer` or `com.sun.net.httpserver`. The rule that HTTP tests run on `cui-test-mockwebserver-junit5` is the operator's rule of 2026-10-09.
+
+== Done When
+
+The guard test `CiHttpClientTest` (`sendsThroughCuiHttp`) proves the send path runs through `cui-http`; no class named `FakeServer` and no import of `com.sun.net.httpserver` remain in the repository; the provider tests pass on the mock web server with their former test count, `CiHttpClientTest` with one more.
