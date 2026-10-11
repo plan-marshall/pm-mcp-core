@@ -9,9 +9,10 @@
  */
 package de.planmarshall.core.analysis;
 
-import de.planmarshall.core.findings.Finding;
 import java.util.List;
 import java.util.Objects;
+
+import de.planmarshall.core.findings.Finding;
 
 /**
  * The result of a call to a code analysis provider with its closed outcome (PM-IMPL-1).

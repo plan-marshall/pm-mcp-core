@@ -17,13 +17,6 @@ import com.networknt.schema.InputFormat;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
-import de.planmarshall.core.SpecificationDocument;
-import de.planmarshall.core.analysis.AnalysisResult.Comparator;
-import de.planmarshall.core.analysis.AnalysisResult.Condition;
-import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
-import de.planmarshall.core.analysis.AnalysisResult.Gate;
-import de.planmarshall.core.analysis.AnalysisResult.GateResult;
-import de.planmarshall.core.findings.FindingScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +27,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.SpecificationDocument;
+import de.planmarshall.core.analysis.AnalysisResult.Comparator;
+import de.planmarshall.core.analysis.AnalysisResult.Condition;
+import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
+import de.planmarshall.core.analysis.AnalysisResult.Gate;
+import de.planmarshall.core.analysis.AnalysisResult.GateResult;
+import de.planmarshall.core.findings.FindingScope;
 
 /**
  * Every line {@link AnalysisResultCodec} writes is valid against the schema {@code AnalysisResult} of the

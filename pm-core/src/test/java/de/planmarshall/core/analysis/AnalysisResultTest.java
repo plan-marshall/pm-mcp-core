@@ -15,12 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.planmarshall.core.analysis.AnalysisResult.Comparator;
-import de.planmarshall.core.analysis.AnalysisResult.Condition;
-import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
-import de.planmarshall.core.analysis.AnalysisResult.Gate;
-import de.planmarshall.core.analysis.AnalysisResult.GateResult;
-import de.planmarshall.core.findings.FindingScope;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +28,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.analysis.AnalysisResult.Comparator;
+import de.planmarshall.core.analysis.AnalysisResult.Condition;
+import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
+import de.planmarshall.core.analysis.AnalysisResult.Gate;
+import de.planmarshall.core.analysis.AnalysisResult.GateResult;
+import de.planmarshall.core.findings.FindingScope;
 
 /**
  * The analysis result record with the consistency rules of the specification and the structural rules of its schema

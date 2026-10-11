@@ -9,9 +9,10 @@
  */
 package de.planmarshall.core.analysis;
 
+import java.util.List;
+
 import de.planmarshall.core.findings.Finding;
 import de.planmarshall.core.findings.FindingScope;
-import java.util.List;
 
 /**
  * A code analysis provider (PM-IMPL-1), implemented by a provider module and registered under its {@link #id()} in

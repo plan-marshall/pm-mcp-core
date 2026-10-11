@@ -9,7 +9,6 @@
  */
 package de.planmarshall.core.analysis;
 
-import de.planmarshall.core.findings.FindingSourceKey;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -17,6 +16,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+
+import de.planmarshall.core.findings.FindingSourceKey;
 
 /**
  * The code analysis providers of a runtime, each found by its id (PM-IMPL-1). The members are the ones passed to

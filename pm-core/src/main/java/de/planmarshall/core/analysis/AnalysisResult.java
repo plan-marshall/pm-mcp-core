@@ -9,8 +9,6 @@
  */
 package de.planmarshall.core.analysis;
 
-import de.planmarshall.core.findings.FindingScope;
-import de.planmarshall.core.findings.FindingSourceKey;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -19,6 +17,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Builder;
+
+import de.planmarshall.core.findings.FindingScope;
+import de.planmarshall.core.findings.FindingSourceKey;
 
 /**
  * One observation of one code analysis provider for one target, as a line of {@code analysis.jsonl} records it
@@ -51,8 +52,8 @@ import lombok.Builder;
  */
 @Builder(toBuilder = true)
 public record AnalysisResult(int formatVersion, String provider, FindingScope target, AnalysisStatus status,
-        Gate gate, CountStatus countStatus, Long newCodeIssueCount, long issuesFetched, boolean workPerformed,
-        String analysisRef, Instant observedAt) {
+Gate gate, CountStatus countStatus, Long newCodeIssueCount, long issuesFetched, boolean workPerformed,
+String analysisRef, Instant observedAt) {
 
     /** The only version of the record format. */
     public static final int FORMAT_VERSION = 1;
@@ -144,7 +145,7 @@ public record AnalysisResult(int formatVersion, String provider, FindingScope ta
      * @param result     whether the condition passed or failed
      */
     public record Condition(String metric, Comparator comparator, String threshold, String actual,
-            GateResult result) {
+    GateResult result) {
 
         /**
          * @throws NullPointerException     if a member other than {@code actual} is {@code null}

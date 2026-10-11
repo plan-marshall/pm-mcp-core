@@ -14,12 +14,6 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import de.planmarshall.core.analysis.AnalysisResult.Comparator;
-import de.planmarshall.core.analysis.AnalysisResult.Condition;
-import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
-import de.planmarshall.core.analysis.AnalysisResult.Gate;
-import de.planmarshall.core.analysis.AnalysisResult.GateResult;
-import de.planmarshall.core.findings.FindingScope;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,6 +28,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
+
+import de.planmarshall.core.analysis.AnalysisResult.Comparator;
+import de.planmarshall.core.analysis.AnalysisResult.Condition;
+import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
+import de.planmarshall.core.analysis.AnalysisResult.Gate;
+import de.planmarshall.core.analysis.AnalysisResult.GateResult;
+import de.planmarshall.core.findings.FindingScope;
 
 /**
  * Writes and reads the canonical JSON line of an {@link AnalysisResult} (PM-IMPL-2), one line of

@@ -14,6 +14,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
 import de.planmarshall.core.analysis.AnalysisResult.CountStatus;
 import de.planmarshall.core.findings.Finding;
 import de.planmarshall.core.findings.FindingScope;
@@ -23,13 +31,6 @@ import de.planmarshall.core.findings.Resolution;
 import de.planmarshall.core.findings.ResolveState;
 import de.planmarshall.core.findings.Severity;
 import de.planmarshall.core.findings.TransmitOutcome;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * The code analysis provider contract (PM-IMPL-1): a fixture provider answers both operations with each of the five
