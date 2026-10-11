@@ -40,6 +40,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>de.cuioss.test</groupId>
+            <artifactId>cui-test-mockwebserver-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
