@@ -107,6 +107,7 @@ public final class WorkflowParser {
     private static final String EXPECTED_BUT_FOUND = "expected %s but found '%s'";
     private static final String EXPECTED_BUT_UNIT_ENDS = "expected %s but the unit ends";
     private static final String PARAMETER_DECLARED_TWICE = "the parameter '%s' is declared twice";
+    private static final String EXPECTATION_PARAMETER_NAME = "a parameter name";
 
     private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
             KEYWORD_SCOPE, "param", KEYWORD_RESULT, KEYWORD_DECLARE, "start", "migrate", KEYWORD_STATE, "terminal",
@@ -841,10 +842,10 @@ public final class WorkflowParser {
     }
 
     private Token paramName(LineCursor line) {
-        var name = line.next("a parameter name");
-        rejectReserved(name, "a parameter name");
+        var name = line.next(EXPECTATION_PARAMETER_NAME);
+        rejectReserved(name, EXPECTATION_PARAMETER_NAME);
         if (name.kind() != Token.Kind.IDENT || !PARAM_NAME.matcher(name.text()).matches()) {
-            throw refuse(RefusalRule.STRUCTURE, name, EXPECTED_BUT_FOUND, "a parameter name", name.text());
+            throw refuse(RefusalRule.STRUCTURE, name, EXPECTED_BUT_FOUND, EXPECTATION_PARAMETER_NAME, name.text());
         }
         return name;
     }
