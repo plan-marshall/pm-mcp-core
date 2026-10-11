@@ -21,8 +21,13 @@ import de.planmarshall.core.store.LockKey;
  * One audit record as its producer hands it to the {@link AuditSink} (PM-IMPL-7). It carries what the producer
  * knows; what makes a record of the audit log out of it (its identifier, its instant, its place in the chain) is
  * added by the audit store.
+ * <p>
+ * Every record is built by the factory of its event, which fixes its name, category and outcome and exactly the
+ * details the specification names; the enrolment records (PM-EXEC-2, PM-SEC-4, PM-SEC-5) carry the project and, for
+ * a refusal, its reason. The operator command that resolves a refused enrolment is named by the refusal, not by its
+ * record.
  *
- * @param event    the name of the event
+ * @param event   the name of the event
  * @param category the category of the event
  * @param outcome  the outcome the event records
  * @param details  the details of the event, unmodifiable
@@ -84,6 +89,39 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The detail of a cross-scope reconciliation that names the reconciliation rule that applied. */
     public static final String DETAIL_RECONCILIATION = "reconciliation";
+
+    /** The name of the event that records an enrolment refused because it does not match its sidecar. */
+    public static final String ENROLMENT_TAMPERED = "enrolment_tampered";
+
+    /** The name of the event that records an enrolment file or sidecar refused by a per-use check. */
+    public static final String ENROLMENT_INSECURE = "enrolment_insecure";
+
+    /** The name of the event that records an enrolment file and its sidecar written by {@code enrol}. */
+    public static final String ENROLMENT_WRITTEN = "enrolment_written";
+
+    /** The name of the event that records an enrolment file and its sidecar removed by {@code unenrol}. */
+    public static final String ENROLMENT_REMOVED = "enrolment_removed";
+
+    /** The name of the event that records the sidecar of an enrolment rewritten by {@code accept-edit enrolment}. */
+    public static final String ENROLMENT_REBASELINED = "enrolment_rebaselined";
+
+    /** The name of the event that records an {@code unenrol} refused while the project has live work. */
+    public static final String UNENROL_REFUSED = "unenrol_refused";
+
+    /** The category of the events of the integrity and per-use checks. */
+    public static final String CATEGORY_SECURITY = "security";
+
+    /** The category of the events of the operator verbs. */
+    public static final String CATEGORY_OPERATOR = "operator";
+
+    /** The detail that names the project by its id. */
+    public static final String DETAIL_PROJECT_ID = "project_id";
+
+    /** The detail of a refusal that names why it was refused. */
+    public static final String DETAIL_REASON = "reason";
+
+    /** The reason of an {@code unenrol} refused while the project has live work. */
+    public static final String REASON_SCOPE_ACTIVE = "scope_active";
 
     /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
@@ -152,6 +190,68 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         return new AuditEvent(CROSS_SCOPE_RECONCILED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_RECONCILIATION, reconciliation, DETAIL_STORE, store, DETAIL_TRANSACTION_ID,
                         transactionId));
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @param reason    what failed: the HMAC, the recorded size or SHA-256, a sidecar without its file, a file without
+     *                  its sidecar
+     * @return the record of the enrolment refused as tampered
+     */
+    public static AuditEvent enrolmentTampered(String projectId, String reason) {
+        return refusal(ENROLMENT_TAMPERED, CATEGORY_SECURITY, projectId, reason);
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @param reason    what failed: a foreign owner, a mode broader than {@code 0600}, a symbolic link
+     * @return the record of the enrolment refused by a per-use check
+     */
+    public static AuditEvent enrolmentInsecure(String projectId, String reason) {
+        return refusal(ENROLMENT_INSECURE, CATEGORY_SECURITY, projectId, reason);
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @return the record of the enrolment file and its sidecar written
+     */
+    public static AuditEvent enrolmentWritten(String projectId) {
+        return operatorSucceeded(ENROLMENT_WRITTEN, projectId);
+    }
+
+    /**
+     * @param projectId the unenrolled project
+     * @return the record of the enrolment file and its sidecar removed
+     */
+    public static AuditEvent enrolmentRemoved(String projectId) {
+        return operatorSucceeded(ENROLMENT_REMOVED, projectId);
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @return the record of the sidecar of the enrolment rewritten over the current file
+     */
+    public static AuditEvent enrolmentRebaselined(String projectId) {
+        return operatorSucceeded(ENROLMENT_REBASELINED, projectId);
+    }
+
+    /**
+     * @param projectId the project whose {@code unenrol} was refused
+     * @return the record of the {@code unenrol} refused with {@link #REASON_SCOPE_ACTIVE}
+     */
+    public static AuditEvent unenrolRefused(String projectId) {
+        return refusal(UNENROL_REFUSED, CATEGORY_OPERATOR, projectId, REASON_SCOPE_ACTIVE);
+    }
+
+    private static AuditEvent refusal(String event, String category, String projectId, String reason) {
+        return new AuditEvent(event, category, OUTCOME_REFUSED,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_REASON,
+                        Objects.requireNonNull(reason, DETAIL_REASON)));
+    }
+
+    private static AuditEvent operatorSucceeded(String event, String projectId) {
+        return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId")));
     }
 
     private static String lockPath(LockKey key) {
