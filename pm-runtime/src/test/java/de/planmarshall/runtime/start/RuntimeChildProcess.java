@@ -16,8 +16,13 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 
 
 import de.planmarshall.api.MachinePaths;
@@ -38,6 +43,8 @@ import de.planmarshall.api.MachinePaths;
  * and before the token is written.</li>
  * <li>{@value #STARTUP_READY}: steps 1 to 5 run to {@link StartupSequence.Outcome.Ready}; blocked after them with the
  * lock held and the token written.</li>
+ * <li>{@value #DRAIN}: steps 1 to 5, a socket and a runtime record as steps 6 and 7 leave them, then a
+ * {@link RuntimeDrain} blocked in the drain wait on a participant that never gets quiet.</li>
  * </ul>
  */
 final class RuntimeChildProcess {
@@ -47,6 +54,9 @@ final class RuntimeChildProcess {
 
     /** Mode: blocked after the startup sequence reached ready. */
     static final String STARTUP_READY = "startup-ready";
+
+    /** Mode: blocked in the drain wait on a participant that never gets quiet. */
+    static final String DRAIN = "drain";
 
     /** Exit code of a child whose standard input ended while it was blocked. */
     static final int EXIT_ORPHANED = 3;
@@ -97,7 +107,59 @@ final class RuntimeChildProcess {
                 return awaitKill();
             }, STARTUP);
             case STARTUP_READY -> startup(paths, markers, AuditChainVerification.NONE, STARTUP_READY);
+            case DRAIN -> drain(paths, markers);
             default -> throw new IllegalArgumentException("unknown mode " + mode);
+        }
+    }
+
+    private static void drain(MachinePaths paths, PrintStream markers) throws IOException {
+        markers.println(before(DRAIN));
+        var outcome = new StartupSequence(paths, System.getProperty("user.name"), AuditChainVerification.NONE, _ -> {
+        }).run(new SecureRandom());
+        if (!(outcome instanceof StartupSequence.Outcome.Ready(var lock, var _))) {
+            throw new IllegalStateException("startup did not reach ready: " + outcome);
+        }
+        // Steps 6 and 7 of a real runtime: the socket and the runtime record exist while it drains
+        Files.createFile(paths.socket(), PosixModes.fileAttribute());
+        Files.writeString(paths.runtimeRecord(), "{}");
+        Files.setPosixFilePermissions(paths.runtimeRecord(), PosixModes.FILE);
+        new RuntimeDrain(paths, lock, List.of(new NeverQuiet(markers)), Duration.ofSeconds(DrainTimeout.DEFAULT_SECONDS),
+                Clock.systemUTC()).drain();
+        throw new IllegalStateException("the drain ended although its participant never got quiet");
+    }
+
+    /** The participant of mode {@value #DRAIN}: it writes the marker inside the drain wait and blocks there. */
+    private record NeverQuiet(PrintStream markers) implements DrainParticipant {
+
+        @Override
+        public String name() {
+            return "never-quiet";
+        }
+
+        @Override
+        public void stopAdmitting() {
+            // admits nothing
+        }
+
+        @Override
+        public void endIdle() {
+            // nothing idle
+        }
+
+        @Override
+        public boolean awaitQuiet(Instant deadline) {
+            markers.println(inside(DRAIN));
+            return awaitKill();
+        }
+
+        @Override
+        public List<String> terminateRemaining() {
+            return List.of();
+        }
+
+        @Override
+        public void close() {
+            // nothing to close
         }
     }
 

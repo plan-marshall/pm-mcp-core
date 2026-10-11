@@ -273,6 +273,13 @@ public final class PmMcpLogMessages {
                 .template("Record of the broken audit chain not handed over to the audit sink: %s")
                 .build();
 
+        /** Logged when a drain participant fails in a drain phase; the drain goes on and records the failure. */
+        public static final LogRecord DRAIN_PARTICIPANT_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(158)
+                .template("Drain participant '%s' failed in %s: %s")
+                .build();
+
         // WS-02, store substrate: identifiers 160-169
 
         /**

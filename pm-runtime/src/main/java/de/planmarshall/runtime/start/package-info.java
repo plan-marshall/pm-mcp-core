@@ -22,6 +22,14 @@
  * logged and handed to the audit sink as an {@code audit_chain_broken} record; it is never repaired and never stops
  * the start, and the outcome of the verification is carried in the ready outcome for the status to show.
  * <p>
+ * The drain ({@link de.planmarshall.runtime.start.RuntimeDrain}) ends the runtime on {@code SIGTERM}/{@code SIGINT}
+ * and on the stop endpoint: jobs, workers, the LSP pool and the web listener join it as
+ * {@link de.planmarshall.runtime.start.DrainParticipant}s, which stop admitting, end what is idle, get quiet within
+ * the drain timeout or have what still runs terminated, and close. The drain then removes the runtime record, the
+ * token and the socket and releases the singleton lock. The drain timeout is {@code drain_timeout_seconds} of
+ * {@code machine-config.json} ({@link de.planmarshall.runtime.start.DrainTimeout}), 600 seconds by default; an
+ * invalid value falls back to the default.
+ * <p>
  * Besides the on-demand start, the runtime can register itself as a per-user service that starts it at login and
  * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
  * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,
