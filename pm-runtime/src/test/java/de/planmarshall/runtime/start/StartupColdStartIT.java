@@ -15,9 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
@@ -42,12 +46,15 @@ import org.junit.jupiter.api.Timeout;
  * The JVM guard of {@code PM-TECH-3}: steps 1 to 5 of the startup sequence do work whose cost does not grow with the
  * number of enrolled projects. The steps run, with the {@link AuditChainVerification#NONE} seam, on fresh bases with
  * {@value #NO_PROJECTS} and with {@value #SEEDED_PROJECTS} enrolled projects, each with an enrolment file and a
- * per-project machine store directory. The fixture data is written by the test for the test.
+ * per-project machine store directory. The fixture data is written by the test for the test, and settled on disk
+ * before the timed region, so that the fsync of step 5 meets the same journal state for both populations.
  * <p>
  * Every run starts on a clean base, and the populations alternate run by run so that a drift of the JVM (JIT, GC)
- * meets both alike. After {@value #WARM_UP_RUNS} warm-up runs of each population, the medians of
- * {@value #MEASURED_RUNS} measured runs each must agree within {@link #RELATIVE_TOLERANCE} of the larger median plus
- * {@link #ABSOLUTE_TOLERANCE}. The JVM figure is logged for the documentation.
+ * meets both alike. After {@value #WARM_UP_RUNS} warm-up runs of each population, the lower quartiles of
+ * {@value #MEASURED_RUNS} measured runs each must agree within {@link #RELATIVE_TOLERANCE} of the larger one plus
+ * {@link #ABSOLUTE_TOLERANCE} (see {@link ColdStartComparison}): noise of a shared machine only adds time, so the
+ * fastest runs estimate the cost of the steps. The medians, the documented JVM figure, are logged beside the asserted
+ * quartiles.
  * <p>
  * A matched control makes the pass non-vacuous: after a start on a seeded base no seeded file has been read (step 4
  * reads no project file), shown by the access times of the seeded files, while a file read on purpose afterwards
@@ -71,10 +78,10 @@ class StartupColdStartIT {
     /** Measured runs of each population. */
     static final int MEASURED_RUNS = 15;
 
-    /** How far the two medians may lie apart, relative to the larger one. */
+    /** How far the two compared statistics may lie apart, relative to the larger one. */
     static final double RELATIVE_TOLERANCE = 0.5;
 
-    /** How far the two medians may lie apart besides the relative tolerance: noise of the file system. */
+    /** How far the two compared statistics may lie apart besides the relative tolerance: noise of the file system. */
     static final Duration ABSOLUTE_TOLERANCE = Duration.ofMillis(5);
 
     private static final String USER = System.getProperty("user.name");
@@ -91,28 +98,64 @@ class StartupColdStartIT {
     }
 
     /**
-     * Creates a fresh base with the given number of enrolled projects.
+     * Creates a fresh base with the given number of enrolled projects and settles it on disk.
+     * <p>
+     * Step 5 ends in an fsync, and an fsync on a journalling file system commits the pending journal: everything
+     * written but not yet on disk. Without settling, the timed region of a seeded run would pay for the seeded files
+     * and directories (and that of an empty run for the deletion of the previous base), so the measured difference
+     * would scale with the backlog of the harness rather than with the work of steps 1 to 5. Every seeded file is
+     * therefore forced once when it is written, and the directories of the base and the temporary directory that
+     * holds it are forced afterwards, all before the timed region.
      *
      * @return the seeded files: the enrolment file and the store identity of every project
      */
     private List<Path> seed(Path base, int projects) throws IOException {
         bases.add(base);
-        Files.createDirectory(base, PosixModes.directoryAttribute());
+        var directories = new ArrayList<Path>();
+        directories.add(Files.createDirectory(base, PosixModes.directoryAttribute()));
         var enrolments = Files.createDirectory(base.resolve(BaseDirectoryCheck.ENROLMENTS),
                 PosixModes.directoryAttribute());
+        directories.add(enrolments);
         var seeded = new ArrayList<Path>();
         for (var i = 0; i < projects; i++) {
             var projectId = "project-%03d".formatted(i);
-            seeded.add(Files.writeString(enrolments.resolve(projectId + ".json"),
+            seeded.add(writeSettled(enrolments.resolve(projectId + ".json"),
                     "{\"project_id\":\"" + projectId + "\",\"root\":\"/work/" + projectId + "\"}"));
             var store = Files.createDirectories(base.resolve("projects").resolve(projectId));
-            seeded.add(Files.writeString(store.resolve("store.json"), "{\"project_id\":\"" + projectId + "\"}"));
+            directories.add(store);
+            seeded.add(writeSettled(store.resolve("store.json"), "{\"project_id\":\"" + projectId + "\"}"));
         }
-        for (var file : seeded) {
-            Files.getFileAttributeView(file, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
-                    .setTimes(FileTime.from(SEEDED_MODIFIED), FileTime.from(SEEDED_ACCESSED), null);
+        if (projects > 0) {
+            directories.add(base.resolve("projects"));
+        }
+        directories.add(base.getParent());
+        for (var directory : directories.reversed()) {
+            force(directory);
         }
         return seeded;
+    }
+
+    /**
+     * Writes a seeded file, sets its times so that a later read shows, and forces content and metadata to disk once.
+     */
+    private static Path writeSettled(Path file, String content) throws IOException {
+        try (var channel = FileChannel.open(file, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+            var buffer = ByteBuffer.wrap(content.getBytes(StandardCharsets.UTF_8));
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
+            Files.getFileAttributeView(file, BasicFileAttributeView.class, LinkOption.NOFOLLOW_LINKS)
+                    .setTimes(FileTime.from(SEEDED_MODIFIED), FileTime.from(SEEDED_ACCESSED), null);
+            channel.force(true);
+        }
+        return file;
+    }
+
+    /** Forces a directory, its entries included, to disk. */
+    private static void force(Path directory) throws IOException {
+        try (var channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
+        }
     }
 
     /** Runs steps 1 to 5 on the base, closes the lock and returns the time of the steps alone. */
@@ -140,19 +183,13 @@ class StartupColdStartIT {
         }
     }
 
-    private static long median(List<Long> samples) {
-        var sorted = samples.stream().mapToLong(Long::longValue).sorted().toArray();
-        var middle = sorted.length / 2;
-        return sorted.length % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-    }
-
     private static Instant accessed(Path file) throws IOException {
         return Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS).lastAccessTime()
                 .toInstant();
     }
 
     @Test
-    @DisplayName("the median of steps 1 to 5 with 300 enrolled projects agrees with the median with none")
+    @DisplayName("the lower quartile of steps 1 to 5 with 300 enrolled projects agrees with the one with none")
     void shouldNotGrowWithEnrolledProjects() throws Exception {
         for (var i = 0; i < WARM_UP_RUNS; i++) {
             coldStart(NO_PROJECTS);
@@ -165,17 +202,18 @@ class StartupColdStartIT {
             seeded.add(coldStart(SEEDED_PROJECTS));
         }
 
-        var emptyMedian = median(empty);
-        var seededMedian = median(seeded);
-        var allowed = (long) (RELATIVE_TOLERANCE * Math.max(emptyMedian, seededMedian))
-                + ABSOLUTE_TOLERANCE.toNanos();
+        var verdict = ColdStartComparison.compare(empty, seeded, RELATIVE_TOLERANCE, ABSOLUTE_TOLERANCE);
         LOGGER.info("JVM cold start, steps 1 to 5, median of %s runs: %s us with %s projects, %s us with %s projects",
-                MEASURED_RUNS, TimeUnit.NANOSECONDS.toMicros(emptyMedian), NO_PROJECTS,
-                TimeUnit.NANOSECONDS.toMicros(seededMedian), SEEDED_PROJECTS);
+                MEASURED_RUNS, TimeUnit.NANOSECONDS.toMicros(verdict.emptyMedian()), NO_PROJECTS,
+                TimeUnit.NANOSECONDS.toMicros(verdict.seededMedian()), SEEDED_PROJECTS);
+        LOGGER.info("JVM cold start, steps 1 to 5, lower quartile of %s runs (asserted): %s us with %s projects,"
+                + " %s us with %s projects, allowed difference %s us", MEASURED_RUNS,
+                TimeUnit.NANOSECONDS.toMicros(verdict.emptyQuartile()), NO_PROJECTS,
+                TimeUnit.NANOSECONDS.toMicros(verdict.seededQuartile()), SEEDED_PROJECTS,
+                TimeUnit.NANOSECONDS.toMicros(verdict.allowed()));
 
-        assertTrue(Math.abs(seededMedian - emptyMedian) <= allowed,
-                () -> "medians %d ns (%d projects) and %d ns (%d projects) differ by more than %d ns".formatted(
-                        emptyMedian, NO_PROJECTS, seededMedian, SEEDED_PROJECTS, allowed));
+        assertTrue(verdict.agrees(), () -> "the cold start grows with the enrolled projects: "
+                + verdict.describe(NO_PROJECTS, SEEDED_PROJECTS));
     }
 
     @Test
