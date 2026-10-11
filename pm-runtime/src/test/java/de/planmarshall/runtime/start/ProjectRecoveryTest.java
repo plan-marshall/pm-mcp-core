@@ -165,12 +165,12 @@ class ProjectRecoveryTest {
         @Test
         @DisplayName("the project recovery wait is 10 seconds")
         void shouldWaitTenSeconds() {
-            assertEquals(Duration.ofSeconds(10), ProjectRecovery.RECOVERY_WAIT);
+            assertEquals(ProjectRecovery.RECOVERY_WAIT, Duration.ofSeconds(10));
         }
 
         @Test
         @DisplayName("a step blocked past the wait yields Recovering; a repeated call after the step finished is served")
-        void shouldAnswerRecoveringThenServe() throws InterruptedException {
+        void shouldAnswerRecoveringThenServe() throws Exception {
             var lastStepDone = new CountDownLatch(1);
             var recovery = new ProjectRecovery(enrolled("p1"), steps(Map.of(
                     Name.JOBS_AND_WORKERS, _ -> blockOnGate(),

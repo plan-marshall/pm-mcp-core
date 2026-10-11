@@ -60,6 +60,14 @@
  * generations; both are named seams until the pending store and the queue exist. Both durations are compiled
  * constants, not configuration. A failing step is logged and does not stop the run; the drain stops the schedule.
  * <p>
+ * The version-mismatch detection ({@link de.planmarshall.runtime.start.RelayVersionCheck}) compares the
+ * {@code PM-MCP-Relay-Version} header of every relayed request with the version of the runtime; a request without
+ * the header is ignored. A relay of another version forwards normally. The mismatch is operator-only
+ * ({@code PM-DIST-4}): once per distinct relay version per runtime instance it is handed to the audit sink as a
+ * {@code relay_version_mismatch} record with both versions and logged, and the latest mismatch is kept, with the
+ * recommended {@code pm-operator drain}, for {@code pm-operator status}. No representation carries it, and the
+ * detection state is not persisted.
+ * <p>
  * Besides the on-demand start, the runtime can register itself as a per-user service that starts it at login and
  * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
  * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,

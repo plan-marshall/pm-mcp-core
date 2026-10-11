@@ -27,6 +27,7 @@ import java.util.List;
 
 
 import de.planmarshall.api.MachinePaths;
+import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.runtime.lock.FileLockManager;
 
@@ -59,6 +60,9 @@ import de.planmarshall.runtime.lock.FileLockManager;
  * to the plan {@value #DERIVED_PLAN}, blocked between the authoritative and the derived write.</li>
  * <li>{@value #SWEEP}: a {@link PeriodicSweep} run whose step ({@link #removingStep(Path, Runnable)}) removes the
  * aged records of {@link #pendingRecords(Path)} one at a time, blocked after the first removal.</li>
+ * <li>{@value #VERSION}: a {@link RelayVersionCheck} of runtime version {@value #CHILD_RUNTIME_VERSION} that observed
+ * the mismatching relay version {@value #MISMATCHING_RELAY} into the file-backed sink {@link #recordingSink(Path)},
+ * blocked after the record.</li>
  * </ul>
  */
 final class RuntimeChildProcess {
@@ -95,6 +99,15 @@ final class RuntimeChildProcess {
 
     /** Mode: blocked in a periodic sweep after its first removal. */
     static final String SWEEP = "sweep";
+
+    /** Mode: blocked after a relay version mismatch was recorded. */
+    static final String VERSION = "version";
+
+    /** The runtime version of the mode {@value #VERSION}. */
+    static final String CHILD_RUNTIME_VERSION = "0.4.0";
+
+    /** The relay version the mode {@value #VERSION} observes, different from {@value #CHILD_RUNTIME_VERSION}. */
+    static final String MISMATCHING_RELAY = "0.3.2";
 
     /** The content the modes {@value #ROLLFORWARD} and {@value #ORDERED_WRITE} write. */
     static final byte[] WRITTEN = "{\"state\":\"written\"}".getBytes(StandardCharsets.UTF_8);
@@ -154,6 +167,7 @@ final class RuntimeChildProcess {
             case ROLLFORWARD -> rollForward(paths.base(), markers);
             case ORDERED_WRITE -> orderedWrite(paths.base(), markers);
             case SWEEP -> sweep(paths.base(), markers);
+            case VERSION -> version(paths.base(), markers);
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         }
     }
@@ -200,6 +214,41 @@ final class RuntimeChildProcess {
                 }
             }
         };
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the file to which {@link #recordingSink(Path)} appends one line per audit record
+     */
+    static Path versionRecords(Path base) {
+        return base.resolve("version-records");
+    }
+
+    /**
+     * The audit sink of the mode {@value #VERSION}, also used by the next instance: it appends each record as the line
+     * {@code "event relay_version runtime_version"} to {@link #versionRecords(Path)}.
+     *
+     * @param base the base directory of the runtime
+     * @return the recording sink
+     */
+    static AuditSink recordingSink(Path base) {
+        return event -> {
+            var line = event.event() + " " + event.details().get(RelayVersionCheck.DETAIL_RELAY_VERSION) + " "
+                    + event.details().get(RelayVersionCheck.DETAIL_RUNTIME_VERSION) + System.lineSeparator();
+            try {
+                Files.writeString(versionRecords(base), line, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
+    }
+
+    private static void version(Path base, PrintStream markers) {
+        markers.println(before(VERSION));
+        new RelayVersionCheck(CHILD_RUNTIME_VERSION, recordingSink(base)).observe(MISMATCHING_RELAY);
+        markers.println(inside(VERSION));
+        awaitKill();
     }
 
     private static void sweep(Path base, PrintStream markers) {

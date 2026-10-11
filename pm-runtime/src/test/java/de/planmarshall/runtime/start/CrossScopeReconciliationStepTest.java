@@ -80,7 +80,7 @@ class CrossScopeReconciliationStepTest {
 
     @Test
     @DisplayName("runs after the roll-forward and derives from the rolled-forward authoritative store")
-    void shouldRunAfterRollForward() throws IOException {
+    void shouldRunAfterRollForward() throws Exception {
         RecoveryStepFixtures.interruptedReplace(authoritative, CONTENT);
         RecoveryStep rollForward = new JournalRollForwardStep(_ -> {
             calls.add("roll-forward");

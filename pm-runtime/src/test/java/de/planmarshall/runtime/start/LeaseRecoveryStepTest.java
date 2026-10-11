@@ -130,7 +130,7 @@ class LeaseRecoveryStepTest {
 
     @Test
     @DisplayName("a store that does not exist is reported as root_absent, a refused store with its refusal")
-    void shouldReportAbsentAndRefusedStores() throws IOException {
+    void shouldReportAbsentAndRefusedStores() throws Exception {
         var absent = report(step(LeaseRecoveryStep.AbandonmentEvidence.NONE).run(PROJECT_A));
         Files.writeString(store.store(), "{\"format_version\":1,\"leases\":[", StandardCharsets.UTF_8);
 

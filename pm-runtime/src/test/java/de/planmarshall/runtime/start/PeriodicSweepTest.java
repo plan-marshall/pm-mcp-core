@@ -60,7 +60,7 @@ class PeriodicSweepTest {
 
     /** A step that records each call as {@code "NAME project olderThan"} and then does what its body says. */
     private record RecordingStep(SweepStep.Name name, List<String> calls,
-            BiFunction<String, Instant, Outcome> body) implements SweepStep {
+    BiFunction<String, Instant, Outcome> body) implements SweepStep {
 
         @Override
         public Outcome run(String projectId, Instant olderThan) {
@@ -107,8 +107,8 @@ class PeriodicSweepTest {
     @DisplayName("the interval is 3600 seconds and the pending entry maximum age 86400 seconds")
     void shouldHaveCompiledConstants() {
         assertAll(
-                () -> assertEquals(Duration.ofSeconds(3600), PeriodicSweep.INTERVAL),
-                () -> assertEquals(Duration.ofSeconds(86_400), PeriodicSweep.PENDING_ENTRY_MAX_AGE));
+                () -> assertEquals(PeriodicSweep.INTERVAL, Duration.ofSeconds(3600)),
+                () -> assertEquals(PeriodicSweep.PENDING_ENTRY_MAX_AGE, Duration.ofSeconds(86_400)));
     }
 
     @Test
@@ -119,8 +119,8 @@ class PeriodicSweepTest {
 
         assertAll(
                 () -> assertEquals(List.of(
-                        "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p1 " + OLDER_THAN,
-                        "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p2 " + OLDER_THAN),
+                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p1 " + OLDER_THAN,
+                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p2 " + OLDER_THAN),
                         calls),
                 () -> assertEquals(new PeriodicSweep.Summary(2, 0, 0), summary),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,

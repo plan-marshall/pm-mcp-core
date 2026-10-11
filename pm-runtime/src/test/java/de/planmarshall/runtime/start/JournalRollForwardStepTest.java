@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -72,7 +71,7 @@ class JournalRollForwardStepTest {
 
     @Test
     @DisplayName("an interrupted journal is rolled forward and its record reaches the audit sink")
-    void shouldRollForwardInterruptedJournal() throws IOException {
+    void shouldRollForwardInterruptedJournal() throws Exception {
         var journal = RecoveryStepFixtures.interruptedReplace(planA, CONTENT);
 
         var outcome = run(planA);
@@ -90,7 +89,7 @@ class JournalRollForwardStepTest {
 
     @Test
     @DisplayName("a scope without a journal has nothing to recover")
-    void shouldReportNothingToRecover() throws IOException {
+    void shouldReportNothingToRecover() throws Exception {
         Files.createDirectories(planA.journalFile().getParent());
 
         var outcome = run(planA);
@@ -103,7 +102,7 @@ class JournalRollForwardStepTest {
     @Test
     @DisplayName("a changed staged file is an invariant violation that leaves journal and store; the next scope is"
             + " still recovered")
-    void shouldReportInvariantViolationAndGoOn() throws IOException {
+    void shouldReportInvariantViolationAndGoOn() throws Exception {
         var broken = RecoveryStepFixtures.interruptedReplace(planA, CONTENT);
         var staged = planA.resolve(broken.targets().getFirst().stagedPath());
         Files.writeString(staged, "changed", StandardCharsets.UTF_8);
@@ -124,7 +123,7 @@ class JournalRollForwardStepTest {
 
     @Test
     @DisplayName("a refused journal is a failure of its scope and is left in place")
-    void shouldReportRefusedJournal() throws IOException {
+    void shouldReportRefusedJournal() throws Exception {
         Files.createDirectories(planA.journalFile().getParent());
         Files.writeString(planA.journalFile(), "{\"format_version\":", StandardCharsets.UTF_8);
 
