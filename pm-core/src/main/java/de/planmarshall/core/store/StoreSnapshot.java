@@ -36,12 +36,12 @@ public final class StoreSnapshot {
     private static final String SHA_256 = "SHA-256";
     private static final String STORE = "store";
 
-    private final Path store;
+    private final Path file;
     private final byte[] content;
     private final StoreIntegrity integrity;
 
-    private StoreSnapshot(Path store, byte[] content, StoreIntegrity integrity) {
-        this.store = store;
+    private StoreSnapshot(Path file, byte[] content, StoreIntegrity integrity) {
+        this.file = file;
         this.content = content;
         this.integrity = integrity;
     }
@@ -97,12 +97,12 @@ public final class StoreSnapshot {
      *         that its content cannot be decided, for example because a journal of the store appeared
      */
     StoreSnapshot asUnverified() {
-        return new StoreSnapshot(store, content, StoreIntegrity.DIGEST_UNVERIFIED);
+        return new StoreSnapshot(file, content, StoreIntegrity.DIGEST_UNVERIFIED);
     }
 
     /** @return the store this snapshot was read from, which a report of an unverified digest names */
     public Path store() {
-        return store;
+        return file;
     }
 
     /** @return the content of the store at the moment of the read; empty if the store did not exist */

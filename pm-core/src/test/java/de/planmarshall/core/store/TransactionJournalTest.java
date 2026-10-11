@@ -77,14 +77,15 @@ class TransactionJournalTest {
 
     /** @return a name and the owed events field that replaces the empty one of a valid document */
     static Stream<Arguments> owedEventShapes() {
-        var record = "{\"event\":\"x\",\"category\":\"store\",\"outcome\":\"succeeded\"";
+        var recordStart = "{\"event\":\"x\",\"category\":\"store\",\"outcome\":\"succeeded\"";
         return Stream.of(
                 Arguments.of("owed events missing", ""),
                 Arguments.of("owed events not an array", ",\"owed_events\":{}"),
-                Arguments.of("owed event without details", ",\"owed_events\":[" + record + "}]"),
-                Arguments.of("owed detail of a boolean", ",\"owed_events\":[" + record + ",\"details\":{\"f\":true}}]"),
+                Arguments.of("owed event without details", ",\"owed_events\":[" + recordStart + "}]"),
+                Arguments.of("owed detail of a boolean",
+                        ",\"owed_events\":[" + recordStart + ",\"details\":{\"f\":true}}]"),
                 Arguments.of("owed event with an undeclared field",
-                        ",\"owed_events\":[" + record + ",\"details\":{},\"note\":1}]"));
+                        ",\"owed_events\":[" + recordStart + ",\"details\":{},\"note\":1}]"));
     }
 
     private static StoreRefusal assertRefused(Outcome outcome, byte[] document) {
@@ -149,6 +150,21 @@ class TransactionJournalTest {
             var event = new AuditEvent("x", "store", "succeeded", Map.of("flag", true));
 
             assertThrows(IllegalArgumentException.class, () -> OwedAuditEvents.requireWritable(event));
+        }
+
+        @Test
+        @DisplayName("an owed list detail with a value that is no string is refused by the write, naming detail and value")
+        void unwritableOwedListItem() {
+            var event = new AuditEvent("x", "store", "succeeded", Map.of("paths", List.of("mcp/status.json", 4711)));
+            var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
+                    List.of(REPLACE), List.of(event));
+
+            var refusal = assertThrows(IllegalArgumentException.class, journal::write);
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains("'paths'"), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("4711"), refusal.getMessage()),
+                    () -> assertFalse(refusal.getMessage().contains("%s"), refusal.getMessage()));
         }
 
         @Test

@@ -32,6 +32,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.InternalFaultException;
@@ -475,6 +477,46 @@ class ScopeIntegrityTest {
                     () -> assertEquals(OLD_STATUS, Files.readString(outside), "nothing written outside the scope"),
                     () -> assertTrue(Files.isSymbolicLink(store(STATUS)), "the link was not replaced"),
                     () -> assertEquals(List.of(), audit.events()));
+        }
+    }
+
+    /**
+     * The sidecar records a store under its normalized path; a caller that spells the path otherwise, but below the
+     * path base, names the same store and must be compared with the same entry.
+     */
+    @Nested
+    @DisplayName("a store path spelled non-normalized")
+    class NonNormalizedSpelling {
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"./status.json", "logs/../status.json", "x/../status.json"})
+        @DisplayName("is Verified under the lock and VERIFIED lock-free for an unedited store, not Untracked")
+        void unedited(String spelling) {
+            var digest = StoreDigest.of(bytes(OLD_STATUS));
+
+            var locked = verify(spelling);
+            var lockFree = ScopeIntegrity.snapshot(scope, spelling);
+
+            assertAll(
+                    () -> assertEquals(new Verified(STATUS, digest), locked),
+                    () -> assertEquals(StoreIntegrity.VERIFIED, lockFree.integrity()),
+                    () -> assertEquals(store(STATUS), lockFree.store()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"./status.json", "logs/../status.json", "x/../status.json"})
+        @DisplayName("is a Mismatch under the lock and DIGEST_UNVERIFIED lock-free for an edited store, not UNCHECKED")
+        void edited(String spelling) throws IOException {
+            var edited = editStatus();
+
+            var locked = verify(spelling);
+            var lockFree = ScopeIntegrity.snapshot(scope, spelling);
+
+            assertAll(
+                    () -> assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)),
+                            Optional.of(StoreDigest.of(edited))), locked),
+                    () -> assertEquals(StoreIntegrity.DIGEST_UNVERIFIED, lockFree.integrity()),
+                    () -> assertArrayEquals(edited, lockFree.content().orElseThrow()));
         }
     }
 

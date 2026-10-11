@@ -159,8 +159,8 @@ class OwedAuditEvents {
                 generator.writeArrayFieldStart(name);
                 for (var item : items) {
                     if (!(item instanceof String text)) {
-                        throw new IllegalArgumentException("Detail '%s' of an owed record lists a value that is not "
-                                + "a string: %s".formatted(name, item));
+                        throw new IllegalArgumentException(("Detail '%s' of an owed record lists a value that is not "
+                                + "a string: %s").formatted(name, item));
                     }
                     generator.writeString(text);
                 }

@@ -550,7 +550,7 @@ class JournalRecoveryTest {
 
         @Test
         @DisplayName("a sink that refuses the record keeps the journal; the next recovery delivers it exactly once")
-        void sinkRefuses() throws Exception {
+        void sinkRefuses() {
             var journal = stopAt(Step.JOURNAL, 0);
             var refusing = FailingAuditSink.refusing(1);
 

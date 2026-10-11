@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -285,11 +287,8 @@ public final class ScopeTransaction {
      */
     static String storePath(JournalScope scope, Path store) {
         var relative = scope.pathBase().relativize(store);
-        var names = new ArrayList<String>(relative.getNameCount());
-        for (var name : relative) {
-            names.add(name.toString());
-        }
-        return String.join("/", names);
+        return StreamSupport.stream(relative.spliterator(), false).map(Path::toString)
+                .collect(Collectors.joining("/"));
     }
 
     private TransactionJournal stage() throws IOException {

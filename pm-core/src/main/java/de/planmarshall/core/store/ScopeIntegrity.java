@@ -122,11 +122,11 @@ public class ScopeIntegrity {
     public static Verification verify(LockTransaction transaction, JournalScope scope, String relativePath,
             AuditSink auditSink) {
         Objects.requireNonNull(scope, SCOPE);
-        scope.resolveWithoutLinks(relativePath);
+        var key = ScopeTransaction.storePath(scope, scope.resolveWithoutLinks(relativePath));
         if (JournalRecovery.recover(transaction, scope, auditSink) instanceof InvariantViolation violation) {
             return violation;
         }
-        return compare(scope, DigestSidecar.load(scope.sidecarFile()), relativePath);
+        return compare(scope, DigestSidecar.load(scope.sidecarFile()), key);
     }
 
     /**
@@ -176,7 +176,7 @@ public class ScopeIntegrity {
         if (journalExists(scope)) {
             return StoreSnapshot.unverified(store);
         }
-        var snapshot = DigestSidecar.load(scope.sidecarFile()).digest(relativePath)
+        var snapshot = DigestSidecar.load(scope.sidecarFile()).digest(ScopeTransaction.storePath(scope, store))
                 .map(recorded -> StoreSnapshot.read(store, recorded.size(), recorded.sha256()))
                 .orElseGet(() -> StoreSnapshot.read(store));
         return journalExists(scope) ? snapshot.asUnverified() : snapshot;
