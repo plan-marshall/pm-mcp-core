@@ -19,6 +19,12 @@ import java.io.Serial;
 import java.nio.file.Path;
 import java.time.DateTimeException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
@@ -62,6 +68,25 @@ class StrictJson {
          * @throws Malformed   if the document parses as JSON but not in the shape of its kind
          */
         T read(JsonParser parser) throws IOException;
+    }
+
+    /**
+     * Reads one value of an array or of an object with free keys.
+     *
+     * @param <V> the value
+     * @since 0.1
+     */
+    @FunctionalInterface
+    interface ValueReader<V> {
+
+        /**
+         * @param parser the parser, positioned on the value
+         * @param name   the name of the value in a refusal: the array element or the key of the object
+         * @return the value
+         * @throws IOException if the document does not parse as JSON
+         * @throws Malformed   if the value does not have its shape
+         */
+        V read(JsonParser parser, String name) throws IOException;
     }
 
     /**
@@ -259,6 +284,69 @@ class StrictJson {
             throw unreadable("'%s' must be an integer".formatted(field));
         }
         return parser.getLongValue();
+    }
+
+    /**
+     * @param parser the parser, positioned on the value of the field
+     * @param field  the name of the field
+     * @return the boolean value
+     */
+    static boolean bool(JsonParser parser, String field) {
+        return switch (parser.currentToken()) {
+            case VALUE_TRUE -> true;
+            case VALUE_FALSE -> false;
+            case null, default -> throw unreadable("'%s' must be a boolean".formatted(field));
+        };
+    }
+
+    /**
+     * @param parser the parser, positioned on the value of the field
+     * @param field  the name of the field
+     * @return the strings of the array, in order; unmodifiable
+     * @throws IOException if the document does not parse as JSON
+     */
+    static List<String> stringList(JsonParser parser, String field) throws IOException {
+        return array(parser, field, StrictJson::string);
+    }
+
+    /**
+     * Reads an array whose every element has the same shape.
+     *
+     * @param parser  the parser, positioned on the value of the field
+     * @param field   the name of the field
+     * @param element reads one element, named {@code field[index]}
+     * @param <V>     an element
+     * @return the elements, in order; unmodifiable
+     * @throws IOException if the document does not parse as JSON
+     */
+    static <V> List<V> array(JsonParser parser, String field, ValueReader<V> element) throws IOException {
+        requireArray(parser, field);
+        var values = new ArrayList<V>();
+        while (parser.nextToken() != JsonToken.END_ARRAY) {
+            values.add(element.read(parser, "%s[%d]".formatted(field, values.size())));
+        }
+        return Collections.unmodifiableList(values);
+    }
+
+    /**
+     * Reads an object with free keys whose every value has the same shape; a key twice is refused.
+     *
+     * @param parser the parser, positioned on the value of the field
+     * @param field  the name of the field
+     * @param value  reads the value of one key, named by the key
+     * @param <V>    a value
+     * @return the values by their keys, in the order of the document; unmodifiable
+     * @throws IOException if the document does not parse as JSON
+     */
+    static <V> Map<String, V> map(JsonParser parser, String field, ValueReader<V> value) throws IOException {
+        requireObject(parser, field);
+        var values = new LinkedHashMap<String, V>();
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var key = nextField(parser, seen);
+            values.put(key, value.read(parser, key));
+        }
+        return Collections.unmodifiableMap(values);
     }
 
     /**

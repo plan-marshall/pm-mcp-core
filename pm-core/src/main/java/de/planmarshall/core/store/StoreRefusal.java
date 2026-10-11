@@ -22,6 +22,11 @@ import java.util.OptionalInt;
  * refuses it leaves as it is: a reader never repairs, migrates or rewrites a store. The refusal names the file, the
  * format version found in it (none if the file is unreadable or absent) and the current version, so a caller can
  * report it with the operator's next step.
+ * <p>
+ * An enrolment file is also refused for its integrity (PM-EXEC-2, PM-SEC-4, PM-SEC-5): as
+ * {@link Outcome#ENROLMENT_TAMPERED} when it does not match its sidecar, naming the operator command that re-baselines
+ * it, and as {@link Outcome#ENROLMENT_INSECURE} when it fails a per-use check. Such a refusal names no format version
+ * found; its current version is that of the enrolment file.
  *
  * @since 0.1
  */
@@ -45,7 +50,17 @@ public final class StoreRefusal extends RuntimeException {
         /** The content declares an older format version than the current one. */
         FORMAT_OUTDATED("format_outdated"),
         /** The content declares a newer format version than the current one. */
-        FORMAT_NEWER("format_newer");
+        FORMAT_NEWER("format_newer"),
+        /**
+         * An enrolment file does not match its integrity sidecar, or one of the two exists without the other
+         * (PM-EXEC-2, PM-SEC-5); nothing in the file is trusted until the operator re-baselines it.
+         */
+        ENROLMENT_TAMPERED("enrolment_tampered"),
+        /**
+         * An enrolment file or its sidecar fails a per-use check: a foreign owner, a mode broader than {@code 0600},
+         * or a symbolic link (PM-SEC-4).
+         */
+        ENROLMENT_INSECURE("enrolment_insecure");
 
         private final String code;
 
@@ -115,6 +130,38 @@ public final class StoreRefusal extends RuntimeException {
         return new StoreRefusal(outcome, Objects.requireNonNull(file, "file"), found, current, null, null);
     }
 
+    /**
+     * The refusal of an enrolment whose integrity check failed. Its message names the operator command that
+     * re-baselines the enrolment after the operator reviewed it.
+     *
+     * @param file      the refused enrolment file or sidecar
+     * @param projectId the enrolled project
+     * @param detail    what failed: the HMAC, the recorded size or SHA-256, a sidecar without its file, a file without
+     *                  its sidecar
+     * @return the refusal as {@link Outcome#ENROLMENT_TAMPERED}
+     * @throws IllegalArgumentException if the project id is not a valid identifier
+     */
+    public static StoreRefusal enrolmentTampered(Path file, String projectId, String detail) {
+        var command = "pm-operator accept-edit enrolment " + LockKey.identifier(projectId, "projectId");
+        return new StoreRefusal(Outcome.ENROLMENT_TAMPERED, Objects.requireNonNull(file, "file"), NO_VERSION,
+                ProjectEnrolment.FORMAT_VERSION,
+                "%s; review the file, then re-baseline it with '%s'".formatted(
+                        Objects.requireNonNull(detail, "detail"), command),
+                null);
+    }
+
+    /**
+     * The refusal of an enrolment file or sidecar that failed a per-use check.
+     *
+     * @param file   the refused enrolment file or sidecar
+     * @param reason what failed: a foreign owner, a mode broader than {@code 0600}, a symbolic link
+     * @return the refusal as {@link Outcome#ENROLMENT_INSECURE}
+     */
+    public static StoreRefusal enrolmentInsecure(Path file, String reason) {
+        return new StoreRefusal(Outcome.ENROLMENT_INSECURE, Objects.requireNonNull(file, "file"), NO_VERSION,
+                ProjectEnrolment.FORMAT_VERSION, Objects.requireNonNull(reason, "reason"), null);
+    }
+
     /** @return why the content was refused */
     public Outcome outcome() {
         return outcome;
@@ -136,6 +183,9 @@ public final class StoreRefusal extends RuntimeException {
     }
 
     private static String message(Outcome outcome, Path file, int found, int current, String detail) {
+        if (outcome == Outcome.ENROLMENT_TAMPERED || outcome == Outcome.ENROLMENT_INSECURE) {
+            return "%s: %s: %s".formatted(file, outcome.code(), detail);
+        }
         var version = found == NO_VERSION ? "none" : Integer.toString(found);
         var message = "%s: %s (format_version found %s, current %d)".formatted(file, outcome.code(), version,
                 current);
