@@ -109,7 +109,7 @@ class WorkflowParserRefusalTest {
         @Test
         @DisplayName("finds one fixture per refusal class")
         void fixturesPresent() {
-            assertEquals(13, malformedFixtures().size());
+            assertEquals(14, malformedFixtures().size());
         }
 
         @ParameterizedTest(name = "{0}")
@@ -505,6 +505,41 @@ class WorkflowParserRefusalTest {
             assertAll(
                     () -> assertEquals(23, diagnostic.column()),
                     () -> assertTrue(diagnostic.message().contains("'a'"), diagnostic::message));
+        }
+
+        static Stream<Arguments> duplicateEnumValues() {
+            var declare = "declare modes = [a, b, a]";
+            var call = "call demo.sub(modes = [x, y, x])";
+            var enumType = "param mode : enum[a|b|a]";
+            return Stream.of(
+                    Arguments.of("declare line", withHeaderLines("plan", declare), 3, declare.lastIndexOf("a]") + 1,
+                            "a"),
+                    Arguments.of("call binding", unitWithBody("plan", call, "done -> demo.begin"), 6,
+                            call.lastIndexOf("x]") + 1, "x"),
+                    Arguments.of("enum type", withHeaderLines("subworkflow", enumType), 3,
+                            enumType.lastIndexOf("a]") + 1, "a"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("duplicateEnumValues")
+        @DisplayName("refuses an enum value repeated in a list or an enum type as a duplicate, at the repetition")
+        void duplicateEnumValue(String name, String source, int line, int column, String value) {
+            var diagnostic = refuse("enum.pmwf", source);
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.DUPLICATE_ID, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(line, diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(column, diagnostic.column(), diagnostic::message),
+                    () -> assertTrue(diagnostic.message().contains("'" + value + "'"), diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("lists the keywords of a scope, read off the enumeration, when it refuses an unknown one")
+        void scopeKeywordMessage() {
+            var diagnostic = refuse("scope.pmwf", lines(HEADER, "scope team"));
+
+            assertEquals("expected a scope (plan, epic, workspace, entity or subworkflow) but found 'team'",
+                    diagnostic.message());
         }
 
         @Test

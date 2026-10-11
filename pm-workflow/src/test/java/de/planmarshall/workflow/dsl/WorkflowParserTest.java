@@ -28,7 +28,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -438,6 +437,73 @@ class WorkflowParserTest {
     }
 
     @Nested
+    @DisplayName("Keywords of the enumerations")
+    class EnumKeywords {
+
+        /** The keyword of a constant as the printer writes it. */
+        private static String keyword(Enum<?> constant) {
+            return constant.name().toLowerCase(Locale.ROOT);
+        }
+
+        @ParameterizedTest(name = "scope {0}")
+        @EnumSource(WorkflowScope.class)
+        @DisplayName("reads every scope from its keyword")
+        void scopes(WorkflowScope scope) {
+            var source = unitWithBody(keyword(scope), "auto demo.run", "done -> demo.begin");
+
+            assertEquals(scope, parse(source).scope());
+        }
+
+        @ParameterizedTest(name = "relation {0}")
+        @EnumSource(LinkRelation.class)
+        @DisplayName("reads every link relation from its keyword")
+        void linkRelations(LinkRelation relation) {
+            var source = unitWithBody("workspace", "link " + keyword(relation) + " go ()", "do demo.go",
+                    "done -> demo.begin");
+
+            var links = (StateBehavior.InteractiveLinks) startBody(source);
+
+            assertEquals(relation, links.links().getFirst().rel());
+        }
+
+        @ParameterizedTest(name = "form {0}")
+        @EnumSource(LinkForm.class)
+        @DisplayName("reads every link form from its keyword")
+        void linkForms(LinkForm form) {
+            var source = unitWithBody("workspace", "link next go [" + keyword(form) + "] ()", "do demo.go",
+                    "done -> demo.begin");
+
+            var links = (StateBehavior.InteractiveLinks) startBody(source);
+
+            assertEquals(form, links.links().getFirst().form());
+        }
+
+        @ParameterizedTest(name = "completion {0}")
+        @EnumSource(StepCompletionStatus.class)
+        @DisplayName("reads every step completion from its keyword")
+        void stepCompletions(StepCompletionStatus status) {
+            var source = unitWithBody("plan", "auto demo.run", "done -> demo.begin",
+                    "completes init:x as " + keyword(status));
+
+            var auto = (StateBehavior.AutoStep) startBody(source);
+
+            assertEquals(status, auto.transitions().getFirst().completions().getFirst().status());
+        }
+
+        @ParameterizedTest(name = "outcome class {0}")
+        @EnumSource(OutcomeClass.class)
+        @DisplayName("reads every outcome class from its keyword")
+        void outcomeClasses(OutcomeClass outcomeClass) {
+            var source = lines("workflow demo version 1 format 1", "scope plan", "start demo.end",
+                    "state demo.end terminal done " + keyword(outcomeClass), "phase init");
+
+            var terminal = parse(source).states().get("demo.end").terminalOutcome().orElseThrow();
+
+            assertEquals(outcomeClass, terminal.outcomeClass());
+        }
+    }
+
+    @Nested
     @DisplayName("Focused constructs")
     class FocusedConstructs {
 
@@ -453,13 +519,6 @@ class WorkflowParserTest {
             assertAll(
                     () -> assertEquals(relation, links.links().getFirst().rel()),
                     () -> assertEquals(relation.defaultForm(), links.links().getFirst().form()));
-        }
-
-        @ParameterizedTest(name = "scope {0}")
-        @CsvSource({"plan, PLAN", "epic, EPIC", "workspace, WORKSPACE", "entity, ENTITY", "subworkflow, SUBWORKFLOW"})
-        @DisplayName("reads every scope")
-        void scopes(String keyword, WorkflowScope scope) {
-            assertEquals(scope, parse(unitWithBody(keyword, "auto demo.run", "done -> demo.begin")).scope());
         }
 
         @ParameterizedTest(name = "question {0}")
