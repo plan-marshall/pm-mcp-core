@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.ast;
 
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -38,17 +39,24 @@ public sealed interface CallValue permits CallValue.EnumValue, CallValue.IntValu
     /**
      * A list of distinct values of an enumeration.
      *
-     * @param values the values in source order
+     * @param values the values in source order, none of them twice
      */
     record EnumList(List<String> values) implements CallValue {
 
         /**
-         * Copies the values into an immutable list.
+         * Copies the values into an immutable list and refuses a value that occurs twice.
          *
-         * @param values the values in source order
+         * @param values the values in source order, none of them twice
+         * @throws IllegalArgumentException if a value occurs more than once
          */
         public EnumList {
             values = List.copyOf(values);
+            var seen = new HashSet<String>();
+            for (var value : values) {
+                if (!seen.add(value)) {
+                    throw new IllegalArgumentException("the value '%s' occurs twice in the list".formatted(value));
+                }
+            }
         }
     }
 }

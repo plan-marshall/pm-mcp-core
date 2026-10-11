@@ -80,11 +80,11 @@ class WorkflowLexerTest {
         @DisplayName("returns immutable lines and token lists")
         void immutable() {
             var lines = WorkflowLexer.tokenize("start demo\n");
+            var tokens = lines.getFirst().tokens();
 
             assertAll(
                     () -> assertThrows(UnsupportedOperationException.class, lines::clear),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> lines.getFirst().tokens().clear()));
+                    () -> assertThrows(UnsupportedOperationException.class, tokens::clear));
         }
     }
 

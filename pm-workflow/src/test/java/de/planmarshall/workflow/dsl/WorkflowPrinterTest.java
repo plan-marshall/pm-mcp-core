@@ -278,15 +278,18 @@ class WorkflowPrinterTest {
         }
 
         @Test
-        @DisplayName("prints a range only when both of its bounds are present")
-        void halfOpenRange() {
+        @DisplayName("prints a range with both of its bounds, and no range for an unbounded type")
+        void ranges() {
             var definition = unitWithLinks(link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty(),
-                    new ParamSpec("low", new ParamType.Text(Optional.of(1), Optional.empty()), false, NOWHERE),
-                    new ParamSpec("high", new ParamType.Int(Optional.empty(), Optional.of(9)), true, NOWHERE)));
+                    new ParamSpec("bounded", new ParamType.Text(Optional.of(1), Optional.of(9)), false, NOWHERE),
+                    new ParamSpec("free", new ParamType.Int(Optional.empty(), Optional.empty()), true, NOWHERE)));
 
             var printed = WorkflowPrinter.print(definition);
 
-            assertTrue(printed.contains("    link next go [noop] (low: text, high: int?)\n"), printed);
+            assertAll(
+                    () -> assertTrue(printed.contains("    link next go [noop] (bounded: text[1..9], free: int?)\n"),
+                            printed),
+                    () -> assertEquals(strip(definition), strip(parse("range.pmwf", printed))));
         }
 
         @Test

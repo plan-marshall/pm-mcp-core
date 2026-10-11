@@ -12,6 +12,7 @@ package de.planmarshall.workflow.ast;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,10 +20,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.spi.OutcomeClass;
 
@@ -46,10 +52,11 @@ class AstNodeModelTest {
             var enumOf = new ParamType.EnumOf(values);
 
             values.add("c");
+            var copied = enumOf.values();
 
             assertAll(
-                    () -> assertEquals(List.of("a", "b"), enumOf.values()),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> enumOf.values().add("d")));
+                    () -> assertEquals(List.of("a", "b"), copied),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copied.add("d")));
         }
 
         @Test
@@ -108,12 +115,12 @@ class AstNodeModelTest {
 
             templates.clear();
             subUnits.add(unit);
+            var copiedTemplates = header.inputs().templates();
 
             assertAll(
-                    () -> assertEquals(List.of(unit), header.inputs().templates()),
+                    () -> assertEquals(List.of(unit), copiedTemplates),
                     () -> assertEquals(List.of(), header.inputs().subUnits()),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> header.inputs().templates().add(unit)));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedTemplates.add(unit)));
         }
 
         @Test
@@ -128,13 +135,78 @@ class AstNodeModelTest {
             params.add(new ParamDecl("mode", new ParamType.EnumOf(List.of("a")), LOCATION));
             migrations.add(new StateMigration("old", "end", LOCATION));
             states.put("other", terminalState("other"));
+            var copiedStates = definition.states();
+            var copiedMigrations = definition.migrations();
 
             assertAll(
                     () -> assertEquals(List.of(), definition.params()),
-                    () -> assertEquals(List.of(), definition.migrations()),
-                    () -> assertEquals(List.of("end"), List.copyOf(definition.states().keySet())),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> definition.states().clear()),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> definition.migrations().clear()));
+                    () -> assertEquals(List.of(), copiedMigrations),
+                    () -> assertEquals(List.of("end"), List.copyOf(copiedStates.keySet())),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedStates::clear),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedMigrations::clear));
+        }
+    }
+
+    @Nested
+    @DisplayName("Invariants")
+    class Invariants {
+
+        private static final Optional<Integer> LOW = Optional.of(1);
+        private static final Optional<Integer> HIGH = Optional.of(9);
+        private static final Optional<Integer> NONE = Optional.empty();
+
+        static Stream<Arguments> singleBounds() {
+            return Stream.of(
+                    Arguments.of("text with the low bound alone", (Executable) () -> new ParamType.Text(LOW, NONE)),
+                    Arguments.of("text with the high bound alone", (Executable) () -> new ParamType.Text(NONE, HIGH)),
+                    Arguments.of("int with the low bound alone", (Executable) () -> new ParamType.Int(LOW, NONE)),
+                    Arguments.of("int with the high bound alone", (Executable) () -> new ParamType.Int(NONE, HIGH)));
+        }
+
+        @Test
+        @DisplayName("a call-site list refuses a value that occurs twice and names it")
+        void enumListRefusesDuplicate() {
+            var values = List.of("a", "b", "a");
+
+            var thrown = assertThrows(IllegalArgumentException.class, () -> new CallValue.EnumList(values));
+
+            assertTrue(thrown.getMessage().contains("'a'"), thrown.getMessage());
+        }
+
+        @Test
+        @DisplayName("an enum type refuses a value that occurs twice and names it")
+        void enumOfRefusesDuplicate() {
+            var values = List.of("fast", "slow", "slow");
+
+            var thrown = assertThrows(IllegalArgumentException.class, () -> new ParamType.EnumOf(values));
+
+            assertTrue(thrown.getMessage().contains("'slow'"), thrown.getMessage());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("singleBounds")
+        @DisplayName("a text or int type refuses a single bound")
+        void singleBoundRefused(String shape, Executable construction) {
+            assertThrows(IllegalArgumentException.class, construction, shape);
+        }
+
+        @Test
+        @DisplayName("a text or int type takes both bounds or none")
+        void pairedBoundsAccepted() {
+            var boundedText = new ParamType.Text(LOW, HIGH);
+            var freeText = new ParamType.Text(NONE, NONE);
+            var boundedInt = new ParamType.Int(LOW, HIGH);
+            var freeInt = new ParamType.Int(NONE, NONE);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(1), boundedText.minLength()),
+                    () -> assertEquals(Optional.of(9), boundedText.maxLength()),
+                    () -> assertEquals(Optional.empty(), freeText.minLength()),
+                    () -> assertEquals(Optional.empty(), freeText.maxLength()),
+                    () -> assertEquals(Optional.of(1), boundedInt.min()),
+                    () -> assertEquals(Optional.of(9), boundedInt.max()),
+                    () -> assertEquals(Optional.empty(), freeInt.min()),
+                    () -> assertEquals(Optional.empty(), freeInt.max()));
         }
     }
 
@@ -166,11 +238,12 @@ class AstNodeModelTest {
             var call = new StateBehavior.SubWorkflowCall("git.commit_and_push", bindings, List.of());
             var frame = new CallFrame("plan", "execute.commit", "execute", "git.commit_and_push", bindings,
                     "2026-01-01T00:00:00Z");
+            var boundArgs = frame.boundArgs();
 
             assertAll(
                     () -> assertEquals(List.of("z", "a", "m"), List.copyOf(call.paramBindings().keySet())),
-                    () -> assertEquals(List.of("z", "a", "m"), List.copyOf(frame.boundArgs().keySet())),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> frame.boundArgs().clear()));
+                    () -> assertEquals(List.of("z", "a", "m"), List.copyOf(boundArgs.keySet())),
+                    () -> assertThrows(UnsupportedOperationException.class, boundArgs::clear));
         }
     }
 
@@ -212,7 +285,7 @@ class AstNodeModelTest {
         void paramTypeIsClosed() {
             List<ParamType> types = List.of(
                     new ParamType.Text(Optional.of(1), Optional.of(80)),
-                    new ParamType.Int(Optional.of(0), Optional.empty()),
+                    new ParamType.Int(Optional.of(0), Optional.of(9)),
                     new ParamType.EnumOf(List.of("a", "b")),
                     new ParamType.SchemaRef("review"),
                     new ParamType.ListOf(new ParamType.EnumOf(List.of("a"))));
