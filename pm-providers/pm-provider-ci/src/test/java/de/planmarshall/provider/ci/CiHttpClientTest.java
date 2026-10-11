@@ -116,7 +116,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("sends the bearer token and default headers to the origin")
-        void bearer() throws InterruptedException {
+        void bearer() throws Exception {
             on("GET", "/repos/o/r", response(200, "{\"id\":1}", Map.of("ETag", "\"v1\"")));
 
             CiResponse response = client.get("repos/o/r");
@@ -131,7 +131,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("posts a JSON body from memory")
-        void postsJson() throws InterruptedException {
+        void postsJson() throws Exception {
             on("POST", "/x", json(201, "{}"));
 
             CiResponse response = client.send("POST", "/x", Optional.of("{\"body\":\"line1\\nline2\"}"), Optional.empty());
@@ -145,7 +145,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("sends no Authorization header without a token")
-        void noToken() throws InterruptedException {
+        void noToken() throws Exception {
             try (var anonymous = new CiHttpClient(CiEndpoint.of(base()), TokenSource.NONE, Map.of())) {
                 on("GET", "/open", json(200, "[]"));
 
@@ -166,7 +166,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("reports an error status and a transport failure")
-        void failures() throws IOException {
+        void failures() throws Exception {
             CiResponse notFound = client.get("/missing");
             CiResponse unreachable;
             try (var closed = new CiHttpClient(CiEndpoint.of(closedOrigin()), TOKEN, Map.of())) {
@@ -195,7 +195,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("drops the token on a redirect to another origin")
-        void dropsTokenCrossOrigin() throws InterruptedException {
+        void dropsTokenCrossOrigin() throws Exception {
             try (var redirecting = new CiHttpClient(new CiEndpoint(base(), Set.of("localhost")), TOKEN, Map.of())) {
                 on("GET", "/log", json(200, "log text"));
                 on("GET", "/jobs/1/logs", response(302, "", Map.of("Location", base("localhost") + "log")));
@@ -254,7 +254,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("follows every next link and reports completeness")
-        void complete() throws InterruptedException {
+        void complete() throws Exception {
             pages(3);
 
             PagedResult result = client.getAll("items?page=1", 10);
@@ -309,7 +309,7 @@ class CiHttpClientTest {
 
         @Test
         @DisplayName("sends If-None-Match and reports not modified")
-        void notModified() throws InterruptedException {
+        void notModified() throws Exception {
             on("GET", "/c", response(304, "", Map.of("ETag", "\"v1\"")));
 
             CiResponse response = client.get("/c", "\"v1\"");
