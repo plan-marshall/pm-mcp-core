@@ -46,8 +46,8 @@ import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
-import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.service.InternalFaultException.Reason;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 
@@ -339,7 +339,7 @@ class EnrolmentStoreTest {
 
             @Test
             @DisplayName("does not owe a record twice whose transaction id is already owed")
-            void idempotent() throws IOException {
+            void idempotent() throws Exception {
                 var id = transactionId();
                 owe(PROJECT, AuditEvent.enrolmentWritten(PROJECT, id));
                 var before = Files.readAllBytes(store.auditIntent(PROJECT));
@@ -370,7 +370,7 @@ class EnrolmentStoreTest {
 
             @Test
             @DisplayName("the intent file is not an enrolment, and the owing projects are exactly those with an intent")
-            void intentIsNotAnEnrolment() throws IOException {
+            void intentIsNotAnEnrolment() throws Exception {
                 enrol(enrolment(PROJECT, false));
                 enrol(enrolment("alpha-project", false));
                 owe(ZETA, AuditEvent.enrolmentRemoved(ZETA, transactionId()));
@@ -419,7 +419,7 @@ class EnrolmentStoreTest {
 
             @Test
             @DisplayName("with nothing owed nothing is handed over and nothing is touched")
-            void nothingOwed() throws IOException {
+            void nothingOwed() throws Exception {
                 enrol(enrolment(PROJECT, false));
                 var before = listing();
                 var sink = new RecordingAuditSink();
@@ -547,7 +547,7 @@ class EnrolmentStoreTest {
             @ValueSource(strings = {"not json", "{\"format_version\":2,\"owed_events\":[]}",
                     "{\"format_version\":1}"})
             @DisplayName("an intent file that is unreadable or of another version is refused naming it, and kept")
-            void unreadableIntent(String content) throws IOException {
+            void unreadableIntent(String content) throws Exception {
                 var intent = Files.writeString(store.auditIntent(PROJECT), content);
                 var written = written();
                 var sink = new RecordingAuditSink();
@@ -572,7 +572,7 @@ class EnrolmentStoreTest {
         @ParameterizedTest
         @CsvSource({"true,false", "false,true", "true,true", "false,false"})
         @DisplayName("an enrolment exists while its file or its sidecar exists")
-        void exists(boolean file, boolean sidecar) throws IOException {
+        void exists(boolean file, boolean sidecar) throws Exception {
             if (file) {
                 Files.writeString(store.file(PROJECT), "{}");
             }

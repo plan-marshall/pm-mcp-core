@@ -682,7 +682,7 @@ class EnrolmentsTest {
 
             @Test
             @DisplayName("unenrol removes the pair only, keeps enrolment_removed owed and the replay hands it over once")
-            void unenrol() throws IOException {
+            void unenrol() throws Exception {
                 enrolments.enrol(enrolment(false, null), false);
                 events.clear();
                 var projectStore = Files.createDirectories(base.resolve("projects").resolve(PROJECT));
@@ -703,7 +703,7 @@ class EnrolmentsTest {
 
             @Test
             @DisplayName("rebaseline rewrites the sidecar, keeps enrolment_rebaselined owed and the replay hands it over")
-            void rebaseline() throws IOException {
+            void rebaseline() throws Exception {
                 enrolments.enrol(enrolment(false, null), false);
                 Files.write(store.file(PROJECT), EnrolmentCodec.write(enrolment(true, null)));
                 events.clear();
@@ -832,7 +832,7 @@ class EnrolmentsTest {
 
             @Test
             @DisplayName("an enrol whose integrity key cannot be read")
-            void unreadableKey() throws IOException {
+            void unreadableKey() throws Exception {
                 enrolments.enrol(enrolment(false, null), false);
                 Files.writeString(key.keyFile(), "not base64!");
                 var other = enrolment(ALPHA, false, null);
@@ -861,7 +861,7 @@ class EnrolmentsTest {
             @ParameterizedTest
             @ValueSource(strings = {"absent", "insecure", "unreadable"})
             @DisplayName("a refused re-baseline")
-            void refusedRebaseline(String damage) throws IOException {
+            void refusedRebaseline(String damage) throws Exception {
                 if (!"absent".equals(damage)) {
                     enrolments.enrol(enrolment(false, null), false);
                 }
@@ -883,7 +883,7 @@ class EnrolmentsTest {
 
         @Test
         @DisplayName("the replay hands over every owing project in the order of its id, each with its own transaction")
-        void twoProjects() throws IOException {
+        void twoProjects() throws Exception {
             audit.mode = SinkMode.REFUSING;
             owing.enrol(enrolment(ZETA, false, null), false);
             var zetaIntent = Files.readAllBytes(store.auditIntent(ZETA));
@@ -904,7 +904,7 @@ class EnrolmentsTest {
 
         @Test
         @DisplayName("the intent file is not an enrolment: neither listed nor counted by the guard of the key")
-        void intentIsNotAnEnrolment() throws IOException {
+        void intentIsNotAnEnrolment() throws Exception {
             enrolments.enrol(enrolment(false, null), false);
             events.clear();
             audit.mode = SinkMode.REFUSING;
