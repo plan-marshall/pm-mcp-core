@@ -49,6 +49,9 @@ public final class EnrolmentStore {
 
     private static final String SUFFIX = ".json";
 
+    /** The parameter name {@link LockKey#identifier(String, String)} reports for an invalid project id. */
+    private static final String PROJECT_ID_PARAMETER = "projectId";
+
     private final Path base;
     private final Path directory;
 
@@ -69,7 +72,7 @@ public final class EnrolmentStore {
      * @throws IllegalArgumentException if the project id is not a valid identifier
      */
     public Path file(String projectId) {
-        return directory.resolve(LockKey.identifier(projectId, "projectId") + SUFFIX);
+        return directory.resolve(LockKey.identifier(projectId, PROJECT_ID_PARAMETER) + SUFFIX);
     }
 
     /**
@@ -78,7 +81,8 @@ public final class EnrolmentStore {
      * @throws IllegalArgumentException if the project id is not a valid identifier
      */
     public Path sidecar(String projectId) {
-        return directory.resolve(LockKey.identifier(projectId, "projectId") + SUFFIX + EnrolmentSidecar.SUFFIX);
+        return directory.resolve(
+                LockKey.identifier(projectId, PROJECT_ID_PARAMETER) + SUFFIX + EnrolmentSidecar.SUFFIX);
     }
 
     /**
@@ -240,7 +244,7 @@ public final class EnrolmentStore {
      */
     private static boolean isProjectId(String candidate) {
         try {
-            LockKey.identifier(candidate, "projectId");
+            LockKey.identifier(candidate, PROJECT_ID_PARAMETER);
             return true;
         } catch (IllegalArgumentException _) {
             return false;
