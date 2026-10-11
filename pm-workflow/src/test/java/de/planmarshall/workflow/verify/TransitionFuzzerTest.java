@@ -93,7 +93,7 @@ class TransitionFuzzerTest {
         void shouldDifferOnlyInThePlantedGuard() {
             var planted = statements(PLANTED);
 
-            var withoutGuard = planted.stream().filter(line -> !line.equals(PLANTED_GUARD)).toList();
+            var withoutGuard = planted.stream().filter(line -> !PLANTED_GUARD.equals(line)).toList();
 
             assertAll(() -> assertEquals(planted.size() - 1, withoutGuard.size()),
                     () -> assertEquals(statements(CONTROL), withoutGuard));
@@ -127,7 +127,7 @@ class TransitionFuzzerTest {
             var dead = fuzzer.fuzz(planted(), CONFIGURATION).deadStates().getFirst();
 
             assertEquals(List.of(TransitionFuzzer.IN_WORKTREE, TransitionFuzzer.HAS_OPEN_FINDINGS,
-                    TransitionFuzzer.ALL_TASKS_COMPLETED, TransitionFuzzer.PREDICATE_PREFIX + TestPrimitives.READY),
+                            TransitionFuzzer.ALL_TASKS_COMPLETED, TransitionFuzzer.PREDICATE_PREFIX + TestPrimitives.READY),
                     List.copyOf(dead.assignment().keySet()));
         }
 
@@ -180,7 +180,7 @@ class TransitionFuzzerTest {
             var report = fuzzer.fuzz(planted(), new FuzzConfiguration(seed, RUNS, MAX_STEPS));
 
             assertAll(() -> assertEquals(List.of(DEAD_STATE),
-                    report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
+                            report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
                     () -> assertFalse(report.deadStates().getFirst().assignment().get(TransitionFuzzer.IN_WORKTREE)));
         }
     }
