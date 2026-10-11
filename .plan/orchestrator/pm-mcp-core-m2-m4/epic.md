@@ -154,6 +154,14 @@ decision or a dependency outside this repository.
 - 2026-10-11 — Advisory delivered to PLAN-07's mailbox (`inbox/to/workflow-dsl-parser-and-ast/`):
   its manifest carries the stale `re_review_on_loopback: false`; set it plan-locally.
 
+- 2026-10-11 — PLAN-05 `http-baseline` landed as #28 (268d2c0); landing record
+  `landings/PLAN-05.md`. WS-08 closes. The provider tests run on the mock web server and the
+  `FakeServer` classes are gone. First plan with `re_review_on_loopback: true` from the start:
+  plan-marshall posted `/review` after both fix commits and the bot reviewed each time, no stall.
+  Inbox drain of 10 messages: the landing reconciled; 8 lessons routed to plan-marshall
+  `lessons-routing` as `pm-mcp-core-m2-m4-057.md` to `-064.md`; 1 folded as a recurrence into lesson
+  2026-10-10-14-001 (pre-commit recipe).
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice

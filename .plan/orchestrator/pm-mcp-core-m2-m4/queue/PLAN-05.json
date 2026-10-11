@@ -2,9 +2,9 @@
   "id": "PLAN-05",
   "slug": "http-baseline",
   "workstream": "WS-08",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "http-baseline",
-  "pr": "",
-  "landing": "",
+  "pr": "#28",
+  "landing": "landings/PLAN-05.md",
   "seq": 5
 }
