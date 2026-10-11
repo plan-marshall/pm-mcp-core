@@ -60,7 +60,7 @@ class PeriodicSweepKilledRuntimeIT {
         }
     }
 
-    private void record(String name, Duration age) throws IOException {
+    private void writePendingRecord(String name, Duration age) throws IOException {
         var file = Files.writeString(RuntimeChildProcess.pendingRecords(base).resolve(name), "{}");
         Files.setLastModifiedTime(file, FileTime.from(Instant.now().minus(age)));
     }
@@ -75,9 +75,9 @@ class PeriodicSweepKilledRuntimeIT {
     @DisplayName("a run killed after one removal is completed by the next run; a young record is kept in both")
     void shouldCompleteInterruptedSweep() throws Exception {
         Files.createDirectory(RuntimeChildProcess.pendingRecords(base));
-        record("a-aged.json", AGED);
-        record("b-aged.json", AGED);
-        record("c-young.json", YOUNG);
+        writePendingRecord("a-aged.json", AGED);
+        writePendingRecord("b-aged.json", AGED);
+        writePendingRecord("c-young.json", YOUNG);
         fixture.start(RuntimeChildProcess.SWEEP, base);
         fixture.awaitMarker(RuntimeChildProcess.inside(RuntimeChildProcess.SWEEP));
         fixture.kill();

@@ -87,8 +87,8 @@ class CrossScopeReconciliationStepTest {
             return List.of(authoritative);
         }, lockManager, auditSink);
         RecoveryStep reconciliation = step(new CopyReconciler(authoritative, derived, calls));
-        var recovery = new ProjectRecovery(() -> List.of(PROJECT_A), List.of(reconciliation, rollForward),
-                Runnable::run);
+        var recovery = new ProjectRecovery(() -> List.of(PROJECT_A),
+                RecoveryStepFixtures.completeSteps(reconciliation, rollForward), Runnable::run);
 
         var outcome = assertInstanceOf(ProjectRecovery.Result.Recovered.class, recovery.awaitRecovered(PROJECT_A))
                 .outcome();

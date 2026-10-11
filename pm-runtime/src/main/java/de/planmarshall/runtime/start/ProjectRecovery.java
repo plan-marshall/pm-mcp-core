@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -128,9 +129,11 @@ public final class ProjectRecovery {
 
     /**
      * @param enrolled the enrolled projects
-     * @param steps    the recovery steps, one per {@link RecoveryStep.Name}
+     * @param steps    the recovery steps, exactly one per {@link RecoveryStep.Name}; a step whose content is not
+     *                 built yet is a {@link RecoveryStep#notImplemented(RecoveryStep.Name)} seam
      * @param executor the executor the recoveries run on
-     * @throws IllegalArgumentException if two steps have the same name
+     * @throws IllegalArgumentException if two steps have the same name, or a {@link RecoveryStep.Name} has no step;
+     *                                  the message names the missing ones
      */
     public ProjectRecovery(EnrolledProjects enrolled, List<RecoveryStep> steps, Executor executor) {
         this(enrolled, steps, executor, RECOVERY_WAIT);
@@ -145,6 +148,10 @@ public final class ProjectRecovery {
             if (!names.add(step.name())) {
                 throw new IllegalArgumentException("two recovery steps named " + step.name());
             }
+        }
+        var missing = EnumSet.complementOf(names);
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("no recovery step named " + missing);
         }
         this.steps = steps.stream().sorted(Comparator.comparing(RecoveryStep::name)).toList();
     }
@@ -179,7 +186,8 @@ public final class ProjectRecovery {
             Thread.currentThread().interrupt();
             return new Result.Recovering();
         } catch (ExecutionException e) {
-            // Unreachable: a step that throws is turned into a failed outcome by brokenStep
+            // Unreachable: whatever ends a recovery exceptionally, a step that throws, a rejected executor or a
+            // failure after the last step, is turned into a failed outcome by brokenStep
             throw new IllegalStateException("recovery of " + projectId + " ended without an outcome", e);
         }
     }
@@ -202,7 +210,10 @@ public final class ProjectRecovery {
 
     private CompletableFuture<ProjectOutcome> start(String projectId) {
         var results = new CopyOnWriteArrayList<StepResult>();
-        return CompletableFuture.supplyAsync(() -> recover(projectId, results), executor)
+        // Applied to a completed stage, an executor that rejects the task completes the future exceptionally
+        // instead of throwing to the caller, so a rejection reaches brokenStep like a failing step
+        return CompletableFuture.completedFuture(projectId)
+                .thenApplyAsync(id -> recover(id, results), executor)
                 .exceptionally(failure -> brokenStep(projectId, results, failure));
     }
 
@@ -218,12 +229,24 @@ public final class ProjectRecovery {
         return finished(new ProjectOutcome(projectId, results));
     }
 
-    /** A step broke its contract and threw instead of reporting a failure: it is recorded as the failed step. */
-    private ProjectOutcome brokenStep(String projectId, List<StepResult> results, Throwable failure) {
+    /**
+     * The recovery ended exceptionally: a step broke its contract and threw instead of reporting a failure, the
+     * executor rejected the recovery, or something failed after the last step. The pending step, or the last step when
+     * none is pending, is recorded as the failed step.
+     */
+    ProjectOutcome brokenStep(String projectId, List<StepResult> results, Throwable failure) {
         var cause = failure instanceof CompletionException && failure.getCause() != null ? failure.getCause()
                 : failure;
-        var step = steps.get(results.size()).name();
-        var reason = "the step threw " + cause;
+        var pending = results.size() < steps.size();
+        var step = (pending ? steps.get(results.size()) : steps.getLast()).name();
+        String reason;
+        if (cause instanceof RejectedExecutionException) {
+            reason = "the recovery was not started: " + cause;
+        } else if (pending) {
+            reason = "the step threw " + cause;
+        } else {
+            reason = "the recovery failed after its last step: " + cause;
+        }
         LOGGER.error(cause, ERROR.PROJECT_RECOVERY_FAILED, projectId, step, reason);
         var all = new ArrayList<>(results);
         all.add(new StepResult(step, new RecoveryStep.Outcome.Failed(reason)));

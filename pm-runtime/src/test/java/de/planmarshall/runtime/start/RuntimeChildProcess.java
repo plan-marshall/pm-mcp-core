@@ -201,9 +201,9 @@ final class RuntimeChildProcess {
             public RecoveryStep.Outcome run(String projectId, Instant olderThan) {
                 try (var listing = Files.list(pendingRecords(base))) {
                     var removed = 0;
-                    for (var record : listing.sorted().toList()) {
-                        if (Files.getLastModifiedTime(record).toInstant().isBefore(olderThan)) {
-                            Files.delete(record);
+                    for (var pendingRecord : listing.sorted().toList()) {
+                        if (Files.getLastModifiedTime(pendingRecord).toInstant().isBefore(olderThan)) {
+                            Files.delete(pendingRecord);
                             removed++;
                             afterRemoval.run();
                         }
@@ -349,7 +349,8 @@ final class RuntimeChildProcess {
         };
         markers.println(before(RECOVERY));
         // The recovery runs on this thread, so the background pass blocks in the second step until the kill
-        new ProjectRecovery(() -> List.of(RECOVERED_PROJECT), List.of(markingStep(paths.base()), blocking), Runnable::run)
+        new ProjectRecovery(() -> List.of(RECOVERED_PROJECT),
+                RecoveryStepFixtures.completeSteps(markingStep(paths.base()), blocking), Runnable::run)
                 .startBackgroundPass();
         throw new IllegalStateException("the recovery ended although its step blocks");
     }
@@ -358,7 +359,7 @@ final class RuntimeChildProcess {
         markers.println(before(DRAIN));
         var outcome = new StartupSequence(paths, System.getProperty("user.name"), AuditChainVerification.NONE, _ -> {
         }).run(new SecureRandom());
-        if (!(outcome instanceof StartupSequence.Outcome.Ready(var lock, var _))) {
+        if (!(outcome instanceof StartupSequence.Outcome.Ready(var lock, _))) {
             throw new IllegalStateException("startup did not reach ready: " + outcome);
         }
         // Steps 6 and 7 of a real runtime: the socket and the runtime record exist while it drains

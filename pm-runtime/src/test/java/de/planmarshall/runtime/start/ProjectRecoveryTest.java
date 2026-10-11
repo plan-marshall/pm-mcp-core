@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -264,6 +265,59 @@ class ProjectRecoveryTest {
             var enrolledProjects = enrolled("p1");
 
             assertThrows(IllegalArgumentException.class, () -> new ProjectRecovery(enrolledProjects, steps, INLINE));
+        }
+
+        @Test
+        @DisplayName("a step list without a step of every name is refused, naming the missing ones")
+        void shouldRefuseMissingStepNames() {
+            var steps = new ArrayList<>(steps(Map.of()));
+            steps.removeIf(step -> step.name() == Name.LEASES || step.name() == Name.RESUME_DRIVE);
+            var enrolledProjects = enrolled("p1");
+
+            var refused = assertThrows(IllegalArgumentException.class,
+                    () -> new ProjectRecovery(enrolledProjects, steps, INLINE));
+
+            assertEquals("no recovery step named [LEASES, RESUME_DRIVE]", refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("an executor that rejects the recovery yields a failed outcome, never an IllegalStateException")
+        void shouldRecordRejectedExecutionAsFailed() {
+            Executor rejecting = _ -> {
+                throw new RejectedExecutionException("shut down");
+            };
+            var recovery = new ProjectRecovery(enrolled("p1"), steps(Map.of()), rejecting);
+
+            var first = recovered(recovery.awaitRecovered("p1"));
+            var second = recovered(recovery.awaitRecovered("p1"));
+
+            assertAll(
+                    () -> assertTrue(first.failed()),
+                    () -> assertEquals(new StepResult(Name.ENROLMENT_INTEGRITY, new Outcome.Failed(
+                                    "the recovery was not started: java.util.concurrent.RejectedExecutionException: shut down")),
+                            first.steps().getLast()),
+                    () -> assertEquals(first, second),
+                    () -> assertFalse(recovery.isRecovered("p1")),
+                    () -> assertEquals(List.of(), runs));
+        }
+
+        @Test
+        @DisplayName("a failure after the last step is recorded as failed in the last step")
+        void shouldRecordFailureAfterLastStep() {
+            var recovery = new ProjectRecovery(enrolled("p1"), steps(Map.of()), INLINE);
+            var done = new ArrayList<StepResult>();
+            for (var name : Name.values()) {
+                done.add(new StepResult(name, new Outcome.Done("done")));
+            }
+
+            var outcome = recovery.brokenStep("p1", done, new IllegalStateException("log sink gone"));
+
+            assertAll(
+                    () -> assertTrue(outcome.failed()),
+                    () -> assertEquals(Name.values().length + 1, outcome.steps().size()),
+                    () -> assertEquals(new StepResult(Name.BASELINE_WORKTREE_SWEEP, new Outcome.Failed(
+                                    "the recovery failed after its last step: java.lang.IllegalStateException: log sink gone")),
+                            outcome.steps().getLast()));
         }
     }
 

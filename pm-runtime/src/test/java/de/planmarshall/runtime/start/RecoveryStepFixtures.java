@@ -17,10 +17,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 
 import de.planmarshall.core.service.AuditEvent;
@@ -88,6 +91,24 @@ final class RecoveryStepFixtures {
         List<AuditEvent> events() {
             return List.copyOf(events);
         }
+    }
+
+    /**
+     * Completes the steps of a test to the full list {@link ProjectRecovery} requires: every
+     * {@link RecoveryStep.Name} without a given step gets a {@link RecoveryStep#notImplemented(RecoveryStep.Name)} seam,
+     * which passes at once.
+     *
+     * @param given the steps the test is about
+     * @return the given steps and a passing seam for each missing name
+     */
+    static List<RecoveryStep> completeSteps(RecoveryStep... given) {
+        var steps = new ArrayList<>(List.of(given));
+        var names = steps.stream().map(RecoveryStep::name).collect(Collectors.toCollection(
+                () -> EnumSet.noneOf(RecoveryStep.Name.class)));
+        for (var name : EnumSet.complementOf(names)) {
+            steps.add(RecoveryStep.notImplemented(name));
+        }
+        return List.copyOf(steps);
     }
 
     /**

@@ -17,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -67,13 +66,7 @@ class ProjectRecoveryKilledRuntimeIT {
         var runsOfKilled = Files.readAllLines(RuntimeChildProcess.recoveryRuns(base));
         fixture.kill();
 
-        var steps = new ArrayList<RecoveryStep>();
-        steps.add(RuntimeChildProcess.markingStep(base));
-        for (var name : RecoveryStep.Name.values()) {
-            if (name != RecoveryStep.Name.ENROLMENT_INTEGRITY) {
-                steps.add(RecoveryStep.notImplemented(name));
-            }
-        }
+        var steps = RecoveryStepFixtures.completeSteps(RuntimeChildProcess.markingStep(base));
         var next = new ProjectRecovery(() -> List.of(PROJECT), steps, Runnable::run);
         next.startBackgroundPass();
         var result = next.awaitRecovered(PROJECT);
