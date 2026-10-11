@@ -1,0 +1,425 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.start;
+
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+
+
+import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
+/**
+ * The per-user service unit of the service-managed start mode (PM-ARCH-7): the unit starts the daemon by its
+ * absolute path at login, restarts it on failure, and lies where launchd and systemd look for a user's units.
+ */
+@DisplayName("Service unit file")
+class ServiceUnitFileTest {
+
+    private static final Path DAEMON = Path.of("/opt/plan-marshall-mcp/bin/pm-mcpd");
+
+    @TempDir
+    Path home;
+
+    private ServiceUnitFile unit(Platform platform) {
+        return new ServiceUnitFile(platform, home, null, DAEMON);
+    }
+
+    private static String golden(String name) throws IOException {
+        try (var in = ServiceUnitFileTest.class.getResourceAsStream("/service-unit/" + name)) {
+            if (in == null) {
+                throw new IOException("Missing golden file " + name);
+            }
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    @Nested
+    @DisplayName("render")
+    class Render {
+
+        @Test
+        @DisplayName("renders the launchd LaunchAgent byte for byte")
+        void shouldRenderLaunchd() throws Exception {
+            var text = unit(Platform.LAUNCHD).render();
+
+            assertEquals(golden("de.planmarshall.mcpd.plist"), text);
+        }
+
+        @Test
+        @DisplayName("renders the systemd user unit byte for byte")
+        void shouldRenderSystemd() throws Exception {
+            var text = unit(Platform.SYSTEMD).render();
+
+            assertEquals(golden("pm-mcpd.service"), text);
+        }
+
+        @Test
+        @DisplayName("escapes XML markup in the daemon path of the LaunchAgent")
+        void shouldEscapeXml() {
+            var unit = new ServiceUnitFile(Platform.LAUNCHD, home, null, Path.of("/opt/a&b<c>/pm-mcpd"));
+
+            var text = unit.render();
+
+            assertTrue(text.contains("<string>/opt/a&amp;b&lt;c&gt;/pm-mcpd</string>"), text);
+        }
+
+        @Test
+        @DisplayName("doubles the specifier character in ExecStart")
+        void shouldEscapeSpecifier() {
+            var unit = new ServiceUnitFile(Platform.SYSTEMD, home, null, Path.of("/opt/100%/pm-mcpd"));
+
+            var text = unit.render();
+
+            assertTrue(text.contains("ExecStart=/opt/100%%/pm-mcpd\n"), text);
+        }
+
+        @Test
+        @DisplayName("quotes a daemon path with whitespace, quotes or backslashes in ExecStart")
+        void shouldQuoteExecStart() {
+            var unit = new ServiceUnitFile(Platform.SYSTEMD, home, null, Path.of("/opt/my \"pm\\mcp/pm-mcpd"));
+
+            var text = unit.render();
+
+            assertTrue(text.contains("ExecStart=\"/opt/my \\\"pm\\\\mcp/pm-mcpd\"\n"), text);
+        }
+    }
+
+    @Nested
+    @DisplayName("path")
+    class Location {
+
+        @Test
+        @DisplayName("places the LaunchAgent under Library/LaunchAgents of the home")
+        void shouldLocateLaunchAgent() {
+            var path = unit(Platform.LAUNCHD).path();
+
+            assertEquals(home.resolve("Library/LaunchAgents/de.planmarshall.mcpd.plist"), path);
+        }
+
+        @Test
+        @DisplayName("places the systemd unit under .config of the home without XDG_CONFIG_HOME")
+        void shouldLocateSystemdDefault() {
+            var path = unit(Platform.SYSTEMD).path();
+
+            assertEquals(home.resolve(".config/systemd/user/pm-mcpd.service"), path);
+        }
+
+        @Test
+        @DisplayName("places the systemd unit under XDG_CONFIG_HOME when it is set")
+        void shouldLocateSystemdUnderXdg() {
+            var config = home.resolve("xdg");
+            var unit = new ServiceUnitFile(Platform.SYSTEMD, home, config.toString(), DAEMON);
+
+            var path = unit.path();
+
+            assertEquals(config.resolve("systemd/user/pm-mcpd.service"), path);
+        }
+
+        @ParameterizedTest(name = "XDG_CONFIG_HOME ''{0}''")
+        @ValueSource(strings = {"", "  ", "relative/config"})
+        @DisplayName("ignores a blank or relative XDG_CONFIG_HOME")
+        void shouldIgnoreUnusableXdg(String xdgConfigHome) {
+            var unit = new ServiceUnitFile(Platform.SYSTEMD, home, xdgConfigHome, DAEMON);
+
+            var path = unit.path();
+
+            assertEquals(home.resolve(".config/systemd/user/pm-mcpd.service"), path);
+        }
+
+        @Test
+        @DisplayName("rejects a relative daemon path")
+        void shouldRejectRelativeDaemon() {
+            var relative = Path.of("bin/pm-mcpd");
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> new ServiceUnitFile(Platform.LAUNCHD, home, null, relative));
+        }
+
+        /**
+         * A line break in the daemon path would end the {@code ExecStart} line, and systemd would read the text after
+         * it as a directive of its own; the constructor rejects it, so no such unit is ever written. The default file
+         * system refuses a NUL character in a path itself, so the NUL branch of the guard has no reachable fixture
+         * here.
+         */
+        @ParameterizedTest(name = "line break {index}")
+        @ValueSource(strings = {"\n", "\r", "\r\n"})
+        @DisplayName("rejects a daemon path with a line break without echoing it")
+        void shouldRejectLineBreakInDaemon(String lineBreak) {
+            var daemon = Path.of("/opt/pm" + lineBreak + "ExecStartPre=/bin/evil/pm-mcpd");
+
+            var thrown = assertThrows(IllegalArgumentException.class,
+                    () -> new ServiceUnitFile(Platform.SYSTEMD, home, null, daemon));
+
+            assertFalse(thrown.getMessage().contains(lineBreak), thrown.getMessage());
+        }
+    }
+
+    @Nested
+    @DisplayName("write and remove")
+    class WriteAndRemove {
+
+        @Test
+        @DisplayName("creates the parent directories and writes the rendered unit")
+        void shouldWriteUnit() throws Exception {
+            var unit = unit(Platform.SYSTEMD);
+
+            unit.write();
+
+            assertTrue(unit.exists());
+            assertEquals(unit.render(), Files.readString(unit.path()));
+            assertFalse(Files.exists(unit.path().resolveSibling("pm-mcpd.service.tmp")));
+        }
+
+        @Test
+        @DisplayName("replaces an existing unit on a second write")
+        void shouldReplaceUnit() throws Exception {
+            var unit = unit(Platform.LAUNCHD);
+            Files.createDirectories(unit.path().getParent());
+            Files.writeString(unit.path(), "stale");
+
+            unit.write();
+
+            assertEquals(golden("de.planmarshall.mcpd.plist"), Files.readString(unit.path()));
+        }
+
+        @Test
+        @DisplayName("reports a removed unit as present")
+        void shouldRemovePresentUnit() {
+            var unit = unit(Platform.LAUNCHD);
+            unit.write();
+
+            var removed = unit.remove();
+
+            assertTrue(removed);
+            assertFalse(unit.exists());
+        }
+
+        @Test
+        @DisplayName("reports an absent unit without throwing")
+        void shouldRemoveAbsentUnit() {
+            var unit = unit(Platform.SYSTEMD);
+
+            var removed = unit.remove();
+
+            assertFalse(removed);
+        }
+
+        @Test
+        @DisplayName("wraps a write failure into a service unit exception")
+        void shouldWrapWriteFailure() throws Exception {
+            Files.writeString(home.resolve("Library"), "a file where a directory belongs");
+            var unit = unit(Platform.LAUNCHD);
+
+            var thrown = assertThrows(ServiceUnitException.class, unit::write);
+
+            assertTrue(thrown.getMessage().contains(unit.path().toString()), thrown.getMessage());
+        }
+
+        @Test
+        @DisplayName("wraps a remove failure into a service unit exception")
+        void shouldWrapRemoveFailure() throws Exception {
+            var unit = unit(Platform.SYSTEMD);
+            Files.createDirectories(unit.path());
+            Files.writeString(unit.path().resolve("child"), "keeps the directory non-empty");
+
+            var thrown = assertThrows(ServiceUnitException.class, unit::remove);
+
+            assertTrue(thrown.getMessage().contains(unit.path().toString()), thrown.getMessage());
+        }
+    }
+
+    /**
+     * Who may modify the unit must not depend on the process umask: the unit and the directories created for it are
+     * never group- or world-writable, even under a home whose permissions would allow it.
+     */
+    @Nested
+    @EnabledOnOs({OS.MAC, OS.LINUX})
+    @DisplayName("permissions")
+    class Permissions {
+
+        private static void assertNotGroupOrWorldWritable(Path path) throws IOException {
+            var permissions = Files.getPosixFilePermissions(path);
+
+            assertAll(path.toString(),
+                    () -> assertFalse(permissions.contains(PosixFilePermission.GROUP_WRITE), permissions::toString),
+                    () -> assertFalse(permissions.contains(PosixFilePermission.OTHERS_WRITE), permissions::toString));
+        }
+
+        @Test
+        @DisplayName("writes the unit and its new parent directories without group or world write permission")
+        void shouldWriteOwnerOnlyWritable() throws Exception {
+            Files.setPosixFilePermissions(home, PosixFilePermissions.fromString("rwxrwxrwx"));
+            var unit = unit(Platform.LAUNCHD);
+
+            unit.write();
+
+            assertNotGroupOrWorldWritable(unit.path());
+            assertNotGroupOrWorldWritable(home.resolve("Library/LaunchAgents"));
+            assertNotGroupOrWorldWritable(home.resolve("Library"));
+        }
+
+        @Test
+        @DisplayName("replaces a world-writable stale temporary file instead of reusing it")
+        void shouldNotReuseStaleTemporaryFile() throws Exception {
+            var unit = unit(Platform.SYSTEMD);
+            var stale = unit.path().resolveSibling("pm-mcpd.service.tmp");
+            Files.createDirectories(stale.getParent());
+            Files.writeString(stale, "left by an interrupted write");
+            Files.setPosixFilePermissions(stale, PosixFilePermissions.fromString("rw-rw-rw-"));
+
+            unit.write();
+
+            assertAll(
+                    () -> assertEquals(unit.render(), Files.readString(unit.path())),
+                    () -> assertFalse(Files.exists(stale)),
+                    () -> assertNotGroupOrWorldWritable(unit.path()));
+        }
+
+        @Test
+        @DisplayName("narrows the permissions of a world-writable unit it replaces")
+        void shouldNarrowReplacedUnit() throws Exception {
+            var unit = unit(Platform.SYSTEMD);
+            Files.createDirectories(unit.path().getParent());
+            Files.writeString(unit.path(), "a unit of an older version");
+            Files.setPosixFilePermissions(unit.path(), PosixFilePermissions.fromString("rw-rw-rw-"));
+
+            unit.write();
+
+            assertNotGroupOrWorldWritable(unit.path());
+        }
+
+        @Test
+        @DisplayName("writes the unit with mode 0600 and its new parent directories with mode 0700")
+        void shouldWriteOwnerOnlyModes() throws Exception {
+            Files.setPosixFilePermissions(home, PosixFilePermissions.fromString("rwxrwxrwx"));
+            var unit = unit(Platform.SYSTEMD);
+
+            unit.write();
+
+            assertAll(
+                    () -> assertEquals(PosixModes.FILE, Files.getPosixFilePermissions(unit.path())),
+                    () -> assertEquals(PosixModes.DIRECTORY,
+                            Files.getPosixFilePermissions(unit.path().getParent())),
+                    () -> assertEquals(PosixModes.DIRECTORY,
+                            Files.getPosixFilePermissions(home.resolve(".config/systemd"))),
+                    () -> assertEquals(PosixModes.DIRECTORY,
+                            Files.getPosixFilePermissions(home.resolve(".config"))));
+        }
+
+        @Test
+        @DisplayName("narrows a world-readable unit it replaces to mode 0600")
+        void shouldNarrowReplacedUnitToOwnerOnly() throws Exception {
+            var unit = unit(Platform.LAUNCHD);
+            Files.createDirectories(unit.path().getParent());
+            Files.writeString(unit.path(), "a unit of an older version");
+            Files.setPosixFilePermissions(unit.path(), PosixFilePermissions.fromString("rw-r--r--"));
+
+            unit.write();
+
+            assertEquals(PosixModes.FILE, Files.getPosixFilePermissions(unit.path()));
+        }
+    }
+
+    @Nested
+    @DisplayName("exists")
+    class Exists {
+
+        @Test
+        @DisplayName("is true for a present unit")
+        void shouldBeTrueForPresentUnit() {
+            var unit = unit(Platform.SYSTEMD);
+            unit.write();
+
+            assertTrue(unit.exists());
+        }
+
+        @Test
+        @DisplayName("is false for an absent unit")
+        void shouldBeFalseForAbsentUnit() {
+            var unit = unit(Platform.SYSTEMD);
+
+            assertFalse(unit.exists());
+        }
+
+        /**
+         * When the existence of the unit cannot be determined, an uninstall must not take the unit for absent and
+         * report success; the unit counts as present, so the removal is tried and its failure reported. A parent
+         * directory without search permission makes the existence undeterminable, except for root, who is not
+         * subject to it.
+         */
+        @Test
+        @EnabledOnOs({OS.MAC, OS.LINUX})
+        @DisplayName("is true when the presence of the unit cannot be determined")
+        void shouldBeTrueForUndeterminableUnit() throws Exception {
+            assumeFalse("root".equals(System.getProperty("user.name")), "root may search any directory");
+            var unit = unit(Platform.LAUNCHD);
+            unit.write();
+            var agents = unit.path().getParent();
+            Files.setPosixFilePermissions(agents, PosixFilePermissions.fromString("rw-------"));
+            try {
+                assertTrue(unit.exists());
+            } finally {
+                Files.setPosixFilePermissions(agents, PosixFilePermissions.fromString("rwx------"));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("platform")
+    class PlatformOfOs {
+
+        @ParameterizedTest(name = "''{0}'' is {1}")
+        @CsvSource({"Mac OS X, LAUNCHD", "Linux, SYSTEMD", "linux, SYSTEMD"})
+        @DisplayName("maps the OS name to its service manager")
+        void shouldMapOsName(String osName, Platform expected) {
+            assertEquals(expected, Platform.of(osName));
+        }
+
+        @Test
+        @DisplayName("refuses an OS without a supported per-user service manager")
+        void shouldRefuseUnsupportedOs() {
+            assertThrows(ServiceUnitException.class, () -> Platform.of("Windows 11"));
+        }
+
+        @Test
+        @EnabledOnOs(OS.MAC)
+        @DisplayName("is launchd on macOS")
+        void shouldBeLaunchdOnMac() {
+            assertEquals(Platform.LAUNCHD, Platform.current());
+        }
+
+        @Test
+        @EnabledOnOs(OS.LINUX)
+        @DisplayName("is systemd on Linux")
+        void shouldBeSystemdOnLinux() {
+            assertEquals(Platform.SYSTEMD, Platform.current());
+        }
+    }
+}
