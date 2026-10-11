@@ -1,0 +1,7 @@
+# expect: INSTANCE_HEADER line 3
+workflow demo version 1 format 1
+instance {"plan_id": "demo", "version": 1, "event": "plan", "input_digests": {"plan": "sha256:ab", "roles": "sha256:cd"}}
+scope plan
+start demo.begin
+state demo.begin terminal done success
+    phase init

@@ -1,0 +1,9 @@
+# expect: STRUCTURE line 7
+workflow demo version 1 format 1
+scope workspace
+start demo.choose
+state demo.choose
+    phase setup
+    link next proceed (flag: bool)
+        do demo.proceed
+            done -> demo.choose

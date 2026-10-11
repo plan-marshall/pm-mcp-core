@@ -1,0 +1,62 @@
+# A session-driven unit written for the parser tests, not taken from any default unit.
+# It covers every link relation and form, the link id patterns, every type spec,
+# the guard atoms with their precedence, depends_on_config and the question states.
+workflow setup.session version 2 format 1
+scope workspace
+start setup.choose
+
+state setup.choose
+    phase setup
+    link next proceed ()
+        do setup.proceed
+            done -> setup.wait
+    link alt detour:<entity> [submit] (note: text, size: text[1..80]?)
+        guard in_worktree or has_open_findings and not all_tasks_completed
+        do setup.detour
+            done -> setup.wait
+    link retry retry [noop] (count: int, level: int[0..5])
+        guard (in_worktree or has_open_findings) and predicate:setup.ready
+        depends_on_config [project.review.currency, derived.push_remote]
+        do setup.retry
+            done -> setup.choose
+    link fix fix:lint (choice: enum[FIX|SUPPRESS|accept], body: schema[fix-plan])
+        guard not (in_worktree and not has_open_findings)
+        do setup.fix
+            done -> setup.choose
+    link loop_back back (items: list<text>, kinds: list<enum[a|B]>, plans: list<schema[plan-item]>, sizes: list<int[0..9]>)
+        do setup.back
+            done -> setup.choose
+    link submit hand_in (summary: text?)
+        guard in_worktree or has_open_findings or all_tasks_completed
+        do setup.submit
+            submitted -> setup.wait
+    link escalate request_waiver [submit] ()
+        do setup.request-waiver
+            filed -> setup.choose
+    link consult ask_architect ()
+        do setup.ask-architect
+            answered -> setup.choose
+    link abort leave ()
+        guard in_worktree and has_open_findings and all_tasks_completed
+        do setup.leave
+            left -> setup.left
+
+state setup.wait
+    phase setup
+    question clarification
+        answered -> setup.choose
+        expired -> setup.left
+    link next skip_wait ()
+        do setup.skip
+            done -> setup.choose
+
+state setup.review
+    phase setup
+    question review
+        done -> setup.choose
+
+state setup.left terminal left indeterminate
+    phase setup
+
+state setup.held terminal held unsettled
+    phase setup

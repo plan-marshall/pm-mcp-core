@@ -1,0 +1,7 @@
+# expect: STRUCTURE line 3
+# The format of the header is zero, which is no positive integer.
+workflow demo version 1 format 0
+scope plan
+start demo.begin
+state demo.begin terminal done success
+    phase init

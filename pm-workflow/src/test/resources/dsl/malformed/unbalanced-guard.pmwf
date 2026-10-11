@@ -1,0 +1,10 @@
+# expect: STRUCTURE line 8
+workflow demo version 1 format 1
+scope workspace
+start demo.choose
+state demo.choose
+    phase setup
+    link next proceed ()
+        guard (in_worktree and has_open_findings
+        do demo.proceed
+            done -> demo.choose

@@ -1,0 +1,15 @@
+# A plan instance written for the parser tests, not taken from any composed instance.
+# The instance header line follows the unit header and precedes the scope clause; its JSON follows the
+# PlanInstanceHeader schema, canonical (keys sorted, no insignificant whitespace), and keeps a '#' inside a string.
+workflow plan version 4 format 1
+instance {"composed_at":"2026-10-10T12:00:00Z","event":"plan","format_version":1,"inputs":{"change_type":"feature","composition_rules":{"digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","revision":"r#3"},"config_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","plan_facts_digest":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","providers_digest":null,"sub_units":[{"digest":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","file":null,"origin":"default","unit":"git.commit_and_push"},{"digest":"0000000000000000000000000000000000000000000000000000000000000000","origin":"default","unit":"remediation.ci-failure"}],"templates":[{"digest":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","file":".marshall/config/plan.pmwf","origin":"project","unit":"plan"}]},"lane":"deep","plan_id":"demo-plan","policy_calls":[{"args":{"retry_budget":{"source":"template","value":2}},"call_site":"plan.run","unit":"remediation.ci-failure"}],"posture":"standard","pruned":[{"element":"step","id":"default:sonar-roundtrip","reason":"provider_unconfigured","source_fact":"providers.sonar"}],"steps":{"phase_5_verification":["verify:quality-gate"],"phase_6":["default:push","default:create-pr"]},"version":4,"waived_gates":[]}
+scope plan
+start plan.run
+
+state plan.run
+    phase execute
+    auto plan.execute
+        done -> plan.end
+
+state plan.end terminal done success
+    phase finalize
