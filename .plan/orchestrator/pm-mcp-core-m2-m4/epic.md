@@ -176,6 +176,17 @@ decision or a dependency outside this repository.
   pm-mcp-core. When its PRs merge, the Standing Constraints of the specs not yet started are
   rewritten from its report.
 
+- 2026-10-11 — PLAN-07 `workflow-dsl-parser-and-ast` landed as #27 (d091527), its documentation as
+  `plan-marshall-documentation` #27; landing record `landings/PLAN-07.md`. The mailbox advisory was
+  applied (manifest `re_review_on_loopback: true`), so the re-review ran without an override. Inbox
+  drain of 20 messages: the landing reconciled; 1 lesson promoted here (2026-10-11-16-001,
+  `pm-workflow`), 18 routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-065.md` to
+  `-082.md`. Closed the stale re-review defect: PLAN-07 was the last plan composed before #24.
+  Still open as an operator question: whether one bot review is enough to merge (asked on #26).
+- 2026-10-11 — Spec quality: PLAN-07 hit two contradictions between specification documents only in
+  execute (instance header vs store schema; `question` as a reserved word). Specs not yet started
+  name specification sections the same way and can carry the same kind of contradiction.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
@@ -195,12 +206,6 @@ decision or a dependency outside this repository.
   was checked against the AsciiDoc documentation. If `!==` is valid, such a nested table is read
   as ordinary text — source: landing PLAN-02 and lesson 2026-10-10-07-010.
 
-- Plans composed before #24 merged carry `re_review_on_loopback: false` in their execution
-  manifest, because phase 4 copies the step parameters once (lesson routed from PLAN-38, message
-  006). PLAN-04 merged under an operator override for it, PLAN-06 set it by hand, PLAN-07 still
-  runs with it (advised). PLAN-05 has `true`. Closes when PLAN-07 has landed. Also seen: the operator
-  ruled on #26 that one review of the bot is enough and merged without re-reviewing the last three
-  fix commits — decide whether that is the standing rule — source: landings PLAN-04, PLAN-06.
 
 ## Watches
 
