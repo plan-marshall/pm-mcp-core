@@ -55,11 +55,12 @@ class VerificationResultTest {
 
         var result = new VerificationResult(source);
         source.clear();
+        var violations = result.violations();
 
-        assertAll(() -> assertEquals(List.of(violation), result.violations()),
+        assertAll(() -> assertEquals(List.of(violation), violations),
                 () -> assertFalse(result.passed()),
                 () -> assertTrue(new VerificationResult(List.of()).passed()),
-                () -> assertThrows(UnsupportedOperationException.class, () -> result.violations().clear()));
+                () -> assertThrows(UnsupportedOperationException.class, violations::clear));
     }
 
     @Test

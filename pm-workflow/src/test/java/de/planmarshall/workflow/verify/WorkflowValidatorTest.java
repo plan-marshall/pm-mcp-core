@@ -287,6 +287,29 @@ class WorkflowValidatorTest {
             found.forEach(violation -> assertAll(() -> assertEquals(VerificationRule.EXIT_PATH, violation.rule()),
                     () -> assertEquals("verify.stuck", violation.stateId())));
         }
+
+        @Test
+        @DisplayName("Should not require the terminal states of a workspace unit to return to the start state")
+        void shouldExemptTerminalStatesInWorkspace() {
+            var definition = unit("workspace", """
+                    state verify.entry
+                        phase setup
+                        link next work ()
+                            do test.proceed
+                                done -> verify.stuck
+
+                    state verify.stuck
+                        phase setup
+                        auto test.prepare
+                            done -> verify.entry
+                            skipped -> verify.done
+
+                    state plan.aborted terminal aborted failure
+                        phase aborted
+                    """ + DONE_TERMINAL);
+
+            assertEquals(List.of(), violations(definition));
+        }
     }
 
     @Nested

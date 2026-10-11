@@ -265,7 +265,8 @@ public final class WorkflowValidator {
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
         if (definition.scope() == WorkflowScope.WORKSPACE) {
             var returning = graph.backwardClosure(Set.of(definition.startState()));
-            definition.states().values().stream().filter(state -> !returning.contains(state.id()))
+            definition.states().values().stream()
+                    .filter(state -> !isTerminal(state) && !returning.contains(state.id()))
                     .forEach(state -> violations.add(new Violation(VerificationRule.EXIT_PATH, state.id(),
                             state.location(), "the state '%s' has no path back to the start state '%s'"
                             .formatted(state.id(), definition.startState()))));
