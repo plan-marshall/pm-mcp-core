@@ -203,6 +203,17 @@ decision or a dependency outside this repository.
   backfill covers them. The session plan `.plan/temp/doc-structure-single-pr-plan.md` was aligned:
   its decision 1 is settled and its pm-mcp-core moves belong to PLAN-40.
 
+- 2026-10-11 — PLAN-36 `code-analysis-base` landed as #31 (d1608b7) and PLAN-08 `runtime-lifecycle`
+  as #29 (e163bf8); landing records `landings/PLAN-36.md`, `landings/PLAN-08.md`. WS-07 closes.
+  Inbox drain of 42 messages: both landings reconciled; of the 40 candidate lessons, 8 about this
+  repository's code promoted here (2026-10-11-20-001 to -008), 32 routed to plan-marshall
+  `lessons-routing` as `pm-mcp-core-m2-m4-083.md` to `-114.md`. Both plans re-reviewed without an
+  override. PLAN-36 added the test-scope dependencies `json-schema-validator` (pinned 1.5.8) and
+  `archunit-junit5` with the operator's consent recorded at refine.
+- 2026-10-11 — The WS-01 WARN block 150-159 is full since #29. Allocated WARN 141-149 (free on main
+  at e163bf8) as WS-01 overflow, keeping the three-digit scheme of 2026-10-09; PLAN-09 and PLAN-23,
+  the WS-01 plans left, were amended.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
@@ -224,6 +235,15 @@ decision or a dependency outside this repository.
 
 
 ## Watches
+
+- `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
+  (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
+  runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
+- Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #33 (PLAN-08), #20
+  (PLAN-02) — operator merges.
+- Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
+  `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
+  `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).
 
 - PLAN-06 changed the signatures of `AuditEvent` and `CrossScopeReconciler` and the journal format;
   `plan-marshall-mcp` must follow. Closing a channel on a POSIX file drops the process's OS locks on
