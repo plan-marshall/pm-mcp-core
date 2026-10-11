@@ -138,7 +138,7 @@ class EnrolmentKeyTest {
 
         @Test
         @DisplayName("a new key is stored under the global account and leaves the state directory empty")
-        void stateDirectoryUntouched() throws Exception {
+        void stateDirectoryUntouched() {
             key.readOrCreate();
 
             assertAll(
@@ -209,7 +209,7 @@ class EnrolmentKeyTest {
 
         @Test
         @DisplayName("a key file another writer created between the read and the create is kept and returned")
-        void racingWriterKept() throws Exception {
+        void racingWriterKept() {
             var keyFile = state.resolve(EnrolmentKey.FILE_NAME);
             var otherKey = filled((byte) 7);
             var racing = new FixedRandom((byte) 1, () -> writeKeyFile(keyFile, otherKey));

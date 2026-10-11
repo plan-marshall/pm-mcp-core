@@ -214,9 +214,9 @@ class EnrolmentsTest {
             var file = Files.readAllBytes(store.file(PROJECT));
             var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
             events.clear();
+            var other = enrolment(OTHER, false, null);
 
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> keyringEnrolments.enrol(enrolment(OTHER, false, null), false));
+            var refusal = assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(other, false));
 
             assertRefusedForKeySwitch(refusal, PROJECT);
             assertAll(
@@ -232,9 +232,9 @@ class EnrolmentsTest {
         void keyringToFile() {
             keyringEnrolments.enrol(enrolment(false, null), false);
             events.clear();
+            var other = enrolment(OTHER, false, null);
 
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> enrolments.enrol(enrolment(OTHER, false, null), false));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(other, false));
 
             assertRefusedForKeySwitch(refusal, PROJECT);
             assertAll(
@@ -251,8 +251,9 @@ class EnrolmentsTest {
             var failing = enrolmentsWith(keyringKey, event -> {
                 throw failure;
             });
+            var other = enrolment(OTHER, false, null);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(enrolment(OTHER, false, null), false));
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(other, false));
 
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
@@ -268,8 +269,9 @@ class EnrolmentsTest {
             var file = Files.readAllBytes(store.file(PROJECT));
             Files.delete(key.keyFile());
             events.clear();
+            var again = enrolment(false, null);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment(false, null), true));
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(again, true));
 
             assertRefusedForKeySwitch(refusal, PROJECT);
             assertAll(
@@ -282,11 +284,12 @@ class EnrolmentsTest {
         void rebaselineIsTheWayOut() {
             enrolments.enrol(enrolment(false, null), false);
             enrolments.enrol(enrolment(THIRD, false, null), false);
-            assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(enrolment(OTHER, false, null), false));
+            var refused = enrolment(OTHER, false, null);
+            assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(refused, false));
             events.clear();
 
             keyringEnrolments.rebaseline(PROJECT);
-            var other = keyringEnrolments.enrol(enrolment(OTHER, false, null), false);
+            var other = keyringEnrolments.enrol(refused, false);
             events.clear();
 
             var third = assertThrows(StoreRefusal.class, () -> verifyWith(keyringKey, THIRD));
@@ -305,9 +308,9 @@ class EnrolmentsTest {
         void insecureKey() throws Exception {
             enrolments.enrol(enrolment(false, null), false);
             Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-r--r--"));
+            var other = enrolment(OTHER, false, null);
 
-            var thrown = assertThrows(SecretStoreException.class,
-                    () -> enrolments.enrol(enrolment(OTHER, false, null), false));
+            var thrown = assertThrows(SecretStoreException.class, () -> enrolments.enrol(other, false));
 
             assertAll(
                     () -> assertEquals(Reason.INSECURE, thrown.reason()),
@@ -320,9 +323,9 @@ class EnrolmentsTest {
         void malformedKey() throws Exception {
             enrolments.enrol(enrolment(false, null), false);
             Files.writeString(key.keyFile(), "not base64!");
+            var other = enrolment(OTHER, false, null);
 
-            var thrown = assertThrows(SecretStoreException.class,
-                    () -> enrolments.enrol(enrolment(OTHER, false, null), false));
+            var thrown = assertThrows(SecretStoreException.class, () -> enrolments.enrol(other, false));
 
             assertAll(
                     () -> assertEquals(Reason.INVALID, thrown.reason()),
