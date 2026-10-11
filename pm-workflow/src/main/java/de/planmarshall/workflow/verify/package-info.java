@@ -19,8 +19,8 @@
  * {@link de.planmarshall.workflow.verify.Violation}, each naming its rule, its state and the source location of the
  * offending node. A violation is a value, never an exception, and no check stops at the first one.</li>
  * <li><b>Transition fuzzer</b>: {@link de.planmarshall.workflow.verify.TransitionFuzzer} walks a unit that passed the
- * verifier under seeded random assignments of its guard atoms ({@code in_worktree}, {@code has_open_findings},
- * {@code all_tasks_completed} and every {@code predicate:} primitive) and reports every reached non-terminal state
+ * verifier under seeded random assignments of the guard atoms its guards name (a built-in guard such as
+ * {@code in_worktree}, or a {@code predicate:} primitive) and reports every reached non-terminal state
  * without a holding exit as a {@link de.planmarshall.workflow.verify.DeadState} in its
  * {@link de.planmarshall.workflow.verify.FuzzReport}; the seed, the number of runs and the steps of a run are its
  * {@link de.planmarshall.workflow.verify.FuzzConfiguration}, and the same configuration gives the same report.</li>

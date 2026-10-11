@@ -22,9 +22,9 @@ import de.planmarshall.workflow.ast.SourceLocation;
  *
  * @param stateId    the identifier of the state
  * @param location   where the state was read
- * @param assignment the value of every guard atom of the unit in the run that reached it, in the order the fuzzer
- *                   draws them: {@code in_worktree}, {@code has_open_findings}, {@code all_tasks_completed}, then
- *                   {@code predicate:<primitive_id>} in declaration order
+ * @param assignment the value of every guard atom the guards of the unit name in the run that reached it, in the
+ *                   order the fuzzer draws them: the order of their first occurrence in the guards of the declared
+ *                   links, in declaration order
  * @param run        the number of the run that reached it, counted from {@code 1}
  * @since 0.1
  */

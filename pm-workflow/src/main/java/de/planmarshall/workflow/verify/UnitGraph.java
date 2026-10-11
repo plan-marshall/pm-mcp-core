@@ -33,12 +33,24 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the unit is kept as a successor; whether a target exists is not this graph's concern.
  * <p>
  * {@link WorkflowValidator} searches it for reachability and exit paths, and {@link TransitionFuzzer} reads the exits
- * of a state from the same behaviour switches.
+ * of a state from the same behaviour switches and the atoms of a guard from {@link #atomsOf(GuardExpr)}.
  */
 final class UnitGraph {
 
     /** The reserved outcome of a task state that the engine routes by default when no transition declares it. */
     static final String LOST_OUTCOME = "lost";
+
+    /** The atom of the built-in guard {@code in_worktree}. */
+    static final String IN_WORKTREE = "in_worktree";
+
+    /** The atom of the built-in guard {@code has_open_findings}. */
+    static final String HAS_OPEN_FINDINGS = "has_open_findings";
+
+    /** The atom of the built-in guard {@code all_tasks_completed}. */
+    static final String ALL_TASKS_COMPLETED = "all_tasks_completed";
+
+    /** The prefix of the atom of a {@code predicate:} guard, followed by the primitive's identifier. */
+    static final String PREDICATE_PREFIX = "predicate:";
 
     private final Map<String, Set<String>> successors;
 
@@ -174,6 +186,28 @@ final class UnitGraph {
             case GuardExpr.Or or -> Stream.concat(predicatesOf(or.left()), predicatesOf(or.right()));
             case GuardExpr.Not not -> predicatesOf(not.operand());
             case GuardExpr.InWorktree _, GuardExpr.HasOpenFindings _, GuardExpr.AllTasksCompleted _ -> Stream.empty();
+        };
+    }
+
+    /**
+     * Names the atoms of a guard expression: {@link #IN_WORKTREE}, {@link #HAS_OPEN_FINDINGS} and
+     * {@link #ALL_TASKS_COMPLETED} for the built-in guards, {@link #PREDICATE_PREFIX} followed by the primitive's
+     * identifier for a {@code predicate:} guard, and the atoms of the operands of {@code and}, {@code or} and
+     * {@code not}. The switch is exhaustive over the variants of {@link GuardExpr}, so a new variant fails to compile
+     * here; an atom expression yields exactly its own name.
+     *
+     * @param expr a guard expression
+     * @return the name of every atom of the expression, in source order, a repeated atom once per occurrence
+     */
+    static Stream<String> atomsOf(GuardExpr expr) {
+        return switch (expr) {
+            case GuardExpr.InWorktree _ -> Stream.of(IN_WORKTREE);
+            case GuardExpr.HasOpenFindings _ -> Stream.of(HAS_OPEN_FINDINGS);
+            case GuardExpr.AllTasksCompleted _ -> Stream.of(ALL_TASKS_COMPLETED);
+            case GuardExpr.CustomPredicate(var primitiveId) -> Stream.of(PREDICATE_PREFIX + primitiveId);
+            case GuardExpr.And(var left, var right) -> Stream.concat(atomsOf(left), atomsOf(right));
+            case GuardExpr.Or(var left, var right) -> Stream.concat(atomsOf(left), atomsOf(right));
+            case GuardExpr.Not(var operand) -> atomsOf(operand);
         };
     }
 

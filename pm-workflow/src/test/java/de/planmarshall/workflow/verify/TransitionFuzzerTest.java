@@ -115,20 +115,43 @@ class TransitionFuzzerTest {
             assertAll(() -> assertEquals(DEAD_STATE, dead.stateId()),
                     () -> assertEquals(PLANTED, dead.location().resourceName()),
                     () -> assertEquals(lineOf(PLANTED, "state " + DEAD_STATE), dead.location().line()),
-                    () -> assertEquals(Boolean.FALSE, dead.assignment().get(TransitionFuzzer.IN_WORKTREE)),
+                    () -> assertEquals(Boolean.FALSE, dead.assignment().get(UnitGraph.IN_WORKTREE)),
                     () -> assertTrue(dead.run() >= 1 && dead.run() <= RUNS, () -> "run " + dead.run()),
                     () -> assertEquals(CONFIGURATION, report.configuration()),
                     () -> assertEquals(RUNS, report.runsExecuted()));
         }
 
         @Test
-        @DisplayName("Should draw every guard atom of the unit in the documented order")
+        @DisplayName("Should draw the guard atoms of the unit in the order of their first occurrence")
         void shouldDrawEveryAtomInOrder() {
             var dead = fuzzer.fuzz(planted(), CONFIGURATION).deadStates().getFirst();
 
-            assertEquals(List.of(TransitionFuzzer.IN_WORKTREE, TransitionFuzzer.HAS_OPEN_FINDINGS,
-                            TransitionFuzzer.ALL_TASKS_COMPLETED, TransitionFuzzer.PREDICATE_PREFIX + TestPrimitives.READY),
+            assertEquals(List.of(UnitGraph.HAS_OPEN_FINDINGS, UnitGraph.PREDICATE_PREFIX + TestPrimitives.READY,
+                            UnitGraph.ALL_TASKS_COMPLETED, UnitGraph.IN_WORKTREE),
                     List.copyOf(dead.assignment().keySet()));
+        }
+
+        @Test
+        @DisplayName("Should draw only the atoms the guards of the unit name")
+        void shouldDrawOnlyTheNamedAtoms() {
+            var atoms = TransitionFuzzer.atomsOf(control());
+
+            assertEquals(List.of(UnitGraph.HAS_OPEN_FINDINGS, UnitGraph.PREDICATE_PREFIX + TestPrimitives.READY,
+                    UnitGraph.ALL_TASKS_COMPLETED), atoms);
+        }
+
+        @Test
+        @DisplayName("Should count the witness run from one")
+        void shouldCountTheWitnessRunFromOne() {
+            var source = VerifyFixtures.read(PLANTED).replace("start verify.entry", "start " + DEAD_STATE)
+                    .replace(PLANTED_GUARD, PLANTED_GUARD + " and not in_worktree");
+
+            var report = fuzzer.fuzz(VerifyFixtures.parseSource(PLANTED, source), new FuzzConfiguration(SEED, 3, 1));
+
+            assertAll(() -> assertEquals(List.of(DEAD_STATE),
+                            report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
+                    () -> assertEquals(1, report.deadStates().getFirst().run(), report::toString),
+                    () -> assertEquals(3, report.runsExecuted()));
         }
 
         @Test
@@ -181,7 +204,7 @@ class TransitionFuzzerTest {
 
             assertAll(() -> assertEquals(List.of(DEAD_STATE),
                             report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
-                    () -> assertFalse(report.deadStates().getFirst().assignment().get(TransitionFuzzer.IN_WORKTREE)));
+                    () -> assertFalse(report.deadStates().getFirst().assignment().get(UnitGraph.IN_WORKTREE)));
         }
     }
 

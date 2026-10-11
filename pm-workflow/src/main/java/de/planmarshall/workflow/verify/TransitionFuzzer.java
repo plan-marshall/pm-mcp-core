@@ -29,10 +29,14 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * The seeded transition fuzzer (PM-TEST-3): it walks a unit that passed {@link WorkflowValidator} under random
  * assignments of its guard atoms and reports every reached non-terminal state none of whose exits holds.
  * <p>
- * Each run draws one two-valued assignment over the atoms {@code in_worktree}, {@code has_open_findings},
- * {@code all_tasks_completed} and every {@code predicate:} primitive of the unit, then walks from the start state for
- * at most {@link FuzzConfiguration#maxSteps()} steps. A declared link holds when it has no guard or its guard is true
- * under the assignment; the transitions the engine takes on its own (of {@code auto}, {@code job},
+ * Each run draws one two-valued assignment over the atoms the guards of the unit name: a built-in guard
+ * ({@code in_worktree}, {@code has_open_findings}, {@code all_tasks_completed}) or a {@code predicate:} primitive,
+ * each once, in the order of their first occurrence in the guards of the declared links, the states and their links
+ * taken in declaration order and each guard read from left to right; an atom no guard names is not drawn. The atoms of
+ * a guard are named by one exhaustive switch over {@link GuardExpr}, which the evaluation of a guard reads as well, so
+ * what is drawn and what is looked up cannot diverge. The run then walks from the start state for at most
+ * {@link FuzzConfiguration#maxSteps()} steps. A declared link holds when it has no guard or its guard is true under
+ * the assignment; the transitions the engine takes on its own (of {@code auto}, {@code job},
  * {@code composite_job}, {@code job llm}, {@code call} and the resolution of a question) always hold, and so do the
  * implicit {@code step_out} of a link state of a sub-workflow and the default {@code lost} route of a task state,
  * which leave the unit. At a state without a holding exit the run records a {@link DeadState} and stops; otherwise it
@@ -50,14 +54,6 @@ public final class TransitionFuzzer {
     /** The algorithm of the generator; fixed, so a seed gives the same sequence on every JDK. */
     static final String ALGORITHM = "L64X128MixRandom";
 
-    static final String IN_WORKTREE = "in_worktree";
-
-    static final String HAS_OPEN_FINDINGS = "has_open_findings";
-
-    static final String ALL_TASKS_COMPLETED = "all_tasks_completed";
-
-    static final String PREDICATE_PREFIX = "predicate:";
-
     /**
      * Walks the unit with the configuration.
      *
@@ -72,10 +68,10 @@ public final class TransitionFuzzer {
         var random = RandomGeneratorFactory.of(ALGORITHM).create(configuration.seed());
         var atoms = atomsOf(definition);
         var deadStates = new LinkedHashMap<String, DeadState>();
-        for (var run = 1; run <= configuration.runs(); run++) {
+        for (var index = 0; index < configuration.runs(); index++) {
             var assignment = new LinkedHashMap<String, Boolean>();
             atoms.forEach(atom -> assignment.put(atom, random.nextBoolean()));
-            var witnessRun = run;
+            var witnessRun = index + 1;
             walk(definition, configuration.maxSteps(), assignment, random).ifPresent(state -> deadStates
                     .computeIfAbsent(state.id(), id -> new DeadState(id, state.location(), assignment, witnessRun)));
         }
@@ -129,28 +125,32 @@ public final class TransitionFuzzer {
         return exits;
     }
 
+    /**
+     * Evaluates a guard two-valued under the assignment; an atom is looked up by the name
+     * {@link UnitGraph#atomsOf(GuardExpr)} gives it, the same name {@link #atomsOf(WorkflowDefinition)} drew it under.
+     */
     private static boolean holds(GuardExpr expr, Map<String, Boolean> assignment) {
         return switch (expr) {
-            case GuardExpr.InWorktree _ -> assignment.get(IN_WORKTREE);
-            case GuardExpr.HasOpenFindings _ -> assignment.get(HAS_OPEN_FINDINGS);
-            case GuardExpr.AllTasksCompleted _ -> assignment.get(ALL_TASKS_COMPLETED);
-            case GuardExpr.CustomPredicate(var primitiveId) -> assignment.get(PREDICATE_PREFIX + primitiveId);
             case GuardExpr.And(var left, var right) -> holds(left, assignment) && holds(right, assignment);
             case GuardExpr.Or(var left, var right) -> holds(left, assignment) || holds(right, assignment);
             case GuardExpr.Not(var operand) -> !holds(operand, assignment);
+            case GuardExpr.InWorktree _, GuardExpr.HasOpenFindings _, GuardExpr.AllTasksCompleted _,
+                GuardExpr.CustomPredicate _ -> assignment.get(UnitGraph.atomsOf(expr).toList().getFirst());
         };
     }
 
     /**
-     * Collects the guard atoms of the unit: the three built-in atoms, then every {@code predicate:} primitive in the
-     * declaration order of the links that name it.
+     * Collects the atoms the guards of the unit name, each once, in the order of their first occurrence: the states
+     * and their declared links in declaration order, each guard read from left to right.
+     *
+     * @param definition the unit
+     * @return the atoms to draw a value for in every run
      */
-    private static List<String> atomsOf(WorkflowDefinition definition) {
-        var atoms = new LinkedHashSet<>(List.of(IN_WORKTREE, HAS_OPEN_FINDINGS, ALL_TASKS_COMPLETED));
+    static List<String> atomsOf(WorkflowDefinition definition) {
+        var atoms = new LinkedHashSet<String>();
         for (var state : definition.states().values()) {
             for (var link : UnitGraph.declaredLinks(state.behavior())) {
-                link.guard().ifPresent(guard -> UnitGraph.predicatesOf(guard.expr())
-                        .forEach(primitiveId -> atoms.add(PREDICATE_PREFIX + primitiveId)));
+                link.guard().ifPresent(guard -> UnitGraph.atomsOf(guard.expr()).forEach(atoms::add));
             }
         }
         return List.copyOf(atoms);
