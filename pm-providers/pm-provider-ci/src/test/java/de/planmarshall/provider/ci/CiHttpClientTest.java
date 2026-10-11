@@ -24,11 +24,13 @@ import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import mockwebserver3.Dispatcher;
 import mockwebserver3.MockResponse;
@@ -50,9 +52,14 @@ class CiHttpClientTest {
     private static final Instant NOW = Instant.parse("2026-10-05T10:00:00Z");
     private static final TokenSource TOKEN = () -> Optional.of("s3cret");
     private static final MockResponse NOT_FOUND = json(404, "{\"message\":\"Not Found\"}");
+    /** Redirects queued for the redirect loop, more hops than cui-http follows. */
+    private static final int LOOP_REDIRECTS = 20;
 
-    /** Canned responses by {@code METHOD target}; anything else is answered 404. */
-    private final Map<String, MockResponse> responses = new ConcurrentHashMap<>();
+    /**
+     * Canned responses by {@code METHOD target}, queued per key; each answers one request, and a key with no
+     * response left, like any other request, is answered 404.
+     */
+    private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     private MockWebServer server;
     private CiHttpClient client;
 
@@ -62,7 +69,9 @@ class CiHttpClientTest {
         server.setDispatcher(new Dispatcher() {
             @Override
             public MockResponse dispatch(RecordedRequest request) {
-                return responses.getOrDefault(request.getMethod() + " " + request.getTarget(), NOT_FOUND);
+                Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
+                MockResponse next = queue == null ? null : queue.poll();
+                return next == null ? NOT_FOUND : next;
             }
         });
         client = new CiHttpClient(new CiEndpoint(base(), Set.of()), TOKEN,
@@ -75,7 +84,7 @@ class CiHttpClientTest {
     }
 
     private void on(String method, String target, MockResponse response) {
-        responses.put(method + " " + target, response);
+        responses.computeIfAbsent(method + " " + target, k -> new ConcurrentLinkedDeque<>()).add(response);
     }
 
     private static MockResponse response(int status, String body, Map<String, String> headers) {
@@ -182,7 +191,7 @@ class CiHttpClientTest {
         /** An origin on a loopback port that was bound and released, so nothing listens there. */
         private static URI closedOrigin() throws IOException {
             int port;
-            try (var socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) {
+            try (var socket = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
                 port = socket.getLocalPort();
             }
             return URI.create("http://127.0.0.1:" + port + "/");
@@ -229,7 +238,10 @@ class CiHttpClientTest {
         @DisplayName("guards the rule that every HTTP call goes through cui-http: a redirect loop is refused "
                 + "with the reason cui-http names")
         void sendsThroughCuiHttp() {
-            on("GET", "/loop", response(302, "", Map.of("Location", base() + "loop")));
+            // the loop sends /loop once per hop: one redirect for each, more than cui-http follows
+            for (int hop = 0; hop < LOOP_REDIRECTS; hop++) {
+                on("GET", "/loop", response(302, "", Map.of("Location", base() + "loop")));
+            }
 
             CiResponse response = client.get("/loop");
 

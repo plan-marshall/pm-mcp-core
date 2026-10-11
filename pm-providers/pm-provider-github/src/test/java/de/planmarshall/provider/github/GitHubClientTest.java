@@ -46,7 +46,10 @@ class GitHubClientTest {
 
     private static final MockResponse NOT_FOUND = json(404, "{\"message\":\"Not Found\"}");
 
-    /** Canned responses by {@code METHOD target}, queued per key; the last response of a key repeats. */
+    /**
+     * Canned responses by {@code METHOD target}, queued per key; each answers one request, and a key with no
+     * response left, like any other request, is answered 404.
+     */
     private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
@@ -60,10 +63,8 @@ class GitHubClientTest {
             public MockResponse dispatch(RecordedRequest request) {
                 requests.add(request);
                 Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
-                if (queue == null || queue.isEmpty()) {
-                    return NOT_FOUND;
-                }
-                return queue.size() > 1 ? queue.poll() : queue.peek();
+                MockResponse next = queue == null ? null : queue.poll();
+                return next == null ? NOT_FOUND : next;
             }
         });
         http = new CiHttpClient(CiEndpoint.of(URI.create("http://127.0.0.1:" + server.getPort() + "/")),

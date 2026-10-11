@@ -72,7 +72,10 @@ class InstallationTokensTest {
         }
     }
 
-    /** Canned responses by {@code METHOD target}, queued per key; the last response of a key repeats. */
+    /**
+     * Canned responses by {@code METHOD target}, queued per key; each answers one request, and a key with no
+     * response left, like any other request, is answered 404.
+     */
     private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
@@ -88,10 +91,8 @@ class InstallationTokensTest {
             public MockResponse dispatch(RecordedRequest request) {
                 requests.add(request);
                 Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
-                if (queue == null || queue.isEmpty()) {
-                    return NOT_FOUND;
-                }
-                return queue.size() > 1 ? queue.poll() : queue.peek();
+                MockResponse next = queue == null ? null : queue.poll();
+                return next == null ? NOT_FOUND : next;
             }
         });
         endpoint = CiEndpoint.of(URI.create("http://127.0.0.1:" + server.getPort() + "/"));
@@ -200,6 +201,8 @@ class InstallationTokensTest {
     @Test
     @DisplayName("reports refused mints, unreadable responses and unusable keys")
     void failures() {
+        // installation 42 is asked twice: by token and by the token source, neither caching a refused mint
+        on("POST", PATH, json(401, "{\"message\":\"A JSON web token could not be decoded\"}"));
         on("POST", PATH, json(401, "{\"message\":\"A JSON web token could not be decoded\"}"));
         on("POST", "/app/installations/7/access_tokens", json(201, "{\"token\":\"t\"}"));
         on("POST", "/app/installations/8/access_tokens", json(201, "{\"token\":\"t\",\"expires_at\":\"tomorrow\"}"));
@@ -212,5 +215,6 @@ class InstallationTokensTest {
             assertEquals(CiResult.Outcome.AUTH_FAILED, broken.token(42, "repo", PERMISSIONS).outcome());
         }
         assertTrue(redacted.isEmpty());
+        assertEquals(4, requests.size(), "an unusable key sends no request");
     }
 }

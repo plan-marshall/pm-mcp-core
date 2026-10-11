@@ -47,7 +47,10 @@ class GitLabClientTest {
     private static final String MR = "/api/v4/projects/group%2Fproject/merge_requests/12";
     private static final MockResponse NOT_FOUND = json(404, "{\"message\":\"Not Found\"}");
 
-    /** Canned responses by {@code METHOD target}, queued per key; the last response of a key repeats. */
+    /**
+     * Canned responses by {@code METHOD target}, queued per key; each answers one request, and a key with no
+     * response left, like any other request, is answered 404.
+     */
     private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
     /** The requests the mock web server received, in arrival order. */
     private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
@@ -62,10 +65,8 @@ class GitLabClientTest {
             public MockResponse dispatch(RecordedRequest request) {
                 requests.add(request);
                 Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
-                if (queue == null || queue.isEmpty()) {
-                    return NOT_FOUND;
-                }
-                return queue.size() > 1 ? queue.poll() : queue.peek();
+                MockResponse next = queue == null ? null : queue.poll();
+                return next == null ? NOT_FOUND : next;
             }
         });
         base = "http://127.0.0.1:" + server.getPort() + "/";
@@ -273,8 +274,11 @@ class GitLabClientTest {
         @Test
         @DisplayName("reports a blocked user and the failures of GET /user for a token of another type")
         void identityFallbackFailures() {
-            on("GET", SELF, json(400,
-                    "{\"message\":\"400 Bad request - requires token type to be a personal access token\"}"));
+            // each of the three identity reads asks the token first, then GET /user
+            for (int read = 0; read < 3; read++) {
+                on("GET", SELF, json(400,
+                        "{\"message\":\"400 Bad request - requires token type to be a personal access token\"}"));
+            }
             on("GET", "/api/v4/user", json(200, "{\"id\":18,\"state\":\"blocked\"}"));
             on("GET", "/api/v4/user", json(200, "{}"));
             on("GET", "/api/v4/user", json(401, "{\"message\":\"401 Unauthorized\"}"));
@@ -286,6 +290,7 @@ class GitLabClientTest {
             assertFalse(blocked.value().orElseThrow().active());
             assertEquals(CiResult.Outcome.FAILED, unreadable.outcome());
             assertEquals(CiResult.Outcome.AUTH_FAILED, refused.outcome());
+            assertEquals(6, requests.size());
         }
 
         @Test
