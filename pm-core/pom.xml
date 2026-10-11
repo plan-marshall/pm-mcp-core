@@ -17,6 +17,10 @@
         <!-- Enabled by the integration-tests profile -->
         <skipITs>true</skipITs>
         <maven.jar.plugin.automatic.module.name>de.planmarshall.core</maven.jar.plugin.automatic.module.name>
+        <!-- Not managed by the parent; the JSON Schema validator (draft 2020-12) of the schema tests -->
+        <version.json-schema-validator>1.5.8</version.json-schema-validator>
+        <!-- The checkout of plan-marshall-documentation the schema tests read; override with -Dpm.documentation.root -->
+        <pm.documentation.root>${maven.multiModuleProjectDirectory}/../plan-marshall-documentation</pm.documentation.root>
     </properties>
     <dependencies>
         <dependency>
@@ -46,6 +50,17 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>${version.json-schema-validator}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -59,6 +74,15 @@
                             <artifactId>lombok</artifactId>
                         </path>
                     </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <pm.documentation.root>${pm.documentation.root}</pm.documentation.root>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>
