@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -48,6 +49,8 @@ import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 import de.planmarshall.runtime.credentials.FileSecretStore;
+import de.planmarshall.runtime.credentials.SecretStoreException;
+import de.planmarshall.runtime.credentials.SecretStoreException.Reason;
 import de.planmarshall.runtime.enrolment.Enrolments.ScopeActiveException;
 import de.planmarshall.runtime.lock.FileLockManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +76,8 @@ class EnrolmentsTest {
 
     private final List<AuditEvent> events = new ArrayList<>();
     private final Map<String, List<Item>> liveWork = new HashMap<>();
+    private Path state;
+    private AuditSink sink;
     private EnrolmentStore store;
     private EnrolmentKey key;
     private FileLockManager locks;
@@ -82,21 +87,29 @@ class EnrolmentsTest {
     @BeforeEach
     void create() throws IOException {
         Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
-        var state = Files.createDirectories(base.resolve("state"));
+        state = Files.createDirectories(base.resolve("state"));
         store = new EnrolmentStore(base);
         key = new EnrolmentKey(new FileSecretStore(base.resolve("credentials")), state, USER, new SecureRandom());
-        AuditSink sink = events::add;
+        sink = events::add;
         locks = new FileLockManager(sink);
         var fileCheck = new EnrolmentFileCheck(USER);
         check = new EnrolmentCheck(store, key, fileCheck, sink);
-        enrolments = new Enrolments(store, key, fileCheck, locks,
-                projectId -> liveWork.getOrDefault(projectId, List.of()), sink);
+        enrolments = enrolmentsWith(key, sink);
+    }
+
+    private Enrolments enrolmentsWith(EnrolmentKey integrityKey, AuditSink auditSink) {
+        return new Enrolments(store, integrityKey, new EnrolmentFileCheck(USER), locks,
+                projectId -> liveWork.getOrDefault(projectId, List.of()), auditSink);
     }
 
     private static ProjectEnrolment enrolment(boolean pilot, Instant releasedAt) {
-        return new ProjectEnrolment(PROJECT, "/home/dev/git/" + PROJECT, Instant.parse("2026-10-11T08:00:00Z"), pilot,
-                null, releasedAt, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(), new TreeMap<>(),
-                new TreeMap<>(), List.of(), new TreeMap<>());
+        return enrolment(PROJECT, pilot, releasedAt);
+    }
+
+    private static ProjectEnrolment enrolment(String projectId, boolean pilot, Instant releasedAt) {
+        return new ProjectEnrolment(projectId, "/home/dev/git/" + projectId, Instant.parse("2026-10-11T08:00:00Z"),
+                pilot, null, releasedAt, List.of(), List.of(), Build.defaults(), Map.of(), new TreeMap<>(),
+                new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());
     }
 
     private ProjectEnrolment verify() {
@@ -142,6 +155,179 @@ class EnrolmentsTest {
             enrolments.enrol(enrolment(true, null), false);
 
             assertFalse(verify().pilot());
+        }
+    }
+
+    @Nested
+    @DisplayName("enrol never creates an integrity key while enrolment files exist")
+    class KeySourceSwitch {
+
+        private static final String OTHER = "other-project";
+        private static final String THIRD = "third-project";
+
+        private InMemoryKeyring keyring;
+        private EnrolmentKey keyringKey;
+        private Enrolments keyringEnrolments;
+
+        @BeforeEach
+        void keyring() {
+            keyring = new InMemoryKeyring();
+            keyringKey = new EnrolmentKey(keyring, state, USER, new SecureRandom());
+            keyringEnrolments = enrolmentsWith(keyringKey, sink);
+        }
+
+        private ProjectEnrolment verifyWith(EnrolmentKey integrityKey, String projectId) {
+            try (var transaction = locks.openTransaction()) {
+                return new EnrolmentCheck(store, integrityKey, new EnrolmentFileCheck(USER), sink)
+                        .verify(transaction, projectId);
+            }
+        }
+
+        private void assertRefusedForKeySwitch(StoreRefusal refusal, String firstProject) {
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
+                    () -> assertEquals(store.file(firstProject), refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains(EnrolmentCheck.KEY_ABSENT), refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("pm-operator accept-edit enrolment " + firstProject),
+                            refusal.getMessage()),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentTampered(firstProject, EnrolmentCheck.KEY_ABSENT)),
+                            events),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_TAMPERED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("on a fresh base without key and enrolment file, the first enrol creates the key in the keyring")
+        void freshBaseCreatesKey() {
+            var written = keyringEnrolments.enrol(enrolment(false, null), false);
+
+            assertAll(
+                    () -> assertEquals(written, verifyWith(keyringKey, PROJECT)),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
+                    () -> assertFalse(Files.exists(keyringKey.keyFile())));
+        }
+
+        @Test
+        @DisplayName("from the key file to the keyring: refused, no key created, nothing written")
+        void fileToKeyring() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            var file = Files.readAllBytes(store.file(PROJECT));
+            var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
+            events.clear();
+
+            var refusal = assertThrows(StoreRefusal.class,
+                    () -> keyringEnrolments.enrol(enrolment(OTHER, false, null), false));
+
+            assertRefusedForKeySwitch(refusal, PROJECT);
+            assertAll(
+                    () -> assertTrue(keyring.entries.isEmpty()),
+                    () -> assertFalse(Files.exists(store.file(OTHER))),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER))),
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))));
+        }
+
+        @Test
+        @DisplayName("from the keyring to the key file: refused, no key file created, nothing written")
+        void keyringToFile() {
+            keyringEnrolments.enrol(enrolment(false, null), false);
+            events.clear();
+
+            var refusal = assertThrows(StoreRefusal.class,
+                    () -> enrolments.enrol(enrolment(OTHER, false, null), false));
+
+            assertRefusedForKeySwitch(refusal, PROJECT);
+            assertAll(
+                    () -> assertFalse(Files.exists(key.keyFile())),
+                    () -> assertFalse(Files.exists(store.file(OTHER))),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER))));
+        }
+
+        @Test
+        @DisplayName("a failing audit sink does not lift the refusal, and the refusal carries the failure")
+        void failingSink() {
+            enrolments.enrol(enrolment(false, null), false);
+            var failure = new UncheckedIOException(new IOException("audit log full"));
+            var failing = enrolmentsWith(keyringKey, event -> {
+                throw failure;
+            });
+
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(enrolment(OTHER, false, null), false));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
+                    () -> assertTrue(keyring.entries.isEmpty()),
+                    () -> assertFalse(Files.exists(store.file(OTHER))));
+        }
+
+        @Test
+        @DisplayName("re-enrolling the only enrolled project after its key vanished is refused the same way")
+        void reEnrolAfterKeyVanished() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            var file = Files.readAllBytes(store.file(PROJECT));
+            Files.delete(key.keyFile());
+            events.clear();
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment(false, null), true));
+
+            assertRefusedForKeySwitch(refusal, PROJECT);
+            assertAll(
+                    () -> assertFalse(Files.exists(key.keyFile())),
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))));
+        }
+
+        @Test
+        @DisplayName("the re-baseline creates the new key; the other enrolments then fail by HMAC, one by one")
+        void rebaselineIsTheWayOut() {
+            enrolments.enrol(enrolment(false, null), false);
+            enrolments.enrol(enrolment(THIRD, false, null), false);
+            assertThrows(StoreRefusal.class, () -> keyringEnrolments.enrol(enrolment(OTHER, false, null), false));
+            events.clear();
+
+            keyringEnrolments.rebaseline(PROJECT);
+            var other = keyringEnrolments.enrol(enrolment(OTHER, false, null), false);
+            events.clear();
+
+            var third = assertThrows(StoreRefusal.class, () -> verifyWith(keyringKey, THIRD));
+            assertAll(
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
+                    () -> assertEquals(PROJECT, verifyWith(keyringKey, PROJECT).projectId()),
+                    () -> assertEquals(other, verifyWith(keyringKey, OTHER)),
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, third.outcome()),
+                    () -> assertTrue(third.getMessage().contains(EnrolmentCheck.HMAC_MISMATCH), third.getMessage()),
+                    () -> assertTrue(third.getMessage().contains("pm-operator accept-edit enrolment " + THIRD),
+                            third.getMessage()));
+        }
+
+        @Test
+        @DisplayName("a key file with a mode broader than 0600 still fails the enrol as insecure and writes nothing")
+        void insecureKey() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            Files.setPosixFilePermissions(key.keyFile(), PosixFilePermissions.fromString("rw-r--r--"));
+
+            var thrown = assertThrows(SecretStoreException.class,
+                    () -> enrolments.enrol(enrolment(OTHER, false, null), false));
+
+            assertAll(
+                    () -> assertEquals(Reason.INSECURE, thrown.reason()),
+                    () -> assertFalse(Files.exists(store.file(OTHER))),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER))));
+        }
+
+        @Test
+        @DisplayName("a malformed key file still fails the enrol as invalid and writes nothing")
+        void malformedKey() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            Files.writeString(key.keyFile(), "not base64!");
+
+            var thrown = assertThrows(SecretStoreException.class,
+                    () -> enrolments.enrol(enrolment(OTHER, false, null), false));
+
+            assertAll(
+                    () -> assertEquals(Reason.INVALID, thrown.reason()),
+                    () -> assertFalse(Files.exists(store.file(OTHER))),
+                    () -> assertFalse(Files.exists(store.sidecar(OTHER))));
         }
     }
 

@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.crypto.SecretKey;
 
 
 import de.cuioss.tools.logging.CuiLogger;
@@ -42,6 +43,11 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * it holds that lock, so the answer and the removal belong to one transaction; a future scope-creation path must close
  * the remaining window by reading the enrolment under the same lock. Every write is logged and handed to the audit
  * sink.
+ * <p>
+ * The integrity key is created by the first write that needs it and never replaced. {@code enrol} creates it only
+ * while no enrolment file exists; when the key is absent from the active key source although enrolment files exist,
+ * {@code enrol} refuses as {@code enrolment_tampered} rather than strand them under a new key. The re-baseline is the
+ * one write that creates the key over existing enrolments, because it is the operator's explicit act.
  *
  * @since 0.1
  */
@@ -77,12 +83,21 @@ public final class Enrolments {
     /**
      * Writes the project's enrolment file and its sidecar record. The written enrolment is a pilot exactly if
      * {@code pilot} is set, and is not released: enrolling a released project again clears its release.
+     * <p>
+     * The write creates the integrity key only if the key does not exist and no enrolment file exists. A key that is
+     * absent from the active key source while enrolment files exist (typically after the key source was switched
+     * between the keyring and the key file) is not replaced by a new one; the write is refused. A sidecar without any
+     * enrolment file strands nothing and does not count.
      *
      * @param enrolment the enrolment the operator confirmed
      * @param pilot     whether the project is enrolled as a pilot of the lifecycle gate ({@code --pilot})
      * @return the enrolment as written
+     * @throws StoreRefusal         as {@code enrolment_tampered} if the integrity key is absent while enrolment files
+     *                              exist, naming the first enrolled project and its {@code accept-edit} command;
+     *                              nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
-     * @throws UncheckedIOException if a file cannot be written or the record cannot be appended to the audit log
+     * @throws UncheckedIOException if a file cannot be written, the enrolment directory cannot be listed or the record
+     *                              cannot be appended to the audit log
      */
     public ProjectEnrolment enrol(ProjectEnrolment enrolment, boolean pilot) {
         Objects.requireNonNull(enrolment, "enrolment");
@@ -90,12 +105,30 @@ public final class Enrolments {
         var projectId = written.projectId();
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(store.lockKey(projectId));
-            var sidecar = EnrolmentHmac.sidecar(key.readOrCreate(), EnrolmentCodec.write(written));
+            var sidecar = EnrolmentHmac.sidecar(enrolmentKey(), EnrolmentCodec.write(written));
             store.write(transaction, written, sidecar);
         }
         LOGGER.info(INFO.ENROLMENT_WRITTEN, projectId, pilot);
         auditSink.append(AuditEvent.enrolmentWritten(projectId));
         return written;
+    }
+
+    /**
+     * The key of an enrolment write: the existing key, or a new one only if no enrolment file exists. A key that is
+     * absent while enrolment files exist was lost or lives in the other key source, and creating a new one would
+     * strand every existing enrolment; the write is refused instead, naming the first enrolled project.
+     */
+    private SecretKey enrolmentKey() {
+        var existing = key.read();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        var enrolled = store.projectIds();
+        if (!enrolled.isEmpty()) {
+            var first = enrolled.first();
+            throw EnrolmentCheck.tampered(auditSink, store.file(first), first, EnrolmentCheck.KEY_ABSENT);
+        }
+        return key.readOrCreate();
     }
 
     /**
@@ -131,6 +164,11 @@ public final class Enrolments {
      * Re-baselines the project's enrolment file the operator reviewed ({@code accept-edit enrolment}): rewrites its
      * sidecar record over the current bytes of the file. The file must pass the per-use checks and read strictly as
      * an enrolment of the project; nothing else of it is changed.
+     * <p>
+     * The re-baseline is the operator's explicit, named act, and the one write that creates the integrity key although
+     * enrolment files exist: it is the way out of the refusal of {@link #enrol(ProjectEnrolment, boolean)} after a
+     * switch of the key source. The other enrolments written under the old key then fail their own check with an HMAC
+     * mismatch naming the {@code accept-edit} command of their project, and are re-baselined one by one.
      *
      * @param projectId the project
      * @return the recorded and the current size and SHA-256 of the file, for the operator's display

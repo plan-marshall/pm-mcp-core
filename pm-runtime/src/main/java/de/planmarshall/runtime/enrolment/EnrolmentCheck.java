@@ -39,7 +39,8 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * <li>the strict read of the sidecar record;</li>
  * <li>the size and SHA-256 of the file against the record ({@code enrolment_tampered});</li>
  * <li>the HMAC of the file under the integrity key against the record ({@code enrolment_tampered}; also when the key
- * does not exist);</li>
+ * does not exist in the active key source, with a reason that names a switch of the key source between the keyring
+ * and the key file as the usual cause);</li>
  * <li>the strict read of the file.</li>
  * </ol>
  * <p>
@@ -63,8 +64,12 @@ public final class EnrolmentCheck {
     /** The reason of a file whose HMAC is not the recorded one. */
     static final String HMAC_MISMATCH = "HMAC differs from the sidecar record";
 
-    /** The reason of a file that cannot be verified because the integrity key does not exist. */
-    static final String KEY_ABSENT = "the integrity key does not exist";
+    /**
+     * The reason of a file that cannot be verified, and of an enrolment write that is refused, because the integrity
+     * key does not exist in the active key source while enrolment files exist.
+     */
+    static final String KEY_ABSENT = "the integrity key does not exist in the active key source (keyring or key file);"
+            + " a switch of the key source strands the enrolments written under the other one";
 
     private static final CuiLogger LOGGER = new CuiLogger(EnrolmentCheck.class);
 
@@ -141,18 +146,33 @@ public final class EnrolmentCheck {
         if (violation.isPresent()) {
             var reason = violation.get();
             LOGGER.warn(WARN.ENROLMENT_INSECURE, projectId, reason);
-            throw recorded(StoreRefusal.enrolmentInsecure(file, reason),
+            throw recorded(auditSink, StoreRefusal.enrolmentInsecure(file, reason),
                     AuditEvent.enrolmentInsecure(projectId, reason));
         }
     }
 
     private StoreRefusal tampered(Path file, String projectId, String reason) {
+        return tampered(auditSink, file, projectId, reason);
+    }
+
+    /**
+     * Builds the refusal as {@code enrolment_tampered}, which names the operator command that re-baselines the file,
+     * logs it and hands it to the audit sink; a sink that fails does not lift the refusal. The enrolment write refuses
+     * through this path too, so a refusal reads and is recorded the same wherever it arises.
+     *
+     * @param auditSink where the refusal is recorded
+     * @param file      the refused enrolment file or sidecar
+     * @param projectId the project
+     * @param reason    why the file is refused
+     * @return the refusal, for the caller to throw
+     */
+    static StoreRefusal tampered(AuditSink auditSink, Path file, String projectId, String reason) {
         LOGGER.warn(WARN.ENROLMENT_TAMPERED, projectId, reason);
-        return recorded(StoreRefusal.enrolmentTampered(file, projectId, reason),
+        return recorded(auditSink, StoreRefusal.enrolmentTampered(file, projectId, reason),
                 AuditEvent.enrolmentTampered(projectId, reason));
     }
 
-    private StoreRefusal recorded(StoreRefusal refusal, AuditEvent event) {
+    private static StoreRefusal recorded(AuditSink auditSink, StoreRefusal refusal, AuditEvent event) {
         try {
             auditSink.append(event);
         } catch (UncheckedIOException e) {

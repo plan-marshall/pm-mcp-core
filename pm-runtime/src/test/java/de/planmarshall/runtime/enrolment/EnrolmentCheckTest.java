@@ -195,6 +195,31 @@ class EnrolmentCheckTest {
         }
 
         @Test
+        @DisplayName("a file and sidecar whose key is absent from the active key source after a switch to the keyring")
+        void keyAbsentAfterKeySourceSwitch() {
+            var keyringKey = new EnrolmentKey(new InMemoryKeyring(), base.resolve("state"), USER, new SecureRandom());
+            var keyringCheck = new EnrolmentCheck(store, keyringKey, new EnrolmentFileCheck(USER), events::add);
+
+            StoreRefusal refusal;
+            try (var transaction = locks.openTransaction()) {
+                refusal = assertThrows(StoreRefusal.class, () -> keyringCheck.verify(transaction, PROJECT));
+            }
+
+            assertTampered(refusal, store.file(PROJECT), EnrolmentCheck.KEY_ABSENT);
+            assertTrue(refusal.getMessage().contains("key source"), refusal.getMessage());
+        }
+
+        @Test
+        @DisplayName("the same file and sidecar pass while the key exists in the active key source")
+        void keyPresentControl() {
+            var enrolment = verify(PROJECT);
+
+            assertAll(
+                    () -> assertEquals(PROJECT, enrolment.projectId()),
+                    () -> assertTrue(events.isEmpty()));
+        }
+
+        @Test
         @DisplayName("a refusal stands when the audit sink fails, and carries the failure")
         void failingSink() throws Exception {
             Files.delete(store.sidecar(PROJECT));
