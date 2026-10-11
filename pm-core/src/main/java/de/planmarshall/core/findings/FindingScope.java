@@ -18,6 +18,11 @@ import java.util.regex.Pattern;
  * What findings are fetched for and what code analysis is asked about (PM-IMPL-1): a commit, or a pull request at
  * a commit. It is the scope of {@link FindingSource#fetch} and the target of the analysis result and of both
  * analysis operations, so {@code core.analysis} depends on {@code core.findings} and never the reverse.
+ * <p>
+ * The commit is 40 or 64 digits because the scope is the {@code target} of the schema {@code AnalysisResult}, whose
+ * {@code commit_sha} admits the SHA-1 and the SHA-256 object name of a repository alike. A {@link Finding} records
+ * its commits ({@code raised_at_head}, {@code reviewed_commit_sha}) with 40 digits only, as the schema
+ * {@code FindingRecord} states; a scope with a 64-digit commit therefore does not carry over into those members.
  *
  * @param kind      whether the scope is a commit or a pull request
  * @param commitSha the commit, as 40 or 64 lower-case hexadecimal digits

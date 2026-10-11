@@ -142,11 +142,11 @@ class AnalysisResultTest {
             var conditions = new ArrayList<>(List.of(PASSED_CONDITION));
             var gate = new Gate(GateResult.PASSED, conditions);
             conditions.add(FAILED_CONDITION);
+            var held = gate.conditions();
 
             assertAll(
-                    () -> assertEquals(List.of(PASSED_CONDITION), gate.conditions()),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> gate.conditions().add(FAILED_CONDITION)));
+                    () -> assertEquals(List.of(PASSED_CONDITION), held),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> held.add(FAILED_CONDITION)));
         }
 
         @Test
@@ -346,12 +346,18 @@ class AnalysisResultTest {
         @Test
         @DisplayName("a missing required member is refused")
         void missingMembers() {
+            var withoutProvider = passed().provider(null);
+            var withoutTarget = passed().target(null);
+            var withoutStatus = passed().status(null);
+            var withoutCountStatus = passed().countStatus(null);
+            var withoutObservedAt = passed().observedAt(null);
+
             assertAll(
-                    () -> assertThrows(NullPointerException.class, () -> passed().provider(null).build()),
-                    () -> assertThrows(NullPointerException.class, () -> passed().target(null).build()),
-                    () -> assertThrows(NullPointerException.class, () -> passed().status(null).build()),
-                    () -> assertThrows(NullPointerException.class, () -> passed().countStatus(null).build()),
-                    () -> assertThrows(NullPointerException.class, () -> passed().observedAt(null).build()),
+                    () -> assertThrows(NullPointerException.class, withoutProvider::build),
+                    () -> assertThrows(NullPointerException.class, withoutTarget::build),
+                    () -> assertThrows(NullPointerException.class, withoutStatus::build),
+                    () -> assertThrows(NullPointerException.class, withoutCountStatus::build),
+                    () -> assertThrows(NullPointerException.class, withoutObservedAt::build),
                     () -> assertThrows(NullPointerException.class, () -> new Gate(null, List.of())),
                     () -> assertThrows(NullPointerException.class, () -> new Gate(GateResult.PASSED, null)),
                     () -> assertThrows(NullPointerException.class,

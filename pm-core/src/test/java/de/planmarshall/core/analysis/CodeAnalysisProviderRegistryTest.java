@@ -71,10 +71,11 @@ class CodeAnalysisProviderRegistryTest {
     void ids() {
         var registry = new CodeAnalysisProviderRegistry(
                 List.of(new NamedProvider("sonar"), new NamedProvider("code-scan"), new NamedProvider("lint-9")));
+        var ids = registry.ids();
 
         assertAll(
-                () -> assertEquals(List.of("sonar", "code-scan", "lint-9"), new ArrayList<>(registry.ids())),
-                () -> assertThrows(UnsupportedOperationException.class, () -> registry.ids().add("other")));
+                () -> assertEquals(List.of("sonar", "code-scan", "lint-9"), new ArrayList<>(ids)),
+                () -> assertThrows(UnsupportedOperationException.class, () -> ids.add("other")));
     }
 
     @Test

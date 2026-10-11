@@ -119,7 +119,7 @@ class FindingSchemaParityTest {
     private static String wireName(Object constant) {
         try {
             return String.valueOf(constant.getClass().getMethod("wireName").invoke(constant));
-        } catch (NoSuchMethodException e) {
+        } catch (NoSuchMethodException _) {
             return ((Enum<?>) constant).name();
         } catch (IllegalAccessException | InvocationTargetException e) {
             return fail("wire name of " + constant + " cannot be read", e);

@@ -103,10 +103,12 @@ class FindingSourceKeyTest {
         @Test
         @DisplayName("a provider of 65 characters is refused, one of 64 accepted")
         void providerLength() {
+            var longest = "a".repeat(64);
+            var tooLong = "a".repeat(65);
+
             assertAll(
-                    () -> assertTrue(FindingSourceKey.isProviderId("a".repeat(64))),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> FindingSourceKey.analysis("a".repeat(65))));
+                    () -> assertTrue(FindingSourceKey.isProviderId(longest)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> FindingSourceKey.analysis(tooLong)));
         }
 
         @Test

@@ -116,12 +116,14 @@ Instant updatedAt) {
     /** The only version of the record format. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Pattern FINDING_ID = Pattern.compile("^F-[0-9]+$");
+    private static final Pattern FINDING_ID = Pattern.compile("^F-\\d+$");
     private static final Pattern QUEUE_TASK_ID = Pattern.compile("^qt-[0-9a-f]{16}$");
-    private static final Pattern BATCH_ID = Pattern.compile("^BT-[0-9]+$");
+    private static final Pattern BATCH_ID = Pattern.compile("^BT-\\d+$");
     private static final Pattern BOT_KIND = Pattern.compile("^[a-z0-9][a-z0-9-]{0,31}$");
+    /** 40 digits only: the schema {@code FindingRecord} admits no other length for a commit of the ledger. */
     private static final Pattern COMMIT_SHA = Pattern.compile("^[0-9a-f]{40}$");
     private static final int REQUIREMENT_REF_MAX_LENGTH = 120;
+    private static final String CHARACTERS = " characters";
     private static final Set<FindingSourceKind> HEAD_REQUIRED = EnumSet.of(FindingSourceKind.SELF_REVIEW,
             FindingSourceKind.QGATE, FindingSourceKind.CODE_REVIEW, FindingSourceKind.SECURITY_AUDIT,
             FindingSourceKind.ARCH_GATE, FindingSourceKind.CI);
@@ -149,7 +151,7 @@ Instant updatedAt) {
             requirementRefs = List.copyOf(requirementRefs);
             requireThat(requirementRefs.stream().allMatch(
                             ref -> !ref.isEmpty() && ref.length() <= REQUIREMENT_REF_MAX_LENGTH),
-                    "every requirement_refs item must be 1 to " + REQUIREMENT_REF_MAX_LENGTH + " characters");
+                    "every requirement_refs item must be 1 to " + REQUIREMENT_REF_MAX_LENGTH + CHARACTERS);
         }
         requireThat(line == null || line >= 1, "line must be at least 1");
         requireThat(!summary.isEmpty(), "summary must not be empty");
@@ -332,7 +334,7 @@ Instant updatedAt) {
                 requireThat(start >= 0, "screen.spans.start must be at least 0");
                 requireThat(end >= 0, "screen.spans.end must be at least 0");
                 requireThat(reason.length() <= REASON_MAX_LENGTH,
-                        "screen.spans.reason must be at most " + REASON_MAX_LENGTH + " characters");
+                        "screen.spans.reason must be at most " + REASON_MAX_LENGTH + CHARACTERS);
             }
         }
 
@@ -484,7 +486,7 @@ Instant updatedAt) {
         public ProviderRef {
             requireThat(prNumber == null || prNumber >= 1, "provider_ref.pr_number must be at least 1");
             requireThat(issueKey == null || issueKey.length() <= ISSUE_KEY_MAX_LENGTH,
-                    "provider_ref.issue_key must be at most " + ISSUE_KEY_MAX_LENGTH + " characters");
+                    "provider_ref.issue_key must be at most " + ISSUE_KEY_MAX_LENGTH + CHARACTERS);
         }
 
         /**

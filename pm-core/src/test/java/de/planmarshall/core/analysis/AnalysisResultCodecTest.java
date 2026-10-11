@@ -40,6 +40,7 @@ import de.planmarshall.core.findings.FindingScope;
 class AnalysisResultCodecTest {
 
     private static final String SHA = "0123456789abcdef0123456789abcdef01234567";
+    private static final String NOT_CANONICAL = "the line is not in the canonical spelling";
 
     private static final AnalysisResult PASSED_COMMIT = new AnalysisResult(1, "sonar", FindingScope.commit(SHA),
             AnalysisStatus.PASSED, null, CountStatus.MEASURED, 0L, 0, false, "AY-analysis-1",
@@ -144,7 +145,19 @@ class AnalysisResultCodecTest {
                 Arguments.of("content after the object", PASSED_COMMIT_LINE + "{}",
                         "content after the analysis result object"),
                 Arguments.of("a line that is not a JSON object", "[]", "'analysis result' must be an object"),
-                Arguments.of("a line that is not JSON", PASSED_COMMIT_LINE.substring(0, 40), "the line is not JSON"));
+                Arguments.of("a line that is not JSON", PASSED_COMMIT_LINE.substring(0, 40), "the line is not JSON"),
+                Arguments.of("a space after a colon",
+                        PASSED_COMMIT_LINE.replace("\"provider\":\"sonar\"", "\"provider\": \"sonar\""),
+                        NOT_CANONICAL),
+                Arguments.of("a Unicode escape for a plain character",
+                        PASSED_COMMIT_LINE.replace("\"provider\":\"sonar\"", "\"provider\":\"\\u0073onar\""),
+                        NOT_CANONICAL),
+                Arguments.of("an escaped solidus",
+                        PASSED_COMMIT_LINE.replace("\"AY-analysis-1\"", "\"AY\\/analysis-1\""),
+                        NOT_CANONICAL),
+                Arguments.of("the integer spelling -0",
+                        PASSED_COMMIT_LINE.replace("\"issues_fetched\":0", "\"issues_fetched\":-0"),
+                        NOT_CANONICAL));
     }
 
     @Nested

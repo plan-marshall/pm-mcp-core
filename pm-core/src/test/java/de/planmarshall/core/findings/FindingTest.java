@@ -142,11 +142,11 @@ class FindingTest {
 
             var finding = qgate().requirementRefs(refs).build();
             refs.add("PM-IMPL-2");
+            var held = finding.requirementRefs();
 
             assertAll(
-                    () -> assertEquals(List.of("PM-IMPL-1"), finding.requirementRefs()),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> finding.requirementRefs().add("PM-IMPL-3")));
+                    () -> assertEquals(List.of("PM-IMPL-1"), held),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> held.add("PM-IMPL-3")));
         }
 
         @Test
@@ -292,10 +292,13 @@ class FindingTest {
             assertRefused(qgate().raisedAtHead(head), "raised_at_head");
         }
 
-        @Test
-        @DisplayName("a reviewed commit outside the hash pattern is refused")
-        void reviewedCommitPattern() {
-            assertRefused(review().reviewedCommitSha("not-a-commit"), "reviewed_commit_sha");
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"not-a-commit", "0123456789ABCDEF0123456789ABCDEF01234567",
+                "0123456789abcdef0123456789abcdef012345678",
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"})
+        @DisplayName("a reviewed commit outside the 40-digit hash pattern of the schema is refused")
+        void reviewedCommitPattern(String commit) {
+            assertRefused(review().reviewedCommitSha(commit), "reviewed_commit_sha");
         }
 
         @Test
@@ -309,8 +312,10 @@ class FindingTest {
         @Test
         @DisplayName("an issue key longer than 256 characters is refused")
         void issueKeyLength() {
+            var issueKey = "k".repeat(257);
+
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new ProviderRef(null, null, null, null, "k".repeat(257)));
+                    () -> new ProviderRef(null, null, null, null, issueKey));
 
             assertTrue(refusal.getMessage().contains("provider_ref.issue_key"));
         }
@@ -338,11 +343,12 @@ class FindingTest {
         @Test
         @DisplayName("a flagged span with a negative offset or an overlong reason is refused")
         void screenSpan() {
+            var overlong = "r".repeat(201);
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new Screen.Span(-1, 4, "reason")),
                     () -> assertThrows(IllegalArgumentException.class, () -> new Screen.Span(0, -1, "reason")),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Screen.Span(0, 4, "r".repeat(201))));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Screen.Span(0, 4, overlong)));
         }
 
         @ParameterizedTest(name = "{0}")

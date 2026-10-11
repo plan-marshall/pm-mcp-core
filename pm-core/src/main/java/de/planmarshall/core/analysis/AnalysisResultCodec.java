@@ -47,8 +47,12 @@ import de.planmarshall.core.findings.FindingScope;
  * The reader accepts exactly that shape and never tolerates another: only the declared members, each at most once,
  * every member present, each with its one JSON type, {@code format_version} exactly
  * {@value AnalysisResult#FORMAT_VERSION}, an instant only in the spelling the writer produces, and nothing after the
- * object. A line that breaks a rule of the record is refused like a malformed one. Every refusal is an
- * {@link IllegalArgumentException} naming what is wrong, so a line that was read is written again byte for byte.
+ * object. A line that breaks a rule of the record is refused like a malformed one. Last, the reader writes the result
+ * again and refuses the line unless it is byte for byte the line the writer produces: a line with whitespace between
+ * tokens, the members in another order, a string escape the writer does not use (such as a six-character Unicode
+ * escape for a plain character, or the escaped solidus {@code \/}) or an integer spelling such as {@code -0} is refused as not in the canonical spelling.
+ * Every refusal is an {@link IllegalArgumentException} naming what is wrong, so a line that was read is written again
+ * byte for byte.
  *
  * @since 0.1
  */
@@ -83,7 +87,7 @@ public class AnalysisResultCodec {
      * @return its canonical JSON line, UTF-8 encoded, without a trailing line break
      */
     public static byte[] write(AnalysisResult result) {
-        Objects.requireNonNull(result, "result");
+        Objects.requireNonNull(result, FIELD_RESULT);
         var out = new ByteArrayOutputStream();
         try (var generator = JSON.createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
@@ -114,8 +118,9 @@ public class AnalysisResultCodec {
     /**
      * @param line the canonical JSON line of an analysis result, UTF-8 encoded
      * @return the analysis result of the line
-     * @throws IllegalArgumentException if the line does not have the one shape of an analysis result line or breaks
-     *                                  a rule of the record; the message names what is wrong
+     * @throws IllegalArgumentException if the line does not have the one shape of an analysis result line, breaks
+     *                                  a rule of the record or is not in the canonical spelling the writer produces;
+     *                                  the message names what is wrong
      */
     public static AnalysisResult read(byte[] line) {
         Objects.requireNonNull(line, "line");
@@ -124,6 +129,9 @@ public class AnalysisResultCodec {
             var result = readResult(parser);
             if (parser.nextToken() != null) {
                 throw refused("content after the analysis result object");
+            }
+            if (!Arrays.equals(write(result), line)) {
+                throw refused("the line is not in the canonical spelling");
             }
             return result;
         } catch (IOException e) {

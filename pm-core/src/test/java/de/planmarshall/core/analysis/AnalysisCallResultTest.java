@@ -125,10 +125,11 @@ class AnalysisCallResultTest {
             var issues = new ArrayList<>(List.of(ISSUE));
             var result = AnalysisCallResult.issues(AnalysisOutcome.OK, issues, Completeness.COMPLETE);
             issues.clear();
+            var value = result.value();
 
             assertAll(
-                    () -> assertEquals(List.of(ISSUE), result.value()),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> result.value().add(ISSUE)));
+                    () -> assertEquals(List.of(ISSUE), value),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> value.add(ISSUE)));
         }
 
         @ParameterizedTest(name = "{0} is {1}")

@@ -65,6 +65,7 @@ String analysisRef, Instant observedAt) {
     private static final int METRIC_MAX_LENGTH = 128;
     private static final int THRESHOLD_MAX_LENGTH = 64;
     private static final int ACTUAL_MAX_LENGTH = 64;
+    private static final String CHARACTERS = " characters";
     private static final Set<AnalysisStatus> INDETERMINATE_ALLOWED = EnumSet.of(AnalysisStatus.UNDECIDABLE,
             AnalysisStatus.RUNNING, AnalysisStatus.NOT_RUN);
 
@@ -85,7 +86,7 @@ String analysisRef, Instant observedAt) {
         requireThat(newCodeIssueCount == null || newCodeIssueCount >= 0, "new_code_issue_count must be at least 0");
         requireThat(issuesFetched >= 0, "issues_fetched must be at least 0");
         requireThat(analysisRef == null || analysisRef.length() <= ANALYSIS_REF_MAX_LENGTH,
-                "analysis_ref must be at most " + ANALYSIS_REF_MAX_LENGTH + " characters");
+                "analysis_ref must be at most " + ANALYSIS_REF_MAX_LENGTH + CHARACTERS);
         checkConsistency(status, gate, countStatus, newCodeIssueCount);
     }
 
@@ -157,11 +158,11 @@ String analysisRef, Instant observedAt) {
             Objects.requireNonNull(threshold, "threshold");
             Objects.requireNonNull(result, "result");
             requireThat(!metric.isEmpty() && metric.length() <= METRIC_MAX_LENGTH,
-                    "metric must be 1 to " + METRIC_MAX_LENGTH + " characters");
+                    "metric must be 1 to " + METRIC_MAX_LENGTH + CHARACTERS);
             requireThat(!threshold.isEmpty() && threshold.length() <= THRESHOLD_MAX_LENGTH,
-                    "threshold must be 1 to " + THRESHOLD_MAX_LENGTH + " characters");
+                    "threshold must be 1 to " + THRESHOLD_MAX_LENGTH + CHARACTERS);
             requireThat(actual == null || actual.length() <= ACTUAL_MAX_LENGTH,
-                    "actual must be at most " + ACTUAL_MAX_LENGTH + " characters");
+                    "actual must be at most " + ACTUAL_MAX_LENGTH + CHARACTERS);
         }
     }
 
