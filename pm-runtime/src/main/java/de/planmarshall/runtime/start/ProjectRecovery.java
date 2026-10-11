@@ -184,6 +184,18 @@ public final class ProjectRecovery {
         }
     }
 
+    /**
+     * Whether the recovery of the project has finished without a failure, without starting or waiting for it; the
+     * periodic sweep skips a project for which this is {@code false}.
+     *
+     * @param projectId the id of a project
+     * @return {@code true} if a trigger recovered the project and no step failed
+     */
+    public boolean isRecovered(String projectId) {
+        var recovery = recoveries.get(projectId);
+        return recovery != null && recovery.isDone() && !recovery.join().failed();
+    }
+
     private CompletableFuture<ProjectOutcome> recovery(String projectId) {
         return recoveries.computeIfAbsent(projectId, this::start);
     }

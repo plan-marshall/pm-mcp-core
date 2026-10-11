@@ -280,6 +280,13 @@ public final class PmMcpLogMessages {
                 .template("Drain participant '%s' failed in %s: %s")
                 .build();
 
+        /** Logged when a step of the periodic sweep fails for a project; the run goes on with the other steps. */
+        public static final LogRecord PERIODIC_SWEEP_STEP_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(159)
+                .template("Periodic sweep of project '%s' failed in step '%s': %s")
+                .build();
+
         // WS-02, store substrate: identifiers 160-169
 
         /**

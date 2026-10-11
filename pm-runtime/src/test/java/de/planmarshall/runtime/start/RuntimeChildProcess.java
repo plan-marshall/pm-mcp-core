@@ -57,6 +57,8 @@ import de.planmarshall.runtime.lock.FileLockManager;
  * rename.</li>
  * <li>{@value #ORDERED_WRITE}: an {@link de.planmarshall.core.store.OrderedWrite} from the plan {@value #ROLLED_PLAN}
  * to the plan {@value #DERIVED_PLAN}, blocked between the authoritative and the derived write.</li>
+ * <li>{@value #SWEEP}: a {@link PeriodicSweep} run whose step ({@link #removingStep(Path, Runnable)}) removes the
+ * aged records of {@link #pendingRecords(Path)} one at a time, blocked after the first removal.</li>
  * </ul>
  */
 final class RuntimeChildProcess {
@@ -90,6 +92,9 @@ final class RuntimeChildProcess {
 
     /** The plan the mode {@value #ORDERED_WRITE} derives. */
     static final String DERIVED_PLAN = "plan-b";
+
+    /** Mode: blocked in a periodic sweep after its first removal. */
+    static final String SWEEP = "sweep";
 
     /** The content the modes {@value #ROLLFORWARD} and {@value #ORDERED_WRITE} write. */
     static final byte[] WRITTEN = "{\"state\":\"written\"}".getBytes(StandardCharsets.UTF_8);
@@ -148,8 +153,63 @@ final class RuntimeChildProcess {
             case LEASES -> leases(paths.base(), markers);
             case ROLLFORWARD -> rollForward(paths.base(), markers);
             case ORDERED_WRITE -> orderedWrite(paths.base(), markers);
+            case SWEEP -> sweep(paths.base(), markers);
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         }
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the directory of the fixture records the mode {@value #SWEEP} sweeps
+     */
+    static Path pendingRecords(Path base) {
+        return base.resolve("pending-records");
+    }
+
+    /**
+     * The step of the mode {@value #SWEEP}, also used by the run of the next instance: it removes, in the order of
+     * their names, the fixture records whose modification time lies before the instant it is given, one at a time,
+     * and runs the hook after each removal. A younger record is never removed.
+     *
+     * @param base         the base directory of the runtime
+     * @param afterRemoval runs after each removal
+     * @return the removing step
+     */
+    static SweepStep removingStep(Path base, Runnable afterRemoval) {
+        return new SweepStep() {
+
+            @Override
+            public Name name() {
+                return Name.PENDING_ENTRY_RECORDS;
+            }
+
+            @Override
+            public RecoveryStep.Outcome run(String projectId, Instant olderThan) {
+                try (var listing = Files.list(pendingRecords(base))) {
+                    var removed = 0;
+                    for (var record : listing.sorted().toList()) {
+                        if (Files.getLastModifiedTime(record).toInstant().isBefore(olderThan)) {
+                            Files.delete(record);
+                            removed++;
+                            afterRemoval.run();
+                        }
+                    }
+                    return new RecoveryStep.Outcome.Done(removed + " removed");
+                } catch (IOException e) {
+                    return new RecoveryStep.Outcome.Failed("records not swept: " + e);
+                }
+            }
+        };
+    }
+
+    private static void sweep(Path base, PrintStream markers) {
+        markers.println(before(SWEEP));
+        new PeriodicSweep(() -> List.of(RecoveryStepFixtures.PROJECT_A), _ -> true,
+                List.of(removingStep(base, () -> {
+                    markers.println(inside(SWEEP));
+                    awaitKill();
+                })), Clock.systemUTC()).runOnce(Instant.now());
+        throw new IllegalStateException("the sweep ended although its step blocks");
     }
 
     private static void leases(Path base, PrintStream markers) throws IOException {

@@ -52,6 +52,14 @@
  * ({@link de.planmarshall.runtime.start.CrossScopeReconciliationStep.ProjectReconcilers}).</li>
  * </ul>
  * <p>
+ * The periodic sweep ({@link de.planmarshall.runtime.start.PeriodicSweep}) runs every hour
+ * ({@link de.planmarshall.runtime.start.PeriodicSweep#INTERVAL}, 3600 seconds) over the enrolled projects whose
+ * recovery has finished; a project still recovering is taken up by the next run. Its steps
+ * ({@link de.planmarshall.runtime.start.SweepStep}) remove pending entry records older than
+ * {@link de.planmarshall.runtime.start.PeriodicSweep#PENDING_ENTRY_MAX_AGE} (86400 seconds) and fenced session
+ * generations; both are named seams until the pending store and the queue exist. Both durations are compiled
+ * constants, not configuration. A failing step is logged and does not stop the run; the drain stops the schedule.
+ * <p>
  * Besides the on-demand start, the runtime can register itself as a per-user service that starts it at login and
  * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
  * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,
