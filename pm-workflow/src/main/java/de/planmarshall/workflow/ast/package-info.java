@@ -39,6 +39,15 @@
  * <li><b>Guard result</b>: {@link de.planmarshall.workflow.ast.GuardResult}, the three-valued result of evaluating a
  * guard.</li>
  * </ul>
- * Every node that the parser reads from a source carries its {@link de.planmarshall.workflow.ast.SourceLocation}.
+ * Eight nodes carry the {@link de.planmarshall.workflow.ast.SourceLocation} the parser read them at: the definition
+ * ({@link de.planmarshall.workflow.ast.WorkflowDefinition}), a state ({@link de.planmarshall.workflow.ast.StateNode}),
+ * a state migration ({@link de.planmarshall.workflow.ast.StateMigration}), a sub-workflow parameter
+ * ({@link de.planmarshall.workflow.ast.ParamDecl}), a link ({@link de.planmarshall.workflow.ast.LinkSpec}), a link
+ * parameter ({@link de.planmarshall.workflow.ast.ParamSpec}), an outcome transition
+ * ({@link de.planmarshall.workflow.ast.OutcomeTransition}) and a step completion
+ * ({@link de.planmarshall.workflow.ast.StepCompletion}). Every other node carries none: the behaviours of a state, the
+ * terminal outcome, the guard and its expression, the result guard, the link action, the parameter types, the call
+ * values and decision declarations held by the {@code declare} and {@code decide} maps of a definition, and the
+ * instance header.
  */
 package de.planmarshall.workflow.ast;

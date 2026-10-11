@@ -50,7 +50,9 @@ import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
  * The recursive-descent parser of the workflow language (PM-IMPL-5, PM-WF-16): it reads one unit into the immutable
- * tree of {@link de.planmarshall.workflow.ast}, every node with its {@link SourceLocation}.
+ * tree of {@link de.planmarshall.workflow.ast}. The definition, a state, a state migration, a sub-workflow parameter, a
+ * link, a link parameter, an outcome transition and a step completion carry the {@link SourceLocation} they were read
+ * at; every other node carries none.
  * <p>
  * It reads the unit header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the
  * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} and {@code decide} lines, the

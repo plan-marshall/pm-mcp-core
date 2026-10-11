@@ -14,8 +14,10 @@
  * <li><b>Lexer</b>: a package-private tokenizer cuts the text into lines of tokens with their line and column,
  * drops comments ({@code #} to the end of the line) and keeps the JSON of an {@code instance} line as one token.</li>
  * <li><b>Parser</b>: {@link de.planmarshall.workflow.dsl.WorkflowParser} is a recursive-descent parser over the
- * grammar of the language; it reads the instance header of a plan instance with jackson-core and builds the tree with
- * a source location on every node.</li>
+ * grammar of the language; it reads the instance header of a plan instance with jackson-core and builds the tree, in
+ * which the definition, a state, a state migration, a sub-workflow parameter, a link, a link parameter, an outcome
+ * transition and a step completion carry the source location they were read at and every other node carries
+ * none.</li>
  * <li><b>Result</b>: {@link de.planmarshall.workflow.dsl.ParseResult} is sealed: the tree
  * ({@link de.planmarshall.workflow.dsl.ParseResult.Parsed}) or the first refusal
  * ({@link de.planmarshall.workflow.dsl.ParseResult.Refused}). A refusal is a value, never an exception.</li>
