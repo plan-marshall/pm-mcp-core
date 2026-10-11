@@ -1,0 +1,13 @@
+# expect: PRIMITIVE_BINDING state verify.entry line 7
+# A plan unit whose auto state names a primitive the registry does not hold.
+workflow verify.binding version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.missing
+        done -> verify.done
+
+state verify.done terminal done success
+    phase verify
