@@ -11,39 +11,65 @@ package de.planmarshall.provider.gitlab;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import java.net.URI;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.CopyOnWriteArrayList;
+import mockwebserver3.Dispatcher;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
+import mockwebserver3.RecordedRequest;
 
 import de.planmarshall.provider.ci.CiEndpoint;
 import de.planmarshall.provider.ci.CiHttpClient;
 import de.planmarshall.provider.ci.CiResult;
 import de.planmarshall.provider.ci.Json;
-import de.planmarshall.provider.gitlab.FakeServer.Response;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+@EnableMockWebServer
 @DisplayName("GitLabClient")
 class GitLabClientTest {
 
     private static final String SELF = "/api/v4/personal_access_tokens/self";
     private static final String MR = "/api/v4/projects/group%2Fproject/merge_requests/12";
+    private static final MockResponse NOT_FOUND = json(404, "{\"message\":\"Not Found\"}");
 
-    private FakeServer server;
+    /** Canned responses by {@code METHOD target}, queued per key; the last response of a key repeats. */
+    private final Map<String, Deque<MockResponse>> responses = new ConcurrentHashMap<>();
+    /** The requests the mock web server received, in arrival order. */
+    private final List<RecordedRequest> requests = new CopyOnWriteArrayList<>();
+    private String base;
     private CiHttpClient http;
     private GitLabClient client;
 
     @BeforeEach
-    void start() {
-        server = new FakeServer();
-        http = new CiHttpClient(CiEndpoint.of(URI.create(server.base() + "api/v4")), () -> Optional.of("glpat-secret"),
+    void start(MockWebServer server) {
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                requests.add(request);
+                Deque<MockResponse> queue = responses.get(request.getMethod() + " " + request.getTarget());
+                if (queue == null || queue.isEmpty()) {
+                    return NOT_FOUND;
+                }
+                return queue.size() > 1 ? queue.poll() : queue.peek();
+            }
+        });
+        base = "http://127.0.0.1:" + server.getPort() + "/";
+        http = new CiHttpClient(CiEndpoint.of(URI.create(base + "api/v4")), () -> Optional.of("glpat-secret"),
                 Map.of());
         client = new GitLabClient(http, "group/project");
     }
@@ -51,11 +77,26 @@ class GitLabClientTest {
     @AfterEach
     void stop() {
         http.close();
-        server.close();
+    }
+
+    private void on(String method, String target, MockResponse response) {
+        responses.computeIfAbsent(method + " " + target, k -> new ConcurrentLinkedDeque<>()).add(response);
+    }
+
+    private static MockResponse response(int status, String body, Map<String, String> headers) {
+        var builder = new MockResponse.Builder().code(status).body(body);
+        headers.forEach(builder::addHeader);
+        return builder.build();
+    }
+
+    private static MockResponse json(int status, String body) {
+        return response(status, body, Map.of("Content-Type", "application/json"));
     }
 
     private Object body(int index) {
-        return Json.parse(server.requests().get(index).body());
+        var body = requests.get(index).getBody();
+        assertNotNull(body, "the request carries a body");
+        return Json.parse(body.utf8());
     }
 
     @Nested
@@ -65,20 +106,20 @@ class GitLabClientTest {
         @Test
         @DisplayName("merges bound to the expected head")
         void merges() {
-            server.on("PUT", MR + "/merge", Response.json(200, "{\"state\":\"merged\",\"merge_commit_sha\":\"m1\"}"));
+            on("PUT", MR + "/merge", json(200, "{\"state\":\"merged\",\"merge_commit_sha\":\"m1\"}"));
 
             CiResult<String> result = client.merge(12, "abc");
 
             assertEquals(Optional.of("m1"), result.value());
             assertEquals(Optional.of("abc"), Json.string(body(0), "sha"));
-            assertEquals("Bearer glpat-secret", server.requests().getFirst().header("Authorization"));
+            assertEquals("Bearer glpat-secret", requests.getFirst().getHeaders().get("Authorization"));
         }
 
         @Test
         @DisplayName("reports a moved head or an unmergeable request as rejected")
         void rejects() {
-            server.on("PUT", MR + "/merge", Response.json(409, "{\"message\":\"SHA does not match HEAD of source branch\"}"));
-            server.on("PUT", "/api/v4/projects/group%2Fproject/merge_requests/13/merge", Response.json(200, "{}"));
+            on("PUT", MR + "/merge", json(409, "{\"message\":\"SHA does not match HEAD of source branch\"}"));
+            on("PUT", "/api/v4/projects/group%2Fproject/merge_requests/13/merge", json(200, "{}"));
 
             var moved = client.merge(12, "stale");
 
@@ -90,10 +131,10 @@ class GitLabClientTest {
         @Test
         @DisplayName("reports a merge train that is not enabled as rejected, not as failed")
         void mergeTrainNotEnabled() {
-            server.on("POST", "/api/v4/projects/group%2Fproject/merge_trains/merge_requests/12",
-                    Response.json(400, "{\"message\":\"Merge trains are not enabled for this project\"}"));
-            server.on("POST", "/api/v4/projects/group%2Fproject/merge_trains/merge_requests/13",
-                    Response.json(502, "<html>Bad Gateway</html>"));
+            on("POST", "/api/v4/projects/group%2Fproject/merge_trains/merge_requests/12",
+                    json(400, "{\"message\":\"Merge trains are not enabled for this project\"}"));
+            on("POST", "/api/v4/projects/group%2Fproject/merge_trains/merge_requests/13",
+                    json(502, "<html>Bad Gateway</html>"));
 
             var refused = client.mergeTrainAdd(12, "abc");
 
@@ -105,8 +146,8 @@ class GitLabClientTest {
         @Test
         @DisplayName("adds to the merge train bound to the expected head")
         void mergeTrain() {
-            server.on("POST", "/api/v4/projects/group%2Fproject/merge_trains/merge_requests/12",
-                    Response.json(201, "[{\"id\":1,\"status\":\"idle\"}]"));
+            on("POST", "/api/v4/projects/group%2Fproject/merge_trains/merge_requests/12",
+                    json(201, "[{\"id\":1,\"status\":\"idle\"}]"));
 
             var result = client.mergeTrainAdd(12, "abc");
 
@@ -130,11 +171,10 @@ class GitLabClientTest {
         @Test
         @DisplayName("lists every page of discussions")
         void lists() {
-            server.on("GET", MR + "/discussions?per_page=100", new Response(200, "[" + discussion("d1", "bot", false) + "]",
-                    Map.of("Link", "<" + server.base() + "api/v4/projects/group%2Fproject/merge_requests/12/discussions"
+            on("GET", MR + "/discussions?per_page=100", response(200, "[" + discussion("d1", "bot", false) + "]",
+                    Map.of("Link", "<" + base + "api/v4/projects/group%2Fproject/merge_requests/12/discussions"
                             + "?per_page=100&page=2>; rel=\"next\"")));
-            server.on("GET", MR + "/discussions?per_page=100&page=2",
-                    Response.json(200, "[" + discussion("d2", "dev", true) + "]"));
+            on("GET", MR + "/discussions?per_page=100&page=2", json(200, "[" + discussion("d2", "dev", true) + "]"));
 
             var result = client.discussions(12);
 
@@ -156,8 +196,8 @@ class GitLabClientTest {
         @Test
         @DisplayName("replies with the body in memory and resolves")
         void repliesAndResolves() {
-            server.on("POST", MR + "/discussions/d1/notes", Response.json(201, "{\"id\":77}"));
-            server.on("PUT", MR + "/discussions/d1?resolved=true", Response.json(200, discussion("d1", "bot", true)));
+            on("POST", MR + "/discussions/d1/notes", json(201, "{\"id\":77}"));
+            on("PUT", MR + "/discussions/d1?resolved=true", json(200, discussion("d1", "bot", true)));
             String reply = "Fixed in abc.\n\n> quoted \"text\"";
 
             var replied = client.reply(12, "d1", reply);
@@ -171,7 +211,7 @@ class GitLabClientTest {
         @Test
         @DisplayName("maps failures of reply and resolve")
         void replyFailures() {
-            server.on("POST", MR + "/discussions/d9/notes", Response.json(201, "{}"));
+            on("POST", MR + "/discussions/d9/notes", json(201, "{}"));
 
             assertEquals(CiResult.Outcome.FAILED, client.reply(12, "d9", "x").outcome());
             assertEquals(CiResult.Outcome.NOT_FOUND, client.reply(12, "zz", "x").outcome());
@@ -186,8 +226,8 @@ class GitLabClientTest {
         @Test
         @DisplayName("reads a job trace")
         void trace() {
-            server.on("GET", "/api/v4/projects/group%2Fproject/jobs/5/trace",
-                    new Response(200, "line 1\nline 2\n", Map.of("Content-Type", "text/plain")));
+            on("GET", "/api/v4/projects/group%2Fproject/jobs/5/trace",
+                    response(200, "line 1\nline 2\n", Map.of("Content-Type", "text/plain")));
 
             assertEquals(Optional.of("line 1\nline 2\n"), client.jobTrace(5).value());
             assertEquals(CiResult.Outcome.NOT_FOUND, client.jobTrace(6).outcome());
@@ -196,7 +236,7 @@ class GitLabClientTest {
         @Test
         @DisplayName("reads the token identity")
         void identity() {
-            server.on("GET", SELF, Response.json(200, "{\"id\":4,\"name\":\"pm-mcp\","
+            on("GET", SELF, json(200, "{\"id\":4,\"name\":\"pm-mcp\","
                     + "\"user_id\":17,\"scopes\":[\"api\",\"read_repository\"],\"active\":true,\"expires_at\":null}"));
 
             var identity = client.tokenIdentity().value().orElseThrow();
@@ -211,10 +251,9 @@ class GitLabClientTest {
         @Test
         @DisplayName("resolves the identity of a token that is no personal access token through GET /user")
         void identityOfOAuthToken() {
-            server.on("GET", SELF, Response.json(400,
+            on("GET", SELF, json(400,
                     "{\"message\":\"400 Bad request - requires token type to be a personal access token\"}"));
-            server.on("GET", "/api/v4/user", Response.json(200,
-                    "{\"id\":17,\"username\":\"oliver\",\"state\":\"active\"}"));
+            on("GET", "/api/v4/user", json(200, "{\"id\":17,\"username\":\"oliver\",\"state\":\"active\"}"));
 
             var result = client.tokenIdentity();
 
@@ -226,19 +265,19 @@ class GitLabClientTest {
             assertEquals("", identity.name());
             assertEquals(List.of(), identity.scopes());
             assertTrue(identity.expiresAt().isEmpty());
-            assertEquals(List.of("GET " + SELF, "GET /api/v4/user"), server.requests().stream()
-                    .map(r -> r.method() + " " + r.pathAndQuery()).toList());
-            assertEquals("Bearer glpat-secret", server.requests().getLast().header("Authorization"));
+            assertEquals(List.of("GET " + SELF, "GET /api/v4/user"), requests.stream()
+                    .map(r -> r.getMethod() + " " + r.getTarget()).toList());
+            assertEquals("Bearer glpat-secret", requests.getLast().getHeaders().get("Authorization"));
         }
 
         @Test
         @DisplayName("reports a blocked user and the failures of GET /user for a token of another type")
         void identityFallbackFailures() {
-            server.on("GET", SELF, Response.json(400,
+            on("GET", SELF, json(400,
                     "{\"message\":\"400 Bad request - requires token type to be a personal access token\"}"));
-            server.on("GET", "/api/v4/user", Response.json(200, "{\"id\":18,\"state\":\"blocked\"}"));
-            server.on("GET", "/api/v4/user", Response.json(200, "{}"));
-            server.on("GET", "/api/v4/user", Response.json(401, "{\"message\":\"401 Unauthorized\"}"));
+            on("GET", "/api/v4/user", json(200, "{\"id\":18,\"state\":\"blocked\"}"));
+            on("GET", "/api/v4/user", json(200, "{}"));
+            on("GET", "/api/v4/user", json(401, "{\"message\":\"401 Unauthorized\"}"));
 
             var blocked = client.tokenIdentity();
             var unreadable = client.tokenIdentity();
@@ -252,16 +291,16 @@ class GitLabClientTest {
         @Test
         @DisplayName("does not ask GET /user when the token read fails otherwise")
         void identityWithoutFallback() {
-            server.on("GET", SELF, Response.json(500, "{\"message\":\"500 Internal Server Error\"}"));
+            on("GET", SELF, json(500, "{\"message\":\"500 Internal Server Error\"}"));
 
             assertEquals(CiResult.Outcome.FAILED, client.tokenIdentity().outcome());
-            assertEquals(1, server.requests().size());
+            assertEquals(1, requests.size());
         }
 
         @Test
         @DisplayName("reports an invalid token as an authentication failure")
         void unauthorized() {
-            server.on("GET", SELF, Response.json(401, "{\"message\":\"401 Unauthorized\"}"));
+            on("GET", SELF, json(401, "{\"message\":\"401 Unauthorized\"}"));
 
             assertEquals(CiResult.Outcome.AUTH_FAILED, client.tokenIdentity().outcome());
         }
