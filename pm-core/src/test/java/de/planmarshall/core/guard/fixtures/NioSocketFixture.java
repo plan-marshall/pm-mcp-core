@@ -30,8 +30,8 @@ public final class NioSocketFixture {
      */
     public static void open() throws IOException {
         try (var socket = SocketChannel.open(); var server = ServerSocketChannel.open();
-                var datagram = DatagramChannel.open(); var asyncSocket = AsynchronousSocketChannel.open();
-                var asyncServer = AsynchronousServerSocketChannel.open()) {
+             var datagram = DatagramChannel.open(); var asyncSocket = AsynchronousSocketChannel.open();
+             var asyncServer = AsynchronousServerSocketChannel.open()) {
             socket.configureBlocking(false);
             server.configureBlocking(false);
             datagram.configureBlocking(false);
