@@ -35,10 +35,10 @@ decision or a dependency outside this repository.
   It gates PLAN-25 `waits` and PLAN-26 `role-sets-and-model-caller`, and through them most of
   WS-04 and WS-05 — the first external dependency on the critical path.
 - PLAN-27 — staged, but also waits on `pm-mcp-clients` / `exec-read-denied-paths`.
-- PLAN-04 — emitted on 2026-10-10 and not started. The operator's hold lifted on 2026-10-10:
-  #20 merged without touching `runtime.start`.
-- PLAN-06, PLAN-08, PLAN-09 — unblocked on 2026-10-10: PLAN-01 shipped. PLAN-06 `store-substrate`
-  also gates PLAN-15 and most of `core.store`; PLAN-08 and PLAN-09 share the WS-01 identifier block.
+- PLAN-04, PLAN-06 — shipped 2026-10-11 as #25 and #26.
+- PLAN-09, PLAN-11, PLAN-12, PLAN-14 — ready since PLAN-06 shipped, but all four declare
+  `core.store/` and overlap each other: run one at a time unless the operator pairs them.
+  PLAN-09 also declares `runtime.start/` and so overlaps PLAN-08.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
 - PLAN-38 — shipped as #24 on 2026-10-10; WS-09 closes with it.
@@ -142,6 +142,18 @@ decision or a dependency outside this repository.
   `http-baseline` is disjoint from the running PLAN-04, PLAN-06 and PLAN-07 (only
   `doc/plans/README.adoc` shared). PLAN-36 is also disjoint and is the next filler.
 
+- 2026-10-11 — PLAN-04 `service-unit` landed as #25 (0ca1b24) and PLAN-06 `store-substrate` as
+  #26 (cbdd04e); landing records `landings/PLAN-04.md`, `landings/PLAN-06.md`. Inbox drain of 29
+  messages: both landings reconciled; of the 27 candidate lessons, 9 about this repository's code
+  promoted here (PLAN-04 003 to 006 and PLAN-06 004 to 008 as lessons 2026-10-11-07-002 to -010),
+  18 about plan-marshall routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-039.md` to
+  `-056.md`.
+- 2026-10-11 — The review-bot proof of PLAN-38 was taken on #26: plan-marshall posted `/review`
+  (06:30:39Z), the run started from it (the posting account passed the author-association guard),
+  pulled the image from ghcr.io and produced a review of head 64414e3. Watch retired.
+- 2026-10-11 — Advisory delivered to PLAN-07's mailbox (`inbox/to/workflow-dsl-parser-and-ast/`):
+  its manifest carries the stale `re_review_on_loopback: false`; set it plan-locally.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
@@ -161,7 +173,23 @@ decision or a dependency outside this repository.
   was checked against the AsciiDoc documentation. If `!==` is valid, such a nested table is read
   as ordinary text — source: landing PLAN-02 and lesson 2026-10-10-07-010.
 
+- Plans composed before #24 merged carry `re_review_on_loopback: false` in their execution
+  manifest, because phase 4 copies the step parameters once (lesson routed from PLAN-38, message
+  006). PLAN-04 merged under an operator override for it, PLAN-06 set it by hand, PLAN-07 still
+  runs with it (advised). PLAN-05 has `true`. Closes when PLAN-07 has landed. Also seen: the operator
+  ruled on #26 that one review of the bot is enough and merged without re-reviewing the last three
+  fix commits — decide whether that is the standing rule — source: landings PLAN-04, PLAN-06.
+
 ## Watches
+
+- Documentation of PLAN-04: `plan-marshall-documentation` #26 open, awaits the operator's merge.
+- Documentation of PLAN-06: the branch `feature/plan-06-store-substrate` of
+  `plan-marshall-documentation` is local and unpushed (worktree
+  `.plan/temp/plan-06-plan-marshall-documentation`); push it and open its pull request.
+- PLAN-06 changed the signatures of `AuditEvent` and `CrossScopeReconciler` and the journal format;
+  `plan-marshall-mcp` must follow. Closing a channel on a POSIX file drops the process's OS locks on
+  it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock — PLAN-09
+  `audit-trail` must account for it; the fix belongs in the lock manager.
 
 - Documentation of PLAN-01 owed in `plan-marshall-documentation`: `doc/LogMessages.adoc` entries
   INFO 050, WARN 151, ERROR 250 and the amendment of Format & Atomic Write Discipline for the
@@ -175,13 +203,6 @@ decision or a dependency outside this repository.
 
 - `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
   PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
-- The review bot's re-review is configured (PLAN-38, #24) but unproven, and so is its ghcr.io
-  image path. Check on the next plan PRs with a loop-back fix commit on reviewable code (first
-  candidate: PLAN-04's #25): (1) plan-marshall posts `/review` after the fix commit; (2) the
-  `cuioss-review-bot` workflow run starts from it, so the posting account passes the
-  OWNER/MEMBER/COLLABORATOR guard; (3) the bot reviews the new head and the review step does not
-  stall. A guard rejection is a finding for `cuioss/cuioss-organization` or the posting identity.
-  Retire when all three are seen once. A plan touching only `.plan/` cannot give this proof.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
