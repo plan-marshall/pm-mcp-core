@@ -53,7 +53,7 @@ public record EnrolmentSidecar(StoreDigest digest, String hmac) {
     /** The suffix the sidecar adds to the name of its enrolment file. */
     public static final String SUFFIX = ".hmac";
 
-    private static final Pattern HMAC = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern HMAC_PATTERN = Pattern.compile("[0-9a-f]{64}");
     private static final String FIELD_SIZE = "size";
     private static final String FIELD_SHA256 = "sha256";
     private static final String FIELD_HMAC = "hmac";
@@ -64,7 +64,7 @@ public record EnrolmentSidecar(StoreDigest digest, String hmac) {
      */
     public EnrolmentSidecar {
         Objects.requireNonNull(digest, "digest");
-        if (!HMAC.matcher(Objects.requireNonNull(hmac, FIELD_HMAC)).matches()) {
+        if (!HMAC_PATTERN.matcher(Objects.requireNonNull(hmac, FIELD_HMAC)).matches()) {
             throw new IllegalArgumentException("Not an HMAC-SHA-256 in lowercase hexadecimal digits: " + hmac);
         }
     }

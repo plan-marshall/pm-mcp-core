@@ -455,9 +455,9 @@ class EnrolmentCodecTest {
         @MethodSource("invalidSidecars")
         @DisplayName("a sidecar outside its one shape is refused as unreadable, naming the sidecar file")
         void invalid(String name, String from, String to) {
-            var document = mutate(DOCUMENT, from, to);
+            var document = utf8(mutate(DOCUMENT, from, to));
 
-            var refusal = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, utf8(document)));
+            var refusal = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, document));
 
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
@@ -467,10 +467,11 @@ class EnrolmentCodecTest {
         @Test
         @DisplayName("another format version of the sidecar is refused as outdated or newer, naming the sidecar file")
         void otherVersion() {
-            var newer = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR,
-                    utf8(mutate(DOCUMENT, "\"format_version\":1", "\"format_version\":2"))));
-            var outdated = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR,
-                    utf8(mutate(DOCUMENT, "\"format_version\":1", "\"format_version\":0"))));
+            var newerDocument = utf8(mutate(DOCUMENT, "\"format_version\":1", "\"format_version\":2"));
+            var outdatedDocument = utf8(mutate(DOCUMENT, "\"format_version\":1", "\"format_version\":0"));
+
+            var newer = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, newerDocument));
+            var outdated = assertThrows(StoreRefusal.class, () -> EnrolmentSidecar.read(SIDECAR, outdatedDocument));
 
             assertAll(
                     () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),

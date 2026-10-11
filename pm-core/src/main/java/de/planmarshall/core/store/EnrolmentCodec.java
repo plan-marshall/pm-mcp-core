@@ -260,10 +260,10 @@ public class EnrolmentCodec {
         generator.writeStartArray();
         for (var element : argv.elements()) {
             switch (element) {
-                case Argv.Literal literal -> generator.writeString(literal.value());
-                case Argv.ModuleGroup group -> {
+                case Argv.Literal(var value) -> generator.writeString(value);
+                case Argv.ModuleGroup(var arguments) -> {
                     generator.writeStartArray();
-                    for (var argument : group.arguments()) {
+                    for (var argument : arguments) {
                         generator.writeString(argument);
                     }
                     generator.writeEndArray();
@@ -308,15 +308,7 @@ public class EnrolmentCodec {
             generator.writeBooleanField(SCHEMA_ADDITIONAL_PROPERTIES, false);
         }
         if (schema.enumValues() != null) {
-            generator.writeArrayFieldStart(SCHEMA_ENUM);
-            for (var value : schema.enumValues()) {
-                switch (value) {
-                    case TextValue text -> generator.writeString(text.value());
-                    case NumberValue number -> generator.writeNumber(number.value());
-                    case BooleanValue flag -> generator.writeBoolean(flag.value());
-                }
-            }
-            generator.writeEndArray();
+            writeEnumValues(generator, schema.enumValues());
         }
         if (schema.pattern() != null) {
             generator.writeStringField(SCHEMA_PATTERN, schema.pattern());
@@ -331,6 +323,18 @@ public class EnrolmentCodec {
             generator.writeNumberField(SCHEMA_MAX_LENGTH, schema.maxLength());
         }
         generator.writeEndObject();
+    }
+
+    private static void writeEnumValues(JsonGenerator generator, List<EnumValue> values) throws IOException {
+        generator.writeArrayFieldStart(SCHEMA_ENUM);
+        for (var value : values) {
+            switch (value) {
+                case TextValue(var text) -> generator.writeString(text);
+                case NumberValue(var number) -> generator.writeNumber(number);
+                case BooleanValue(var flag) -> generator.writeBoolean(flag);
+            }
+        }
+        generator.writeEndArray();
     }
 
     private static void writeLanguageServer(JsonGenerator generator, LanguageServer server) throws IOException {

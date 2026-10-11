@@ -54,7 +54,7 @@ class EnrolmentStoreTest {
 
     @BeforeEach
     void createDirectory() throws IOException {
-        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY));
+        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
         store = new EnrolmentStore(base);
         locks = new RecordingLockManager();
     }
@@ -188,18 +188,19 @@ class EnrolmentStoreTest {
         @DisplayName("every read and write is refused as an internal fault, and another project's lock does not count")
         void refused() {
             var enrolment = enrolment(PROJECT, false);
+            var sidecar = sidecarOf(enrolment);
 
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(store.lockKey("other-project"));
 
                 assertAll(
                         () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
-                                () -> store.write(transaction, enrolment, sidecarOf(enrolment))).reason()),
+                                () -> store.write(transaction, enrolment, sidecar)).reason()),
                         () -> assertThrows(InternalFaultException.class, () -> store.readFile(transaction, PROJECT)),
                         () -> assertThrows(InternalFaultException.class,
                                 () -> store.readSidecar(transaction, PROJECT)),
                         () -> assertThrows(InternalFaultException.class,
-                                () -> store.writeSidecar(transaction, PROJECT, sidecarOf(enrolment))),
+                                () -> store.writeSidecar(transaction, PROJECT, sidecar)),
                         () -> assertThrows(InternalFaultException.class, () -> store.remove(transaction, PROJECT)));
             }
             assertFalse(Files.exists(store.file(PROJECT)));
@@ -242,8 +243,9 @@ class EnrolmentStoreTest {
         @Test
         @DisplayName("an unreadable sidecar is refused naming the sidecar file")
         void unreadableSidecar() {
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> store.decodeSidecar(PROJECT, HMAC.getBytes(StandardCharsets.UTF_8)));
+            var content = HMAC.getBytes(StandardCharsets.UTF_8);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
 
             assertEquals(store.sidecar(PROJECT), refusal.file());
         }

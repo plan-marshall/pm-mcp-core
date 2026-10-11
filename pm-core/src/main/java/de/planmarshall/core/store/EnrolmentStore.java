@@ -19,8 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
@@ -47,10 +45,9 @@ import de.planmarshall.core.service.LockTransaction;
 public final class EnrolmentStore {
 
     /** The name of the directory of the enrolment files below the base directory. */
-    public static final String DIRECTORY = "enrolments";
+    public static final String DIRECTORY_NAME = "enrolments";
 
     private static final String SUFFIX = ".json";
-    private static final Pattern FILE_NAME = Pattern.compile("([a-z0-9][a-z0-9-]{1,62}[a-z0-9])\\.json");
 
     private final Path base;
     private final Path directory;
@@ -58,7 +55,7 @@ public final class EnrolmentStore {
     /** @param base the base directory of the runtime */
     public EnrolmentStore(Path base) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
-        this.directory = this.base.resolve(DIRECTORY);
+        this.directory = this.base.resolve(DIRECTORY_NAME);
     }
 
     /** @return the directory of the enrolment files, absolute and normalized */
@@ -103,9 +100,11 @@ public final class EnrolmentStore {
     public SortedSet<String> projectIds() {
         var ids = new TreeSet<String>();
         try (var entries = Files.list(directory)) {
-            entries.map(entry -> FILE_NAME.matcher(entry.getFileName().toString()))
-                    .filter(Matcher::matches)
-                    .forEach(match -> ids.add(match.group(1)));
+            entries.map(entry -> entry.getFileName().toString())
+                    .filter(name -> name.endsWith(SUFFIX))
+                    .map(name -> name.substring(0, name.length() - SUFFIX.length()))
+                    .filter(EnrolmentStore::isProjectId)
+                    .forEach(ids::add);
         } catch (NoSuchFileException _) {
             return Collections.emptySortedSet();
         } catch (IOException e) {
@@ -233,5 +232,18 @@ public final class EnrolmentStore {
 
     private AtomicStoreFile storeFile(Path store, String projectId) {
         return new AtomicStoreFile(store, lockKey(projectId));
+    }
+
+    /**
+     * The grammar of a project id has one definition, {@link LockKey#identifier(String, String)}; the listing asks it
+     * rather than repeating it, so the names it lists are exactly the ones {@link #file(String)} accepts.
+     */
+    private static boolean isProjectId(String candidate) {
+        try {
+            LockKey.identifier(candidate, "projectId");
+            return true;
+        } catch (IllegalArgumentException _) {
+            return false;
+        }
     }
 }

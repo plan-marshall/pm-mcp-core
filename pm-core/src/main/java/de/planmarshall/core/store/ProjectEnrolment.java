@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -89,6 +88,7 @@ SortedMap<String, String> buildEnvironment) {
             .compile("[a-z][a-z0-9_]{0,31}:[a-z][a-z0-9.-]{0,63}(@[A-Za-z0-9][A-Za-z0-9_.-]{0,56})?");
     private static final Pattern ENVIRONMENT_NAME = Pattern.compile("[A-Z_][A-Z0-9_]{0,127}");
     private static final long MIN_SCRIPT_TIMEOUT_SECONDS = 10;
+    private static final String FIELD_SHA256 = "sha256";
 
     /**
      * Copies every collection into its stable, unmodifiable form and validates every value against the schema.
@@ -100,7 +100,7 @@ SortedMap<String, String> buildEnvironment) {
      */
     public ProjectEnrolment {
         LockKey.identifier(projectId, "project_id");
-        projectRoot = absolutePath(projectRoot, "project_root");
+        requireAbsolutePath(projectRoot, "project_root");
         Objects.requireNonNull(enrolledAt, "enrolled_at");
         wrappers = List.copyOf(Objects.requireNonNull(wrappers, "wrappers"));
         hostTools = List.copyOf(Objects.requireNonNull(hostTools, "host_tools"));
@@ -388,13 +388,17 @@ SortedMap<String, String> buildEnvironment) {
         public Wrapper {
             Objects.requireNonNull(name, "name");
             nonEmpty(relativePath, "relative_path");
-            requireSha256(sha256, "sha256");
+            requireSha256(sha256, FIELD_SHA256);
             pinnedFiles = List.copyOf(Objects.requireNonNull(pinnedFiles, "pinned_files"));
             var required = name == WrapperName.PW ? Interpreter.PYTHON3 : null;
             if (interpreter != required) {
                 throw new IllegalArgumentException("The wrapper %s is run by the interpreter %s, not %s".formatted(
                         name.wireName(), wireName(required), wireName(interpreter)));
             }
+        }
+
+        private static String wireName(Interpreter interpreter) {
+            return interpreter == null ? "none" : interpreter.wireName();
         }
     }
 
@@ -414,7 +418,7 @@ SortedMap<String, String> buildEnvironment) {
         public PinnedFile {
             nonEmpty(relativePath, "relative_path");
             if (sha256 != null) {
-                requireSha256(sha256, "sha256");
+                requireSha256(sha256, FIELD_SHA256);
             }
         }
 
@@ -446,7 +450,7 @@ SortedMap<String, String> buildEnvironment) {
         public HostTool {
             Objects.requireNonNull(name, "name");
             nonEmpty(executablePath, "executable_path");
-            requireSha256(sha256, "sha256");
+            requireSha256(sha256, FIELD_SHA256);
             if (interpreter != null && interpreter != Interpreter.RUBY) {
                 throw new IllegalArgumentException(
                         "A host tool is run by the interpreter ruby or none, not " + interpreter.wireName());
@@ -532,11 +536,7 @@ SortedMap<String, String> buildEnvironment) {
          * @return the vector of these literal arguments
          */
         public static Argv of(String... arguments) {
-            var elements = new ArrayList<Element>();
-            for (var argument : arguments) {
-                elements.add(new Literal(argument));
-            }
-            return new Argv(elements);
+            return new Argv(Arrays.stream(arguments).<Element>map(Literal::new).toList());
         }
 
         /**
@@ -606,7 +606,7 @@ SortedMap<String, String> buildEnvironment) {
          */
         public ProjectScript {
             nonEmpty(scriptPath, "script_path");
-            requireSha256(sha256, "sha256");
+            requireSha256(sha256, FIELD_SHA256);
             if (Objects.requireNonNull(interpreter, "interpreter") != Interpreter.PYTHON3) {
                 throw new IllegalArgumentException(
                         "A project script is run by python3, not " + interpreter.wireName());
@@ -787,17 +787,17 @@ SortedMap<String, String> buildEnvironment) {
          */
         public LanguageServer {
             nonEmpty(executablePath, "executable_path");
-            requireSha256(sha256, "sha256");
+            requireSha256(sha256, FIELD_SHA256);
             args = List.copyOf(Objects.requireNonNull(args, "args"));
         }
     }
 
-    private static String absolutePath(String value, String name) {
+    private static void requireAbsolutePath(String value, String name) {
         nonEmpty(value, name);
         try {
             var path = Path.of(value);
             if (path.isAbsolute() && path.normalize().toString().equals(value)) {
-                return value;
+                return;
             }
         } catch (InvalidPathException e) {
             throw new IllegalArgumentException("%s is not a path: %s".formatted(name, value), e);
@@ -841,9 +841,5 @@ SortedMap<String, String> buildEnvironment) {
             copy.put(key, Objects.requireNonNull(entry.getValue(), name));
         }
         return Collections.unmodifiableSortedMap(copy);
-    }
-
-    private static String wireName(Interpreter interpreter) {
-        return interpreter == null ? "none" : interpreter.wireName();
     }
 }
