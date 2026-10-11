@@ -11,7 +11,8 @@
     "WS-06-test-harnesses",
     "WS-07-code-analysis-base",
     "WS-08-http-baseline",
-    "WS-09-project-configuration"
+    "WS-09-project-configuration",
+    "WS-10-module-documentation"
   ],
   "metadata": {
     "parallelization_scope": "4"

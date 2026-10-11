@@ -45,6 +45,8 @@ decision or a dependency outside this repository.
 - PLAN-36 — serves Milestone 6; ready now and disjoint by package from every other plan, so it
   is a good filler for a free slot. It sits at the queue end because a row's order is fixed when
   it is staged; ask for it by id when a slot is free.
+- PLAN-39, PLAN-40 — WS-10 module documentation backfill, staged 2026-10-11; both wait for PLAN-08,
+  PLAN-10, PLAN-11, PLAN-36 and are disjoint from each other.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
 ## Decisions
@@ -186,6 +188,20 @@ decision or a dependency outside this repository.
 - 2026-10-11 — Spec quality: PLAN-07 hit two contradictions between specification documents only in
   execute (instance header vs store schema; `question` as a reserved word). Specs not yet started
   name specification sections the same way and can carry the same kind of contradiction.
+
+- 2026-10-11 — Operator decision: every module documents itself — `{module}/README.adoc`, and all
+  other documentation below `{module}/doc/`: developer documentation per package
+  (`doc/developer/{package}.adoc`) and ADRs (`doc/adr/{package}/NNN-{slug}.adoc`, repository-wide in
+  `doc/adr/`). The per-package file and ADR directory names, and numbering per package directory so
+  parallel plans of different packages never collide, were chosen by the orchestrator. New
+  workstream WS-10 `module-documentation`; staged PLAN-39 `module-readmes-and-adrs` (rule, template,
+  READMEs, ADRs for decisions already shipped) and PLAN-40 `module-developer-docs` (developer files,
+  taking over the guides in `plan-marshall-documentation`). The 26 staged and parked specs got the
+  Standing Constraint "Module documentation" and their package's developer file and ADR directory in
+  the Expected Surface; the "Documents" bullet no longer sends developer documentation to
+  `plan-marshall-documentation`. Running PLAN-08, PLAN-10, PLAN-11 and PLAN-36 keep their specs; the
+  backfill covers them. The session plan `.plan/temp/doc-structure-single-pr-plan.md` was aligned:
+  its decision 1 is settled and its pm-mcp-core moves belong to PLAN-40.
 
 ## Open Defects
 
