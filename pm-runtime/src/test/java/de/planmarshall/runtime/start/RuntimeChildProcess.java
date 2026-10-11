@@ -18,6 +18,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -45,6 +46,8 @@ import de.planmarshall.api.MachinePaths;
  * lock held and the token written.</li>
  * <li>{@value #DRAIN}: steps 1 to 5, a socket and a runtime record as steps 6 and 7 leave them, then a
  * {@link RuntimeDrain} blocked in the drain wait on a participant that never gets quiet.</li>
+ * <li>{@value #RECOVERY}: a {@link ProjectRecovery} of project {@value #RECOVERED_PROJECT} by the background pass; its
+ * first step appends a line to the marker file {@link #recoveryRuns(Path)} and its second step blocks.</li>
  * </ul>
  */
 final class RuntimeChildProcess {
@@ -57,6 +60,12 @@ final class RuntimeChildProcess {
 
     /** Mode: blocked in the drain wait on a participant that never gets quiet. */
     static final String DRAIN = "drain";
+
+    /** Mode: blocked inside a step of the per-project recovery. */
+    static final String RECOVERY = "recovery";
+
+    /** The project the mode {@value #RECOVERY} recovers. */
+    static final String RECOVERED_PROJECT = "project-a";
 
     /** Exit code of a child whose standard input ended while it was blocked. */
     static final int EXIT_ORPHANED = 3;
@@ -108,8 +117,66 @@ final class RuntimeChildProcess {
             }, STARTUP);
             case STARTUP_READY -> startup(paths, markers, AuditChainVerification.NONE, STARTUP_READY);
             case DRAIN -> drain(paths, markers);
+            case RECOVERY -> recovery(paths, markers);
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         }
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the marker file to which the first recovery step appends one line per run
+     */
+    static Path recoveryRuns(Path base) {
+        return base.resolve("recovery-runs");
+    }
+
+    /**
+     * The first step of the mode {@value #RECOVERY}, also used by the test that recovers again: it appends the id of
+     * the project as a line to the marker file.
+     *
+     * @param base the base directory of the runtime
+     * @return the marking step
+     */
+    static RecoveryStep markingStep(Path base) {
+        return new RecoveryStep() {
+
+            @Override
+            public Name name() {
+                return Name.ENROLMENT_INTEGRITY;
+            }
+
+            @Override
+            public Outcome run(String projectId) {
+                try {
+                    Files.writeString(recoveryRuns(base), projectId + System.lineSeparator(), StandardCharsets.UTF_8,
+                            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException e) {
+                    return new Outcome.Failed("marker not written: " + e);
+                }
+                return new Outcome.Done("marked");
+            }
+        };
+    }
+
+    private static void recovery(MachinePaths paths, PrintStream markers) {
+        var blocking = new RecoveryStep() {
+
+            @Override
+            public Name name() {
+                return Name.JOBS_AND_WORKERS;
+            }
+
+            @Override
+            public Outcome run(String projectId) {
+                markers.println(inside(RECOVERY));
+                return awaitKill();
+            }
+        };
+        markers.println(before(RECOVERY));
+        // The recovery runs on this thread, so the background pass blocks in the second step until the kill
+        new ProjectRecovery(() -> List.of(RECOVERED_PROJECT), List.of(markingStep(paths.base()), blocking), Runnable::run)
+                .startBackgroundPass();
+        throw new IllegalStateException("the recovery ended although its step blocks");
     }
 
     private static void drain(MachinePaths paths, PrintStream markers) throws IOException {

@@ -30,6 +30,15 @@
  * {@code machine-config.json} ({@link de.planmarshall.runtime.start.DrainTimeout}), 600 seconds by default; an
  * invalid value falls back to the default.
  * <p>
+ * The per-project recovery ({@link de.planmarshall.runtime.start.ProjectRecovery}) runs after the bind, never
+ * before: lazily on the first call addressing a project, which waits at most the project recovery wait of 10 seconds
+ * and is then answered {@code runtime_recovering}, and for every enrolled project
+ * ({@link de.planmarshall.runtime.start.EnrolledProjects}) in a background pass. Each project is recovered once per
+ * runtime instance, by whichever trigger comes first. Its steps ({@link de.planmarshall.runtime.start.RecoveryStep})
+ * run in the order of the specification, from the enrolment integrity to the baseline worktree sweep; a failed step
+ * stops the recovery of its project only. A step whose store or component does not exist yet is a named seam that
+ * reports that it is not implemented in this runtime.
+ * <p>
  * Besides the on-demand start, the runtime can register itself as a per-user service that starts it at login and
  * restarts it on failure (the service-managed start mode): {@link de.planmarshall.runtime.start.ServiceUnitFile}
  * renders, writes and removes the {@code launchd} LaunchAgent or the {@code systemd --user} unit,
