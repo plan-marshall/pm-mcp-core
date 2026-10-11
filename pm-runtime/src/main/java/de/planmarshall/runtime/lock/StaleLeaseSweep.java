@@ -179,6 +179,30 @@ public class StaleLeaseSweep {
      * @throws java.io.UncheckedIOException if the store cannot be read or written
      */
     public static Result sweep(LeaseStore store, Predicate<LeaseRecord> abandoned, Instant now) {
+        return sweep(store, _ -> true, abandoned, now);
+    }
+
+    /**
+     * Sweeps the leases of one project in one lease store, the sweep of the per-project recovery. Only the leases
+     * whose owner is the project are judged; the leases of other projects stay in the store as they are and appear
+     * neither in the decisions nor in the counts. The rules, the transaction and the handling of a refused store are
+     * those of {@link #sweep(LeaseStore, Predicate, Instant)}.
+     *
+     * @param store     the lease store
+     * @param projectId the enrolment identifier of the project whose leases are judged
+     * @param abandoned the caller's evidence: whether a lease whose holder is not alive was abandoned
+     * @param now       the instant of the sweep, which a lease that is orphaned by it records
+     * @return the decision on each lease of the project, and why nothing was removed if nothing was;
+     *         {@link EmptyPopulation#NOTHING_LISTED} when the store holds no lease of the project
+     * @throws java.io.UncheckedIOException if the store cannot be read or written
+     */
+    public static Result sweep(LeaseStore store, String projectId, Predicate<LeaseRecord> abandoned, Instant now) {
+        Objects.requireNonNull(projectId, "projectId");
+        return sweep(store, lease -> projectId.equals(lease.owner().projectId()), abandoned, now);
+    }
+
+    private static Result sweep(LeaseStore store, Predicate<LeaseRecord> selected, Predicate<LeaseRecord> abandoned,
+            Instant now) {
         Objects.requireNonNull(store, "store");
         Objects.requireNonNull(abandoned, "abandoned");
         Objects.requireNonNull(now, "now");
@@ -186,6 +210,9 @@ public class StaleLeaseSweep {
         Optional<List<LeaseRecord>> swept;
         try {
             swept = store.reviseAll(lease -> {
+                if (!selected.test(lease)) {
+                    return Optional.of(lease);
+                }
                 var decision = decide(lease, abandoned, now);
                 decisions.add(decision);
                 return decision.action() == Action.REMOVED ? Optional.empty() : Optional.of(decision.lease());
