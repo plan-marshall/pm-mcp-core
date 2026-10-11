@@ -168,6 +168,14 @@ decision or a dependency outside this repository.
   documentation (#26 there) and PLAN-06's (#28 there) are merged; their Watches retired. PLAN-02's
   (#20 there) and PLAN-07's (#27 there) are open.
 
+- 2026-10-11 — Operator asked whether the per-package documentation pull requests are sensible.
+  Analysis of doc PRs #19–#28: about a third is contract change (specification, concepts); the rest
+  copies code state (trace class lists, roadmap checkboxes, watch counts, log table, package
+  descriptions) or describes code (developer guides). Staged, at the operator's request, as a plain
+  Claude Code session plan outside this epic: `.plan/temp/doc-structure-single-pr-plan.md` of
+  pm-mcp-core. When its PRs merge, the Standing Constraints of the specs not yet started are
+  rewritten from its report.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
