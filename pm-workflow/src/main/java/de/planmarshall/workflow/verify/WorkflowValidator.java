@@ -57,8 +57,9 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the released state names from the baseline its caller passes. No check stops at the first violation, so the result
  * lists all of them, ordered by the declaration order of their state and then by rule.
  * <p>
- * Reachability is graph reachability over every transition: a guard's configuration keys are known to the tree, but
- * not the values they can take, so configuration combinations are not enumerated here.
+ * Reachability is graph reachability over every transition, enumerated under every
+ * configuration combination the guards' {@code depends_on_config} keys admit (Rule 3
+ * configuration reachability).
  *
  * @since 0.1
  */
@@ -699,16 +700,26 @@ public final class WorkflowValidator {
         var baseGraph = UnitGraph.of(definition);
         var baseReached = baseGraph.forwardClosure(Set.of(definition.startState()));
 
+        // One active graph per combination. The reached set feeds the state-level report below, so the 2^N
+        // enumeration is built once per combination rather than once per state per combination. There is no
+        // transition-level report: configCombinations always includes the all-true assignment, under which
+        // every link is active, so every base-reachable transition is reachable under at least that
+        // combination and a not-reachable-under-any-combination predicate is unsatisfiable.
+        var reachedByCombination = new ArrayList<Set<String>>(combinations.size());
+        for (var combination : combinations) {
+            var graph = UnitGraph.of(definition, combination);
+            var reached = graph.forwardClosure(Set.of(definition.startState()));
+            reachedByCombination.add(reached);
+        }
+
         for (var state : definition.states().values()) {
             if (ABORT_TERMINALS.contains(state.id()) || !baseReached.contains(state.id())) {
                 continue;
             }
             var unreachedCombinations = new ArrayList<Map<String, Boolean>>();
-            for (var combination : combinations) {
-                var graph = UnitGraph.of(definition, combination);
-                var reached = graph.forwardClosure(Set.of(definition.startState()));
-                if (!reached.contains(state.id())) {
-                    unreachedCombinations.add(combination);
+            for (int i = 0; i < combinations.size(); i++) {
+                if (!reachedByCombination.get(i).contains(state.id())) {
+                    unreachedCombinations.add(combinations.get(i));
                 }
             }
             if (!unreachedCombinations.isEmpty()) {
@@ -716,24 +727,6 @@ public final class WorkflowValidator {
                         "the state '%s' is not reachable from the start state '%s' under configuration %s"
                                 .formatted(state.id(), definition.startState(),
                                         formatCombinations(unreachedCombinations))));
-            }
-        }
-
-        var allReachedTransitions = new HashSet<OutcomeTransition>();
-        for (var combination : combinations) {
-            allReachedTransitions.addAll(UnitGraph.reachableTransitions(definition, combination));
-        }
-        for (var state : definition.states().values()) {
-            if (!baseReached.contains(state.id())) {
-                continue;
-            }
-            for (var transition : UnitGraph.allTransitions(state.behavior())) {
-                if (!allReachedTransitions.contains(transition)) {
-                    violations.add(new Violation(VerificationRule.CONFIG_REACHABILITY, state.id(),
-                            transition.location(),
-                            "the transition '%s -> %s' is not reachable under any configuration combination"
-                                    .formatted(transition.outcomeName(), transition.targetStateId())));
-                }
             }
         }
     }
@@ -841,7 +834,12 @@ public final class WorkflowValidator {
                         contractOutcomes.add(calleeState.terminalOutcome().get().id());
                     }
                 }
-                contractOutcomes.add("stepped_out");
+                // stepped_out belongs to the exit contract only when the callee can actually step out: the
+                // implicit step_out exit of a resting-link state of a sub-workflow unit. A callee without one
+                // never returns stepped_out, so routing it is refused and omitting it is correct.
+                if (canReturnSteppedOut(callee)) {
+                    contractOutcomes.add("stepped_out");
+                }
 
                 var outcomeCounts = new HashMap<String, Integer>();
                 var resultGuardsOnDone = new ArrayList<ResultGuard>();
@@ -916,6 +914,30 @@ public final class WorkflowValidator {
                 }
             }
         }
+    }
+
+    /**
+     * Tells whether a called sub-workflow can return the control outcome {@code stepped_out}: only a sub-workflow
+     * unit with a resting-link state can, through that state's implicit {@code step_out} exit (the same exit
+     * {@link UnitGraph#isImplicitLink} reports). A link state outside a sub-workflow has no such exit, and neither
+     * does any other behaviour.
+     *
+     * @param callee the called sub-workflow
+     * @return {@code true} when {@code stepped_out} belongs to the callee's exit contract
+     */
+    private static boolean canReturnSteppedOut(WorkflowDefinition callee) {
+        if (callee.scope() != WorkflowScope.SUBWORKFLOW) {
+            return false;
+        }
+        var reached = UnitGraph.of(callee).forwardClosure(Set.of(callee.startState()));
+        for (var calleeState : callee.states().values()) {
+            if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
+                    && reached.contains(calleeState.id())
+                    && UnitGraph.hasImplicitExit(callee.scope(), calleeState)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean areComplementary(ResultGuard g1, ResultGuard g2) {
@@ -1115,7 +1137,15 @@ public final class WorkflowValidator {
                     completionsByStep.computeIfAbsent(comp.stepId(), _ -> new ArrayList<>())
                             .add(new StepCompletionSite(state.id(), transition, comp));
 
-                    var outcomeClass = outcomeClassOf(definition, state, transition);
+                    var outcomeClassOpt = outcomeClassOf(definition, state, transition);
+                    if (outcomeClassOpt.isEmpty()) {
+                        violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                comp.location(),
+                                "the step '%s' is completed on the outcome '%s', whose class cannot be established"
+                                        .formatted(comp.stepId(), transition.outcomeName())));
+                        continue;
+                    }
+                    var outcomeClass = outcomeClassOpt.get();
                     var status = comp.status();
                     switch (status) {
                         case DONE -> {
@@ -1226,7 +1256,7 @@ public final class WorkflowValidator {
         }
     }
 
-    private OutcomeClass outcomeClassOf(WorkflowDefinition definition, StateNode state,
+    private Optional<OutcomeClass> outcomeClassOf(WorkflowDefinition definition, StateNode state,
             OutcomeTransition transition) {
         var outcomeName = transition.outcomeName();
         switch (state.behavior()) {
@@ -1236,7 +1266,7 @@ public final class WorkflowValidator {
                     for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                         var po = (PrimitiveOutcome) outcome;
                         if (po.wireName().equals(outcomeName)) {
-                            return po.outcomeClass();
+                            return Optional.of(po.outcomeClass());
                         }
                     }
                 }
@@ -1247,14 +1277,14 @@ public final class WorkflowValidator {
                     for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                         var po = (PrimitiveOutcome) outcome;
                         if (po.wireName().equals(outcomeName)) {
-                            return po.outcomeClass();
+                            return Optional.of(po.outcomeClass());
                         }
                     }
                 }
             }
             case StateBehavior.ModelJob modelJob -> {
                 if (UnitGraph.LOST_OUTCOME.equals(outcomeName)) {
-                    return OutcomeClass.INDETERMINATE;
+                    return Optional.of(OutcomeClass.INDETERMINATE);
                 }
                 var entityKind = entityKinds.find(modelJob.entityKind());
                 if (entityKind.isPresent()) {
@@ -1263,7 +1293,7 @@ public final class WorkflowValidator {
                         for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                             var po = (PrimitiveOutcome) outcome;
                             if (po.wireName().equals(outcomeName)) {
-                                return po.outcomeClass();
+                                return Optional.of(po.outcomeClass());
                             }
                         }
                     }
@@ -1271,19 +1301,22 @@ public final class WorkflowValidator {
             }
             case StateBehavior.SubWorkflowCall call -> {
                 if ("stepped_out".equals(outcomeName)) {
-                    return OutcomeClass.STEPPED_OUT;
+                    return Optional.of(OutcomeClass.STEPPED_OUT);
                 }
                 var callee = catalog.find(call.subWorkflowId());
                 if (callee.isPresent()) {
                     for (var calleeState : callee.get().states().values()) {
                         if (calleeState.terminalOutcome().isPresent()
                                 && calleeState.terminalOutcome().get().id().equals(outcomeName)) {
-                            return calleeState.terminalOutcome().get().outcomeClass();
+                            return Optional.of(calleeState.terminalOutcome().get().outcomeClass());
                         }
                     }
                 }
             }
             case StateBehavior.QuestionWait question -> {
+                if (question.transitions().contains(transition)) {
+                    return Optional.of(OutcomeClass.SUCCESS);
+                }
                 for (var link : question.links()) {
                     if (link.transitions().contains(transition)
                             && link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
@@ -1292,13 +1325,13 @@ public final class WorkflowValidator {
                             for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                                 var po = (PrimitiveOutcome) outcome;
                                 if (po.wireName().equals(outcomeName)) {
-                                    return po.outcomeClass();
+                                    return Optional.of(po.outcomeClass());
                                 }
                             }
                         }
                     }
                 }
-                return OutcomeClass.SUCCESS;
+                return Optional.empty();
             }
             case StateBehavior.InteractiveLinks _ -> {
                 for (var link : UnitGraph.declaredLinks(state.behavior())) {
@@ -1309,17 +1342,19 @@ public final class WorkflowValidator {
                             for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                                 var po = (PrimitiveOutcome) outcome;
                                 if (po.wireName().equals(outcomeName)) {
-                                    return po.outcomeClass();
+                                    return Optional.of(po.outcomeClass());
                                 }
                             }
                         }
                     }
                 }
+                return Optional.empty();
             }
             case StateBehavior.TerminalState _ -> {
+                return Optional.empty();
             }
         }
-        return OutcomeClass.SUCCESS;
+        return Optional.empty();
     }
 
     private void checkSessionDrivenLinks(WorkflowDefinition definition, List<Violation> violations) {
@@ -1427,12 +1462,35 @@ public final class WorkflowValidator {
             case StateBehavior.JobStep job -> true;
             case StateBehavior.ModelJob modelJob -> true;
             case StateBehavior.QuestionWait question -> true;
-            case StateBehavior.InteractiveLinks links -> true;
+            case StateBehavior.InteractiveLinks links -> traversedLinkAwaits(state, toId);
             case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
                     .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
             case StateBehavior.SubWorkflowCall call -> false;
             case StateBehavior.TerminalState _ -> false;
         };
+    }
+
+    /**
+     * Decides whether the edge {@code fromId -> toId} out of a resting link state waits for an external event.
+     * A traversed link awaits when its form takes a submission (a {@code submit} link waits for the operator)
+     * or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited event
+     * does not satisfy the cycle.
+     */
+    private boolean traversedLinkAwaits(StateNode state, String toId) {
+        for (var link : UnitGraph.declaredLinks(state.behavior())) {
+            boolean traverses = link.transitions().stream().anyMatch(t -> toId.equals(t.targetStateId()));
+            if (!traverses) {
+                continue;
+            }
+            if (link.form() == LinkForm.SUBMIT) {
+                return true;
+            }
+            var primitive = registry.find(primitiveOf(link));
+            if (primitive.isPresent() && primitive.get().awaitedEvent() != AwaitedEvent.NONE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {

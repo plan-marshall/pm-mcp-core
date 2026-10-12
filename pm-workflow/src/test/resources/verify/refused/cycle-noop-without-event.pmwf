@@ -1,0 +1,18 @@
+# expect: CYCLE_AWAITED_EVENT state verify.entry line 6
+workflow verify.cycle-noop-without-event version 1 format 1
+scope subworkflow
+start verify.entry
+
+state verify.entry
+    phase inherit
+    skill pm/verify/start
+    link next proceed ()
+        do test.proceed
+            done -> verify.entry
+    link submit finish [submit] (note: text[1..80], comment: text)
+        do test.choose
+            chosen -> verify.done
+            declined -> verify.done
+
+state verify.done terminal done success
+    phase inherit

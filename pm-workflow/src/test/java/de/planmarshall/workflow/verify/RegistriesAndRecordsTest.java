@@ -28,7 +28,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("EntityKind should support constructors, accessors and null validation")
-    void testEntityKind() {
+    void entityKind() {
         var withUnit = new EntityKind("task", Optional.of("worker-task"), "task.evaluate");
         assertAll(
                 () -> assertEquals("task", withUnit.name()),
@@ -53,7 +53,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("EntityKindRegistry should provide defaults, lookup, with and null validation")
-    void testEntityKindRegistry() {
+    void entityKindRegistry() {
         var defaults = EntityKindRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.find("screen").isPresent()),
@@ -64,6 +64,16 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.find("simplify").isPresent()),
                 () -> assertTrue(defaults.find("review").isPresent()),
                 () -> assertFalse(defaults.find("nonexistent").isPresent())
+        );
+
+        assertAll(
+                () -> assertEquals(Optional.empty(), defaults.find("screen").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("worker-task"), defaults.find("task").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("change").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("decision").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("triage").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("simplify").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity-multi"), defaults.find("review").orElseThrow().entityUnit())
         );
 
         var custom = new EntityKind("custom", Optional.empty(), "custom.eval");
@@ -79,7 +89,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("QuestionClass should support record components and null validation")
-    void testQuestionClass() {
+    void questionClass() {
         var qc = new QuestionClass("init", Set.of("answered", "assumed"));
         var outcomes = Set.of("a");
         assertAll(
@@ -92,7 +102,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("QuestionClassRegistry should provide defaults, lookup, with and null validation")
-    void testQuestionClassRegistry() {
+    void questionClassRegistry() {
         var defaults = QuestionClassRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.find("init").isPresent()),
@@ -100,7 +110,17 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.find("review").isPresent()),
                 () -> assertTrue(defaults.find("task").isPresent()),
                 () -> assertTrue(defaults.find("setup").isPresent()),
+                () -> assertTrue(defaults.find("ask").isPresent()),
                 () -> assertFalse(defaults.find("nonexistent").isPresent())
+        );
+
+        assertAll(
+                () -> assertEquals(Set.of("answered", "assumed", "returned"), defaults.find("init").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("clarification").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("approve", "revise", "returned"), defaults.find("review").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("task").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("setup").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("ask").orElseThrow().outcomes())
         );
 
         var custom = new QuestionClass("custom", Set.of("yes", "no"));
@@ -116,7 +136,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("SchemaRegistry should provide defaults, contains, with and null validation")
-    void testSchemaRegistry() {
+    void schemaRegistry() {
         var defaults = SchemaRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.contains("question-envelope")),
@@ -140,7 +160,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("WorkflowCatalog should support empty, of, find, contains and definitions")
-    void testWorkflowCatalog() {
+    void workflowCatalog() {
         var empty = WorkflowCatalog.empty();
         assertAll(
                 () -> assertFalse(empty.find("foo").isPresent()),
@@ -167,7 +187,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("WorkflowValidator overloaded constructors should initialize successfully")
-    void testWorkflowValidatorConstructors() {
+    void workflowValidatorConstructors() {
         var registry = TestPrimitives.registry();
         var released = List.of("verify.entry");
         var validator2 = new WorkflowValidator(registry, released);

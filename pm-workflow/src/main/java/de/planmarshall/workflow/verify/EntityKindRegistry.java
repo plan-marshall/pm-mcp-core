@@ -24,7 +24,7 @@ import java.util.Optional;
  */
 public final class EntityKindRegistry {
 
-    private static final String ENTITY = "entity";
+    private static final String ENTITY_UNIT = "entity";
 
     private final Map<String, EntityKind> kinds;
 
@@ -67,16 +67,19 @@ public final class EntityKindRegistry {
     }
 
     /**
-     * @return the default registry containing the standard specification entity kinds
+     * @return the default registry containing the standard specification entity kinds. Every kind runs the generic
+     *         entity unit of its submission shape: {@code screen} has no entity unit, {@code task} runs the task
+     *         protocol unit {@code worker-task}, the single-submit kinds run {@code entity}, and the multi-submit
+     *         lesson review kind {@code review} runs {@code entity-multi}.
      */
     public static EntityKindRegistry defaults() {
         return new EntityKindRegistry(List.of(
                 new EntityKind("screen", Optional.empty(), "screen.evaluate"),
                 new EntityKind("task", Optional.of("worker-task"), "task.evaluate"),
-                new EntityKind("change", Optional.of(ENTITY), "test.evaluate-change"),
-                new EntityKind("decision", Optional.of(ENTITY), "adjudicate.evaluate"),
-                new EntityKind("triage", Optional.of(ENTITY), "triage.evaluate"),
-                new EntityKind("simplify", Optional.of(ENTITY), "simplify.evaluate"),
-                new EntityKind("review", Optional.of(ENTITY), "review.evaluate")));
+                new EntityKind("change", Optional.of(ENTITY_UNIT), "test.evaluate-change"),
+                new EntityKind("decision", Optional.of(ENTITY_UNIT), "adjudicate.evaluate"),
+                new EntityKind("triage", Optional.of(ENTITY_UNIT), "triage.evaluate"),
+                new EntityKind("simplify", Optional.of(ENTITY_UNIT), "simplify.evaluate"),
+                new EntityKind("review", Optional.of("entity-multi"), "review.evaluate")));
     }
 }

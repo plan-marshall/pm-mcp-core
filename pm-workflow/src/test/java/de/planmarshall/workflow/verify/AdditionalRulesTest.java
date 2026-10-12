@@ -9,10 +9,12 @@
  */
 package de.planmarshall.workflow.verify;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,7 +53,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("STATE_EXISTS: start state missing in definition")
-    void testStateExistsMissingStartState() {
+    void stateExistsMissingStartState() {
         var def = VerifyFixtures.parseSource("missing-start.pmwf", """
                 workflow verify.inline version 1 format 1
                 scope plan
@@ -67,7 +69,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("SCHEMA_BINDING: parameter with unregistered schema")
-    void testSchemaBindingUnregistered() {
+    void schemaBindingUnregistered() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -84,7 +86,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("ENTITY_KIND_BINDING: return evaluation primitive missing")
-    void testEntityKindMissingReturnEvalPrimitive() {
+    void entityKindMissingReturnEvalPrimitive() {
         var customKinds = EntityKindRegistry.defaults().with(new EntityKind("custom", Optional.empty(), "missing.eval"));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 customKinds, QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
@@ -103,7 +105,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("ENTITY_KIND_BINDING: ask on entity kind without entity unit")
-    void testEntityKindAskWithoutEntityUnit() {
+    void entityKindAskWithoutEntityUnit() {
         var customKinds = EntityKindRegistry.defaults().with(new EntityKind("screen", Optional.empty(), "test.evaluate-change"));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 customKinds, QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
@@ -122,7 +124,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("ENTITY_KIND_BINDING: each clause primitive not registered")
-    void testEntityKindEachPrimitiveMissing() {
+    void entityKindEachPrimitiveMissing() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -137,7 +139,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("ENTITY_KIND_BINDING: role each in unit not adjudicate.decisions")
-    void testEntityKindRoleEachNotInAdjudicateDecisions() {
+    void entityKindRoleEachNotInAdjudicateDecisions() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -154,7 +156,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("ROLE_NAME_GRAMMAR: consult role with invalid grammar")
-    void testRoleNameGrammarInvalidConsultRole() {
+    void roleNameGrammarInvalidConsultRole() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -170,7 +172,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("JOB_STARTING_OUTCOME: job-starting outcome targets non-job state")
-    void testJobStartingOutcomeTargetsNonJob() {
+    void jobStartingOutcomeTargetsNonJob() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -191,7 +193,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("JOB_STARTING_OUTCOME: non-job-starting outcome targets job state")
-    void testJobStartingOutcomeNonJobOutcomeTargetsJob() {
+    void jobStartingOutcomeNonJobOutcomeTargetsJob() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -213,7 +215,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("MODEL_JOB_OUTCOMES: routing unknown outcome, twice, and missing lost")
-    void testModelJobOutcomesDefects() {
+    void modelJobOutcomesDefects() {
         var def = unit("workspace", """
                 state verify.entry
                     phase verify
@@ -233,7 +235,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("QUESTION_OUTCOMES: routing unknown outcome and twice")
-    void testQuestionOutcomesDefects() {
+    void questionOutcomesDefects() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -251,7 +253,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("LINK_COMPATIBILITY: engine owned rel, submit without params, noop with params")
-    void testLinkCompatibilityDefects() {
+    void linkCompatibilityDefects() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -283,7 +285,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("ABORT_TERMINAL_TARGETING: targeting plan.aborted or epic.aborted improperly")
-    void testAbortTerminalTargetingDefects() {
+    void abortTerminalTargetingDefects() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -306,7 +308,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("LEAF_TASK_CONSTRAINT: worker unit transitions and consultation constraints")
-    void testLeafTaskConstraints() {
+    void leafTaskConstraints() {
         var workerDef = VerifyFixtures.parseSource("worker.pmwf", """
                 workflow worker-task version 1 format 1
                 scope entity
@@ -362,7 +364,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: resting link missing skill and phase inherit in plan scope")
-    void testSubWorkflowRestingLinkAndInherit() {
+    void subWorkflowRestingLinkAndInherit() {
         var subwfDef = VerifyFixtures.parseSource("subwf.pmwf", """
                 workflow subwf.test version 1 format 1
                 scope subworkflow
@@ -395,7 +397,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: unregistered callee and scope mismatch")
-    void testSubWorkflowCalleeRegistrationAndScope() {
+    void subWorkflowCalleeRegistrationAndScope() {
         var unregisteredDef = unit("plan", """
                 state verify.entry
                     phase verify
@@ -432,7 +434,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: parameter mismatches for enum, int and list")
-    void testSubWorkflowParamMismatches() {
+    void subWorkflowParamMismatches() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -453,7 +455,7 @@ class AdditionalRulesTest {
 
     @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: missing required params and exit outcomes")
-    void testSubWorkflowMissingParamsAndOutcomes() {
+    void subWorkflowMissingParamsAndOutcomes() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -472,8 +474,96 @@ class AdditionalRulesTest {
     }
 
     @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out routed for a callee that cannot step out")
+    void subWorkflowSteppedOutSpurious() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.done
+                """ + DONE_TERMINAL);
+        var found = violations(def);
+        assertEquals(1, found.size(), () -> "expected exactly the spurious stepped_out refusal: " + found);
+        assertEquals(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                        "routes the outcome 'stepped_out', which is not in the exit contract of 'test.depth5'"),
+                () -> "missing spurious stepped_out refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out owed but not routed")
+    void subWorkflowSteppedOutMissing() {
+        var def = unit("subworkflow", """
+                state verify.entry
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.done
+                """ + DONE_TERMINAL);
+        var found = violations(def);
+        assertEquals(1, found.size(), () -> "expected exactly the missing stepped_out refusal: " + found);
+        assertEquals(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                        "does not route the exit outcome 'stepped_out' of 'git.commit_and_push'"),
+                () -> "missing owed stepped_out refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("QUESTION_CLASS_BINDING: question class not registered")
+    void questionClassUnregistered() {
+        var customQuestions = new QuestionClassRegistry(List.of(
+                new QuestionClass("init", Set.of("answered", "assumed", "returned")),
+                new QuestionClass("clarification", Set.of("answered", "assumed")),
+                new QuestionClass("review", Set.of("approve", "revise", "returned")),
+                new QuestionClass("task", Set.of("answered", "assumed")),
+                new QuestionClass("setup", Set.of("answered", "assumed"))));
+        var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
+                EntityKindRegistry.defaults(), customQuestions, SchemaRegistry.defaults(), TestPrimitives.catalog());
+
+        var def = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                        assumed -> verify.done
+                """ + DONE_TERMINAL);
+        var found = customVal.verify(def).violations();
+        assertEquals(1, found.size(), () -> "expected exactly the unregistered class refusal: " + found);
+        assertEquals(VerificationRule.QUESTION_CLASS_BINDING, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                        "the question class 'ask' of the state 'verify.entry' is not registered"),
+                () -> "missing unregistered class refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("QUESTION_OUTCOMES: ask class bijection and missing outcome")
+    void questionAskOutcomes() {
+        var passing = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                        assumed -> verify.done
+                """ + DONE_TERMINAL);
+        assertTrue(violations(passing).isEmpty(), () -> "ask bijection should pass: " + violations(passing));
+
+        var missing = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                """ + DONE_TERMINAL);
+        var found = violations(missing);
+        assertEquals(1, found.size(), () -> "expected exactly the missing assumed refusal: " + found);
+        assertEquals(VerificationRule.QUESTION_OUTCOMES, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                        "does not route the outcome 'assumed' of the question class 'ask'"),
+                () -> "missing ask assumed refusal: " + found);
+    }
+
+    @Test
     @DisplayName("STEP_COMPLETION: conflicting outcome classes and completion to abort terminal")
-    void testStepCompletionDefects() {
+    void stepCompletionDefects() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -491,15 +581,53 @@ class AdditionalRulesTest {
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
         var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION
-                && v.message().contains("completed twice on a path without an intervening dispatch")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION
-                && v.message().contains("completed as waived on a transition that is not the 'waived' outcome of a remediation call")));
+        assertEquals(2, found.size(), () -> "expected exactly the firing duplicate and the waived refusal: " + found);
+        assertTrue(found.stream().anyMatch(v -> v.message().contains("completed twice on a path without an intervening dispatch")),
+                () -> "missing firing duplicate: " + found);
+        assertTrue(found.stream().anyMatch(v -> v.message().contains("completed as waived on a transition that is not the 'waived' outcome of a remediation call")),
+                () -> "missing waived refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: done on a non-SUCCESS class and on an unresolvable outcome")
+    void stepCompletionDoneAdmission() {
+        var classDef = unit("plan", """
+                state verify.entry
+                    phase verify
+                    job test.build
+                        succeeded -> verify.done
+                        failed -> verify.done
+                            completes step:y as done
+                        cancelled -> verify.done
+                """ + DONE_TERMINAL);
+        var classFound = violations(classDef);
+        assertEquals(1, classFound.size(), () -> "expected exactly the done-on-FAILURE refusal: " + classFound);
+        assertEquals(VerificationRule.STEP_COMPLETION, classFound.getFirst().rule());
+        assertTrue(classFound.getFirst().message().contains("completed as done on an outcome of class FAILURE"),
+                () -> "missing done-on-FAILURE refusal: " + classFound);
+
+        var unknownDef = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.missing
+                        done -> verify.done
+                            completes step:z as done
+                """ + DONE_TERMINAL);
+        var unknownFound = violations(unknownDef);
+        assertEquals(2, unknownFound.size(), () -> "expected exactly binding plus unresolvable-class: " + unknownFound);
+        assertTrue(unknownFound.stream().anyMatch(v -> v.rule() == VerificationRule.PRIMITIVE_BINDING),
+                () -> "missing primitive binding refusal: " + unknownFound);
+        var unresolvable = unknownFound.stream()
+                .filter(v -> v.rule() == VerificationRule.STEP_COMPLETION)
+                .toList();
+        assertEquals(1, unresolvable.size(), () -> "expected exactly the unresolvable-class refusal: " + unknownFound);
+        assertTrue(unresolvable.getFirst().message().contains("whose class cannot be established"),
+                () -> "missing unresolvable-class refusal: " + unknownFound);
     }
 
     @Test
     @DisplayName("STEP_COMPLETION: outcomeClassOf for ModelJob, SubWorkflowCall, QuestionWait")
-    void testStepCompletionOutcomeClasses() {
+    void stepCompletionOutcomeClasses() {
         var def = VerifyFixtures.parseSource("classify.pmwf", """
                 workflow verify.classify version 1 format 1
                 scope subworkflow

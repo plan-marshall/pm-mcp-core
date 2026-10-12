@@ -1,0 +1,40 @@
+= ADR 003: Rule 11b Per-Link Awaited Event
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 11b slice that PLAN-41 shipped with per-state semantics: any cycle passing through a resting state counted as satisfied, so a cycle whose traversed links await nothing passed.
+
+== Decision
+
+1. **Per-link satisfaction**: whether a state awaits an event is decided per traversed link, from the link's form and primitive. A cycle is satisfied only when at least one traversed link awaits an external event.
+2. **`NOOP` self-loops do not satisfy**: a resting link state whose traversed links await no external event (a `NOOP` self-loop with no external wait) leaves the cycle unsatisfied, even though the state itself rests.
+3. **Matched resting exemption**: `JobStep` (job settlement), `ModelJob` (task completion), `QuestionWait` (operator answers), and genuinely awaiting links keep their exemption; the engine-chained cycle path (Rule 11a) and its cycle-measure requirement are unchanged.
+
+== Alternatives Considered
+
+1. **Keeping per-state satisfaction**:
+Any resting state on the cycle satisfies it.
+*Rejected*: it passes cycles that spin without ever waiting, which is exactly the infinite loop the rule exists to refuse.
+
+2. **Form-only satisfaction**:
+A `SUBMIT` form alone satisfies, regardless of the primitive.
+*Rejected*: the await lives in what the primitive does, not only in the form that carries it; form alone both over- and under-admits.
+
+== Consequences
+
+* Fixtures `cycle-noop-without-event.pmwf` (a resting cycle with no per-link await) and `cycle-measure-missing.pmwf` (an engine-chained cycle with no measure) pin the two refusal shapes, each with one planted defect; the genuinely awaiting link cycle stays the passing control.
+* Units that routed resting cycles through non-awaiting links now refuse; the fix is to await on the traversed link or to carry a cycle measure on engine-chained cycles.
+
+== Source
+
+* `doc/plans/static-verifier-rule-gaps.adoc`
+* `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-44-static-verifier-rule-gaps.md`

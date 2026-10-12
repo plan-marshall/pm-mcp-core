@@ -97,4 +97,72 @@ class VerificationResultTest {
                 () -> assertThrows(NullPointerException.class, () -> new Violation(rule, "s", null, "m")),
                 () -> assertThrows(NullPointerException.class, () -> new Violation(rule, "s", LOCATION, null)));
     }
+
+    @Test
+    @DisplayName("Should order violations by state declaration order then rule ordinal")
+    void shouldOrderViolationsByStateThenRule() {
+        var validator = new WorkflowValidator(TestPrimitives.registry(), List.of(),
+                EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+                TestPrimitives.catalog());
+
+        var byState = VerifyFixtures.parseSource("ordering-state.pmwf", """
+                workflow verify.ordering-state version 1 format 1
+                scope subworkflow
+                result schema[unregistered-schema]
+                start verify.begin
+
+                state verify.a
+                    phase verify
+                    skill pm/verify/start
+                    facts test.missing
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.b
+
+                state verify.b
+                    phase verify
+                    skill pm/verify/start
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.t
+
+                state verify.begin
+                    phase verify
+                    skill pm/verify/start
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.a
+
+                state verify.t terminal done success
+                    phase verify
+                """);
+        var byStateFound = validator.verify(byState).violations();
+        assertEquals(
+                List.of(
+                        Map.entry(VerificationRule.PRIMITIVE_BINDING, "verify.a"),
+                        Map.entry(VerificationRule.SCHEMA_BINDING, "verify.begin")),
+                byStateFound.stream().map(v -> Map.entry(v.rule(), v.stateId())).toList(),
+                () -> "expected declaration order, not discovery order: " + byStateFound);
+
+        var byRule = VerifyFixtures.parseSource("ordering-rule.pmwf", """
+                workflow verify.ordering-rule version 1 format 1
+                scope subworkflow
+                start verify.entry
+
+                state verify.entry
+                    phase verify
+                    skill pm/verify/start
+                    facts test.missing
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.ghost
+                """);
+        var byRuleFound = validator.verify(byRule).violations();
+        assertEquals(
+                List.of(
+                        Map.entry(VerificationRule.PRIMITIVE_BINDING, "verify.entry"),
+                        Map.entry(VerificationRule.STATE_EXISTS, "verify.entry")),
+                byRuleFound.stream().map(v -> Map.entry(v.rule(), v.stateId())).toList(),
+                () -> "expected rule ordinal, not discovery order: " + byRuleFound);
+    }
 }

@@ -83,10 +83,16 @@ state verify.ask
     phase inherit
     question clarification
         answered -> verify.entry
-        assumed -> verify.skipped
+        assumed -> verify.askflow
     link next skip_wait ()
         do test.proceed
             done -> verify.done
+
+state verify.askflow
+    phase inherit
+    question ask
+        answered -> verify.done
+        assumed -> verify.skipped
 
 state verify.done terminal done success
     phase inherit

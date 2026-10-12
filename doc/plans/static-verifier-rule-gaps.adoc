@@ -1,0 +1,37 @@
+= Static verifier: the rule gaps PLAN-41 left
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `static-verifier-rule-gaps`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-workflow package `workflow.verify`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+The four rule slices link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`] (PLAN-41) left with gaps, each corrected to the specified semantics, plus the fixture and assertion hardening that pins them:
+
+* Rule 9 firing model: step completion is decided once per firing, through the same-transition duplicate and the path without an intervening dispatch (barriers `finalize.next-step` and the start state). `done` is admitted only on `SUCCESS`; `skipped` on `SUCCESS`, `SKIP`, the `INDETERMINATE` lost route and the `FAILURE` infeasible exit; `failed` is refused on `UNSETTLED` and `STEPPED_OUT`; `waived` is admitted only on the `waived` outcome of a remediation call. The unconditional `SUCCESS` fallback for unresolvable outcome classes is removed: an unresolvable class is a visible refusal.
+* Rule 11b per-link awaited event: a resting-state cycle is satisfied only by an awaited event on the traversed links themselves (form and primitive awaiting an external event). A `NOOP` self-loop with no external wait does not satisfy the cycle; the resting-cycle exemption stays matched to `JobStep`, `ModelJob`, `QuestionWait`, and genuinely awaiting links only.
+* Rule 3 configuration reachability: every state is reachable under every `depends_on_config` combination, reported with the exact failing assignment set. The transition-level not-reachable-under-any-combination check is removed: its predicate is unsatisfiable because the enumeration always includes the all-true assignment, under which every link is active.
+* Rule 6 stepped-out contract and registries: `stepped_out` belongs to a call's exit contract only when the callee can actually step out through a resting-link implicit `step_out` exit. The placeholder entity units are replaced with the specified units (`screen` without a unit, `task` bound to `worker-task`, single-submit kinds on `entity`, the multi-submit lesson review kind `review` on `entity-multi`); the missing `ask` question class is registered with its closed resolution outcomes (`answered`, `assumed`).
+* Fixture and assertion hardening: one refusing fixture per atomic check, each with one planted defect and an exact rule, state, and line refusal; a matched control per exemption (abort terminals, implicit `step_out` exit, default `lost` route, engine-made `asked`); `every-construct.pmwf` extended to every reached construct (including the `ask`-class question flow) as the passing negative control; PLAN-41 assertions restored to exact matching, including the violation ordering by state declaration order then rule ordinal.
+
+Not in this package, so no scope is duplicated:
+
+* link:project-units-and-invariants.adoc[`project-units-and-invariants`] owns the loader of project units, the merged plan workflow unit, the format refusals, `project_step_unbound`, `FinalizePipelineValidator` and the compiled invariants `INV-*` and `INV-REM-*`. It calls the verifier with Rules 1 to 12; none of them is its own. An invariant that cites a rule stays an invariant there; this package implements only the rule check it cites.
+* Role existence and class fit (Rule 13, with the `zero_tool` consult check of Rules 1 and 4) join with the role sets of Milestone 4; skill resolution (Rule 14 and the `skill` clause of Rule 3) joins with the skill checks of Milestones 7 and 14. The package leaves the seam.
+* Rule 5, the rest (the content of the `released-states.txt` baseline, the default-unit gate and the engine's state rewrite) lives in `plan-marshall-mcp` and link:workflow-engine.adoc[`workflow-engine`].
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16] (Rules 6, 7), link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5] and link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4] (Rule 4), link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1] (Rule 10), link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[§ Model Job States]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue/01-conventions-generic-conditions.adoc#state-state.asked[State Catalogue § `<state>.asked`]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/workflow-dsl.adoc[Workflow DSL] (PM-WATCH-DSL-3, 4, 5, 8, 9, 11, 15, 16, 29, 32)
+
+== Done When
+
+One refusing fixture per added check, each refused with exactly its expected rule, state, and line; the extended `every-construct.pmwf` passes every check as the matched negative control; matched controls cover the abort terminals, the implicit `step_out` exit, the default `lost` route, and the engine-made `asked`; restored assertions count the full atomic set with declaration-order-then-rule-ordinal violation ordering and no weakened assertion remains.

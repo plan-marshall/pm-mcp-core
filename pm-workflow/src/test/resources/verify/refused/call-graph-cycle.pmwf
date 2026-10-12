@@ -7,7 +7,6 @@ state verify.entry
     phase inherit
     call verify.call-cycle()
         done -> verify.done
-        stepped_out -> verify.done
 
 state verify.done terminal done success
     phase inherit
