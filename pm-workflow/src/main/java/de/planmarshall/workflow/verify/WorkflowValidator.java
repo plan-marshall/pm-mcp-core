@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.Primitive;
@@ -62,9 +63,24 @@ public final class WorkflowValidator {
     /** The identifier of the link the engine renders on every link state of a sub-workflow. */
     private static final String STEP_OUT_LINK = "step_out";
 
+    private static final Pattern ROLE_NAME_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
+
+    private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
+            "scope", "param", "result", "declare", "decide", "start", "migrate", "state", "terminal", "phase",
+            "inherit", "skill", "facts", "auto", "job", "composite_job", "call", "question", "link", "guard",
+            "depends_on_config", "do", "llm", "role", "each", "consult", "completes", "as", "and", "or", "not",
+            "in_worktree", "has_open_findings", "all_tasks_completed", "predicate", "text", "int", "enum", "schema",
+            "list");
+
     private final PrimitiveRegistry registry;
 
     private final List<String> releasedStates;
+
+    private final EntityKindRegistry entityKinds;
+
+    private final QuestionClassRegistry questionClasses;
+
+    private final SchemaRegistry schemas;
 
     /**
      * @param registry       the primitives a unit may name
@@ -72,8 +88,25 @@ public final class WorkflowValidator {
      * @throws NullPointerException if an argument or a released state name is {@code null}
      */
     public WorkflowValidator(PrimitiveRegistry registry, Collection<String> releasedStates) {
+        this(registry, releasedStates, EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(),
+                SchemaRegistry.defaults());
+    }
+
+    /**
+     * @param registry        the primitives a unit may name
+     * @param releasedStates  the state names of earlier releases, in the order they are reported
+     * @param entityKinds     the registered entity kinds
+     * @param questionClasses the registered question classes
+     * @param schemas         the registered named parameter schemas
+     * @throws NullPointerException if an argument or a released state name is {@code null}
+     */
+    public WorkflowValidator(PrimitiveRegistry registry, Collection<String> releasedStates,
+            EntityKindRegistry entityKinds, QuestionClassRegistry questionClasses, SchemaRegistry schemas) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.releasedStates = List.copyOf(new LinkedHashSet<>(List.copyOf(releasedStates)));
+        this.entityKinds = Objects.requireNonNull(entityKinds, "entityKinds");
+        this.questionClasses = Objects.requireNonNull(questionClasses, "questionClasses");
+        this.schemas = Objects.requireNonNull(schemas, "schemas");
     }
 
     /**
@@ -87,11 +120,13 @@ public final class WorkflowValidator {
         Objects.requireNonNull(definition, "definition");
         var violations = new ArrayList<Violation>();
         var graph = UnitGraph.of(definition);
+        checkSchemaBinding(definition, violations);
         for (var state : definition.states().values()) {
-            checkPrimitiveBinding(state, violations);
+            checkPrimitiveBinding(definition, state, violations);
             checkParameterEquivalence(state, violations);
-            checkOutcomeCoverage(state, violations);
+            checkOutcomeCoverage(definition, state, violations);
             checkLinkIdentifiers(definition.scope(), state, violations);
+            checkJobStartingOutcomes(definition, state, violations);
         }
         checkReachability(definition, graph, violations);
         checkExitPaths(definition, graph, violations);
@@ -99,15 +134,51 @@ public final class WorkflowValidator {
         return new VerificationResult(ordered(definition, violations));
     }
 
-    private void checkPrimitiveBinding(StateNode state, List<Violation> violations) {
+    private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
+        definition.resultSchema().ifPresent(schemaName -> {
+            if (!schemas.contains(schemaName)) {
+                violations.add(new Violation(VerificationRule.SCHEMA_BINDING, definition.startState(),
+                        definition.location(), "the result schema '%s' is not registered".formatted(schemaName)));
+            }
+        });
+        for (var param : definition.params()) {
+            checkParamSchema(param.name(), param.type(), param.location(), definition.startState(), violations);
+        }
+        for (var state : definition.states().values()) {
+            for (var link : UnitGraph.declaredLinks(state.behavior())) {
+                for (var param : link.freeParams()) {
+                    checkParamSchema(param.name(), param.type(), param.location(), state.id(), violations);
+                }
+            }
+        }
+    }
+
+    private void checkParamSchema(String paramName, ParamType type, SourceLocation location, String stateId,
+            List<Violation> violations) {
+        switch (type) {
+            case ParamType.SchemaRef(var schemaName) -> {
+                if (!schemas.contains(schemaName)) {
+                    violations.add(new Violation(VerificationRule.SCHEMA_BINDING, stateId, location,
+                            "the schema '%s' of the parameter '%s' is not registered".formatted(schemaName, paramName)));
+                }
+            }
+            case ParamType.ListOf(var elementType) ->
+                checkParamSchema(paramName, elementType, location, stateId, violations);
+            case ParamType.Text _, ParamType.Int _, ParamType.EnumOf _ -> {
+            }
+        }
+    }
+
+    private void checkPrimitiveBinding(WorkflowDefinition definition, StateNode state, List<Violation> violations) {
         state.factsPrimitiveId().ifPresent(id -> requireRegistered(state, id, "facts", state.location(), violations));
         switch (state.behavior()) {
             case StateBehavior.AutoStep auto ->
                 requireRegistered(state, auto.primitiveId(), "auto", state.location(), violations);
             case StateBehavior.JobStep job -> requireRegistered(state, job.primitiveId(),
                     job.composite() ? "composite_job" : "job", state.location(), violations);
-            case StateBehavior.InteractiveLinks _, StateBehavior.ModelJob _, StateBehavior.SubWorkflowCall _,
-                StateBehavior.QuestionWait _, StateBehavior.TerminalState _ -> {
+            case StateBehavior.ModelJob modelJob -> checkModelJobBinding(definition, state, modelJob, violations);
+            case StateBehavior.QuestionWait question -> checkQuestionBinding(state, question, violations);
+            case StateBehavior.InteractiveLinks _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> {
                 // no primitive of its own: the links are checked below, the rest is outside these checks
             }
         }
@@ -117,6 +188,141 @@ public final class WorkflowValidator {
             link.guard().ifPresent(guard -> UnitGraph.predicatesOf(guard.expr()).forEach(id -> requireRegistered(state, id,
                     "predicate of the link '%s'".formatted(link.idPattern()), link.location(), violations)));
         }
+    }
+
+    private void checkModelJobBinding(WorkflowDefinition definition, StateNode state, StateBehavior.ModelJob modelJob,
+            List<Violation> violations) {
+        var entityKindOpt = entityKinds.find(modelJob.entityKind());
+        if (entityKindOpt.isEmpty()) {
+            violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                    "the entity kind '%s' of the state '%s' is not registered"
+                            .formatted(modelJob.entityKind(), state.id())));
+        } else {
+            var entityKind = entityKindOpt.get();
+            if (registry.find(entityKind.returnEvaluationPrimitiveId()).isEmpty()) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the return-evaluation primitive '%s' of the entity kind '%s' is not registered"
+                                .formatted(entityKind.returnEvaluationPrimitiveId(), entityKind.name())));
+            }
+            if (modelJob.ask() && !entityKind.hasEntityUnit()) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the state '%s' declares 'ask' on the entity kind '%s', which has no entity unit"
+                                .formatted(state.id(), entityKind.name())));
+            }
+        }
+
+        modelJob.fanOutPrimitiveId().ifPresent(primitiveId -> {
+            if (registry.find(primitiveId).isEmpty()) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the primitive '%s' of the each clause is not registered".formatted(primitiveId)));
+            }
+        });
+
+        modelJob.rolesPrimitiveId().ifPresent(primitiveId -> {
+            if (!"adjudicate.decisions".equals(definition.id())) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in '%s'"
+                                .formatted(definition.id())));
+            }
+            if (registry.find(primitiveId).isEmpty()) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the primitive '%s' of the role each clause is not registered".formatted(primitiveId)));
+            }
+            if (modelJob.ask()) {
+                violations.add(new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                        "the state '%s' declares 'ask' on a 'role each' state".formatted(state.id())));
+            }
+        });
+
+        modelJob.roleName().ifPresent(role -> {
+            if (!isValidRoleName(role)) {
+                violations.add(new Violation(VerificationRule.ROLE_NAME_GRAMMAR, state.id(), state.location(),
+                        "the role '%s' of the state '%s' does not match the role-name grammar"
+                                .formatted(role, state.id())));
+            }
+        });
+
+        for (var consultRole : modelJob.consultRoles()) {
+            if (!isValidRoleName(consultRole)) {
+                violations.add(new Violation(VerificationRule.ROLE_NAME_GRAMMAR, state.id(), state.location(),
+                        "the consulted role '%s' of the state '%s' does not match the role-name grammar"
+                                .formatted(consultRole, state.id())));
+            }
+        }
+    }
+
+    private void checkQuestionBinding(StateNode state, StateBehavior.QuestionWait question,
+            List<Violation> violations) {
+        if (questionClasses.find(question.questionClass()).isEmpty()) {
+            violations.add(new Violation(VerificationRule.QUESTION_CLASS_BINDING, state.id(), state.location(),
+                    "the question class '%s' of the state '%s' is not registered"
+                            .formatted(question.questionClass(), state.id())));
+        }
+    }
+
+    private void checkJobStartingOutcomes(WorkflowDefinition definition, StateNode state, List<Violation> violations) {
+        switch (state.behavior()) {
+            case StateBehavior.AutoStep auto -> checkPrimitiveJobTransitions(definition, state, auto.primitiveId(),
+                    auto.transitions(), violations);
+            case StateBehavior.InteractiveLinks links -> {
+                for (var link : links.links()) {
+                    checkPrimitiveJobTransitions(definition, state, primitiveOf(link), link.transitions(), violations);
+                }
+            }
+            case StateBehavior.QuestionWait question -> {
+                for (var link : question.links()) {
+                    checkPrimitiveJobTransitions(definition, state, primitiveOf(link), link.transitions(), violations);
+                }
+            }
+            case StateBehavior.JobStep _, StateBehavior.ModelJob _, StateBehavior.SubWorkflowCall _,
+                 StateBehavior.TerminalState _ -> {
+            }
+        }
+    }
+
+    private void checkPrimitiveJobTransitions(WorkflowDefinition definition, StateNode state, String primitiveId,
+            List<OutcomeTransition> transitions, List<Violation> violations) {
+        var primitiveOpt = registry.find(primitiveId);
+        if (primitiveOpt.isEmpty()) {
+            return;
+        }
+        var primitive = primitiveOpt.get();
+        if (!primitive.enqueuesJob()) {
+            return;
+        }
+        var jobStartingOutcomes = new HashSet<String>();
+        for (var constant : primitive.outcomeType().getEnumConstants()) {
+            var outcome = (PrimitiveOutcome) constant;
+            if (outcome.startsJob()) {
+                jobStartingOutcomes.add(outcome.wireName());
+            }
+        }
+        if (jobStartingOutcomes.isEmpty()) {
+            violations.add(new Violation(VerificationRule.JOB_STARTING_OUTCOME, state.id(), state.location(),
+                    "the primitive '%s' declares enqueuesJob() but has no job-starting outcome".formatted(primitiveId)));
+            return;
+        }
+        for (var transition : transitions) {
+            var targetState = definition.states().get(transition.targetStateId());
+            boolean isJobStarting = jobStartingOutcomes.contains(transition.outcomeName());
+            if (isJobStarting) {
+                if (targetState != null && !(targetState.behavior() instanceof StateBehavior.JobStep)) {
+                    violations.add(new Violation(VerificationRule.JOB_STARTING_OUTCOME, state.id(), transition.location(),
+                            "the job-starting outcome '%s' of the primitive '%s' targets '%s', which is not a job state"
+                                    .formatted(transition.outcomeName(), primitiveId, transition.targetStateId())));
+                }
+            } else {
+                if (targetState != null && (targetState.behavior() instanceof StateBehavior.JobStep)) {
+                    violations.add(new Violation(VerificationRule.JOB_STARTING_OUTCOME, state.id(), transition.location(),
+                            "the outcome '%s' of the primitive '%s' does not start a job, but targets the job state '%s'"
+                                    .formatted(transition.outcomeName(), primitiveId, transition.targetStateId())));
+                }
+            }
+        }
+    }
+
+    private static boolean isValidRoleName(String role) {
+        return ROLE_NAME_PATTERN.matcher(role).matches() && !RESERVED_KEYWORDS.contains(role);
     }
 
     private void requireRegistered(StateNode state, String primitiveId, String site, SourceLocation location,
@@ -182,15 +388,19 @@ public final class WorkflowValidator {
                 "the link '%s' of the primitive '%s' %s".formatted(link.idPattern(), primitive.id(), detail));
     }
 
-    private void checkOutcomeCoverage(StateNode state, List<Violation> violations) {
+    private void checkOutcomeCoverage(WorkflowDefinition definition, StateNode state, List<Violation> violations) {
         switch (state.behavior()) {
             case StateBehavior.AutoStep auto ->
                 coverOutcomes(state, auto.primitiveId(), auto.transitions(), state.location(), violations);
             case StateBehavior.JobStep job ->
                 coverOutcomes(state, job.primitiveId(), job.transitions(), state.location(), violations);
-            case StateBehavior.InteractiveLinks _, StateBehavior.ModelJob _, StateBehavior.SubWorkflowCall _,
-                StateBehavior.QuestionWait _, StateBehavior.TerminalState _ -> {
-                // a task, a call and a question route outcomes that no primitive of the registry declares
+            case StateBehavior.ModelJob modelJob ->
+                coverModelJobOutcomes(definition, state, modelJob, violations);
+            case StateBehavior.QuestionWait question ->
+                coverQuestionOutcomes(state, question, violations);
+            case StateBehavior.InteractiveLinks _, StateBehavior.SubWorkflowCall _,
+                StateBehavior.TerminalState _ -> {
+                // a call routes outcomes that no primitive of the registry declares
             }
         }
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
@@ -220,6 +430,80 @@ public final class WorkflowValidator {
         wireNames.stream().filter(outcome -> !routed.contains(outcome))
                 .forEach(outcome -> violations.add(outcomeViolation(state, siteLocation,
                         "does not route the outcome '%s' of the primitive '%s'".formatted(outcome, primitiveId))));
+    }
+
+    private void coverModelJobOutcomes(WorkflowDefinition definition, StateNode state, StateBehavior.ModelJob modelJob,
+            List<Violation> violations) {
+        var entityKindOpt = entityKinds.find(modelJob.entityKind());
+        if (entityKindOpt.isEmpty()) {
+            return;
+        }
+        var primitiveOpt = registry.find(entityKindOpt.get().returnEvaluationPrimitiveId());
+        if (primitiveOpt.isEmpty()) {
+            return;
+        }
+        var primitive = primitiveOpt.get();
+        var wireNames = wireNamesOf(primitive);
+        var expectedOutcomes = new LinkedHashSet<>(wireNames);
+        expectedOutcomes.add(UnitGraph.LOST_OUTCOME);
+
+        var routed = new HashSet<String>();
+        for (var transition : modelJob.transitions()) {
+            var outcome = transition.outcomeName();
+            if ("asked".equals(outcome)) {
+                violations.add(new Violation(VerificationRule.MODEL_JOB_OUTCOMES, state.id(), transition.location(),
+                        "the state '%s' declares the outcome 'asked', which is engine-made".formatted(state.id())));
+            } else if (!expectedOutcomes.contains(outcome)) {
+                violations.add(new Violation(VerificationRule.MODEL_JOB_OUTCOMES, state.id(), transition.location(),
+                        "the state '%s' routes the outcome '%s', which the return-evaluation primitive '%s' does not have"
+                                .formatted(state.id(), outcome, primitive.id())));
+            } else if (!routed.add(outcome)) {
+                violations.add(new Violation(VerificationRule.MODEL_JOB_OUTCOMES, state.id(), transition.location(),
+                        "the state '%s' routes the outcome '%s' twice".formatted(state.id(), outcome)));
+            }
+        }
+
+        for (var expected : wireNames) {
+            if (!routed.contains(expected)) {
+                violations.add(new Violation(VerificationRule.MODEL_JOB_OUTCOMES, state.id(), state.location(),
+                        "the state '%s' does not route the outcome '%s' of the return-evaluation primitive '%s'"
+                                .formatted(state.id(), expected, primitive.id())));
+            }
+        }
+
+        if (definition.scope() != WorkflowScope.PLAN && !routed.contains(UnitGraph.LOST_OUTCOME)) {
+            violations.add(new Violation(VerificationRule.MODEL_JOB_OUTCOMES, state.id(), state.location(),
+                    "the state '%s' does not route the reserved outcome 'lost'".formatted(state.id())));
+        }
+    }
+
+    private void coverQuestionOutcomes(StateNode state, StateBehavior.QuestionWait question,
+            List<Violation> violations) {
+        var qcOpt = questionClasses.find(question.questionClass());
+        if (qcOpt.isEmpty()) {
+            return;
+        }
+        var qc = qcOpt.get();
+        var routed = new HashSet<String>();
+        for (var transition : question.transitions()) {
+            var outcome = transition.outcomeName();
+            if (!qc.outcomes().contains(outcome)) {
+                violations.add(new Violation(VerificationRule.QUESTION_OUTCOMES, state.id(), transition.location(),
+                        "the question state '%s' routes the outcome '%s', which the question class '%s' does not have"
+                                .formatted(state.id(), outcome, qc.name())));
+            } else if (!routed.add(outcome)) {
+                violations.add(new Violation(VerificationRule.QUESTION_OUTCOMES, state.id(), transition.location(),
+                        "the question state '%s' routes the outcome '%s' of the question class '%s' twice"
+                                .formatted(state.id(), outcome, qc.name())));
+            }
+        }
+        for (var outcome : qc.outcomes()) {
+            if (!routed.contains(outcome)) {
+                violations.add(new Violation(VerificationRule.QUESTION_OUTCOMES, state.id(), state.location(),
+                        "the question state '%s' does not route the outcome '%s' of the question class '%s'"
+                                .formatted(state.id(), outcome, qc.name())));
+            }
+        }
     }
 
     private static Violation outcomeViolation(StateNode state, SourceLocation location, String detail) {

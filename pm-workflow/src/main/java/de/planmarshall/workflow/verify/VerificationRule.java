@@ -21,8 +21,22 @@ public enum VerificationRule {
     PRIMITIVE_BINDING(1),
     /** The free parameters of a link equal the {@code @FreeParam} components of its primitive's parameter record. */
     PARAMETER_EQUIVALENCE(1),
+    /** Every entity kind resolves to a registered kind with its primitive, each is registered, and ask is admitted. */
+    ENTITY_KIND_BINDING(1),
+    /** Every role name of a {@code job llm} state and of a {@code consult role} clause matches the role-name grammar. */
+    ROLE_NAME_GRAMMAR(1),
+    /** Every {@code schema[...]} names a registered parameter schema. */
+    SCHEMA_BINDING(1),
+    /** Every question clause names a registered question class. */
+    QUESTION_CLASS_BINDING(1),
+    /** A primitive declaring {@code enqueuesJob()} declares job-starting outcomes and only they target job states. */
+    JOB_STARTING_OUTCOME(1),
     /** The transitions of an {@code auto}, {@code job} or link action route every outcome of its primitive once. */
     OUTCOME_COVERAGE(2),
+    /** The transitions of a {@code job llm} state form a bijection with the evaluation outcomes plus {@code lost}. */
+    MODEL_JOB_OUTCOMES(2),
+    /** The transitions of a question clause form a bijection with the closed resolution outcomes of its class. */
+    QUESTION_OUTCOMES(2),
     /** Every state is reachable from the start state. */
     REACHABILITY(3),
     /** Every non-terminal state has a path to a terminal state, in a workspace unit back to the start state. */
