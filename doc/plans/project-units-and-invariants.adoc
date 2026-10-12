@@ -11,7 +11,6 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * The loader of project-owned units (`.marshall/config/*.pmwf`) with their declarations within compiled bounds.
-* The loader calls the verifier with Rules 1 to 12 in their corrected semantics: step completion once per firing with the corrected outcome-class admission, per-link awaited events for resting cycles, reachability under every `depends_on_config` combination, and the conditional `stepped_out` exit contract with the corrected registries.
 * The compiled invariants of each phase and `FinalizePipelineValidator` over the project roster; a violation refuses the project's plan lifecycle with file and line and is never replaced by a default unit.
 * The loader of the default units from `classpath:/workflows/`, which the assembly supplies.
 
