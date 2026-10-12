@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted. The decision text was corrected by PLAN-54 to what `WorkflowValidator` checks: question-state links are judged per link like the links of a link state, and a `submit` link counts as awaiting.
 
 == Date
 
@@ -11,13 +11,19 @@ Accepted
 
 == Context
 
-Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 11b slice that PLAN-41 shipped with per-state semantics: any cycle passing through a resting state counted as satisfied, so a cycle whose traversed links await nothing passed.
+Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 11b slice that PLAN-41 shipped with per-state semantics: any cycle passing through a resting state counted as satisfied, so a cycle whose traversed links await nothing passed. PLAN-44 made the link state per-link but still let every edge out of a question state count as awaiting, its declared links included; PLAN-54 closed that.
+
+Rule 11 of the specification (Workflow DSL, § Static AST Verification Rules) has two parts: an engine-chained cycle carries a cycle measure (11a), and every other cycle traverses an edge that waits for an external event (11b).
 
 == Decision
 
-1. **Per-link satisfaction**: whether a state awaits an event is decided per traversed link, from the link's form and primitive. A cycle is satisfied only when at least one traversed link awaits an external event.
-2. **`NOOP` self-loops do not satisfy**: a resting link state whose traversed links await no external event (a `NOOP` self-loop with no external wait) leaves the cycle unsatisfied, even though the state itself rests.
-3. **Matched resting exemption**: `JobStep` (job settlement), `ModelJob` (task completion), `QuestionWait` (operator answers), and genuinely awaiting links keep their exemption; the engine-chained cycle path (Rule 11a) and its cycle-measure requirement are unchanged.
+1. **Engine-chained cycles (11a)**: a cycle whose states are all `auto` or `call` states is engine-chained; it passes when one of its `auto` states names a primitive whose cycle measure is not `NONE`, and is refused otherwise.
+2. **Per-edge satisfaction (11b)**: every other cycle passes when at least one of its edges awaits an event, judged per edge from the state it leaves:
+** a `job`, `composite_job` or `job llm` state awaits its job or task on every edge;
+** a question state awaits the answer or its deadline on the edges of its own resolution outcomes only;
+** an edge of a declared link, of a link state or of a question state alike, awaits when the link is a `submit` link (it waits for the submission) or its primitive declares an awaited event other than `NONE`;
+** an `auto` state awaits when its primitive declares an awaited event; a `call` state and a terminal state never await.
+3. **`noop` cycles do not satisfy**: a resting cycle whose traversed links are `noop` links over primitives without an awaited event is refused, even though its states rest.
 
 == Alternatives Considered
 
@@ -25,16 +31,22 @@ Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects
 Any resting state on the cycle satisfies it.
 *Rejected*: it passes cycles that spin without ever waiting, which is exactly the infinite loop the rule exists to refuse.
 
-2. **Form-only satisfaction**:
-A `SUBMIT` form alone satisfies, regardless of the primitive.
-*Rejected*: the await lives in what the primitive does, not only in the form that carries it; form alone both over- and under-admits.
+2. **Every edge out of a question state awaits (PLAN-44)**:
+The question wait covers the state's declared links as well.
+*Rejected*: a declared link is taken without the answer; a cycle through a question state's `noop` link over a non-awaiting primitive spins like any other.
+
+3. **Primitive-only satisfaction**:
+Only the primitive's awaited event counts, never the form.
+*Rejected*: a `submit` link waits for the model's submission whatever its primitive does with it.
 
 == Consequences
 
-* Fixtures `cycle-noop-without-event.pmwf` (a resting cycle with no per-link await) and `cycle-measure-missing.pmwf` (an engine-chained cycle with no measure) pin the two refusal shapes, each with one planted defect; the genuinely awaiting link cycle stays the passing control.
+* The refusing fixtures `cycle-measure-missing.pmwf` (11a: an engine-chained cycle without a measure), `cycle-noop-without-event.pmwf` (11b: a link-state cycle through a `noop` link) and `question-link-no-awaited-event.pmwf` (11b: a cycle through a question state's declared `noop` link) pin the three refusal shapes, one planted defect each.
+* Matched controls: the inline cases of `WorkflowValidatorTest` and `AdditionalRulesTest` pass a cycle through a `submit` link, a question-state cycle through a `submit` link, and, as the positive control of 11a, an engine-chained cycle over the `ATTEMPT_CAP` primitive.
 * Units that routed resting cycles through non-awaiting links now refuse; the fix is to await on the traversed link or to carry a cycle measure on engine-chained cycles.
 
 == Source
 
+* Workflow DSL specification, § Static AST Verification Rules, Rule 11 (`plan-marshall-documentation`)
 * `doc/plans/static-verifier-rule-gaps.adoc`
 * `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-44-static-verifier-rule-gaps.md`

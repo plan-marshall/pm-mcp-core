@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted. Decisions 1 to 3 are corrected or partly superseded by ADRs 003, 005, 009, 010 and 011, as the notes below them say; § Consequences names what each later ADR corrects.
 
 == Date
 
@@ -15,6 +15,7 @@ Work package `static-verifier-remaining-rules` (Roadmap Milestone 3, PLAN-41) im
 Rules 1, 2, 3, 4, 6, 7, 8, 9, 10, 11 (11a, 11b), and 12.
 
 Key architectural questions addressed in this package:
+
 1. How should external entity kinds, question classes, and schemas be resolved during static verification without coupling `WorkflowValidator` to runtime containers?
 2. How should sub-workflow calls (Rules 6 and 7) be checked across units for acyclicity, depth limits ($\le 4$), and parameter/result binding contracts?
 3. How should cycle awaited-event detection (Rule 11) distinguish between automated infinite loops (engine-chained) and interactive or asynchronous workflow states?
@@ -24,24 +25,28 @@ Key architectural questions addressed in this package:
 
 1. **Immutable Registries**:
 We introduced immutable registries (`EntityKindRegistry`, `QuestionClassRegistry`, and `SchemaRegistry`) configured with specification defaults via `.defaults()` and extensible via `.with(...)`. This separates parser syntax validation from static verifier type-binding checks and allows test suites to inject mock or unregistered items cleanly.
-(Superseded by link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: the shipped defaults carried placeholder entity units and missed the `ask` question class; the corrected defaults are recorded there.)
+(Corrected by link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: the shipped defaults carried placeholder entity units and missed the `ask` question class. Corrected again by PLAN-54: `EntityKindRegistry.defaults()` carries no test identifier, and the validator resolves the entity unit of a kind against `WorkflowCatalog`.)
 
 2. **Workflow Catalog for Call Graphs**:
 We introduced `WorkflowCatalog`, an immutable catalog of parsed sub-workflow definitions. `WorkflowValidator` queries `WorkflowCatalog` to:
+
 - Verify sub-workflow existence and parameter type compatibility (Rule 6).
 - Ensure routing of `done` and `stepped_out` terminal outcomes (Rule 6).
-(Superseded by link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: `stepped_out` belongs to the exit contract only where the callee can return it through a resting-link implicit `step_out` exit.)
+(`stepped_out` is part of every sub-workflow's exit contract implicitly, as the specification states: link:009-rule-6-implicit-stepped-out.adoc[ADR 009]. The conditional contract PLAN-44 recorded in ADR 005 is superseded by it. The targets of the `stepped_out` route and the terminal that declares it are checked as ADR 009 and link:010-primitive-spi-each-seam.adoc[ADR 010] state.)
 - Traverse the call graph to verify acyclicity and maximum nesting depth of 4 (Rule 7).
 - Verify that called sub-workflows do not declare resting links when invoked from plan or epic workflows (Rule 10).
+(PLAN-41 inspected the direct callees only; the callees are walked transitively: link:011-rule-10-transitive-callees.adoc[ADR 011].)
 
 3. **Classification of Awaited Events in Cycles**:
 Rule 11 separates:
+
 - **Engine-chained cycles (Rule 11a)**: Cycles consisting exclusively of automatic execution steps (`AutoStep`, `SubWorkflowCall`). These require an explicit decreasing `cycleMeasure` to ensure termination.
 - **Resting cycles (Rule 11b)**: Cycles passing through states that halt engine execution awaiting external events (`InteractiveLinks` waiting for client/user action, `QuestionWait` waiting for operator answers, `JobStep` waiting for job settlement, `ModelJob` waiting for task completion). These naturally pause execution and satisfy the awaited event constraint.
 (Superseded by link:003-rule-11b-per-link-awaited-event.adoc[ADR 003]: satisfaction is decided per traversed link, not per state; a `NOOP` self-loop with no external wait does not satisfy the cycle.)
 
 4. **Deterministic Diagnostic Attribution**:
 Violations are created with precise `SourceLocation` tokens:
+
 - Transition-specific defects (unreachable target, invalid outcome, abort terminal target, invalid parameter) point to the transition or link clause line.
 - State-wide defects (missing return-evaluation outcomes, state ID collisions, DAG cycle roots) point to the state declaration line.
 - Sub-workflow result schema violations point to the workflow header location.
@@ -60,13 +65,23 @@ Hardcoding could avoid registry classes.
 3. **Treating All Links as Non-Awaiting**:
 Assuming links do not await events unless they have a `SUBMIT` form.
 *Rejected*: In workspace workflows, resting link states halt the engine awaiting external user/client interaction. Treating them as non-awaiting incorrectly flagged valid interactive loops as infinite CPU spins.
+(Superseded by link:003-rule-11b-per-link-awaited-event.adoc[ADR 003]: neither the resting state nor the form alone decides; a traversed link awaits when it is a `submit` link or its primitive declares an awaited event.)
 
 == Consequences
 
-* Complete coverage of Rules 1 through 12 in `WorkflowValidator` with 27 discrete `VerificationRule` constants.
-(Superseded by link:002-rule-9-firing-model.adoc[ADR 002], link:003-rule-11b-per-link-awaited-event.adoc[ADR 003], link:004-rule-3-configuration-reachability.adoc[ADR 004], and link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: PLAN-41 shipped the rule slices with gaps — the once-per-firing model with the unconditional `SUCCESS` fallback, per-state awaited events, the vacuous transition-level configuration check, the unconditional `stepped_out` contract with placeholder registry units and the missing `ask` class. This plan closes them; the rule count is unchanged.)
+* `WorkflowValidator` reports its checks of Rules 1 through 12 under 27 `VerificationRule` constants. PLAN-41 shipped several rule slices with gaps; what each check does today, and what it leaves as a seam, is stated by the later ADRs and the developer guide `pm-workflow/doc/developer/workflow-verify.adoc`, not by this record:
+** link:002-rule-9-firing-model.adoc[ADR 002]: Rule 9 models the firing, admits a completion by the class of its outcome without a `SUCCESS` fallback, and derives the cycle measures instead of naming state ids; seam: the conservative route of an optional step.
+** link:003-rule-11b-per-link-awaited-event.adoc[ADR 003]: Rule 11b is decided per traversed link, question-state links included.
+** link:004-rule-3-configuration-reachability.adoc[ADR 004]: Rule 3 reports partial configuration reachability as an advisory and refuses nothing under the Boolean enumeration.
+** link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: the specified entity units and the `ask` question class; its conditional `stepped_out` decision is superseded by ADR 009.
+** link:006-rule-3-value-activation-gap.adoc[ADR 006]: seam: the activation of enum values of `depends_on_config` keys.
+** link:007-rule-9-derived-firing-openings.adoc[ADR 007]: the openings of a firing, derived from the `STEP_LIST` hub.
+** link:008-verification-result-advisories.adoc[ADR 008]: the advisories channel of `VerificationResult`.
+** link:009-rule-6-implicit-stepped-out.adoc[ADR 009]: `stepped_out` is implicit in every sub-workflow's exit contract.
+** link:010-primitive-spi-each-seam.adoc[ADR 010]: seams: `each` and `role each` over primitives the SPI cannot describe, the type of a guarded result field, the budget re-check of a remediation unit.
+** link:011-rule-10-transitive-callees.adoc[ADR 011]: Rule 10 walks the callees transitively.
 * Pure static analysis: no runtime side-effects or network dependencies.
-* Robust negative testing: every added check has a dedicated refusing fixture verified against an exact rule, state, and source line.
+* Negative testing: each atomic check has one refusing fixture asserting its exact rule, state, and source line, counted against the enumerated checklist of `WorkflowValidatorTest`; the checks no fixture can plant and the seams are listed there by name.
 * Clear integration seam for `project-units-and-invariants` (Milestone 3) and `workflow-engine` (Milestone 4).
 
 == Source

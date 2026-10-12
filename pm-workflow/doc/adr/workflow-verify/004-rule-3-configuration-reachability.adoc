@@ -38,7 +38,7 @@ Rebuilding the active graph inside the per-state loop instead of once per combin
 == Consequences
 
 * `CONFIG_REACHABILITY` names advisories only; `VerificationResult.passed()` ignores them.
-* The fixture `config-unreachable.pmwf`, which pinned the refusal of partial reachability, no longer refuses its unit.
+* The fixture `config-unreachable.pmwf`, which pinned the refusal of partial reachability, is removed: its unit passes with advisories, and no fixture can plant the refusal of what no combination reaches. The advisories are pinned by the inline `CONFIG_REACHABILITY` cases of `AdditionalRulesTest`, and the checklist of `WorkflowValidatorTest` lists the refusal as the seam of ADR 006.
 * The enumeration of enum values, the value activation and the transition-level refusal with its fixture stay open as the seam of link:006-rule-3-value-activation-gap.adoc[ADR 006].
 
 == Source
