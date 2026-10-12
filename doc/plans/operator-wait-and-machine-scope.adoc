@@ -1,0 +1,29 @@
+= Waiting for the operator, and the machine scope
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `operator-wait-and-machine-scope`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#change-operator-wait[Use Cases, Waiting for the Operator]; link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#change-machine-scope[Use Cases, Machine Scope]; no roadmap milestone yet
+Where:: pm-workflow (the operator wait in the language, the static verifier, the engine); pm-core (the machine scope's store)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the two changes into `plan-marshall-documentation` as part of its own work, once the use cases are agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]): the operator wait defined once in the workflow language; every place that defined a wait, a deadline, a mode, or a fallback of its own reduced to a reference to it; the principle that no state waits for an operator decision replaced; the machine scope.
+* *The operator wait*: a state of any unit and any scope may wait for the operator; it offers the operator's links, holds no worker and no model slot, has no time limit, and ends by an operator act through a link or by an override; the static verifier's rule on resting states follows. The question modes `auto` and `none`, the question wait, the deadline, the class fallbacks, and the expiry of a waiver request go; a waiver request ends by `waive` or `decline`.
+* *What halts*: an operator wait halts its own scope only; the machine scope's onboarding halts the system: while it is not complete, no plan and no orchestrator starts.
+* *The machine scope*: the fourth top-level scope, one per machine, its store, and the onboarding unit compiled into the binary.
+* Where `waits` or `operator-and-question-stores` have already implemented question deadlines and fallbacks, this package removes them.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#change-operator-wait[Waiting for the Operator]; link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#change-machine-scope[Machine Scope]
+* Proposal: link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#foundations[Specification Changes for the Clients, Foundational Findings]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#waivers-and-integrity[Workflow DSL § Waivers & Integrity]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#question-states[§ Question States]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[§ Static Verification]; link:../../../plan-marshall-documentation/doc/specification/model-work/06-envelopes-questions-deadlines.adoc#question-delivery[Model Work § Question Delivery]
+
+== Done When
+
+The specification of both changes is merged in `plan-marshall-documentation`; a test shows a plan in an operator wait holding no worker and no slot, another plan running on, and no transition by time; a test shows a waiver request ended by `decline`; a test shows no plan starting while the machine's onboarding is not complete; the static verifier accepts an operator wait in a unit that is not session-driven and refuses one without an operator link.

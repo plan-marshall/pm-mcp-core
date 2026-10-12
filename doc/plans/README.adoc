@@ -231,6 +231,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:scenario-replay-harness.adoc[`scenario-replay-harness`]; link:supervisor.adoc[`supervisor`]; link:consultation.adoc[`consultation`]
 |Milestone 4
 
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
+|Waiting for the operator as one mechanism of the workflow language, and the machine scope
+|`blocked`
+|link:workflow-engine.adoc[`workflow-engine`]; link:operator-and-question-stores.adoc[`operator-and-question-stores`]; link:waits.adoc[`waits`]; the use cases Waiting for the Operator and Machine Scope agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
