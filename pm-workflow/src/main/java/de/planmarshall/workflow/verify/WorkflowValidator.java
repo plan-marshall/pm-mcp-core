@@ -1038,7 +1038,7 @@ public final class WorkflowValidator {
                 case SUBWORKFLOW -> definition.id().startsWith(REMEDIATION_UNIT_PREFIX)
                         || target.behavior() instanceof StateBehavior.InteractiveLinks
                         || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
-                                || outcomeClass == OutcomeClass.FAILURE).isPresent() ? null
+                        || outcomeClass == OutcomeClass.FAILURE).isPresent() ? null
                         : "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
             };
         }
@@ -1252,7 +1252,7 @@ public final class WorkflowValidator {
                     if (!seenStepsOnTransition.add(completion.stepId())) {
                         violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
                                 completion.location(), "the step '%s' is completed twice on the same transition"
-                                        .formatted(completion.stepId())));
+                                .formatted(completion.stepId())));
                     }
                     checkCompletionAdmission(state, transition, completion, outcomeClass, violations);
                 }
@@ -1392,7 +1392,7 @@ public final class WorkflowValidator {
                 if (completion.isPresent() && position.completed()) {
                     reported.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
                             completion.get().location(), "the step '%s' is completed twice in one firing from '%s'"
-                                    .formatted(stepId, opening)));
+                            .formatted(stepId, opening)));
                     continue;
                 }
                 var completed = position.completed() || completion.isPresent();

@@ -85,7 +85,7 @@ class RegistriesAndRecordsTest {
         assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
                 () -> "the defaults name a test identifier: " + defaultIdentifiers);
 
-        var custom =new EntityKind("custom", Optional.empty(), "custom.eval");
+        var custom = new EntityKind("custom", Optional.empty(), "custom.eval");
         var updated = defaults.with(custom);
         assertTrue(updated.find("custom").isPresent());
         assertFalse(defaults.find("custom").isPresent());

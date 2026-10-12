@@ -134,7 +134,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
-                        "the return-evaluation primitive 'missing.eval' of the entity kind 'custom' is not registered"),
+                "the return-evaluation primitive 'missing.eval' of the entity kind 'custom' is not registered"),
                 found(customVal, def));
     }
 
@@ -155,7 +155,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
-                        "the state 'verify.entry' declares 'ask' on the entity kind 'screen', which has no entity unit"),
+                "the state 'verify.entry' declares 'ask' on the entity kind 'screen', which has no entity unit"),
                 found(customVal, def));
     }
 
@@ -171,7 +171,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
-                        "the primitive 'test.missing' of the each clause is not registered"),
+                "the primitive 'test.missing' of the each clause is not registered"),
                 found(def));
     }
 
@@ -187,9 +187,9 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
-                        "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in"
-                                + " 'verify.inline'",
-                        "the state 'verify.entry' declares 'ask' on a 'role each' state"),
+                "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in"
+                        + " 'verify.inline'",
+                "the state 'verify.entry' declares 'ask' on a 'role each' state"),
                 found(def));
     }
 
@@ -206,8 +206,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.ROLE_NAME_GRAMMAR, "verify.entry",
-                        "the consulted role 'too-long-role-name-that-exceeds-maximum-allowed-length-thirty-two' of the"
-                                + " state 'verify.entry' does not match the role-name grammar"),
+                "the consulted role 'too-long-role-name-that-exceeds-maximum-allowed-length-thirty-two' of the"
+                        + " state 'verify.entry' does not match the role-name grammar"),
                 found(def));
     }
 
@@ -229,8 +229,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.JOB_STARTING_OUTCOME, "verify.entry",
-                        "the job-starting outcome 'enqueued' of the primitive 'test.enqueue' targets 'verify.nonjob',"
-                                + " which is not a job state"),
+                "the job-starting outcome 'enqueued' of the primitive 'test.enqueue' targets 'verify.nonjob',"
+                        + " which is not a job state"),
                 found(def));
     }
 
@@ -253,8 +253,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.JOB_STARTING_OUTCOME, "verify.entry",
-                        "the outcome 'skipped' of the primitive 'test.enqueue' does not start a job, but targets the"
-                                + " job state 'verify.targetjob'"),
+                "the outcome 'skipped' of the primitive 'test.enqueue' does not start a job, but targets the"
+                        + " job state 'verify.targetjob'"),
                 found(def));
     }
 
@@ -271,10 +271,10 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.MODEL_JOB_OUTCOMES, "verify.entry",
-                        "the state 'verify.entry' routes the outcome 'approved' twice",
-                        "the state 'verify.entry' routes the outcome 'bogus', which the return-evaluation primitive"
-                                + " 'test.evaluate-change' does not have",
-                        "the state 'verify.entry' does not route the reserved outcome 'lost'"),
+                "the state 'verify.entry' routes the outcome 'approved' twice",
+                "the state 'verify.entry' routes the outcome 'bogus', which the return-evaluation primitive"
+                        + " 'test.evaluate-change' does not have",
+                "the state 'verify.entry' does not route the reserved outcome 'lost'"),
                 found(def));
     }
 
@@ -291,12 +291,12 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
-                        "the question state 'verify.entry' routes the outcome 'answered' of the question class"
-                                + " 'clarification' twice",
-                        "the question state 'verify.entry' routes the outcome 'bogus', which the question class"
-                                + " 'clarification' does not have",
-                        "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
-                                + " 'clarification'"),
+                "the question state 'verify.entry' routes the outcome 'answered' of the question class"
+                        + " 'clarification' twice",
+                "the question state 'verify.entry' routes the outcome 'bogus', which the question class"
+                        + " 'clarification' does not have",
+                "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
+                        + " 'clarification'"),
                 found(def));
     }
 
@@ -327,11 +327,11 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.LINK_COMPATIBILITY, "verify.entry",
-                        "the relation CONSULT is engine-owned and must not be declared in a link clause",
-                        "the link 'pick' of relation SUBMIT does not admit the form NOOP",
-                        "the link 'proceed' has form 'submit' but declares no parameters",
-                        "the link 'again' has form 'noop' but declares parameters",
-                        "the link 'appeal' of relation ESCALATE must name 'request_waiver'"),
+                "the relation CONSULT is engine-owned and must not be declared in a link clause",
+                "the link 'pick' of relation SUBMIT does not admit the form NOOP",
+                "the link 'proceed' has form 'submit' but declares no parameters",
+                "the link 'again' has form 'noop' but declares parameters",
+                "the link 'appeal' of relation ESCALATE must name 'request_waiver'"),
                 found(def));
     }
 
@@ -353,8 +353,8 @@ class AdditionalRulesTest {
                 """);
 
         assertEquals(violationsOf(VerificationRule.ABORT_TERMINAL_TARGETING, "verify.entry",
-                        "the abort terminal 'plan.aborted' must not be targeted by any declared transition",
-                        "the abort terminal 'epic.aborted' may only be targeted by 'abort_landed' of 'epic.next-work'"),
+                "the abort terminal 'plan.aborted' must not be targeted by any declared transition",
+                "the abort terminal 'epic.aborted' may only be targeted by 'abort_landed' of 'epic.next-work'"),
                 found(def));
     }
 
@@ -437,7 +437,7 @@ class AdditionalRulesTest {
                     phase inherit
                 """);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                        "the resting link state 'verify.entry' of a sub-workflow must declare a skill"),
+                "the resting link state 'verify.entry' of a sub-workflow must declare a skill"),
                 found(subwfDef));
 
         var planDef = unit("plan", """
@@ -448,8 +448,8 @@ class AdditionalRulesTest {
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                        "the state 'verify.entry' declares 'phase inherit', which is admitted only in sub-workflow and"
-                                + " entity units"),
+                "the state 'verify.entry' declares 'phase inherit', which is admitted only in sub-workflow and"
+                        + " entity units"),
                 found(planDef));
     }
 
@@ -469,7 +469,7 @@ class AdditionalRulesTest {
                         done -> verify.done
                 """ + DONE_TERMINAL);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                        "the called sub-workflow 'missing.subwf' is not registered"),
+                "the called sub-workflow 'missing.subwf' is not registered"),
                 found(unregisteredDef));
 
         var callWsDef = unit("plan", """
@@ -480,7 +480,7 @@ class AdditionalRulesTest {
                         stepped_out -> plan.return
                 """ + PLAN_RETURN + DONE_TERMINAL);
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                        "the called workflow 'test.workspace-unit' has scope WORKSPACE, expected SUBWORKFLOW"),
+                "the called workflow 'test.workspace-unit' has scope WORKSPACE, expected SUBWORKFLOW"),
                 found(callWsDef));
     }
 
@@ -496,12 +496,12 @@ class AdditionalRulesTest {
                 """ + PLAN_RETURN + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                        "the value 'invalid_val' of parameter 'push' is not in the allowed enum values [enabled,"
-                                + " disabled] of 'git.commit_and_push'",
-                        "the integer value 99 of parameter 'attempts' is out of range [1..5] for 'git.commit_and_push'",
-                        "the list value 'invalid_target' of parameter 'targets' is not in the allowed enum values"
-                                + " [origin, mirror] of 'git.commit_and_push'",
-                        "the parameter binding 'extra' names an undeclared parameter of 'git.commit_and_push'"),
+                "the value 'invalid_val' of parameter 'push' is not in the allowed enum values [enabled,"
+                        + " disabled] of 'git.commit_and_push'",
+                "the integer value 99 of parameter 'attempts' is out of range [1..5] for 'git.commit_and_push'",
+                "the list value 'invalid_target' of parameter 'targets' is not in the allowed enum values"
+                        + " [origin, mirror] of 'git.commit_and_push'",
+                "the parameter binding 'extra' names an undeclared parameter of 'git.commit_and_push'"),
                 found(def));
     }
 
@@ -516,13 +516,13 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                        "the call routes the outcome 'bogus', which is not in the exit contract of"
-                                + " 'git.commit_and_push'",
-                        "the call does not route the exit outcome 'done' of 'git.commit_and_push'",
-                        "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'",
-                        "the call omits the required parameter 'push' of 'git.commit_and_push'",
-                        "the call omits the required parameter 'attempts' of 'git.commit_and_push'",
-                        "the call omits the required parameter 'targets' of 'git.commit_and_push'"),
+                "the call routes the outcome 'bogus', which is not in the exit contract of"
+                        + " 'git.commit_and_push'",
+                "the call does not route the exit outcome 'done' of 'git.commit_and_push'",
+                "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'",
+                "the call omits the required parameter 'push' of 'git.commit_and_push'",
+                "the call omits the required parameter 'attempts' of 'git.commit_and_push'",
+                "the call omits the required parameter 'targets' of 'git.commit_and_push'"),
                 found(def));
     }
 
@@ -598,7 +598,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(violationsOf(VerificationRule.QUESTION_CLASS_BINDING, "verify.entry",
-                        "the question class 'ask' of the state 'verify.entry' is not registered"),
+                "the question class 'ask' of the state 'verify.entry' is not registered"),
                 found(customVal, def));
     }
 
@@ -621,8 +621,8 @@ class AdditionalRulesTest {
                         answered -> verify.done
                 """ + DONE_TERMINAL);
         assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
-                        "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
-                                + " 'ask'"),
+                "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
+                        + " 'ask'"),
                 found(missing));
     }
 
@@ -651,10 +651,10 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(
-                new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
-                        "the step 'step:x' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
-                new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.second",
-                        "the step 'step:x' is completed twice in one firing from 'verify.entry'")),
+                        new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
+                                "the step 'step:x' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
+                        new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.second",
+                                "the step 'step:x' is completed twice in one firing from 'verify.entry'")),
                 found(def));
     }
 
@@ -673,7 +673,7 @@ class AdditionalRulesTest {
                             completes step:y as failed
                 """ + DONE_TERMINAL);
         assertEquals(stepCompletion("verify.entry",
-                        "the step 'step:y' is completed as done on an outcome of class FAILURE, which is not SUCCESS"),
+                "the step 'step:y' is completed as done on an outcome of class FAILURE, which is not SUCCESS"),
                 found(classDef));
 
         var unknownDef = unit("plan", """
@@ -684,10 +684,10 @@ class AdditionalRulesTest {
                             completes step:z as done
                 """ + DONE_TERMINAL);
         assertEquals(List.of(
-                new RuleStateMessage(VerificationRule.PRIMITIVE_BINDING, "verify.entry",
-                        "the primitive 'test.missing' of the auto is not registered"),
-                new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
-                        "the step 'step:z' is completed on the outcome 'done', whose class cannot be established")),
+                        new RuleStateMessage(VerificationRule.PRIMITIVE_BINDING, "verify.entry",
+                                "the primitive 'test.missing' of the auto is not registered"),
+                        new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
+                                "the step 'step:z' is completed on the outcome 'done', whose class cannot be established")),
                 found(unknownDef));
     }
 
@@ -739,8 +739,8 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the step 'verify:q' is completed on the outcome 'answered', whose class cannot be established",
-                        "the step 'verify:q' is completed on the outcome 'assumed', whose class cannot be established"),
+                "the step 'verify:q' is completed on the outcome 'answered', whose class cannot be established",
+                "the step 'verify:q' is completed on the outcome 'assumed', whose class cannot be established"),
                 found(def));
     }
 
@@ -757,7 +757,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the step 'step:s' is not completed on a firing path from 'verify.entry' that ends with the outcome 'skipped' into 'verify.done'"),
+                "the step 'step:s' is not completed on a firing path from 'verify.entry' that ends with the outcome 'skipped' into 'verify.done'"),
                 found(def));
     }
 
@@ -805,7 +805,7 @@ class AdditionalRulesTest {
                     phase verify
                 """ + DONE_TERMINAL);
         assertEquals(stepCompletion("verify.entry",
-                        "the step 'step:s' is completed on the transition into 'plan.return', whose entry records the open firing as failed"),
+                "the step 'step:s' is completed on the transition into 'plan.return', whose entry records the open firing as failed"),
                 found(completing));
     }
 
@@ -825,7 +825,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the step 'step:s' is completed as skipped on an outcome of class FAILURE"),
+                "the step 'step:s' is completed as skipped on an outcome of class FAILURE"),
                 found(def));
     }
 
@@ -865,7 +865,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the step 'step:s' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
+                "the step 'step:s' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
                 found(def));
     }
 
@@ -913,7 +913,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the cycle measure STEP_LIST of the state 'verify.entry' is admitted only on the dispatch hub of a unit with a step list, but the unit 'verify.inline' completes no step"),
+                "the cycle measure STEP_LIST of the state 'verify.entry' is admitted only on the dispatch hub of a unit with a step list, but the unit 'verify.inline' completes no step"),
                 found(def));
     }
 
@@ -943,7 +943,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only in an epic unit, but the unit has scope PLAN"),
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only in an epic unit, but the unit has scope PLAN"),
                 found(def));
     }
 
@@ -973,7 +973,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(stepCompletion("verify.entry",
-                        "the exhaustion transition 'exhausted' of the attempt cap of the state 'verify.entry' does not leave the cycle"),
+                "the exhaustion transition 'exhausted' of the attempt cap of the state 'verify.entry' does not leave the cycle"),
                 found(def));
     }
 
@@ -1019,16 +1019,16 @@ class AdditionalRulesTest {
         assertEquals(List.of(), result.violations());
         assertTrue(result.passed());
         assertEquals(configAdvisories(
-                        "verify.entry", "the transition 'chosen' of the state 'verify.entry' into 'verify.conditional' is reached "
-                                + ONLY_WITH_FLAG,
-                        "verify.entry", "the transition 'declined' of the state 'verify.entry' into 'verify.done' is reached "
-                                + ONLY_WITH_FLAG,
-                        "verify.conditional", "the state 'verify.conditional' is reached from the start state 'verify.entry' "
-                                + ONLY_WITH_FLAG,
-                        "verify.conditional", "the transition 'done' of the state 'verify.conditional' into 'verify.done' is reached "
-                                + ONLY_WITH_FLAG,
-                        "verify.conditional", "the transition 'skipped' of the state 'verify.conditional' into 'verify.entry' is reached "
-                                + ONLY_WITH_FLAG),
+                "verify.entry", "the transition 'chosen' of the state 'verify.entry' into 'verify.conditional' is reached "
+                + ONLY_WITH_FLAG,
+                "verify.entry", "the transition 'declined' of the state 'verify.entry' into 'verify.done' is reached "
+                + ONLY_WITH_FLAG,
+                "verify.conditional", "the state 'verify.conditional' is reached from the start state 'verify.entry' "
+                + ONLY_WITH_FLAG,
+                "verify.conditional", "the transition 'done' of the state 'verify.conditional' into 'verify.done' is reached "
+                + ONLY_WITH_FLAG,
+                "verify.conditional", "the transition 'skipped' of the state 'verify.conditional' into 'verify.entry' is reached "
+                + ONLY_WITH_FLAG),
                 result.advisories().stream().map(RuleStateMessage::of).toList());
         assertEquals(List.of(11, 12, 17, 20, 21),
                 result.advisories().stream().map(advisory -> advisory.location().line()).toList());
@@ -1099,7 +1099,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(callContract("verify.entry",
-                        "the call routes 'stepped_out' to 'verify.done', which is a terminal state of class SUCCESS"),
+                "the call routes 'stepped_out' to 'verify.done', which is a terminal state of class SUCCESS"),
                 found(def));
     }
 
@@ -1129,7 +1129,7 @@ class AdditionalRulesTest {
                     phase verify
                 """ + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
-                        "the call routes 'stepped_out' to 'verify.failed', which is not the phase's fallback state 'plan.return' or 'finalize.hand-back'"),
+                "the call routes 'stepped_out' to 'verify.failed', which is not the phase's fallback state 'plan.return' or 'finalize.hand-back'"),
                 found(failureTerminal));
     }
 
@@ -1166,7 +1166,7 @@ class AdditionalRulesTest {
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
-                        "the call routes 'stepped_out' to 'verify.retry', which is not a resting state of the unit"),
+                "the call routes 'stepped_out' to 'verify.retry', which is not a resting state of the unit"),
                 found(chained));
     }
 
@@ -1196,7 +1196,7 @@ class AdditionalRulesTest {
                         skipped -> verify.stepped-out
                 """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
         assertEquals(callContract("verify.entry",
-                        "the call routes 'stepped_out' to 'verify.retry', which is neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
+                "the call routes 'stepped_out' to 'verify.retry', which is neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
                 found(chained));
     }
 
@@ -1239,7 +1239,7 @@ class AdditionalRulesTest {
                 """ + DONE_TERMINAL);
 
         assertEquals(callContract("verify.out",
-                        "the terminal 'verify.out' declares the outcome 'stepped_out' with the class FAILURE; only a terminal of class STEPPED_OUT declares it"),
+                "the terminal 'verify.out' declares the outcome 'stepped_out' with the class FAILURE; only a terminal of class STEPPED_OUT declares it"),
                 found(def));
     }
 
@@ -1256,7 +1256,7 @@ class AdditionalRulesTest {
                 """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
 
         assertEquals(callContract("verify.entry",
-                        "the call routes the exit outcome 'done' of 'git.commit_and_push' once under a result guard; a guarded 'done' is admitted only as the complementary pair"),
+                "the call routes the exit outcome 'done' of 'git.commit_and_push' once under a result guard; a guarded 'done' is admitted only as the complementary pair"),
                 found(def));
     }
 
