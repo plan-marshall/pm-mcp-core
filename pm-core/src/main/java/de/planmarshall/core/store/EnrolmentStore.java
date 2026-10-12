@@ -342,6 +342,31 @@ public final class EnrolmentStore {
     }
 
     /**
+     * Answers whether a stopped write of the project's enrolment pair left a staged name of this project,
+     * {@code <project_id>.json.tmp.<transaction id>} or {@code <project_id>.json.hmac.tmp.<transaction id>}, with the
+     * same name matching as {@link #recoverPair} and {@link #remove}: a staged name of another project whose id merely
+     * begins with this one, and the temporary file of a write that is not a transaction, do not count. It exists so
+     * that unenrol can decide whether anything is left to cancel when neither the enrolment file nor its sidecar exists
+     * ({@link #exists} answers only for those two).
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @return whether a staged name of a stopped write of the project exists; {@code false} if the directory does not
+     *         exist
+     * @throws InternalFaultException if the transaction does not hold the project's lock
+     * @throws UncheckedIOException   if the directory exists and cannot be listed
+     */
+    public boolean hasStagedWrite(LockTransaction transaction, String projectId) {
+        StoreLockGuard.requireHeld(transaction, file(projectId), lockKey(projectId));
+        try {
+            return !stagedTransactions(projectId).isEmpty();
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "Staged writes of the enrolment of '%s' cannot be listed".formatted(projectId), e);
+        }
+    }
+
+    /**
      * @param transaction a transaction that holds the project's lock
      * @param projectId   the project
      * @return the exact bytes of the enrolment file; empty if it does not exist
@@ -583,7 +608,10 @@ public final class EnrolmentStore {
     }
 
     /**
-     * Replaces only the sidecar of the project's enrolment file: the re-baseline of a file the operator reviewed.
+     * Replaces only the sidecar of the project's enrolment file: the re-baseline of a file the operator reviewed. It
+     * settles nothing itself: a stopped write of the pair is settled by its caller first, under the same lock, so the
+     * sidecar is written for the file that is really in place (the runtime's re-baseline calls {@link #recoverPair}
+     * before it reads and signs the file).
      *
      * @param transaction a transaction that holds the project's lock
      * @param projectId   the project

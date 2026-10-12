@@ -45,6 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -712,6 +713,10 @@ class EnrolmentStoreTest {
         private static final String COMPLETED = "Completed";
         private static final String DISCARDED = "Discarded";
         private static final String NONE = "none";
+        private static final String ELSEWHERE = "elsewhere";
+        private static final String NOTHING = "nothing at all";
+        private static final String ENROLLED = "an enrolment written normally";
+        private static final String NO_DIRECTORY = "no enrolments directory";
 
         /** Stands for a process killed after a step of the write: nothing is cleaned up. */
         private static final class Killed extends RuntimeException {
@@ -756,6 +761,20 @@ class EnrolmentStoreTest {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(store.lockKey(projectId));
                 return store.remove(transaction, projectId);
+            }
+        }
+
+        private boolean hasStagedWrite(EnrolmentStore enrolmentStore, String projectId) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(enrolmentStore.lockKey(projectId));
+                return enrolmentStore.hasStagedWrite(transaction, projectId);
+            }
+        }
+
+        private boolean exists(String projectId) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(store.lockKey(projectId));
+                return store.exists(transaction, projectId);
             }
         }
 
@@ -854,7 +873,7 @@ class EnrolmentStoreTest {
 
             var recovered = recover(PROJECT);
 
-            var expected = newPair ? EnrolmentCodec.write(newer) : EnrolmentCodec.write(old);
+            var expected = EnrolmentCodec.write(newPair ? newer : old);
             assertAll(
                     () -> assertEquals(NONE.equals(kind) ? List.of() : List.of(kind), kinds(recovered)),
                     () -> assertEquals(stopped, recovered.stream().map(PairRecovery::transactionId).toList()),
@@ -867,7 +886,7 @@ class EnrolmentStoreTest {
         @ParameterizedTest(name = "stopped after {0}")
         @CsvSource({"FILE_STAGED, Discarded, false", "SIDECAR_STAGED, Completed, true"})
         @DisplayName("a stopped first enrolment is no enrolment before the recovery, and one after a completion")
-        void firstEnrolmentStopped(EnrolmentStore.PairStep step, String kind, boolean enrolled) throws Exception {
+        void firstEnrolmentStopped(EnrolmentStore.PairStep step, String kind, boolean enrolled) {
             writeStopped(step, newer);
             var before = store.projectIds();
 
@@ -1008,7 +1027,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("a write settles an earlier stopped write first, and its own pair is the one in place")
-        void writeSettlesAnEarlierStoppedWriteFirst() throws Exception {
+        void writeSettlesAnEarlierStoppedWriteFirst() {
             write(store, old);
             writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
 
@@ -1044,6 +1063,114 @@ class EnrolmentStoreTest {
                     () -> assertTrue(store.projectIds().isEmpty()));
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {NOTHING, ENROLLED, NO_DIRECTORY})
+        @DisplayName("a project without a staged name has no staged write")
+        void noStagedWrite(String situation) {
+            var enrolmentStore = switch (situation) {
+                case ENROLLED -> {
+                    write(store, old);
+                    yield store;
+                }
+                case NO_DIRECTORY -> new EnrolmentStore(base.resolve(ELSEWHERE));
+                default -> store;
+            };
+
+            assertFalse(hasStagedWrite(enrolmentStore, PROJECT));
+        }
+
+        @ParameterizedTest(name = "stopped after {0}")
+        @CsvSource({"FILE_STAGED, true", "SIDECAR_STAGED, true", "FILE_REPLACED, true", "SIDECAR_REPLACED, false"})
+        @DisplayName("a write stopped while a name is staged leaves a staged write, one stopped after the last rename not")
+        void stagedWriteAfterEachStep(EnrolmentStore.PairStep step, boolean staged) {
+            write(store, old);
+            writeStopped(step, newer);
+
+            assertEquals(staged, hasStagedWrite(store, PROJECT));
+        }
+
+        @ParameterizedTest(name = "stopped after {0}")
+        @EnumSource(value = EnrolmentStore.PairStep.class, names = {"FILE_STAGED", "SIDECAR_STAGED"})
+        @DisplayName("a stopped first enrolment is a staged write although no enrolment exists")
+        void stagedFirstEnrolment(EnrolmentStore.PairStep step) {
+            writeStopped(step, newer);
+
+            assertAll(
+                    () -> assertTrue(hasStagedWrite(store, PROJECT)),
+                    () -> assertFalse(exists(PROJECT)),
+                    () -> assertTrue(store.projectIds().isEmpty()));
+        }
+
+        @ParameterizedTest(name = "stopped after {0}")
+        @EnumSource(value = EnrolmentStore.PairStep.class, names = {"FILE_STAGED", "SIDECAR_STAGED", "FILE_REPLACED"})
+        @DisplayName("a staged write is gone once the recovery settled it and once a removal dropped it")
+        void noStagedWriteAfterRecoveryOrRemoval(EnrolmentStore.PairStep step) {
+            write(store, old);
+            writeStopped(step, newer);
+            var stagedBeforeRecovery = hasStagedWrite(store, PROJECT);
+            recover(PROJECT);
+            var stagedAfterRecovery = hasStagedWrite(store, PROJECT);
+            writeStopped(step, newer);
+            var stagedBeforeRemoval = hasStagedWrite(store, PROJECT);
+            remove(PROJECT);
+            var stagedAfterRemoval = hasStagedWrite(store, PROJECT);
+
+            assertAll(
+                    () -> assertTrue(stagedBeforeRecovery),
+                    () -> assertFalse(stagedAfterRecovery),
+                    () -> assertTrue(stagedBeforeRemoval),
+                    () -> assertFalse(stagedAfterRemoval));
+        }
+
+        @Test
+        @DisplayName("the staged names of a project whose id begins with another, a leftover and other files do not count")
+        void stagedWriteIsolation() throws Exception {
+            var sibling = enrolment(SIBLING, true);
+            stage(SIBLING, EnrolmentCodec.write(sibling), sidecarOf(sibling).write(), Instant.now());
+            Files.writeString(store.directory().resolve(PROJECT + ".json.tmp." + UUID.randomUUID()), "{}");
+            Files.writeString(store.directory().resolve("unrelated.txt"), PROJECT);
+            var projectWithSiblingStaged = hasStagedWrite(store, PROJECT);
+            var siblingWithSiblingStaged = hasStagedWrite(store, SIBLING);
+            remove(SIBLING);
+            stage(PROJECT, EnrolmentCodec.write(newer), sidecarOf(newer).write(), Instant.now());
+
+            assertAll(
+                    () -> assertFalse(projectWithSiblingStaged),
+                    () -> assertTrue(siblingWithSiblingStaged),
+                    () -> assertFalse(hasStagedWrite(store, SIBLING)),
+                    () -> assertTrue(hasStagedWrite(store, PROJECT)));
+        }
+
+        @Test
+        @DisplayName("the staged-write query is refused without the project's lock, another project's lock does not count")
+        void stagedWriteWithoutLock() {
+            writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(store.lockKey(SIBLING));
+
+                assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
+                        () -> store.hasStagedWrite(transaction, PROJECT)).reason());
+            }
+            assertTrue(hasStagedWrite(store, PROJECT));
+        }
+
+        @Test
+        @DisplayName("a directory that cannot be listed fails the staged-write query naming the project")
+        void stagedWriteUnlistable() throws Exception {
+            var broken = Files.createDirectories(base.resolve(ELSEWHERE));
+            Files.writeString(broken.resolve(EnrolmentStore.DIRECTORY_NAME), "not a directory");
+            var unlistable = new EnrolmentStore(broken);
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(unlistable.lockKey(PROJECT));
+
+                var failure = assertThrows(UncheckedIOException.class,
+                        () -> unlistable.hasStagedWrite(transaction, PROJECT));
+                assertTrue(failure.getMessage().contains("'" + PROJECT + "'"), failure::getMessage);
+            }
+        }
+
         @Test
         @DisplayName("the recovery is refused without the project's lock, another project's lock does not count")
         void recoverWithoutLock() throws Exception {
@@ -1067,7 +1194,7 @@ class EnrolmentStoreTest {
         @Test
         @DisplayName("a store without its directory recovers nothing")
         void noDirectory() {
-            var elsewhere = new EnrolmentStore(base.resolve("elsewhere"));
+            var elsewhere = new EnrolmentStore(base.resolve(ELSEWHERE));
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(elsewhere.lockKey(PROJECT));
 
