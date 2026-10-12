@@ -71,7 +71,7 @@ class VerifyNotResolveAdversarialTest {
     private static final DefaultTemplates DEFAULTS = (buildSystem, verb) -> switch (buildSystem) {
         case MAVEN -> "verify".equals(verb)
                 ? Optional.of(new Argv(List.of(new Argv.Literal("verify"),
-                        new Argv.ModuleGroup(List.of("-pl", "{module}")))))
+                new Argv.ModuleGroup(List.of("-pl", "{module}")))))
                 : Optional.empty();
         default -> Optional.empty();
     };
@@ -132,7 +132,7 @@ class VerifyNotResolveAdversarialTest {
 
         @Test
         @DisplayName("the bytes of the wrapper changed")
-        void wrapperBytes() throws IOException {
+        void wrapperBytes() throws Exception {
             Files.write(fixture.root.resolve(MVNW), JobEnrolmentFixture.randomContent());
 
             assertChanged(MVNW);
@@ -140,7 +140,7 @@ class VerifyNotResolveAdversarialTest {
 
         @Test
         @DisplayName("a pinned file changed")
-        void pinnedFileChanged() throws IOException {
+        void pinnedFileChanged() throws Exception {
             Files.writeString(fixture.root.resolve(WRAPPER_PROPERTIES), "distributionUrl=https://evil.invalid/\n");
 
             assertChanged(WRAPPER_PROPERTIES);
@@ -148,7 +148,7 @@ class VerifyNotResolveAdversarialTest {
 
         @Test
         @DisplayName("a pinned file that must stay absent appeared")
-        void pinnedFileAppeared() throws IOException {
+        void pinnedFileAppeared() throws Exception {
             Files.writeString(fixture.root.resolve(MAVEN_CONFIG), "-Dexec.executable=/bin/sh\n");
 
             assertChanged(MAVEN_CONFIG);
@@ -185,7 +185,7 @@ class VerifyNotResolveAdversarialTest {
 
         @Test
         @DisplayName("an enrolled host tool whose binary was replaced is refused as executable_digest_mismatch")
-        void replacedBinary() throws IOException {
+        void replacedBinary() throws Exception {
             Files.write(fixture.tools.get(HostToolName.GIT), JobEnrolmentFixture.randomContent());
 
             assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH, refused(verify(git("status"))).reason());
@@ -293,7 +293,7 @@ class VerifyNotResolveAdversarialTest {
 
         @Test
         @DisplayName("a symbolic link from the tree to a directory outside it")
-        void symlinkEscape() throws IOException {
+        void symlinkEscape() throws Exception {
             Files.createSymbolicLink(fixture.root.resolve("escape"), fixture.beside);
 
             assertTraversalRejected("escape");
@@ -330,7 +330,7 @@ class VerifyNotResolveAdversarialTest {
 
         @Test
         @DisplayName("the enrolment file was rewritten outside the operator path")
-        void rewritten() throws IOException {
+        void rewritten() throws Exception {
             Files.write(fixture.store.file(PROJECT), "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
 
             var refusal = refused(verify(git("status")));
