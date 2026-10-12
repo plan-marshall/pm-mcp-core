@@ -49,12 +49,19 @@ import lombok.experimental.UtilityClass;
  * </ul>
  * <p>
  * Every argument the caller supplies (a module, an argument of a host tool call, a string of a project script's
- * arguments) is refused as {@code argument_rejected} if it is one of the forbidden free flags {@code -D}, {@code -f},
- * {@code -s} (also with an attached value), {@code --file}, {@code --settings}, {@code --init-script} (also with
- * {@code =value}), or if it contains a shell metacharacter ({@code |}, {@code ;}, {@code &}, {@code $}, {@code `},
- * {@code >}, {@code <}). The enrolled templates are the operator's and are not filtered. Flags that repository files
- * inject ({@code .mvn/maven.config} and the like) are governed by the pinned files of stage 2, not here. A refusal
- * names which rule the argument broke, never the argument.
+ * arguments, a member name included) is refused as {@code argument_rejected} if it contains a shell metacharacter
+ * ({@code |}, {@code ;}, {@code &}, {@code $}, {@code `}, {@code >}, {@code <}), whatever the kind of the job.
+ * <p>
+ * The forbidden free flags {@code -D}, {@code -f}, {@code -s} (also with an attached value, so they are matched as
+ * prefixes), {@code --file}, {@code --settings}, {@code --init-script} (also with {@code =value}) are refused as
+ * {@code argument_rejected} in canonical build jobs only (a {@link WrapperBuild} or a {@link HostToolBuild}), where
+ * they would redirect the build to other settings, another project file or injected properties. A host tool call and
+ * a project script are not checked against them: their arguments stay bound by the enrolment of the tool, and those of
+ * a project script by its argument schema, so a call such as {@code git status -sb} is verified.
+ * <p>
+ * The enrolled templates are the operator's and are not filtered. Flags that repository files inject
+ * ({@code .mvn/maven.config} and the like) are governed by the pinned files of stage 2, not here. A refusal names
+ * which rule the argument broke, never the argument.
  *
  * @since 0.1
  */
@@ -64,13 +71,13 @@ class ArgumentCheck {
     /** The placeholder of the module-argument group. */
     static final String MODULE_PLACEHOLDER = "{module}";
 
-    /** The forbidden short flags, refused alone and with an attached value. */
+    /** The forbidden short flags of a build job, refused alone and with an attached value. */
     static final List<String> FORBIDDEN_SHORT_FLAGS = List.of("-D", "-f", "-s");
 
-    /** The forbidden long flags, refused alone and with {@code =value}. */
+    /** The forbidden long flags of a build job, refused alone and with {@code =value}. */
     static final List<String> FORBIDDEN_LONG_FLAGS = List.of("--file", "--settings", "--init-script");
 
-    /** The shell metacharacters, refused anywhere in an argument. */
+    /** The shell metacharacters, refused anywhere in an argument of every job kind. */
     static final String SHELL_METACHARACTERS = "|;&$`><";
 
     /**
@@ -133,7 +140,7 @@ class ArgumentCheck {
             template = fallback.get();
         }
         if (module.isPresent()) {
-            var rejected = rejectedArgument(module.get());
+            var rejected = rejectedBuildArgument(module.get());
             if (rejected.isPresent()) {
                 return refused(Reason.ARGUMENT_REJECTED, "the module " + rejected.get());
             }
@@ -218,6 +225,8 @@ class ArgumentCheck {
     }
 
     /**
+     * The rule for an argument of every job kind: no shell metacharacter.
+     *
      * @param argument an argument the caller supplied
      * @return which rule the argument breaks, without the argument; empty if it breaks none
      */
@@ -226,6 +235,20 @@ class ArgumentCheck {
             if (SHELL_METACHARACTERS.indexOf(argument.charAt(index)) >= 0) {
                 return Optional.of("contains a shell metacharacter");
             }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The rules for an argument of a canonical build job: no shell metacharacter and none of the forbidden free flags.
+     *
+     * @param argument an argument the caller supplied to a build job
+     * @return which rule the argument breaks, without the argument; empty if it breaks none
+     */
+    static Optional<String> rejectedBuildArgument(String argument) {
+        var metacharacter = rejectedArgument(argument);
+        if (metacharacter.isPresent()) {
+            return metacharacter;
         }
         for (var flag : FORBIDDEN_SHORT_FLAGS) {
             if (argument.startsWith(flag)) {

@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 
 
@@ -54,9 +55,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Stage 3 of the pipeline, the argument check (PM-EXEC-1, PM-EXEC-2, PM-TEST-5): a build job runs its enrolled
  * template before the caller's default and is refused without either; a module must be discovered and needs a
- * module-argument group; a forbidden free flag or a shell metacharacter in any caller-supplied argument is refused, as
- * are project script arguments that violate the enrolled schema. Each refusal has its matched positive control, and a
- * job refused by stage 2 never reaches the argument check.
+ * module-argument group; a forbidden free flag is refused in a canonical build job and passes in a host tool call or a
+ * project script, a shell metacharacter in any caller-supplied argument of every job kind is refused, as are project
+ * script arguments that violate the enrolled schema. Each refusal has its matched positive control, and a job refused
+ * by stage 2 never reaches the argument check.
  */
 @DisplayName("ArgumentCheck")
 class ArgumentCheckTest {
@@ -129,29 +131,84 @@ class ArgumentCheckTest {
         return new HostToolCall(HostToolName.GIT, List.of(arguments));
     }
 
+    /** Checks a job whose discovered modules are these, so that any module name can reach the flag rule. */
+    private VerifyNotResolvePipeline.Stage<ArgumentCheck.Arguments> checkWithModules(JobRequest.Target target,
+            String... modules) {
+        return ArgumentCheck.check(enrolment, DEFAULTS, new JobRequest(JobEnrolmentFixture.PROJECT,
+                fixture.root.toString(), Set.of(fixture.worktree), Set.of(modules), target));
+    }
+
     @Nested
-    @DisplayName("forbidden free flags and shell metacharacters in a caller-supplied argument")
-    class FreeArguments {
+    @DisplayName("forbidden free flags in a canonical build job")
+    class ForbiddenFlags {
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"-D", "-Dmaven.repo.local=/tmp/evil", "-f", "-fother-pom.xml", "--file",
                 "--file=other-pom.xml", "-s", "-sother-settings.xml", "--settings", "--settings=other.xml",
                 "--init-script", "--init-script=evil.gradle"})
-        @DisplayName("a forbidden free flag is refused as argument_rejected")
-        void forbiddenFlag(String flag) {
-            var refusal = refused(git("log", flag));
+        @DisplayName("a forbidden free flag as the module of a wrapper build is refused as argument_rejected")
+        void forbiddenFlagInWrapperBuild(String flag) {
+            var refusal = refused(maven("verify", flag));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
-                    () -> assertTrue(refusal.detail().startsWith("the argument 2 is the forbidden flag "),
+                    () -> assertTrue(refusal.detail().startsWith("the module is the forbidden flag "),
                             refusal.detail()));
         }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"-Dexec=sh", "-fother-pom.xml", "--settings=other.xml"})
+        @DisplayName("a forbidden free flag as the module of an npm build is refused as argument_rejected")
+        void forbiddenFlagInHostToolBuild(String flag) {
+            var refusal = refused(new HostToolBuild("test", Optional.of(flag)));
+
+            assertAll(
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertTrue(refusal.detail().startsWith("the module is the forbidden flag "),
+                            refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("a forbidden flag is refused even when it is a discovered module")
+        void forbiddenFlagAsDiscoveredModule() {
+            var stage = checkWithModules(maven("verify", "-Dexec=sh"), "-Dexec=sh");
+
+            assertEquals(Reason.ARGUMENT_REJECTED,
+                    assertInstanceOf(VerifyNotResolvePipeline.Stage.Failed.class, stage).refusal().reason());
+        }
+
+        @Test
+        @DisplayName("positive control: a discovered module that only begins like a forbidden long flag passes")
+        void lookalikeLongFlag() {
+            var stage = checkWithModules(maven("verify", "--filesystem"), "--filesystem");
+
+            if (stage instanceof VerifyNotResolvePipeline.Stage.Passed<ArgumentCheck.Arguments> passed) {
+                assertEquals(List.of("verify", "-pl", "--filesystem"), passed.value().arguments());
+            } else {
+                fail("the module should pass");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("the arguments of a host tool call")
+    class HostToolCallArguments {
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"a|b", "a;b", "a&b", "$HOME", "`id`", "a>out", "a<in"})
         @DisplayName("an argument with a shell metacharacter is refused as argument_rejected, without the argument")
         void metacharacter(String argument) {
             var refusal = refused(git("log", argument));
+
+            assertAll(
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertEquals("the argument 2 contains a shell metacharacter", refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("a shell metacharacter attached to a short flag is still refused")
+        void metacharacterAfterShortFlag() {
+            var refusal = refused(git("status", "-sb;id"));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
@@ -168,16 +225,11 @@ class ArgumentCheckTest {
                     () -> assertEquals(Optional.empty(), arguments.source()));
         }
 
-        @Test
-        @DisplayName("a long flag that only begins like a forbidden one passes")
-        void lookalikeLongFlag() {
-            assertEquals(List.of("--filesystem"), passed(git("--filesystem")).arguments());
-        }
-
-        @Test
-        @DisplayName("a forbidden flag given as the module of a build job is refused")
-        void flagAsModule() {
-            assertEquals(Reason.ARGUMENT_REJECTED, refused(maven("verify", "-Dexec=sh")).reason());
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"-sb", "-f", "-D", "--file=notes.txt", "--settings"})
+        @DisplayName("positive control: a flag forbidden only in build jobs passes in a host tool call")
+        void buildOnlyFlagPasses(String flag) {
+            assertEquals(List.of("status", flag), passed(git("status", flag)).arguments());
         }
     }
 
@@ -322,11 +374,21 @@ class ArgumentCheckTest {
         }
 
         @Test
-        @DisplayName("a member name that is a forbidden flag is refused")
-        void flagAsMemberName() {
-            var refusal = refused(enrolment, call(Fields.of(Map.of("--settings", new Text("x")))));
+        @DisplayName("a member name with a shell metacharacter is refused")
+        void metacharacterInMemberName() {
+            var refusal = refused(enrolment, call(Fields.of(Map.of("a|b", new Text("x")))));
 
-            assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason());
+            assertAll(
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertEquals("a member name at $ contains a shell metacharacter", refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("positive control: a flag forbidden only in build jobs passes as a member name and a value")
+        void buildOnlyFlagPasses() {
+            var arguments = passed(enrolment, call(Fields.of(Map.of("--settings", new Text("-Dx=y")))));
+
+            assertEquals(List.of(), arguments.arguments());
         }
     }
 
@@ -339,7 +401,7 @@ class ArgumentCheckTest {
         void refusedInStageTwo() throws Exception {
             Files.write(fixture.tools.get(HostToolName.GIT), JobEnrolmentFixture.randomContent());
 
-            var outcome = fixture.verify(fixture.request(fixture.root.toString(), git("log", "-Dx")));
+            var outcome = fixture.verify(fixture.request(fixture.root.toString(), git("log", "a;b")));
 
             assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
                     assertInstanceOf(JobVerification.Refused.class, outcome).refusal().reason());
@@ -348,7 +410,7 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("positive control: with the executable verified, the same arguments reach and fail the check")
         void reachedAfterStageTwo() {
-            var outcome = fixture.verify(fixture.request(fixture.root.toString(), git("log", "-Dx")));
+            var outcome = fixture.verify(fixture.request(fixture.root.toString(), git("log", "a;b")));
 
             assertEquals(Reason.ARGUMENT_REJECTED,
                     assertInstanceOf(JobVerification.Refused.class, outcome).refusal().reason());
