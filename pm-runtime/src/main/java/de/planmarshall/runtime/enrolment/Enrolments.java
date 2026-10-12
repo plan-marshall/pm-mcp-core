@@ -46,16 +46,21 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * it holds that lock, so the answer and the removal belong to one transaction; a future scope-creation path must close
  * the remaining window by reading the enrolment under the same lock. Every write is logged after its transaction.
  * <p>
- * Every write owes its audit record (PM-IMPL-7) and runs in the order owe, mutate, hand over, all three in the
+ * Every write owes its audit record (PM-IMPL-7) and runs in the order owe, mutate, confirm, hand over, all four in the
  * transaction that holds the project's lock: the record, carrying the transaction id of the write, is written durably
  * to the project's intent file ({@link EnrolmentStore#oweAudit}) before the mutation, and handed over to the audit sink
- * after it ({@link EnrolmentStore#deliverOwedAudit}). A sink that refuses the record does not fail the write: the
- * substrate logs {@code PM_MCP-160} and the record stays owed. A mutation that fails after the record was owed keeps
- * it, so an attempted operator write is audited rather than lost. The next write of the project and
- * {@link #replayOwedAudit()}, the recovery, hand an owed record over; delivery is at least once, and a record handed
- * over again after a stop between the append and the removal of the intent carries the same transaction id, by which
- * the audit store drops the duplicate. A refusal ({@code enrolment_tampered}, {@code enrolment_insecure},
- * {@code unenrol_refused}) changed nothing and recurs with the next attempt; it is appended directly and not owed.
+ * after it ({@link EnrolmentStore#deliverOwedAudit}). What is owed before the mutation is the unconfirmed form of the
+ * record ({@link AuditEvent#notConfirmed()}, outcome {@code failed}, reason {@code not_confirmed}); the mutation of an
+ * operator write is not redone by a recovery, so the record claims the success, outcome {@code succeeded}, only once
+ * the mutation completed, when {@link EnrolmentStore#confirmAudit} replaces the unconfirmed record by it. A sink that
+ * refuses the record does not fail the write: the substrate logs {@code PM_MCP-160} and the record stays owed. A
+ * mutation that fails, or a stop before the confirmation, keeps the unconfirmed record owed ({@code PM_MCP-164} when
+ * it is handed over), so an attempted operator write is audited as what is known of it, never as a success that did
+ * not happen. The next write of the project and {@link #replayOwedAudit()}, the recovery, hand an owed record over;
+ * delivery is at least once, and a record handed over again after a stop between the append and the removal of the
+ * intent carries the same transaction id, by which the audit store drops the duplicate. A refusal
+ * ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code unenrol_refused}) changed nothing and recurs with
+ * the next attempt; it is appended directly and not owed.
  * <p>
  * The integrity key is created by the first write that needs it and never replaced. {@code enrol} creates it only
  * while no enrolment file exists; when the key is absent from the active key source although enrolment files exist,
@@ -110,8 +115,9 @@ public final class Enrolments {
      *                              nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
      * @throws UncheckedIOException if a file or the intent file cannot be written or the enrolment directory cannot be
-     *                              listed; a refused audit append is not one of them: the {@code enrolment_written}
-     *                              record then stays owed and is handed over later
+     *                              listed; a file that cannot be written leaves the {@code enrolment_written} record
+     *                              owed unconfirmed. A refused audit append is not one of them: the record then stays
+     *                              owed and is handed over later
      */
     public ProjectEnrolment enrol(ProjectEnrolment enrolment, boolean pilot) {
         Objects.requireNonNull(enrolment, "enrolment");
@@ -120,10 +126,8 @@ public final class Enrolments {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(store.lockKey(projectId));
             var sidecar = EnrolmentHmac.sidecar(enrolmentKey(), EnrolmentCodec.write(written));
-            var transactionId = newTransactionId();
-            store.oweAudit(transaction, projectId, AuditEvent.enrolmentWritten(projectId, transactionId));
-            store.write(transaction, written, sidecar);
-            handOverOwed(transaction, projectId, transactionId);
+            var record = AuditEvent.enrolmentWritten(projectId, newTransactionId());
+            writeOwing(transaction, projectId, record, () -> store.write(transaction, written, sidecar));
         }
         LOGGER.info(INFO.ENROLMENT_WRITTEN, projectId, pilot);
         return written;
@@ -154,9 +158,10 @@ public final class Enrolments {
      * @param projectId the project
      * @return whether the enrolment file or its sidecar existed
      * @throws ScopeActiveException if the project has live work; nothing was removed then
-     * @throws UncheckedIOException if a file cannot be removed or the intent file cannot be written; a refused audit
-     *                              append is not one of them: the {@code enrolment_removed} record then stays owed and
-     *                              is handed over later
+     * @throws UncheckedIOException if a file cannot be removed or the intent file cannot be written; a file that cannot
+     *                              be removed leaves the {@code enrolment_removed} record owed unconfirmed. A refused
+     *                              audit append is not one of them: the record then stays owed and is handed over
+     *                              later
      */
     public boolean unenrol(String projectId) {
         boolean removed;
@@ -182,13 +187,13 @@ public final class Enrolments {
      * what the project owes, so a record an earlier write still owes is flushed.
      */
     private boolean removeOwingAudit(LockTransaction transaction, String projectId) {
-        var transactionId = newTransactionId();
         var exists = store.exists(transaction, projectId);
         if (exists) {
-            store.oweAudit(transaction, projectId, AuditEvent.enrolmentRemoved(projectId, transactionId));
-            store.remove(transaction, projectId);
+            var record = AuditEvent.enrolmentRemoved(projectId, newTransactionId());
+            writeOwing(transaction, projectId, record, () -> store.remove(transaction, projectId));
+        } else {
+            handOverOwed(transaction, projectId, null);
         }
-        handOverOwed(transaction, projectId, transactionId);
         return exists;
     }
 
@@ -208,9 +213,10 @@ public final class Enrolments {
      *                              fails a per-use check, as {@code unreadable}, {@code format_outdated} or
      *                              {@code format_newer} if it does not read strictly; nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
-     * @throws UncheckedIOException if a file cannot be read or written or the intent file cannot be written; a refused
-     *                              audit append is not one of them: the {@code enrolment_rebaselined} record then stays
-     *                              owed and is handed over later
+     * @throws UncheckedIOException if a file cannot be read or written or the intent file cannot be written; a sidecar
+     *                              that cannot be written leaves the {@code enrolment_rebaselined} record owed
+     *                              unconfirmed. A refused audit append is not one of them: the record then stays owed
+     *                              and is handed over later
      */
     public Rebaseline rebaseline(String projectId) {
         var file = store.file(projectId);
@@ -224,10 +230,8 @@ public final class Enrolments {
             store.decode(projectId, content);
             recorded = store.readSidecar(transaction, projectId).flatMap(bytes -> recordedDigest(projectId, bytes));
             var sidecar = EnrolmentHmac.sidecar(key.readOrCreate(), content);
-            var transactionId = newTransactionId();
-            store.oweAudit(transaction, projectId, AuditEvent.enrolmentRebaselined(projectId, transactionId));
-            store.writeSidecar(transaction, projectId, sidecar);
-            handOverOwed(transaction, projectId, transactionId);
+            var record = AuditEvent.enrolmentRebaselined(projectId, newTransactionId());
+            writeOwing(transaction, projectId, record, () -> store.writeSidecar(transaction, projectId, sidecar));
             current = sidecar.digest();
         }
         LOGGER.info(INFO.ENROLMENT_REBASELINED, projectId);
@@ -239,21 +243,49 @@ public final class Enrolments {
      * ids, each in its own transaction that holds the project's enrolment lock: the recovery of the owed enrolment
      * records. It reads no enrolment and creates no key. Nothing in the runtime calls it yet; the recovery of the
      * project calls it once the package that wires the operator verbs and the recovery exists.
+     * <p>
+     * One project's unreadable intent file does not stop the replay for the projects after it: the file is kept, the
+     * replay goes on, and the first refusal is thrown after the last project, with the later ones added to it as
+     * suppressed exceptions. The records of the other projects are handed over by then.
      *
      * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
      * @throws UncheckedIOException if the enrolment directory cannot be listed or an intent file cannot be read,
      *                              rewritten or removed
-     * @throws StoreRefusal         if an intent file is unreadable or of another format version; it is kept then
+     * @throws StoreRefusal         if the intent file of a project is unreadable or of another format version, naming
+     *                              the first such file in the order of the project ids; every such file is kept
      */
     public int replayOwedAudit() {
         var handedOver = 0;
+        StoreRefusal firstRefusal = null;
         for (var projectId : store.auditOwingProjectIds()) {
             try (var transaction = lockManager.openTransaction()) {
                 transaction.acquire(store.lockKey(projectId));
                 handedOver += handOverOwed(transaction, projectId, null);
+            } catch (StoreRefusal refusal) {
+                if (firstRefusal == null) {
+                    firstRefusal = refusal;
+                } else {
+                    firstRefusal.addSuppressed(refusal);
+                }
             }
         }
+        if (firstRefusal != null) {
+            throw firstRefusal;
+        }
         return handedOver;
+    }
+
+    /**
+     * Runs a mutation that owes its audit record, in the order owe, mutate, confirm, hand over, all in the
+     * transaction that holds the project's lock. What is owed before the mutation is the unconfirmed form of the
+     * record; the succeeded record replaces it only after the mutation completed. A mutation that fails therefore
+     * keeps the unconfirmed record owed, and the failure propagates.
+     */
+    private void writeOwing(LockTransaction transaction, String projectId, AuditEvent succeeded, Runnable mutation) {
+        store.oweAudit(transaction, projectId, succeeded.notConfirmed());
+        mutation.run();
+        store.confirmAudit(transaction, projectId, succeeded);
+        handOverOwed(transaction, projectId, (String) succeeded.details().get(AuditEvent.DETAIL_TRANSACTION_ID));
     }
 
     /**
@@ -268,6 +300,9 @@ public final class Enrolments {
             var transactionId = event.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
             if (!Objects.equals(transactionId, currentId)) {
                 LOGGER.info(INFO.ENROLMENT_AUDIT_REPLAYED, event.event(), transactionId, projectId);
+            }
+            if (AuditEvent.OUTCOME_FAILED.equals(event.outcome())) {
+                LOGGER.warn(WARN.ENROLMENT_WRITE_NOT_CONFIRMED, event.event(), transactionId, projectId);
             }
         }
         return handedOver.size();

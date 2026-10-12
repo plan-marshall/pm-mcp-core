@@ -561,6 +561,10 @@ class EnrolmentsTest {
     class AuditIntent {
 
         private static final String ALPHA = "alpha-project";
+        private static final String BETA = "beta-project";
+        private static final String GAMMA = "gamma-project";
+        private static final String NOT_JSON = "not json";
+        private static final String NEWER_FORMAT = "{\"format_version\":2,\"owed_events\":[]}";
         private static final String ZETA = "zeta-project";
         private static final String REPLAYED = "Owed audit record '%s'";
 
@@ -715,6 +719,96 @@ class EnrolmentsTest {
                         () -> assertTrue(verify().pilot()),
                         () -> assertOwedOnce(AuditEvent.ENROLMENT_REBASELINED));
                 assertReplayedOnce(owed(PROJECT).getFirst());
+            }
+        }
+
+        @Nested
+        @DisplayName("with a mutation that fails after the record was owed")
+        class FailedMutation {
+
+            /** Puts a directory with an entry where the sidecar is written or removed, so that neither can be done. */
+            private void blockSidecar() throws IOException {
+                Files.deleteIfExists(store.sidecar(PROJECT));
+                var blocker = Files.createDirectory(store.sidecar(PROJECT));
+                Files.writeString(blocker.resolve("blocker"), "x");
+            }
+
+            private void unblockSidecar() throws IOException {
+                var blocker = store.sidecar(PROJECT);
+                Files.delete(blocker.resolve("blocker"));
+                Files.delete(blocker);
+            }
+
+            /** The intent owes exactly one record of the event, in its unconfirmed form, and nothing was handed over. */
+            private AuditEvent assertOwedNotConfirmed(String event) {
+                var owed = owed(PROJECT);
+                assertAll(
+                        () -> assertEquals(1, owed.size()),
+                        () -> assertEquals(event, owed.getFirst().event()),
+                        () -> assertEquals(AuditEvent.OUTCOME_FAILED, owed.getFirst().outcome()),
+                        () -> assertEquals(AuditEvent.REASON_NOT_CONFIRMED,
+                                owed.getFirst().details().get(AuditEvent.DETAIL_REASON)),
+                        () -> assertValidTransactionIds(owed),
+                        () -> assertTrue(events.isEmpty()));
+                return owed.getFirst();
+            }
+
+            /** The replay hands over the unconfirmed record, with its transaction id, and never a succeeded one. */
+            private void assertReplayedNotConfirmed(AuditEvent unconfirmed) {
+                var replayed = owing.replayOwedAudit();
+
+                assertAll(
+                        () -> assertEquals(1, replayed),
+                        () -> assertEquals(List.of(unconfirmed), events),
+                        () -> assertFalse(owes(PROJECT)),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                WARN.ENROLMENT_WRITE_NOT_CONFIRMED.resolveIdentifierString()));
+            }
+
+            @Test
+            @DisplayName("enrol keeps its record owed as failed with the reason not_confirmed, and never as succeeded")
+            void enrol() throws IOException {
+                blockSidecar();
+                var enrolment = enrolment(false, null);
+
+                assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false));
+
+                assertReplayedNotConfirmed(assertOwedNotConfirmed(AuditEvent.ENROLMENT_WRITTEN));
+            }
+
+            @Test
+            @DisplayName("unenrol keeps its record owed as failed with the reason not_confirmed, and never as succeeded")
+            void unenrol() throws IOException {
+                enrolments.enrol(enrolment(false, null), false);
+                events.clear();
+                blockSidecar();
+
+                assertThrows(UncheckedIOException.class, () -> owing.unenrol(PROJECT));
+
+                assertReplayedNotConfirmed(assertOwedNotConfirmed(AuditEvent.ENROLMENT_REMOVED));
+            }
+
+            @Test
+            @DisplayName("the next write hands the unconfirmed record over before its own succeeded record")
+            void nextWriteFlushesFirst() throws IOException {
+                blockSidecar();
+                var enrolment = enrolment(false, null);
+                assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false));
+                var unconfirmed = assertOwedNotConfirmed(AuditEvent.ENROLMENT_WRITTEN);
+                unblockSidecar();
+
+                var written = owing.enrol(enrolment, false);
+
+                assertAll(
+                        () -> assertEquals(written, verify()),
+                        () -> assertEquals(2, events.size()),
+                        () -> assertEquals(unconfirmed, events.getFirst()),
+                        () -> assertEquals(AuditEvent.OUTCOME_SUCCEEDED, events.getLast().outcome()),
+                        () -> assertEquals(AuditEvent.ENROLMENT_WRITTEN, events.getLast().event()),
+                        () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
+                        () -> assertFalse(owes(PROJECT)),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                WARN.ENROLMENT_WRITE_NOT_CONFIRMED.resolveIdentifierString()));
             }
         }
 
@@ -900,6 +994,49 @@ class EnrolmentsTest {
                             succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events)),
                     () -> assertEquals(2, events.stream().map(EnrolmentsTest::transactionIdOf).distinct().count()),
                     () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("an intent file of one project that is unreadable does not stop the replay for the later projects; "
+                + "the first refusal is thrown after them, the later one suppressed, every such file kept")
+        void unreadableIntentDoesNotStopTheReplay() throws IOException {
+            audit.mode = SinkMode.REFUSING;
+            owing.enrol(enrolment(ALPHA, false, null), false);
+            owing.enrol(enrolment(ZETA, false, null), false);
+            var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
+            var newer = Files.writeString(store.auditIntent(GAMMA), NEWER_FORMAT);
+            audit.mode = SinkMode.WORKING;
+
+            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit);
+
+            assertAll(
+                    () -> assertEquals(unreadable, refusal.file()),
+                    () -> assertEquals(1, refusal.getSuppressed().length),
+                    () -> assertEquals(newer, ((StoreRefusal) refusal.getSuppressed()[0]).file()),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA),
+                            succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)), withoutTransactionIds(events)),
+                    () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
+                    () -> assertEquals(NEWER_FORMAT, Files.readString(newer)),
+                    () -> assertEquals(List.of(BETA, GAMMA), List.copyOf(store.auditOwingProjectIds())));
+        }
+
+        @Test
+        @DisplayName("the replay of an intent file that is unreadable throws that refusal and nothing is suppressed")
+        void singleUnreadableIntent() throws IOException {
+            audit.mode = SinkMode.REFUSING;
+            owing.enrol(enrolment(ZETA, false, null), false);
+            var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
+            audit.mode = SinkMode.WORKING;
+
+            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit);
+
+            assertAll(
+                    () -> assertEquals(unreadable, refusal.file()),
+                    () -> assertEquals(0, refusal.getSuppressed().length),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
+                            withoutTransactionIds(events)),
+                    () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
+                    () -> assertEquals(List.of(BETA), List.copyOf(store.auditOwingProjectIds())));
         }
 
         @Test
