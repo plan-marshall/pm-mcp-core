@@ -24,6 +24,8 @@ import java.util.Optional;
  */
 public final class EntityKindRegistry {
 
+    private static final String ENTITY_UNIT = "entity";
+
     private final Map<String, EntityKind> kinds;
 
     /**
@@ -74,10 +76,10 @@ public final class EntityKindRegistry {
         return new EntityKindRegistry(List.of(
                 new EntityKind("screen", Optional.empty(), "screen.evaluate"),
                 new EntityKind("task", Optional.of("worker-task"), "task.evaluate"),
-                new EntityKind("change", Optional.of("entity"), "test.evaluate-change"),
-                new EntityKind("decision", Optional.of("entity"), "adjudicate.evaluate"),
-                new EntityKind("triage", Optional.of("entity"), "triage.evaluate"),
-                new EntityKind("simplify", Optional.of("entity"), "simplify.evaluate"),
+                new EntityKind("change", Optional.of(ENTITY_UNIT), "test.evaluate-change"),
+                new EntityKind("decision", Optional.of(ENTITY_UNIT), "adjudicate.evaluate"),
+                new EntityKind("triage", Optional.of(ENTITY_UNIT), "triage.evaluate"),
+                new EntityKind("simplify", Optional.of(ENTITY_UNIT), "simplify.evaluate"),
                 new EntityKind("review", Optional.of("entity-multi"), "review.evaluate")));
     }
 }

@@ -99,7 +99,7 @@ final class TestPrimitives {
                 param push : enum[enabled|disabled]
                 param attempts : int[1..5]
                 param targets : list<enum[origin|mirror]>
-                start git.done
+                start git.review
 
                 state git.done terminal done success
                     phase inherit

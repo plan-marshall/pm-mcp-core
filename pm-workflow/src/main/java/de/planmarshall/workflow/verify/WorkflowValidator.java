@@ -929,8 +929,11 @@ public final class WorkflowValidator {
         if (callee.scope() != WorkflowScope.SUBWORKFLOW) {
             return false;
         }
+        var reached = UnitGraph.of(callee).forwardClosure(Set.of(callee.startState()));
         for (var calleeState : callee.states().values()) {
-            if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks) {
+            if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
+                    && reached.contains(calleeState.id())
+                    && UnitGraph.hasImplicitExit(callee.scope(), calleeState)) {
                 return true;
             }
         }
@@ -1311,6 +1314,9 @@ public final class WorkflowValidator {
                 }
             }
             case StateBehavior.QuestionWait question -> {
+                if (question.transitions().contains(transition)) {
+                    return Optional.of(OutcomeClass.SUCCESS);
+                }
                 for (var link : question.links()) {
                     if (link.transitions().contains(transition)
                             && link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
@@ -1325,7 +1331,7 @@ public final class WorkflowValidator {
                         }
                     }
                 }
-                return Optional.of(OutcomeClass.SUCCESS);
+                return Optional.empty();
             }
             case StateBehavior.InteractiveLinks _ -> {
                 for (var link : UnitGraph.declaredLinks(state.behavior())) {
