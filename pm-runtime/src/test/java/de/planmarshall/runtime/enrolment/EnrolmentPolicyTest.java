@@ -103,6 +103,24 @@ class EnrolmentPolicyTest {
         }
     }
 
+    /** What the policy says about a write path, with the part of the reason that tells the refusals apart. */
+    enum Verdict {
+        BASE("is, lies below or contains the base directory"),
+        PARENT("goes through '..' below its last existing ancestor"),
+        UNRESOLVABLE("cannot be resolved below its last existing ancestor"),
+        ADMITTED("");
+
+        private final String fragment;
+
+        Verdict(String fragment) {
+            this.fragment = fragment;
+        }
+
+        int count() {
+            return this == ADMITTED ? 0 : 1;
+        }
+    }
+
     private static Argv vector(Argv.Element... elements) {
         return new Argv(List.of(elements));
     }
@@ -212,6 +230,40 @@ class EnrolmentPolicyTest {
                     () -> assertEquals(1, refused.size(), refused::toString),
                     () -> assertTrue(refused.getFirst().contains(intoBase.toString()), refused::toString),
                     () -> assertEquals(List.of(), violations(writing(toSibling.toString()))));
+        }
+
+        /**
+         * Builds, beside the base, an ordinary directory outside it, and symbolic links to the base, to a directory
+         * below it, to the directory outside, to the parent of the base and two dangling ones, one aimed into the base
+         * and one outside it.
+         */
+        private void createLinks() throws IOException {
+            var sub = Files.createDirectories(base.resolve("sub"));
+            var outside = Files.createDirectories(root.resolve("outside"));
+            Files.createSymbolicLink(root.resolve("link-to-base"), base);
+            Files.createSymbolicLink(root.resolve("link-to-sub"), sub);
+            Files.createSymbolicLink(root.resolve("link-outside"), outside);
+            Files.createSymbolicLink(root.resolve("link-to-root"), root);
+            Files.createSymbolicLink(root.resolve("dangling-in"), base.resolve("not-yet"));
+            Files.createSymbolicLink(root.resolve("dangling-out"), outside.resolve("not-yet"));
+        }
+
+        @ParameterizedTest(name = "''{0}'': {1}")
+        @CsvSource({"link-to-base/missing, BASE", "link-to-sub/a/b, BASE", "link-to-root/base/missing, BASE",
+                "link-to-sub/../x, BASE", "outside/missing/../x, PARENT", "dangling-in, UNRESOLVABLE",
+                "dangling-in/leaf, UNRESOLVABLE", "dangling-out, UNRESOLVABLE", "link-outside/missing, ADMITTED",
+                "outside/missing, ADMITTED", "link-to-root/missing, ADMITTED", "outside/../x, ADMITTED"})
+        @DisplayName("a path is judged by the real path of its longest existing ancestor with the missing names appended")
+        void throughLongestExistingAncestor(String relative, Verdict verdict) throws Exception {
+            createLinks();
+            var path = root.resolve(relative).toString();
+
+            var found = violations(writing(path));
+
+            assertAll(
+                    () -> assertEquals(verdict.count(), found.size(), found::toString),
+                    () -> assertTrue(found.stream().allMatch(
+                            reason -> reason.contains(path) && reason.contains(verdict.fragment)), found::toString));
         }
 
         @Test

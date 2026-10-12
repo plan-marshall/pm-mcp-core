@@ -146,7 +146,7 @@ class EnrolmentIntegrityStepTest {
             otherStaged = writeStaged(staged(fixture.store.file(OTHER), transactionId), newFile);
         }
 
-        private void assertSettled(Outcome outcome, byte[] expectedFile) throws IOException {
+        private void assertSettled(Outcome outcome, byte[] expectedFile) {
             assertAll(
                     () -> assertTrue(report(outcome).contains("a stopped write was settled (1)"), outcome::toString),
                     () -> assertArrayEquals(expectedFile, Files.readAllBytes(fixture.store.file(PROJECT))),

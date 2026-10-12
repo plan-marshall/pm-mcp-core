@@ -25,8 +25,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,7 @@ import de.planmarshall.core.service.LiveWork.Item;
 import de.planmarshall.core.service.LiveWork.Kind;
 import de.planmarshall.core.store.EnrolmentCodec;
 import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.PairRecovery;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.StoreDigest;
@@ -62,6 +65,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -80,6 +84,8 @@ class EnrolmentsTest {
     private static final String LIVE_PLAN = "add-login";
     private static final String WORLD_WRITABLE = "rw-rw-rw-";
     private static final String AUDIT_LOG_FULL = "audit log full";
+    private static final String OWNER_ONLY = "rw-------";
+    private static final String STAGED_SEGMENT = ".tmp.";
 
     @TempDir
     Path base;
@@ -160,6 +166,50 @@ class EnrolmentsTest {
 
     private static String transactionIdOf(AuditEvent event) {
         return (String) event.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
+    }
+
+    /** @return the staged name a stopped write of the transaction leaves for the target */
+    private static Path staged(Path target, TransactionId transactionId) {
+        return target.resolveSibling(target.getFileName() + STAGED_SEGMENT + transactionId.value());
+    }
+
+    /**
+     * Stages by hand what a stopped write of the project's pair leaves, as a write stages it (readable and writable by
+     * its owner only); a {@code null} content leaves that name out.
+     */
+    private void stageByHand(byte[] fileContent, byte[] sidecarContent) throws IOException {
+        var transactionId = TransactionId.generate(Clock.systemUTC());
+        if (fileContent != null) {
+            writeOwnerOnly(staged(store.file(PROJECT), transactionId), fileContent);
+        }
+        if (sidecarContent != null) {
+            writeOwnerOnly(staged(store.sidecar(PROJECT), transactionId), sidecarContent);
+        }
+    }
+
+    private static void writeOwnerOnly(Path file, byte[] content) throws IOException {
+        Files.write(file, content);
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString(OWNER_ONLY));
+    }
+
+    /** @return the sidecar record of the content under the integrity key, created if needed */
+    private byte[] signed(byte[] content) {
+        return EnrolmentHmac.sidecar(key.readOrCreate(), content).write();
+    }
+
+    private List<String> stagedNames() throws IOException {
+        try (var entries = Files.list(store.directory())) {
+            return entries.map(entry -> entry.getFileName().toString())
+                    .filter(name -> name.contains(STAGED_SEGMENT)).toList();
+        }
+    }
+
+    /** Settles the project's stopped writes as a recovery would, in its own transaction. */
+    private List<PairRecovery> recoverPair() {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(store.lockKey(PROJECT));
+            return store.recoverPair(transaction, PROJECT);
+        }
     }
 
     /** Every record carries a transaction id that is a valid, non-empty {@link TransactionId}. */
@@ -473,10 +523,85 @@ class EnrolmentsTest {
                     () -> assertTrue(events.isEmpty()));
         }
 
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(StagedOnly.class)
+        @DisplayName("cancels a stopped first enrolment that left only staged files: audited, and it cannot come back")
+        void cancelsAStagedOnlyEnrolment(StagedOnly staging) throws Exception {
+            var content = EnrolmentCodec.write(enrolment(false, null));
+            stageByHand(staging.file ? content : null, staging.sidecar ? signed(content) : null);
+
+            var removed = enrolments.unenrol(PROJECT);
+            var namesAfterUnenrol = stagedNames();
+            var recovered = recoverPair();
+
+            assertAll(
+                    () -> assertTrue(removed),
+                    () -> assertTrue(namesAfterUnenrol.isEmpty(), namesAfterUnenrol::toString),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
+                            withoutTransactionIds(events)),
+                    () -> assertValidTransactionIds(events),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.ENROLMENT_REMOVED.resolveIdentifierString()),
+                    () -> assertTrue(recovered.isEmpty()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                    () -> assertTrue(store.projectIds().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("of an enrolled project with a stopped write removes the pair and the staged files")
+        void removesThePairAndItsStagedLeftovers() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            events.clear();
+            var content = EnrolmentCodec.write(enrolment(true, null));
+            stageByHand(content, signed(content));
+
+            var removed = enrolments.unenrol(PROJECT);
+
+            assertAll(
+                    () -> assertTrue(removed),
+                    () -> assertTrue(stagedNames().isEmpty()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                    () -> assertTrue(recoverPair().isEmpty()),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT)),
+                            withoutTransactionIds(events)));
+        }
+
         private List<Path> listing(Path directory) throws IOException {
             try (var entries = Files.list(directory)) {
                 return entries.toList();
             }
+        }
+    }
+
+    /** The staged files a stopped first enrolment can leave, with neither a file nor a sidecar in place. */
+    enum StagedOnly {
+        COMPLETE_PAIR(true, true),
+        FILE_ONLY(true, false),
+        SIDECAR_ONLY(false, true);
+
+        private final boolean file;
+        private final boolean sidecar;
+
+        StagedOnly(boolean file, boolean sidecar) {
+            this.file = file;
+            this.sidecar = sidecar;
+        }
+    }
+
+    /** A stopped write of the pair of an enrolled project, and whether it leaves the new file in place once settled. */
+    enum StoppedWrite {
+        NOTHING_STAGED(false),
+        COMPLETE_PAIR(true),
+        TORN_STAGED_SIDECAR(false),
+        STAGED_SIDECAR_ONLY(true);
+
+        private final boolean newFileInPlace;
+
+        StoppedWrite(boolean newFileInPlace) {
+            this.newFileInPlace = newFileInPlace;
         }
     }
 
@@ -506,6 +631,51 @@ class EnrolmentsTest {
                     () -> assertValidTransactionIds(events),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.ENROLMENT_REBASELINED.resolveIdentifierString()));
+        }
+
+        /** Leaves, beside the enrolled pair, what the stopped write leaves; the staged pair is a newer enrolment. */
+        private void stop(StoppedWrite stopped, byte[] newFile) throws IOException {
+            switch (stopped) {
+                case COMPLETE_PAIR -> stageByHand(newFile, signed(newFile));
+                case TORN_STAGED_SIDECAR -> {
+                    var sidecar = signed(newFile);
+                    stageByHand(newFile, Arrays.copyOf(sidecar, sidecar.length / 2));
+                }
+                case STAGED_SIDECAR_ONLY -> {
+                    Files.write(store.file(PROJECT), newFile);
+                    stageByHand(null, signed(newFile));
+                }
+                case NOTHING_STAGED -> {
+                    // the matched control: no staged name, the re-baseline behaves as before
+                }
+            }
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(StoppedWrite.class)
+        @DisplayName("settles a stopped write first, so the staged pair can never replace the re-baselined pair")
+        void settlesAStoppedWriteFirst(StoppedWrite stopped) throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            var oldFile = Files.readAllBytes(store.file(PROJECT));
+            var newFile = EnrolmentCodec.write(enrolment(true, null));
+            stop(stopped, newFile);
+            var expected = stopped.newFileInPlace ? newFile : oldFile;
+
+            var outcome = enrolments.rebaseline(PROJECT);
+
+            var file = Files.readAllBytes(store.file(PROJECT));
+            var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
+            var namesAfterRebaseline = stagedNames();
+            var recovered = recoverPair();
+            assertAll(
+                    () -> assertTrue(namesAfterRebaseline.isEmpty(), namesAfterRebaseline::toString),
+                    () -> assertArrayEquals(expected, file),
+                    () -> assertEquals(StoreDigest.of(expected), store.decodeSidecar(PROJECT, sidecar).digest()),
+                    () -> assertEquals(StoreDigest.of(expected), outcome.current()),
+                    () -> assertTrue(recovered.isEmpty()),
+                    () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertEquals(stopped.newFileInPlace, verify().pilot()));
         }
 
         @Test
@@ -1240,6 +1410,11 @@ class EnrolmentsTest {
         private static final String PLACEHOLDER = "placeholder";
         private static final String WRITE_PATH = "write path";
         private static final String ENVIRONMENT = "environment";
+        private static final String MISSING = "missing";
+
+        /** A directory beside the base, outside it. */
+        @TempDir
+        Path outside;
 
         private ProjectEnrolment violating(String family) {
             var build = Build.defaults();
@@ -1251,9 +1426,50 @@ class EnrolmentsTest {
                 case WRITE_PATH -> writePaths = List.of(base.resolve("cache").toString());
                 default -> environment.put("GH_TOKEN", "ghp");
             }
+            return enrolmentOf(build, writePaths, environment);
+        }
+
+        private static ProjectEnrolment enrolmentOf(Build build, List<String> writePaths,
+                TreeMap<String, String> environment) {
             return new ProjectEnrolment(PROJECT, "/home/dev/git/" + PROJECT, Instant.parse("2026-10-11T08:00:00Z"),
                     false, null, null, List.of(), List.of(), build, Map.of(), new TreeMap<>(), new TreeMap<>(),
                     new TreeMap<>(), writePaths, environment);
+        }
+
+        private static ProjectEnrolment writingTo(Path writePath) {
+            return enrolmentOf(Build.defaults(), List.of(writePath.toString()), new TreeMap<>());
+        }
+
+        @Test
+        @DisplayName("enrol refuses a missing write-path leaf below a symbolic link into the base before anything exists")
+        void enrolRefusedForMissingLeafBelowLinkIntoBase() throws Exception {
+            var link = Files.createSymbolicLink(outside.resolve("link"), store.base());
+            var enrolment = writingTo(link.resolve(MISSING));
+            var reason = reasonOf(enrolment);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment, false));
+
+            assertRefusedInvalid(refusal, reason);
+            assertAll(
+                    () -> assertFalse(reason.isEmpty()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                    () -> assertFalse(Files.exists(key.keyFile())),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("enrol writes an enrolment whose write path is an ordinary missing path outside the base")
+        void enrolAdmitsMissingPathOutsideTheBase() {
+            var enrolment = writingTo(outside.resolve(MISSING));
+
+            var written = enrolments.enrol(enrolment, false);
+
+            assertAll(
+                    () -> assertEquals(written, verify()),
+                    () -> assertEquals(enrolment.writePaths(), written.writePaths()),
+                    () -> assertTrue(events.stream().noneMatch(
+                            event -> AuditEvent.ENROLMENT_INVALID.equals(event.event()))));
         }
 
         private String reasonOf(ProjectEnrolment enrolment) {
@@ -1310,7 +1526,7 @@ class EnrolmentsTest {
             var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
             var edited = violating(family);
             Files.write(store.file(PROJECT), EnrolmentCodec.write(edited));
-            Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString("rw-------"));
+            Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString(OWNER_ONLY));
             var reason = reasonOf(edited);
             events.clear();
 

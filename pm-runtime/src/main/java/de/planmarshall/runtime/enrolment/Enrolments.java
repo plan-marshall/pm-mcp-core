@@ -69,11 +69,15 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * they sign it, and refuse a violation as {@code enrolment_invalid} before the key is resolved or anything is owed.
  * {@code enrol} stages the file and its sidecar completely before the first rename ({@link EnrolmentStore#write}); a
  * stopped write is settled by the project's recovery or the next write of the project, and the check refuses a
- * mismatched pair. The store removal of {@code unenrol} also drops the staged leftovers of a stopped write.
+ * mismatched pair. The store removal of {@code unenrol} also drops the staged leftovers of a stopped write, and
+ * {@code unenrol} removes, and owes its record for, a stopped write that left only staged files
+ * ({@link EnrolmentStore#hasStagedWrite}), so a cancelled first enrolment cannot be rolled forward later.
  * <p>
- * The re-baseline reads, checks and signs one no-follow snapshot of the file ({@code EnrolmentFileCheck.snapshot}), so
- * the per-use checks, the strict read and the new sidecar record cover the same bytes; its {@code enrolment_insecure}
- * refusal is logged and audited like the refusal of the enrolment check.
+ * The re-baseline first settles a stopped write of the pair ({@link EnrolmentStore#recoverPair}) under both locks, so
+ * a staged pair can never replace the re-baselined pair later; it then reads, checks and signs one no-follow snapshot
+ * of the settled file ({@code EnrolmentFileCheck.snapshot}), so the per-use checks, the strict read and the new sidecar
+ * record cover the same bytes; its {@code enrolment_insecure} refusal is logged and audited like the refusal of the
+ * enrolment check.
  * <p>
  * The integrity key is created by the first write that needs it and never replaced, under the credentials lock
  * ({@link EnrolmentKey#creationLock}), which {@code enrol} and the re-baseline acquire before the project's lock, so two
@@ -177,10 +181,13 @@ public final class Enrolments {
 
     /**
      * Removes the project's enrolment file and its sidecar, and the staged files of a stopped write of the pair, so it
-     * is never rolled forward later; the project's store below {@code projects/<project_id>/} stays as it is.
+     * is never rolled forward later; the project's store below {@code projects/<project_id>/} stays as it is. A first
+     * enrolment that was staged and stopped, with neither a file nor a sidecar in place, is cancelled and audited the
+     * same way.
      *
      * @param projectId the project
-     * @return whether the enrolment file or its sidecar existed
+     * @return whether the enrolment file, its sidecar or the staged files of a stopped write existed; {@code false}
+     *         only when nothing of the enrolment existed, and then no record is written
      * @throws ScopeActiveException if the project has live work, naming it; nothing was removed then. An audit sink
      *                              that fails to record the refusal does not replace it: its failure is a suppressed
      *                              exception of the refusal
@@ -208,23 +215,27 @@ public final class Enrolments {
     }
 
     /**
-     * Removes the project's enrolment, if anything of it exists, after owing its record; in every case hands over
+     * Removes the project's enrolment, if anything of it exists (the file, the sidecar or a staged name of a stopped
+     * write), after owing its record; in every case hands over
      * what the project owes, so a record an earlier write still owes is flushed.
      */
     private boolean removeOwingAudit(LockTransaction transaction, String projectId) {
-        var exists = store.exists(transaction, projectId);
-        if (exists) {
+        var present = store.exists(transaction, projectId) || store.hasStagedWrite(transaction, projectId);
+        if (present) {
             var event = AuditEvent.enrolmentRemoved(projectId, newTransactionId());
             writeOwing(transaction, projectId, event, () -> store.remove(transaction, projectId));
         } else {
             handOverOwed(transaction, projectId, null);
         }
-        return exists;
+        return present;
     }
 
     /**
      * Re-baselines the project's enrolment file the operator reviewed ({@code accept-edit enrolment}): rewrites its
-     * sidecar record over the current bytes of the file. The file must pass the per-use checks and read strictly as
+     * sidecar record over the current bytes of the file. A stopped write of the pair is settled first, under both
+     * locks ({@link EnrolmentStore#recoverPair}: a completely staged pair is rolled forward, an incomplete one
+     * discarded), so the file it signs is the settled one and the values it reports describe it. The file must pass
+     * the per-use checks and read strictly as
      * an enrolment of the project; nothing else of it is changed. The checks, the strict read and the signature cover
      * one no-follow snapshot of the file; a file that fails a check is refused, logged ({@code PM_MCP-162}) and
      * audited ({@code enrolment_insecure}) without owing or writing anything. The decoded enrolment is checked against
@@ -245,10 +256,11 @@ public final class Enrolments {
      *                              it violates the enrolment policy (logged {@code PM_MCP-165} and audited, before
      *                              the key is read or anything is owed); nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
-     * @throws UncheckedIOException if a file cannot be read or written or the intent file cannot be written; a sidecar
-     *                              that cannot be written leaves the {@code enrolment_rebaselined} record owed
-     *                              unconfirmed. A refused audit append is not one of them: the record then stays owed
-     *                              and is handed over later
+     * @throws UncheckedIOException if a staged file of a stopped write cannot be listed, read, moved or deleted
+     *                              (nothing is signed then), if a file cannot be read or written or the intent file
+     *                              cannot be written; a sidecar that cannot be written leaves the
+     *                              {@code enrolment_rebaselined} record owed unconfirmed. A refused audit append is
+     *                              not one of them: the record then stays owed and is handed over later
      */
     public Rebaseline rebaseline(String projectId) {
         var file = store.file(projectId);
@@ -257,6 +269,7 @@ public final class Enrolments {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(EnrolmentKey.creationLock(store.base()));
             transaction.acquire(store.lockKey(projectId));
+            store.recoverPair(transaction, projectId);
             var snapshot = fileCheck.snapshot(file);
             var violation = snapshot.violation();
             if (violation.isPresent()) {

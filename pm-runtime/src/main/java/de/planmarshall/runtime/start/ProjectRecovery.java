@@ -194,11 +194,9 @@ public final class ProjectRecovery {
             }
             all.add(step);
         }
-        for (var name : ENROLMENT_STEPS) {
-            if (names.add(name)) {
-                all.add(RecoveryStep.notImplemented(name));
-            }
-        }
+        ENROLMENT_STEPS.stream().filter(name -> !names.contains(name)).map(RecoveryStep::notImplemented)
+                .forEach(all::add);
+        names.addAll(ENROLMENT_STEPS);
         var missing = EnumSet.complementOf(names);
         if (!missing.isEmpty()) {
             throw new IllegalArgumentException("no recovery step named " + missing);
