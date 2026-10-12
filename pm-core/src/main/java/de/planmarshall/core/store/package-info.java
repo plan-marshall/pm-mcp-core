@@ -36,7 +36,9 @@
  * ({@link de.planmarshall.core.store.ProjectEnrolment}, read and written by
  * {@link de.planmarshall.core.store.EnrolmentCodec}), its integrity sidecar record
  * ({@link de.planmarshall.core.store.EnrolmentSidecar}), the store of one file per project under its own lock
- * ({@link de.planmarshall.core.store.EnrolmentStore}) and the lifecycle gate compiled into the release
+ * ({@link de.planmarshall.core.store.EnrolmentStore}), which stages the file and its sidecar completely before it
+ * renames them into place and settles a stopped write of the pair
+ * ({@link de.planmarshall.core.store.PairRecovery}), and the lifecycle gate compiled into the release
  * ({@link de.planmarshall.core.store.LifecycleGate}). The key and the HMAC belong to the runtime, not to this
  * package.</li>
  * </ul>

@@ -196,6 +196,16 @@ public final class PmMcpLogMessages {
                 .identifier(63)
                 .template("Owed audit record '%s' of transaction '%s' for project '%s' handed over after an earlier refusal or stop")
                 .build();
+
+        /**
+         * Logged when the recovery of the enrolment pair completes a write that was stopped after the enrolment file
+         * and its sidecar were staged completely: the new pair is in place.
+         */
+        public static final LogRecord ENROLMENT_PAIR_COMPLETED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(64)
+                .template("Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'")
+                .build();
     }
 
     /** WARN level messages. */
@@ -368,6 +378,38 @@ public final class PmMcpLogMessages {
                 .identifier(164)
                 .template("Audit record '%s' of transaction '%s' for project '%s' handed over as not confirmed: "
                         + "the write did not complete or its completion was not recorded")
+                .build();
+
+        /**
+         * Logged when the runtime refuses to sign or use an enrolment that violates the enrolment rules; only its
+         * project is blocked.
+         */
+        public static final LogRecord ENROLMENT_INVALID = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(165)
+                .template("Enrolment of project '%s' refused with outcome 'enrolment_invalid': %s")
+                .build();
+
+        /**
+         * Logged when the recovery of the enrolment pair discards a staged write that was stopped before the enrolment
+         * file and its sidecar were staged completely, or whose staged sidecar does not match the file; the enrolment
+         * is as it was before the write.
+         */
+        public static final LogRecord ENROLMENT_PAIR_DISCARDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(166)
+                .template("Incomplete staged write of the enrolment of project '%s' discarded, "
+                        + "the enrolment is as it was before the write: %s")
+                .build();
+
+        /**
+         * Logged when the background replay of the audit intents of projects that are no longer enrolled meets an
+         * intent it cannot read or hand over; the intent is kept.
+         */
+        public static final LogRecord ENROLMENT_AUDIT_REPLAY_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(167)
+                .template("Replay of the owed audit records of unenrolled projects failed: %s")
                 .build();
     }
 

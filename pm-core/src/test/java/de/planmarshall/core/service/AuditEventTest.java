@@ -137,6 +137,27 @@ class AuditEventTest {
                             event.details()));
         }
 
+        /** Built like the insecure record above, which is its matched control: same shape, another event name. */
+        @Test
+        @DisplayName("an invalid enrolment is a refused security event naming the project and the reason, no transaction")
+        void enrolmentInvalid() {
+            var reason = "build_environment: GH_TOKEN is a credential variable";
+
+            var event = AuditEvent.enrolmentInvalid(PROJECT, reason);
+            var insecure = AuditEvent.enrolmentInsecure(PROJECT, reason);
+
+            assertAll(
+                    () -> assertEquals("enrolment_invalid", event.event()),
+                    () -> assertEquals(AuditEvent.ENROLMENT_INVALID, event.event()),
+                    () -> assertEquals("security", event.category()),
+                    () -> assertEquals("refused", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", reason), event.details()),
+                    () -> assertFalse(event.details().containsKey("transaction_id")),
+                    () -> assertEquals(insecure.category(), event.category()),
+                    () -> assertEquals(insecure.outcome(), event.outcome()),
+                    () -> assertEquals(insecure.details(), event.details()));
+        }
+
         @Test
         @DisplayName("an unenrol refused for live work is a refused operator event with the reason scope_active")
         void unenrolRefused() {
@@ -256,6 +277,8 @@ class AuditEventTest {
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentTampered(project, null)),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(null, "r")),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(project, null)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInvalid(null, "r")),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInvalid(project, null)),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.enrolmentWritten(null, TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(project, null)),

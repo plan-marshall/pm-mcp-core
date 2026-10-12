@@ -40,7 +40,12 @@ import java.util.regex.Pattern;
  * {@link EnrolmentCodec#write(ProjectEnrolment)} writes the same enrolment as the same bytes; those bytes are what the
  * integrity HMAC is computed over (PM-EXEC-2, PM-SEC-5). What the schema only describes and the enrolment verb decides
  * (shell metacharacters in an argument vector, write paths below the base directory, refused environment names) is
- * not checked here.
+ * not checked here. The runtime's enrolment policy ({@code EnrolmentPolicy} of pm-runtime) refuses, before an
+ * enrolment is signed, a template or provider argument vector with a placeholder other than {@code {module}} or with
+ * {@code {module}} outside its module-argument group, a write path that is, lies below or contains the base directory,
+ * and a build environment name that is a credential variable or one of {@code DBUS_SESSION_BUS_ADDRESS},
+ * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}; the shell-metacharacter and forbidden-flag rules of an
+ * argument vector are not checked anywhere yet.
  *
  * @param projectId         the enrolment identifier; equals the name of the file
  * @param projectRoot       the canonical absolute path of the repository main checkout

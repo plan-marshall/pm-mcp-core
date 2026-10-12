@@ -26,22 +26,29 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.log.PmMcpLogMessages.INFO;
 import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -688,6 +695,394 @@ class EnrolmentStoreTest {
             try (var entries = Files.list(store.directory())) {
                 return entries.sorted().toList();
             }
+        }
+    }
+
+    /**
+     * The enrolment file and its sidecar are one pair: a write stages both completely before the first rename, and a
+     * write stopped on the way (here by a hook that throws, standing for a killed process) is settled by
+     * {@link EnrolmentStore#recoverPair} to the complete new pair or the untouched old one, never to a half-new one.
+     */
+    @Nested
+    @DisplayName("the enrolment pair")
+    class Pair {
+
+        private static final String SIBLING = PROJECT + "-c";
+        private static final String STAGED_SEGMENT = ".tmp.";
+        private static final String COMPLETED = "Completed";
+        private static final String DISCARDED = "Discarded";
+        private static final String NONE = "none";
+
+        /** Stands for a process killed after a step of the write: nothing is cleaned up. */
+        private static final class Killed extends RuntimeException {
+
+            private static final long serialVersionUID = 1L;
+        }
+
+        private final ProjectEnrolment old = enrolment(PROJECT, false);
+        private final ProjectEnrolment newer = enrolment(PROJECT, true);
+
+        private void write(EnrolmentStore enrolmentStore, ProjectEnrolment enrolment) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(enrolmentStore.lockKey(enrolment.projectId()));
+                enrolmentStore.write(transaction, enrolment, sidecarOf(enrolment));
+            }
+        }
+
+        private void writeStopped(EnrolmentStore.PairStep step, ProjectEnrolment enrolment) {
+            var stopping = new EnrolmentStore(base, observed -> {
+                if (observed == step) {
+                    throw new Killed();
+                }
+            });
+            var sidecar = sidecarOf(enrolment);
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(stopping.lockKey(enrolment.projectId()));
+
+                assertThrows(Killed.class, () -> stopping.write(transaction, enrolment, sidecar));
+            }
+        }
+
+        /** Recovers as after a restart: a new store, a new transaction. */
+        private List<PairRecovery> recover(String projectId) {
+            var restarted = new EnrolmentStore(base);
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(restarted.lockKey(projectId));
+                return restarted.recoverPair(transaction, projectId);
+            }
+        }
+
+        private boolean remove(String projectId) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(store.lockKey(projectId));
+                return store.remove(transaction, projectId);
+            }
+        }
+
+        private List<String> names() throws IOException {
+            try (var entries = Files.list(store.directory())) {
+                return entries.map(entry -> entry.getFileName().toString()).sorted().toList();
+            }
+        }
+
+        private List<String> stagedNames() throws IOException {
+            return names().stream().filter(name -> name.contains(STAGED_SEGMENT)).toList();
+        }
+
+        private List<TransactionId> stagedTransactions() throws IOException {
+            return stagedNames().stream().map(name -> TransactionId.ofSuffix(name).orElseThrow()).distinct()
+                    .toList();
+        }
+
+        private boolean consistent(String projectId) throws IOException {
+            var sidecar = EnrolmentSidecar.read(store.sidecar(projectId),
+                    Files.readAllBytes(store.sidecar(projectId)));
+            return sidecar.matches(Files.readAllBytes(store.file(projectId)));
+        }
+
+        private Path staged(Path target, TransactionId transactionId) {
+            return target.resolveSibling(
+                    transactionId.stagedName(target.getFileName().toString(), TransactionJournal.Mode.REPLACE));
+        }
+
+        /** Stages by hand what a stopped write leaves; a {@code null} content leaves that name out. */
+        private TransactionId stage(String projectId, byte[] fileContent, byte[] sidecarContent, Instant at)
+                throws IOException {
+            var transactionId = TransactionId.generate(Clock.fixed(at, ZoneOffset.UTC));
+            if (fileContent != null) {
+                Files.write(staged(store.file(projectId), transactionId), fileContent);
+            }
+            if (sidecarContent != null) {
+                Files.write(staged(store.sidecar(projectId), transactionId), sidecarContent);
+            }
+            return transactionId;
+        }
+
+        private static List<String> kinds(List<PairRecovery> recoveries) {
+            return recoveries.stream().map(recovery -> recovery.getClass().getSimpleName()).toList();
+        }
+
+        private static void assertPairLogs(String kind) {
+            if (COMPLETED.equals(kind)) {
+                LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                        INFO.ENROLMENT_PAIR_COMPLETED.resolveIdentifierString());
+            } else {
+                LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, EnrolmentStore.class);
+            }
+            if (DISCARDED.equals(kind)) {
+                LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.ENROLMENT_PAIR_DISCARDED.resolveIdentifierString());
+            } else {
+                LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, EnrolmentStore.class);
+            }
+        }
+
+        @Test
+        @DisplayName("a write leaves exactly the complete pair, a second write replaces both, a mismatch writes nothing")
+        void writeLeavesTheCompletePairAndNoStagedFile() throws IOException {
+            write(store, old);
+            var namesAfterFirst = names();
+            var firstConsistent = consistent(PROJECT);
+
+            write(store, newer);
+            var namesAfterSecond = names();
+            var other = sidecarOf(old);
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(store.lockKey(PROJECT));
+
+                assertThrows(IllegalArgumentException.class, () -> store.write(transaction, newer, other));
+            }
+
+            assertAll(
+                    () -> assertEquals(List.of(PROJECT + ".json", PROJECT + ".json.hmac"), namesAfterFirst),
+                    () -> assertTrue(firstConsistent),
+                    () -> assertEquals(namesAfterFirst, namesAfterSecond),
+                    () -> assertEquals(namesAfterFirst, names()),
+                    () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertArrayEquals(sidecarOf(newer).write(), Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertTrue(consistent(PROJECT)));
+        }
+
+        @ParameterizedTest(name = "stopped after {0}")
+        @CsvSource({"FILE_STAGED, false, Discarded", "SIDECAR_STAGED, true, Completed",
+                "FILE_REPLACED, true, Completed", "SIDECAR_REPLACED, true, none"})
+        @DisplayName("a write stopped after each step is settled to the old or the new pair, never a half-new one")
+        void stoppedAfterEachStep(EnrolmentStore.PairStep step, boolean newPair, String kind) throws IOException {
+            write(store, old);
+            writeStopped(step, newer);
+            var stopped = stagedTransactions();
+
+            var recovered = recover(PROJECT);
+
+            var expected = newPair ? EnrolmentCodec.write(newer) : EnrolmentCodec.write(old);
+            assertAll(
+                    () -> assertEquals(NONE.equals(kind) ? List.of() : List.of(kind), kinds(recovered)),
+                    () -> assertEquals(stopped, recovered.stream().map(PairRecovery::transactionId).toList()),
+                    () -> assertArrayEquals(expected, Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertTrue(consistent(PROJECT)),
+                    () -> assertTrue(stagedNames().isEmpty()));
+            assertPairLogs(kind);
+        }
+
+        @ParameterizedTest(name = "stopped after {0}")
+        @CsvSource({"FILE_STAGED, Discarded, false", "SIDECAR_STAGED, Completed, true"})
+        @DisplayName("a stopped first enrolment is no enrolment before the recovery, and one after a completion")
+        void firstEnrolmentStopped(EnrolmentStore.PairStep step, String kind, boolean enrolled) throws IOException {
+            writeStopped(step, newer);
+            var before = store.projectIds();
+
+            var recovered = recover(PROJECT);
+
+            assertAll(
+                    () -> assertTrue(before.isEmpty()),
+                    () -> assertEquals(List.of(kind), kinds(recovered)),
+                    () -> assertEquals(enrolled, store.projectIds().contains(PROJECT)),
+                    () -> assertEquals(enrolled, Files.exists(store.file(PROJECT))),
+                    () -> assertTrue(stagedNames().isEmpty()));
+        }
+
+        static Stream<Arguments> incompleteStagings() {
+            var newerContent = EnrolmentCodec.write(enrolment(PROJECT, true));
+            var document = new EnrolmentSidecar(StoreDigest.of(newerContent), HMAC).write();
+            var otherVersion = new String(document, StandardCharsets.UTF_8)
+                    .replace("\"format_version\":1", "\"format_version\":2").getBytes(StandardCharsets.UTF_8);
+            var foreign = new EnrolmentSidecar(StoreDigest.of(EnrolmentCodec.write(enrolment(SIBLING, true))), HMAC)
+                    .write();
+            var changedFile = EnrolmentCodec.write(enrolment(PROJECT, false));
+            return Stream.of(
+                    Arguments.of("a torn staged sidecar", newerContent,
+                            Arrays.copyOf(document, document.length / 2)),
+                    Arguments.of("a staged sidecar of another file", newerContent, foreign),
+                    Arguments.of("a staged sidecar of another format version", newerContent, otherVersion),
+                    Arguments.of("a staged file changed after its sidecar was staged", changedFile, document),
+                    Arguments.of("a staged file without its sidecar", newerContent, null));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("incompleteStagings")
+        @DisplayName("an incomplete or mismatching staging is discarded with its file, the old pair untouched")
+        void incompleteStagingDiscarded(String description, byte[] stagedFile, byte[] stagedSidecar)
+                throws IOException {
+            write(store, old);
+            var oldFile = Files.readAllBytes(store.file(PROJECT));
+            var oldSidecar = Files.readAllBytes(store.sidecar(PROJECT));
+            var transactionId = stage(PROJECT, stagedFile, stagedSidecar, Instant.now());
+
+            var recovered = recover(PROJECT);
+
+            assertAll(description,
+                    () -> assertEquals(List.of(DISCARDED), kinds(recovered)),
+                    () -> assertEquals(transactionId, recovered.getFirst().transactionId()),
+                    () -> assertFalse(((PairRecovery.Discarded) recovered.getFirst()).reason().isBlank()),
+                    () -> assertArrayEquals(oldFile, Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertTrue(stagedNames().isEmpty()));
+            assertPairLogs(DISCARDED);
+        }
+
+        @Test
+        @DisplayName("a replaced file with a staged sidecar that does not match it: the sidecar is discarded, the file kept")
+        void replacedFileWithForeignSidecar() throws IOException {
+            write(store, old);
+            Files.write(store.file(PROJECT), EnrolmentCodec.write(newer));
+            var oldSidecar = Files.readAllBytes(store.sidecar(PROJECT));
+            var transactionId = stage(PROJECT, null, sidecarOf(enrolment(SIBLING, false)).write(), Instant.now());
+
+            var recovered = recover(PROJECT);
+
+            assertAll(
+                    () -> assertEquals(List.of(new PairRecovery.Discarded(transactionId,
+                                    List.of(staged(store.sidecar(PROJECT), transactionId)),
+                                    ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered),
+                    () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertFalse(consistent(PROJECT)),
+                    () -> assertTrue(stagedNames().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a staged sidecar whose enrolment file is missing is discarded")
+        void stagedSidecarWithoutFile() throws IOException {
+            stage(PROJECT, null, sidecarOf(newer).write(), Instant.now());
+
+            var recovered = recover(PROJECT);
+
+            assertAll(
+                    () -> assertEquals(List.of(DISCARDED), kinds(recovered)),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                    () -> assertTrue(stagedNames().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("the staged names of one project never claim those of a project whose id begins with it")
+        void isolation() throws IOException {
+            var projectContent = EnrolmentCodec.write(newer);
+            var sibling = enrolment(SIBLING, true);
+            var siblingContent = EnrolmentCodec.write(sibling);
+            stage(PROJECT, projectContent, sidecarOf(newer).write(), Instant.now());
+            var siblingStaged = stage(SIBLING, siblingContent, sidecarOf(sibling).write(), Instant.now());
+            var leftover = Files.writeString(store.directory().resolve(PROJECT + ".json.tmp." + UUID.randomUUID()),
+                    "{}");
+            var unrelated = Files.writeString(store.directory().resolve("notes.txt"), "x");
+            var siblingNames = List.of(staged(store.file(SIBLING), siblingStaged).getFileName().toString(),
+                    staged(store.sidecar(SIBLING), siblingStaged).getFileName().toString());
+
+            var recovered = recover(PROJECT);
+            var namesAfterRecovery = names();
+            var removed = remove(PROJECT);
+            var namesAfterRemove = names();
+            var siblingRecovered = recover(SIBLING);
+
+            assertAll(
+                    () -> assertEquals(List.of(COMPLETED), kinds(recovered)),
+                    () -> assertTrue(namesAfterRecovery.containsAll(siblingNames), namesAfterRecovery::toString),
+                    () -> assertTrue(removed),
+                    () -> assertTrue(namesAfterRemove.containsAll(siblingNames), namesAfterRemove::toString),
+                    () -> assertEquals(List.of(COMPLETED), kinds(siblingRecovered)),
+                    () -> assertArrayEquals(siblingContent, Files.readAllBytes(store.file(SIBLING))),
+                    () -> assertTrue(Files.exists(leftover)),
+                    () -> assertTrue(Files.exists(unrelated)),
+                    () -> assertEquals(Set.of(SIBLING), store.projectIds()));
+        }
+
+        @Test
+        @DisplayName("several stopped writes of one project are settled in ascending transaction order")
+        void severalTransactionsInOrder() throws IOException {
+            var first = enrolment(PROJECT, false);
+            var second = enrolment(PROJECT, true);
+            var later = Instant.parse("2026-10-12T08:00:01Z");
+            var earlier = Instant.parse("2026-10-12T08:00:00Z");
+            var secondId = stage(PROJECT, EnrolmentCodec.write(second), sidecarOf(second).write(), later);
+            var firstId = stage(PROJECT, EnrolmentCodec.write(first), sidecarOf(first).write(), earlier);
+
+            var recovered = recover(PROJECT);
+
+            assertAll(
+                    () -> assertEquals(List.of(firstId, secondId),
+                            recovered.stream().map(PairRecovery::transactionId).toList()),
+                    () -> assertEquals(List.of(COMPLETED, COMPLETED), kinds(recovered)),
+                    () -> assertArrayEquals(EnrolmentCodec.write(second), Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertTrue(consistent(PROJECT)),
+                    () -> assertTrue(stagedNames().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a write settles an earlier stopped write first, and its own pair is the one in place")
+        void writeSettlesAnEarlierStoppedWriteFirst() throws IOException {
+            write(store, old);
+            writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
+
+            write(store, old);
+
+            assertAll(
+                    () -> assertArrayEquals(EnrolmentCodec.write(old), Files.readAllBytes(store.file(PROJECT))),
+                    () -> assertTrue(consistent(PROJECT)),
+                    () -> assertTrue(stagedNames().isEmpty()));
+            assertPairLogs(COMPLETED);
+        }
+
+        @Test
+        @DisplayName("a removal drops staged leftovers, so the unenrolled project is never rolled forward again")
+        void removeDropsStagedLeftovers() throws IOException {
+            write(store, old);
+            writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
+
+            var removed = remove(PROJECT);
+            var namesAfterRemove = names();
+            var recovered = recover(PROJECT);
+            writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
+            var stagedOnly = stagedNames();
+            var removedStagedOnly = remove(PROJECT);
+
+            assertAll(
+                    () -> assertTrue(removed),
+                    () -> assertTrue(namesAfterRemove.isEmpty(), namesAfterRemove::toString),
+                    () -> assertTrue(recovered.isEmpty()),
+                    () -> assertEquals(2, stagedOnly.size()),
+                    () -> assertFalse(removedStagedOnly),
+                    () -> assertTrue(names().isEmpty()),
+                    () -> assertTrue(store.projectIds().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("the recovery is refused without the project's lock, another project's lock does not count")
+        void recoverWithoutLock() throws IOException {
+            writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
+            var before = names();
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(store.lockKey(SIBLING));
+
+                assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
+                        () -> store.recoverPair(transaction, PROJECT)).reason());
+            }
+            var namesAfterRefusal = names();
+            var recovered = recover(PROJECT);
+
+            assertAll(
+                    () -> assertEquals(before, namesAfterRefusal),
+                    () -> assertEquals(List.of(COMPLETED), kinds(recovered)));
+        }
+
+        @Test
+        @DisplayName("a store without its directory recovers nothing")
+        void noDirectory() {
+            var elsewhere = new EnrolmentStore(base.resolve("elsewhere"));
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(elsewhere.lockKey(PROJECT));
+
+                assertTrue(elsewhere.recoverPair(transaction, PROJECT).isEmpty());
+            }
+        }
+
+        @Test
+        @DisplayName("the base is absolute and normalized, for a relative and an unnormalized argument")
+        void baseIsAbsoluteAndNormalized() {
+            assertAll(
+                    () -> assertEquals(Path.of("x").toAbsolutePath().normalize(),
+                            new EnrolmentStore(Path.of("relative/../x")).base()),
+                    () -> assertEquals(base.toAbsolutePath().normalize().resolve("b"),
+                            new EnrolmentStore(base.resolve("a/../b")).base()));
         }
     }
 

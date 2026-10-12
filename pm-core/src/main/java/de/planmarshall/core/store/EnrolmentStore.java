@@ -9,20 +9,26 @@
  */
 package de.planmarshall.core.store;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedSet;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
+import de.planmarshall.core.log.PmMcpLogMessages.INFO;
+import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -39,9 +45,14 @@ import de.planmarshall.core.service.LockTransaction;
  * one lock, so two writes of one project never interleave the file and its sidecar.
  * <p>
  * The store holds no key and computes no HMAC: it reads and writes the bytes and the sidecar record the runtime gives
- * it, and refuses a sidecar that does not record the size and SHA-256 of the file it is written with. A write replaces
- * the file before the sidecar, so a write stopped between the two leaves a pair that the runtime's integrity check
- * refuses, never one it trusts.
+ * it, and refuses a sidecar that does not record the size and SHA-256 of the file it is written with. A write stages
+ * the file and its sidecar completely, synced, as {@code <project_id>.json.tmp.<transaction id>} and
+ * {@code <project_id>.json.hmac.tmp.<transaction id>} before the first rename, and then renames the file and the
+ * sidecar into place. A write stopped on the way is settled by {@link #recoverPair}, which rolls a completely staged
+ * pair forward and discards an incomplete staging; the next write of the project runs it first. A pair that is not
+ * settled is still refused by the runtime's integrity check, never trusted. The transaction journal is not used for
+ * the pair: it is bound to the scopes of the per-project machine store, whose recovery deletes the staged files of
+ * its own directories, and the flat {@code enrolments/} directory is shared by every project.
  * <p>
  * An operator write owes its audit record (PM-IMPL-7) in the project's intent file
  * {@code <project_id>.json.audit-intent}, the document of the intent files of the JSONL stores, touched only under the
@@ -65,18 +76,71 @@ public final class EnrolmentStore {
     /** The name of the directory of the enrolment files below the base directory. */
     public static final String DIRECTORY_NAME = "enrolments";
 
+    private static final CuiLogger LOGGER = new CuiLogger(EnrolmentStore.class);
+
     private static final String SUFFIX = ".json";
+
+    private static final String SIDECAR = "sidecar";
 
     /** The parameter name {@link LockKey#identifier(String, String)} reports for an invalid project id. */
     private static final String PROJECT_ID_PARAMETER = "projectId";
 
+    /**
+     * The steps of a write of the enrolment pair, after each of which a test may stop the write as a killed process
+     * would.
+     */
+    enum PairStep {
+        /** The enrolment file was staged as {@code <project_id>.json.tmp.<transaction id>}. */
+        FILE_STAGED,
+        /** The sidecar was staged as {@code <project_id>.json.hmac.tmp.<transaction id>} and the directory forced. */
+        SIDECAR_STAGED,
+        /** The staged enrolment file was renamed over the enrolment file. */
+        FILE_REPLACED,
+        /** The staged sidecar was renamed over the sidecar and the directory forced. */
+        SIDECAR_REPLACED
+    }
+
+    /**
+     * Observes the steps of a write of the enrolment pair. A hook that throws stops the write exactly there and leaves
+     * what a killed process leaves: the failing write cleans nothing up.
+     */
+    @FunctionalInterface
+    interface PairHook {
+
+        /** The hook that does nothing. */
+        PairHook NONE = step -> {
+            // production: no step is observed
+        };
+
+        /** @param step the step that just completed */
+        void after(PairStep step);
+    }
+
     private final Path base;
     private final Path directory;
+    private final PairHook hook;
 
     /** @param base the base directory of the runtime */
     public EnrolmentStore(Path base) {
+        this(base, PairHook.NONE);
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @param hook the observer of the steps of a pair write
+     */
+    EnrolmentStore(Path base, PairHook hook) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.directory = this.base.resolve(DIRECTORY_NAME);
+        this.hook = Objects.requireNonNull(hook, "hook");
+    }
+
+    /**
+     * @return the base directory the store was built with, absolute and normalized; the runtime compares the write
+     *         paths of an enrolment with it and takes the key-creation lock from it
+     */
+    public Path base() {
+        return base;
     }
 
     /** @return the directory of the enrolment files, absolute and normalized */
@@ -331,7 +395,11 @@ public final class EnrolmentStore {
     }
 
     /**
-     * Writes the enrolment as its canonical bytes and then its sidecar, each by an atomic rename.
+     * Writes the enrolment as its canonical bytes together with its sidecar, as one pair: a stopped write of the pair
+     * left earlier is settled first ({@link #recoverPair}); then the file and the sidecar are staged completely and
+     * synced, and only then renamed into place, the file first. A write stopped after the staging is completed by the
+     * next {@link #recoverPair}, one stopped before is discarded by it; a pair that is not settled is refused by the
+     * runtime's integrity check, never trusted.
      *
      * @param transaction a transaction that holds the project's lock
      * @param enrolment   the enrolment to write
@@ -339,22 +407,179 @@ public final class EnrolmentStore {
      * @throws InternalFaultException   if the transaction does not hold the project's lock; nothing was written then
      * @throws IllegalArgumentException if the sidecar does not record the size and SHA-256 of the canonical bytes;
      *                                  nothing was written then
-     * @throws UncheckedIOException     if a file cannot be written
+     * @throws UncheckedIOException     if a file cannot be written; what was staged is left for {@link #recoverPair}
      */
     public void write(LockTransaction transaction, ProjectEnrolment enrolment, EnrolmentSidecar sidecar) {
         Objects.requireNonNull(enrolment, "enrolment");
-        Objects.requireNonNull(sidecar, "sidecar");
+        Objects.requireNonNull(sidecar, SIDECAR);
         var projectId = enrolment.projectId();
-        var file = storeFile(file(projectId), projectId);
-        var sidecarFile = storeFile(sidecar(projectId), projectId);
-        StoreLockGuard.requireHeld(transaction, file.store(), file.lockKey());
+        var file = file(projectId);
+        StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
         var content = EnrolmentCodec.write(enrolment);
         if (!sidecar.matches(content)) {
             throw new IllegalArgumentException(
                     "The sidecar does not record the canonical bytes of the enrolment of " + projectId);
         }
-        file.write(transaction, content);
-        sidecarFile.write(transaction, sidecar.write());
+        recoverPair(transaction, projectId);
+        var transactionId = TransactionId.generate(Clock.systemUTC());
+        var sidecarFile = sidecar(projectId);
+        var stagedFile = staged(file, transactionId);
+        var stagedSidecar = staged(sidecarFile, transactionId);
+        try {
+            SyncedFiles.writeNew(stagedFile, content);
+            hook.after(PairStep.FILE_STAGED);
+            SyncedFiles.writeNew(stagedSidecar, sidecar.write());
+            SyncedFiles.forceDirectory(directory);
+            hook.after(PairStep.SIDECAR_STAGED);
+            Files.move(stagedFile, file, StandardCopyOption.ATOMIC_MOVE);
+            hook.after(PairStep.FILE_REPLACED);
+            Files.move(stagedSidecar, sidecarFile, StandardCopyOption.ATOMIC_MOVE);
+            SyncedFiles.forceDirectory(directory);
+            hook.after(PairStep.SIDECAR_REPLACED);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Enrolment of '%s' cannot be written".formatted(projectId), e);
+        }
+    }
+
+    /**
+     * Settles the stopped writes of the project's enrolment pair: completes a write that staged the file and its
+     * sidecar completely, and discards a staging that is incomplete or does not match. It holds no key and signs
+     * nothing: it only completes or discards a pair that a write already produced. The staged files of each stopped
+     * write are processed in the ascending order of their transaction id:
+     * <ol>
+     * <li>The staged file and a staged sidecar that reads strictly and matches it: both are moved into place, the
+     * write is {@link PairRecovery.Completed}.</li>
+     * <li>The staged file and a staged sidecar that is missing, torn, unreadable or does not match it: no rename
+     * happened, both are deleted, the write is {@link PairRecovery.Discarded} and the enrolment is as it was.</li>
+     * <li>Only the staged sidecar, because the file was already replaced: it is moved into place if it reads strictly
+     * and matches the current enrolment file ({@link PairRecovery.Completed}); otherwise it is deleted
+     * ({@link PairRecovery.Discarded}) and the file is left as it is, which the integrity check then refuses.</li>
+     * </ol>
+     * A completed write is logged as INFO {@code PM_MCP-64}, a discarded one as WARN {@code PM_MCP-166}. Only the
+     * staged names of this project are touched: {@code <project_id>.json.tmp.<transaction id>} and
+     * {@code <project_id>.json.hmac.tmp.<transaction id>}.
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @return what was done, one entry per stopped write, in the order of the transaction ids; empty if nothing was
+     *         staged or the directory does not exist
+     * @throws InternalFaultException   if the transaction does not hold the project's lock; nothing was touched then
+     * @throws IllegalArgumentException if the project id is not a valid identifier
+     * @throws UncheckedIOException     if the directory cannot be listed or a staged file cannot be read, moved or
+     *                                  deleted
+     */
+    public List<PairRecovery> recoverPair(LockTransaction transaction, String projectId) {
+        var file = file(projectId);
+        StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
+        var settled = new ArrayList<PairRecovery>();
+        try {
+            for (var transactionId : stagedTransactions(projectId)) {
+                settle(projectId, transactionId).ifPresent(settled::add);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "Stopped write of the enrolment of '%s' cannot be settled".formatted(projectId), e);
+        }
+        return List.copyOf(settled);
+    }
+
+    private Optional<PairRecovery> settle(String projectId, TransactionId transactionId) throws IOException {
+        var stagedFile = staged(file(projectId), transactionId);
+        var stagedSidecar = staged(sidecar(projectId), transactionId);
+        var stagedContent = StoreSnapshot.read(stagedFile).content();
+        var sidecarBytes = StoreSnapshot.read(stagedSidecar).content().orElse(null);
+        if (stagedContent.isPresent()) {
+            var reason = mismatch(stagedSidecar, sidecarBytes, stagedContent.get());
+            if (reason.isEmpty()) {
+                return Optional.of(completed(projectId, transactionId,
+                        List.of(moveIntoPlace(stagedFile, file(projectId)),
+                                moveIntoPlace(stagedSidecar, sidecar(projectId)))));
+            }
+            return Optional.of(discarded(projectId, transactionId, List.of(stagedFile, stagedSidecar),
+                    reason.get()));
+        }
+        if (sidecarBytes == null) {
+            return Optional.empty();
+        }
+        var current = StoreSnapshot.read(file(projectId)).content();
+        var reason = current.isEmpty() ? Optional.of("the enrolment file is missing")
+                : mismatch(stagedSidecar, sidecarBytes, current.get());
+        if (reason.isEmpty()) {
+            return Optional.of(completed(projectId, transactionId,
+                    List.of(moveIntoPlace(stagedSidecar, sidecar(projectId)))));
+        }
+        return Optional.of(discarded(projectId, transactionId, List.of(stagedSidecar), reason.get()));
+    }
+
+    /**
+     * @param sidecarBytes the bytes of the staged sidecar; {@code null} if it does not exist
+     * @return why the staged sidecar does not stand for the content; empty if it reads strictly and matches it
+     */
+    private static Optional<String> mismatch(Path stagedSidecar, byte[] sidecarBytes, byte[] content) {
+        if (sidecarBytes == null) {
+            return Optional.of("the staged sidecar is missing");
+        }
+        try {
+            return EnrolmentSidecar.read(stagedSidecar, sidecarBytes).matches(content) ? Optional.empty()
+                    : Optional.of("the staged sidecar does not match the file it stands for");
+        } catch (StoreRefusal e) {
+            return Optional.of("the staged sidecar is refused: " + e.getMessage());
+        }
+    }
+
+    private Path moveIntoPlace(Path staged, Path target) throws IOException {
+        Files.move(staged, target, StandardCopyOption.ATOMIC_MOVE);
+        SyncedFiles.forceDirectory(directory);
+        return target;
+    }
+
+    private static PairRecovery completed(String projectId, TransactionId transactionId, List<Path> replaced) {
+        LOGGER.info(INFO.ENROLMENT_PAIR_COMPLETED, projectId, transactionId);
+        return new PairRecovery.Completed(transactionId, replaced);
+    }
+
+    private PairRecovery discarded(String projectId, TransactionId transactionId, List<Path> staged, String reason)
+            throws IOException {
+        var deleted = deleteAll(staged);
+        LOGGER.warn(WARN.ENROLMENT_PAIR_DISCARDED, projectId, reason);
+        return new PairRecovery.Discarded(transactionId, deleted, reason);
+    }
+
+    private List<Path> deleteAll(List<Path> files) throws IOException {
+        var deleted = new ArrayList<Path>();
+        for (var staged : files) {
+            if (Files.deleteIfExists(staged)) {
+                deleted.add(staged);
+            }
+        }
+        SyncedFiles.forceDirectory(directory);
+        return deleted;
+    }
+
+    /**
+     * Lists the transactions that left a staged name of the project: {@code <project_id>.json.tmp.<id>} or
+     * {@code <project_id>.json.hmac.tmp.<id>} for a transaction id. A name of another project, whose id merely begins
+     * with this one, and the temporary file of a write that is not a transaction are not among them.
+     */
+    private List<TransactionId> stagedTransactions(String projectId) throws IOException {
+        var fileName = file(projectId).getFileName().toString();
+        var sidecarName = sidecar(projectId).getFileName().toString();
+        var transactions = new TreeMap<String, TransactionId>();
+        try (var entries = Files.list(directory)) {
+            entries.map(entry -> entry.getFileName().toString())
+                    .forEach(name -> TransactionId.ofSuffix(name)
+                            .filter(id -> name.equals(id.stagedName(fileName, TransactionJournal.Mode.REPLACE))
+                                    || name.equals(id.stagedName(sidecarName, TransactionJournal.Mode.REPLACE)))
+                            .ifPresent(id -> transactions.put(id.value(), id)));
+        } catch (NoSuchFileException _) {
+            return List.of();
+        }
+        return List.copyOf(transactions.values());
+    }
+
+    private static Path staged(Path target, TransactionId transactionId) {
+        return target.resolveSibling(
+                transactionId.stagedName(target.getFileName().toString(), TransactionJournal.Mode.REPLACE));
     }
 
     /**
@@ -367,12 +592,14 @@ public final class EnrolmentStore {
      * @throws UncheckedIOException   if the sidecar cannot be written
      */
     public void writeSidecar(LockTransaction transaction, String projectId, EnrolmentSidecar sidecar) {
-        Objects.requireNonNull(sidecar, "sidecar");
+        Objects.requireNonNull(sidecar, SIDECAR);
         storeFile(sidecar(projectId), projectId).write(transaction, sidecar.write());
     }
 
     /**
-     * Removes the project's enrolment file and its sidecar, and nothing else.
+     * Removes the project's enrolment file and its sidecar, and the staged files of every stopped write of the pair
+     * first, so a stopped write is never rolled forward later and an unenrolled project never comes back. Its audit
+     * intent and everything else stay.
      *
      * @param transaction a transaction that holds the project's lock
      * @param projectId   the project
@@ -385,6 +612,10 @@ public final class EnrolmentStore {
         var sidecarFile = sidecar(projectId);
         StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
         try {
+            for (var transactionId : stagedTransactions(projectId)) {
+                Files.deleteIfExists(staged(file, transactionId));
+                Files.deleteIfExists(staged(sidecarFile, transactionId));
+            }
             var removed = Files.deleteIfExists(file);
             removed |= Files.deleteIfExists(sidecarFile);
             SyncedFiles.forceDirectory(directory);

@@ -24,7 +24,8 @@ import de.planmarshall.core.store.LockKey;
  * <p>
  * Every record is built by the factory of its event, which fixes its name, category and outcome and exactly the
  * details the specification names; the enrolment records (PM-EXEC-2, PM-SEC-4, PM-SEC-5) carry the project and, for
- * a refusal, its reason. The three records of a succeeded operator write ({@code enrolment_written},
+ * a refusal ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code enrolment_invalid},
+ * {@code unenrol_refused}), its reason. The three records of a succeeded operator write ({@code enrolment_written},
  * {@code enrolment_removed}, {@code enrolment_rebaselined}) also carry the transaction of the write: they are owed in
  * a durable intent before the write and handed over at least once, and a record handed over again carries the same
  * transaction id. Before the write the intent holds the record in its unconfirmed form ({@link #notConfirmed()},
@@ -105,6 +106,12 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The name of the event that records an enrolment file or sidecar refused by a per-use check. */
     public static final String ENROLMENT_INSECURE = "enrolment_insecure";
+
+    /**
+     * The name of the event that records an enrolment the runtime refused to sign or to use because a value violates
+     * the enrolment rules.
+     */
+    public static final String ENROLMENT_INVALID = "enrolment_invalid";
 
     /** The name of the event that records an enrolment file and its sidecar written by {@code enrol}. */
     public static final String ENROLMENT_WRITTEN = "enrolment_written";
@@ -225,6 +232,16 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      */
     public static AuditEvent enrolmentInsecure(String projectId, String reason) {
         return refusal(ENROLMENT_INSECURE, CATEGORY_SECURITY, projectId, reason);
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @param reason    which enrolment rule a value violates, or which strict read of the enrolment file or its
+     *                  sidecar refused it
+     * @return the record of the enrolment refused as invalid
+     */
+    public static AuditEvent enrolmentInvalid(String projectId, String reason) {
+        return refusal(ENROLMENT_INVALID, CATEGORY_SECURITY, projectId, reason);
     }
 
     /**

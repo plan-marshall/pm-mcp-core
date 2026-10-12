@@ -77,12 +77,12 @@ class StoreRefusalTest {
     }
 
     @Test
-    @DisplayName("the outcomes are exactly the four of the reader contract and the two of the enrolment integrity")
+    @DisplayName("the outcomes are exactly the four of the reader contract and the three of the enrolment")
     void closedOutcomes() {
         var codes = Stream.of(Outcome.values()).map(Outcome::code).toList();
 
         assertEquals(List.of("absent", "unreadable", "format_outdated", "format_newer", "enrolment_tampered",
-                "enrolment_insecure"), codes);
+                "enrolment_insecure", "enrolment_invalid"), codes);
     }
 
     /**
@@ -94,6 +94,8 @@ class StoreRefusalTest {
     class EnrolmentIntegrity {
 
         private static final Path ENROLMENT = Path.of("/base/enrolments/pm-mcp-core.json");
+        private static final String PROJECT = "pm-mcp-core";
+        private static final String REASON = "build_environment: GH_TOKEN is a credential variable";
 
         @Test
         @DisplayName("a tampered enrolment names the file, the detail and the accept-edit command of its project")
@@ -121,6 +123,34 @@ class StoreRefusalTest {
                     () -> assertEquals(OptionalInt.empty(), refusal.found()),
                     () -> assertEquals(ENROLMENT + ": enrolment_insecure: mode 0644 is broader than 0600",
                             refusal.getMessage()));
+        }
+
+        @Test
+        @DisplayName("an invalid enrolment names the file, the code and the reason, and no version found")
+        void invalid() {
+            var refusal = StoreRefusal.enrolmentInvalid(ENROLMENT, PROJECT, REASON);
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals("enrolment_invalid", refusal.outcome().code()),
+                    () -> assertEquals(ENROLMENT, refusal.file()),
+                    () -> assertEquals(OptionalInt.empty(), refusal.found()),
+                    () -> assertEquals(ProjectEnrolment.FORMAT_VERSION, refusal.current()),
+                    () -> assertEquals(ENROLMENT + ": enrolment_invalid: " + REASON, refusal.getMessage()));
+        }
+
+        @Test
+        @DisplayName("an invalid enrolment without a file, a project or a reason is refused, and so is an invalid id")
+        void invalidMissingArguments() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInvalid(null, PROJECT, REASON)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInvalid(ENROLMENT, null, REASON)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInvalid(ENROLMENT, PROJECT, null)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> StoreRefusal.enrolmentInvalid(ENROLMENT, "../x", REASON)));
         }
 
         @Test

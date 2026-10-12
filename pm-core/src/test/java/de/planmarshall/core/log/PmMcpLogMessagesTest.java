@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.log;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,10 +20,13 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * The registry numbers every message once (PM-IMPL-1): two messages with one identifier cannot be told apart in a
@@ -57,6 +61,28 @@ class PmMcpLogMessagesTest {
         for (LogRecord logRecord : all) {
             assertTrue(seen.add(logRecord.getIdentifier()), logRecord.resolveIdentifierString());
         }
+    }
+
+    static Stream<Arguments> enrolmentPairAndPolicyRecords() {
+        return Stream.of(
+                Arguments.of(PmMcpLogMessages.INFO.ENROLMENT_PAIR_COMPLETED, "PM_MCP-64",
+                        "Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'"),
+                Arguments.of(PmMcpLogMessages.WARN.ENROLMENT_INVALID, "PM_MCP-165",
+                        "Enrolment of project '%s' refused with outcome 'enrolment_invalid': %s"),
+                Arguments.of(PmMcpLogMessages.WARN.ENROLMENT_PAIR_DISCARDED, "PM_MCP-166",
+                        "Incomplete staged write of the enrolment of project '%s' discarded, "
+                                + "the enrolment is as it was before the write: %s"),
+                Arguments.of(PmMcpLogMessages.WARN.ENROLMENT_AUDIT_REPLAY_FAILED, "PM_MCP-167",
+                        "Replay of the owed audit records of unenrolled projects failed: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("enrolmentPairAndPolicyRecords")
+    @DisplayName("the records of the enrolment pair, the enrolment policy and the owed-audit replay")
+    void enrolmentPairAndPolicy(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
     }
 
     private static List<LogRecord> records(String level) throws ReflectiveOperationException {
