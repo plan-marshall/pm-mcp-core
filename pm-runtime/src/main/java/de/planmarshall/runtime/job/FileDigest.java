@@ -54,7 +54,7 @@ class FileDigest {
          * @return whether a regular file with exactly this digest was found
          */
         default boolean matches(String sha256) {
-            return this instanceof Regular regular && regular.sha256().equals(sha256);
+            return this instanceof Regular(var digest) && digest.equals(sha256);
         }
     }
 
@@ -95,7 +95,7 @@ class FileDigest {
             try (var channel = Files.newByteChannel(file, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
                 return new Regular(digest(channel));
             }
-        } catch (NoSuchFileException | NotDirectoryException e) {
+        } catch (NoSuchFileException | NotDirectoryException _) {
             return new Absent();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -118,7 +118,7 @@ class FileDigest {
         Path relative;
         try {
             relative = Path.of(relativePath);
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             return new NotRegular();
         }
         if (relativePath.isEmpty() || relative.isAbsolute()) {
@@ -149,7 +149,7 @@ class FileDigest {
         try {
             var attributes = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             return attributes.isDirectory() ? Optional.empty() : Optional.of(new NotRegular());
-        } catch (NoSuchFileException | NotDirectoryException e) {
+        } catch (NoSuchFileException | NotDirectoryException _) {
             return Optional.of(new Absent());
         } catch (IOException e) {
             throw new UncheckedIOException(e);

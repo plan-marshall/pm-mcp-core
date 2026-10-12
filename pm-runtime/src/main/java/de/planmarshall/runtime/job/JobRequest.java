@@ -46,6 +46,9 @@ import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
 public record JobRequest(String projectId, String workingDirectory, Set<Path> liveWorktrees, Set<String> modules,
 Target target) {
 
+    /** The name a {@code null} value of a JSON string, a JSON number or an object member is reported under. */
+    private static final String VALUE = "value";
+
     /**
      * @throws NullPointerException     if a component or an element is {@code null}
      * @throws IllegalArgumentException if the project id is empty
@@ -161,7 +164,7 @@ Target target) {
 
         /** @throws NullPointerException if the value is {@code null} */
         public Text {
-            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(value, VALUE);
         }
     }
 
@@ -175,7 +178,7 @@ Target target) {
 
         /** @throws NullPointerException if the value is {@code null} */
         public Numeric {
-            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(value, VALUE);
         }
     }
 
@@ -234,7 +237,7 @@ Target target) {
         private static SortedMap<String, Value> copy(Map<String, Value> fields) {
             var copy = new TreeMap<String, Value>();
             for (var entry : fields.entrySet()) {
-                copy.put(Objects.requireNonNull(entry.getKey(), "name"), Objects.requireNonNull(entry.getValue(), "value"));
+                copy.put(Objects.requireNonNull(entry.getKey(), "name"), Objects.requireNonNull(entry.getValue(), VALUE));
             }
             return Collections.unmodifiableSortedMap(copy);
         }

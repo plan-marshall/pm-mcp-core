@@ -63,7 +63,7 @@ class ExecutableCheck {
             Path workingDirectory, JobRequest.Target target) {
         return switch (target) {
             case HostToolCall call -> hostTool(enrolment, call.tool());
-            case HostToolBuild build -> hostTool(enrolment, HostToolName.NPM);
+            case HostToolBuild _ -> hostTool(enrolment, HostToolName.NPM);
             case WrapperBuild build -> wrapper(projectId, enrolment, workingDirectory, build.wrapper());
             case ProjectScriptCall call -> projectScript(enrolment, workingDirectory, call);
         };
@@ -72,8 +72,8 @@ class ExecutableCheck {
     private static VerifyNotResolvePipeline.Stage<List<String>> wrapper(String projectId, ProjectEnrolment enrolment,
             Path workingDirectory, WrapperName name) {
         var wrapper = WrapperVerification.verify(projectId, enrolment, workingDirectory, name);
-        if (wrapper instanceof VerifyNotResolvePipeline.Stage.Failed<Path> failed) {
-            return VerifyNotResolvePipeline.Stage.failed(failed.refusal());
+        if (wrapper instanceof VerifyNotResolvePipeline.Stage.Failed<Path>(var refusal)) {
+            return VerifyNotResolvePipeline.Stage.failed(refusal);
         }
         var path = ((VerifyNotResolvePipeline.Stage.Passed<Path>) wrapper).value().toString();
         if (name != WrapperName.PW) {
@@ -130,7 +130,7 @@ class ExecutableCheck {
         try {
             var path = Path.of(tool.executablePath());
             return path.isAbsolute() && path.normalize().equals(path) ? path : null;
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             return null;
         }
     }
@@ -138,8 +138,8 @@ class ExecutableCheck {
     /** Appends the target to the verified start of an interpreter, or passes its refusal on. */
     private static VerifyNotResolvePipeline.Stage<List<String>> prepend(
             VerifyNotResolvePipeline.Stage<List<String>> interpreter, String target) {
-        if (interpreter instanceof VerifyNotResolvePipeline.Stage.Passed<List<String>> passed) {
-            var argv = new ArrayList<>(passed.value());
+        if (interpreter instanceof VerifyNotResolvePipeline.Stage.Passed<List<String>>(var start)) {
+            var argv = new ArrayList<>(start);
             argv.add(target);
             return VerifyNotResolvePipeline.Stage.passed(List.copyOf(argv));
         }

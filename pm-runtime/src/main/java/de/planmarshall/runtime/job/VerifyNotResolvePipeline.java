@@ -112,27 +112,27 @@ public final class VerifyNotResolvePipeline {
 
         var roots = new WorkspaceRoots(Path.of(enrolment.projectRoot()), request.liveWorktrees());
         var confinement = new WorkspaceConfinement(roots).confine(request.workingDirectory());
-        if (confinement instanceof Rejected rejected) {
+        if (confinement instanceof Rejected(var rejection)) {
             return refused(projectId, JobRefusal.of(Reason.PATH_TRAVERSAL_REJECTED,
                     "the working directory lies outside the workspace of the project: "
-                            + rejected.reason().name().toLowerCase(Locale.ROOT)));
+                            + rejection.name().toLowerCase(Locale.ROOT)));
         }
         var workingDirectory = ((Confined) confinement).path();
 
         List<String> executable;
         switch (ExecutableCheck.check(projectId, enrolment, workingDirectory, request.target())) {
-            case Stage.Failed<List<String>> failed -> {
-                return refused(projectId, failed.refusal());
+            case Stage.Failed<List<String>>(var refusal) -> {
+                return refused(projectId, refusal);
             }
-            case Stage.Passed<List<String>> passed -> executable = passed.value();
+            case Stage.Passed<List<String>>(var start) -> executable = start;
         }
 
         ArgumentCheck.Arguments arguments;
         switch (ArgumentCheck.check(enrolment, defaults, request)) {
-            case Stage.Failed<ArgumentCheck.Arguments> failed -> {
-                return refused(projectId, failed.refusal());
+            case Stage.Failed<ArgumentCheck.Arguments>(var refusal) -> {
+                return refused(projectId, refusal);
             }
-            case Stage.Passed<ArgumentCheck.Arguments> passed -> arguments = passed.value();
+            case Stage.Passed<ArgumentCheck.Arguments>(var checked) -> arguments = checked;
         }
 
         var argv = new ArrayList<>(executable);

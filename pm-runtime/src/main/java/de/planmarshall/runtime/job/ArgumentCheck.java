@@ -103,9 +103,9 @@ class ArgumentCheck {
     static VerifyNotResolvePipeline.Stage<Arguments> check(ProjectEnrolment enrolment, DefaultTemplates defaults,
             JobRequest request) {
         return switch (request.target()) {
-            case WrapperBuild build -> build(enrolment, defaults, buildSystem(build.wrapper()), build.verb(),
-                    build.module(), request.modules());
-            case HostToolBuild build -> build(enrolment, defaults, BuildSystem.NPM, build.verb(), build.module(),
+            case WrapperBuild(var wrapper, var verb, var module) -> build(enrolment, defaults, buildSystem(wrapper),
+                    verb, module, request.modules());
+            case HostToolBuild(var verb, var module) -> build(enrolment, defaults, BuildSystem.NPM, verb, module,
                     request.modules());
             case HostToolCall call -> hostToolCall(call);
             case ProjectScriptCall call -> projectScript(enrolment, call);
@@ -156,8 +156,8 @@ class ArgumentCheck {
         var arguments = new ArrayList<String>();
         for (var element : template.elements()) {
             switch (element) {
-                case Argv.Literal literal -> arguments.add(literal.value());
-                case Argv.ModuleGroup group -> module.ifPresent(name -> group.arguments()
+                case Argv.Literal(var value) -> arguments.add(value);
+                case Argv.ModuleGroup(var group) -> module.ifPresent(name -> group
                         .forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, name))));
             }
         }
@@ -197,9 +197,9 @@ class ArgumentCheck {
     /** Checks every string of the arguments of a project script, the names of the members included. */
     private static Optional<String> rejectedValue(Value value, String path) {
         return switch (value) {
-            case Text text -> rejectedArgument(text.value()).map(rule -> "the value at %s %s".formatted(path, rule));
-            case Items items -> {
-                for (var element : items.items()) {
+            case Text(var text) -> rejectedArgument(text).map(rule -> "the value at %s %s".formatted(path, rule));
+            case Items(var items) -> {
+                for (var element : items) {
                     var rejected = rejectedValue(element, path + "[]");
                     if (rejected.isPresent()) {
                         yield rejected;
@@ -207,8 +207,8 @@ class ArgumentCheck {
                 }
                 yield Optional.empty();
             }
-            case Fields fields -> {
-                for (var member : fields.fields().entrySet()) {
+            case Fields(var fields) -> {
+                for (var member : fields.entrySet()) {
                     var name = rejectedArgument(member.getKey());
                     if (name.isPresent()) {
                         yield Optional.of("a member name at %s %s".formatted(path, name.get()));
