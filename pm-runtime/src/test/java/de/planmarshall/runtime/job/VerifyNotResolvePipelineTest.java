@@ -175,7 +175,7 @@ class VerifyNotResolvePipelineTest {
             var lockedKey = new EnrolmentKey(new LockedKeyring(), fixture.base.resolve("state"),
                     JobEnrolmentFixture.USER, new SecureRandom());
             var pipeline = new VerifyNotResolvePipeline(new EnrolmentCheck(fixture.store, lockedKey,
-                    new EnrolmentFileCheck(JobEnrolmentFixture.USER), fixture.sink));
+                    new EnrolmentFileCheck(JobEnrolmentFixture.USER), fixture.sink), JobEnrolmentFixture.NO_DEFAULTS);
             var request = fixture.gitStatus(fixture.root.toString());
 
             var fault = assertThrows(SecretStoreException.class, () -> fixture.verify(pipeline, request));

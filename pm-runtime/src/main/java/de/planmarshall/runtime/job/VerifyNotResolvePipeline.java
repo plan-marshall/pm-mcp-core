@@ -11,11 +11,11 @@ package de.planmarshall.runtime.job;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 
@@ -50,7 +50,9 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * {@link WrapperVerification} over the wrapper and its pinned files ({@code executable_not_enrolled},
  * {@code executable_digest_mismatch}, {@code build_config_changed}); it answers the verified absolute start of the
  * argument vector;</li>
- * <li>stage 3, the argument check, last.</li>
+ * <li>stage 3, the argument check, last: {@link ArgumentCheck} with the caller's {@link DefaultTemplates}
+ * ({@code verb_not_supported}, {@code argument_rejected}); it answers the arguments after the executable and, for a
+ * build job, the source of its template.</li>
  * </ol>
  * <p>
  * A refusal is a value. Each refusal is logged once at WARN ({@code PM_MCP-180}); a refusal of the enrolment that the
@@ -71,12 +73,15 @@ public final class VerifyNotResolvePipeline {
             StoreRefusal.Outcome.UNREADABLE, StoreRefusal.Outcome.FORMAT_OUTDATED, StoreRefusal.Outcome.FORMAT_NEWER);
 
     private final EnrolmentCheck enrolmentCheck;
+    private final DefaultTemplates defaults;
 
     /**
      * @param enrolmentCheck the enrolment check of stage 0
+     * @param defaults       the default templates of the build verbs, used by stage 3 when the enrolment holds none
      */
-    public VerifyNotResolvePipeline(EnrolmentCheck enrolmentCheck) {
+    public VerifyNotResolvePipeline(EnrolmentCheck enrolmentCheck, DefaultTemplates defaults) {
         this.enrolmentCheck = Objects.requireNonNull(enrolmentCheck, "enrolmentCheck");
+        this.defaults = Objects.requireNonNull(defaults, "defaults");
     }
 
     /**
@@ -122,7 +127,17 @@ public final class VerifyNotResolvePipeline {
             case Stage.Passed<List<String>> passed -> executable = passed.value();
         }
 
-        return new JobVerification.Verified(new VerifiedJob(workingDirectory, executable, Optional.empty(), enrolment));
+        ArgumentCheck.Arguments arguments;
+        switch (ArgumentCheck.check(enrolment, defaults, request)) {
+            case Stage.Failed<ArgumentCheck.Arguments> failed -> {
+                return refused(projectId, failed.refusal());
+            }
+            case Stage.Passed<ArgumentCheck.Arguments> passed -> arguments = passed.value();
+        }
+
+        var argv = new ArrayList<>(executable);
+        argv.addAll(arguments.arguments());
+        return new JobVerification.Verified(new VerifiedJob(workingDirectory, argv, arguments.source(), enrolment));
     }
 
     /**

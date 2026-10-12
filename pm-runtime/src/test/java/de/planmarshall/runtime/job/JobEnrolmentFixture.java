@@ -24,6 +24,7 @@ import java.util.EnumMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -86,6 +87,9 @@ final class JobEnrolmentFixture implements AutoCloseable {
 
     /** The binding of the project script. */
     static final Binding SCRIPT_BINDING = new Binding(WorkerKind.LOG_PARSER, "maven");
+
+    /** Default templates that hold none. */
+    static final DefaultTemplates NO_DEFAULTS = (buildSystem, verb) -> Optional.empty();
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -174,6 +178,28 @@ final class JobEnrolmentFixture implements AutoCloseable {
                 enrolment.buildEnvironment());
     }
 
+    /** @return the enrolment with other command templates */
+    static ProjectEnrolment withBuild(ProjectEnrolment enrolment, Build build) {
+        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
+                enrolment.pilot(), enrolment.containerEngine(), enrolment.releasedAt(), enrolment.wrappers(),
+                enrolment.hostTools(), build, enrolment.providers(), enrolment.projectScripts(),
+                enrolment.languageServers(), enrolment.commandBudgets(), enrolment.writePaths(),
+                enrolment.buildEnvironment());
+    }
+
+    /** @return the enrolment whose project script has another argument schema */
+    static ProjectEnrolment withScriptSchema(ProjectEnrolment enrolment, ArgumentSchema schema) {
+        var script = enrolment.projectScripts().get(SCRIPT_ID);
+        var scripts = new TreeMap<String, ProjectScript>();
+        scripts.put(SCRIPT_ID, new ProjectScript(script.scriptPath(), script.sha256(), script.interpreter(),
+                script.binding(), schema, script.maxTimeoutSeconds()));
+        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
+                enrolment.pilot(), enrolment.containerEngine(), enrolment.releasedAt(), enrolment.wrappers(),
+                enrolment.hostTools(), enrolment.build(), enrolment.providers(), scripts,
+                enrolment.languageServers(), enrolment.commandBudgets(), enrolment.writePaths(),
+                enrolment.buildEnvironment());
+    }
+
     /** @return the enrolment without the host tool of that name */
     static ProjectEnrolment withoutHostTool(ProjectEnrolment enrolment, HostToolName name) {
         return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
@@ -185,14 +211,24 @@ final class JobEnrolmentFixture implements AutoCloseable {
 
     /** Enrols the project over the files of the tree as they are now. */
     ProjectEnrolment enrol() {
-        var enrolment = enrolments.enrol(enrolment(), false);
+        return enrol(enrolment());
+    }
+
+    /** Enrols the project as this enrolment. */
+    ProjectEnrolment enrol(ProjectEnrolment enrolment) {
+        var written = enrolments.enrol(enrolment, false);
         events.clear();
-        return enrolment;
+        return written;
     }
 
     /** @return the pipeline over the enrolment check of this fixture */
     VerifyNotResolvePipeline pipeline() {
-        return new VerifyNotResolvePipeline(check);
+        return pipeline(NO_DEFAULTS);
+    }
+
+    /** @return the pipeline over the enrolment check of this fixture with these default templates */
+    VerifyNotResolvePipeline pipeline(DefaultTemplates defaults) {
+        return new VerifyNotResolvePipeline(check, defaults);
     }
 
     /** Runs the pipeline of this fixture in a transaction of its own. */

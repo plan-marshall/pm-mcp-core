@@ -1,0 +1,246 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.job;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+
+import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.Argv;
+import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
+import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
+import de.planmarshall.runtime.job.JobRefusal.Reason;
+import de.planmarshall.runtime.job.JobRequest.Fields;
+import de.planmarshall.runtime.job.JobRequest.HostToolBuild;
+import de.planmarshall.runtime.job.JobRequest.HostToolCall;
+import de.planmarshall.runtime.job.JobRequest.Items;
+import de.planmarshall.runtime.job.JobRequest.ProjectScriptCall;
+import de.planmarshall.runtime.job.JobRequest.Text;
+import de.planmarshall.runtime.job.JobRequest.Value;
+import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
+import de.planmarshall.runtime.job.VerifiedJob.TemplateSource;
+import lombok.experimental.UtilityClass;
+
+/**
+ * Stage 3 of the pipeline, the argument check (PM-EXEC-1, PM-EXEC-2): the last stage, run only after the enrolment,
+ * the working directory and the executable passed, so nothing a caller supplies is looked at for a job whose
+ * executable is not verified. It answers the arguments that follow the verified executable.
+ * <ul>
+ * <li>A build job takes the template enrolled for its build system and verb
+ * ({@code build.canonical_templates.<build_system>.<verb>}, source {@code enrolled}), else the template the caller's
+ * {@link DefaultTemplates} supplies (source {@code compiled_default}); without either the job is refused as
+ * {@code verb_not_supported}. A module-scoped job renders the module-argument group with {@code {module}} substituted,
+ * the module must be one of the caller's discovered modules ({@code argument_rejected} otherwise), and a template
+ * without a group refuses it as {@code verb_not_supported}; a whole-tree job omits the group.</li>
+ * <li>A host tool call passes its arguments on after they are checked.</li>
+ * <li>A project script job's arguments must validate against the script's enrolled argument schema
+ * ({@link ArgumentSchemaValidator}, {@code argument_rejected} otherwise); they add nothing to the argument vector.</li>
+ * </ul>
+ * <p>
+ * Every argument the caller supplies (a module, an argument of a host tool call, a string of a project script's
+ * arguments) is refused as {@code argument_rejected} if it is one of the forbidden free flags {@code -D}, {@code -f},
+ * {@code -s} (also with an attached value), {@code --file}, {@code --settings}, {@code --init-script} (also with
+ * {@code =value}), or if it contains a shell metacharacter ({@code |}, {@code ;}, {@code &}, {@code $}, {@code `},
+ * {@code >}, {@code <}). The enrolled templates are the operator's and are not filtered. Flags that repository files
+ * inject ({@code .mvn/maven.config} and the like) are governed by the pinned files of stage 2, not here. A refusal
+ * names which rule the argument broke, never the argument.
+ *
+ * @since 0.1
+ */
+@UtilityClass
+class ArgumentCheck {
+
+    /** The placeholder of the module-argument group. */
+    static final String MODULE_PLACEHOLDER = "{module}";
+
+    /** The forbidden short flags, refused alone and with an attached value. */
+    static final List<String> FORBIDDEN_SHORT_FLAGS = List.of("-D", "-f", "-s");
+
+    /** The forbidden long flags, refused alone and with {@code =value}. */
+    static final List<String> FORBIDDEN_LONG_FLAGS = List.of("--file", "--settings", "--init-script");
+
+    /** The shell metacharacters, refused anywhere in an argument. */
+    static final String SHELL_METACHARACTERS = "|;&$`><";
+
+    /**
+     * The arguments after the verified executable, and where the template of a build job came from.
+     *
+     * @param arguments the arguments, in order
+     * @param source    the source of the template of a build job; empty for any other job
+     */
+    record Arguments(List<String> arguments, Optional<TemplateSource> source) {
+
+        Arguments {
+            arguments = List.copyOf(arguments);
+            Objects.requireNonNull(source, "source");
+        }
+    }
+
+    /**
+     * @param enrolment the verified enrolment of the project
+     * @param defaults  the default templates the caller supplies
+     * @param request   the job as the caller asks for it
+     * @return the checked arguments, or the refusal
+     */
+    static VerifyNotResolvePipeline.Stage<Arguments> check(ProjectEnrolment enrolment, DefaultTemplates defaults,
+            JobRequest request) {
+        return switch (request.target()) {
+            case WrapperBuild build -> build(enrolment, defaults, buildSystem(build.wrapper()), build.verb(),
+                    build.module(), request.modules());
+            case HostToolBuild build -> build(enrolment, defaults, BuildSystem.NPM, build.verb(), build.module(),
+                    request.modules());
+            case HostToolCall call -> hostToolCall(call);
+            case ProjectScriptCall call -> projectScript(enrolment, call);
+        };
+    }
+
+    private static BuildSystem buildSystem(WrapperName wrapper) {
+        return switch (wrapper) {
+            case MVNW -> BuildSystem.MAVEN;
+            case GRADLEW -> BuildSystem.GRADLE;
+            case PW -> BuildSystem.PYPROJECT;
+        };
+    }
+
+    private static VerifyNotResolvePipeline.Stage<Arguments> build(ProjectEnrolment enrolment,
+            DefaultTemplates defaults, BuildSystem buildSystem, String verb, Optional<String> module,
+            Set<String> modules) {
+        var enrolled = Optional.ofNullable(enrolment.build().canonicalTemplates().get(buildSystem))
+                .map(templates -> templates.get(verb));
+        TemplateSource source;
+        Argv template;
+        if (enrolled.isPresent()) {
+            source = TemplateSource.ENROLLED;
+            template = enrolled.get();
+        } else {
+            var fallback = Objects.requireNonNull(defaults.template(buildSystem, verb), "default template");
+            if (fallback.isEmpty()) {
+                return refused(Reason.VERB_NOT_SUPPORTED, "the verb %s of %s has neither an enrolled nor a default template"
+                        .formatted(verb, buildSystem.wireName()));
+            }
+            source = TemplateSource.COMPILED_DEFAULT;
+            template = fallback.get();
+        }
+        if (module.isPresent()) {
+            var rejected = rejectedArgument(module.get());
+            if (rejected.isPresent()) {
+                return refused(Reason.ARGUMENT_REJECTED, "the module " + rejected.get());
+            }
+            if (!modules.contains(module.get())) {
+                return refused(Reason.ARGUMENT_REJECTED, "the module is not a discovered module of the project");
+            }
+            if (template.elements().stream().noneMatch(Argv.ModuleGroup.class::isInstance)) {
+                return refused(Reason.VERB_NOT_SUPPORTED,
+                        "the template of the verb %s of %s has no module-argument group, so it runs whole-tree only"
+                                .formatted(verb, buildSystem.wireName()));
+            }
+        }
+        var arguments = new ArrayList<String>();
+        for (var element : template.elements()) {
+            switch (element) {
+                case Argv.Literal literal -> arguments.add(literal.value());
+                case Argv.ModuleGroup group -> module.ifPresent(name -> group.arguments()
+                        .forEach(argument -> arguments.add(argument.replace(MODULE_PLACEHOLDER, name))));
+            }
+        }
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments, Optional.of(source)));
+    }
+
+    private static VerifyNotResolvePipeline.Stage<Arguments> hostToolCall(HostToolCall call) {
+        var arguments = call.arguments();
+        for (var index = 0; index < arguments.size(); index++) {
+            var rejected = rejectedArgument(arguments.get(index));
+            if (rejected.isPresent()) {
+                return refused(Reason.ARGUMENT_REJECTED, "the argument %d %s".formatted(index + 1, rejected.get()));
+            }
+        }
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(arguments, Optional.empty()));
+    }
+
+    private static VerifyNotResolvePipeline.Stage<Arguments> projectScript(ProjectEnrolment enrolment,
+            ProjectScriptCall call) {
+        var rejected = rejectedValue(call.arguments(), ArgumentSchemaValidator.ROOT);
+        if (rejected.isPresent()) {
+            return refused(Reason.ARGUMENT_REJECTED, rejected.get());
+        }
+        var script = enrolment.projectScripts().get(call.scriptId());
+        if (script == null) {
+            return refused(Reason.EXECUTABLE_NOT_ENROLLED,
+                    "the project script %s is not enrolled".formatted(call.scriptId()));
+        }
+        var violation = ArgumentSchemaValidator.validate(script.argumentSchema(), call.arguments());
+        if (violation.isPresent()) {
+            return refused(Reason.ARGUMENT_REJECTED,
+                    "the arguments violate the argument schema: " + violation.get());
+        }
+        return VerifyNotResolvePipeline.Stage.passed(new Arguments(List.of(), Optional.empty()));
+    }
+
+    /** Checks every string of the arguments of a project script, the names of the members included. */
+    private static Optional<String> rejectedValue(Value value, String path) {
+        return switch (value) {
+            case Text text -> rejectedArgument(text.value()).map(rule -> "the value at %s %s".formatted(path, rule));
+            case Items items -> {
+                for (var element : items.items()) {
+                    var rejected = rejectedValue(element, path + "[]");
+                    if (rejected.isPresent()) {
+                        yield rejected;
+                    }
+                }
+                yield Optional.empty();
+            }
+            case Fields fields -> {
+                for (var member : fields.fields().entrySet()) {
+                    var name = rejectedArgument(member.getKey());
+                    if (name.isPresent()) {
+                        yield Optional.of("a member name at %s %s".formatted(path, name.get()));
+                    }
+                    var rejected = rejectedValue(member.getValue(), path + "." + member.getKey());
+                    if (rejected.isPresent()) {
+                        yield rejected;
+                    }
+                }
+                yield Optional.empty();
+            }
+            default -> Optional.empty();
+        };
+    }
+
+    /**
+     * @param argument an argument the caller supplied
+     * @return which rule the argument breaks, without the argument; empty if it breaks none
+     */
+    static Optional<String> rejectedArgument(String argument) {
+        for (var index = 0; index < argument.length(); index++) {
+            if (SHELL_METACHARACTERS.indexOf(argument.charAt(index)) >= 0) {
+                return Optional.of("contains a shell metacharacter");
+            }
+        }
+        for (var flag : FORBIDDEN_SHORT_FLAGS) {
+            if (argument.startsWith(flag)) {
+                return Optional.of("is the forbidden flag " + flag);
+            }
+        }
+        for (var flag : FORBIDDEN_LONG_FLAGS) {
+            if (argument.equals(flag) || argument.startsWith(flag + "=")) {
+                return Optional.of("is the forbidden flag " + flag);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static VerifyNotResolvePipeline.Stage<Arguments> refused(Reason reason, String detail) {
+        return VerifyNotResolvePipeline.Stage.failed(JobRefusal.of(reason, detail));
+    }
+}
