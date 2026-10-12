@@ -22,7 +22,7 @@ import de.planmarshall.runtime.lock.StaleLeaseSweep;
 import de.planmarshall.runtime.lock.StaleLeaseSweep.Action;
 
 /**
- * Step 3 of the per-project recovery ({@link RecoveryStep.Name#LEASES}): the leases of the project whose holder is
+ * Step 4 of the per-project recovery ({@link RecoveryStep.Name#LEASES}): the leases of the project whose holder is
  * dead are marked orphaned, in every machine lease store the caller passes (the merge queue, the review-bot windows,
  * the build slots and the model slots), by {@link StaleLeaseSweep#sweep(LeaseStore, String, java.util.function.Predicate,
  * java.time.Instant)}. A lease is released only on positive evidence of abandonment, which is the caller's knowledge

@@ -163,6 +163,49 @@ public final class PmMcpLogMessages {
                 .identifier(57)
                 .template("Periodic sweep finished: %s projects swept, %s skipped, %s failed")
                 .build();
+
+        // WS-02, enrolment store: identifiers 60-69
+
+        /** Logged when an enrolment file and its sidecar are written by {@code enrol}. */
+        public static final LogRecord ENROLMENT_WRITTEN = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(60)
+                .template("Enrolment of project '%s' written (pilot: %s)")
+                .build();
+
+        /** Logged when an enrolment file and its sidecar are removed by {@code unenrol}; the project store stays. */
+        public static final LogRecord ENROLMENT_REMOVED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(61)
+                .template("Enrolment of project '%s' removed, its project store kept")
+                .build();
+
+        /** Logged when the sidecar of an enrolment is rewritten over the current file by {@code accept-edit}. */
+        public static final LogRecord ENROLMENT_REBASELINED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(62)
+                .template("Enrolment of project '%s' re-baselined")
+                .build();
+
+        /**
+         * Logged when a record that an earlier enrolment write owed (its hand-over was refused or stopped) is handed
+         * over by a later enrolment operation or by the recovery sweep.
+         */
+        public static final LogRecord ENROLMENT_AUDIT_REPLAYED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(63)
+                .template("Owed audit record '%s' of transaction '%s' for project '%s' handed over after an earlier refusal or stop")
+                .build();
+
+        /**
+         * Logged when the recovery of the enrolment pair completes a write that was stopped after the enrolment file
+         * and its sidecar were staged completely: the new pair is in place.
+         */
+        public static final LogRecord ENROLMENT_PAIR_COMPLETED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(64)
+                .template("Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'")
+                .build();
     }
 
     /** WARN level messages. */
@@ -291,12 +334,82 @@ public final class PmMcpLogMessages {
 
         /**
          * Logged when the audit sink refused the record of a completed store mutation; the record stays owed in its
-         * durable intent and is handed over again by the next recovery or repair.
+         * durable intent and is handed over again by the next recovery or repair. It covers an enrolment write as well,
+         * whose record stays owed in the intent {@code <project_id>.json.audit-intent} and is handed over by the next
+         * enrolment operation of the project or the recovery sweep.
          */
         public static final LogRecord AUDIT_RECORD_DEFERRED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(160)
                 .template("Audit record '%s' of transaction '%s' not handed over, kept owed in '%s': %s")
+                .build();
+
+        // WS-02, enrolment store: identifiers 161-169
+
+        /** Logged when an enrolment is refused because it does not match its sidecar; only its project is blocked. */
+        public static final LogRecord ENROLMENT_TAMPERED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(161)
+                .template("Enrolment of project '%s' refused with outcome 'enrolment_tampered': %s")
+                .build();
+
+        /** Logged when an enrolment file or its sidecar fails a per-use check; only its project is blocked. */
+        public static final LogRecord ENROLMENT_INSECURE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(162)
+                .template("Enrolment of project '%s' refused with outcome 'enrolment_insecure': %s")
+                .build();
+
+        /** Logged when {@code unenrol} is refused because the project has live work; names the items. */
+        public static final LogRecord UNENROL_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(163)
+                .template("Unenrol of project '%s' refused with outcome 'scope_active', live work: %s")
+                .build();
+
+        /**
+         * Logged when the owed audit record of an enrolment write that was started and not confirmed complete (the
+         * write failed, or the process stopped before or after it took effect) is handed over, as outcome
+         * {@code failed} with reason {@code not_confirmed}; the enrolment file and its sidecar show what became of the
+         * write.
+         */
+        public static final LogRecord ENROLMENT_WRITE_NOT_CONFIRMED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(164)
+                .template("Audit record '%s' of transaction '%s' for project '%s' handed over as not confirmed: "
+                        + "the write did not complete or its completion was not recorded")
+                .build();
+
+        /**
+         * Logged when the runtime refuses to sign or use an enrolment that violates the enrolment rules; only its
+         * project is blocked.
+         */
+        public static final LogRecord ENROLMENT_INVALID = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(165)
+                .template("Enrolment of project '%s' refused with outcome 'enrolment_invalid': %s")
+                .build();
+
+        /**
+         * Logged when the recovery of the enrolment pair discards a staged write that was stopped before the enrolment
+         * file and its sidecar were staged completely, or whose staged sidecar does not match the file; the enrolment
+         * is as it was before the write.
+         */
+        public static final LogRecord ENROLMENT_PAIR_DISCARDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(166)
+                .template("Incomplete staged write of the enrolment of project '%s' discarded, "
+                        + "the enrolment is as it was before the write: %s")
+                .build();
+
+        /**
+         * Logged when the background replay of the audit intents of projects that are no longer enrolled meets an
+         * intent it cannot read or hand over; the intent is kept.
+         */
+        public static final LogRecord ENROLMENT_AUDIT_REPLAY_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(167)
+                .template("Replay of the owed audit records of unenrolled projects failed: %s")
                 .build();
     }
 
@@ -355,6 +468,15 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(253)
                 .template("Periodic sweep run failed, the next run takes place at the interval: %s")
+                .build();
+
+        // WS-02, enrolment store: identifiers 260-269
+
+        /** Logged when the enrolment integrity key cannot be read or created; never contains the key. */
+        public static final LogRecord ENROLMENT_KEY_UNAVAILABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(260)
+                .template("Enrolment integrity key unavailable from '%s': %s")
                 .build();
     }
 }

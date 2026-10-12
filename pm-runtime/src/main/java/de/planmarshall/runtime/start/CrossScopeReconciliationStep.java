@@ -22,7 +22,7 @@ import de.planmarshall.core.store.CrossScopeReconciler.Reconciliation;
 import de.planmarshall.core.store.StoreRefusal;
 
 /**
- * Step 5 of the per-project recovery ({@link RecoveryStep.Name#CROSS_SCOPE_RECONCILIATION}): the writes outside a
+ * Step 6 of the per-project recovery ({@link RecoveryStep.Name#CROSS_SCOPE_RECONCILIATION}): the writes outside a
  * journal's scope that a crash left undone are reconciled. It runs after the journal roll-forward, by the order of
  * {@link RecoveryStep.Name}, so every authoritative store is complete when its derived writes are derived.
  * <p>

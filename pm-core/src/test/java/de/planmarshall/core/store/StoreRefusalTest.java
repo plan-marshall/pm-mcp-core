@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -30,8 +31,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
- * The one refusal of a store document or record (PM-IMPL-2): a closed set of outcomes, each naming the file, the
- * format version found and the current one.
+ * The one refusal of a store document or record (PM-IMPL-2): a closed set of outcomes, each naming the file; the
+ * outcomes of the reader contract name the format version found and the current one.
  */
 @DisplayName("Store refusal")
 class StoreRefusalTest {
@@ -76,9 +77,98 @@ class StoreRefusalTest {
     }
 
     @Test
-    @DisplayName("the outcomes are exactly the four of the reader contract")
+    @DisplayName("the outcomes are exactly the four of the reader contract and the three of the enrolment")
     void closedOutcomes() {
-        assertEquals(4, Outcome.values().length);
+        var codes = Stream.of(Outcome.values()).map(Outcome::code).toList();
+
+        assertEquals(List.of("absent", "unreadable", "format_outdated", "format_newer", "enrolment_tampered",
+                "enrolment_insecure", "enrolment_invalid"), codes);
+    }
+
+    /**
+     * The integrity refusals of an enrolment file (PM-EXEC-2, PM-SEC-4, PM-SEC-5): a tampered file names the operator
+     * command that re-baselines it, an insecure one the per-use check it failed; neither names a version found.
+     */
+    @Nested
+    @DisplayName("enrolment integrity")
+    class EnrolmentIntegrity {
+
+        private static final Path ENROLMENT = Path.of("/base/enrolments/pm-mcp-core.json");
+        private static final String PROJECT = "pm-mcp-core";
+        private static final String REASON = "build_environment: GH_TOKEN is a credential variable";
+
+        @Test
+        @DisplayName("a tampered enrolment names the file, the detail and the accept-edit command of its project")
+        void tampered() {
+            var refusal = StoreRefusal.enrolmentTampered(ENROLMENT, "pm-mcp-core", "HMAC mismatch");
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_TAMPERED, refusal.outcome()),
+                    () -> assertEquals(ENROLMENT, refusal.file()),
+                    () -> assertEquals(OptionalInt.empty(), refusal.found()),
+                    () -> assertEquals(ProjectEnrolment.FORMAT_VERSION, refusal.current()),
+                    () -> assertTrue(refusal.getMessage().startsWith(ENROLMENT + ": enrolment_tampered: HMAC mismatch"),
+                            refusal.getMessage()),
+                    () -> assertTrue(refusal.getMessage().contains("'pm-operator accept-edit enrolment pm-mcp-core'"),
+                            refusal.getMessage()));
+        }
+
+        @Test
+        @DisplayName("an insecure enrolment names the file and the reason, and no command")
+        void insecure() {
+            var refusal = StoreRefusal.enrolmentInsecure(ENROLMENT, "mode 0644 is broader than 0600");
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
+                    () -> assertEquals(OptionalInt.empty(), refusal.found()),
+                    () -> assertEquals(ENROLMENT + ": enrolment_insecure: mode 0644 is broader than 0600",
+                            refusal.getMessage()));
+        }
+
+        @Test
+        @DisplayName("an invalid enrolment names the file, the code and the reason, and no version found")
+        void invalid() {
+            var refusal = StoreRefusal.enrolmentInvalid(ENROLMENT, PROJECT, REASON);
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals("enrolment_invalid", refusal.outcome().code()),
+                    () -> assertEquals(ENROLMENT, refusal.file()),
+                    () -> assertEquals(OptionalInt.empty(), refusal.found()),
+                    () -> assertEquals(ProjectEnrolment.FORMAT_VERSION, refusal.current()),
+                    () -> assertEquals(ENROLMENT + ": enrolment_invalid: " + REASON, refusal.getMessage()));
+        }
+
+        @Test
+        @DisplayName("an invalid enrolment without a file, a project or a reason is refused, and so is an invalid id")
+        void invalidMissingArguments() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInvalid(null, PROJECT, REASON)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInvalid(ENROLMENT, null, REASON)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInvalid(ENROLMENT, PROJECT, null)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> StoreRefusal.enrolmentInvalid(ENROLMENT, "../x", REASON)));
+        }
+
+        @Test
+        @DisplayName("a refusal without a file, a project, a detail or a reason is refused, and so is an invalid id")
+        void missingArguments() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentTampered(null, "pm-mcp-core", "d")),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentTampered(ENROLMENT, null, "d")),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentTampered(ENROLMENT, "pm-mcp-core", null)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> StoreRefusal.enrolmentTampered(ENROLMENT, "../x", "d")),
+                    () -> assertThrows(NullPointerException.class, () -> StoreRefusal.enrolmentInsecure(null, "r")),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> StoreRefusal.enrolmentInsecure(ENROLMENT, null)));
+        }
     }
 
     @Nested

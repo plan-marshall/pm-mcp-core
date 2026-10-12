@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,6 +32,10 @@ import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
 import de.planmarshall.core.log.PmMcpLogMessages.INFO;
 import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.runtime.enrolment.EnrolmentCheck;
+import de.planmarshall.runtime.enrolment.Enrolments;
 
 /**
  * The per-project recovery of the runtime (doc/specification/runtime-model/02-startup-recovery-drain.adoc,
@@ -42,15 +47,22 @@ import de.planmarshall.core.log.PmMcpLogMessages.WARN;
  * to the retryable error {@code runtime_recovering}; the recovery continues, and a repeated call is served once it
  * has finished.</li>
  * <li>The background pass {@link #startBackgroundPass()}, called after the bind, over every project of
- * {@link EnrolledProjects}.</li>
+ * {@link EnrolledProjects}; it then submits the background task, if one was given (the owed audit records of
+ * projects no longer enrolled, {@link OwedEnrolmentAuditStep#unenrolledPass()}).</li>
  * </ul>
  * Each enrolled project is recovered once per runtime instance, by whichever trigger comes first; the other waits
  * for the same result. A project that is not enrolled is not recovered and gets no outcome.
  * <p>
- * The steps run in the order of {@link RecoveryStep.Name}, whatever order they are given in; the jobs-and-workers
- * step therefore runs before the leases step. A failed step is logged and recorded in the outcome and stops the
- * recovery of its project only; other projects are unaffected. The recoveries run on the executor the caller
- * supplies.
+ * The steps run in the order of {@link RecoveryStep.Name}, whatever order they are given in; the enrolment integrity
+ * step therefore runs first and the jobs-and-workers step before the leases step. A failed step is logged and
+ * recorded in the outcome and stops the recovery of its project only; other projects are unaffected. The recoveries
+ * run on the executor the caller supplies.
+ * <p>
+ * Every {@link RecoveryStep.Name} has exactly one step. The two enrolment steps, {@code ENROLMENT_INTEGRITY} and
+ * {@code OWED_ENROLMENT_AUDIT}, are built from the enrolment store by {@link #withEnrolment}; a caller of a
+ * constructor that leaves either out, as the step lists written before the enrolment store did, gets a seam that does
+ * nothing for it, and the enrolment check then does not run. Any other missing name is an
+ * {@link IllegalArgumentException} naming it.
  * <p>
  * "Recover once, whichever trigger comes first" is a claim on a shared slot: an atomic
  * {@link ConcurrentMap#computeIfAbsent} installs the future of a project's recovery, only the installer starts it,
@@ -66,9 +78,19 @@ public final class ProjectRecovery {
     /** The project recovery wait (doc/specification/timeouts/02-runtime-leases-operator-web.adoc). */
     public static final Duration RECOVERY_WAIT = Duration.ofSeconds(10);
 
+    /** The two steps of the enrolment, which a caller may leave out: each is then a seam that does nothing. */
+    private static final Set<RecoveryStep.Name> ENROLMENT_STEPS =
+            EnumSet.of(RecoveryStep.Name.ENROLMENT_INTEGRITY, RecoveryStep.Name.OWED_ENROLMENT_AUDIT);
+
+    /** The background task of a recovery that was given none: nothing is submitted. */
+    private static final Runnable NO_TASK = () -> {
+        // no background task: the background pass recovers the enrolled projects only
+    };
+
     private final EnrolledProjects enrolled;
     private final List<RecoveryStep> steps;
     private final Executor executor;
+    private final Runnable backgroundPassTask;
     private final Duration wait;
     private final ConcurrentMap<String, CompletableFuture<ProjectOutcome>> recoveries = new ConcurrentHashMap<>();
 
@@ -129,39 +151,98 @@ public final class ProjectRecovery {
 
     /**
      * @param enrolled the enrolled projects
-     * @param steps    the recovery steps, exactly one per {@link RecoveryStep.Name}; a step whose content is not
-     *                 built yet is a {@link RecoveryStep#notImplemented(RecoveryStep.Name)} seam
+     * @param steps    the recovery steps, one per {@link RecoveryStep.Name}; a step whose content is not built yet is
+     *                 a {@link RecoveryStep#notImplemented(RecoveryStep.Name)} seam, and so is each of the two
+     *                 enrolment steps the list does not hold
      * @param executor the executor the recoveries run on
-     * @throws IllegalArgumentException if two steps have the same name, or a {@link RecoveryStep.Name} has no step;
-     *                                  the message names the missing ones
+     * @throws IllegalArgumentException if two steps have the same name, or a {@link RecoveryStep.Name} other than the
+     *                                  two enrolment steps has no step; the message names the missing ones
      */
     public ProjectRecovery(EnrolledProjects enrolled, List<RecoveryStep> steps, Executor executor) {
-        this(enrolled, steps, executor, RECOVERY_WAIT);
+        this(enrolled, steps, executor, NO_TASK, RECOVERY_WAIT);
+    }
+
+    /**
+     * @param enrolled           the enrolled projects
+     * @param steps              the recovery steps, as for {@link #ProjectRecovery(EnrolledProjects, List, Executor)}
+     * @param executor           the executor the recoveries and the background task run on
+     * @param backgroundPassTask the task the background pass submits once after it started the recoveries of the
+     *                           enrolled projects, such as {@link OwedEnrolmentAuditStep#unenrolledPass()}; its
+     *                           unchecked failure is its own business
+     * @throws IllegalArgumentException as for {@link #ProjectRecovery(EnrolledProjects, List, Executor)}
+     */
+    public ProjectRecovery(EnrolledProjects enrolled, List<RecoveryStep> steps, Executor executor,
+            Runnable backgroundPassTask) {
+        this(enrolled, steps, executor, backgroundPassTask, RECOVERY_WAIT);
     }
 
     ProjectRecovery(EnrolledProjects enrolled, List<RecoveryStep> steps, Executor executor, Duration wait) {
+        this(enrolled, steps, executor, NO_TASK, wait);
+    }
+
+    ProjectRecovery(EnrolledProjects enrolled, List<RecoveryStep> steps, Executor executor,
+            Runnable backgroundPassTask, Duration wait) {
         this.enrolled = Objects.requireNonNull(enrolled, "enrolled");
         this.executor = Objects.requireNonNull(executor, "executor");
+        this.backgroundPassTask = Objects.requireNonNull(backgroundPassTask, "backgroundPassTask");
         this.wait = Objects.requireNonNull(wait, "wait");
         var names = EnumSet.noneOf(RecoveryStep.Name.class);
+        var all = new ArrayList<RecoveryStep>();
         for (var step : steps) {
             if (!names.add(step.name())) {
                 throw new IllegalArgumentException("two recovery steps named " + step.name());
             }
+            all.add(step);
         }
+        ENROLMENT_STEPS.stream().filter(name -> !names.contains(name)).map(RecoveryStep::notImplemented)
+                .forEach(all::add);
+        names.addAll(ENROLMENT_STEPS);
         var missing = EnumSet.complementOf(names);
         if (!missing.isEmpty()) {
             throw new IllegalArgumentException("no recovery step named " + missing);
         }
-        this.steps = steps.stream().sorted(Comparator.comparing(RecoveryStep::name)).toList();
+        this.steps = all.stream().sorted(Comparator.comparing(RecoveryStep::name)).toList();
     }
 
     /**
-     * Starts the recovery of every enrolled project that no trigger has started yet, on the executor.
+     * The recovery with the two enrolment steps built from the enrolment store: {@link EnrolmentIntegrityStep} and
+     * {@link OwedEnrolmentAuditStep} as steps 1 and 2, the enrolled projects of the store
+     * ({@link EnrolledProjects#of(EnrolmentStore)}) and the background pass of the owed records of projects no longer
+     * enrolled ({@link OwedEnrolmentAuditStep#unenrolledPass()}). A step of either enrolment name in the given list,
+     * such as the seam a caller passed before the enrolment store existed, is replaced by the built one.
+     *
+     * @param store       the enrolment store
+     * @param check       the enrolment check
+     * @param enrolments  the operator writes of the enrolment store
+     * @param lockManager the lock manager of the runtime
+     * @param steps       the other recovery steps, one per other {@link RecoveryStep.Name}
+     * @param executor    the executor the recoveries and the background task run on
+     * @return the recovery
+     * @throws IllegalArgumentException if two steps have the same name, or another {@link RecoveryStep.Name} has no
+     *                                  step
+     */
+    public static ProjectRecovery withEnrolment(EnrolmentStore store, EnrolmentCheck check, Enrolments enrolments,
+            LockManager lockManager, List<RecoveryStep> steps, Executor executor) {
+        var owedAudit = new OwedEnrolmentAuditStep(enrolments);
+        var all = new ArrayList<RecoveryStep>();
+        all.add(new EnrolmentIntegrityStep(store, check, lockManager));
+        all.add(owedAudit);
+        steps.stream().filter(step -> !ENROLMENT_STEPS.contains(step.name())).forEach(all::add);
+        return new ProjectRecovery(EnrolledProjects.of(store), all, executor, owedAudit.unenrolledPass());
+    }
+
+    /**
+     * Starts the recovery of every enrolled project that no trigger has started yet, on the executor, and then
+     * submits the background task, if one was given, once to the executor.
+     *
+     * @throws RejectedExecutionException if the executor rejects the background task; the recoveries were started
      */
     public void startBackgroundPass() {
         for (var projectId : enrolled.projectIds()) {
             recovery(projectId);
+        }
+        if (backgroundPassTask != NO_TASK) {
+            executor.execute(backgroundPassTask);
         }
     }
 

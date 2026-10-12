@@ -21,8 +21,20 @@ import de.planmarshall.core.store.LockKey;
  * One audit record as its producer hands it to the {@link AuditSink} (PM-IMPL-7). It carries what the producer
  * knows; what makes a record of the audit log out of it (its identifier, its instant, its place in the chain) is
  * added by the audit store.
+ * <p>
+ * Every record is built by the factory of its event, which fixes its name, category and outcome and exactly the
+ * details the specification names; the enrolment records (PM-EXEC-2, PM-SEC-4, PM-SEC-5) carry the project and, for
+ * a refusal ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code enrolment_invalid},
+ * {@code unenrol_refused}), its reason. The three records of a succeeded operator write ({@code enrolment_written},
+ * {@code enrolment_removed}, {@code enrolment_rebaselined}) also carry the transaction of the write: they are owed in
+ * a durable intent before the write and handed over at least once, and a record handed over again carries the same
+ * transaction id. Before the write the intent holds the record in its unconfirmed form ({@link #notConfirmed()},
+ * outcome {@code failed}, reason {@code not_confirmed}); only the completed write replaces it by the succeeded record,
+ * so a record never claims a success the runtime did not see. A refusal changed nothing and is not owed; its record
+ * carries no transaction. The operator command that resolves a refused enrolment is named by the refusal, not by its
+ * record.
  *
- * @param event    the name of the event
+ * @param event   the name of the event
  * @param category the category of the event
  * @param outcome  the outcome the event records
  * @param details  the details of the event, unmodifiable
@@ -57,6 +69,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The outcome of an action that was carried out. */
     public static final String OUTCOME_SUCCEEDED = "succeeded";
 
+    /** The outcome of an action that was not carried out, or whose completion was not recorded. */
+    public static final String OUTCOME_FAILED = "failed";
+
     /** The detail that names a store by its path. */
     public static final String DETAIL_STORE = "store";
 
@@ -74,8 +89,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /**
      * The detail that names the transaction of a store mutation: of a roll-forward the transaction of the journal, of
-     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write. A record handed
-     * over again after a failed or interrupted hand-over carries the same id, so a reader drops the duplicate.
+     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write, of an enrolment
+     * write, succeeded or not confirmed, the transaction of the write. A record handed over again after a failed or
+     * interrupted hand-over carries the same id, so a reader drops the duplicate.
      */
     public static final String DETAIL_TRANSACTION_ID = "transaction_id";
 
@@ -84,6 +100,51 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The detail of a cross-scope reconciliation that names the reconciliation rule that applied. */
     public static final String DETAIL_RECONCILIATION = "reconciliation";
+
+    /** The name of the event that records an enrolment refused because it does not match its sidecar. */
+    public static final String ENROLMENT_TAMPERED = "enrolment_tampered";
+
+    /** The name of the event that records an enrolment file or sidecar refused by a per-use check. */
+    public static final String ENROLMENT_INSECURE = "enrolment_insecure";
+
+    /**
+     * The name of the event that records an enrolment the runtime refused to sign or to use because a value violates
+     * the enrolment rules.
+     */
+    public static final String ENROLMENT_INVALID = "enrolment_invalid";
+
+    /** The name of the event that records an enrolment file and its sidecar written by {@code enrol}. */
+    public static final String ENROLMENT_WRITTEN = "enrolment_written";
+
+    /** The name of the event that records an enrolment file and its sidecar removed by {@code unenrol}. */
+    public static final String ENROLMENT_REMOVED = "enrolment_removed";
+
+    /** The name of the event that records the sidecar of an enrolment rewritten by {@code accept-edit enrolment}. */
+    public static final String ENROLMENT_REBASELINED = "enrolment_rebaselined";
+
+    /** The name of the event that records an {@code unenrol} refused while the project has live work. */
+    public static final String UNENROL_REFUSED = "unenrol_refused";
+
+    /** The category of the events of the integrity and per-use checks. */
+    public static final String CATEGORY_SECURITY = "security";
+
+    /** The category of the events of the operator verbs. */
+    public static final String CATEGORY_OPERATOR = "operator";
+
+    /** The detail that names the project by its id. */
+    public static final String DETAIL_PROJECT_ID = "project_id";
+
+    /** The detail of a refusal that names why it was refused, and of an unconfirmed write why it is not confirmed. */
+    public static final String DETAIL_REASON = "reason";
+
+    /** The reason of an {@code unenrol} refused while the project has live work. */
+    public static final String REASON_SCOPE_ACTIVE = "scope_active";
+
+    /**
+     * The reason of an operator write that was started and whose completion was not recorded: it failed, or the
+     * process stopped before or after it took effect.
+     */
+    public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
@@ -152,6 +213,109 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         return new AuditEvent(CROSS_SCOPE_RECONCILED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_RECONCILIATION, reconciliation, DETAIL_STORE, store, DETAIL_TRANSACTION_ID,
                         transactionId));
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @param reason    what failed: the HMAC, the recorded size or SHA-256, a sidecar without its file, a file without
+     *                  its sidecar
+     * @return the record of the enrolment refused as tampered
+     */
+    public static AuditEvent enrolmentTampered(String projectId, String reason) {
+        return refusal(ENROLMENT_TAMPERED, CATEGORY_SECURITY, projectId, reason);
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @param reason    what failed: a foreign owner, a mode broader than {@code 0600}, a symbolic link
+     * @return the record of the enrolment refused by a per-use check
+     */
+    public static AuditEvent enrolmentInsecure(String projectId, String reason) {
+        return refusal(ENROLMENT_INSECURE, CATEGORY_SECURITY, projectId, reason);
+    }
+
+    /**
+     * @param projectId the enrolled project
+     * @param reason    which enrolment rule a value violates, or which strict read of the enrolment file or its
+     *                  sidecar refused it
+     * @return the record of the enrolment refused as invalid
+     */
+    public static AuditEvent enrolmentInvalid(String projectId, String reason) {
+        return refusal(ENROLMENT_INVALID, CATEGORY_SECURITY, projectId, reason);
+    }
+
+    /**
+     * @param projectId     the enrolled project
+     * @param transactionId the transaction of the write, by which a record handed over again is recognised as the
+     *                      same
+     * @return the record of the enrolment file and its sidecar written
+     * @throws NullPointerException if the project id or the transaction id is {@code null}
+     */
+    public static AuditEvent enrolmentWritten(String projectId, String transactionId) {
+        return operatorSucceeded(ENROLMENT_WRITTEN, projectId, transactionId);
+    }
+
+    /**
+     * @param projectId     the unenrolled project
+     * @param transactionId the transaction of the removal, by which a record handed over again is recognised as the
+     *                      same
+     * @return the record of the enrolment file and its sidecar removed
+     * @throws NullPointerException if the project id or the transaction id is {@code null}
+     */
+    public static AuditEvent enrolmentRemoved(String projectId, String transactionId) {
+        return operatorSucceeded(ENROLMENT_REMOVED, projectId, transactionId);
+    }
+
+    /**
+     * @param projectId     the enrolled project
+     * @param transactionId the transaction of the re-baseline, by which a record handed over again is recognised as
+     *                      the same
+     * @return the record of the sidecar of the enrolment rewritten over the current file
+     * @throws NullPointerException if the project id or the transaction id is {@code null}
+     */
+    public static AuditEvent enrolmentRebaselined(String projectId, String transactionId) {
+        return operatorSucceeded(ENROLMENT_REBASELINED, projectId, transactionId);
+    }
+
+    /**
+     * @param projectId the project whose {@code unenrol} was refused
+     * @return the record of the {@code unenrol} refused with {@link #REASON_SCOPE_ACTIVE}
+     */
+    public static AuditEvent unenrolRefused(String projectId) {
+        return refusal(UNENROL_REFUSED, CATEGORY_OPERATOR, projectId, REASON_SCOPE_ACTIVE);
+    }
+
+    /**
+     * The record of the same operator write as it stands before the write is confirmed: the same event, category and
+     * details, the outcome {@link #OUTCOME_FAILED} and the reason {@link #REASON_NOT_CONFIRMED}. It is what a write
+     * owes in its durable intent before it mutates, and is replaced by the succeeded record once the mutation has
+     * completed; a write that stopped or failed in between hands over this record, which claims no more than is
+     * known. It carries the transaction of the write, so the succeeded record replaces it and a record handed over
+     * again is recognised as the same.
+     *
+     * @return the unconfirmed record of this succeeded operator record
+     * @throws IllegalStateException if this record is not a succeeded record with a transaction id
+     */
+    public AuditEvent notConfirmed() {
+        if (!OUTCOME_SUCCEEDED.equals(outcome) || !details.containsKey(DETAIL_TRANSACTION_ID)) {
+            throw new IllegalStateException("Only a succeeded record with a transaction id has an unconfirmed form: "
+                    + event + " " + outcome);
+        }
+        var unconfirmed = new HashMap<>(details);
+        unconfirmed.put(DETAIL_REASON, REASON_NOT_CONFIRMED);
+        return new AuditEvent(event, category, OUTCOME_FAILED, unconfirmed);
+    }
+
+    private static AuditEvent refusal(String event, String category, String projectId, String reason) {
+        return new AuditEvent(event, category, OUTCOME_REFUSED,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_REASON,
+                        Objects.requireNonNull(reason, DETAIL_REASON)));
+    }
+
+    private static AuditEvent operatorSucceeded(String event, String projectId, String transactionId) {
+        return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
+                Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_TRANSACTION_ID,
+                        Objects.requireNonNull(transactionId, "transactionId")));
     }
 
     private static String lockPath(LockKey key) {

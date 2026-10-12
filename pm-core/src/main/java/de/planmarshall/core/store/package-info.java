@@ -32,6 +32,15 @@
  * {@link de.planmarshall.core.store.CrossScopeReconciler} completes the derived writes a crash left undone.</li>
  * <li><em>Locks and leases</em>: the key of every lock in the total lock order
  * ({@link de.planmarshall.core.store.LockKey}) and the lease stores of the machine.</li>
+ * <li><em>Project enrolments</em> (PM-EXEC-2, PM-MIG-1): the typed, closed enrolment of a project
+ * ({@link de.planmarshall.core.store.ProjectEnrolment}, read and written by
+ * {@link de.planmarshall.core.store.EnrolmentCodec}), its integrity sidecar record
+ * ({@link de.planmarshall.core.store.EnrolmentSidecar}), the store of one file per project under its own lock
+ * ({@link de.planmarshall.core.store.EnrolmentStore}), which stages the file and its sidecar completely before it
+ * renames them into place and settles a stopped write of the pair
+ * ({@link de.planmarshall.core.store.PairRecovery}), and the lifecycle gate compiled into the release
+ * ({@link de.planmarshall.core.store.LifecycleGate}). The key and the HMAC belong to the runtime, not to this
+ * package.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is

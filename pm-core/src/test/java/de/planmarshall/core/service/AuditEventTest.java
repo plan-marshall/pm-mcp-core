@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -23,8 +24,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * The audit records of the store substrate (PM-IMPL-7): each event has its name, the category {@code store}, the
- * outcome {@code succeeded} and exactly the details the specification names.
+ * The audit records built by the factories of {@link AuditEvent}: those of the store substrate (PM-IMPL-7) and those
+ * of the enrolment store (PM-EXEC-2, PM-SEC-4, PM-SEC-5). Each event has its name, its category, its outcome and
+ * exactly the details the specification names.
  */
 @DisplayName("Audit event")
 class AuditEventTest {
@@ -104,11 +106,154 @@ class AuditEventTest {
         }
     }
 
+    @Nested
+    @DisplayName("enrolment events")
+    class Enrolment {
+
+        private static final String PROJECT = "pm-mcp-core";
+
+        @Test
+        @DisplayName("a tampered enrolment is a refused security event naming the project and the reason")
+        void enrolmentTampered() {
+            var event = AuditEvent.enrolmentTampered(PROJECT, "hmac_mismatch");
+
+            assertAll(
+                    () -> assertEquals("enrolment_tampered", event.event()),
+                    () -> assertEquals("security", event.category()),
+                    () -> assertEquals("refused", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "hmac_mismatch"), event.details()));
+        }
+
+        @Test
+        @DisplayName("an insecure enrolment is a refused security event naming the project and the reason")
+        void enrolmentInsecure() {
+            var event = AuditEvent.enrolmentInsecure(PROJECT, "mode broader than 0600");
+
+            assertAll(
+                    () -> assertEquals("enrolment_insecure", event.event()),
+                    () -> assertEquals("security", event.category()),
+                    () -> assertEquals("refused", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "mode broader than 0600"),
+                            event.details()));
+        }
+
+        /** Built like the insecure record above, which is its matched control: same shape, another event name. */
+        @Test
+        @DisplayName("an invalid enrolment is a refused security event naming the project and the reason, no transaction")
+        void enrolmentInvalid() {
+            var reason = "build_environment: GH_TOKEN is a credential variable";
+
+            var event = AuditEvent.enrolmentInvalid(PROJECT, reason);
+            var insecure = AuditEvent.enrolmentInsecure(PROJECT, reason);
+
+            assertAll(
+                    () -> assertEquals("enrolment_invalid", event.event()),
+                    () -> assertEquals(AuditEvent.ENROLMENT_INVALID, event.event()),
+                    () -> assertEquals("security", event.category()),
+                    () -> assertEquals("refused", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", reason), event.details()),
+                    () -> assertFalse(event.details().containsKey("transaction_id")),
+                    () -> assertEquals(insecure.category(), event.category()),
+                    () -> assertEquals(insecure.outcome(), event.outcome()),
+                    () -> assertEquals(insecure.details(), event.details()));
+        }
+
+        @Test
+        @DisplayName("an unenrol refused for live work is a refused operator event with the reason scope_active")
+        void unenrolRefused() {
+            var event = AuditEvent.unenrolRefused(PROJECT);
+
+            assertAll(
+                    () -> assertEquals("unenrol_refused", event.event()),
+                    () -> assertEquals("operator", event.category()),
+                    () -> assertEquals("refused", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "reason", "scope_active"), event.details()));
+        }
+
+        @Test
+        @DisplayName("a written enrolment is a succeeded operator event naming the project and the transaction")
+        void enrolmentWritten() {
+            assertSucceededOperatorEvent("enrolment_written", AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID));
+        }
+
+        @Test
+        @DisplayName("a removed enrolment is a succeeded operator event naming the project and the transaction")
+        void enrolmentRemoved() {
+            assertSucceededOperatorEvent("enrolment_removed", AuditEvent.enrolmentRemoved(PROJECT, TRANSACTION_ID));
+        }
+
+        @Test
+        @DisplayName("a re-baselined enrolment is a succeeded operator event naming the project and the transaction")
+        void enrolmentRebaselined() {
+            assertSucceededOperatorEvent("enrolment_rebaselined",
+                    AuditEvent.enrolmentRebaselined(PROJECT, TRANSACTION_ID));
+        }
+
+        /** The matched control to the three above: a refusal changed nothing, is not owed and carries no transaction. */
+        @Test
+        @DisplayName("the refusal records carry no transaction id and equal what they were")
+        void refusalsWithoutTransaction() {
+            var refusals = List.of(AuditEvent.enrolmentTampered(PROJECT, "hmac_mismatch"),
+                    AuditEvent.enrolmentInsecure(PROJECT, "symbolic link"), AuditEvent.unenrolRefused(PROJECT));
+
+            assertAll(
+                    () -> assertTrue(refusals.stream()
+                            .noneMatch(event -> event.details().containsKey("transaction_id"))),
+                    () -> assertEquals(List.of(
+                            new AuditEvent("enrolment_tampered", "security", "refused",
+                                    Map.of("project_id", PROJECT, "reason", "hmac_mismatch")),
+                            new AuditEvent("enrolment_insecure", "security", "refused",
+                                    Map.of("project_id", PROJECT, "reason", "symbolic link")),
+                            new AuditEvent("unenrol_refused", "operator", "refused",
+                                    Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals));
+        }
+
+        @Test
+        @DisplayName("the unconfirmed form of a succeeded record: failed, reason not_confirmed, same transaction")
+        void notConfirmed() {
+            var succeeded = AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID);
+
+            var unconfirmed = succeeded.notConfirmed();
+
+            assertAll(
+                    () -> assertEquals("enrolment_written", unconfirmed.event()),
+                    () -> assertEquals("operator", unconfirmed.category()),
+                    () -> assertEquals("failed", unconfirmed.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "transaction_id", TRANSACTION_ID, "reason",
+                            "not_confirmed"), unconfirmed.details()),
+                    () -> assertEquals("succeeded", succeeded.outcome()));
+        }
+
+        @Test
+        @DisplayName("only a succeeded record with a transaction id has an unconfirmed form")
+        void notConfirmedRefused() {
+            var refusal = AuditEvent.unenrolRefused(PROJECT);
+            var unconfirmed = AuditEvent.enrolmentRemoved(PROJECT, TRANSACTION_ID).notConfirmed();
+            var withoutTransaction = new AuditEvent("enrolment_written", "operator", "succeeded",
+                    Map.of("project_id", PROJECT));
+
+            assertAll(
+                    () -> assertThrows(IllegalStateException.class, refusal::notConfirmed),
+                    () -> assertThrows(IllegalStateException.class, unconfirmed::notConfirmed),
+                    () -> assertThrows(IllegalStateException.class, withoutTransaction::notConfirmed));
+        }
+
+        private void assertSucceededOperatorEvent(String name, AuditEvent event) {
+            assertAll(
+                    () -> assertEquals(name, event.event()),
+                    () -> assertEquals("operator", event.category()),
+                    () -> assertEquals("succeeded", event.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "transaction_id", TRANSACTION_ID),
+                            event.details()));
+        }
+    }
+
     @Test
-    @DisplayName("a missing store, scope type, transaction or target list is refused")
+    @DisplayName("a missing store, scope type, transaction, target list, project or reason is refused")
     void missingArguments() {
         var targets = List.of("mcp/status.json");
         var store = Path.of("a");
+        var project = "pm-mcp-core";
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
@@ -127,6 +272,23 @@ class AuditEventTest {
                         () -> AuditEvent.crossScopeReconciled(null, "s", TRANSACTION_ID)),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.crossScopeReconciled("r", null, TRANSACTION_ID)),
-                () -> assertThrows(NullPointerException.class, () -> AuditEvent.crossScopeReconciled("r", "s", null)));
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.crossScopeReconciled("r", "s", null)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentTampered(null, "r")),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentTampered(project, null)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(null, "r")),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInsecure(project, null)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInvalid(null, "r")),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentInvalid(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentWritten(null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentWritten(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentRemoved(null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.enrolmentRemoved(project, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentRebaselined(null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.enrolmentRebaselined(project, null)),
+                () -> assertThrows(NullPointerException.class, () -> AuditEvent.unenrolRefused(null)));
     }
 }
