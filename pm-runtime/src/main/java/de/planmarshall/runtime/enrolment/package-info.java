@@ -18,17 +18,22 @@
  * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentHmac}: the HMAC-SHA-256 over the exact canonical bytes of an
  * enrolment file and the sidecar record that carries it with their size and SHA-256.</li>
  * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentFileCheck}: the per-use checks of an enrolment file and its
- * sidecar (owner, mode, no symbolic link), refused with {@code enrolment_insecure}.</li>
+ * sidecar (owner, mode, no symbolic link), refused with {@code enrolment_insecure}, bound to one no-follow snapshot
+ * of the file: the attributes are read before the open and after the read, the file is opened and read without
+ * following a link, and a file that changed while it was read is refused; the bytes of a link target are never
+ * read.</li>
  * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentCheck}: the enrolment check, callable before a project is
- * served and before every verify-not-resolve check; a refused project ({@code enrolment_tampered},
- * {@code enrolment_insecure}) blocks only itself.</li>
+ * served and before every verify-not-resolve check, over the snapshots of the file and its sidecar; a refused project
+ * ({@code enrolment_tampered}, {@code enrolment_insecure}) blocks only itself.</li>
  * <li>{@link de.planmarshall.runtime.enrolment.Enrolments}: the operator writes {@code enrol}, {@code unenrol}
  * (refused with {@code scope_active} while the project has live work) and the re-baseline of
  * {@code accept-edit enrolment}, each in one transaction under the project's enrolment lock; each owes its audit
  * record in the project's intent file before the mutation, as the unconfirmed record of an attempt, confirms it as
  * succeeded once the mutation completed and hands it over, at least once, and {@code replayOwedAudit} is the recovery
  * of a record a refused or stopped hand-over, or a failed or stopped write, left owed; it continues past a project
- * whose intent file is unreadable.</li>
+ * whose intent file is refused or fails on I/O and throws the first failure, the later ones suppressed. The
+ * re-baseline reads, checks and signs one no-follow snapshot of the file, and its {@code enrolment_insecure} refusal is
+ * logged and audited like the enrolment check's.</li>
  * </ul>
  * <p>
  * Specification:

@@ -10,10 +10,9 @@
 package de.planmarshall.runtime.enrolment;
 
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.Optional;
 
 
 import de.cuioss.tools.logging.CuiLogger;
@@ -34,7 +33,8 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * <p>
  * The check runs under the project's enrolment lock, in this order, and the first failure refuses:
  * <ol>
- * <li>the per-use checks of the file and its sidecar ({@code enrolment_insecure});</li>
+ * <li>the per-use checks of the file and its sidecar ({@code enrolment_insecure}), each bound to the one no-follow
+ * read of the file ({@code EnrolmentFileCheck.snapshot}) whose bytes the later steps use;</li>
  * <li>a sidecar without its file, a file without its sidecar ({@code enrolment_tampered});</li>
  * <li>the strict read of the sidecar record;</li>
  * <li>the size and SHA-256 of the file against the record ({@code enrolment_tampered});</li>
@@ -110,10 +110,8 @@ public final class EnrolmentCheck {
         transaction.acquire(store.lockKey(projectId));
         var file = store.file(projectId);
         var sidecarFile = store.sidecar(projectId);
-        checkInsecure(projectId, file);
-        checkInsecure(projectId, sidecarFile);
-        var content = store.readFile(transaction, projectId);
-        var sidecarContent = store.readSidecar(transaction, projectId);
+        var content = readChecked(file, projectId);
+        var sidecarContent = readChecked(sidecarFile, projectId);
         if (content.isEmpty() && sidecarContent.isEmpty()) {
             throw StoreRefusal.absent(file, ProjectEnrolment.FORMAT_VERSION);
         }
@@ -138,17 +136,16 @@ public final class EnrolmentCheck {
         return store.decode(projectId, bytes);
     }
 
-    private void checkInsecure(String projectId, Path file) {
-        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            return;
-        }
-        var violation = fileCheck.violation(file);
+    /**
+     * Takes the no-follow snapshot of the file and answers its bytes; empty if it does not exist.
+     */
+    private Optional<byte[]> readChecked(Path file, String projectId) {
+        var snapshot = fileCheck.snapshot(file);
+        var violation = snapshot.violation();
         if (violation.isPresent()) {
-            var reason = violation.get();
-            LOGGER.warn(WARN.ENROLMENT_INSECURE, projectId, reason);
-            throw recorded(auditSink, StoreRefusal.enrolmentInsecure(file, reason),
-                    AuditEvent.enrolmentInsecure(projectId, reason));
+            throw insecure(auditSink, file, projectId, violation.get());
         }
+        return snapshot.content();
     }
 
     private StoreRefusal tampered(Path file, String projectId, String reason) {
@@ -172,7 +169,34 @@ public final class EnrolmentCheck {
                 AuditEvent.enrolmentTampered(projectId, reason));
     }
 
-    private static StoreRefusal recorded(AuditSink auditSink, StoreRefusal refusal, AuditEvent event) {
+    /**
+     * Builds the refusal as {@code enrolment_insecure}, logs it and hands it to the audit sink; a sink that fails does
+     * not lift the refusal. The re-baseline refuses through this path too, so a refusal reads and is recorded the same
+     * wherever it arises.
+     *
+     * @param auditSink where the refusal is recorded
+     * @param file      the refused enrolment file or sidecar
+     * @param projectId the project
+     * @param reason    why the file is refused
+     * @return the refusal, for the caller to throw
+     */
+    static StoreRefusal insecure(AuditSink auditSink, Path file, String projectId, String reason) {
+        LOGGER.warn(WARN.ENROLMENT_INSECURE, projectId, reason);
+        return recorded(auditSink, StoreRefusal.enrolmentInsecure(file, reason),
+                AuditEvent.enrolmentInsecure(projectId, reason));
+    }
+
+    /**
+     * Hands the event of a refusal to the audit sink, directly and not owed: a refusal changed nothing. A sink that
+     * fails does not lift the refusal; its failure is added to the refusal as a suppressed exception.
+     *
+     * @param <T>       the type of the refusal
+     * @param auditSink where the refusal is recorded
+     * @param refusal   the refusal
+     * @param event     the audit event of the refusal
+     * @return the refusal, for the caller to throw
+     */
+    static <T extends Throwable> T recorded(AuditSink auditSink, T refusal, AuditEvent event) {
         try {
             auditSink.append(event);
         } catch (UncheckedIOException e) {

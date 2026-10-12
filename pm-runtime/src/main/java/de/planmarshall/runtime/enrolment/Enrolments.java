@@ -60,7 +60,12 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * delivery is at least once, and a record handed over again after a stop between the append and the removal of the
  * intent carries the same transaction id, by which the audit store drops the duplicate. A refusal
  * ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code unenrol_refused}) changed nothing and recurs with
- * the next attempt; it is appended directly and not owed.
+ * the next attempt; it is appended directly and not owed, and a sink that fails does not lift it: the failure is added
+ * to the refusal as a suppressed exception.
+ * <p>
+ * The re-baseline reads, checks and signs one no-follow snapshot of the file ({@code EnrolmentFileCheck.snapshot}), so
+ * the per-use checks, the strict read and the new sidecar record cover the same bytes; its {@code enrolment_insecure}
+ * refusal is logged and audited like the refusal of the enrolment check.
  * <p>
  * The integrity key is created by the first write that needs it and never replaced. {@code enrol} creates it only
  * while no enrolment file exists; when the key is absent from the active key source although enrolment files exist,
@@ -126,8 +131,8 @@ public final class Enrolments {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(store.lockKey(projectId));
             var sidecar = EnrolmentHmac.sidecar(enrolmentKey(), EnrolmentCodec.write(written));
-            var record = AuditEvent.enrolmentWritten(projectId, newTransactionId());
-            writeOwing(transaction, projectId, record, () -> store.write(transaction, written, sidecar));
+            var event = AuditEvent.enrolmentWritten(projectId, newTransactionId());
+            writeOwing(transaction, projectId, event, () -> store.write(transaction, written, sidecar));
         }
         LOGGER.info(INFO.ENROLMENT_WRITTEN, projectId, pilot);
         return written;
@@ -157,7 +162,9 @@ public final class Enrolments {
      *
      * @param projectId the project
      * @return whether the enrolment file or its sidecar existed
-     * @throws ScopeActiveException if the project has live work; nothing was removed then
+     * @throws ScopeActiveException if the project has live work, naming it; nothing was removed then. An audit sink
+     *                              that fails to record the refusal does not replace it: its failure is a suppressed
+     *                              exception of the refusal
      * @throws UncheckedIOException if a file cannot be removed or the intent file cannot be written; a file that cannot
      *                              be removed leaves the {@code enrolment_removed} record owed unconfirmed. A refused
      *                              audit append is not one of them: the record then stays owed and is handed over
@@ -171,8 +178,7 @@ public final class Enrolments {
             if (!items.isEmpty()) {
                 var refusal = new ScopeActiveException(projectId, items);
                 LOGGER.warn(WARN.UNENROL_REFUSED, projectId, refusal.namedItems());
-                auditSink.append(AuditEvent.unenrolRefused(projectId));
-                throw refusal;
+                throw EnrolmentCheck.recorded(auditSink, refusal, AuditEvent.unenrolRefused(projectId));
             }
             removed = removeOwingAudit(transaction, projectId);
         }
@@ -189,8 +195,8 @@ public final class Enrolments {
     private boolean removeOwingAudit(LockTransaction transaction, String projectId) {
         var exists = store.exists(transaction, projectId);
         if (exists) {
-            var record = AuditEvent.enrolmentRemoved(projectId, newTransactionId());
-            writeOwing(transaction, projectId, record, () -> store.remove(transaction, projectId));
+            var event = AuditEvent.enrolmentRemoved(projectId, newTransactionId());
+            writeOwing(transaction, projectId, event, () -> store.remove(transaction, projectId));
         } else {
             handOverOwed(transaction, projectId, null);
         }
@@ -200,7 +206,9 @@ public final class Enrolments {
     /**
      * Re-baselines the project's enrolment file the operator reviewed ({@code accept-edit enrolment}): rewrites its
      * sidecar record over the current bytes of the file. The file must pass the per-use checks and read strictly as
-     * an enrolment of the project; nothing else of it is changed.
+     * an enrolment of the project; nothing else of it is changed. The checks, the strict read and the signature cover
+     * one no-follow snapshot of the file; a file that fails a check is refused, logged ({@code PM_MCP-162}) and
+     * audited ({@code enrolment_insecure}) without owing or writing anything.
      * <p>
      * The re-baseline is the operator's explicit, named act, and the one write that creates the integrity key although
      * enrolment files exist: it is the way out of the refusal of {@link #enrol(ProjectEnrolment, boolean)} after a
@@ -210,7 +218,8 @@ public final class Enrolments {
      * @param projectId the project
      * @return the recorded and the current size and SHA-256 of the file, for the operator's display
      * @throws StoreRefusal         as {@code absent} if the file does not exist, as {@code enrolment_insecure} if it
-     *                              fails a per-use check, as {@code unreadable}, {@code format_outdated} or
+     *                              fails a per-use check (a symbolic link is refused, never followed) or changed
+     *                              while it was read, as {@code unreadable}, {@code format_outdated} or
      *                              {@code format_newer} if it does not read strictly; nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
      * @throws UncheckedIOException if a file cannot be read or written or the intent file cannot be written; a sidecar
@@ -224,14 +233,18 @@ public final class Enrolments {
         StoreDigest current;
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(store.lockKey(projectId));
-            var content = store.readFile(transaction, projectId)
+            var snapshot = fileCheck.snapshot(file);
+            var violation = snapshot.violation();
+            if (violation.isPresent()) {
+                throw EnrolmentCheck.insecure(auditSink, file, projectId, violation.get());
+            }
+            var content = snapshot.content()
                     .orElseThrow(() -> StoreRefusal.absent(file, ProjectEnrolment.FORMAT_VERSION));
-            fileCheck.check(file);
             store.decode(projectId, content);
             recorded = store.readSidecar(transaction, projectId).flatMap(bytes -> recordedDigest(projectId, bytes));
             var sidecar = EnrolmentHmac.sidecar(key.readOrCreate(), content);
-            var record = AuditEvent.enrolmentRebaselined(projectId, newTransactionId());
-            writeOwing(transaction, projectId, record, () -> store.writeSidecar(transaction, projectId, sidecar));
+            var event = AuditEvent.enrolmentRebaselined(projectId, newTransactionId());
+            writeOwing(transaction, projectId, event, () -> store.writeSidecar(transaction, projectId, sidecar));
             current = sidecar.digest();
         }
         LOGGER.info(INFO.ENROLMENT_REBASELINED, projectId);
@@ -244,35 +257,47 @@ public final class Enrolments {
      * records. It reads no enrolment and creates no key. Nothing in the runtime calls it yet; the recovery of the
      * project calls it once the package that wires the operator verbs and the recovery exists.
      * <p>
-     * One project's unreadable intent file does not stop the replay for the projects after it: the file is kept, the
-     * replay goes on, and the first refusal is thrown after the last project, with the later ones added to it as
-     * suppressed exceptions. The records of the other projects are handed over by then.
+     * One project's bad intent file does not stop the replay for the projects after it, whether it is refused
+     * ({@link StoreRefusal}: unreadable, another format version) or fails on I/O ({@link UncheckedIOException}: it
+     * cannot be read, rewritten or removed): the file is kept, the replay goes on, and after the last project the first
+     * failure in the order of the project ids is thrown as its own type, with every later failure of either type added
+     * to it as a suppressed exception. The records of the other projects are handed over by then; the count of a
+     * replay that threw is not returned, the handed-over records are logged ({@code PM_MCP-63}). Any other failure,
+     * such as a stop, ends the replay at once.
      *
      * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
-     * @throws UncheckedIOException if the enrolment directory cannot be listed or an intent file cannot be read,
-     *                              rewritten or removed
-     * @throws StoreRefusal         if the intent file of a project is unreadable or of another format version, naming
-     *                              the first such file in the order of the project ids; every such file is kept
+     * @throws UncheckedIOException if the enrolment directory cannot be listed, or the first intent file that cannot be
+     *                              read, rewritten or removed precedes every refused one; every such file is kept
+     * @throws StoreRefusal         if the intent file of a project is unreadable or of another format version and
+     *                              precedes every intent file that fails on I/O, naming the first such file in the
+     *                              order of the project ids; every such file is kept
      */
     public int replayOwedAudit() {
         var handedOver = 0;
-        StoreRefusal firstRefusal = null;
+        RuntimeException firstFailure = null;
         for (var projectId : store.auditOwingProjectIds()) {
             try (var transaction = lockManager.openTransaction()) {
                 transaction.acquire(store.lockKey(projectId));
                 handedOver += handOverOwed(transaction, projectId, null);
-            } catch (StoreRefusal refusal) {
-                if (firstRefusal == null) {
-                    firstRefusal = refusal;
-                } else {
-                    firstRefusal.addSuppressed(refusal);
-                }
+            } catch (StoreRefusal | UncheckedIOException failure) {
+                firstFailure = withLater(firstFailure, failure);
             }
         }
-        if (firstRefusal != null) {
-            throw firstRefusal;
+        if (firstFailure != null) {
+            throw firstFailure;
         }
         return handedOver;
+    }
+
+    /**
+     * Remembers the first failure of a replay; a later one is added to it as a suppressed exception.
+     */
+    private static RuntimeException withLater(RuntimeException first, RuntimeException failure) {
+        if (first == null) {
+            return failure;
+        }
+        first.addSuppressed(failure);
+        return first;
     }
 
     /**
