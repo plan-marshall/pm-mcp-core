@@ -1,0 +1,23 @@
+= A recipe is a workflow
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `recipe-workflows`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-5[Use Cases, UC-STA-5]; running a recipe in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Where:: pm-workflow (the recipe's workflow, composition); pm-core (the recipe descriptor)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the change A Recipe Is a Workflow into `plan-marshall-documentation` as part of its own work, once UC-STA-5 is agreed.
+* A recipe declares a workflow of phase sub-workflows, its own where it differs and the plan's shared ones elsewhere, its parameters, and whether it takes sources; starting it creates a plan whose process is that workflow; the recipe states of Phases 1 and 3 go.
+
+== Trace
+
+* Use case: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-5[UC-STA-5] and its change link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#change-recipe-workflow[A Recipe Is a Workflow]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/domain-extensions/05-recipes-and-extension-points.adoc[Domain Extensions § Recipes & Extension Points]; link:../../../plan-marshall-documentation/doc/specification/phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows] (the recipe source and states); link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]
+
+== Done When
+
+The specification is merged in `plan-marshall-documentation`; a recipe runs as its own workflow from its parameters to its landing, an empty harvest ends it without a pull request, and no recipe state is left in the plan's phases.
