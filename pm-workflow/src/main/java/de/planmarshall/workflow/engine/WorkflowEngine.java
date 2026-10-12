@@ -106,8 +106,11 @@ public final class WorkflowEngine {
 
     private static final String INHERIT = "inherit";
 
-    /** The phase of the status store for each phase of the DSL, as the state catalogue maps them. */
-    private static final Map<String, String> PHASES = Map.ofEntries(
+    /**
+     * The phase of the status store for each phase of the DSL, as the state catalogue maps them; package-private for
+     * the parity test that holds its values to {@code WorkflowStatus.PHASES}.
+     */
+    static final Map<String, String> PHASES = Map.ofEntries(
             Map.entry("init", "phase-1-init"),
             Map.entry("refine", "phase-2-refine"),
             Map.entry("outline", "phase-3-outline"),
