@@ -150,7 +150,7 @@ class EnrolmentCodecTest {
                             enrolment.build().canonicalTemplates().get(BuildSystem.MAVEN).get("integration-tests")
                                     .elements()),
                     () -> assertEquals(Argv.of("gh", "auth", "status", "--hostname", "github.com"),
-                            enrolment.providers().get(Provider.GITHUB).verifyArgv()),
+                            enrolment.providers().get(Provider.GH).verifyArgv()),
                     () -> assertEquals(WorkerKind.LOG_PARSER,
                             enrolment.projectScripts().get("lint-report").binding().workerKind()),
                     () -> assertEquals(900L, enrolment.commandBudgets().get("maven:verify@pm-core")),
@@ -384,7 +384,8 @@ class EnrolmentCodecTest {
                     () -> assertEquals(HostToolName.NPX, HostToolName.fromWireName("npx").orElseThrow()),
                     () -> assertEquals(Interpreter.RUBY, Interpreter.fromWireName("ruby").orElseThrow()),
                     () -> assertEquals(BuildSystem.PYPROJECT, BuildSystem.fromWireName("pyproject").orElseThrow()),
-                    () -> assertEquals(Provider.GITLAB, Provider.fromWireName("gitlab").orElseThrow()),
+                    () -> assertEquals(Provider.GLAB, Provider.fromWireName("gitlab").orElseThrow()),
+                    () -> assertEquals("github", Provider.GH.wireName()),
                     () -> assertEquals(WorkerKind.EDGE_RESOLVER,
                             WorkerKind.fromWireName("edge_resolver").orElseThrow()),
                     () -> assertEquals(SchemaType.NULL, SchemaType.fromWireName("null").orElseThrow()),

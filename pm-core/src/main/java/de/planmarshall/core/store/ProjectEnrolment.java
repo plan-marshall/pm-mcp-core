@@ -297,17 +297,19 @@ SortedMap<String, String> buildEnvironment) {
     }
 
     /**
-     * A CLI provider whose compiled verification an enrolment may replace.
+     * A CLI provider whose compiled verification an enrolment may replace. A constant is named after the CLI the
+     * provider runs, as {@link HostToolName} names it, so no member of {@code pm-core} names a provider (PM-IMPL-1);
+     * the wire name in the enrolment file is the provider id.
      *
      * @since 0.1
      */
     public enum Provider {
         /** git. */
         GIT("git"),
-        /** GitHub through its CLI. */
-        GITHUB("github"),
-        /** GitLab through its CLI. */
-        GITLAB("gitlab");
+        /** The provider of wire name {@code github}, run through the CLI {@code gh}. */
+        GH("github"),
+        /** The provider of wire name {@code gitlab}, run through the CLI {@code glab}. */
+        GLAB("gitlab");
 
         private final String wireName;
 
