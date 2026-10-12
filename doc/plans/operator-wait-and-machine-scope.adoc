@@ -12,7 +12,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * *Specification first*: the package writes the two changes into `plan-marshall-documentation` as part of its own work, once the use cases are agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]): the operator wait defined once in the workflow language; every place that defined a wait, a deadline, a mode, or a fallback of its own reduced to a reference to it; the principle that no state waits for an operator decision replaced; the machine scope.
 * *The operator wait*: a state of any unit and any scope may wait for the operator; it offers the operator's links, holds no worker and no model slot, has no time limit, and ends by an operator act through a link or by an override; the static verifier's rule on resting states follows. The question modes `auto` and `none`, the question wait, the deadline, the class fallbacks, and the expiry of a waiver request go; a waiver request ends by `waive` or `decline`.
-* *What halts*: an operator wait halts its own scope only; the machine scope's onboarding halts the system: while it is not complete, no plan and no orchestrator starts.
+* *What halts*: an operator wait halts its own scope only; the machine scope's onboarding halts the system: while it is not complete, no plan and no epic starts.
 * *The machine scope*: the fourth top-level scope, one per machine, its store, and the onboarding unit compiled into the binary.
 * Where `waits` or `operator-and-question-stores` have already implemented question deadlines and fallbacks, this package removes them.
 
