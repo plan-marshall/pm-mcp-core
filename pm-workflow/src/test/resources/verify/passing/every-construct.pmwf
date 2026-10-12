@@ -1,0 +1,102 @@
+# A sub-workflow written for the verifier tests, not taken from any default unit. It uses
+# every construct of the grammar: the header with derived_from, param and result
+# declarations of every type, declare, start and migrate, every state form (links,
+# auto, job, composite_job, job llm with and without lost, call, question, terminal),
+# links with bounded, unbounded and optional text parameters and explicit forms,
+# guards with every atom, combinator and depends_on_config, facts, skill, result
+# guards and completions. It passes every check of the static verifier.
+workflow verify.every-construct version 2 format 1 derived_from 1
+scope subworkflow
+param mode : enum[strict|lenient]
+param rounds : int[1..5]
+param depth : int
+param targets : list<enum[origin|mirror]>
+result schema[commit-result]
+declare max_rounds = 3
+start verify.entry
+migrate verify.begin -> verify.entry
+
+state verify.entry
+    phase inherit
+    skill pm/verify/start
+    facts test.read-facts
+    link next proceed ()
+        do test.proceed
+            done -> verify.prepare
+    link submit choose:<entity> [submit] (note: text[1..80], comment: text?)
+        guard in_worktree or has_open_findings and not all_tasks_completed
+        depends_on_config [project.review.mode]
+        do test.choose
+            chosen -> verify.build
+            declined -> verify.entry
+    link retry again [noop] ()
+        guard (in_worktree and not has_open_findings) or predicate:test.ready
+        do test.proceed
+            done -> verify.ask
+
+state verify.prepare
+    phase inherit
+    auto test.prepare
+        done -> verify.build
+            completes verify:prepare as done
+        skipped -> verify.compose
+            completes verify:prepare as skipped
+            completes verify:probe as waived
+
+state verify.build
+    phase inherit
+    job test.build
+        succeeded -> verify.compose
+        failed -> verify.failed
+            completes verify:build as failed
+        cancelled -> verify.failed
+
+state verify.compose
+    phase inherit
+    composite_job test.build
+        succeeded -> verify.review
+        failed -> verify.failed
+        cancelled -> verify.failed
+
+state verify.review
+    phase inherit
+    job llm change role implementer each test.list-changes ask
+    consult role reviewer
+        done -> verify.judge
+        lost -> verify.failed
+
+state verify.judge
+    phase inherit
+    job llm change role reviewer
+        approved -> verify.commit
+        rejected -> verify.review
+
+state verify.commit
+    phase inherit
+    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin, mirror])
+        done -> verify.done
+            guard result.pushed
+        done -> verify.ask
+            guard not result.pushed
+        stepped_out -> verify.stepped-out
+
+state verify.ask
+    phase inherit
+    question clarification
+        answered -> verify.entry
+        expired -> verify.skipped
+    link next skip_wait ()
+        do test.proceed
+            done -> verify.done
+
+state verify.done terminal done success
+    phase inherit
+
+state verify.skipped terminal skipped skip
+    phase inherit
+
+state verify.failed terminal failed failure
+    phase inherit
+
+state verify.stepped-out terminal stepped_out stepped_out
+    phase inherit

@@ -1,0 +1,21 @@
+# expect: EXIT_PATH state verify.spin line 14
+# A plan unit with a state whose every transition returns to itself, so it never
+# reaches a terminal state.
+workflow verify.no-exit version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.prepare
+        done -> verify.done
+        skipped -> verify.spin
+
+state verify.spin
+    phase verify
+    auto test.prepare
+        done -> verify.spin
+        skipped -> verify.spin
+
+state verify.done terminal done success
+    phase verify

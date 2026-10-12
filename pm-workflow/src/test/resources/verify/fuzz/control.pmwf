@@ -1,0 +1,32 @@
+# The matched control of planted-dead-state.pmwf, written for the transition fuzzer tests:
+# the same unit, except that the link of verify.gate carries no guard. Its link holds under
+# every assignment, so the fuzzer must report no dead state with the seed that finds the
+# planted one.
+workflow verify.fuzz version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    link next proceed ()
+        do test.proceed
+            done -> verify.gate
+    link alt detour ()
+        guard (has_open_findings and predicate:test.ready) or not all_tasks_completed
+        do test.proceed
+            done -> verify.prepare
+
+state verify.prepare
+    phase verify
+    auto test.prepare
+        done -> verify.gate
+        skipped -> verify.done
+
+state verify.gate
+    phase verify
+    link next enter ()
+        do test.proceed
+            done -> verify.done
+
+state verify.done terminal done success
+    phase verify
