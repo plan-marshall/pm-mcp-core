@@ -267,6 +267,18 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]; UC-STA-5 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:plan-and-epic-control.adoc[`plan-and-epic-control`]
+|Controlling plans and epics: pause, start, cancel, abandon; the epic told; next plan, archive check, cancel
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; UC-CTL-1 and UC-CTL-2 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
+|link:epic-findings-review.adoc[`epic-findings-review`]
+|An epic's findings and watches, and their review
+|`blocked`
+|link:plan-and-epic-control.adoc[`plan-and-epic-control`]; UC-CTL-3 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`

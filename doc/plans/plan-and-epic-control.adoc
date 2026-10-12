@@ -1,0 +1,27 @@
+= Controlling plans and epics
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `plan-and-epic-control`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[Use Cases, UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2]; the actions on plans and epics in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Where:: pm-workflow (pause and start, the end of a plan, the epic's next plan, archive check, and cancel); pm-core (the plan's activity, the archive of an ended plan, the inbox records of the operator's acts); pm-runtime (the endpoints, the operator verbs)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the changes Pausing and Starting a Plan, Cancelling and Abandoning Archive, The Epic Is Told, and An Epic's Actions into `plan-marshall-documentation` as part of its own work, once UC-CTL-1 and UC-CTL-2 are agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
+* *A plan*: running or idle; pause (no new task or job, a running job finishes, a running task is withdrawn and offered again), start (a paused or an emitted plan); cancel and abandon through `plan.aborted` with their outcome and reason, then the archive; the open pull request closed with the reason or left open.
+* *Its epic told*: an inbox record per operator act on a plan of a live epic, the queue row following the plan's state, `coordinate` deciding on it.
+* *An epic*: next plan (emit and start the next launchable row, the reasons when none is, the offer to raise the scope); the archive check before `epic.archive`; cancel with the choice for its plans.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2] and their changes
+* Specification: link:../../../plan-marshall-documentation/doc/specification/state-catalogue/04-plan-finalize-terminal.adoc#state-catalogue-terminal[State Catalogue § Terminal States]; link:../../../plan-marshall-documentation/doc/specification/model-work/08-epic-coordination.adoc[Model Work § Epic Coordination]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue/06-setup-epic-other.adoc[State Catalogue § Epic]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/03-project-store.adoc#archives[Filesystem Layout § Archives]
+
+== Done When
+
+The specification of the changes is merged in `plan-marshall-documentation`; a test per action and state shows what it does and what it refuses; a paused plan serves nothing until started and resumes where it stopped; an ended plan is archived with its outcome and reason; every act on a plan of an epic reaches the epic's inbox; next plan, the archive check, and cancel behave as specified, also with the scope full and with no launchable row.
