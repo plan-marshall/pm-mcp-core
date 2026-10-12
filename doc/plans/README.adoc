@@ -237,6 +237,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:workflow-engine.adoc[`workflow-engine`]; link:operator-and-question-stores.adoc[`operator-and-question-stores`]; link:waits.adoc[`waits`]; the use cases Waiting for the Operator and Machine Scope agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]
+|Phases as sub-workflows of the plan unit, and the plan's history
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; UC-PLN-1 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
