@@ -28,7 +28,8 @@ import de.planmarshall.workflow.ast.SourceLocation;
 
 /**
  * The values of the static verifier (PM-IMPL-5): the rule vocabulary with the specification rule of every check, a
- * violation that refuses a missing component, and a result that keeps an immutable copy of its violations.
+ * violation that refuses a missing component, and a result that keeps immutable copies of its violations and its
+ * advisories and passes on its violations alone.
  */
 @DisplayName("VerificationResult, Violation and VerificationRule")
 class VerificationResultTest {
@@ -77,14 +78,43 @@ class VerificationResultTest {
         var violation = new Violation(VerificationRule.REACHABILITY, "verify.entry", LOCATION, "unreachable");
         var source = new ArrayList<>(List.of(violation));
 
-        var result = new VerificationResult(source);
+        var result = new VerificationResult(source, List.of());
         source.clear();
         var violations = result.violations();
 
         assertAll(() -> assertEquals(List.of(violation), violations),
                 () -> assertFalse(result.passed()),
-                () -> assertTrue(new VerificationResult(List.of()).passed()),
+                () -> assertTrue(new VerificationResult(List.of(), List.of()).passed()),
                 () -> assertThrows(UnsupportedOperationException.class, violations::clear));
+    }
+
+    @Test
+    @DisplayName("Should keep an immutable copy of the advisories and pass whatever they hold")
+    void shouldCopyAdvisoriesWithoutFailing() {
+        var advisory = new Violation(VerificationRule.CONFIG_REACHABILITY, "verify.entry", LOCATION, "partial");
+        var source = new ArrayList<>(List.of(advisory));
+
+        var result = new VerificationResult(List.of(), source);
+        source.clear();
+        var advisories = result.advisories();
+
+        assertAll(() -> assertEquals(List.of(advisory), advisories),
+                () -> assertEquals(List.of(), result.violations()),
+                () -> assertTrue(result.passed()),
+                () -> assertThrows(UnsupportedOperationException.class, advisories::clear));
+    }
+
+    @Test
+    @DisplayName("Should refuse a missing list or a missing element in either list")
+    void shouldRefuseIncompleteResult() {
+        var withNull = new ArrayList<Violation>();
+        withNull.add(null);
+        List<Violation> empty = List.of();
+        assertAll(
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(null, empty)),
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(empty, null)),
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(withNull, empty)),
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(empty, withNull)));
     }
 
     @Test

@@ -12,6 +12,7 @@ package de.planmarshall.workflow.verify;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -935,5 +936,103 @@ class AdditionalRulesTest {
         assertEquals(stepCompletion("verify.entry",
                         "the exhaustion transition 'exhausted' of the attempt cap of the state 'verify.entry' does not leave the cycle"),
                 found(def));
+    }
+
+    /** A workspace unit whose state {@code verify.conditional} only the link needing {@code feature.flag} enters. */
+    private static final String CONDITIONAL_STATES = """
+            state verify.entry
+                phase verify
+                link next choose [submit] (note: text[1..80], comment: text)
+                    guard in_worktree
+                    depends_on_config [feature.flag]
+                    do test.choose
+                        chosen -> verify.conditional
+                        declined -> verify.done
+                link next fallback ()
+                    do test.proceed
+                        done -> verify.done
+
+            state verify.conditional
+                phase verify
+                auto test.prepare
+                    done -> verify.done
+                    skipped -> verify.entry
+            """;
+
+    private static final String ONLY_WITH_FLAG = "only under configuration [feature.flag=true], not under [feature.flag=false]";
+
+    private static List<RuleStateMessage> configAdvisories(String... stateAndMessage) {
+        var advisories = new ArrayList<RuleStateMessage>();
+        for (int i = 0; i < stateAndMessage.length; i += 2) {
+            advisories.add(new RuleStateMessage(VerificationRule.CONFIG_REACHABILITY, stateAndMessage[i],
+                    stateAndMessage[i + 1]));
+        }
+        return advisories;
+    }
+
+    @Test
+    @DisplayName("CONFIG_REACHABILITY: a state and transitions some combinations do not reach are advisories, not violations")
+    void configReachabilityPartialIsAdvisory() {
+        var def = unit("workspace", CONDITIONAL_STATES + DONE_TERMINAL);
+
+        var result = validator.verify(def);
+
+        assertEquals(List.of(), result.violations());
+        assertTrue(result.passed());
+        assertEquals(configAdvisories(
+                        "verify.entry", "the transition 'chosen' of the state 'verify.entry' into 'verify.conditional' is reached "
+                                + ONLY_WITH_FLAG,
+                        "verify.entry", "the transition 'declined' of the state 'verify.entry' into 'verify.done' is reached "
+                                + ONLY_WITH_FLAG,
+                        "verify.conditional", "the state 'verify.conditional' is reached from the start state 'verify.entry' "
+                                + ONLY_WITH_FLAG,
+                        "verify.conditional", "the transition 'done' of the state 'verify.conditional' into 'verify.done' is reached "
+                                + ONLY_WITH_FLAG,
+                        "verify.conditional", "the transition 'skipped' of the state 'verify.conditional' into 'verify.entry' is reached "
+                                + ONLY_WITH_FLAG),
+                result.advisories().stream().map(RuleStateMessage::of).toList());
+        assertEquals(List.of(11, 12, 17, 20, 21),
+                result.advisories().stream().map(advisory -> advisory.location().line()).toList());
+    }
+
+    @Test
+    @DisplayName("CONFIG_REACHABILITY: a unit without depends_on_config keys has no advisory")
+    void configReachabilityWithoutKeys() {
+        var def = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    link next fallback ()
+                        do test.proceed
+                            done -> verify.done
+                """ + DONE_TERMINAL);
+
+        var result = validator.verify(def);
+
+        assertEquals(List.of(), result.violations());
+        assertEquals(List.of(), result.advisories());
+    }
+
+    @Test
+    @DisplayName("CONFIG_REACHABILITY: a state no combination reaches is refused by REACHABILITY, not as CONFIG_REACHABILITY (ADR 006)")
+    void configReachabilityNoCombination() {
+        var def = unit("workspace", CONDITIONAL_STATES + """
+
+                state verify.orphan
+                    phase verify
+                    auto test.prepare
+                        done -> verify.done
+                        skipped -> verify.entry
+                """ + DONE_TERMINAL);
+
+        var result = validator.verify(def);
+
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.REACHABILITY, "verify.orphan",
+                        "the state 'verify.orphan' is not reachable from the start state 'verify.entry'")),
+                result.violations().stream().map(RuleStateMessage::of).toList());
+        assertEquals(List.of(23), result.violations().stream().map(violation -> violation.location().line()).toList());
+        assertEquals(List.of("verify.entry", "verify.entry", "verify.conditional", "verify.conditional",
+                        "verify.conditional"),
+                result.advisories().stream().map(Violation::stateId).toList(),
+                "the unreachable state and its transitions are no advisories");
     }
 }

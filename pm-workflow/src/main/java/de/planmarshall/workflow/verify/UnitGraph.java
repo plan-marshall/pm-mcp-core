@@ -34,11 +34,15 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * <p>
  * {@link WorkflowValidator} searches it for reachability, configuration reachability, and exit paths, and
  * {@link TransitionFuzzer} reads the exits of a state from the same behaviour switches and the atoms of a guard
- * from {@link #atomsOf(GuardExpr)}. The configuration substrate ({@link #configKeysOf},
- * {@link #configCombinations}, {@link #of(WorkflowDefinition, Map)}, {@link #isLinkActive},
- * {@link #activeTransitions} and {@link #reachableTransitions}) builds the active graph under each
- * configuration assignment: engine transitions are always active while a declared link contributes its
- * transitions only when its {@code depends_on_config} keys evaluate true.
+ * from {@link #atomsOf(GuardExpr)}.
+ * <p>
+ * The configuration substrate of Rule 3 ({@link #configKeysOf}, {@link #configCombinations},
+ * {@link #of(WorkflowDefinition, Map)}, {@link #isLinkActive} and {@link #activeTransitions}) enumerates Boolean
+ * assignments only: every {@code depends_on_config} key is {@code true} or {@code false}, and a declared link is active
+ * when every key its guard names is {@code true} (all-keys-true activation), while engine transitions are always
+ * active. The specification gives a key an enum or a boolean domain but no rule by which a value makes a guard true,
+ * and the language names keys only, so the enumeration of enum values and the value activation are a seam (ADR 006).
+ * {@link WorkflowValidator} builds the active graph once per assignment and reads it for every state and transition.
  */
 final class UnitGraph {
 
@@ -275,9 +279,10 @@ final class UnitGraph {
     }
 
     /**
-     * Generates all 2^N boolean assignments for the given configuration keys. The enumeration is exponential by
-     * design and stays lean because the grammar admits only small key sets: a {@code depends_on_config} clause
-     * names a handful of keys per link, so N stays in the single digits on every unit the verifier accepts.
+     * Generates all 2^N Boolean assignments for the given configuration keys; an enum key is enumerated as
+     * {@code true} and {@code false} like every other key (ADR 006). The enumeration is exponential by design and stays
+     * lean because a {@code depends_on_config} clause names a handful of keys per link, so N stays small on the units
+     * the verifier reads.
      *
      * @param keys the configuration keys
      * @return the list of assignments, in binary-counting order over the key list
@@ -324,6 +329,10 @@ final class UnitGraph {
     /**
      * Tells which transitions of a behavior are active under a configuration assignment: every engine transition
      * plus the transitions of each active declared link.
+     *
+     * @param behavior         what a state does
+     * @param configAssignment the Boolean assignment of the configuration keys
+     * @return the active transitions in declaration order
      */
     static List<OutcomeTransition> activeTransitions(StateBehavior behavior, Map<String, Boolean> configAssignment) {
         var transitions = new ArrayList<>(engineTransitions(behavior));
@@ -336,9 +345,14 @@ final class UnitGraph {
     }
 
     /**
-     * A declared link is active when it reads no configuration: no guard at all, or a guard with no
-     * {@code depends_on_config} keys. Otherwise it is active only when every declared key evaluates to true
-     * under the assignment; a key the assignment does not name counts as not true.
+     * Applies the all-keys-true activation: a declared link is active when it reads no configuration (no guard, or a
+     * guard with no {@code depends_on_config} keys), and otherwise only when every key its guard names is {@code true}
+     * under the assignment; a key the assignment does not name counts as not true. The activation by an enum value is
+     * a seam (ADR 006).
+     *
+     * @param link             a declared link
+     * @param configAssignment the Boolean assignment of the configuration keys
+     * @return {@code true} when the link contributes its transitions under the assignment
      */
     static boolean isLinkActive(LinkSpec link, Map<String, Boolean> configAssignment) {
         if (link.guard().isEmpty() || link.guard().get().dependsOnConfig().isEmpty()) {
@@ -346,25 +360,6 @@ final class UnitGraph {
         }
         return link.guard().get().dependsOnConfig().stream()
                 .allMatch(key -> Boolean.TRUE.equals(configAssignment.get(key)));
-    }
-
-    /**
-     * Identifies the outcome transitions reached from the start state under one configuration assignment: the
-     * active transitions of every state the active graph reaches, so engine transitions and active-link
-     * transitions alike.
-     */
-    static Set<OutcomeTransition> reachableTransitions(WorkflowDefinition definition,
-            Map<String, Boolean> configAssignment) {
-        var graph = of(definition, configAssignment);
-        var reachableStates = graph.forwardClosure(Set.of(definition.startState()));
-        var reached = new LinkedHashSet<OutcomeTransition>();
-        for (var stateId : reachableStates) {
-            var state = definition.states().get(stateId);
-            if (state != null) {
-                reached.addAll(activeTransitions(state.behavior(), configAssignment));
-            }
-        }
-        return reached;
     }
 
     /**
@@ -392,39 +387,6 @@ final class UnitGraph {
             }
         }
         return seen;
-    }
-
-    /**
-     * Checks if there is a path from {@code source} to {@code target} that avoids all barrier states.
-     *
-     * @param source the source state
-     * @param target the target state
-     * @param barriers the barrier states to avoid
-     * @return {@code true} if a path exists
-     */
-    boolean hasPathAvoiding(String source, String target, Set<String> barriers) {
-        if (source.equals(target)) {
-            return true;
-        }
-        if (barriers.contains(source)) {
-            return false;
-        }
-        var seen = new LinkedHashSet<String>();
-        var queue = new ArrayDeque<String>();
-        seen.add(source);
-        queue.add(source);
-        while (!queue.isEmpty()) {
-            var current = queue.poll();
-            for (var next : successors(current)) {
-                if (next.equals(target)) {
-                    return true;
-                }
-                if (!barriers.contains(next) && seen.add(next)) {
-                    queue.add(next);
-                }
-            }
-        }
-        return false;
     }
 
     /**

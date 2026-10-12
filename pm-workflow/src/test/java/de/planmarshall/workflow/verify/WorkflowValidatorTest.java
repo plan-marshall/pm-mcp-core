@@ -103,10 +103,15 @@ class WorkflowValidatorTest {
             // vocabulary and every parseable class is registered by default, so no fixture can plant an
             // unregistered class. The check itself stays covered by the custom-registry case in
             // AdditionalRulesTest.testQuestionClassUnregistered.
+            // CONFIG_REACHABILITY refuses nothing under the Boolean all-keys-true activation: the all-true
+            // combination reaches everything the unconditional graph reaches, so a state or transition no combination
+            // reaches cannot be planted (ADR 004, seam of ADR 006). Its advisories are pinned by the
+            // CONFIG_REACHABILITY cases of AdditionalRulesTest.
             var missing = EnumSet.allOf(VerificationRule.class);
             missing.removeAll(expected);
-            assertAll(() -> assertEquals(43, expected.size()),
-                    () -> assertEquals(EnumSet.of(VerificationRule.QUESTION_CLASS_BINDING), missing));
+            assertAll(() -> assertEquals(42, expected.size()),
+                    () -> assertEquals(EnumSet.of(VerificationRule.QUESTION_CLASS_BINDING,
+                            VerificationRule.CONFIG_REACHABILITY), missing));
         }
 
         @Test
