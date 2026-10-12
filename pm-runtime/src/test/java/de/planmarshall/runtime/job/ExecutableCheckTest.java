@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Binding;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
@@ -49,6 +50,7 @@ import org.junit.jupiter.api.Test;
  * verified argument vector starts with the enrolled absolute path, the interpreter's first where one runs the target.
  * Each refusal has its matched positive control over the same enrolment.
  */
+@EnableGeneratorController
 @DisplayName("ExecutableCheck")
 class ExecutableCheckTest {
 

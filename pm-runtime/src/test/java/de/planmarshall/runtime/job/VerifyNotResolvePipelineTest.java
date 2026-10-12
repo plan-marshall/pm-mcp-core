@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -52,6 +53,7 @@ import org.junit.jupiter.api.Test;
  * refusal has its matched positive control in the same configuration, and a fault of the key source is no refusal.
  */
 @EnableTestLogger
+@EnableGeneratorController
 @DisplayName("VerifyNotResolvePipeline")
 class VerifyNotResolvePipelineTest {
 

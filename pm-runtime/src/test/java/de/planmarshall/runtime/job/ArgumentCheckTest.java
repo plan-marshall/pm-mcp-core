@@ -27,6 +27,8 @@ import java.util.Set;
 import java.util.TreeMap;
 
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
@@ -60,6 +62,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * script arguments that violate the enrolled schema. Each refusal has its matched positive control, and a job refused
  * by stage 2 never reaches the argument check.
  */
+@EnableGeneratorController
 @DisplayName("ArgumentCheck")
 class ArgumentCheckTest {
 
@@ -376,7 +379,8 @@ class ArgumentCheckTest {
         @Test
         @DisplayName("a member name with a shell metacharacter is refused")
         void metacharacterInMemberName() {
-            var refusal = refused(enrolment, call(Fields.of(Map.of("a|b", new Text("x")))));
+            var refusal = refused(enrolment, call(Fields.of(Map.of("a|b",
+                    new Text(Generators.letterStrings(1, 16).next())))));
 
             assertAll(
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),

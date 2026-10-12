@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.TreeMap;
 
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.BooleanValue;
 import de.planmarshall.core.store.ProjectEnrolment.NumberValue;
@@ -40,6 +42,7 @@ import org.junit.jupiter.params.provider.CsvSource;
  * The argument schema subset of a project script (PM-EXEC-1, PM-EXT-5): one test per keyword, each with a violating
  * and a conforming argument set; a violation names the keyword and the path, never the value.
  */
+@EnableGeneratorController
 @DisplayName("ArgumentSchemaValidator")
 class ArgumentSchemaValidatorTest {
 
@@ -51,6 +54,11 @@ class ArgumentSchemaValidatorTest {
 
     private static Optional<String> validate(ArgumentSchema schema, Value value) {
         return ArgumentSchemaValidator.validate(schema, value);
+    }
+
+    /** @return a generated string no keyword of the schema constrains */
+    private static Text anyText() {
+        return new Text(Generators.letterStrings(1, 16).next());
     }
 
     private static Numeric number(String value) {
@@ -71,13 +79,13 @@ class ArgumentSchemaValidatorTest {
         var conforming = switch (type) {
             case OBJECT -> Fields.of(Map.of());
             case ARRAY -> new Items(List.of());
-            case STRING -> new Text("x");
+            case STRING -> anyText();
             case INTEGER -> number("7");
             case NUMBER -> number("7.5");
             case BOOLEAN -> new Bool(true);
             case NULL -> new JsonNull();
         };
-        Value violating = type == SchemaType.STRING ? new Bool(false) : new Text("x");
+        Value violating = type == SchemaType.STRING ? new Bool(false) : anyText();
 
         assertAll(
                 () -> assertEquals(Optional.of("type at $"), validate(schema(type), violating)),
@@ -100,7 +108,7 @@ class ArgumentSchemaValidatorTest {
         assertAll(
                 () -> assertEquals(Optional.of("type at $.name"),
                         validate(schema, Fields.of(Map.of("name", number("1"))))),
-                () -> assertEquals(CONFORMS, validate(schema, Fields.of(Map.of("name", new Text("x"))))));
+                () -> assertEquals(CONFORMS, validate(schema, Fields.of(Map.of("name", anyText())))));
     }
 
     @Test
@@ -110,7 +118,7 @@ class ArgumentSchemaValidatorTest {
 
         assertAll(
                 () -> assertEquals(Optional.of("required at $.name"), validate(schema, Fields.of(Map.of()))),
-                () -> assertEquals(CONFORMS, validate(schema, Fields.of(Map.of("name", new Text("x"))))));
+                () -> assertEquals(CONFORMS, validate(schema, Fields.of(Map.of("name", anyText())))));
     }
 
     @Test
@@ -118,12 +126,12 @@ class ArgumentSchemaValidatorTest {
     void additionalProperties() {
         var closed = object(schema(SchemaType.STRING), null, true);
         var open = object(schema(SchemaType.STRING), null, false);
-        var extra = Fields.of(Map.of("name", new Text("x"), "other", new Text("y")));
+        var extra = Fields.of(Map.of("name", anyText(), "other", anyText()));
 
         assertAll(
                 () -> assertEquals(Optional.of("additionalProperties at $.other"), validate(closed, extra)),
                 () -> assertEquals(CONFORMS, validate(open, extra)),
-                () -> assertEquals(CONFORMS, validate(closed, Fields.of(Map.of("name", new Text("x"))))));
+                () -> assertEquals(CONFORMS, validate(closed, Fields.of(Map.of("name", anyText())))));
     }
 
     @Test

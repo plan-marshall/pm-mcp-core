@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Wrapper;
 import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
  * {@code build_config_changed} naming every changed file and the {@code pm-operator enrol} command. Whether the wrapper
  * is tracked by git is not checked.
  */
+@EnableGeneratorController
 @DisplayName("WrapperVerification")
 class WrapperVerificationTest {
 
@@ -148,7 +150,7 @@ class WrapperVerificationTest {
         @DisplayName("every changed file is named, sorted, not only the first")
         void everyChangedFile() throws Exception {
             Files.writeString(fixture.root.resolve(MVNW), "#!/bin/sh\n");
-            Files.writeString(fixture.root.resolve(WRAPPER_PROPERTIES), "changed\n");
+            Files.write(fixture.root.resolve(WRAPPER_PROPERTIES), JobEnrolmentFixture.randomContent());
             Files.writeString(fixture.root.resolve(MAVEN_CONFIG), "-X\n");
 
             var refusal = refused(enrolment, WrapperName.MVNW);
