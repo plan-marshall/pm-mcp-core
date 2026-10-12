@@ -12,6 +12,7 @@ package de.planmarshall.workflow.verify;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -582,8 +583,18 @@ class AdditionalRulesTest {
                 () -> "missing ask assumed refusal: " + found);
     }
 
+    private static List<RuleStateMessage> stepCompletion(String stateId, String... messages) {
+        return Arrays.stream(messages)
+                .map(message -> new RuleStateMessage(VerificationRule.STEP_COMPLETION, stateId, message))
+                .toList();
+    }
+
+    private List<RuleStateMessage> found(WorkflowDefinition definition) {
+        return violations(definition).stream().map(RuleStateMessage::of).toList();
+    }
+
     @Test
-    @DisplayName("STEP_COMPLETION: conflicting outcome classes and completion to abort terminal")
+    @DisplayName("STEP_COMPLETION: a duplicate in one firing and waived outside a remediation call")
     void stepCompletionDefects() {
         var def = unit("plan", """
                 state verify.entry
@@ -601,12 +612,13 @@ class AdditionalRulesTest {
                             completes step:x as done
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertEquals(2, found.size(), () -> "expected exactly the firing duplicate and the waived refusal: " + found);
-        assertTrue(found.stream().anyMatch(v -> v.message().contains("completed twice on a path without an intervening dispatch")),
-                () -> "missing firing duplicate: " + found);
-        assertTrue(found.stream().anyMatch(v -> v.message().contains("completed as waived on a transition that is not the 'waived' outcome of a remediation call")),
-                () -> "missing waived refusal: " + found);
+
+        assertEquals(List.of(
+                new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
+                        "the step 'step:x' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
+                new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.second",
+                        "the step 'step:x' is completed twice in one firing from 'verify.entry'")),
+                found(def));
     }
 
     @Test
@@ -617,15 +629,15 @@ class AdditionalRulesTest {
                     phase verify
                     job test.build
                         succeeded -> verify.done
+                            completes step:y as done
                         failed -> verify.done
                             completes step:y as done
                         cancelled -> verify.done
+                            completes step:y as failed
                 """ + DONE_TERMINAL);
-        var classFound = violations(classDef);
-        assertEquals(1, classFound.size(), () -> "expected exactly the done-on-FAILURE refusal: " + classFound);
-        assertEquals(VerificationRule.STEP_COMPLETION, classFound.getFirst().rule());
-        assertTrue(classFound.getFirst().message().contains("completed as done on an outcome of class FAILURE"),
-                () -> "missing done-on-FAILURE refusal: " + classFound);
+        assertEquals(stepCompletion("verify.entry",
+                        "the step 'step:y' is completed as done on an outcome of class FAILURE, which is not SUCCESS"),
+                found(classDef));
 
         var unknownDef = unit("plan", """
                 state verify.entry
@@ -634,20 +646,16 @@ class AdditionalRulesTest {
                         done -> verify.done
                             completes step:z as done
                 """ + DONE_TERMINAL);
-        var unknownFound = violations(unknownDef);
-        assertEquals(2, unknownFound.size(), () -> "expected exactly binding plus unresolvable-class: " + unknownFound);
-        assertTrue(unknownFound.stream().anyMatch(v -> v.rule() == VerificationRule.PRIMITIVE_BINDING),
-                () -> "missing primitive binding refusal: " + unknownFound);
-        var unresolvable = unknownFound.stream()
-                .filter(v -> v.rule() == VerificationRule.STEP_COMPLETION)
-                .toList();
-        assertEquals(1, unresolvable.size(), () -> "expected exactly the unresolvable-class refusal: " + unknownFound);
-        assertTrue(unresolvable.getFirst().message().contains("whose class cannot be established"),
-                () -> "missing unresolvable-class refusal: " + unknownFound);
+        assertEquals(List.of(
+                new RuleStateMessage(VerificationRule.PRIMITIVE_BINDING, "verify.entry",
+                        "the primitive 'test.missing' of the auto is not registered"),
+                new RuleStateMessage(VerificationRule.STEP_COMPLETION, "verify.entry",
+                        "the step 'step:z' is completed on the outcome 'done', whose class cannot be established")),
+                found(unknownDef));
     }
 
     @Test
-    @DisplayName("STEP_COMPLETION: outcomeClassOf for ModelJob, SubWorkflowCall, QuestionWait")
+    @DisplayName("STEP_COMPLETION: the classes of a task outcome, a call outcome and stepped_out admit completions")
     void stepCompletionOutcomeClasses() {
         var def = VerifyFixtures.parseSource("classify.pmwf", """
                 workflow verify.classify version 1 format 1
@@ -661,32 +669,271 @@ class AdditionalRulesTest {
                             completes verify:model as done
                         lost -> verify.done
                             completes verify:model as failed
+                            completes verify:call as skipped
 
                 state verify.invocation
                     phase inherit
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
-                        done -> verify.ask_step
+                        done -> verify.done
                             completes verify:call as done
                         stepped_out -> verify.done
 
-                state verify.ask_step
+                state verify.done terminal done success
                     phase inherit
+                """);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: a question resolution outcome has no class and admits no completion")
+    void stepCompletionQuestionOutcomeHasNoClass() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
                     question clarification
                         answered -> verify.done
                             completes verify:q as done
                         assumed -> verify.done
                             completes verify:q as done
-                    link next proceed ()
-                        do test.proceed
-                            done -> verify.done
-                                completes verify:q as done
+                """ + DONE_TERMINAL);
 
-                state verify.done terminal done success
-                    phase inherit
-                """);
-        var found = violations(def);
-        // All completions should match valid outcome classes without contradictions
-        assertTrue(found.stream().noneMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION),
-                () -> "unexpected STEP_COMPLETION violations: " + found);
+        assertEquals(stepCompletion("verify.entry",
+                        "the step 'verify:q' is completed on the outcome 'answered', whose class cannot be established",
+                        "the step 'verify:q' is completed on the outcome 'assumed', whose class cannot be established"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: a firing path that completes no step is refused")
+    void stepCompletionNoCompletionOnAPath() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.prepare
+                        done -> verify.done
+                            completes step:s as done
+                        skipped -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                        "the step 'step:s' is not completed on a firing path from 'verify.entry' that ends with the outcome 'skipped' into 'verify.done'"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: an UNSETTLED outcome ends the firing early without a completion")
+    void stepCompletionEarlyEndOnUnsettled() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.fix
+                        fixed -> verify.done
+                            completes step:s as done
+                        fix_requested -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: entering an implicit-failed state completes the open step as failed")
+    void stepCompletionImplicitFailed() {
+        var passing = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.prepare
+                        done -> verify.done
+                            completes step:s as done
+                        skipped -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(passing));
+
+        var completing = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.prepare
+                        done -> verify.done
+                            completes step:s as done
+                        skipped -> plan.return
+                            completes step:s as failed
+
+                state plan.return terminal returned failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(stepCompletion("verify.entry",
+                        "the step 'step:s' is completed on the transition into 'plan.return', whose entry records the open firing as failed"),
+                found(completing));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: skipped is refused on a FAILURE outcome other than a task's infeasible")
+    void stepCompletionSkippedAdmission() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    job test.build
+                        succeeded -> verify.done
+                            completes step:s as done
+                        failed -> verify.done
+                            completes step:s as skipped
+                        cancelled -> verify.done
+                            completes step:s as failed
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                        "the step 'step:s' is completed as skipped on an outcome of class FAILURE"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: waived is admitted on the waived outcome of a call to a remediation unit")
+    void stepCompletionWaivedOnRemediationCall() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call remediation.test-waiver()
+                        done -> verify.done
+                            completes step:s as done
+                        waived -> verify.done
+                            completes step:s as waived
+                        stepped_out -> verify.failed
+
+                state verify.failed terminal failed failure
+                    phase verify
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: waived is refused on a call to a unit that is no remediation unit")
+    void stepCompletionWaivedOutsideRemediation() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.done
+                            completes step:s as waived
+                        stepped_out -> verify.failed
+
+                state verify.failed terminal failed failure
+                    phase verify
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                        "the step 'step:s' is completed as waived on a transition that is not the 'waived' outcome of a call to a remediation unit"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a hub of a unit with a step list passes, and each firing completes its step")
+    void stepListOnHubOfUnitWithStepList() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:one as done
+                        skipped -> verify.entry
+                            completes step:one as skipped
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a hub of a unit without a step list is refused")
+    void stepListOnUnitWithoutStepList() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.done
+                        second -> verify.done
+                        settled -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                        "the cycle measure STEP_LIST of the state 'verify.entry' is admitted only on the dispatch hub of a unit with a step list, but the unit 'verify.inline' completes no step"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ARCHIVE_STEPS: admitted in an epic unit on the archive path")
+    void archiveStepsInEpicUnit() {
+        var def = unit("epic", """
+                state verify.entry
+                    phase verify
+                    auto test.next-work
+                        archive_uncommitted -> verify.done
+                        archived -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ARCHIVE_STEPS: refused outside an epic unit")
+    void archiveStepsOutsideEpicUnit() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-work
+                        archive_uncommitted -> verify.done
+                        archived -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                        "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only in an epic unit, but the unit has scope PLAN"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ATTEMPT_CAP: a FAILURE exhaustion outcome that leaves the cycle passes")
+    void attemptCapLeavingTheCycle() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.capped
+                        retry -> verify.entry
+                        exhausted -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ATTEMPT_CAP: refused when the exhaustion transition does not leave the cycle")
+    void attemptCapNotLeavingTheCycle() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.capped
+                        retry -> verify.done
+                        exhausted -> verify.entry
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                        "the exhaustion transition 'exhausted' of the attempt cap of the state 'verify.entry' does not leave the cycle"),
+                found(def));
     }
 }

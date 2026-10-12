@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
@@ -65,6 +66,31 @@ final class TestPrimitives {
     /** A primitive producing artifact {@code test.artifact}: {@code done}. */
     static final String PRODUCE = "test.produce";
 
+    /**
+     * A dispatch hub declaring {@link CycleMeasure#STEP_LIST}: {@code first}, {@code second}, {@code settled}, all of
+     * class {@code SUCCESS}.
+     */
+    static final String NEXT_STEP = "test.next-step";
+
+    /**
+     * A next-work primitive declaring {@link CycleMeasure#ARCHIVE_STEPS}: {@code archive_uncommitted},
+     * {@code archived}, both of class {@code SUCCESS}.
+     */
+    static final String NEXT_WORK = "test.next-work";
+
+    /**
+     * A primitive declaring {@link CycleMeasure#ATTEMPT_CAP} with the exhaustion outcome {@code exhausted} of class
+     * {@code FAILURE}: {@code retry} ({@code SUCCESS}), {@code exhausted}.
+     */
+    static final String CAPPED = "test.capped";
+
+    /** A primitive with an outcome that hands the step back: {@code fixed} ({@code SUCCESS}), {@code fix_requested}
+     * ({@code UNSETTLED}). */
+    static final String FIX = "test.fix";
+
+    /** The remediation unit of the test catalog: exit contract {@code done}, {@code waived}, {@code stepped_out}. */
+    static final String REMEDIATION = "remediation.test-waiver";
+
     /** The id the fixtures name for a primitive that is not registered. */
     static final String MISSING = "test.missing";
 
@@ -86,7 +112,11 @@ final class TestPrimitives {
                 new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
                 new EnqueuePrimitive(),
                 new ArtifactConsumer(),
-                new ArtifactProducer()));
+                new ArtifactProducer(),
+                new Measured<>(NEXT_STEP, DispatchOutcome.class, CycleMeasure.STEP_LIST, Optional.empty()),
+                new Measured<>(NEXT_WORK, ArchiveOutcome.class, CycleMeasure.ARCHIVE_STEPS, Optional.empty()),
+                new Measured<>(CAPPED, AttemptOutcome.class, CycleMeasure.ATTEMPT_CAP, Optional.of("exhausted")),
+                new Measured<>(FIX, FixOutcome.class, CycleMeasure.NONE, Optional.empty())));
     }
 
     /**
@@ -191,7 +221,160 @@ final class TestPrimitives {
                 state verify.done terminal done success
                     phase inherit
                 """);
-        return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle));
+        var remediation = VerifyFixtures.parseSource("remediation.test-waiver.pmwf", """
+                workflow remediation.test-waiver version 1 format 1
+                scope subworkflow
+                start remediation.decide
+
+                state remediation.decide
+                    phase inherit
+                    auto test.prepare
+                        done -> remediation.done
+                        skipped -> remediation.waived
+
+                state remediation.done terminal done success
+                    phase inherit
+
+                state remediation.waived terminal waived success
+                    phase inherit
+                """);
+        return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
+                remediation));
+    }
+
+    /** A primitive that declares a cycle measure and, for an attempt cap, its exhaustion outcome. */
+    static final class Measured<R extends Enum<R> & PrimitiveOutcome> implements Primitive<NoParams, R> {
+
+        private final String id;
+        private final Class<R> outcomeType;
+        private final CycleMeasure cycleMeasure;
+        private final Optional<String> exhaustionOutcome;
+
+        Measured(String id, Class<R> outcomeType, CycleMeasure cycleMeasure, Optional<String> exhaustionOutcome) {
+            this.id = id;
+            this.outcomeType = outcomeType;
+            this.cycleMeasure = cycleMeasure;
+            this.exhaustionOutcome = exhaustionOutcome;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public Class<NoParams> parameterType() {
+            return NoParams.class;
+        }
+
+        @Override
+        public Class<R> outcomeType() {
+            return outcomeType;
+        }
+
+        @Override
+        public PrimitiveResult<R> execute(WorkflowExecutionContext context, NoParams parameters) {
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
+        }
+
+        @Override
+        public CycleMeasure cycleMeasure() {
+            return cycleMeasure;
+        }
+
+        @Override
+        public Optional<String> exhaustionOutcome() {
+            return exhaustionOutcome;
+        }
+    }
+
+    enum DispatchOutcome implements PrimitiveOutcome {
+        FIRST("first"), SECOND("second"), SETTLED("settled");
+
+        private final String wireName;
+
+        DispatchOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum ArchiveOutcome implements PrimitiveOutcome {
+        ARCHIVE_UNCOMMITTED("archive_uncommitted"), ARCHIVED("archived");
+
+        private final String wireName;
+
+        ArchiveOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum AttemptOutcome implements PrimitiveOutcome {
+        RETRY("retry", OutcomeClass.SUCCESS), EXHAUSTED("exhausted", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        AttemptOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    enum FixOutcome implements PrimitiveOutcome {
+        FIXED("fixed", OutcomeClass.SUCCESS), FIX_REQUESTED("fix_requested", OutcomeClass.UNSETTLED);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        FixOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
     }
 
     /** A primitive that returns its first outcome and overrides no default of the SPI. */

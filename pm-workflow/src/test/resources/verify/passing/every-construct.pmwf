@@ -4,7 +4,8 @@
 # auto, job, composite_job, job llm with and without lost, call, question, terminal),
 # links with bounded, unbounded and optional text parameters and explicit forms,
 # guards with every atom, combinator and depends_on_config, facts, skill, result
-# guards and completions. It passes every check of the static verifier.
+# guards, a STEP_LIST dispatch hub whose targets open the firings of the steps, and
+# completions on every firing path. It passes every check of the static verifier.
 workflow verify.every-construct version 2 format 1 derived_from 1
 scope subworkflow
 param mode : enum[strict|lenient]
@@ -22,7 +23,7 @@ state verify.entry
     facts test.read-facts
     link next proceed ()
         do test.proceed
-            done -> verify.prepare
+            done -> verify.next-step
     link submit choose:<entity> [submit] (note: text[1..80], comment: text?)
         guard in_worktree or has_open_findings and not all_tasks_completed
         depends_on_config [project.review.mode]
@@ -33,6 +34,13 @@ state verify.entry
         guard (in_worktree and not has_open_findings) or predicate:test.ready
         do test.proceed
             done -> verify.ask
+
+state verify.next-step
+    phase inherit
+    auto test.next-step
+        first -> verify.prepare
+        second -> verify.build
+        settled -> verify.compose
 
 state verify.prepare
     phase inherit
@@ -46,9 +54,11 @@ state verify.build
     phase inherit
     job test.build
         succeeded -> verify.compose
+            completes verify:build as done
         failed -> verify.failed
             completes verify:build as failed
         cancelled -> verify.failed
+            completes verify:build as failed
 
 state verify.compose
     phase inherit

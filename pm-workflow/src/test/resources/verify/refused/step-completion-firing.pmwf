@@ -1,4 +1,4 @@
-# expect: STEP_COMPLETION state verify.second line 17
+# expect: STEP_COMPLETION state verify.second line 18
 workflow verify.step-completion-firing version 1 format 1
 scope plan
 start verify.entry
@@ -9,6 +9,7 @@ state verify.entry
         done -> verify.second
             completes test:firing as done
         skipped -> verify.done
+            completes test:firing as skipped
 
 state verify.second
     phase verify

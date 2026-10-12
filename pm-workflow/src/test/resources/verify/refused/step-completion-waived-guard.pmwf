@@ -9,6 +9,7 @@ state verify.entry
         done -> verify.done
             completes test:waived as waived
         skipped -> verify.done
+            completes test:waived as skipped
 
 state verify.done terminal done success
     phase verify

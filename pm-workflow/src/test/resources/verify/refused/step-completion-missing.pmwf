@@ -10,6 +10,7 @@ state verify.entry
             completes test:step as done
             completes test:step as done
         skipped -> verify.done
+            completes test:step as skipped
 
 state verify.done terminal done success
     phase verify
