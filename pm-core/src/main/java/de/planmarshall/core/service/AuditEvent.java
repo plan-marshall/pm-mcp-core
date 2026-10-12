@@ -27,8 +27,11 @@ import de.planmarshall.core.store.LockKey;
  * a refusal, its reason. The three records of a succeeded operator write ({@code enrolment_written},
  * {@code enrolment_removed}, {@code enrolment_rebaselined}) also carry the transaction of the write: they are owed in
  * a durable intent before the write and handed over at least once, and a record handed over again carries the same
- * transaction id. A refusal changed nothing and is not owed; its record carries no transaction. The operator command
- * that resolves a refused enrolment is named by the refusal, not by its record.
+ * transaction id. Before the write the intent holds the record in its unconfirmed form ({@link #notConfirmed()},
+ * outcome {@code failed}, reason {@code not_confirmed}); only the completed write replaces it by the succeeded record,
+ * so a record never claims a success the runtime did not see. A refusal changed nothing and is not owed; its record
+ * carries no transaction. The operator command that resolves a refused enrolment is named by the refusal, not by its
+ * record.
  *
  * @param event   the name of the event
  * @param category the category of the event
@@ -65,6 +68,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The outcome of an action that was carried out. */
     public static final String OUTCOME_SUCCEEDED = "succeeded";
 
+    /** The outcome of an action that was not carried out, or whose completion was not recorded. */
+    public static final String OUTCOME_FAILED = "failed";
+
     /** The detail that names a store by its path. */
     public static final String DETAIL_STORE = "store";
 
@@ -82,9 +88,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /**
      * The detail that names the transaction of a store mutation: of a roll-forward the transaction of the journal, of
-     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write, of a succeeded
-     * enrolment write the transaction of the write. A record handed
-     * over again after a failed or interrupted hand-over carries the same id, so a reader drops the duplicate.
+     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write, of an enrolment
+     * write, succeeded or not confirmed, the transaction of the write. A record handed over again after a failed or
+     * interrupted hand-over carries the same id, so a reader drops the duplicate.
      */
     public static final String DETAIL_TRANSACTION_ID = "transaction_id";
 
@@ -121,11 +127,17 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail that names the project by its id. */
     public static final String DETAIL_PROJECT_ID = "project_id";
 
-    /** The detail of a refusal that names why it was refused. */
+    /** The detail of a refusal that names why it was refused, and of an unconfirmed write why it is not confirmed. */
     public static final String DETAIL_REASON = "reason";
 
     /** The reason of an {@code unenrol} refused while the project has live work. */
     public static final String REASON_SCOPE_ACTIVE = "scope_active";
+
+    /**
+     * The reason of an operator write that was started and whose completion was not recorded: it failed, or the
+     * process stopped before or after it took effect.
+     */
+    public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
@@ -254,6 +266,27 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      */
     public static AuditEvent unenrolRefused(String projectId) {
         return refusal(UNENROL_REFUSED, CATEGORY_OPERATOR, projectId, REASON_SCOPE_ACTIVE);
+    }
+
+    /**
+     * The record of the same operator write as it stands before the write is confirmed: the same event, category and
+     * details, the outcome {@link #OUTCOME_FAILED} and the reason {@link #REASON_NOT_CONFIRMED}. It is what a write
+     * owes in its durable intent before it mutates, and is replaced by the succeeded record once the mutation has
+     * completed; a write that stopped or failed in between hands over this record, which claims no more than is
+     * known. It carries the transaction of the write, so the succeeded record replaces it and a record handed over
+     * again is recognised as the same.
+     *
+     * @return the unconfirmed record of this succeeded operator record
+     * @throws IllegalStateException if this record is not a succeeded record with a transaction id
+     */
+    public AuditEvent notConfirmed() {
+        if (!OUTCOME_SUCCEEDED.equals(outcome) || !details.containsKey(DETAIL_TRANSACTION_ID)) {
+            throw new IllegalStateException("Only a succeeded record with a transaction id has an unconfirmed form: "
+                    + event + " " + outcome);
+        }
+        var unconfirmed = new HashMap<>(details);
+        unconfirmed.put(DETAIL_REASON, REASON_NOT_CONFIRMED);
+        return new AuditEvent(event, category, OUTCOME_FAILED, unconfirmed);
     }
 
     private static AuditEvent refusal(String event, String category, String projectId, String reason) {

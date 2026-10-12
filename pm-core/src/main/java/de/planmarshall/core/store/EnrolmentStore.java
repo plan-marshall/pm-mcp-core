@@ -45,11 +45,15 @@ import de.planmarshall.core.service.LockTransaction;
  * <p>
  * An operator write owes its audit record (PM-IMPL-7) in the project's intent file
  * {@code <project_id>.json.audit-intent}, the document of the intent files of the JSONL stores, touched only under the
- * project's lock. The order is: owe the record durably ({@link #oweAudit}), mutate, hand it over
- * ({@link #deliverOwedAudit}); the intent is removed only after the sink accepted every record it owes. A sink that
- * refuses a record, a stop between the mutation and the hand-over, or a mutation that fails after the record was owed
- * leaves the intent, so an attempted operator write is audited rather than lost, and a later hand-over delivers it
- * with the same transaction id: delivery is at least once. The intent file is not an enrolment, and
+ * project's lock. The order is: owe the record durably ({@link #oweAudit}), mutate, confirm the record
+ * ({@link #confirmAudit}), hand it over ({@link #deliverOwedAudit}); the intent is removed only after the sink
+ * accepted every record it owes. What is owed before the mutation is the unconfirmed form of the record
+ * ({@link AuditEvent#notConfirmed()}): unlike the repair of a JSONL store, which a later repair completes, the
+ * mutation of an operator write is not redone by a recovery, so the record may claim the success only once the
+ * mutation has completed. A sink that refuses a record, or a stop between the mutation and the hand-over, leaves the
+ * confirmed record owed; a mutation that fails, or a stop before the confirmation, leaves the unconfirmed record, so
+ * an attempted operator write is audited, as what is known of it, rather than lost. A later hand-over delivers the
+ * record with the same transaction id: delivery is at least once. The intent file is not an enrolment, and
  * {@link #auditOwingProjectIds()} lists the projects that still owe a record.
  * <p>
  * The directory {@code enrolments/} exists before the first write; this type does not create it.
@@ -181,6 +185,45 @@ public final class EnrolmentStore {
             return;
         }
         owed.add(event);
+        intent.write(transaction, owed);
+    }
+
+    /**
+     * Confirms the mutation an owed record stands for: replaces, in the project's intent file and written durably, the
+     * owed record of the same transaction id by the confirmed record, in its place. The operator writes owe the
+     * unconfirmed form of their record ({@link AuditEvent#notConfirmed()}) before the mutation and confirm it with
+     * the succeeded record after the mutation, so a write that stops or fails in between hands over the unconfirmed
+     * record. If no record of that transaction is owed, the confirmed record is owed afresh.
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @param confirmed   the record of the completed mutation; it carries the transaction of the owed record
+     * @throws NullPointerException     if the record carries no transaction id
+     * @throws InternalFaultException   if the transaction does not hold the project's lock; nothing was written then
+     * @throws IllegalArgumentException if a detail value of the record is not a string, an integer or a list of
+     *                                  strings; nothing was written then
+     * @throws StoreRefusal             if the intent file is unreadable or of another format version, naming it;
+     *                                  nothing was written then
+     * @throws UncheckedIOException     if the intent file cannot be read or written
+     */
+    public void confirmAudit(LockTransaction transaction, String projectId, AuditEvent confirmed) {
+        OwedAuditEvents.requireWritable(confirmed);
+        var transactionId = Objects.requireNonNull(confirmed.details().get(AuditEvent.DETAIL_TRANSACTION_ID),
+                "transaction id of the record");
+        var intent = heldIntent(transaction, projectId);
+        var owed = new ArrayList<AuditEvent>();
+        var replaced = false;
+        for (var event : intent.read()) {
+            if (transactionId.equals(event.details().get(AuditEvent.DETAIL_TRANSACTION_ID))) {
+                owed.add(confirmed);
+                replaced = true;
+            } else {
+                owed.add(event);
+            }
+        }
+        if (!replaced) {
+            owed.add(confirmed);
+        }
         intent.write(transaction, owed);
     }
 

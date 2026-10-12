@@ -187,6 +187,36 @@ class AuditEventTest {
                                     Map.of("project_id", PROJECT, "reason", "scope_active"))), refusals));
         }
 
+        @Test
+        @DisplayName("the unconfirmed form of a succeeded record: failed, reason not_confirmed, same transaction")
+        void notConfirmed() {
+            var succeeded = AuditEvent.enrolmentWritten(PROJECT, TRANSACTION_ID);
+
+            var unconfirmed = succeeded.notConfirmed();
+
+            assertAll(
+                    () -> assertEquals("enrolment_written", unconfirmed.event()),
+                    () -> assertEquals("operator", unconfirmed.category()),
+                    () -> assertEquals("failed", unconfirmed.outcome()),
+                    () -> assertEquals(Map.of("project_id", PROJECT, "transaction_id", TRANSACTION_ID, "reason",
+                            "not_confirmed"), unconfirmed.details()),
+                    () -> assertEquals("succeeded", succeeded.outcome()));
+        }
+
+        @Test
+        @DisplayName("only a succeeded record with a transaction id has an unconfirmed form")
+        void notConfirmedRefused() {
+            var refusal = AuditEvent.unenrolRefused(PROJECT);
+            var unconfirmed = AuditEvent.enrolmentRemoved(PROJECT, TRANSACTION_ID).notConfirmed();
+            var withoutTransaction = new AuditEvent("enrolment_written", "operator", "succeeded",
+                    Map.of("project_id", PROJECT));
+
+            assertAll(
+                    () -> assertThrows(IllegalStateException.class, refusal::notConfirmed),
+                    () -> assertThrows(IllegalStateException.class, unconfirmed::notConfirmed),
+                    () -> assertThrows(IllegalStateException.class, withoutTransaction::notConfirmed));
+        }
+
         private void assertSucceededOperatorEvent(String name, AuditEvent event) {
             assertAll(
                     () -> assertEquals(name, event.event()),

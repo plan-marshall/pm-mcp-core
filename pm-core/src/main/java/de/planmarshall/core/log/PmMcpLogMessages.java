@@ -356,6 +356,19 @@ public final class PmMcpLogMessages {
                 .identifier(163)
                 .template("Unenrol of project '%s' refused with outcome 'scope_active', live work: %s")
                 .build();
+
+        /**
+         * Logged when the owed audit record of an enrolment write that was started and not confirmed complete (the
+         * write failed, or the process stopped before or after it took effect) is handed over, as outcome
+         * {@code failed} with reason {@code not_confirmed}; the enrolment file and its sidecar show what became of the
+         * write.
+         */
+        public static final LogRecord ENROLMENT_WRITE_NOT_CONFIRMED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(164)
+                .template("Audit record '%s' of transaction '%s' for project '%s' handed over as not confirmed: "
+                        + "the write did not complete or its completion was not recorded")
+                .build();
     }
 
     /** ERROR level messages. */

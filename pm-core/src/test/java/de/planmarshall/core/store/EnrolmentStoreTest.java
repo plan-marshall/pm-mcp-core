@@ -365,6 +365,96 @@ class EnrolmentStoreTest {
         }
 
         @Nested
+        @DisplayName("confirming a record")
+        class Confirm {
+
+            private void confirm(AuditEvent confirmed) {
+                inLock(PROJECT, transaction -> store.confirmAudit(transaction, PROJECT, confirmed));
+            }
+
+            @Test
+            @DisplayName("replaces the unconfirmed record of the same transaction by the succeeded one, in its place")
+            void replacesInPlace() {
+                var first = AuditEvent.enrolmentWritten(PROJECT, transactionId());
+                var second = AuditEvent.enrolmentRebaselined(PROJECT, transactionId());
+                owe(PROJECT, first, second.notConfirmed());
+
+                confirm(second);
+
+                assertEquals(List.of(first, second), owed(store));
+            }
+
+            @Test
+            @DisplayName("keeps the other unconfirmed record unconfirmed, which a stop before its confirmation leaves")
+            void keepsOthers() {
+                var first = AuditEvent.enrolmentWritten(PROJECT, transactionId());
+                var second = AuditEvent.enrolmentRebaselined(PROJECT, transactionId());
+                owe(PROJECT, first.notConfirmed(), second.notConfirmed());
+
+                confirm(second);
+
+                assertEquals(List.of(first.notConfirmed(), second), owed(store));
+            }
+
+            @Test
+            @DisplayName("owes the record afresh when no record of its transaction is owed")
+            void owesAfresh() {
+                var other = AuditEvent.enrolmentRemoved(PROJECT, transactionId());
+                var confirmed = written();
+                owe(PROJECT, other);
+
+                confirm(confirmed);
+
+                assertEquals(List.of(other, confirmed), owed(store));
+            }
+
+            @Test
+            @DisplayName("hands the confirmed record over once, with the transaction id it was owed with")
+            void handedOverConfirmed() {
+                var confirmed = written();
+                owe(PROJECT, confirmed.notConfirmed());
+                confirm(confirmed);
+                var sink = new RecordingAuditSink();
+
+                var delivered = deliver(sink);
+
+                assertAll(
+                        () -> assertEquals(List.of(confirmed), delivered),
+                        () -> assertEquals(List.of(confirmed), sink.events()),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+            }
+
+            @Test
+            @DisplayName("hands the unconfirmed record over as it is when it was never confirmed")
+            void handedOverUnconfirmed() {
+                var unconfirmed = written().notConfirmed();
+                owe(PROJECT, unconfirmed);
+                var sink = new RecordingAuditSink();
+
+                var delivered = deliver(sink);
+
+                assertAll(
+                        () -> assertEquals(List.of(unconfirmed), delivered),
+                        () -> assertEquals("failed", unconfirmed.outcome()),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+            }
+
+            @Test
+            @DisplayName("refuses a record without a transaction id or with a detail an intent cannot hold")
+            void refusedRecords() {
+                var withoutTransaction = new AuditEvent(AuditEvent.ENROLMENT_WRITTEN, AuditEvent.CATEGORY_OPERATOR,
+                        AuditEvent.OUTCOME_SUCCEEDED, Map.of(AuditEvent.DETAIL_PROJECT_ID, PROJECT));
+                var notWritable = new AuditEvent(AuditEvent.ENROLMENT_WRITTEN, AuditEvent.CATEGORY_OPERATOR,
+                        AuditEvent.OUTCOME_SUCCEEDED, Map.of(AuditEvent.DETAIL_PROJECT_ID, true));
+
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class, () -> confirm(notWritable)),
+                        () -> assertThrows(NullPointerException.class, () -> confirm(withoutTransaction)),
+                        () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+            }
+        }
+
+        @Nested
         @DisplayName("listing")
         class Listing {
 
@@ -532,6 +622,8 @@ class EnrolmentStoreTest {
                             () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
                                     () -> store.oweAudit(transaction, PROJECT, written)).reason()),
                             () -> assertThrows(InternalFaultException.class,
+                                    () -> store.confirmAudit(transaction, PROJECT, written)),
+                            () -> assertThrows(InternalFaultException.class,
                                     () -> store.owedAudit(transaction, PROJECT)),
                             () -> assertThrows(InternalFaultException.class,
                                     () -> store.deliverOwedAudit(transaction, PROJECT, sink)),
@@ -560,6 +652,8 @@ class EnrolmentStoreTest {
                                     () -> store.owedAudit(transaction, PROJECT)).file()),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
                                     () -> store.oweAudit(transaction, PROJECT, written)).file()),
+                            () -> assertEquals(intent, assertThrows(StoreRefusal.class,
+                                    () -> store.confirmAudit(transaction, PROJECT, written)).file()),
                             () -> assertEquals(intent, assertThrows(StoreRefusal.class,
                                     () -> store.deliverOwedAudit(transaction, PROJECT, sink)).file()));
                 }
