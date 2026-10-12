@@ -51,7 +51,8 @@ decision or a dependency outside this repository.
   in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
   They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
 - PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
-- PLAN-44 — staged 2026-10-12 to close PLAN-41's gaps; PLAN-17 waits for it, PLAN-13 does not.
+- PLAN-44 — shipped as #38, gaps materially open. PLAN-54 is the second remediation (Claude Code only); PLAN-17 waits for it, PLAN-13 does not.
+- PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
 ## Decisions
@@ -257,10 +258,25 @@ decision or a dependency outside this repository.
   plan-marshall as `pm-mcp-core-m2-m4-134.md` to `-143.md`. #37 added `project-onboarding-unit`
   (`blocked`), staged as parked PLAN-45.
 
+- 2026-10-12 — PLAN-44 `static-verifier-rule-gaps` landed as #38 (6caa663), the first plan run under
+  opencode; landing record `landings/PLAN-44.md`. Extended verification with an independent code
+  audit (five key claims re-checked by hand): **gaps materially open**. Rule 9 untouched; Rule 3
+  booleans only, the transition check deleted as "infeasible"; Rule 6 made conditional against the
+  specification; tests still count enum constants, with weakenings kept plus one new one. The package
+  file and ADRs 002–005 were rewritten to match what shipped; the project-units dependency cell was
+  missed. Process trail far better than PLAN-41's, but tokens 0, phases unclosed, finalize build logs
+  not archived. Three high-priority opencode findings filed: `pm-mcp-core-m2-m4-146.md` to `-148.md`.
+  Lessons: 2 promoted here (2026-10-12-18-001, -002), 2 routed (`-144.md`, `-145.md`).
+- 2026-10-12 — Operator decisions (AskUserQuestion): (1) one more remediation plan, PLAN-54
+  (alternatives: split in two; record only); (2) PLAN-54 runs under Claude Code, written into its
+  spec (alternatives: harness open; Claude Code for all plans); (3) PLAN-17 waits for PLAN-54
+  (alternative: may start).
+- 2026-10-12 — #39 to #42 added eight `blocked` packages; staged as parked PLAN-46 to PLAN-53 from
+  their package files. PLAN-45's dependency widened to UC-PRJ-1 to UC-PRJ-3.
+
 ## Open Defects
 
-- PLAN-41 (#34) does not meet its package's Done-When and its ADR 001 and developer guide over-claim;
-  owned by PLAN-44 — source: landing PLAN-41.
+- The static verifier does not meet the Done-When of `static-verifier-remaining-rules` or `static-verifier-rule-gaps`. Rule 6 now contradicts the specification, and the package file, ADRs and developer guide over-claim. The index says `done` for both packages. Owned by PLAN-54 — source: landings PLAN-41 and PLAN-44.
 - The implemented Workflow DSL watch items of PLAN-41 are still open in `plan-marshall-documentation`
   (no documentation PR) — source: landing PLAN-41.
 
@@ -288,7 +304,7 @@ decision or a dependency outside this repository.
   (`runtime-info` → `harness:`), so Antigravity vs Claude Code is told apart only by indirect traces
   (`antigravity_runtime` calls, `unmeasured` metrics). Ask the operator which harness ran a plan
   until plan-marshall stamps it (high-priority finding `pm-mcp-core-m2-m4-132.md`).
-- **Antigravity runs need the extended landing verification** (code-vs-package audit, build-log and
+- **Non-Claude-Code runs (Antigravity, opencode) need the extended landing verification** (code-vs-package audit, build-log and
   gate check, review trail), because the plan's self-report was unreliable on its first run (seven
   high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.
 - `plan-marshall-documentation` #36 changed `workflow-dsl/02-units-jobs-decisions.adoc` during

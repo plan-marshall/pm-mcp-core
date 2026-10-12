@@ -66,7 +66,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-42 (`operator-wait-and-machine-scope`), PLAN-11 (`enrolment-store`, shipped #30), and UC-PRJ-1 agreed (no work package)
+- Depends on: PLAN-42 (`operator-wait-and-machine-scope`), PLAN-11 (`enrolment-store`, shipped #30), and UC-PRJ-1 to UC-PRJ-3 agreed (no work package; widened by #41/#42)
 - Overlaps with: the `core.store` plans; PLAN-11's `runtime.enrolment`
 
 ## Hand-Off Command

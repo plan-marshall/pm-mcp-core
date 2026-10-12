@@ -2,9 +2,9 @@
   "id": "PLAN-44",
   "slug": "static-verifier-rule-gaps",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "plan-44-static-verifier-rule-gaps",
-  "pr": "",
-  "landing": "",
+  "pr": "#38",
+  "landing": "landings/PLAN-44.md",
   "seq": 44
 }
