@@ -265,7 +265,7 @@ class VerifyNotResolveAdversarialTest {
         @DisplayName("positive control: the same interpreter runs the enrolled project script")
         void interpreterThroughProjectScript() {
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
-                    fixture.root.resolve(SCRIPT_PATH).toString()),
+                            fixture.root.resolve(SCRIPT_PATH).toString()),
                     verified(verify(script(Fields.of(Map.of("goal", new Text("module-tests")))))).argv());
         }
 

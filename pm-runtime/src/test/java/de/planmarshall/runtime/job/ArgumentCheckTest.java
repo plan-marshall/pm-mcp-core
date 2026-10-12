@@ -300,7 +300,7 @@ class ArgumentCheckTest {
                     new ProjectScriptCall(SCRIPT_ID, SCRIPT_BINDING, Fields.of(Map.of()))));
 
             assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
-                    fixture.root.resolve(JobEnrolmentFixture.SCRIPT_PATH).toString()),
+                            fixture.root.resolve(JobEnrolmentFixture.SCRIPT_PATH).toString()),
                     assertInstanceOf(JobVerification.Verified.class, outcome).job().argv());
         }
 
@@ -311,7 +311,7 @@ class ArgumentCheckTest {
                     new HostToolCall(HostToolName.ASCIIDOCTOR, List.of("--version"))));
 
             assertEquals(List.of(fixture.tools.get(HostToolName.RUBY).toString(),
-                    fixture.tools.get(HostToolName.ASCIIDOCTOR).toString(), "--version"),
+                            fixture.tools.get(HostToolName.ASCIIDOCTOR).toString(), "--version"),
                     assertInstanceOf(JobVerification.Verified.class, outcome).job().argv());
         }
 
