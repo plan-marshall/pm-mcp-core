@@ -61,6 +61,14 @@ public enum VerificationRule {
     SUBWORKFLOW_CALL_CONTRACT(6),
     /** The static call graph forms an acyclic DAG with maximum depth at most 4. */
     CALL_GRAPH_DAG(7),
+    /** Every path to a guard or state with required artifacts passes a producer state. */
+    GATE_PRODUCER_COVERAGE(8),
+    /** Step completion once per firing, outcome classes admit status, and cycle measures fit. */
+    STEP_COMPLETION(9),
+    /** Resting link states and declared links on question states exist only in session-driven units. */
+    SESSION_DRIVEN_LINKS(10),
+    /** Every cycle contains an awaited event (11b) or an engine-chained cycle measure (11a). */
+    CYCLE_AWAITED_EVENT(11),
     /** Link relation and form compatibility, parameter requirements, and reserved relations. */
     LINK_COMPATIBILITY(12);
 

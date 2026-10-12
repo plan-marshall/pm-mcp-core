@@ -352,4 +352,109 @@ final class UnitGraph {
         }
         return reached;
     }
+
+    /**
+     * Finds all states reachable from {@code startState} without passing through any state in {@code producers}
+     * before reaching the state.
+     *
+     * @param startState the start state
+     * @param producers the set of states that produce the artifact
+     * @return the set of states reached without a preceding producer
+     */
+    Set<String> reachableWithoutProducers(String startState, Set<String> producers) {
+        var seen = new LinkedHashSet<String>();
+        seen.add(startState);
+        if (producers.contains(startState)) {
+            return seen;
+        }
+        var queue = new ArrayDeque<String>();
+        queue.add(startState);
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            for (var next : successors(current)) {
+                if (seen.add(next) && !producers.contains(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+        return seen;
+    }
+
+    /**
+     * Checks if there is a path from {@code source} to {@code target} that avoids all barrier states.
+     *
+     * @param source the source state
+     * @param target the target state
+     * @param barriers the barrier states to avoid
+     * @return {@code true} if a path exists
+     */
+    boolean hasPathAvoiding(String source, String target, Set<String> barriers) {
+        if (source.equals(target)) {
+            return true;
+        }
+        if (barriers.contains(source)) {
+            return false;
+        }
+        var seen = new LinkedHashSet<String>();
+        var queue = new ArrayDeque<String>();
+        seen.add(source);
+        queue.add(source);
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            for (var next : successors(current)) {
+                if (next.equals(target)) {
+                    return true;
+                }
+                if (!barriers.contains(next) && seen.add(next)) {
+                    queue.add(next);
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Finds all elementary simple cycles in the unit graph.
+     *
+     * @param definition the workflow definition
+     * @return the list of simple cycles, each represented as a sequence of state IDs ending in the start state
+     */
+    static List<List<String>> findSimpleCycles(WorkflowDefinition definition) {
+        var stateIds = new ArrayList<>(definition.states().keySet());
+        var graph = of(definition);
+        var cycles = new ArrayList<List<String>>();
+        var stateIndex = new LinkedHashMap<String, Integer>();
+        for (int i = 0; i < stateIds.size(); i++) {
+            stateIndex.put(stateIds.get(i), i);
+        }
+
+        for (int i = 0; i < stateIds.size(); i++) {
+            var startId = stateIds.get(i);
+            var path = new ArrayList<String>();
+            path.add(startId);
+            var inPath = new LinkedHashSet<String>();
+            inPath.add(startId);
+            dfsCycles(graph, startId, startId, i, stateIndex, path, inPath, cycles);
+        }
+        return cycles;
+    }
+
+    private static void dfsCycles(UnitGraph graph, String current, String start, int startIndex,
+            Map<String, Integer> stateIndex, List<String> path, Set<String> inPath, List<List<String>> cycles) {
+        for (var next : graph.successors(current)) {
+            if (next.equals(start)) {
+                var cycle = new ArrayList<>(path);
+                cycle.add(start);
+                cycles.add(Collections.unmodifiableList(cycle));
+            } else {
+                var nextIndex = stateIndex.get(next);
+                if (nextIndex != null && nextIndex > startIndex && inPath.add(next)) {
+                    path.add(next);
+                    dfsCycles(graph, next, start, startIndex, stateIndex, path, inPath, cycles);
+                    path.removeLast();
+                    inPath.remove(next);
+                }
+            }
+        }
+    }
 }

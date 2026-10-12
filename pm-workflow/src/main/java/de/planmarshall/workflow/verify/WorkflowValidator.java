@@ -23,7 +23,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.FreeParam;
+import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
@@ -41,6 +44,8 @@ import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.StepCompletionStatus;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
@@ -168,6 +173,10 @@ public final class WorkflowValidator {
         }
         checkSubWorkflowCallContract(definition, violations);
         checkCallGraphDag(definition, violations);
+        checkGateProducerCoverage(definition, graph, violations);
+        checkStepCompletion(definition, graph, violations);
+        checkSessionDrivenLinks(definition, violations);
+        checkCycleAwaitedEvent(definition, violations);
         checkReachability(definition, graph, violations);
         checkConfigReachability(definition, violations);
         checkExitPaths(definition, graph, violations);
@@ -1010,6 +1019,448 @@ public final class WorkflowValidator {
                 }
             }
         }
+    }
+
+    private void checkGateProducerCoverage(WorkflowDefinition definition, UnitGraph graph,
+            List<Violation> violations) {
+        var producersByArtifact = new HashMap<String, Set<String>>();
+        for (var state : definition.states().values()) {
+            for (var artifact : producedArtifactsOf(state)) {
+                producersByArtifact.computeIfAbsent(artifact, _ -> new LinkedHashSet<>()).add(state.id());
+            }
+        }
+
+        for (var state : definition.states().values()) {
+            for (var artifact : requiredArtifactsOf(state)) {
+                checkProducerCoverage(definition, graph, state, state.location(), artifact,
+                        producersByArtifact.getOrDefault(artifact, Set.of()), violations);
+            }
+            for (var link : UnitGraph.declaredLinks(state.behavior())) {
+                for (var artifact : requiredArtifactsOf(link)) {
+                    checkProducerCoverage(definition, graph, state, link.location(), artifact,
+                            producersByArtifact.getOrDefault(artifact, Set.of()), violations);
+                }
+            }
+        }
+    }
+
+    private void checkProducerCoverage(WorkflowDefinition definition, UnitGraph graph, StateNode state,
+            SourceLocation location, String artifact, Set<String> producers, List<Violation> violations) {
+        var reachableWithout = graph.reachableWithoutProducers(definition.startState(), producers);
+        if (reachableWithout.contains(state.id())) {
+            violations.add(new Violation(VerificationRule.GATE_PRODUCER_COVERAGE, state.id(), location,
+                    "the state '%s' requires the artifact '%s', but there is a path from the start state without a producer"
+                            .formatted(state.id(), artifact)));
+        }
+    }
+
+    private Set<String> producedArtifactsOf(StateNode state) {
+        var produced = new LinkedHashSet<String>();
+        switch (state.behavior()) {
+            case StateBehavior.AutoStep auto ->
+                registry.find(auto.primitiveId()).ifPresent(p -> produced.addAll(p.producedArtifacts()));
+            case StateBehavior.JobStep job ->
+                registry.find(job.primitiveId()).ifPresent(p -> produced.addAll(p.producedArtifacts()));
+            default -> {}
+        }
+        state.factsPrimitiveId().ifPresent(factsId ->
+            registry.find(factsId).ifPresent(p -> produced.addAll(p.producedArtifacts())));
+        return produced;
+    }
+
+    private Set<String> requiredArtifactsOf(StateNode state) {
+        var required = new LinkedHashSet<String>();
+        switch (state.behavior()) {
+            case StateBehavior.AutoStep auto ->
+                registry.find(auto.primitiveId()).ifPresent(p -> required.addAll(p.requiredArtifacts()));
+            case StateBehavior.JobStep job ->
+                registry.find(job.primitiveId()).ifPresent(p -> required.addAll(p.requiredArtifacts()));
+            default -> {}
+        }
+        state.factsPrimitiveId().ifPresent(factsId ->
+            registry.find(factsId).ifPresent(p -> required.addAll(p.requiredArtifacts())));
+        return required;
+    }
+
+    private Set<String> requiredArtifactsOf(LinkSpec link) {
+        var required = new LinkedHashSet<String>();
+        link.guard().ifPresent(guard ->
+            UnitGraph.predicatesOf(guard.expr()).forEach(predId ->
+                registry.find(predId).ifPresent(p -> required.addAll(p.requiredArtifacts()))));
+        if (link.action() instanceof LinkAction.ExecutePrimitive(var primitiveId)) {
+            registry.find(primitiveId).ifPresent(p -> required.addAll(p.requiredArtifacts()));
+        }
+        return required;
+    }
+
+    private record StepCompletionSite(String stateId, OutcomeTransition transition, StepCompletion completion) {}
+
+    private void checkStepCompletion(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
+        var completionsByStep = new LinkedHashMap<String, List<StepCompletionSite>>();
+
+        for (var state : definition.states().values()) {
+            for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                var seenStepsOnTransition = new HashSet<String>();
+                for (var comp : transition.completions()) {
+                    if (!seenStepsOnTransition.add(comp.stepId())) {
+                        violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), comp.location(),
+                                "the step '%s' is completed twice on the same transition".formatted(comp.stepId())));
+                    }
+                    completionsByStep.computeIfAbsent(comp.stepId(), _ -> new ArrayList<>())
+                            .add(new StepCompletionSite(state.id(), transition, comp));
+
+                    var outcomeClass = outcomeClassOf(definition, state, transition);
+                    var status = comp.status();
+                    switch (status) {
+                        case DONE -> {
+                            if (outcomeClass != OutcomeClass.SUCCESS) {
+                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                        comp.location(),
+                                        "the step '%s' is completed as done on an outcome of class %s, which is not SUCCESS"
+                                                .formatted(comp.stepId(), outcomeClass)));
+                            }
+                        }
+                        case SKIPPED -> {
+                            boolean admitted = outcomeClass == OutcomeClass.SUCCESS
+                                    || outcomeClass == OutcomeClass.SKIP
+                                    || (outcomeClass == OutcomeClass.INDETERMINATE
+                                            && "lost".equals(transition.outcomeName()))
+                                    || (outcomeClass == OutcomeClass.FAILURE
+                                            && "infeasible".equals(transition.outcomeName()));
+                            if (!admitted) {
+                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                        comp.location(),
+                                        "the step '%s' is completed as skipped on an outcome of class %s"
+                                                .formatted(comp.stepId(), outcomeClass)));
+                            }
+                        }
+                        case FAILED -> {
+                            if (outcomeClass == OutcomeClass.UNSETTLED || outcomeClass == OutcomeClass.STEPPED_OUT) {
+                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                        comp.location(),
+                                        "the step '%s' is completed as failed on an outcome of class %s"
+                                                .formatted(comp.stepId(), outcomeClass)));
+                            }
+                        }
+                        case WAIVED -> {
+                            boolean admitted = state.behavior() instanceof StateBehavior.SubWorkflowCall
+                                    && "waived".equals(transition.outcomeName());
+                            if (!admitted) {
+                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                        comp.location(),
+                                        "the step '%s' is completed as waived on a transition that is not the 'waived' outcome of a remediation call"
+                                                .formatted(comp.stepId())));
+                            }
+                        }
+                    }
+                }
+            }
+
+            checkStateCycleMeasures(graph, state, violations);
+        }
+
+        var barriers = Set.of("finalize.next-step", definition.startState());
+        for (var entry : completionsByStep.entrySet()) {
+            var stepId = entry.getKey();
+            var sites = entry.getValue();
+            if (sites.size() > 1) {
+                for (int i = 0; i < sites.size(); i++) {
+                    for (int j = 0; j < sites.size(); j++) {
+                        if (i != j) {
+                            var site1 = sites.get(i);
+                            var site2 = sites.get(j);
+                            if (graph.hasPathAvoiding(site1.transition().targetStateId(), site2.stateId(), barriers)) {
+                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, site2.stateId(),
+                                        site2.completion().location(),
+                                        "the step '%s' is completed twice on a path without an intervening dispatch"
+                                                .formatted(stepId)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void checkStateCycleMeasures(UnitGraph graph, StateNode state, List<Violation> violations) {
+        String primitiveId = switch (state.behavior()) {
+            case StateBehavior.AutoStep auto -> auto.primitiveId();
+            case StateBehavior.JobStep job -> job.primitiveId();
+            default -> null;
+        };
+        if (primitiveId == null) {
+            return;
+        }
+        var primOpt = registry.find(primitiveId);
+        if (primOpt.isEmpty()) {
+            return;
+        }
+        var prim = primOpt.get();
+        var measure = prim.cycleMeasure();
+        if (measure == CycleMeasure.STEP_LIST && !"finalize.next-step".equals(state.id())) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                    "the cycle measure STEP_LIST is admitted only on the dispatch hub 'finalize.next-step', but declared on '%s'"
+                            .formatted(state.id())));
+        } else if (measure == CycleMeasure.ARCHIVE_STEPS && !"epic.next-work".equals(state.id())) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                    "the cycle measure ARCHIVE_STEPS is admitted only on 'epic.next-work', but declared on '%s'"
+                            .formatted(state.id())));
+        } else if (measure == CycleMeasure.ATTEMPT_CAP) {
+            prim.exhaustionOutcome().ifPresent(exhaustion -> {
+                for (var t : UnitGraph.allTransitions(state.behavior())) {
+                    if (exhaustion.equals(t.outcomeName())) {
+                        if (graph.forwardClosure(Set.of(t.targetStateId())).contains(state.id())) {
+                            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), t.location(),
+                                    "the exhaustion transition of the attempt cap on state '%s' does not leave the cycle"
+                                            .formatted(state.id())));
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    private OutcomeClass outcomeClassOf(WorkflowDefinition definition, StateNode state,
+            OutcomeTransition transition) {
+        var outcomeName = transition.outcomeName();
+        switch (state.behavior()) {
+            case StateBehavior.AutoStep auto -> {
+                var primitive = registry.find(auto.primitiveId());
+                if (primitive.isPresent()) {
+                    for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
+                        var po = (PrimitiveOutcome) outcome;
+                        if (po.wireName().equals(outcomeName)) {
+                            return po.outcomeClass();
+                        }
+                    }
+                }
+            }
+            case StateBehavior.JobStep job -> {
+                var primitive = registry.find(job.primitiveId());
+                if (primitive.isPresent()) {
+                    for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
+                        var po = (PrimitiveOutcome) outcome;
+                        if (po.wireName().equals(outcomeName)) {
+                            return po.outcomeClass();
+                        }
+                    }
+                }
+            }
+            case StateBehavior.ModelJob modelJob -> {
+                if (UnitGraph.LOST_OUTCOME.equals(outcomeName)) {
+                    return OutcomeClass.INDETERMINATE;
+                }
+                var entityKind = entityKinds.find(modelJob.entityKind());
+                if (entityKind.isPresent()) {
+                    var primitive = registry.find(entityKind.get().returnEvaluationPrimitiveId());
+                    if (primitive.isPresent()) {
+                        for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
+                            var po = (PrimitiveOutcome) outcome;
+                            if (po.wireName().equals(outcomeName)) {
+                                return po.outcomeClass();
+                            }
+                        }
+                    }
+                }
+            }
+            case StateBehavior.SubWorkflowCall call -> {
+                if ("stepped_out".equals(outcomeName)) {
+                    return OutcomeClass.STEPPED_OUT;
+                }
+                var callee = catalog.find(call.subWorkflowId());
+                if (callee.isPresent()) {
+                    for (var calleeState : callee.get().states().values()) {
+                        if (calleeState.terminalOutcome().isPresent()
+                                && calleeState.terminalOutcome().get().id().equals(outcomeName)) {
+                            return calleeState.terminalOutcome().get().outcomeClass();
+                        }
+                    }
+                }
+            }
+            case StateBehavior.QuestionWait question -> {
+                for (var link : question.links()) {
+                    if (link.transitions().contains(transition)
+                            && link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
+                        var primitive = registry.find(primId);
+                        if (primitive.isPresent()) {
+                            for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
+                                var po = (PrimitiveOutcome) outcome;
+                                if (po.wireName().equals(outcomeName)) {
+                                    return po.outcomeClass();
+                                }
+                            }
+                        }
+                    }
+                }
+                return OutcomeClass.SUCCESS;
+            }
+            case StateBehavior.InteractiveLinks _ -> {
+                for (var link : UnitGraph.declaredLinks(state.behavior())) {
+                    if (link.transitions().contains(transition)
+                            && link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
+                        var primitive = registry.find(primId);
+                        if (primitive.isPresent()) {
+                            for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
+                                var po = (PrimitiveOutcome) outcome;
+                                if (po.wireName().equals(outcomeName)) {
+                                    return po.outcomeClass();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            case StateBehavior.TerminalState _ -> {}
+        }
+        return OutcomeClass.SUCCESS;
+    }
+
+    private void checkSessionDrivenLinks(WorkflowDefinition definition, List<Violation> violations) {
+        if (definition.scope() != WorkflowScope.PLAN && definition.scope() != WorkflowScope.EPIC) {
+            return;
+        }
+        for (var state : definition.states().values()) {
+            if (state.behavior() instanceof StateBehavior.InteractiveLinks) {
+                violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
+                        "the resting link state '%s' is not admitted in a unit of scope %s"
+                                .formatted(state.id(), definition.scope())));
+            } else if (state.behavior() instanceof StateBehavior.QuestionWait question
+                    && !question.links().isEmpty()) {
+                violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
+                        "declared links on the question state '%s' are not admitted in a unit of scope %s"
+                                .formatted(state.id(), definition.scope())));
+            } else if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
+                catalog.find(call.subWorkflowId()).ifPresent(callee -> {
+                    for (var calleeState : callee.states().values()) {
+                        if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
+                                || (calleeState.behavior() instanceof StateBehavior.QuestionWait qw
+                                        && !qw.links().isEmpty())) {
+                            violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(),
+                                    state.location(),
+                                    "the called sub-workflow '%s' contains resting links, which are not admitted in a unit of scope %s"
+                                            .formatted(callee.id(), definition.scope())));
+                            break;
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    private void checkCycleAwaitedEvent(WorkflowDefinition definition, List<Violation> violations) {
+        var cycles = UnitGraph.findSimpleCycles(definition);
+        var reportedCycles = new HashSet<String>();
+        for (var cycle : cycles) {
+            var cycleKey = String.join(" -> ", cycle);
+            if (!reportedCycles.add(cycleKey)) {
+                continue;
+            }
+            if (isEngineChainedCycle(definition, cycle)) {
+                if (!hasCycleMeasure(definition, cycle)) {
+                    var firstState = definition.states().get(cycle.getFirst());
+                    var location = firstState != null ? firstState.location() : definition.location();
+                    violations.add(new Violation(VerificationRule.CYCLE_AWAITED_EVENT, cycle.getFirst(), location,
+                            "the engine-chained cycle '%s' has no cycle measure".formatted(cycleKey)));
+                }
+            } else {
+                if (!hasAwaitedEvent(definition, cycle)) {
+                    var firstState = definition.states().get(cycle.getFirst());
+                    var location = firstState != null ? firstState.location() : definition.location();
+                    violations.add(new Violation(VerificationRule.CYCLE_AWAITED_EVENT, cycle.getFirst(), location,
+                            "the cycle '%s' has no awaited event".formatted(cycleKey)));
+                }
+            }
+        }
+    }
+
+    private static boolean isEngineChainedCycle(WorkflowDefinition definition, List<String> cycle) {
+        for (int i = 0; i < cycle.size() - 1; i++) {
+            var state = definition.states().get(cycle.get(i));
+            if (state == null) {
+                return false;
+            }
+            if (!(state.behavior() instanceof StateBehavior.AutoStep
+                    || state.behavior() instanceof StateBehavior.SubWorkflowCall)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasCycleMeasure(WorkflowDefinition definition, List<String> cycle) {
+        for (int i = 0; i < cycle.size() - 1; i++) {
+            var state = definition.states().get(cycle.get(i));
+            if (state != null && state.behavior() instanceof StateBehavior.AutoStep auto) {
+                var primitive = registry.find(auto.primitiveId());
+                if (primitive.isPresent() && primitive.get().cycleMeasure() != CycleMeasure.NONE) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasAwaitedEvent(WorkflowDefinition definition, List<String> cycle) {
+        for (int i = 0; i < cycle.size() - 1; i++) {
+            var fromId = cycle.get(i);
+            var toId = cycle.get(i + 1);
+            if (stepAwaitsEvent(definition, fromId, toId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean stepAwaitsEvent(WorkflowDefinition definition, String fromId, String toId) {
+        var state = definition.states().get(fromId);
+        if (state == null) {
+            return false;
+        }
+        return switch (state.behavior()) {
+            case StateBehavior.JobStep job -> true;
+            case StateBehavior.ModelJob modelJob -> true;
+            case StateBehavior.QuestionWait question -> {
+                for (var t : question.transitions()) {
+                    if (t.targetStateId().equals(toId)) {
+                        yield true;
+                    }
+                }
+                for (var link : question.links()) {
+                    for (var t : link.transitions()) {
+                        if (t.targetStateId().equals(toId)) {
+                            yield linkAwaitsEvent(link);
+                        }
+                    }
+                }
+                yield false;
+            }
+            case StateBehavior.InteractiveLinks links -> {
+                for (var link : links.links()) {
+                    for (var t : link.transitions()) {
+                        if (t.targetStateId().equals(toId)) {
+                            if (linkAwaitsEvent(link)) {
+                                yield true;
+                            }
+                        }
+                    }
+                }
+                yield false;
+            }
+            case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
+                    .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
+            case StateBehavior.SubWorkflowCall call -> false;
+            case StateBehavior.TerminalState _ -> false;
+        };
+    }
+
+    private boolean linkAwaitsEvent(LinkSpec link) {
+        if (link.form() == LinkForm.SUBMIT) {
+            return true;
+        }
+        if (link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
+            return registry.find(primId).map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
+        }
+        return false;
     }
 
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
