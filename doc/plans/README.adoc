@@ -285,6 +285,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]; UC-CTL-3 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:epic-decomposition.adoc[`epic-decomposition`]
+|The decomposition of an epic, reviewed by the operator
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; UC-STA-6 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
