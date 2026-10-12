@@ -1,0 +1,29 @@
+= The onboarding of the machine
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `machine-onboarding-unit`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-1[Use Cases, UC-ONB-1] to link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-9[UC-ONB-9]; the onboarding in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Where:: pm-workflow (the onboarding's sub-workflows in the machine scope, the plan axes and overrides in the composition); pm-core (the consent, catalogue, steward, role, and credential stores); pm-runtime (the harness scan and probes, provider verification)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the engine side of the onboarding's changes into `plan-marshall-documentation` as part of its own work, once UC-ONB is agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]); `onboarding-contract` of `pm-mcp-clients` writes the client side beside it.
+* The onboarding's sub-workflows in the machine scope of `operator-wait-and-machine-scope`: languages, first harness, catalogue, roles, credentials, providers, plan defaults; a later run of one aspect.
+* The consent store and its closed list of kinds, with a project and a digest where the kind is a project's; the consent state before every action.
+* The harness scan, the login and model probes, and the verification of an unknown harness, as confined jobs; the profile fields they read.
+* The model catalogue, the steward role (exempt from qualification) and its submits, the default and the operator's role assignment.
+* The credential store choice and its move; the machine's provider defaults and their verification.
+* The automatic onboarding with its consent and its result (reasons, items).
+* The plan behaviour axes and plan overrides in the composition: the prune reason `plan_default`, the composition event `override`, their binding where the plan first needs them.
+
+== Trace
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc[UC-ONB-1 to UC-ONB-9] and their changes
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]; link:../../../plan-marshall-documentation/doc/specification/model-work/01-roles-and-configuration.adoc[Model Work § Roles & Configuration]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc[Store Schemas § Machine Stores]; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc[Client Profiles § Profile Schema]
+
+== Done When
+
+The specification is merged in `plan-marshall-documentation`; the onboarding runs from its first state to `onboard.completed` and as a later run of each aspect, against the scenarios of `onboarding-contract` replayed on the runtime; no action runs without its consent; the automatic run reports each value it chose.

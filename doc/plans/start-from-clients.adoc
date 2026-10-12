@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `start-from-clients`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[Use Cases, UC-STA-1] to link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4]; starting work in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[Use Cases, UC-STA-1] to link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4], link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-7[UC-STA-7] to link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-9[UC-STA-9]; starting work in both clients of `pm-mcp-clients`; no roadmap milestone yet
 Where:: pm-workflow (the bootstrap and source units, the end of the session-driven units, the static verifier); pm-core (the pending entry, the source directory and its manifest, `origin`, the epic header's sources); pm-runtime (the entry endpoints, the listing of files)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
@@ -15,7 +15,10 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * *Sources as a list*: `start.sources` and `start-epic.sources`; the description stored by the main workflow; the source units `source-documents` (copy or move, the machine's default; a move removes a file git tracks from git through the short landing `git.land-removal`), `source-issue` (number or URL, always stored as its URL, another repository on the operator's grant, the structured fields), and the existing ones of lesson, local changes, pull request, and epic row, each writing into the source directory.
 * *The source directory*: created with the entry, moved into the plan or the epic's machine store at creation; the manifest; `origin` naming the sources; the epic header listing them; `request.md` composed from them; `epic.decompose` reading them.
 * *Screened once stored*: fetch, level-1 validator, store, screener over the stored copy, the verdict in the manifest; nothing but the screener reads an external source before a clean verdict or the operator's acceptance; the operator's text and the documents on the machine are never screened.
-* *Asked when needed*: posture, base branch, outline review, and `parallelization_scope` leave the start and become operator waits where they are first needed, skipped where the project or the machine sets them.
+* *The other sources* (UC-STA-7 to UC-STA-9): pull request, lesson, and local changes as sub-workflows storing into the source directory; an issue's and a pull request's URL stored.
+* *An epic's sources in its ledger* (`.marshall/epics/<epic_id>/sources/`, committed and landed), so that adoption and every decomposition read them.
+* *Loopback only*: the listing of files, a move, and documents outside the checkout only from the terminal client and the loopback listener; `POST /api/v1/entries` goes.
+* *Asked when needed*: posture, base branch, outline review, and `parallelization_scope` (a project key now) leave the start and become operator waits where they are first needed, skipped where the project or the machine sets them.
 * Where `entity-addressing`, `plan-instance`, or `project-units-and-invariants` have already implemented the session-driven bootstrap, this package restructures them.
 
 == Trace

@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `plan-and-epic-control`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[Use Cases, UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2]; the actions on plans and epics in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[Use Cases, UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-4[UC-CTL-4], link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-5[UC-PLN-5]; the actions on plans and epics in both clients of `pm-mcp-clients`; no roadmap milestone yet
 Where:: pm-workflow (pause and start, the end of a plan, the epic's next plan, archive check, and cancel); pm-core (the plan's activity, the archive of an ended plan, the inbox records of the operator's acts); pm-runtime (the endpoints, the operator verbs)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
@@ -13,6 +13,9 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * *Specification first*: the package writes the changes Pausing and Starting a Plan, Cancelling and Abandoning Archive, The Epic Is Told, and An Epic's Actions into `plan-marshall-documentation` as part of its own work, once UC-CTL-1 and UC-CTL-2 are agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
 * *A plan*: running, pausing, or paused; pause with its point (now: tasks withdrawn and jobs stopped, both run again on start; after the current task, the default; after the current phase), start (a paused plan, or withdrawing the pause of a pausing one); a plan of an epic created and started in one act, never waiting to be started; cancel and abandon through `plan.aborted` with their outcome and reason, then the archive; the open pull request closed with the reason or left open.
 * *Its epic told*: an inbox record per operator act on a plan of a live epic, the queue row following the plan's state, `coordinate` deciding on it.
+* *A restart*: a paused plan stays paused, a pausing one holds at its point.
+* *The epic as a resource* (UC-PLN-5): `GET /api/v1/epics/{epic_id}` with its rows, sources, landings, registers' counts, the draft while one is open, the archive check, its history; the operator's acts as its endpoints.
+* *Holds and their acts* (UC-CTL-4): each hold a record with its kind, cause, attempts, and the acts that resolve it, each an operator endpoint of both clients; `facts.operator_command` goes.
 * *An epic*: next plan (start the next launchable row, creating its plan, the reasons when none is, the offer to raise the scope); the archive check before `epic.archive`; cancel with the choice for its plans.
 
 == Trace
