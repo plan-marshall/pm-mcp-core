@@ -316,11 +316,12 @@ public final class Enrolments {
     /**
      * Hands over the audit records that projects no longer enrolled still owe, as {@link #replayOwedAudit()} does,
      * skipping a project whose enrolment file exists ({@link EnrolmentStore#hasEnrolmentFile}): the recovery of an
-     * enrolled project hands its own records over. For every other project it hands the owed records over and then
-     * removes the sidecar an interrupted {@code unenrol} left without its file
-     * ({@link EnrolmentStore#removeOrphanSidecar}), so the project ends with no file, no sidecar and no intent; a
-     * project whose records cannot be handed over keeps its sidecar for the next pass. The background pass of the
-     * recovery calls it
+     * enrolled project hands its own records over. For every other project it hands the owed records over and, once
+     * the hand-over returned without an exception, removes the sidecar an interrupted {@code unenrol} left without its
+     * file ({@link EnrolmentStore#removeOrphanSidecar}); the sidecar is kept for the next pass only when the hand-over
+     * throws. A record the sink refuses stays owed in the project's intent file either way, so no record is lost: the
+     * project ends with no file, no sidecar and no intent only when the sink accepted every record, and otherwise
+     * keeps its intent for a later pass. The background pass of the recovery calls it
      * ({@code OwedEnrolmentAuditStep.unenrolledPass()}).
      *
      * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
@@ -382,7 +383,9 @@ public final class Enrolments {
     /**
      * The replay of one project: the sweep of every project hands over what it owes and removes nothing; the sweep of
      * the unenrolled projects leaves a project whose enrolment file exists to its own recovery, and otherwise hands
-     * over what the project owes and then removes the orphan sidecar of an interrupted {@code unenrol}.
+     * over what the project owes and, once the hand-over returned without an exception, removes the orphan sidecar of
+     * an interrupted {@code unenrol}, also when the sink refused records, which stay owed in the intent file. A
+     * hand-over that throws keeps the sidecar for the next pass.
      */
     private int replayProject(LockTransaction transaction, String projectId, boolean unenrolledOnly) {
         if (!unenrolledOnly) {
