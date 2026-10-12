@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `project-onboarding-unit`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[Use Cases, UC-PRJ-1]; the onboarding of a project in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[Use Cases, UC-PRJ-1], link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-2[UC-PRJ-2]; the onboarding of a project in both clients of `pm-mcp-clients`; no roadmap milestone yet
 Where:: pm-workflow (the unit of the machine scope, the setup's choices as operator waits); pm-core (detection, enrolment writes, the project's values over the machine's); pm-runtime (the projects of the machine: favourites, recent, most used)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
