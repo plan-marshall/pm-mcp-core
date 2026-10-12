@@ -28,7 +28,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("EntityKind should support constructors, accessors and null validation")
-    void testEntityKind() {
+    void entityKind() {
         var withUnit = new EntityKind("task", Optional.of("worker-task"), "task.evaluate");
         assertAll(
                 () -> assertEquals("task", withUnit.name()),
@@ -53,7 +53,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("EntityKindRegistry should provide defaults, lookup, with and null validation")
-    void testEntityKindRegistry() {
+    void entityKindRegistry() {
         var defaults = EntityKindRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.find("screen").isPresent()),
@@ -89,7 +89,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("QuestionClass should support record components and null validation")
-    void testQuestionClass() {
+    void questionClass() {
         var qc = new QuestionClass("init", Set.of("answered", "assumed"));
         var outcomes = Set.of("a");
         assertAll(
@@ -102,7 +102,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("QuestionClassRegistry should provide defaults, lookup, with and null validation")
-    void testQuestionClassRegistry() {
+    void questionClassRegistry() {
         var defaults = QuestionClassRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.find("init").isPresent()),
@@ -136,7 +136,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("SchemaRegistry should provide defaults, contains, with and null validation")
-    void testSchemaRegistry() {
+    void schemaRegistry() {
         var defaults = SchemaRegistry.defaults();
         assertAll(
                 () -> assertTrue(defaults.contains("question-envelope")),
@@ -160,7 +160,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("WorkflowCatalog should support empty, of, find, contains and definitions")
-    void testWorkflowCatalog() {
+    void workflowCatalog() {
         var empty = WorkflowCatalog.empty();
         assertAll(
                 () -> assertFalse(empty.find("foo").isPresent()),
@@ -187,7 +187,7 @@ class RegistriesAndRecordsTest {
 
     @Test
     @DisplayName("WorkflowValidator overloaded constructors should initialize successfully")
-    void testWorkflowValidatorConstructors() {
+    void workflowValidatorConstructors() {
         var registry = TestPrimitives.registry();
         var released = List.of("verify.entry");
         var validator2 = new WorkflowValidator(registry, released);
