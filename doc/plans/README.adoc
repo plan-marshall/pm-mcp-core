@@ -243,6 +243,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; UC-PLN-1 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:project-onboarding-unit.adoc[`project-onboarding-unit`]
+|The onboarding of a project as one process, the project's values over the machine's, and the projects of the machine
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:enrolment-store.adoc[`enrolment-store`]; UC-PRJ-1 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
