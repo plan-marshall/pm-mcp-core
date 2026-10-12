@@ -11,6 +11,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * *Specification first*: the package writes the change Codeberg and Forgejo into `plan-marshall-documentation` as part of its own work, the module included in the link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification], once UC-STA-4 is agreed.
+* *One list of providers*: the provider ids are defined once, in one closed list of the specification, and `ci_provider`, the integrations, the credential keys, and the provider defaults refer to it instead of each naming the providers, so that adding `forgejo` is one change.
 * The CI contract over the Forgejo REST API, `ci.issue-view` first; the host detection (`codeberg.org`, else a probe of `/api/v1/version`); the value `forgejo` in `ci_provider` and the integrations; the credential key `forgejo` with its host; the provider in the machine's provider defaults.
 
 == Trace

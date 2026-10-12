@@ -27,4 +27,4 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 
 == Done When
 
-The specification of the changes is merged in `plan-marshall-documentation`; no unit is driven by a session and the static verifier refuses one; a test per source kind stores it in the source directory with its manifest entry; a plan and an orchestrator start from several sources and keep them after creation; no model but the screener reads an external source before its verdict, shown by a test that fails the screening; each option of the start is asked where it is first needed and not at all when the project sets it.
+The specification of the changes is merged in `plan-marshall-documentation`; no unit is driven by a session and the static verifier refuses one; a test per source kind stores it in the source directory with its manifest entry; a plan and an orchestrator start from several sources and keep them after creation; no model but the screener reads an external source before its verdict, shown by a test that fails the screening; each option of the start is asked where it is first needed and not at all when the project or the machine sets it.
