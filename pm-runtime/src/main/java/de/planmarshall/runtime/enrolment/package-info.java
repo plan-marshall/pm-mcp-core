@@ -25,8 +25,9 @@
  * following a link, and a file that changed while it was read is refused; the bytes of a link target are never
  * read.</li>
  * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentCheck}: the enrolment check over the snapshots of the file and
- * its sidecar, run by the project's recovery as its first step before the project is served; the verify-not-resolve
- * check of jobs, {@code enter} and the operator verbs do not run it yet. A refused project ({@code enrolment_tampered},
+ * its sidecar, run by the project's recovery as its first step before the project is served and by the
+ * verify-not-resolve check of jobs as its first stage ({@code VerifyNotResolvePipeline} of {@code runtime.job});
+ * {@code enter} and the operator verbs do not run it yet. A refused project ({@code enrolment_tampered},
  * {@code enrolment_insecure}, and a refused strict read, audited as {@code enrolment_invalid}) blocks only
  * itself.</li>
  * <li>{@code EnrolmentPolicy}: the rules an enrolment is checked against before it is signed (placeholders of an

@@ -1,0 +1,233 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.job;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
+import de.planmarshall.core.store.ProjectEnrolment.Binding;
+import de.planmarshall.core.store.ProjectEnrolment.Build;
+import de.planmarshall.core.store.ProjectEnrolment.HostTool;
+import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
+import de.planmarshall.core.store.ProjectEnrolment.Interpreter;
+import de.planmarshall.core.store.ProjectEnrolment.PinnedFile;
+import de.planmarshall.core.store.ProjectEnrolment.ProjectScript;
+import de.planmarshall.core.store.ProjectEnrolment.WorkerKind;
+import de.planmarshall.core.store.ProjectEnrolment.Wrapper;
+import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
+import de.planmarshall.runtime.credentials.FileSecretStore;
+import de.planmarshall.runtime.enrolment.EnrolmentCheck;
+import de.planmarshall.runtime.enrolment.EnrolmentFileCheck;
+import de.planmarshall.runtime.enrolment.EnrolmentKey;
+import de.planmarshall.runtime.enrolment.Enrolments;
+import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.test.TestBases;
+
+/**
+ * The real enrolment of the job pipeline tests: store, key file, lock manager, enrolment check and operator writes
+ * over one short base ({@link TestBases}), and a project tree with build wrappers, pinned files, host tool and script
+ * binaries whose SHA-256 digests the enrolment records. A live linked worktree of the project lies beside it, as the
+ * plain pointer files git writes for one; no git process runs. The binaries carry random content, so no two digests
+ * are alike.
+ */
+final class JobEnrolmentFixture implements AutoCloseable {
+
+    static final String USER = System.getProperty("user.name");
+
+    /** The enrolled project. */
+    static final String PROJECT = "job-project";
+
+    /** The enrolled id of the project script. */
+    static final String SCRIPT_ID = "parse-log";
+
+    /** The repository-relative path of the Maven wrapper. */
+    static final String MVNW = "mvnw";
+
+    /** The repository-relative path of the Python project wrapper. */
+    static final String PW = "pw";
+
+    /** A pinned file of the Maven wrapper that exists. */
+    static final String WRAPPER_PROPERTIES = ".mvn/wrapper/maven-wrapper.properties";
+
+    /** A pinned file of the Maven wrapper that must stay absent. */
+    static final String MAVEN_CONFIG = ".mvn/maven.config";
+
+    /** The repository-relative path of the project script. */
+    static final String SCRIPT_PATH = "scripts/parse_log.py";
+
+    /** The binding of the project script. */
+    static final Binding SCRIPT_BINDING = new Binding(WorkerKind.LOG_PARSER, "maven");
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    final Path base;
+    final List<AuditEvent> events = new CopyOnWriteArrayList<>();
+    final AuditSink sink = events::add;
+    final EnrolmentStore store;
+    final EnrolmentKey key;
+    final FileLockManager locks;
+    final EnrolmentCheck check;
+    final Enrolments enrolments;
+
+    /** The canonical enrolled root of the project, a repository with a {@code .git} directory. */
+    final Path root;
+
+    /** The canonical root of a live linked worktree of the project. */
+    final Path worktree;
+
+    /** The canonical directory beside the project, outside its workspace. */
+    final Path beside;
+
+    /** The canonical paths of the host tool binaries by their names. */
+    final Map<HostToolName, Path> tools = new EnumMap<>(HostToolName.class);
+
+    JobEnrolmentFixture() throws IOException {
+        base = Files.createDirectories(TestBases.create("pmjob")).toRealPath();
+        Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
+        var state = Files.createDirectories(base.resolve("state"));
+        store = new EnrolmentStore(base);
+        key = new EnrolmentKey(new FileSecretStore(base.resolve("credentials")), state, USER, new SecureRandom());
+        locks = new FileLockManager(sink);
+        check = new EnrolmentCheck(store, key, new EnrolmentFileCheck(USER), sink);
+        enrolments = new Enrolments(store, key, new EnrolmentFileCheck(USER), locks, projectId -> List.of(), sink);
+
+        root = Files.createDirectories(base.resolve("repo"));
+        write(root.resolve(MVNW), "#!/bin/sh\nexec java -jar .mvn/wrapper/maven-wrapper.jar \"$@\"\n");
+        write(root.resolve(PW), "#!/usr/bin/env python3\nimport sys\n");
+        write(root.resolve(WRAPPER_PROPERTIES), "distributionUrl=https://example.invalid/maven.zip\n");
+        write(root.resolve(SCRIPT_PATH), "import sys\nprint(sys.argv)\n");
+        var gitDirectory = Files.createDirectories(root.resolve(".git/worktrees/linked"));
+        Files.writeString(gitDirectory.resolve("commondir"), "../..\n");
+
+        worktree = Files.createDirectories(base.resolve("linked"));
+        Files.writeString(worktree.resolve(".git"), "gitdir: " + gitDirectory + "\n");
+        Files.writeString(gitDirectory.resolve("gitdir"), worktree.resolve(".git") + "\n");
+
+        beside = Files.createDirectories(base.resolve("beside"));
+
+        var toolDirectory = Files.createDirectories(base.resolve("tools"));
+        for (var name : HostToolName.values()) {
+            var tool = toolDirectory.resolve(name.wireName());
+            Files.write(tool, randomContent());
+            Files.setPosixFilePermissions(tool, PosixFilePermissions.fromString("rwx------"));
+            tools.put(name, tool);
+        }
+    }
+
+    /** @return the enrolment of the project over the files of the tree as they are now */
+    ProjectEnrolment enrolment() {
+        var wrappers = List.of(
+                new Wrapper(WrapperName.MVNW, MVNW, sha256(root.resolve(MVNW)),
+                        List.of(new PinnedFile(WRAPPER_PROPERTIES, sha256(root.resolve(WRAPPER_PROPERTIES))),
+                                new PinnedFile(MAVEN_CONFIG, null)),
+                        null),
+                new Wrapper(WrapperName.PW, PW, sha256(root.resolve(PW)), List.of(), Interpreter.PYTHON3));
+        var hostTools = new ArrayList<HostTool>();
+        for (var tool : tools.entrySet()) {
+            var interpreter = tool.getKey() == HostToolName.ASCIIDOCTOR ? Interpreter.RUBY : null;
+            hostTools.add(new HostTool(tool.getKey(), tool.getValue().toString(), sha256(tool.getValue()),
+                    interpreter, null));
+        }
+        var scripts = new TreeMap<String, ProjectScript>();
+        scripts.put(SCRIPT_ID, new ProjectScript(SCRIPT_PATH, sha256(root.resolve(SCRIPT_PATH)), Interpreter.PYTHON3,
+                SCRIPT_BINDING, ArgumentSchema.any(), 60));
+        return new ProjectEnrolment(PROJECT, root.toString(), Instant.parse("2026-10-12T08:00:00Z"), false, null, null,
+                wrappers, hostTools, Build.defaults(), Map.of(), scripts, new TreeMap<>(), new TreeMap<>(), List.of(),
+                new TreeMap<>());
+    }
+
+    /** Enrols the project over the files of the tree as they are now. */
+    ProjectEnrolment enrol() {
+        var enrolment = enrolments.enrol(enrolment(), false);
+        events.clear();
+        return enrolment;
+    }
+
+    /** @return the pipeline over the enrolment check of this fixture */
+    VerifyNotResolvePipeline pipeline() {
+        return new VerifyNotResolvePipeline(check);
+    }
+
+    /** Runs the pipeline of this fixture in a transaction of its own. */
+    JobVerification verify(JobRequest request) {
+        return verify(pipeline(), request);
+    }
+
+    /** Runs a pipeline in a transaction of its own. */
+    JobVerification verify(VerifyNotResolvePipeline pipeline, JobRequest request) {
+        try (var transaction = locks.openTransaction()) {
+            return pipeline.verify(transaction, request);
+        }
+    }
+
+    /**
+     * @param workingDirectory the working directory as the caller gives it
+     * @param target           what the job runs
+     * @return the request of the project with the live linked worktree and the module {@code core}
+     */
+    JobRequest request(String workingDirectory, JobRequest.Target target) {
+        return new JobRequest(PROJECT, workingDirectory, Set.of(worktree), Set.of("core"), target);
+    }
+
+    /** @return a request of the project in its enrolled root that calls {@code git status} */
+    JobRequest gitStatus(String workingDirectory) {
+        return request(workingDirectory, new JobRequest.HostToolCall(HostToolName.GIT, List.of("status")));
+    }
+
+    /** @return the lowercase-hex SHA-256 of a file */
+    static String sha256(Path file) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** @return content no other file of the fixture has */
+    static byte[] randomContent() {
+        var bytes = new byte[64];
+        RANDOM.nextBytes(bytes);
+        return bytes;
+    }
+
+    private static void write(Path file, String content) throws IOException {
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, content, StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public void close() {
+        TestBases.delete(base);
+    }
+}
