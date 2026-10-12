@@ -11,7 +11,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * *Specification first*: the package writes the engine side of the onboarding's changes into `plan-marshall-documentation` as part of its own work, once UC-ONB is agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]); `onboarding-contract` of `pm-mcp-clients` writes the client side beside it.
-* The onboarding's sub-workflows in the machine scope of `operator-wait-and-machine-scope`: languages, first harness, catalogue, roles, credentials, providers, plan defaults; a later run of one aspect.
+* The onboarding's sub-workflows in the machine scope of `operator-wait-and-machine-scope`: languages, harnesses (one scan, a default), models, roles, credentials, providers, plan defaults; a later run of one aspect.
 * The consent store and its closed list of kinds, with a project and a digest where the kind is a project's; the consent state before every action.
 * The harness scan, the login and model probes, and the verification of an unknown harness, as confined jobs; the profile fields they read.
 * The model catalogue, the steward role (exempt from qualification) and its submits, the default and the operator's role assignment.
