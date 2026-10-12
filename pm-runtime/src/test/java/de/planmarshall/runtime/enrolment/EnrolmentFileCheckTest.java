@@ -10,8 +10,8 @@
 package de.planmarshall.runtime.enrolment;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -159,7 +159,7 @@ class EnrolmentFileCheckTest {
         @ParameterizedTest(name = "mode {0} is read in full")
         @ValueSource(strings = {OWNER_ONLY, READ_ONLY})
         @DisplayName("a file that passes the checks is read in full")
-        void aPassingFileIsReadInFull(String permissions) throws IOException {
+        void aPassingFileIsReadInFull(String permissions) throws Exception {
             mode(permissions);
 
             var snapshot = check.snapshot(file);
@@ -187,7 +187,7 @@ class EnrolmentFileCheckTest {
         @ParameterizedTest(name = "a link whose target exists: {0}")
         @ValueSource(booleans = {true, false})
         @DisplayName("a symbolic link is refused without reading its target")
-        void aSymbolicLinkIsRefusedWithoutReadingItsTarget(boolean targetExists) throws IOException {
+        void aSymbolicLinkIsRefusedWithoutReadingItsTarget(boolean targetExists) throws Exception {
             mode(OWNER_ONLY);
             var target = targetExists ? file : directory.resolve("dangling.json");
             var link = Files.createSymbolicLink(directory.resolve("link.json"), target);
@@ -204,7 +204,7 @@ class EnrolmentFileCheckTest {
         @CsvSource({"rw-r--r--, ", "rwx------, ", "rw-------, someone-else"})
         @DisplayName("a broader mode or a foreign owner is refused with the reason of the violation")
         void aBroaderModeOrAForeignOwnerIsRefusedWithTheReasonOfViolation(String permissions, String owner)
-                throws IOException {
+                throws Exception {
             mode(permissions);
             var ownerCheck = new EnrolmentFileCheck(owner == null ? USER : owner);
             var expected = ownerCheck.violation(file).orElseThrow();
@@ -218,7 +218,7 @@ class EnrolmentFileCheckTest {
 
         @Test
         @DisplayName("a file that cannot be opened for another reason than a link or its removal is an I/O failure")
-        void anUnreadableFileIsAnIoFailure() throws IOException {
+        void anUnreadableFileIsAnIoFailure() throws Exception {
             Assumptions.assumeFalse("root".equals(USER), "root reads a file of mode 0000");
             mode("---------");
 
@@ -229,7 +229,7 @@ class EnrolmentFileCheckTest {
 
         @Test
         @DisplayName("a file replaced atomically while it was read is refused")
-        void aFileReplacedWhileItWasReadIsRefused() throws IOException {
+        void aFileReplacedWhileItWasReadIsRefused() throws Exception {
             mode(OWNER_ONLY);
             var other = writeOwnerOnly("other.json", "{\"other\": true}");
 
@@ -242,7 +242,7 @@ class EnrolmentFileCheckTest {
 
         @Test
         @DisplayName("a file replaced by a symbolic link while it was read is refused")
-        void aFileReplacedByALinkWhileItWasReadIsRefused() throws IOException {
+        void aFileReplacedByALinkWhileItWasReadIsRefused() throws Exception {
             mode(OWNER_ONLY);
             var valid = writeOwnerOnly("valid.json", CONTENT);
             var link = Files.createSymbolicLink(directory.resolve("swap.json"), valid);
@@ -256,7 +256,7 @@ class EnrolmentFileCheckTest {
 
         @Test
         @DisplayName("a mode loosened while the file was read is refused with the ordinary reason")
-        void aModeLoosenedWhileItWasReadIsRefused() throws IOException {
+        void aModeLoosenedWhileItWasReadIsRefused() throws Exception {
             mode(OWNER_ONLY);
 
             var snapshot = check.snapshot(file, () -> loosen(file));
@@ -268,7 +268,7 @@ class EnrolmentFileCheckTest {
 
         @Test
         @DisplayName("a seam that changes nothing returns the content")
-        void aSeamThatChangesNothingReturnsTheContent() throws IOException {
+        void aSeamThatChangesNothingReturnsTheContent() throws Exception {
             mode(OWNER_ONLY);
 
             var snapshot = check.snapshot(file, NOTHING);
@@ -280,7 +280,7 @@ class EnrolmentFileCheckTest {
 
         @Test
         @DisplayName("the seam runs once for a present file and never for an absent or a refused one")
-        void theSeamRunsOncePerReadFile() throws IOException {
+        void theSeamRunsOncePerReadFile() throws Exception {
             mode(OWNER_ONLY);
             var runs = new AtomicInteger();
             Runnable counting = runs::incrementAndGet;
