@@ -67,7 +67,7 @@ The static verifier implements the following rules:
 * `TARGET_NOT_RESERVED`: Reserved state suffixes (`.blocked`, `.footprint-violation`, `.config-drift`) and condition kinds cannot be transition targets.
 
 === Rule 4: Leaf Task Constraint
-* `LEAF_TASK_CONSTRAINT`: Workflows of scope `entity` or `subworkflow` cannot declare sub-workflow calls or task subdivisions.
+* `LEAF_TASK_CONSTRAINT`: Worker units contain no model jobs, and consultation tasks offer no consult links.
 
 === Rule 5: Released States & Migrations
 * `RELEASED_STATE`: Every released state must exist in the unit or be renamed via a valid `migrate` declaration.
@@ -82,7 +82,7 @@ The static verifier implements the following rules:
 * `GATE_PRODUCER_COVERAGE`: Every path reaching a gate requiring artifacts must pass through a producer of that artifact.
 
 === Rule 9: Step Completion
-* `STEP_COMPLETION`: Each execution path between step boundaries must contain exactly one completion matching the outcome class.
+* `STEP_COMPLETION`: Step completion once per firing, outcome classes admit status, and cycle measures fit.
 
 === Rule 10: Session-Driven Links
 * `SESSION_DRIVEN_LINKS`: Resting `link` states and declared question links are admitted only in `workspace` and `session` scopes; they are forbidden in `plan` and `epic` scopes.

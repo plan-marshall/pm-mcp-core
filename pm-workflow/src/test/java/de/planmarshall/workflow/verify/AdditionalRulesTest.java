@@ -519,7 +519,6 @@ class AdditionalRulesTest {
                         done -> verify.ask_step
                             completes verify:call as done
                         stepped_out -> verify.done
-                            completes verify:call as skipped
 
                 state verify.ask_step
                     phase inherit
@@ -538,7 +537,7 @@ class AdditionalRulesTest {
                 """);
         var found = violations(def);
         // All completions should match valid outcome classes without contradictions
-        assertTrue(found.stream().noneMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION
-                && v.message().contains("contradicts")));
+        assertTrue(found.stream().noneMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION),
+                () -> "unexpected STEP_COMPLETION violations: " + found);
     }
 }

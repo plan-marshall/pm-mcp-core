@@ -81,10 +81,11 @@ class RegistriesAndRecordsTest {
     @DisplayName("QuestionClass should support record components and null validation")
     void testQuestionClass() {
         var qc = new QuestionClass("init", Set.of("answered", "assumed"));
+        var outcomes = Set.of("a");
         assertAll(
                 () -> assertEquals("init", qc.name()),
                 () -> assertEquals(Set.of("answered", "assumed"), qc.outcomes()),
-                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(null, Set.of("a"))),
+                () -> assertThrows(NullPointerException.class, () -> new QuestionClass(null, outcomes)),
                 () -> assertThrows(NullPointerException.class, () -> new QuestionClass("q", null))
         );
     }
