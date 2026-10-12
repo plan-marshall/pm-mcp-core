@@ -484,7 +484,7 @@ public final class Enrolments {
      * @since 0.1
      */
     public record Rebaseline(Path file, Optional<StoreDigest> recorded, StoreDigest current,
-            List<PairRecovery> settled) {
+    List<PairRecovery> settled) {
 
         /**
          * @throws NullPointerException if a component or an element of {@code settled} is {@code null}
