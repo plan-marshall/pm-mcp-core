@@ -53,8 +53,14 @@ public enum VerificationRule {
     EXIT_PATH(3),
     /** The link identifiers of a state are unique, the implicit links included. */
     LINK_ID_UNIQUE(3),
+    /** Worker units contain no model jobs, and consultation tasks offer no consult links. */
+    LEAF_TASK_CONSTRAINT(4),
     /** Every released state name is a state, or is migrated directly to a state. */
     RELEASED_STATE(5),
+    /** Sub-workflow exit contracts, parameter bindings, phase inherit, and guided step-in skills. */
+    SUBWORKFLOW_CALL_CONTRACT(6),
+    /** The static call graph forms an acyclic DAG with maximum depth at most 4. */
+    CALL_GRAPH_DAG(7),
     /** Link relation and form compatibility, parameter requirements, and reserved relations. */
     LINK_COMPATIBILITY(12);
 

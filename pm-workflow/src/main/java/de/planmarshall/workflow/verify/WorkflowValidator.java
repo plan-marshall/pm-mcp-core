@@ -27,17 +27,21 @@ import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
+import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.LinkAction;
 import de.planmarshall.workflow.ast.LinkForm;
 import de.planmarshall.workflow.ast.LinkRelation;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -91,6 +95,8 @@ public final class WorkflowValidator {
 
     private final SchemaRegistry schemas;
 
+    private final WorkflowCatalog catalog;
+
     /**
      * @param registry       the primitives a unit may name
      * @param releasedStates the state names of earlier releases, in the order they are reported
@@ -98,7 +104,7 @@ public final class WorkflowValidator {
      */
     public WorkflowValidator(PrimitiveRegistry registry, Collection<String> releasedStates) {
         this(registry, releasedStates, EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(),
-                SchemaRegistry.defaults());
+                SchemaRegistry.defaults(), WorkflowCatalog.empty());
     }
 
     /**
@@ -111,11 +117,27 @@ public final class WorkflowValidator {
      */
     public WorkflowValidator(PrimitiveRegistry registry, Collection<String> releasedStates,
             EntityKindRegistry entityKinds, QuestionClassRegistry questionClasses, SchemaRegistry schemas) {
+        this(registry, releasedStates, entityKinds, questionClasses, schemas, WorkflowCatalog.empty());
+    }
+
+    /**
+     * @param registry        the primitives a unit may name
+     * @param releasedStates  the state names of earlier releases, in the order they are reported
+     * @param entityKinds     the registered entity kinds
+     * @param questionClasses the registered question classes
+     * @param schemas         the registered named parameter schemas
+     * @param catalog         the registered sub-workflow catalog
+     * @throws NullPointerException if an argument or a released state name is {@code null}
+     */
+    public WorkflowValidator(PrimitiveRegistry registry, Collection<String> releasedStates,
+            EntityKindRegistry entityKinds, QuestionClassRegistry questionClasses, SchemaRegistry schemas,
+            WorkflowCatalog catalog) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.releasedStates = List.copyOf(new LinkedHashSet<>(List.copyOf(releasedStates)));
         this.entityKinds = Objects.requireNonNull(entityKinds, "entityKinds");
         this.questionClasses = Objects.requireNonNull(questionClasses, "questionClasses");
         this.schemas = Objects.requireNonNull(schemas, "schemas");
+        this.catalog = Objects.requireNonNull(catalog, "catalog");
     }
 
     /**
@@ -132,6 +154,7 @@ public final class WorkflowValidator {
         checkSchemaBinding(definition, violations);
         checkStateIdUniqueness(definition, violations);
         checkStateExists(definition, violations);
+        checkLeafTaskConstraint(definition, violations);
         var targetedAbortTerminals = new HashSet<String>();
         for (var state : definition.states().values()) {
             checkPrimitiveBinding(definition, state, violations);
@@ -143,6 +166,8 @@ public final class WorkflowValidator {
             checkAbortTerminalTargeting(state, violations, targetedAbortTerminals);
             checkReservedTargets(state, violations);
         }
+        checkSubWorkflowCallContract(definition, violations);
+        checkCallGraphDag(definition, violations);
         checkReachability(definition, graph, violations);
         checkConfigReachability(definition, violations);
         checkExitPaths(definition, graph, violations);
@@ -731,6 +756,260 @@ public final class WorkflowValidator {
         return combination.entrySet().stream()
                 .map(e -> "%s=%s".formatted(e.getKey(), e.getValue()))
                 .collect(java.util.stream.Collectors.joining(", ", "[", "]"));
+    }
+
+    private static void checkLeafTaskConstraint(WorkflowDefinition definition, List<Violation> violations) {
+        boolean isWorkerUnit = definition.scope() == WorkflowScope.ENTITY || "worker-task".equals(definition.id());
+        if (isWorkerUnit) {
+            for (var state : definition.states().values()) {
+                if (state.behavior() instanceof StateBehavior.ModelJob) {
+                    violations.add(new Violation(VerificationRule.LEAF_TASK_CONSTRAINT, state.id(), state.location(),
+                            "a worker unit must not contain a model job state"));
+                }
+                for (var link : UnitGraph.declaredLinks(state.behavior())) {
+                    for (var transition : link.transitions()) {
+                        var target = definition.states().get(transition.targetStateId());
+                        if (target != null && target.behavior() instanceof StateBehavior.ModelJob) {
+                            violations.add(new Violation(VerificationRule.LEAF_TASK_CONSTRAINT, state.id(),
+                                    transition.location(), "a worker unit link transition must not enter a model job state"));
+                        }
+                    }
+                }
+            }
+        }
+        boolean isConsultation = definition.id().contains("consult") || "consultation".equals(definition.id());
+        if (isConsultation) {
+            for (var state : definition.states().values()) {
+                for (var link : UnitGraph.declaredLinks(state.behavior())) {
+                    if (link.rel() == LinkRelation.CONSULT || link.idPattern().startsWith("consult:")) {
+                        violations.add(new Violation(VerificationRule.LEAF_TASK_CONSTRAINT, state.id(), link.location(),
+                                "a consultation task must not offer a consult link"));
+                    }
+                }
+                if (state.behavior() instanceof StateBehavior.ModelJob modelJob && !modelJob.consultRoles().isEmpty()) {
+                    violations.add(new Violation(VerificationRule.LEAF_TASK_CONSTRAINT, state.id(), state.location(),
+                            "a consultation task must not consult further roles"));
+                }
+            }
+        }
+    }
+
+    private void checkSubWorkflowCallContract(WorkflowDefinition definition, List<Violation> violations) {
+        for (var state : definition.states().values()) {
+            if ("inherit".equals(state.phase()) && definition.scope() != WorkflowScope.SUBWORKFLOW
+                    && definition.scope() != WorkflowScope.ENTITY) {
+                violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
+                        "the state '%s' declares 'phase inherit', which is admitted only in sub-workflow and entity units"
+                                .formatted(state.id())));
+            }
+
+            if (definition.scope() == WorkflowScope.SUBWORKFLOW
+                    && state.behavior() instanceof StateBehavior.InteractiveLinks links && !links.links().isEmpty()
+                    && state.skillPath().isEmpty()) {
+                violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
+                        "the resting link state '%s' of a sub-workflow must declare a skill".formatted(state.id())));
+            }
+
+            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
+                var calleeOpt = catalog.find(call.subWorkflowId());
+                if (calleeOpt.isEmpty()) {
+                    violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                            state.location(),
+                            "the called sub-workflow '%s' is not registered".formatted(call.subWorkflowId())));
+                    continue;
+                }
+                var callee = calleeOpt.get();
+                if (callee.scope() != WorkflowScope.SUBWORKFLOW) {
+                    violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                            state.location(),
+                            "the called workflow '%s' has scope %s, expected SUBWORKFLOW"
+                                    .formatted(call.subWorkflowId(), callee.scope())));
+                }
+
+                var contractOutcomes = new LinkedHashSet<String>();
+                for (var calleeState : callee.states().values()) {
+                    if (calleeState.behavior() instanceof StateBehavior.TerminalState
+                            && calleeState.terminalOutcome().isPresent()) {
+                        contractOutcomes.add(calleeState.terminalOutcome().get().id());
+                    }
+                }
+                contractOutcomes.add("stepped_out");
+
+                var outcomeCounts = new HashMap<String, Integer>();
+                var resultGuardsOnDone = new ArrayList<ResultGuard>();
+                for (var transition : call.transitions()) {
+                    var outcome = transition.outcomeName();
+                    outcomeCounts.put(outcome, outcomeCounts.getOrDefault(outcome, 0) + 1);
+                    if (transition.resultGuard().isPresent()) {
+                        if (!"done".equals(outcome)) {
+                            violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                    transition.location(),
+                                    "a result guard is admitted only on the outcome 'done', but found on '%s'"
+                                            .formatted(outcome)));
+                        } else {
+                            resultGuardsOnDone.add(transition.resultGuard().get());
+                        }
+                    }
+                    if (!contractOutcomes.contains(outcome)) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                transition.location(),
+                                "the call routes the outcome '%s', which is not in the exit contract of '%s'"
+                                        .formatted(outcome, call.subWorkflowId())));
+                    }
+                }
+
+                for (var contractOutcome : contractOutcomes) {
+                    int count = outcomeCounts.getOrDefault(contractOutcome, 0);
+                    if (count == 0) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the call does not route the exit outcome '%s' of '%s'"
+                                        .formatted(contractOutcome, call.subWorkflowId())));
+                    } else if (count == 2) {
+                        if (!"done".equals(contractOutcome) || resultGuardsOnDone.size() != 2
+                                || !areComplementary(resultGuardsOnDone.get(0), resultGuardsOnDone.get(1))) {
+                            violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                    state.location(),
+                                    "the call routes the exit outcome '%s' of '%s' multiple times"
+                                            .formatted(contractOutcome, call.subWorkflowId())));
+                        }
+                    } else if (count > 2 || (count > 1 && !"done".equals(contractOutcome))) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the call routes the exit outcome '%s' of '%s' multiple times"
+                                            .formatted(contractOutcome, call.subWorkflowId())));
+                    }
+                }
+
+                var declaredParams = new LinkedHashMap<String, ParamDecl>();
+                for (var param : callee.params()) {
+                    declaredParams.put(param.name(), param);
+                }
+                for (var entry : call.paramBindings().entrySet()) {
+                    var paramName = entry.getKey();
+                    var callValue = entry.getValue();
+                    var paramDecl = declaredParams.get(paramName);
+                    if (paramDecl == null) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the parameter binding '%s' names an undeclared parameter of '%s'"
+                                        .formatted(paramName, call.subWorkflowId())));
+                    } else {
+                        checkParamValueMatch(state, call.subWorkflowId(), paramDecl, callValue, violations);
+                    }
+                }
+                for (var paramName : declaredParams.keySet()) {
+                    if (!call.paramBindings().containsKey(paramName)) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the call omits the required parameter '%s' of '%s'"
+                                        .formatted(paramName, call.subWorkflowId())));
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean areComplementary(ResultGuard g1, ResultGuard g2) {
+        return g1.field().equals(g2.field()) && g1.negated() != g2.negated();
+    }
+
+    private static void checkParamValueMatch(StateNode state, String subWorkflowId, ParamDecl param,
+            CallValue value, List<Violation> violations) {
+        switch (param.type()) {
+            case ParamType.EnumOf(var allowedValues) -> {
+                if (value instanceof CallValue.EnumValue(var enumVal)) {
+                    if (!allowedValues.contains(enumVal)) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the value '%s' of parameter '%s' is not in the allowed enum values %s of '%s'"
+                                        .formatted(enumVal, param.name(), allowedValues, subWorkflowId)));
+                    }
+                } else {
+                    violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                            state.location(),
+                            "the parameter '%s' of '%s' expects an enum value, but found %s"
+                                    .formatted(param.name(), subWorkflowId, value)));
+                }
+            }
+            case ParamType.Int(var min, var max) -> {
+                if (value instanceof CallValue.IntValue(var intVal)) {
+                    var minVal = min.orElse(Integer.MIN_VALUE);
+                    var maxVal = max.orElse(Integer.MAX_VALUE);
+                    if (intVal < minVal || intVal > maxVal) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the integer value %d of parameter '%s' is out of range [%d..%d] for '%s'"
+                                        .formatted(intVal, param.name(), minVal, maxVal, subWorkflowId)));
+                    }
+                } else {
+                    violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                            state.location(),
+                            "the parameter '%s' of '%s' expects an int value, but found %s"
+                                    .formatted(param.name(), subWorkflowId, value)));
+                }
+            }
+            case ParamType.ListOf(var elementType) -> {
+                if (value instanceof CallValue.EnumList(var listVals)) {
+                    if (listVals.isEmpty()) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the parameter '%s' of '%s' must not be an empty list"
+                                        .formatted(param.name(), subWorkflowId)));
+                    } else if (elementType instanceof ParamType.EnumOf(var allowedValues)) {
+                        for (var elem : listVals) {
+                            if (!allowedValues.contains(elem)) {
+                                violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                        state.location(),
+                                        "the list value '%s' of parameter '%s' is not in the allowed enum values %s of '%s'"
+                                                .formatted(elem, param.name(), allowedValues, subWorkflowId)));
+                            }
+                        }
+                    }
+                } else {
+                    violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                            state.location(),
+                            "the parameter '%s' of '%s' expects a list value, but found %s"
+                                    .formatted(param.name(), subWorkflowId, value)));
+                }
+            }
+            case ParamType.Text _, ParamType.SchemaRef _ -> {
+            }
+        }
+    }
+
+    private void checkCallGraphDag(WorkflowDefinition definition, List<Violation> violations) {
+        var callStack = new ArrayList<String>();
+        callStack.add(definition.id());
+        checkDagDfs(definition, callStack, violations);
+    }
+
+    private void checkDagDfs(WorkflowDefinition current, List<String> callStack, List<Violation> violations) {
+        for (var state : current.states().values()) {
+            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
+                var calleeId = call.subWorkflowId();
+                if (callStack.contains(calleeId)) {
+                    var cyclePath = new ArrayList<>(callStack);
+                    cyclePath.add(calleeId);
+                    violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, state.id(), state.location(),
+                            "the sub-workflow call graph contains a cycle: %s".formatted(String.join(" -> ", cyclePath))));
+                    return;
+                }
+                if (callStack.size() >= 5) {
+                    var depthPath = new ArrayList<>(callStack);
+                    depthPath.add(calleeId);
+                    violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, state.id(), state.location(),
+                            "the sub-workflow call stack exceeds the maximum depth 4: %s".formatted(String.join(" -> ", depthPath))));
+                    return;
+                }
+                var calleeOpt = catalog.find(calleeId);
+                if (calleeOpt.isPresent()) {
+                    callStack.add(calleeId);
+                    checkDagDfs(calleeOpt.get(), callStack, violations);
+                    callStack.removeLast();
+                }
+            }
+        }
     }
 
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
