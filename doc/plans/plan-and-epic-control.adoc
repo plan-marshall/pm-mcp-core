@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `plan-and-epic-control`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[Use Cases, UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2]; the actions on plans and epics in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[Use Cases, UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-4[UC-CTL-4], link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-5[UC-PLN-5]; the actions on plans and epics in both clients of `pm-mcp-clients`; no roadmap milestone yet
 Where:: pm-workflow (pause and start, the end of a plan, the epic's next plan, archive check, and cancel); pm-core (the plan's activity, the archive of an ended plan, the inbox records of the operator's acts); pm-runtime (the endpoints, the operator verbs)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
@@ -13,15 +13,18 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * *Specification first*: the package writes the changes Pausing and Starting a Plan, Cancelling and Abandoning Archive, The Epic Is Told, and An Epic's Actions into `plan-marshall-documentation` as part of its own work, once UC-CTL-1 and UC-CTL-2 are agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
 * *A plan*: running, pausing, or paused; pause with its point (now: tasks withdrawn and jobs stopped, both run again on start; after the current task, the default; after the current phase), start (a paused plan, or withdrawing the pause of a pausing one); a plan of an epic created and started in one act, never waiting to be started; cancel and abandon through `plan.aborted` with their outcome and reason, then the archive; the open pull request closed with the reason or left open.
 * *Its epic told*: an inbox record per operator act on a plan of a live epic, the queue row following the plan's state, `coordinate` deciding on it.
+* *A restart*: a paused plan stays paused, a pausing one holds at its point.
+* *The epic as a resource* (UC-PLN-5): `GET /api/v1/epics/{epic_id}` with its rows, sources, landings, registers' counts, the draft while one is open, the archive check, its history; the operator's acts as its endpoints.
+* *Holds and their acts* (UC-CTL-4): each hold a record with its kind, cause, attempts, and the acts that resolve it, each an operator endpoint of both clients; `facts.operator_command` goes.
 * *An epic*: next plan (start the next launchable row, creating its plan, the reasons when none is, the offer to raise the scope); the archive check before `epic.archive`; cancel with the choice for its plans.
 
 == Trace
 
 Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
-* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2] and their changes
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2], link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-4[UC-CTL-4], link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-5[UC-PLN-5] and their changes
 * Specification: link:../../../plan-marshall-documentation/doc/specification/state-catalogue/04-plan-finalize-terminal.adoc#state-catalogue-terminal[State Catalogue § Terminal States]; link:../../../plan-marshall-documentation/doc/specification/model-work/08-epic-coordination.adoc[Model Work § Epic Coordination]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue/06-setup-epic-other.adoc[State Catalogue § Epic]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/03-project-store.adoc#archives[Filesystem Layout § Archives]
 
 == Done When
 
-The specification of the changes is merged in `plan-marshall-documentation`; a test per action and state shows what it does and what it refuses; each pause point holds where it says, also at an operator wait and at a loop-back; a paused plan serves nothing until started and resumes where it stopped; an ended plan is archived with its outcome and reason; every act on a plan of an epic reaches the epic's inbox; next plan, the archive check, and cancel behave as specified, also with the scope full and with no launchable row.
+The specification of the changes is merged in `plan-marshall-documentation`; a test per action and state shows what it does and what it refuses; each pause point holds where it says, also at an operator wait and at a loop-back; a paused plan serves nothing until started and resumes where it stopped; an ended plan is archived with its outcome and reason; every act on a plan of an epic reaches the epic's inbox; next plan, the archive check, and cancel behave as specified, also with the scope full and with no launchable row; every hold offers its acts as endpoints, and no representation carries `facts.operator_command` any more.
