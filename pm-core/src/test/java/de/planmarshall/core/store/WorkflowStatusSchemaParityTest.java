@@ -24,11 +24,13 @@ import de.planmarshall.core.SpecificationDocument;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 
 /**
- * The two closed lists of the status codec keep parity with the schema of the workflow state store (PM-ARCH-6,
- * PM-WF-7): the members {@link WorkflowStatusCodec#MEMBERS} the codec reads and writes are the schema's members in
- * schema order, and the {@link RetryRule}s are the property names the schema admits for {@code retry_counters}. A
- * member or key added to or removed from the schema without the code fails here instead of being refused or accepted
- * unseen at run time. The schema is read from the documentation checkout named by
+ * The closed lists of the status codec keep parity with the schema of the workflow state store (PM-ARCH-6, PM-WF-7):
+ * the members {@link WorkflowStatusCodec#MEMBERS} the codec reads and writes are the schema's members in schema
+ * order, the {@link RetryRule}s are the property names the schema admits for {@code retry_counters}, the
+ * {@link WorkflowStatus#PHASES} are the values of the schema's {@code phase} enum, and the scope types of
+ * {@link JournalScopeType} the status can carry are the values of its {@code scope_type} enum. A member, key or value
+ * added to or removed from the schema without the code fails here instead of being refused or accepted unseen at run
+ * time. The schema is read from the documentation checkout named by
  * {@value SpecificationDocument#ROOT_PROPERTY}; without the checkout the tests are skipped with the missing path
  * named.
  */
@@ -67,6 +69,32 @@ class WorkflowStatusSchemaParityTest {
 
         assertFalse(expected.isEmpty(), "the schema names the retry rules");
         assertEquals(expected, wireNames());
+    }
+
+    @Test
+    @DisplayName("the phases of the status are the values of the phase enum of the schema")
+    void phasesEqualSchema() {
+        var expected = enumOf("phase");
+
+        assertFalse(expected.isEmpty(), "the schema names the phases");
+        assertEquals(WorkflowStatus.PHASES, expected);
+    }
+
+    @Test
+    @DisplayName("the scope types of the codec are the values of the scope_type enum of the schema")
+    void scopeTypesEqualSchema() {
+        var expected = enumOf("scope_type");
+        var actual = Arrays.stream(JournalScopeType.values()).filter(type -> type != JournalScopeType.LESSONS)
+                .map(JournalScopeType::wireName).collect(Collectors.toUnmodifiableSet());
+
+        assertFalse(expected.isEmpty(), "the schema names the scope types");
+        assertEquals(expected, actual);
+    }
+
+    private static Set<String> enumOf(String member) {
+        var declaration = SpecificationDocument.object(properties.get(member));
+        return SpecificationDocument.array(declaration.get("enum")).stream().map(String::valueOf)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     private static Set<String> wireNames() {

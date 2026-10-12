@@ -151,7 +151,7 @@ class WorkflowEngineTest {
                     start epic.next-work
 
                     state epic.next-work
-                        phase orchestrate
+                        phase epic
                         auto test.next-work
                             abort_landed -> epic.aborted
 

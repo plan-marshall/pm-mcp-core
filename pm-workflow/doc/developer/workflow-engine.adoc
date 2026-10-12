@@ -75,7 +75,7 @@ sub-workflow the catalog does not hold is refused with `WorkflowEngine.Unverifie
 
 `start(scopeType, scopeId)` builds the first status of a scope at the unit's start state. A start state that declares
 `phase inherit` is admitted for the workspace scope only, whose phase is then `workspace`; every other DSL phase is
-mapped to the value of the status store (`execute` to `phase-5-execute`, `orchestrate` to `orchestrator`, and so on).
+mapped to the value of the status store (`execute` to `phase-5-execute`, `epic` to `epic`, and so on).
 
 `advance(status)` continues from the current state. From there the engine chains, state after state, in one advance:
 

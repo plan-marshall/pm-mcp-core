@@ -83,7 +83,7 @@ Map<String, String> retained) {
 
     /** The phases of the schema. */
     public static final Set<String> PHASES = Set.of("phase-1-init", "phase-2-refine", "phase-3-outline",
-            "phase-4-plan", "phase-5-execute", "phase-6-finalize", "completed", "aborted", "orchestrator", "workspace");
+            "phase-4-plan", "phase-5-execute", "phase-6-finalize", "completed", "aborted", "epic", "workspace");
 
     /** The remediation policy classes that key {@code policy_counters}. */
     public static final Set<String> POLICY_CLASSES = Set.of("ci-failure", "review-findings", "build-failure",

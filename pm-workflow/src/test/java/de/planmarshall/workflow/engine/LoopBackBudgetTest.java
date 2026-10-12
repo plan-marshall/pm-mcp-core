@@ -157,7 +157,7 @@ class LoopBackBudgetTest {
         @DisplayName("Should refuse another scope than a plan, an unknown class and a negative budget")
         void shouldRefuseInvalidCharges() {
             var epic = plan.toBuilder().scopeType(JournalScopeType.EPIC).scopeId("engine-epic")
-                    .phase("orchestrator").build();
+                    .phase("epic").build();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> LoopBackBudget.outlineLoopBack(epic)),

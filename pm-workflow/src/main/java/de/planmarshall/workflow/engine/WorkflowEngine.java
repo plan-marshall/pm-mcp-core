@@ -116,7 +116,7 @@ public final class WorkflowEngine {
             Map.entry("finalize", "phase-6-finalize"),
             Map.entry("completed", "completed"),
             Map.entry("aborted", "aborted"),
-            Map.entry("orchestrate", "orchestrator"),
+            Map.entry("epic", "epic"),
             Map.entry("workspace", "workspace"));
 
     private final WorkflowDefinition unit;
