@@ -8,16 +8,26 @@
  * the root of this repository.
  */
 /**
- * The deterministic interpreter of the state machine: the call stack, the guards, the loop-back budgets, the
- * remediation units, and the handling of questions and waivers.
+ * The deterministic interpreter of the state machine (PM-IMPL-5; PM-WF-1: only verified units run; PM-WF-16:
+ * sub-workflow calls with a persisted call stack and a small exit contract).
  * <p>
- * Specification:
- * <ul>
- * <li>{@code doc/specification/workflow-dsl/02-units-jobs-decisions.adoc}</li>
- * <li>{@code doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc}</li>
- * <li>{@code doc/specification/workflow-dsl/08-remediation-units.adoc}</li>
- * <li>{@code doc/specification/mcp-tools/01-core-workflow-tools.adoc}</li>
- * <li>{@code doc/specification/state-catalogue.adoc}</li>
- * </ul>
+ * {@link de.planmarshall.workflow.engine.WorkflowEngine} runs one unit that
+ * {@link de.planmarshall.workflow.verify.WorkflowValidator} passed, together with every sub-workflow it calls. One
+ * advance chains in one transaction: it runs {@code auto} states through their primitives, pushes a
+ * {@link de.planmarshall.workflow.engine.CallStack} frame on a {@code call} and enters the sub-workflow's start state,
+ * pops exactly one frame on a sub-workflow's terminal and routes the returned outcome at the calling state, and stops at
+ * the first state that rests or at a terminal of the top-level unit. The result is an
+ * {@link de.planmarshall.workflow.engine.EngineStep}: the scope rests and waits for an event, the unit ended, or a
+ * condition was raised on the current state. Each carries the new status, which the caller writes in the transaction of
+ * the advance, so the engine keeps no state outside the status store (PM-ARCH-4).
+ * <p>
+ * {@link de.planmarshall.workflow.engine.GuardEvaluator} evaluates guards with three values and raises the condition
+ * {@code guard_indeterminate} for a guard that could not be evaluated, and decides the result guards of a returned
+ * outcome. {@link de.planmarshall.workflow.engine.LoopBackBudget} keeps the loop-back and remediation budgets of a plan,
+ * which are raised only and yield {@code exhausted} when spent (PM-WF-7).
+ * <p>
+ * The engine counts no retry itself: a retrying primitive counts through
+ * {@link de.planmarshall.core.store.RetryCounters}, and the engine drops the counts of every state of a sub-workflow
+ * when it pops or unwinds that sub-workflow's frame.
  */
 package de.planmarshall.workflow.engine;

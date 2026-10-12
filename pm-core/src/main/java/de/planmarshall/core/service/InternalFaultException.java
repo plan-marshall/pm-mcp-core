@@ -37,7 +37,19 @@ public class InternalFaultException extends RuntimeException {
         /** A transaction asked for a lock that must not be acquired after the locks it holds. */
         LOCK_ORDER_VIOLATION("lock_order_violation"),
         /** A store was accessed by a transaction that does not hold the lock of the store. */
-        STORE_LOCK_NOT_HELD("store_lock_not_held");
+        STORE_LOCK_NOT_HELD("store_lock_not_held"),
+        /**
+         * The workflow engine met an outcome that no transition of a verified unit routes: a primitive returned an
+         * outcome outside its declared set, or no transition of a calling state matched the returned outcome.
+         */
+        UNDECLARED_OUTCOME("undeclared_outcome"),
+        /**
+         * The workflow engine met a name that does not resolve: the persisted status, or a verified unit, names a
+         * state, a sub-workflow, a phase or a primitive that is not there.
+         */
+        UNRESOLVED_NAME("unresolved_name"),
+        /** The workflow engine chained more transitions in one advance than any verified unit can take. */
+        UNBOUNDED_CHAIN("unbounded_chain");
 
         private final String code;
 
