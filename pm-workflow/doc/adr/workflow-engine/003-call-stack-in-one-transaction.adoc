@@ -1,0 +1,61 @@
+= ADR 003: Call, Chain and Return in One Atomic Advance
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+A sub-workflow call pushes a frame onto `call_stack`, the sub-workflow's `auto` states run, and its terminal returns to
+the caller, whose transition continues. PM-WF-16 requires the call stack to be persisted so a resting state inside a
+sub-workflow survives a restart, and PM-ARCH-4 that no state is lost when a run is killed. If the push, the chained
+states and the pop were written one by one, a kill between two writes would leave a frame without its sub-workflow
+state or a popped frame whose caller never routed the outcome. A sub-workflow also needs a way to leave early
+(`stepped_out`) without ending the plan from inside a nested unit, and a spent condition budget needs a way out of any
+depth.
+
+== Decision
+
+* One advance computes one new status: the push of a frame (with the bound arguments and `pushed_at`), every `auto`
+  state, call and return it chains, and the pop with the caller's routing of the returned outcome. The caller writes
+  that status as one replace target of its `ScopeTransaction`. Only a resting state, a terminal of the top-level unit
+  or a raised condition ends the advance.
+* A terminal of a sub-workflow and a step-out pop exactly one frame; the calling state routes the outcome once, and a
+  caller that is itself a sub-workflow routes `stepped_out` to a state of its own.
+* The fallback of a spent condition budget (`unwindToFallback`) unwinds every frame in the same advance and enters the
+  fallback state of the top-level unit directly, without taking any caller's `stepped_out` transition.
+* Every pop and every unwind drops the retry counts of every state of the left sub-workflow in the same status write
+  (link:../../../../pm-core/doc/adr/core-store/005-retry-count-clearing-rule.adoc[ADR core-store 005]).
+
+== Alternatives Considered
+
+1. *Persist every call and return on its own*: one write per push, per chained state and per pop.
+   _Rejected_: a kill between two writes leaves a call stack that does not match the state, and the resume would have
+   to repair it; it also multiplies the journal writes of one advance.
+2. *A step-out unwinds to the top-level unit*: every step-out ends every frame.
+   _Rejected_: a commit that steps out inside a remediation unit would end the plan although the remediation unit could
+   still remedy; the unit that called is the one that knows what to do with the step-out.
+3. *A spent condition unwinds frame by frame through the callers' `stepped_out` routes*.
+   _Rejected_: a unit's own recovery state would catch the unwind and spend more budget; the spent condition must
+   reach the phase's fallback.
+
+== Consequences
+
+* A killed run resumes with a call stack that matches its state; `EngineResumeTest` proves it for every persisted
+  step.
+* `SubWorkflowExecutionTest` proves that a step-out pops exactly one frame which the calling sub-workflow routes, and
+  that the fallback unwinds every frame in one transaction and drops the unwound retry counts.
+* The result record of a returning frame is the facts its sub-workflow's primitives returned in the advance of the
+  return; result guards read nothing else.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16],
+  link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
+* `doc/plans/workflow-engine.adoc`, deliverable 4

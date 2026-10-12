@@ -1,0 +1,61 @@
+= ADR 002: Every Wait Is an Engine Event
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+A scope rests in a job, composite job, task, question or link state until something outside the engine settles: a
+job ends, the queue tasks of a state end, a question is resolved, time passes, or a model follows a link. PM-WF-2
+requires that waiting on a job is an engine event, never a link, and PM-ARCH-4 that a killed run resumes from the
+persisted state alone. The package could have implemented only the interpreter and left the waits to the packages that
+run jobs, queue tasks and questions, or it could implement the waits a model holds as well.
+
+== Decision
+
+The operator decided that this package implements the typed engine event and the parking and resuming of every
+resting state the engine enters, and leaves the waits a model holds to the package `waits`:
+
+* Entering a resting state parks it in the same status write: a `job` state binds its job (`active_job`,
+  `active_jobs`), started through `JobStarter` unless a job-starting outcome reported it; a `composite_job` state binds
+  itself; a task state creates its queue task through `QueueTaskCreator` (`active_tasks`).
+* `RestingWait` derives from the persisted status what the state waits for, and only the matching `EngineEvent`
+  (`JobSettled`, `TasksSettled`, `QuestionResolved`, `TimeElapsed`) resumes it through `advance(status, event)`; any
+  other event is refused with the status unchanged.
+* The transition that leaves a state clears its bindings; an advance of a state whose binding is in the store only
+  waits and never starts the job again.
+
+== Alternatives Considered
+
+1. *Interpreter only*: the engine stops at a resting state and the packages of jobs, queue tasks and questions park and
+   resume it.
+   _Rejected_: each package would write its own binding and its own resume path into the status, the wait of a state
+   would be spread over several writers, and a restart test of the engine could not cover it.
+2. *Waits as links*: a job's end is a link the model or the server follows.
+   _Rejected_: PM-WF-2 forbids it; a link can be followed early, while an event is only accepted when it names what
+   the state waits for.
+3. *Model-held waits here too*: the waits a model holds are implemented with the engine waits.
+   _Rejected_: they need the representation and the session, which belong to the package `waits`.
+
+== Consequences
+
+* `EngineEventTest` parks and resumes every resting kind by its own event only and refuses a mismatched event;
+  `EngineResumeTest` stops a run after every persisted step and continues it from the store with the same state and
+  call stack.
+* Fan-out task states (`each`, `role each`) are parked by the package that computes their entity list; the engine
+  refuses to park one. A composite job state that waits for time gets no persisted deadline here; its caller delivers
+  `TimeElapsed`.
+* An unreadable question record raises the condition `precondition_unmet` instead of resuming the state.
+
+== Source
+
+* Operator decision 2, work package `workflow-engine`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-2[PM-WF-2],
+  link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+* `doc/plans/workflow-engine.adoc`, deliverable 5
