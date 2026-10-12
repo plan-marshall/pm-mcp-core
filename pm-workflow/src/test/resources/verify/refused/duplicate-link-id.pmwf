@@ -1,7 +1,7 @@
 # expect: LINK_ID_UNIQUE state verify.entry line 12
 # A plan unit whose link state declares two links with one identifier.
 workflow verify.duplicate-link version 1 format 1
-scope plan
+scope workspace
 start verify.entry
 
 state verify.entry

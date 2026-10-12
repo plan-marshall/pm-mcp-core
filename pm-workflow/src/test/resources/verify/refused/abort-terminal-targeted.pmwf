@@ -1,0 +1,16 @@
+# expect: ABORT_TERMINAL_TARGETING state verify.entry line 9
+workflow verify.target-abort version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.prepare
+        done -> plan.aborted
+        skipped -> verify.done
+
+state plan.aborted terminal aborted failure
+    phase aborted
+
+state verify.done terminal done success
+    phase verify

@@ -89,14 +89,14 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 
 |link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`]
 |Static verifier: the remaining rules
-|`open`
+|`done`
 |link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
 |Milestone 3
 
 |link:workflow-engine.adoc[`workflow-engine`]
 |State machine interpreter and sub-workflow execution
 |`open`
-|link:workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]; link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]; link:store-substrate.adoc[`store-substrate`]
+|link:workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]; link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]; link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`]; link:store-substrate.adoc[`store-substrate`]
 |Milestone 3
 
 |link:diagram-generator.adoc[`diagram-generator`]
@@ -108,7 +108,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:project-units-and-invariants.adoc[`project-units-and-invariants`]
 |Loader of project-owned units and the compiled invariants
 |`open`
-|link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
+|link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]; link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`]
 |Milestone 3
 
 |link:plan-instance.adoc[`plan-instance`]

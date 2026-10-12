@@ -12,6 +12,7 @@ package de.planmarshall.workflow.verify;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.FreeParam;
@@ -49,6 +50,21 @@ final class TestPrimitives {
     /** A {@code predicate:} primitive: {@code held}, {@code not_held}. */
     static final String READY = "test.ready";
 
+    /** A return-evaluation primitive for entity kind change: {@code approved}. */
+    static final String EVALUATE_CHANGE = "test.evaluate-change";
+
+    /** A list primitive for each clause: {@code done}. */
+    static final String LIST_CHANGES = "test.list-changes";
+
+    /** A primitive that enqueues a job: {@code enqueued}, {@code skipped}. */
+    static final String ENQUEUE = "test.enqueue";
+
+    /** A primitive requiring artifact {@code test.artifact}: {@code done}. */
+    static final String CONSUME = "test.consume";
+
+    /** A primitive producing artifact {@code test.artifact}: {@code done}. */
+    static final String PRODUCE = "test.produce";
+
     /** The id the fixtures name for a primitive that is not registered. */
     static final String MISSING = "test.missing";
 
@@ -65,7 +81,108 @@ final class TestPrimitives {
                 new Fixed<>(PROCEED, NoParams.class, DoneOutcome.class),
                 new Fixed<>(CHOOSE, ChooseParams.class, ChooseOutcome.class),
                 new Fixed<>(READ_FACTS, NoParams.class, DoneOutcome.class),
-                new Fixed<>(READY, NoParams.class, PredicateOutcome.class)));
+                new Fixed<>(READY, NoParams.class, PredicateOutcome.class),
+                new Fixed<>(EVALUATE_CHANGE, NoParams.class, EvaluateChangeOutcome.class),
+                new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
+                new EnqueuePrimitive(),
+                new ArtifactConsumer(),
+                new ArtifactProducer()));
+    }
+
+    /**
+     * @return a catalog providing sub-workflows for test call verification
+     */
+    static WorkflowCatalog catalog() {
+        var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
+                workflow git.commit_and_push version 1 format 1
+                scope subworkflow
+                param push : enum[enabled|disabled]
+                param attempts : int[1..5]
+                param targets : list<enum[origin|mirror]>
+                start git.done
+
+                state git.done terminal done success
+                    phase inherit
+                """);
+        var depth5 = VerifyFixtures.parseSource("test.depth5.pmwf", """
+                workflow test.depth5 version 1 format 1
+                scope subworkflow
+                start depth5.done
+
+                state depth5.done terminal done success
+                    phase inherit
+                """);
+        var depth4 = VerifyFixtures.parseSource("test.depth4.pmwf", """
+                workflow test.depth4 version 1 format 1
+                scope subworkflow
+                start depth4.step
+
+                state depth4.step
+                    phase inherit
+                    call test.depth5()
+                        done -> depth4.done
+                        stepped_out -> depth4.done
+
+                state depth4.done terminal done success
+                    phase inherit
+                """);
+        var depth3 = VerifyFixtures.parseSource("test.depth3.pmwf", """
+                workflow test.depth3 version 1 format 1
+                scope subworkflow
+                start depth3.step
+
+                state depth3.step
+                    phase inherit
+                    call test.depth4()
+                        done -> depth3.done
+                        stepped_out -> depth3.done
+
+                state depth3.done terminal done success
+                    phase inherit
+                """);
+        var depth2 = VerifyFixtures.parseSource("test.depth2.pmwf", """
+                workflow test.depth2 version 1 format 1
+                scope subworkflow
+                start depth2.step
+
+                state depth2.step
+                    phase inherit
+                    call test.depth3()
+                        done -> depth2.done
+                        stepped_out -> depth2.done
+
+                state depth2.done terminal done success
+                    phase inherit
+                """);
+        var depth1 = VerifyFixtures.parseSource("test.depth1.pmwf", """
+                workflow test.depth1 version 1 format 1
+                scope subworkflow
+                start depth1.step
+
+                state depth1.step
+                    phase inherit
+                    call test.depth2()
+                        done -> depth1.done
+                        stepped_out -> depth1.done
+
+                state depth1.done terminal done success
+                    phase inherit
+                """);
+        var callCycle = VerifyFixtures.parseSource("verify.call-cycle.pmwf", """
+                workflow verify.call-cycle version 1 format 1
+                scope subworkflow
+                start verify.entry
+
+                state verify.entry
+                    phase inherit
+                    call verify.call-cycle()
+                        done -> verify.done
+                        stepped_out -> verify.done
+
+                state verify.done terminal done success
+                    phase inherit
+                """);
+        return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle));
     }
 
     /** A primitive that returns its first outcome and overrides no default of the SPI. */
@@ -211,6 +328,152 @@ final class TestPrimitives {
         @Override
         public OutcomeClass outcomeClass() {
             return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum EvaluateChangeOutcome implements PrimitiveOutcome {
+        APPROVED("approved");
+
+        private final String wireName;
+
+        EvaluateChangeOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum EnqueueOutcome implements PrimitiveOutcome {
+        ENQUEUED("enqueued", OutcomeClass.SUCCESS, true),
+        SKIPPED("skipped", OutcomeClass.SKIP, false);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+        private final boolean startsJob;
+
+        EnqueueOutcome(String wireName, OutcomeClass outcomeClass, boolean startsJob) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+            this.startsJob = startsJob;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+
+        @Override
+        public boolean startsJob() {
+            return startsJob;
+        }
+    }
+
+    static final class EnqueuePrimitive implements Primitive<NoParams, EnqueueOutcome> {
+        @Override
+        public String id() {
+            return ENQUEUE;
+        }
+
+        @Override
+        public Class<NoParams> parameterType() {
+            return NoParams.class;
+        }
+
+        @Override
+        public Class<EnqueueOutcome> outcomeType() {
+            return EnqueueOutcome.class;
+        }
+
+        @Override
+        public PrimitiveResult<EnqueueOutcome> execute(WorkflowExecutionContext context, NoParams parameters) {
+            return new PrimitiveResult<>(EnqueueOutcome.ENQUEUED, Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
+        }
+
+        @Override
+        public boolean enqueuesJob() {
+            return true;
+        }
+    }
+
+    static final class ArtifactConsumer implements Primitive<NoParams, DoneOutcome> {
+        @Override
+        public String id() {
+            return CONSUME;
+        }
+
+        @Override
+        public Class<NoParams> parameterType() {
+            return NoParams.class;
+        }
+
+        @Override
+        public Class<DoneOutcome> outcomeType() {
+            return DoneOutcome.class;
+        }
+
+        @Override
+        public PrimitiveResult<DoneOutcome> execute(WorkflowExecutionContext context, NoParams parameters) {
+            return new PrimitiveResult<>(DoneOutcome.DONE, Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
+        }
+
+        @Override
+        public Set<String> requiredArtifacts() {
+            return Set.of("test.artifact");
+        }
+    }
+
+    static final class ArtifactProducer implements Primitive<NoParams, DoneOutcome> {
+        @Override
+        public String id() {
+            return PRODUCE;
+        }
+
+        @Override
+        public Class<NoParams> parameterType() {
+            return NoParams.class;
+        }
+
+        @Override
+        public Class<DoneOutcome> outcomeType() {
+            return DoneOutcome.class;
+        }
+
+        @Override
+        public PrimitiveResult<DoneOutcome> execute(WorkflowExecutionContext context, NoParams parameters) {
+            return new PrimitiveResult<>(DoneOutcome.DONE, Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
+        }
+
+        @Override
+        public Set<String> producedArtifacts() {
+            return Set.of("test.artifact");
         }
     }
 }

@@ -41,10 +41,34 @@ class VerificationResultTest {
         var byRule = EnumSet.allOf(VerificationRule.class).stream()
                 .collect(Collectors.toMap(rule -> rule, VerificationRule::specificationRule));
 
-        assertEquals(Map.of(VerificationRule.PRIMITIVE_BINDING, 1, VerificationRule.PARAMETER_EQUIVALENCE, 1,
-                VerificationRule.OUTCOME_COVERAGE, 2, VerificationRule.REACHABILITY, 3,
-                VerificationRule.EXIT_PATH, 3, VerificationRule.LINK_ID_UNIQUE, 3,
-                VerificationRule.RELEASED_STATE, 5), byRule);
+        assertEquals(Map.ofEntries(
+                Map.entry(VerificationRule.PRIMITIVE_BINDING, 1),
+                Map.entry(VerificationRule.PARAMETER_EQUIVALENCE, 1),
+                Map.entry(VerificationRule.ENTITY_KIND_BINDING, 1),
+                Map.entry(VerificationRule.ROLE_NAME_GRAMMAR, 1),
+                Map.entry(VerificationRule.SCHEMA_BINDING, 1),
+                Map.entry(VerificationRule.QUESTION_CLASS_BINDING, 1),
+                Map.entry(VerificationRule.JOB_STARTING_OUTCOME, 1),
+                Map.entry(VerificationRule.OUTCOME_COVERAGE, 2),
+                Map.entry(VerificationRule.MODEL_JOB_OUTCOMES, 2),
+                Map.entry(VerificationRule.QUESTION_OUTCOMES, 2),
+                Map.entry(VerificationRule.STATE_ID_UNIQUE, 3),
+                Map.entry(VerificationRule.STATE_EXISTS, 3),
+                Map.entry(VerificationRule.REACHABILITY, 3),
+                Map.entry(VerificationRule.CONFIG_REACHABILITY, 3),
+                Map.entry(VerificationRule.ABORT_TERMINAL_TARGETING, 3),
+                Map.entry(VerificationRule.TARGET_NOT_RESERVED, 3),
+                Map.entry(VerificationRule.EXIT_PATH, 3),
+                Map.entry(VerificationRule.LINK_ID_UNIQUE, 3),
+                Map.entry(VerificationRule.LEAF_TASK_CONSTRAINT, 4),
+                Map.entry(VerificationRule.RELEASED_STATE, 5),
+                Map.entry(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, 6),
+                Map.entry(VerificationRule.CALL_GRAPH_DAG, 7),
+                Map.entry(VerificationRule.GATE_PRODUCER_COVERAGE, 8),
+                Map.entry(VerificationRule.STEP_COMPLETION, 9),
+                Map.entry(VerificationRule.SESSION_DRIVEN_LINKS, 10),
+                Map.entry(VerificationRule.CYCLE_AWAITED_EVENT, 11),
+                Map.entry(VerificationRule.LINK_COMPATIBILITY, 12)), byRule);
     }
 
     @Test

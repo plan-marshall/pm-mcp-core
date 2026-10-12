@@ -1,0 +1,13 @@
+# expect: LEAF_TASK_CONSTRAINT state verify.entry line 6
+workflow verify.leaf-task version 1 format 1
+scope entity
+start verify.entry
+
+state verify.entry
+    phase inherit
+    job llm change role reviewer
+        approved -> verify.done
+        lost -> verify.done
+
+state verify.done terminal done success
+    phase inherit

@@ -13,9 +13,10 @@ state verify.entry
 
 state verify.spin
     phase verify
-    auto test.prepare
-        done -> verify.spin
-        skipped -> verify.spin
+    job test.build
+        succeeded -> verify.spin
+        failed -> verify.spin
+        cancelled -> verify.spin
 
 state verify.done terminal done success
     phase verify
