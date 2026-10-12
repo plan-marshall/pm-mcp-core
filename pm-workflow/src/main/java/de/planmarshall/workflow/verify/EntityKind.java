@@ -22,9 +22,9 @@ import java.util.Optional;
  * @since 0.1
  */
 public record EntityKind(
-        String name,
-        Optional<String> entityUnit,
-        String returnEvaluationPrimitiveId) {
+String name,
+Optional<String> entityUnit,
+String returnEvaluationPrimitiveId) {
 
     /**
      * Refuses {@code null} components.
