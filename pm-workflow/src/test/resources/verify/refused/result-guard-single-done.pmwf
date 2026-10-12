@@ -1,0 +1,17 @@
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 6
+workflow verify.result-guard-single-done version 1 format 1
+scope subworkflow
+start verify.entry
+
+state verify.entry
+    phase inherit
+    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+        done -> verify.done
+            guard result.pushed
+        stepped_out -> verify.stepped-out
+
+state verify.done terminal done success
+    phase inherit
+
+state verify.stepped-out terminal stepped_out stepped_out
+    phase inherit

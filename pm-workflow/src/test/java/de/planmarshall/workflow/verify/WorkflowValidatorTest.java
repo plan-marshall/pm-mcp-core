@@ -48,7 +48,7 @@ class WorkflowValidatorTest {
             """;
 
     private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), RELEASED,
-            EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+            TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
             TestPrimitives.catalog());
 
     static List<String> refusedFixtures() {
@@ -109,7 +109,7 @@ class WorkflowValidatorTest {
             // CONFIG_REACHABILITY cases of AdditionalRulesTest.
             var missing = EnumSet.allOf(VerificationRule.class);
             missing.removeAll(expected);
-            assertAll(() -> assertEquals(42, expected.size()),
+            assertAll(() -> assertEquals(48, expected.size()),
                     () -> assertEquals(EnumSet.of(VerificationRule.QUESTION_CLASS_BINDING,
                             VerificationRule.CONFIG_REACHABILITY), missing));
         }
@@ -505,7 +505,7 @@ class WorkflowValidatorTest {
                                 done -> verify.orphan
                     """ + DONE_TERMINAL);
             var withRetiredName = new WorkflowValidator(TestPrimitives.registry(),
-                    List.of("verify.retired", "verify.entry"), EntityKindRegistry.defaults(),
+                    List.of("verify.retired", "verify.entry"), TestPrimitives.entityKinds(),
                     QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 
             var found = withRetiredName.verify(definition).violations();

@@ -24,6 +24,8 @@ Left as a seam, each named by an ADR of `pm-workflow/doc/adr/workflow-verify/`:
 * Rule 3: the enumeration of the values of an enum `depends_on_config` key, the rule by which a configuration value makes a guard true, and the refusal of a state or transition no combination reaches, with its refusing fixture (a link needing `mode=strict` followed by a link needing `mode=lenient`). The specification gives the keys' enum and boolean domains but no activation rule, and the DSL names keys only; the verifier keeps the Boolean enumeration with all-keys-true activation, under which the all-true combination reaches everything the unconditional graph reaches, so partial reachability is reported as an advisory and nothing is refused (ADR 004, ADR 006).
 * Rule 9: whether a `lost` or `infeasible` route that completes a step `skipped` is the declared conservative route of an optional step. The AST declares no optional step and no conservative route, so the verifier admits `skipped` on `lost` and `infeasible` by outcome name and class (ADR 002).
 * Rule 1: `each` over a read-only, list-returning primitive and `role each` over a primitive returning role names. The primitive SPI cannot express either, so neither is checked (ADR 010).
+* Rule 6: the guarded field of a result guard is a boolean or optional field of the callee's result schema. `SchemaRegistry` registers schema names only, so the field type is not checked (ADR 010).
+* Rule 6: inside a remediation unit, `stepped_out` may target the unit's budget re-check, which the language does not mark; there only a target of class `SUCCESS` is refused (ADR 010).
 
 Not in this package, so no scope is duplicated:
 

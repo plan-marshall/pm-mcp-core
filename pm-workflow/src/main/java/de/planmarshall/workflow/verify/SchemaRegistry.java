@@ -17,7 +17,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * An immutable registry of named parameter schemas (PM-IMPL-5, PM-HYP-10).
+ * An immutable registry of named parameter schemas (PM-IMPL-5, PM-HYP-10). It holds the names only, not the fields of
+ * a schema, so whether the field a result guard names is a boolean or optional field of the callee's result schema
+ * (Rule 6) is not checked; ADR 010 names that seam.
  *
  * @since 0.1
  */

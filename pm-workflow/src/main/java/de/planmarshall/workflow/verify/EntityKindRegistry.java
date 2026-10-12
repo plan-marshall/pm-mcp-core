@@ -67,16 +67,18 @@ public final class EntityKindRegistry {
     }
 
     /**
-     * @return the default registry containing the standard specification entity kinds. Every kind runs the generic
-     *         entity unit of its submission shape: {@code screen} has no entity unit, {@code task} runs the task
-     *         protocol unit {@code worker-task}, the single-submit kinds run {@code entity}, and the multi-submit
-     *         lesson review kind {@code review} runs {@code entity-multi}.
+     * Returns the default entity kinds. Every kind names the generic entity unit of its submission shape:
+     * {@code screen} has no entity unit, {@code task} runs the task protocol unit {@code worker-task}, the single-submit
+     * kinds run {@code entity}, and the multi-submit lesson review kind {@code review} runs {@code entity-multi}. The
+     * registry only names the units; {@link WorkflowValidator} checks that a kind's entity unit is registered in its
+     * {@link WorkflowCatalog}. The defaults carry no test identifier: tests register their own kinds.
+     *
+     * @return the default registry
      */
     public static EntityKindRegistry defaults() {
         return new EntityKindRegistry(List.of(
                 new EntityKind("screen", Optional.empty(), "screen.evaluate"),
                 new EntityKind("task", Optional.of("worker-task"), "task.evaluate"),
-                new EntityKind("change", Optional.of(ENTITY_UNIT), "test.evaluate-change"),
                 new EntityKind("decision", Optional.of(ENTITY_UNIT), "adjudicate.evaluate"),
                 new EntityKind("triage", Optional.of(ENTITY_UNIT), "triage.evaluate"),
                 new EntityKind("simplify", Optional.of(ENTITY_UNIT), "simplify.evaluate"),

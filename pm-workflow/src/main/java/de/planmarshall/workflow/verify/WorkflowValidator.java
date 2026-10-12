@@ -47,6 +47,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -91,6 +92,12 @@ public final class WorkflowValidator {
 
     /** The namespace of the remediation units, the only callees whose {@code waived} outcome completes a step. */
     private static final String REMEDIATION_UNIT_PREFIX = "remediation.";
+
+    /** The control outcome every sub-workflow returns implicitly (Rule 6). */
+    private static final String STEPPED_OUT = "stepped_out";
+
+    /** The fallback states of the plan phases, the only targets of {@code stepped_out} in a plan unit (Rule 6). */
+    private static final Set<String> PHASE_FALLBACK_STATES = Set.of("plan.return", "finalize.hand-back");
 
     private static final Set<String> CONDITION_KINDS = Set.of(
             "integrity_breach", "footprint_violation", "job_incomplete",
@@ -313,6 +320,10 @@ public final class WorkflowValidator {
                         "the state '%s' declares 'ask' on the entity kind '%s', which has no entity unit"
                                 .formatted(state.id(), entityKind.name())));
             }
+            entityKind.entityUnit().filter(unit -> !catalog.contains(unit)).ifPresent(unit -> violations.add(
+                    new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                            "the entity unit '%s' of the entity kind '%s' is not registered"
+                                    .formatted(unit, entityKind.name()))));
         }
 
         modelJob.fanOutPrimitiveId().ifPresent(primitiveId -> {
@@ -866,6 +877,14 @@ public final class WorkflowValidator {
 
     private void checkSubWorkflowCallContract(WorkflowDefinition definition, List<Violation> violations) {
         for (var state : definition.states().values()) {
+            state.terminalOutcome()
+                    .filter(outcome -> STEPPED_OUT.equals(outcome.id())
+                            && outcome.outcomeClass() != OutcomeClass.STEPPED_OUT)
+                    .ifPresent(outcome -> violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
+                            state.id(), state.location(),
+                            "the terminal '%s' declares the outcome 'stepped_out' with the class %s; only a terminal of class STEPPED_OUT declares it"
+                                    .formatted(state.id(), outcome.outcomeClass()))));
+
             if ("inherit".equals(state.phase()) && definition.scope() != WorkflowScope.SUBWORKFLOW
                     && definition.scope() != WorkflowScope.ENTITY) {
                 violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
@@ -906,13 +925,16 @@ public final class WorkflowValidator {
                 // Rule 6: the exit contract of every sub-workflow is its terminals' outcomes plus the control
                 // outcome stepped_out, which is part of it implicitly. Every call routes it, whatever the callee's
                 // states are.
-                contractOutcomes.add("stepped_out");
+                contractOutcomes.add(STEPPED_OUT);
 
                 var outcomeCounts = new HashMap<String, Integer>();
                 var resultGuardsOnDone = new ArrayList<ResultGuard>();
                 for (var transition : call.transitions()) {
                     var outcome = transition.outcomeName();
                     outcomeCounts.put(outcome, outcomeCounts.getOrDefault(outcome, 0) + 1);
+                    if (STEPPED_OUT.equals(outcome)) {
+                        checkSteppedOutTarget(definition, state, transition, violations);
+                    }
                     if (transition.resultGuard().isPresent()) {
                         if (!"done".equals(outcome)) {
                             violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
@@ -938,6 +960,11 @@ public final class WorkflowValidator {
                                 state.location(),
                                 "the call does not route the exit outcome '%s' of '%s'"
                                         .formatted(contractOutcome, call.subWorkflowId())));
+                    } else if (count == 1 && !resultGuardsOnDone.isEmpty() && "done".equals(contractOutcome)) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the call routes the exit outcome 'done' of '%s' once under a result guard; a guarded 'done' is admitted only as the complementary pair"
+                                        .formatted(call.subWorkflowId())));
                     } else if (count == 2) {
                         if (!"done".equals(contractOutcome) || resultGuardsOnDone.size() != 2
                                 || !areComplementary(resultGuardsOnDone.get(0), resultGuardsOnDone.get(1))) {
@@ -981,6 +1008,53 @@ public final class WorkflowValidator {
                 }
             }
         }
+    }
+
+    /**
+     * Rule 6, where the {@code stepped_out} route of a call may lead. A terminal of class {@code SUCCESS} is never
+     * admitted. In a plan unit the target is the phase's fallback state, {@code plan.return} or
+     * {@code finalize.hand-back} (which of the two belongs to the calling phase is not checked); in an epic, workspace
+     * or entity unit (the bootstrap units are entity units) a resting state of the calling unit; in a sub-workflow a
+     * state that continues the unwinding or handles the failure: a terminal of class {@code STEPPED_OUT} or
+     * {@code FAILURE}, or a link state whose own {@code step_out} continues it. A remediation unit may also route it to
+     * its budget re-check, a state the language does not mark, so in a remediation unit only the success terminal is
+     * refused (ADR 010). A target that is not a state of the unit is refused by {@link VerificationRule#STATE_EXISTS}.
+     */
+    private static void checkSteppedOutTarget(WorkflowDefinition definition, StateNode state,
+            OutcomeTransition transition, List<Violation> violations) {
+        var target = definition.states().get(transition.targetStateId());
+        if (target == null) {
+            return;
+        }
+        var targetClass = target.terminalOutcome().map(TerminalOutcome::outcomeClass);
+        String detail;
+        if (targetClass.isPresent() && targetClass.get() == OutcomeClass.SUCCESS) {
+            detail = "a terminal state of class SUCCESS";
+        } else {
+            detail = switch (definition.scope()) {
+                case PLAN -> PHASE_FALLBACK_STATES.contains(target.id()) ? null
+                        : "not the phase's fallback state 'plan.return' or 'finalize.hand-back'";
+                case EPIC, WORKSPACE, ENTITY -> isRestingState(target) ? null : "not a resting state of the unit";
+                case SUBWORKFLOW -> definition.id().startsWith(REMEDIATION_UNIT_PREFIX)
+                        || target.behavior() instanceof StateBehavior.InteractiveLinks
+                        || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
+                                || outcomeClass == OutcomeClass.FAILURE).isPresent() ? null
+                        : "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
+            };
+        }
+        if (detail != null) {
+            violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
+                    "the call routes 'stepped_out' to '%s', which is %s".formatted(target.id(), detail)));
+        }
+    }
+
+    /** A state that rests between events: a link, question, {@code job}, {@code composite_job} or {@code job llm}. */
+    private static boolean isRestingState(StateNode state) {
+        return switch (state.behavior()) {
+            case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _, StateBehavior.JobStep _,
+                StateBehavior.ModelJob _ -> true;
+            case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> false;
+        };
     }
 
     private static boolean areComplementary(ResultGuard g1, ResultGuard g2) {
@@ -1569,21 +1643,50 @@ public final class WorkflowValidator {
                         "declared links on the question state '%s' are not admitted in a unit of scope %s"
                                 .formatted(state.id(), definition.scope())));
             } else if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
-                catalog.find(call.subWorkflowId()).ifPresent(callee -> {
-                    for (var calleeState : callee.states().values()) {
-                        if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
-                                || (calleeState.behavior() instanceof StateBehavior.QuestionWait qw
-                                && !qw.links().isEmpty())) {
-                            violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(),
-                                    state.location(),
-                                    "the called sub-workflow '%s' contains resting links, which are not admitted in a unit of scope %s"
-                                            .formatted(callee.id(), definition.scope())));
-                            break;
-                        }
-                    }
-                });
+                firstCalleeWithLinks(call.subWorkflowId()).ifPresent(callee -> violations.add(new Violation(
+                        VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
+                        "the sub-workflow '%s' reached by the call contains resting links, which are not admitted in a unit of scope %s"
+                                .formatted(callee, definition.scope()))));
             }
         }
+    }
+
+    /**
+     * Walks the sub-workflows a call reaches, the callee and every unit it calls in turn (Rule 10 covers every
+     * sub-workflow a plan or epic unit calls, ADR 011). Each unit is visited once, so a call cycle, which Rule 7
+     * refuses, does not loop; an unregistered callee is refused by Rule 6 and contributes nothing.
+     *
+     * @param calleeId the unit the call names
+     * @return the first reached unit, in call order, with a resting link state or a question state with declared links
+     */
+    private Optional<String> firstCalleeWithLinks(String calleeId) {
+        var visited = new HashSet<String>();
+        var queue = new ArrayDeque<>(List.of(calleeId));
+        while (!queue.isEmpty()) {
+            var id = queue.poll();
+            if (!visited.add(id)) {
+                continue;
+            }
+            var calleeOpt = catalog.find(id);
+            if (calleeOpt.isEmpty()) {
+                continue;
+            }
+            for (var calleeState : calleeOpt.get().states().values()) {
+                switch (calleeState.behavior()) {
+                    case StateBehavior.InteractiveLinks _ -> {
+                        return Optional.of(id);
+                    }
+                    case StateBehavior.QuestionWait question when !question.links().isEmpty() -> {
+                        return Optional.of(id);
+                    }
+                    case StateBehavior.SubWorkflowCall nested -> queue.add(nested.subWorkflowId());
+                    default -> {
+                        // no link and no further call
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private void checkCycleAwaitedEvent(WorkflowDefinition definition, List<Violation> violations) {
@@ -1650,28 +1753,34 @@ public final class WorkflowValidator {
         return false;
     }
 
+    /**
+     * Decides whether the edge {@code fromId -> toId} waits for an event (Rule 11b). A {@code job},
+     * {@code composite_job} or {@code job llm} state awaits its job or task on every edge. A question state awaits
+     * the answer or its deadline on the edges of its own resolution outcomes only; an edge of one of its declared links
+     * is judged by that link like the edge of a link state.
+     */
     private boolean stepAwaitsEvent(WorkflowDefinition definition, String fromId, String toId) {
         var state = definition.states().get(fromId);
         if (state == null) {
             return false;
         }
         return switch (state.behavior()) {
-            case StateBehavior.JobStep job -> true;
-            case StateBehavior.ModelJob modelJob -> true;
-            case StateBehavior.QuestionWait question -> true;
-            case StateBehavior.InteractiveLinks links -> traversedLinkAwaits(state, toId);
+            case StateBehavior.JobStep _, StateBehavior.ModelJob _ -> true;
+            case StateBehavior.QuestionWait question -> question.transitions().stream()
+                    .anyMatch(transition -> toId.equals(transition.targetStateId()))
+                    || traversedLinkAwaits(state, toId);
+            case StateBehavior.InteractiveLinks _ -> traversedLinkAwaits(state, toId);
             case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
                     .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
-            case StateBehavior.SubWorkflowCall call -> false;
-            case StateBehavior.TerminalState _ -> false;
+            case StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> false;
         };
     }
 
     /**
-     * Decides whether the edge {@code fromId -> toId} out of a resting link state waits for an external event.
-     * A traversed link awaits when its form takes a submission (a {@code submit} link waits for the operator)
-     * or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited event
-     * does not satisfy the cycle.
+     * Decides whether the edge {@code fromId -> toId} through a declared link of a link or question state waits for
+     * an external event. A traversed link awaits when its form takes a submission (a {@code submit} link waits for
+     * the model) or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited
+     * event does not satisfy the cycle.
      */
     private boolean traversedLinkAwaits(StateNode state, String toId) {
         for (var link : UnitGraph.declaredLinks(state.behavior())) {

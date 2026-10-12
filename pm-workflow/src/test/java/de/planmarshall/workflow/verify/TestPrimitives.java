@@ -23,6 +23,7 @@ import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
+import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
  * Primitives written for the verifier tests and the registry that holds them. The fixtures under {@code verify/} name
@@ -94,7 +95,29 @@ final class TestPrimitives {
     /** The id the fixtures name for a primitive that is not registered. */
     static final String MISSING = "test.missing";
 
+    /** The entity kind of the tests: entity unit {@code entity}, return evaluation {@link #EVALUATE_CHANGE}. */
+    static final String CHANGE_KIND = "change";
+
+    /** The entity kind of the tests whose entity unit {@code test.no-such-unit} the catalog does not hold. */
+    static final String UNRESOLVED_KIND = "unresolved";
+
+    /** A sub-workflow that holds no link and calls {@link #LINKS_INNER}. */
+    static final String LINKS_OUTER = "test.links-outer";
+
+    /** A session-driven sub-workflow with a resting link state. */
+    static final String LINKS_INNER = "test.links-inner";
+
     private TestPrimitives() {
+    }
+
+    /**
+     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND}, whose entity unit the test
+     *         catalog holds, and {@link #UNRESOLVED_KIND}, whose entity unit it does not hold
+     */
+    static EntityKindRegistry entityKinds() {
+        return EntityKindRegistry.defaults()
+                .with(new EntityKind(CHANGE_KIND, "entity", EVALUATE_CHANGE))
+                .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE));
     }
 
     /**
@@ -120,7 +143,10 @@ final class TestPrimitives {
     }
 
     /**
-     * @return a catalog providing sub-workflows for test call verification
+     * @return a catalog of the units the tests call: {@code git.commit_and_push}, the link-free call chain
+     *         {@code test.depth1} to {@code test.depth5}, the self-calling {@code verify.call-cycle}, the remediation
+     *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND}, and
+     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
@@ -151,62 +177,10 @@ final class TestPrimitives {
                 state depth5.done terminal done success
                     phase inherit
                 """);
-        var depth4 = VerifyFixtures.parseSource("test.depth4.pmwf", """
-                workflow test.depth4 version 1 format 1
-                scope subworkflow
-                start depth4.step
-
-                state depth4.step
-                    phase inherit
-                    call test.depth5()
-                        done -> depth4.done
-                        stepped_out -> depth4.done
-
-                state depth4.done terminal done success
-                    phase inherit
-                """);
-        var depth3 = VerifyFixtures.parseSource("test.depth3.pmwf", """
-                workflow test.depth3 version 1 format 1
-                scope subworkflow
-                start depth3.step
-
-                state depth3.step
-                    phase inherit
-                    call test.depth4()
-                        done -> depth3.done
-                        stepped_out -> depth3.done
-
-                state depth3.done terminal done success
-                    phase inherit
-                """);
-        var depth2 = VerifyFixtures.parseSource("test.depth2.pmwf", """
-                workflow test.depth2 version 1 format 1
-                scope subworkflow
-                start depth2.step
-
-                state depth2.step
-                    phase inherit
-                    call test.depth3()
-                        done -> depth2.done
-                        stepped_out -> depth2.done
-
-                state depth2.done terminal done success
-                    phase inherit
-                """);
-        var depth1 = VerifyFixtures.parseSource("test.depth1.pmwf", """
-                workflow test.depth1 version 1 format 1
-                scope subworkflow
-                start depth1.step
-
-                state depth1.step
-                    phase inherit
-                    call test.depth2()
-                        done -> depth1.done
-                        stepped_out -> depth1.done
-
-                state depth1.done terminal done success
-                    phase inherit
-                """);
+        var depth4 = depthUnit(4, "test.depth5");
+        var depth3 = depthUnit(3, "test.depth4");
+        var depth2 = depthUnit(2, "test.depth3");
+        var depth1 = depthUnit(1, "test.depth2");
         var callCycle = VerifyFixtures.parseSource("verify.call-cycle.pmwf", """
                 workflow verify.call-cycle version 1 format 1
                 scope subworkflow
@@ -216,9 +190,52 @@ final class TestPrimitives {
                     phase inherit
                     call verify.call-cycle()
                         done -> verify.done
-                        stepped_out -> verify.done
+                        stepped_out -> verify.stepped-out
 
                 state verify.done terminal done success
+                    phase inherit
+
+                state verify.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """);
+        var entity = VerifyFixtures.parseSource("entity.pmwf", """
+                workflow entity version 1 format 1
+                scope entity
+                start entity.completed
+
+                state entity.completed terminal submitted success
+                    phase inherit
+                """);
+        var linksInner = VerifyFixtures.parseSource("test.links-inner.pmwf", """
+                workflow test.links-inner version 1 format 1
+                scope subworkflow
+                start inner.rest
+
+                state inner.rest
+                    phase inherit
+                    skill pm/verify/start
+                    link next proceed ()
+                        do test.proceed
+                            done -> inner.done
+
+                state inner.done terminal done success
+                    phase inherit
+                """);
+        var linksOuter = VerifyFixtures.parseSource("test.links-outer.pmwf", """
+                workflow test.links-outer version 1 format 1
+                scope subworkflow
+                start outer.step
+
+                state outer.step
+                    phase inherit
+                    call test.links-inner()
+                        done -> outer.done
+                        stepped_out -> outer.stepped-out
+
+                state outer.done terminal done success
+                    phase inherit
+
+                state outer.stepped-out terminal stepped_out stepped_out
                     phase inherit
                 """);
         var remediation = VerifyFixtures.parseSource("remediation.test-waiver.pmwf", """
@@ -239,7 +256,28 @@ final class TestPrimitives {
                     phase inherit
                 """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
-                remediation));
+                remediation, entity, linksInner, linksOuter));
+    }
+
+    /** A link-free sub-workflow {@code test.depth<n>} whose one state calls {@code callee}. */
+    private static WorkflowDefinition depthUnit(int depth, String callee) {
+        return VerifyFixtures.parseSource("test.depth%d.pmwf".formatted(depth), """
+                workflow test.depth%1$d version 1 format 1
+                scope subworkflow
+                start depth%1$d.step
+
+                state depth%1$d.step
+                    phase inherit
+                    call %2$s()
+                        done -> depth%1$d.done
+                        stepped_out -> depth%1$d.stepped-out
+
+                state depth%1$d.done terminal done success
+                    phase inherit
+
+                state depth%1$d.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """.formatted(depth, callee));
     }
 
     /** A primitive that declares a cycle measure and, for an attempt cap, its exhaustion outcome. */

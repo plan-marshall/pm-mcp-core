@@ -1,0 +1,13 @@
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 10
+workflow verify.stepped-out-target version 1 format 1
+scope subworkflow
+start verify.entry
+
+state verify.entry
+    phase inherit
+    call test.depth5()
+        done -> verify.done
+        stepped_out -> verify.done
+
+state verify.done terminal done success
+    phase inherit

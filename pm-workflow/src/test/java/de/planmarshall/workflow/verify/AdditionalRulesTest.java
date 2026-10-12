@@ -29,7 +29,7 @@ class AdditionalRulesTest {
     private final WorkflowValidator validator = new WorkflowValidator(
             TestPrimitives.registry(),
             List.of("verify.entry"),
-            EntityKindRegistry.defaults(),
+            TestPrimitives.entityKinds(),
             QuestionClassRegistry.defaults(),
             SchemaRegistry.defaults(),
             TestPrimitives.catalog());
@@ -500,7 +500,10 @@ class AdditionalRulesTest {
                     phase verify
                     call test.depth5()
                         done -> verify.done
-                        stepped_out -> verify.done
+                        stepped_out -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(), violations(def));
@@ -677,9 +680,12 @@ class AdditionalRulesTest {
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                             completes verify:call as done
-                        stepped_out -> verify.done
+                        stepped_out -> verify.stepped-out
 
                 state verify.done terminal done success
+                    phase inherit
+
+                state verify.stepped-out terminal stepped_out stepped_out
                     phase inherit
                 """);
 
@@ -801,9 +807,9 @@ class AdditionalRulesTest {
                             completes step:s as done
                         waived -> verify.done
                             completes step:s as waived
-                        stepped_out -> verify.failed
+                        stepped_out -> plan.return
 
-                state verify.failed terminal failed failure
+                state plan.return terminal returned failure
                     phase verify
                 """ + DONE_TERMINAL);
 
@@ -819,9 +825,9 @@ class AdditionalRulesTest {
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                             completes step:s as waived
-                        stepped_out -> verify.failed
+                        stepped_out -> plan.return
 
-                state verify.failed terminal failed failure
+                state plan.return terminal returned failure
                     phase verify
                 """ + DONE_TERMINAL);
 
@@ -1034,5 +1040,313 @@ class AdditionalRulesTest {
                         "verify.conditional"),
                 result.advisories().stream().map(Violation::stateId).toList(),
                 "the unreachable state and its transitions are no advisories");
+    }
+
+    private static List<RuleStateMessage> callContract(String stateId, String... messages) {
+        return Arrays.stream(messages)
+                .map(message -> new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, stateId, message))
+                .toList();
+    }
+
+    private static final String STEPPED_OUT_TERMINAL = """
+
+            state verify.stepped-out terminal stepped_out stepped_out
+                phase inherit
+            """;
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: a success terminal is refused in every scope")
+    void steppedOutToSuccessTerminal() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.entry",
+                        "the call routes 'stepped_out' to 'verify.done', which is a terminal state of class SUCCESS"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: a plan unit routes it to the phase's fallback state only")
+    void steppedOutInPlanUnit() {
+        var handBack = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> finalize.hand-back
+
+                state finalize.hand-back terminal handed_back failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(handBack));
+
+        var failureTerminal = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.failed
+
+                state verify.failed terminal failed failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(callContract("verify.entry",
+                        "the call routes 'stepped_out' to 'verify.failed', which is not the phase's fallback state 'plan.return' or 'finalize.hand-back'"),
+                found(failureTerminal));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: an epic unit routes it to a resting state of the unit")
+    void steppedOutInEpicUnit() {
+        var resting = unit("epic", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.rest
+
+                state verify.rest
+                    phase verify
+                    job test.build
+                        succeeded -> verify.done
+                        failed -> verify.done
+                        cancelled -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(resting));
+
+        var chained = unit("epic", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.retry
+
+                state verify.retry
+                    phase verify
+                    auto test.prepare
+                        done -> verify.done
+                        skipped -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(callContract("verify.entry",
+                        "the call routes 'stepped_out' to 'verify.retry', which is not a resting state of the unit"),
+                found(chained));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: a sub-workflow continues the step-out or handles the failure")
+    void steppedOutInSubWorkflow() {
+        var continuing = unit("subworkflow", """
+                state verify.entry
+                    phase inherit
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.stepped-out
+                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+        assertEquals(List.of(), violations(continuing));
+
+        var chained = unit("subworkflow", """
+                state verify.entry
+                    phase inherit
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.retry
+
+                state verify.retry
+                    phase inherit
+                    auto test.prepare
+                        done -> verify.done
+                        skipped -> verify.stepped-out
+                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+        assertEquals(callContract("verify.entry",
+                        "the call routes 'stepped_out' to 'verify.retry', which is neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
+                found(chained));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: a remediation unit may route it to a state the language does not mark (ADR 010)")
+    void steppedOutInRemediationUnit() {
+        var def = VerifyFixtures.parseSource("remediation.pmwf", """
+                workflow remediation.inline version 1 format 1
+                scope subworkflow
+                start verify.entry
+
+                state verify.entry
+                    phase inherit
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.recheck
+
+                state verify.recheck
+                    phase inherit
+                    auto test.prepare
+                        done -> verify.done
+                        skipped -> verify.stepped-out
+                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("Rule 6: the outcome stepped_out is declared only by a terminal of class STEPPED_OUT")
+    void steppedOutDeclaredByWrongClass() {
+        var def = unit("subworkflow", """
+                state verify.entry
+                    phase inherit
+                    auto test.prepare
+                        done -> verify.done
+                        skipped -> verify.out
+
+                state verify.out terminal stepped_out failure
+                    phase inherit
+                """ + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.out",
+                        "the terminal 'verify.out' declares the outcome 'stepped_out' with the class FAILURE; only a terminal of class STEPPED_OUT declares it"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Rule 6: a single guarded done is refused, the complementary pair is admitted")
+    void singleGuardedDone() {
+        var def = unit("subworkflow", """
+                state verify.entry
+                    phase inherit
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.done
+                            guard result.pushed
+                        stepped_out -> verify.stepped-out
+                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.entry",
+                        "the call routes the exit outcome 'done' of 'git.commit_and_push' once under a result guard; a guarded 'done' is admitted only as the complementary pair"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("ENTITY_KIND_BINDING: the entity unit of a kind is resolved against the catalog")
+    void entityUnitResolvedAgainstCatalog() {
+        var unresolved = unit("plan", """
+                state verify.entry
+                    phase verify
+                    job llm unresolved role reviewer
+                        approved -> verify.done
+                        lost -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
+                        "the entity unit 'test.no-such-unit' of the entity kind 'unresolved' is not registered")),
+                found(unresolved));
+
+        var resolved = unit("plan", """
+                state verify.entry
+                    phase verify
+                    job llm change role reviewer
+                        approved -> verify.done
+                        lost -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(resolved));
+    }
+
+    @Test
+    @DisplayName("SESSION_DRIVEN_LINKS: a resting link is refused at any depth of a plan unit's calls (ADR 011)")
+    void sessionDrivenLinksTransitive() {
+        var nested = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.links-outer()
+                        done -> verify.done
+                        stepped_out -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.SESSION_DRIVEN_LINKS, "verify.entry",
+                        "the sub-workflow 'test.links-inner' reached by the call contains resting links, which are not admitted in a unit of scope PLAN")),
+                found(nested));
+
+        var direct = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.links-inner()
+                        done -> verify.done
+                        stepped_out -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.SESSION_DRIVEN_LINKS, "verify.entry",
+                        "the sub-workflow 'test.links-inner' reached by the call contains resting links, which are not admitted in a unit of scope PLAN")),
+                found(direct));
+
+        var linkFree = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth3()
+                        done -> verify.done
+                        stepped_out -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(linkFree));
+    }
+
+    @Test
+    @DisplayName("CYCLE_AWAITED_EVENT 11b: a question state's link is judged by its primitive, its own outcomes await the answer")
+    void questionLinkCycle() {
+        var noEvent = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                        assumed -> verify.done
+                    link next again ()
+                        do test.proceed
+                            done -> verify.entry
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.CYCLE_AWAITED_EVENT, "verify.entry",
+                        "the cycle 'verify.entry -> verify.entry' has no awaited event")),
+                found(noEvent));
+
+        var submitting = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                        assumed -> verify.entry
+                    link next choose [submit] (note: text[1..80], comment: text)
+                        do test.choose
+                            chosen -> verify.entry
+                            declined -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(submitting));
+    }
+
+    @Test
+    @DisplayName("CYCLE_AWAITED_EVENT 11a: a measured engine-chained cycle passes, an unmeasured one is refused")
+    void engineChainedCycleMeasure() {
+        var measured = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.capped
+                        retry -> verify.entry
+                        exhausted -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(), violations(measured));
+
+        var unmeasured = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                        skipped -> verify.done
+                """ + DONE_TERMINAL);
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.CYCLE_AWAITED_EVENT, "verify.entry",
+                        "the engine-chained cycle 'verify.entry -> verify.entry' has no cycle measure")),
+                found(unmeasured));
     }
 }

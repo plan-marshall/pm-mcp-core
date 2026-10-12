@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,8 @@ class RegistriesAndRecordsTest {
         assertAll(
                 () -> assertTrue(defaults.find("screen").isPresent()),
                 () -> assertTrue(defaults.find("task").isPresent()),
-                () -> assertTrue(defaults.find("change").isPresent()),
+                () -> assertFalse(defaults.find(TestPrimitives.CHANGE_KIND).isPresent(),
+                        "the kind of the tests is no default"),
                 () -> assertTrue(defaults.find("decision").isPresent()),
                 () -> assertTrue(defaults.find("triage").isPresent()),
                 () -> assertTrue(defaults.find("simplify").isPresent()),
@@ -69,14 +71,21 @@ class RegistriesAndRecordsTest {
         assertAll(
                 () -> assertEquals(Optional.empty(), defaults.find("screen").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("worker-task"), defaults.find("task").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("entity"), defaults.find("change").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("entity"), defaults.find("decision").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("entity"), defaults.find("triage").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("entity"), defaults.find("simplify").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("entity-multi"), defaults.find("review").orElseThrow().entityUnit())
         );
 
-        var custom = new EntityKind("custom", Optional.empty(), "custom.eval");
+        var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "review").stream()
+                .map(name -> defaults.find(name).orElseThrow())
+                .flatMap(kind -> Stream.concat(Stream.of(kind.name(), kind.returnEvaluationPrimitiveId()),
+                        kind.entityUnit().stream()))
+                .toList();
+        assertTrue(defaultIdentifiers.stream().noneMatch(identifier -> identifier.startsWith("test.")),
+                () -> "the defaults name a test identifier: " + defaultIdentifiers);
+
+        var custom =new EntityKind("custom", Optional.empty(), "custom.eval");
         var updated = defaults.with(custom);
         assertTrue(updated.find("custom").isPresent());
         assertFalse(defaults.find("custom").isPresent());

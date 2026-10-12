@@ -132,7 +132,7 @@ class VerificationResultTest {
     @DisplayName("Should order violations by state declaration order then rule ordinal")
     void shouldOrderViolationsByStateThenRule() {
         var validator = new WorkflowValidator(TestPrimitives.registry(), List.of(),
-                EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+                TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
                 TestPrimitives.catalog());
 
         var byState = VerifyFixtures.parseSource("ordering-state.pmwf", """
