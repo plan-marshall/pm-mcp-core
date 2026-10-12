@@ -1,0 +1,27 @@
+= Phases as sub-workflows, and the plan's history
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `phase-sub-workflows`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-1[Use Cases, UC-PLN-1]; the drill-down of a plan in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Where:: pm-workflow (units, composition, engine, static verifier, diagram); pm-core (the plan's history)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the changes Phases as Sub-Workflows and The Plan's History into `plan-marshall-documentation` as part of its own work, once UC-PLN-1 is agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
+* *Phases as sub-workflows*: the plan unit becomes a workflow of phases, each phase the link:../../../plan-marshall-documentation/doc/specification/phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows] specify a sub-workflow it calls; a lane is the choice of the phases it calls, a loop-back a call of a phase again, a re-entry from finalize into execute an outcome of finalize. The `phase` clause and the phase value table go; a plan's phase is the phase on its call stack; the call depth grows by one; the plan instance composes the phases and prunes a phase as a call.
+* *The plan's history*: an append-only history per plan of states entered and left, sub-workflows called and returned, with their outcomes, the instance version in force, and the time; archived with the plan; the runtime derives each node's state from it.
+* Where `workflow-engine`, `plan-instance`, or `project-units-and-invariants` have already implemented the flat plan unit, this package restructures them.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Use case: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-1[UC-PLN-1] and its changes link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#change-phase-sub-workflows[Phases as Sub-Workflows], link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#change-plan-history[The Plan's History]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[§ Reusable Sub-Workflows]; link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[§ Plan Instance]; link:../../../plan-marshall-documentation/doc/specification/phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows]
+
+== Done When
+
+The specification of both changes is merged in `plan-marshall-documentation`; every phase is a sub-workflow the plan unit calls, and the static verifier and the fuzzer pass over the default units; a test per lane shows the phases it calls and prunes; a loop-back calls a phase again and the history records both runs; a plan's history reproduces the node states of its process after a runtime restart.
