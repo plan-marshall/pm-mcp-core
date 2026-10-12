@@ -4,11 +4,12 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-13 workflow-engine, PLAN-18 verify-not-resolve (#43). Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator, PLAN-54 static-verifier-rule-gaps-completion (Claude Code only). Shipped: PLAN-01..08, 10, 11, 36, 38, 41, 44 (41/44 incomplete -> PLAN-54). After PLAN-54: PLAN-17, PLAN-39, PLAN-40; after PLAN-13: one of PLAN-09/12/14/15 at a time, PLAN-21, PLAN-22; after PLAN-18: PLAN-20. Parked: PLAN-19, 37, 42, 43, 45-53. Next action: record running on confirmation; analyze landings (ask the harness; extended check for non-Claude-Code); land the ledger. Open for the operator: doc PR for PLAN-41's watch items; one-review merge rule; unowned remainder of PLAN-02's roadmap item; schema parity test in CI; PLAN-11's seven follow-ups without owner.
+**Resume anchor**: Running (scope 4 full with emitted PLAN-16): PLAN-13 workflow-engine, PLAN-18 verify-not-resolve (#43), PLAN-54 static-verifier-rule-gaps-completion (Claude Code). Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator. Shipped: PLAN-01..08, 10, 11, 36, 38, 41, 44 (41/44 incomplete -> PLAN-54). After PLAN-54: PLAN-17, PLAN-39, PLAN-40; after PLAN-13: one of PLAN-09/12/14/15 at a time, PLAN-21, PLAN-22; after PLAN-18: PLAN-20. Parked: PLAN-19, 37, 42, 43, 45-53. Next action: analyze landings (ask the harness; extended check for non-Claude-Code; extended check for PLAN-54 too); land the ledger. Open for the operator: doc PR for PLAN-41's watch items; one-review merge rule; unowned remainder of PLAN-02's roadmap item; schema parity test in CI; PLAN-11's seven follow-ups without owner.
 **Phase**: orchestrating
 **Running**:
 - PLAN-13 (WS-03) — plan=workflow-engine
 - PLAN-18 (WS-04) — plan=verify-not-resolve
+- PLAN-54 (WS-03) — plan=static-verifier-rule-gaps-completion
 **Parked**:
 - PLAN-19 (WS-05)
 - PLAN-37 (WS-06)
@@ -48,7 +49,6 @@
 22. PLAN-35 (WS-06)
 23. PLAN-39 (WS-10)
 24. PLAN-40 (WS-10)
-25. PLAN-54 (WS-03)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -107,4 +107,4 @@
 | 37 | PLAN-51 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/engine/ |
 | 38 | PLAN-52 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/unit/ |
 | 39 | PLAN-53 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/unit/ |
-| 40 | PLAN-54 | WS-03 | staged | doc/plans/README.adoc; doc/plans/project-units-and-invariants.adoc; doc/plans/static-verifier-rule-gaps.adoc; pm-workflow/doc/adr/workflow-verify/; pm-workflow/doc/developer/workflow-verify.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/resources/verify/ |
+| 40 | PLAN-54 | WS-03 | running | doc/plans/README.adoc; doc/plans/project-units-and-invariants.adoc; doc/plans/static-verifier-rule-gaps.adoc; pm-workflow/doc/adr/workflow-verify/; pm-workflow/doc/developer/workflow-verify.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/resources/verify/ |

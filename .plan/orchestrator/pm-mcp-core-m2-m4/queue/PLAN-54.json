@@ -2,8 +2,8 @@
   "id": "PLAN-54",
   "slug": "static-verifier-rule-gaps-completion",
   "workstream": "WS-03",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
+  "status": "running",
+  "plan_marshall_plan_id": "static-verifier-rule-gaps-completion",
   "pr": "",
   "landing": "",
   "seq": 54
