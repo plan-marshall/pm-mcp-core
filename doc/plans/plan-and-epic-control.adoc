@@ -11,9 +11,9 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * *Specification first*: the package writes the changes Pausing and Starting a Plan, Cancelling and Abandoning Archive, The Epic Is Told, and An Epic's Actions into `plan-marshall-documentation` as part of its own work, once UC-CTL-1 and UC-CTL-2 are agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
-* *A plan*: running or idle; pause (no new task or job, a running job finishes, a running task is withdrawn and offered again), start (a paused or an emitted plan); cancel and abandon through `plan.aborted` with their outcome and reason, then the archive; the open pull request closed with the reason or left open.
+* *A plan*: running, pausing, or paused; pause with its point (now: tasks withdrawn and jobs stopped, both run again on start; after the current task, the default; after the current phase), start (a paused plan, or withdrawing the pause of a pausing one); a plan of an epic created and started in one act, never waiting to be started; cancel and abandon through `plan.aborted` with their outcome and reason, then the archive; the open pull request closed with the reason or left open.
 * *Its epic told*: an inbox record per operator act on a plan of a live epic, the queue row following the plan's state, `coordinate` deciding on it.
-* *An epic*: next plan (emit and start the next launchable row, the reasons when none is, the offer to raise the scope); the archive check before `epic.archive`; cancel with the choice for its plans.
+* *An epic*: next plan (start the next launchable row, creating its plan, the reasons when none is, the offer to raise the scope); the archive check before `epic.archive`; cancel with the choice for its plans.
 
 == Trace
 
@@ -24,4 +24,4 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 
 == Done When
 
-The specification of the changes is merged in `plan-marshall-documentation`; a test per action and state shows what it does and what it refuses; a paused plan serves nothing until started and resumes where it stopped; an ended plan is archived with its outcome and reason; every act on a plan of an epic reaches the epic's inbox; next plan, the archive check, and cancel behave as specified, also with the scope full and with no launchable row.
+The specification of the changes is merged in `plan-marshall-documentation`; a test per action and state shows what it does and what it refuses; each pause point holds where it says, also at an operator wait and at a loop-back; a paused plan serves nothing until started and resumes where it stopped; an ended plan is archived with its outcome and reason; every act on a plan of an epic reaches the epic's inbox; next plan, the archive check, and cancel behave as specified, also with the scope full and with no launchable row.

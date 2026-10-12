@@ -1,0 +1,25 @@
+= The decomposition of an epic, reviewed by the operator
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `epic-decomposition`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-6[Use Cases, UC-STA-6]; the decomposition in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Where:: pm-workflow (the sub-workflow `epic.decomposition`, called by `epic.decompose` and `epic.recut`); pm-core (the draft apart from the ledger until agreed)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the change The Decomposition Is Reviewed into `plan-marshall-documentation` as part of its own work, once UC-STA-6 is agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
+* The draft of the role `decompose` held apart from the ledger; the server's checks over it (disjoint surfaces of plans that may run together, no dependency cycle, a workstream per plan); the operator wait `decomposition.review` with keep, edit, drop, add, talk, and draft again, every model change through read-back; the commit only after the operator agrees and every check passes.
+* A later run (decompose again, stale rows) over staged rows only, each change against the row it replaces; no plan of a new epic starts before its first decomposition is committed.
+* Where `epic.decompose` and `epic.commit-decomposition` have already been implemented without the review, this package restructures them.
+
+== Trace
+
+* Use case: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-6[UC-STA-6] and its change link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#change-decomposition-review[The Decomposition Is Reviewed]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/08-epic-coordination.adoc#epic-workflow[Model Work § Epic Workflow]; link:../../../plan-marshall-documentation/doc/specification/model-work/08-epic-coordination.adoc#epic-surface-disjointness[§ Staging-Time Surface Disjointness]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue/06-setup-epic-other.adoc[State Catalogue § Epic]
+
+== Done When
+
+The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing; each operator act of the review and its read-back is tested; a later run changes only staged rows and reports each change.
