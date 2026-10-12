@@ -1,10 +1,12 @@
 # A unit written for the transition fuzzer tests, not taken from any default unit. The link
 # state verify.gate has one link, guarded by in_worktree: under an assignment with
 # in_worktree=false no exit of it holds, so it is a dead state the fuzzer must find. The unit
-# passes every check of the static verifier, which reads no guard. control.pmwf is this unit
-# without the planted guard.
+# passes every check of the static verifier, which reads no guard. It is an entity unit: a
+# plan or epic unit admits no resting link state (Rule 10), and an entity unit's link states,
+# unlike a sub-workflow's, have no implicit step_out that would let the fuzzer leave the
+# planted state. control.pmwf is this unit without the planted guard.
 workflow verify.fuzz version 1 format 1
-scope plan
+scope entity
 start verify.entry
 
 state verify.entry

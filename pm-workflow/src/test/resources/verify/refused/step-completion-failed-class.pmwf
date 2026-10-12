@@ -1,15 +1,15 @@
 # expect: STEP_COMPLETION state verify.entry line 12
-workflow verify.step-completion-class version 1 format 1
+workflow verify.step-completion-failed-class version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
     phase verify
-    auto test.prepare
-        done -> verify.done
+    auto test.fix
+        fixed -> verify.done
             completes test:step as done
-        skipped -> verify.done
-            completes test:step as waived
+        fix_requested -> verify.done
+            completes test:step as failed
 
 state verify.done terminal done success
     phase verify

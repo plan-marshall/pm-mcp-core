@@ -1,0 +1,9 @@
+# expect: REACHABILITY state verify.entry line 8
+# expect: STATE_EXISTS state verify.missing line 4
+# The start state does not exist, so no state of the unit is reachable from it.
+workflow verify.state-start-missing version 1 format 1
+scope plan
+start verify.missing
+
+state verify.entry terminal done success
+    phase verify

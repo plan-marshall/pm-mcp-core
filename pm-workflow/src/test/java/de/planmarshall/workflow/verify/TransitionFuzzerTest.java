@@ -81,13 +81,14 @@ class TransitionFuzzerTest {
         @ValueSource(strings = {PLANTED, CONTROL})
         @DisplayName("Should pass the static verifier")
         void shouldPassTheStaticVerifier(String resource) {
-            var validator = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"));
+            var validator = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
+                    TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+                    TestPrimitives.catalog());
 
-            var violations = validator.verify(VerifyFixtures.parse(resource)).violations().stream()
-                    .filter(v -> v.rule() != VerificationRule.SESSION_DRIVEN_LINKS)
-                    .toList();
+            var result = validator.verify(VerifyFixtures.parse(resource));
 
-            assertTrue(violations.isEmpty(), violations::toString);
+            assertAll(() -> assertTrue(result.passed(), result::toString),
+                    () -> assertEquals(List.of(), result.advisories(), result::toString));
         }
 
         @Test
@@ -168,7 +169,7 @@ class TransitionFuzzerTest {
         @Test
         @DisplayName("Should not report the planted state when a sub-workflow can step out of it")
         void shouldTakeTheImplicitStepOut() {
-            var source = VerifyFixtures.read(PLANTED).replace("scope plan", "scope subworkflow");
+            var source = VerifyFixtures.read(PLANTED).replace("scope entity", "scope subworkflow");
 
             var report = fuzzer.fuzz(VerifyFixtures.parseSource(PLANTED, source), CONFIGURATION);
 

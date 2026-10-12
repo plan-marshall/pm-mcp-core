@@ -1,0 +1,19 @@
+# expect: EXIT_PATH state verify.stuck line 12
+workflow verify.exit-path-workspace version 1 format 1
+scope workspace
+start verify.entry
+
+state verify.entry
+    phase setup
+    auto test.prepare
+        done -> verify.stuck
+        skipped -> verify.done
+
+state verify.stuck
+    phase setup
+    auto test.prepare
+        done -> verify.done
+        skipped -> verify.done
+
+state verify.done terminal done success
+    phase setup

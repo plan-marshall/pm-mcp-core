@@ -1,0 +1,14 @@
+# expect: ENTITY_KIND_BINDING state verify.entry line 7
+# The entity kind glance of the tests has no entity unit.
+workflow verify.ask-without-entity-unit version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    job llm glance role reviewer ask
+        approved -> verify.done
+        lost -> verify.done
+
+state verify.done terminal done success
+    phase verify

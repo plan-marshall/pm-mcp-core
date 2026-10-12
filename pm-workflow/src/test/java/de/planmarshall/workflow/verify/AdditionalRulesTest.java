@@ -53,8 +53,28 @@ class AdditionalRulesTest {
         return validator.verify(def).violations();
     }
 
+    /** The rule, state and message of a violation: everything of it but the source location. */
+    private record RuleStateMessage(VerificationRule rule, String stateId, String message) {
+
+        static RuleStateMessage of(Violation violation) {
+            return new RuleStateMessage(violation.rule(), violation.stateId(), violation.message());
+        }
+    }
+
+    private static List<RuleStateMessage> violationsOf(VerificationRule rule, String stateId, String... messages) {
+        return Arrays.stream(messages).map(message -> new RuleStateMessage(rule, stateId, message)).toList();
+    }
+
+    private static List<RuleStateMessage> found(WorkflowValidator verifier, WorkflowDefinition definition) {
+        return verifier.verify(definition).violations().stream().map(RuleStateMessage::of).toList();
+    }
+
+    private List<RuleStateMessage> found(WorkflowDefinition definition) {
+        return found(validator, definition);
+    }
+
     @Test
-    @DisplayName("STATE_EXISTS: start state missing in definition")
+    @DisplayName("STATE_EXISTS: start state missing in definition, so no state is reachable")
     void stateExistsMissingStartState() {
         var def = VerifyFixtures.parseSource("missing-start.pmwf", """
                 workflow verify.inline version 1 format 1
@@ -64,32 +84,44 @@ class AdditionalRulesTest {
                 state verify.entry terminal done success
                     phase verify
                 """);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.STATE_EXISTS
-                && v.message().contains("the start state 'verify.missing' does not exist")));
+
+        assertEquals(List.of(
+                        new RuleStateMessage(VerificationRule.REACHABILITY, "verify.entry",
+                                "the state 'verify.entry' is not reachable from the start state 'verify.missing'"),
+                        new RuleStateMessage(VerificationRule.STATE_EXISTS, "verify.missing",
+                                "the start state 'verify.missing' does not exist in the unit")),
+                found(def));
     }
 
     @Test
-    @DisplayName("SCHEMA_BINDING: parameter with unregistered schema")
+    @DisplayName("SCHEMA_BINDING: link parameter with unregistered schema")
     void schemaBindingUnregistered() {
-        var def = unit("plan", """
+        // A schema-typed free parameter never equals the text component of a parameter record, so Rule 1's
+        // parameter equivalence refuses it as well; the plan scope of ebe82b3 is a workspace unit here because a
+        // plan unit admits no resting link state (Rule 10).
+        var def = unit("workspace", """
                 state verify.entry
                     phase verify
-                    skill pm/verify/start
-                    link submit choose [submit] (note: schema[unregistered-schema])
+                    link submit choose [submit] (note: schema[unregistered-schema], comment: text)
                         do test.choose
                             chosen -> verify.done
                             declined -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SCHEMA_BINDING
-                && v.message().contains("unregistered-schema")));
+
+        assertEquals(List.of(
+                        new RuleStateMessage(VerificationRule.PARAMETER_EQUIVALENCE, "verify.entry",
+                                "the link 'choose' of the primitive 'test.choose' declares the free parameter 'note' as"
+                                        + " SchemaRef[schemaName=unregistered-schema], but the parameter record"
+                                        + " declares a text"),
+                        new RuleStateMessage(VerificationRule.SCHEMA_BINDING, "verify.entry",
+                                "the schema 'unregistered-schema' of the parameter 'note' is not registered")),
+                found(def));
     }
 
     @Test
     @DisplayName("ENTITY_KIND_BINDING: return evaluation primitive missing")
     void entityKindMissingReturnEvalPrimitive() {
-        var customKinds = EntityKindRegistry.defaults().with(new EntityKind("custom", Optional.empty(), "missing.eval"));
+        var customKinds = TestPrimitives.entityKinds().with(new EntityKind("custom", Optional.empty(), "missing.eval"));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 customKinds, QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 
@@ -100,15 +132,17 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        var found = customVal.verify(def).violations();
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ENTITY_KIND_BINDING
-                && v.message().contains("return-evaluation primitive 'missing.eval'")));
+
+        assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
+                        "the return-evaluation primitive 'missing.eval' of the entity kind 'custom' is not registered"),
+                found(customVal, def));
     }
 
     @Test
     @DisplayName("ENTITY_KIND_BINDING: ask on entity kind without entity unit")
     void entityKindAskWithoutEntityUnit() {
-        var customKinds = EntityKindRegistry.defaults().with(new EntityKind("screen", Optional.empty(), "test.evaluate-change"));
+        var customKinds = TestPrimitives.entityKinds()
+                .with(new EntityKind("screen", Optional.empty(), "test.evaluate-change"));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
                 customKinds, QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 
@@ -119,9 +153,10 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        var found = customVal.verify(def).violations();
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ENTITY_KIND_BINDING
-                && v.message().contains("declares 'ask' on the entity kind 'screen'")));
+
+        assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
+                        "the state 'verify.entry' declares 'ask' on the entity kind 'screen', which has no entity unit"),
+                found(customVal, def));
     }
 
     @Test
@@ -134,9 +169,10 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ENTITY_KIND_BINDING
-                && v.message().contains("the primitive 'test.missing' of the each clause is not registered")));
+
+        assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
+                        "the primitive 'test.missing' of the each clause is not registered"),
+                found(def));
     }
 
     @Test
@@ -149,11 +185,12 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ENTITY_KIND_BINDING
-                && v.message().contains("the form 'role each' is admitted only in the unit 'adjudicate.decisions'")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ENTITY_KIND_BINDING
-                && v.message().contains("declares 'ask' on a 'role each' state")));
+
+        assertEquals(violationsOf(VerificationRule.ENTITY_KIND_BINDING, "verify.entry",
+                        "the form 'role each' is admitted only in the unit 'adjudicate.decisions', but found in"
+                                + " 'verify.inline'",
+                        "the state 'verify.entry' declares 'ask' on a 'role each' state"),
+                found(def));
     }
 
     @Test
@@ -167,9 +204,11 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ROLE_NAME_GRAMMAR
-                && v.message().contains("consulted role 'too-long-role-name-that-exceeds-maximum-allowed-length-thirty-two'")));
+
+        assertEquals(violationsOf(VerificationRule.ROLE_NAME_GRAMMAR, "verify.entry",
+                        "the consulted role 'too-long-role-name-that-exceeds-maximum-allowed-length-thirty-two' of the"
+                                + " state 'verify.entry' does not match the role-name grammar"),
+                found(def));
     }
 
     @Test
@@ -188,9 +227,11 @@ class AdditionalRulesTest {
                         done -> verify.done
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.JOB_STARTING_OUTCOME
-                && v.message().contains("targets 'verify.nonjob', which is not a job state")));
+
+        assertEquals(violationsOf(VerificationRule.JOB_STARTING_OUTCOME, "verify.entry",
+                        "the job-starting outcome 'enqueued' of the primitive 'test.enqueue' targets 'verify.nonjob',"
+                                + " which is not a job state"),
+                found(def));
     }
 
     @Test
@@ -210,9 +251,11 @@ class AdditionalRulesTest {
                         failed -> verify.done
                         cancelled -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.JOB_STARTING_OUTCOME
-                && v.message().contains("does not start a job, but targets the job state 'verify.targetjob'")));
+
+        assertEquals(violationsOf(VerificationRule.JOB_STARTING_OUTCOME, "verify.entry",
+                        "the outcome 'skipped' of the primitive 'test.enqueue' does not start a job, but targets the"
+                                + " job state 'verify.targetjob'"),
+                found(def));
     }
 
     @Test
@@ -226,17 +269,17 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         bogus -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.MODEL_JOB_OUTCOMES
-                && v.message().contains("routes the outcome 'bogus'")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.MODEL_JOB_OUTCOMES
-                && v.message().contains("routes the outcome 'approved' twice")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.MODEL_JOB_OUTCOMES
-                && v.message().contains("does not route the reserved outcome 'lost'")));
+
+        assertEquals(violationsOf(VerificationRule.MODEL_JOB_OUTCOMES, "verify.entry",
+                        "the state 'verify.entry' routes the outcome 'approved' twice",
+                        "the state 'verify.entry' routes the outcome 'bogus', which the return-evaluation primitive"
+                                + " 'test.evaluate-change' does not have",
+                        "the state 'verify.entry' does not route the reserved outcome 'lost'"),
+                found(def));
     }
 
     @Test
-    @DisplayName("QUESTION_OUTCOMES: routing unknown outcome and twice")
+    @DisplayName("QUESTION_OUTCOMES: routing unknown outcome, twice, and missing outcome")
     void questionOutcomesDefects() {
         var def = unit("plan", """
                 state verify.entry
@@ -246,43 +289,50 @@ class AdditionalRulesTest {
                         answered -> verify.done
                         bogus -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.QUESTION_OUTCOMES
-                && v.message().contains("routes the outcome 'bogus'")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.QUESTION_OUTCOMES
-                && v.message().contains("routes the outcome 'answered' of the question class 'clarification' twice")));
+
+        assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
+                        "the question state 'verify.entry' routes the outcome 'answered' of the question class"
+                                + " 'clarification' twice",
+                        "the question state 'verify.entry' routes the outcome 'bogus', which the question class"
+                                + " 'clarification' does not have",
+                        "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
+                                + " 'clarification'"),
+                found(def));
     }
 
     @Test
-    @DisplayName("LINK_COMPATIBILITY: engine owned rel, submit without params, noop with params")
+    @DisplayName("LINK_COMPATIBILITY: engine-owned relation, inadmissible form, parameters and the escalate identifier")
     void linkCompatibilityDefects() {
-        var def = unit("plan", """
+        var def = unit("workspace", """
                 state verify.entry
                     phase verify
-                    skill pm/verify/start
-                    link consult consult:foo ()
+                    link consult other (note: text[1..80], comment: text)
+                        do test.choose
+                            chosen -> verify.done
+                            declined -> verify.done
+                    link submit pick [noop] ()
                         do test.proceed
                             done -> verify.done
                     link submit proceed [submit] ()
                         do test.proceed
                             done -> verify.done
-                    link retry again [noop] (note: text[1..80])
+                    link retry again [noop] (note: text[1..80], comment: text)
                         do test.choose
                             chosen -> verify.done
                             declined -> verify.done
-                    link escalate other [noop] ()
-                        do test.proceed
-                            done -> verify.done
+                    link escalate appeal (note: text[1..80], comment: text)
+                        do test.choose
+                            chosen -> verify.done
+                            declined -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.LINK_COMPATIBILITY
-                && v.message().contains("the relation CONSULT is engine-owned")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.LINK_COMPATIBILITY
-                && v.message().contains("has form 'submit' but declares no parameters")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.LINK_COMPATIBILITY
-                && v.message().contains("has form 'noop' but declares parameters")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.LINK_COMPATIBILITY
-                && v.message().contains("must name 'request_waiver'")));
+
+        assertEquals(violationsOf(VerificationRule.LINK_COMPATIBILITY, "verify.entry",
+                        "the relation CONSULT is engine-owned and must not be declared in a link clause",
+                        "the link 'pick' of relation SUBMIT does not admit the form NOOP",
+                        "the link 'proceed' has form 'submit' but declares no parameters",
+                        "the link 'again' has form 'noop' but declares parameters",
+                        "the link 'appeal' of relation ESCALATE must name 'request_waiver'"),
+                found(def));
     }
 
     @Test
@@ -300,12 +350,12 @@ class AdditionalRulesTest {
 
                 state epic.aborted terminal aborted failure
                     phase aborted
-                """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ABORT_TERMINAL_TARGETING
-                && v.message().contains("the abort terminal 'plan.aborted' must not be targeted")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.ABORT_TERMINAL_TARGETING
-                && v.message().contains("may only be targeted by 'abort_landed' of 'epic.next-work'")));
+                """);
+
+        assertEquals(violationsOf(VerificationRule.ABORT_TERMINAL_TARGETING, "verify.entry",
+                        "the abort terminal 'plan.aborted' must not be targeted by any declared transition",
+                        "the abort terminal 'epic.aborted' may only be targeted by 'abort_landed' of 'epic.next-work'"),
+                found(def));
     }
 
     @Test
@@ -332,15 +382,16 @@ class AdditionalRulesTest {
                 state verify.done terminal done success
                     phase verify
                 """);
-        var workerFound = violations(workerDef);
-        assertTrue(workerFound.stream().anyMatch(v -> v.rule() == VerificationRule.LEAF_TASK_CONSTRAINT
-                && v.message().contains("a worker unit must not contain a model job state")));
-        assertTrue(workerFound.stream().anyMatch(v -> v.rule() == VerificationRule.LEAF_TASK_CONSTRAINT
-                && v.message().contains("a worker unit link transition must not enter a model job state")));
+        assertEquals(List.of(
+                        new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.entry",
+                                "a worker unit link transition must not enter a model job state"),
+                        new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.model",
+                                "a worker unit must not contain a model job state")),
+                found(workerDef));
 
         var consultDef = VerifyFixtures.parseSource("consultation.pmwf", """
                 workflow consultation version 1 format 1
-                scope plan
+                scope subworkflow
                 start verify.entry
 
                 state verify.entry
@@ -357,11 +408,15 @@ class AdditionalRulesTest {
                         approved -> verify.done
                         lost -> verify.done
                 """ + DONE_TERMINAL);
-        var consultFound = violations(consultDef);
-        assertTrue(consultFound.stream().anyMatch(v -> v.rule() == VerificationRule.LEAF_TASK_CONSTRAINT
-                && v.message().contains("a consultation task must not offer a consult link")));
-        assertTrue(consultFound.stream().anyMatch(v -> v.rule() == VerificationRule.LEAF_TASK_CONSTRAINT
-                && v.message().contains("a consultation task must not consult further roles")));
+        assertEquals(List.of(
+                        new RuleStateMessage(VerificationRule.LINK_ID_UNIQUE, "verify.entry",
+                                "the link 'consult:review' of the state 'verify.entry' repeats the identifier of the"
+                                        + " implicit link"),
+                        new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.entry",
+                                "a consultation task must not offer a consult link"),
+                        new RuleStateMessage(VerificationRule.LEAF_TASK_CONSTRAINT, "verify.target",
+                                "a consultation task must not consult further roles")),
+                found(consultDef));
     }
 
     @Test
@@ -381,9 +436,9 @@ class AdditionalRulesTest {
                 state verify.done terminal done success
                     phase inherit
                 """);
-        var subwfFound = violations(subwfDef);
-        assertTrue(subwfFound.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("the resting link state 'verify.entry' of a sub-workflow must declare a skill")));
+        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the resting link state 'verify.entry' of a sub-workflow must declare a skill"),
+                found(subwfDef));
 
         var planDef = unit("plan", """
                 state verify.entry
@@ -392,10 +447,17 @@ class AdditionalRulesTest {
                         done -> verify.done
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
-        var planFound = violations(planDef);
-        assertTrue(planFound.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("declares 'phase inherit', which is admitted only in sub-workflow and entity units")));
+        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the state 'verify.entry' declares 'phase inherit', which is admitted only in sub-workflow and"
+                                + " entity units"),
+                found(planDef));
     }
+
+    private static final String PLAN_RETURN = """
+
+            state plan.return terminal returned failure
+                phase verify
+            """;
 
     @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: unregistered callee and scope mismatch")
@@ -406,32 +468,20 @@ class AdditionalRulesTest {
                     call missing.subwf()
                         done -> verify.done
                 """ + DONE_TERMINAL);
-        var unregFound = violations(unregisteredDef);
-        assertTrue(unregFound.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("the called sub-workflow 'missing.subwf' is not registered")));
-
-        var workspaceUnit = VerifyFixtures.parseSource("callee.workspace.pmwf", """
-                workflow callee.workspace version 1 format 1
-                scope workspace
-                start ws.entry
-
-                state ws.entry terminal done success
-                    phase verify
-                """);
-        var catalogWithWs = WorkflowCatalog.of(workspaceUnit);
-        var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
-                EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), catalogWithWs);
+        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the called sub-workflow 'missing.subwf' is not registered"),
+                found(unregisteredDef));
 
         var callWsDef = unit("plan", """
                 state verify.entry
                     phase verify
-                    call callee.workspace()
+                    call test.workspace-unit()
                         done -> verify.done
-                        stepped_out -> verify.done
-                """ + DONE_TERMINAL);
-        var wsFound = customVal.verify(callWsDef).violations();
-        assertTrue(wsFound.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("has scope WORKSPACE, expected SUBWORKFLOW")));
+                        stepped_out -> plan.return
+                """ + PLAN_RETURN + DONE_TERMINAL);
+        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the called workflow 'test.workspace-unit' has scope WORKSPACE, expected SUBWORKFLOW"),
+                found(callWsDef));
     }
 
     @Test
@@ -442,17 +492,17 @@ class AdditionalRulesTest {
                     phase verify
                     call git.commit_and_push(push = invalid_val, attempts = 99, targets = [invalid_target], extra = true_val)
                         done -> verify.done
-                        stepped_out -> verify.done
-                """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("not in the allowed enum values")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("out of range [1..5]")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("the list value 'invalid_target'")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("names an undeclared parameter of 'git.commit_and_push'")));
+                        stepped_out -> plan.return
+                """ + PLAN_RETURN + DONE_TERMINAL);
+
+        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the value 'invalid_val' of parameter 'push' is not in the allowed enum values [enabled,"
+                                + " disabled] of 'git.commit_and_push'",
+                        "the integer value 99 of parameter 'attempts' is out of range [1..5] for 'git.commit_and_push'",
+                        "the list value 'invalid_target' of parameter 'targets' is not in the allowed enum values"
+                                + " [origin, mirror] of 'git.commit_and_push'",
+                        "the parameter binding 'extra' names an undeclared parameter of 'git.commit_and_push'"),
+                found(def));
     }
 
     @Test
@@ -464,15 +514,16 @@ class AdditionalRulesTest {
                     call git.commit_and_push()
                         bogus -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("omits the required parameter 'push'")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("routes the outcome 'bogus', which is not in the exit contract")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("does not route the exit outcome 'done'")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
-                && v.message().contains("does not route the exit outcome 'stepped_out'")));
+
+        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the call routes the outcome 'bogus', which is not in the exit contract of"
+                                + " 'git.commit_and_push'",
+                        "the call does not route the exit outcome 'done' of 'git.commit_and_push'",
+                        "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'",
+                        "the call omits the required parameter 'push' of 'git.commit_and_push'",
+                        "the call omits the required parameter 'attempts' of 'git.commit_and_push'",
+                        "the call omits the required parameter 'targets' of 'git.commit_and_push'"),
+                found(def));
     }
 
     @Test
@@ -509,14 +560,6 @@ class AdditionalRulesTest {
         assertEquals(List.of(), violations(def));
     }
 
-    /** The rule, state and message of a violation: everything of it but the source location. */
-    private record RuleStateMessage(VerificationRule rule, String stateId, String message) {
-
-        static RuleStateMessage of(Violation violation) {
-            return new RuleStateMessage(violation.rule(), violation.stateId(), violation.message());
-        }
-    }
-
     @Test
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out owed by a call to a stepping-out sub-workflow but not routed")
     void subWorkflowSteppedOutMissing() {
@@ -544,7 +587,7 @@ class AdditionalRulesTest {
                 new QuestionClass("task", Set.of("answered", "assumed")),
                 new QuestionClass("setup", Set.of("answered", "assumed"))));
         var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
-                EntityKindRegistry.defaults(), customQuestions, SchemaRegistry.defaults(), TestPrimitives.catalog());
+                TestPrimitives.entityKinds(), customQuestions, SchemaRegistry.defaults(), TestPrimitives.catalog());
 
         var def = unit("workspace", """
                 state verify.entry
@@ -553,12 +596,10 @@ class AdditionalRulesTest {
                         answered -> verify.done
                         assumed -> verify.done
                 """ + DONE_TERMINAL);
-        var found = customVal.verify(def).violations();
-        assertEquals(1, found.size(), () -> "expected exactly the unregistered class refusal: " + found);
-        assertEquals(VerificationRule.QUESTION_CLASS_BINDING, found.getFirst().rule());
-        assertTrue(found.getFirst().message().contains(
+
+        assertEquals(violationsOf(VerificationRule.QUESTION_CLASS_BINDING, "verify.entry",
                         "the question class 'ask' of the state 'verify.entry' is not registered"),
-                () -> "missing unregistered class refusal: " + found);
+                found(customVal, def));
     }
 
     @Test
@@ -571,7 +612,7 @@ class AdditionalRulesTest {
                         answered -> verify.done
                         assumed -> verify.done
                 """ + DONE_TERMINAL);
-        assertTrue(violations(passing).isEmpty(), () -> "ask bijection should pass: " + violations(passing));
+        assertEquals(List.of(), violations(passing));
 
         var missing = unit("workspace", """
                 state verify.entry
@@ -579,22 +620,14 @@ class AdditionalRulesTest {
                     question ask
                         answered -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(missing);
-        assertEquals(1, found.size(), () -> "expected exactly the missing assumed refusal: " + found);
-        assertEquals(VerificationRule.QUESTION_OUTCOMES, found.getFirst().rule());
-        assertTrue(found.getFirst().message().contains(
-                        "does not route the outcome 'assumed' of the question class 'ask'"),
-                () -> "missing ask assumed refusal: " + found);
+        assertEquals(violationsOf(VerificationRule.QUESTION_OUTCOMES, "verify.entry",
+                        "the question state 'verify.entry' does not route the outcome 'assumed' of the question class"
+                                + " 'ask'"),
+                found(missing));
     }
 
     private static List<RuleStateMessage> stepCompletion(String stateId, String... messages) {
-        return Arrays.stream(messages)
-                .map(message -> new RuleStateMessage(VerificationRule.STEP_COMPLETION, stateId, message))
-                .toList();
-    }
-
-    private List<RuleStateMessage> found(WorkflowDefinition definition) {
-        return violations(definition).stream().map(RuleStateMessage::of).toList();
+        return violationsOf(VerificationRule.STEP_COMPLETION, stateId, messages);
     }
 
     @Test

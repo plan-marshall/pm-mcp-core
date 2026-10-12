@@ -55,8 +55,23 @@ final class TestPrimitives {
     /** A return-evaluation primitive for entity kind change: {@code approved}. */
     static final String EVALUATE_CHANGE = "test.evaluate-change";
 
+    /**
+     * A return-evaluation primitive for the entity kind {@link #JUDGEMENT_KIND}: {@code approved} ({@code SUCCESS}),
+     * {@code rejected} ({@code FAILURE}).
+     */
+    static final String EVALUATE_JUDGEMENT = "test.evaluate-judgement";
+
     /** A list primitive for each clause: {@code done}. */
     static final String LIST_CHANGES = "test.list-changes";
+
+    /** A primitive for the {@code role each} clause, standing for one that returns role names: {@code done}. */
+    static final String LIST_ROLES = "test.list-roles";
+
+    /**
+     * The primitive of a next-work state that may land an abort: {@code landed} ({@code SUCCESS}),
+     * {@code abort_landed} ({@code FAILURE}).
+     */
+    static final String LAND_WORK = "test.land-work";
 
     /** A primitive that enqueues a job: {@code enqueued}, {@code skipped}. */
     static final String ENQUEUE = "test.enqueue";
@@ -101,6 +116,18 @@ final class TestPrimitives {
     /** The entity kind of the tests whose entity unit {@code test.no-such-unit} the catalog does not hold. */
     static final String UNRESOLVED_KIND = "unresolved";
 
+    /** The entity kind of the tests whose return-evaluation primitive {@link #MISSING} is not registered. */
+    static final String UNEVALUATED_KIND = "unevaluated";
+
+    /** The entity kind of the tests without an entity unit, return evaluation {@link #EVALUATE_CHANGE}. */
+    static final String UNIT_LESS_KIND = "glance";
+
+    /** The entity kind of the tests whose evaluation can reject: entity unit {@code entity}, {@link #EVALUATE_JUDGEMENT}. */
+    static final String JUDGEMENT_KIND = "judgement";
+
+    /** A workspace unit of the test catalog, which no call may name. */
+    static final String WORKSPACE_UNIT = "test.workspace-unit";
+
     /** A sub-workflow that holds no link and calls {@link #LINKS_INNER}. */
     static final String LINKS_OUTER = "test.links-outer";
 
@@ -111,13 +138,18 @@ final class TestPrimitives {
     }
 
     /**
-     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND}, whose entity unit the test
-     *         catalog holds, and {@link #UNRESOLVED_KIND}, whose entity unit it does not hold
+     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND} and {@link #JUDGEMENT_KIND},
+     *         whose entity unit the test catalog holds, {@link #UNRESOLVED_KIND}, whose entity unit it does not hold,
+     *         {@link #UNEVALUATED_KIND}, whose return-evaluation primitive is not registered, and
+     *         {@link #UNIT_LESS_KIND}, which has no entity unit
      */
     static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
                 .with(new EntityKind(CHANGE_KIND, "entity", EVALUATE_CHANGE))
-                .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE));
+                .with(new EntityKind(JUDGEMENT_KIND, "entity", EVALUATE_JUDGEMENT))
+                .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE))
+                .with(new EntityKind(UNEVALUATED_KIND, "entity", MISSING))
+                .with(new EntityKind(UNIT_LESS_KIND, Optional.empty(), EVALUATE_CHANGE));
     }
 
     /**
@@ -132,7 +164,10 @@ final class TestPrimitives {
                 new Fixed<>(READ_FACTS, NoParams.class, DoneOutcome.class),
                 new Fixed<>(READY, NoParams.class, PredicateOutcome.class),
                 new Fixed<>(EVALUATE_CHANGE, NoParams.class, EvaluateChangeOutcome.class),
+                new Fixed<>(EVALUATE_JUDGEMENT, NoParams.class, JudgementOutcome.class),
                 new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
+                new Fixed<>(LIST_ROLES, NoParams.class, DoneOutcome.class),
+                new Fixed<>(LAND_WORK, NoParams.class, LandOutcome.class),
                 new EnqueuePrimitive(),
                 new ArtifactConsumer(),
                 new ArtifactProducer(),
@@ -145,8 +180,8 @@ final class TestPrimitives {
     /**
      * @return a catalog of the units the tests call: {@code git.commit_and_push}, the link-free call chain
      *         {@code test.depth1} to {@code test.depth5}, the self-calling {@code verify.call-cycle}, the remediation
-     *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND}, and
-     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}
+     *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND},
+     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, and the workspace unit {@link #WORKSPACE_UNIT}
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
@@ -255,8 +290,16 @@ final class TestPrimitives {
                 state remediation.waived terminal waived success
                     phase inherit
                 """);
+        var workspaceUnit = VerifyFixtures.parseSource("test.workspace-unit.pmwf", """
+                workflow test.workspace-unit version 1 format 1
+                scope workspace
+                start workspace.done
+
+                state workspace.done terminal done success
+                    phase setup
+                """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
-                remediation, entity, linksInner, linksOuter));
+                remediation, entity, linksInner, linksOuter, workspaceUnit));
     }
 
     /** A link-free sub-workflow {@code test.depth<n>} whose one state calls {@code callee}. */
@@ -578,6 +621,50 @@ final class TestPrimitives {
         @Override
         public OutcomeClass outcomeClass() {
             return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum JudgementOutcome implements PrimitiveOutcome {
+        APPROVED("approved", OutcomeClass.SUCCESS), REJECTED("rejected", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        JudgementOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    enum LandOutcome implements PrimitiveOutcome {
+        LANDED("landed", OutcomeClass.SUCCESS), ABORT_LANDED("abort_landed", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        LandOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
         }
     }
 

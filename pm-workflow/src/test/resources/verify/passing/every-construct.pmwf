@@ -1,12 +1,18 @@
 # A sub-workflow written for the verifier tests, not taken from any default unit. It uses
 # every construct of the grammar: the header with derived_from, param and result
 # declarations of every type, declare, start and migrate, every state form (links,
-# auto, job, composite_job, job llm with and without lost, call, question, terminal),
-# links with bounded, unbounded and optional text parameters and explicit forms,
-# guards with every atom, combinator and depends_on_config, facts, skill, result
-# guards, a STEP_LIST dispatch hub whose targets open the firings of the steps, and
-# completions on every firing path. It passes every check of the static verifier.
-workflow verify.every-construct version 2 format 1 derived_from 1
+# auto, job, composite_job, job llm with each, role each, ask, consult and lost, call,
+# question, terminal), links with bounded, unbounded and optional text parameters and
+# explicit forms, the escalate link request_waiver, guards with every atom, combinator and
+# depends_on_config, facts, skill and result guards. It holds every construct the rules
+# reach: a STEP_LIST dispatch hub whose targets open the firings of the steps, completions
+# on every firing path, a step completed as waived on the waived outcome of a remediation
+# call, the review loop rejected -> verify.review, an enqueuing primitive whose job-starting
+# outcome enters a job state, an artifact producer before its consumer, and the route
+# abort_landed of epic.next-work into epic.aborted. It is named adjudicate.decisions
+# because Rule 1 admits the form 'role each' in that unit only. It passes every check of
+# the static verifier.
+workflow adjudicate.decisions version 2 format 1 derived_from 1
 scope subworkflow
 param mode : enum[strict|lenient]
 param rounds : int[1..5]
@@ -34,13 +40,17 @@ state verify.entry
         guard (in_worktree and not has_open_findings) or predicate:test.ready
         do test.proceed
             done -> verify.ask
+    link escalate request_waiver (note: text[1..80], comment: text)
+        do test.choose
+            chosen -> verify.entry
+            declined -> verify.entry
 
 state verify.next-step
     phase inherit
     auto test.next-step
         first -> verify.prepare
         second -> verify.build
-        settled -> verify.compose
+        settled -> verify.remediate
 
 state verify.prepare
     phase inherit
@@ -60,12 +70,27 @@ state verify.build
         cancelled -> verify.failed
             completes verify:build as failed
 
+state verify.remediate
+    phase inherit
+    call remediation.test-waiver()
+        done -> verify.compose
+            completes verify:probe as done
+        waived -> verify.compose
+            completes verify:probe as waived
+        stepped_out -> verify.stepped-out
+
 state verify.compose
     phase inherit
     composite_job test.build
-        succeeded -> verify.review
+        succeeded -> verify.adjudicate
         failed -> verify.failed
         cancelled -> verify.failed
+
+state verify.adjudicate
+    phase inherit
+    job llm change role each test.list-roles
+        approved -> verify.review
+        lost -> verify.failed
 
 state verify.review
     phase inherit
@@ -76,18 +101,42 @@ state verify.review
 
 state verify.judge
     phase inherit
-    job llm change role reviewer
+    job llm judgement role reviewer
         approved -> verify.commit
+        rejected -> verify.review
         lost -> verify.failed
 
 state verify.commit
     phase inherit
     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin, mirror])
-        done -> verify.done
+        done -> verify.produce
             guard result.pushed
         done -> verify.ask
             guard not result.pushed
         stepped_out -> verify.stepped-out
+
+state verify.produce
+    phase inherit
+    auto test.produce
+        done -> verify.enqueue
+
+state verify.enqueue
+    phase inherit
+    auto test.enqueue
+        enqueued -> verify.publish
+        skipped -> verify.consume
+
+state verify.publish
+    phase inherit
+    job test.build
+        succeeded -> verify.consume
+        failed -> verify.failed
+        cancelled -> verify.failed
+
+state verify.consume
+    phase inherit
+    auto test.consume
+        done -> verify.done
 
 state verify.ask
     phase inherit
@@ -101,8 +150,14 @@ state verify.ask
 state verify.askflow
     phase inherit
     question ask
-        answered -> verify.done
+        answered -> epic.next-work
         assumed -> verify.skipped
+
+state epic.next-work
+    phase inherit
+    auto test.land-work
+        landed -> verify.done
+        abort_landed -> epic.aborted
 
 state verify.done terminal done success
     phase inherit
@@ -115,3 +170,6 @@ state verify.failed terminal failed failure
 
 state verify.stepped-out terminal stepped_out stepped_out
     phase inherit
+
+state epic.aborted terminal aborted failure
+    phase aborted

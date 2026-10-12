@@ -1,0 +1,19 @@
+# expect: STEP_COMPLETION state verify.entry line 14
+# One transition completes the step twice. The firing walk reads the completions of a
+# transition once, so only the same-transition check refuses this; step-completion-firing.pmwf
+# pins the duplicate across two transitions of one firing.
+workflow verify.step-completion-same-transition version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.prepare
+        done -> verify.done
+            completes test:step as done
+            completes test:step as done
+        skipped -> verify.done
+            completes test:step as skipped
+
+state verify.done terminal done success
+    phase verify
