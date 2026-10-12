@@ -25,10 +25,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 
@@ -37,10 +49,18 @@ import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.service.InternalFaultException;
+import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.runtime.credentials.CredentialAccount;
+import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.credentials.SecretStore;
 import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.credentials.SecretStoreException.Reason;
+import de.planmarshall.runtime.lock.FileLockManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -62,6 +82,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class EnrolmentKeyTest {
 
     private static final String USER = System.getProperty("user.name");
+    private static final String PROJECT = "pm-mcp-core";
 
     @TempDir
     Path state;
@@ -407,6 +428,289 @@ class EnrolmentKeyTest {
             var missing = new EnrolmentKey(new FileStoreName(), state.resolve("absent-dir"), USER, new SecureRandom());
 
             assertEquals(Reason.FAILED, assertThrows(SecretStoreException.class, missing::readOrCreate).reason());
+        }
+    }
+
+    /**
+     * A thread-safe keyring of the tests that counts its writes: the first write can be held at a gate before it
+     * stores the entry, standing for an instance paused inside its create, and an action can run right after a write,
+     * standing for a writer that bypassed the lock.
+     */
+    private static final class GatedKeyring implements SecretStore {
+
+        private final Map<String, String> entries = new ConcurrentHashMap<>();
+        private final AtomicInteger puts = new AtomicInteger();
+        private final CountDownLatch paused = new CountDownLatch(1);
+        private final CountDownLatch release;
+        private final Consumer<Map<String, String>> afterPut;
+
+        GatedKeyring(boolean gated, Consumer<Map<String, String>> afterPut) {
+            this.release = new CountDownLatch(gated ? 1 : 0);
+            this.afterPut = afterPut;
+        }
+
+        @Override
+        public String name() {
+            return SecretStore.KEYCHAIN;
+        }
+
+        @Override
+        public void put(CredentialAccount account, String secret) {
+            if (puts.incrementAndGet() == 1) {
+                paused.countDown();
+                awaitBounded(release);
+            }
+            entries.put(account.account(), secret);
+            afterPut.accept(entries);
+        }
+
+        @Override
+        public Optional<String> get(CredentialAccount account) {
+            return Optional.ofNullable(entries.get(account.account()));
+        }
+
+        @Override
+        public boolean delete(CredentialAccount account) {
+            return entries.remove(account.account()) != null;
+        }
+    }
+
+    private static final Duration BOUND = Duration.ofSeconds(5);
+
+    private static void awaitBounded(CountDownLatch latch) {
+        try {
+            assertTrue(latch.await(BOUND.toMillis(), TimeUnit.MILLISECONDS), "latch not released in time");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Nested
+    @DisplayName("created under the credentials lock and adopted from the keyring")
+    class CreationLock {
+
+        @TempDir
+        Path base;
+
+        @Test
+        @DisplayName("the creation lock is the credentials lock and is taken before any enrolment lock")
+        void creationLockOrder() {
+            var locks = new FileLockManager(event -> {
+            });
+            var projectLock = LockKey.enrolment(base, PROJECT);
+            var creationLock = EnrolmentKey.creationLock(base);
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(projectLock);
+
+                assertThrows(InternalFaultException.class, () -> transaction.acquire(creationLock));
+            }
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(creationLock);
+                transaction.acquire(projectLock);
+
+                assertAll(
+                        () -> assertEquals(LockKey.credentials(base), creationLock),
+                        () -> assertTrue(transaction.holds(creationLock)),
+                        () -> assertTrue(transaction.holds(projectLock)));
+            }
+        }
+
+        @Test
+        @DisplayName("a key another writer stored right after our write is adopted, not ours")
+        void foreignKeyAdopted() {
+            var foreign = filled((byte) 7);
+            var keyring = new GatedKeyring(false, entries -> entries.put(EnrolmentKey.ACCOUNT, encode(foreign)));
+            var key = new EnrolmentKey(keyring, state, USER, new FixedRandom((byte) 1, () -> {
+            }));
+
+            var created = key.readOrCreate();
+            var again = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(foreign, created.getEncoded()),
+                    () -> assertArrayEquals(foreign, again.getEncoded()),
+                    () -> assertEquals(1, keyring.puts.get()));
+        }
+
+        @Test
+        @DisplayName("an entry that vanished after our write is unavailable, logged once without the key")
+        void vanishedEntry() {
+            var keyring = new GatedKeyring(false, entries -> entries.remove(EnrolmentKey.ACCOUNT));
+            var key = new EnrolmentKey(keyring, state, USER, new FixedRandom((byte) 9, () -> {
+            }));
+
+            var thrown = assertThrows(SecretStoreException.class, key::readOrCreate);
+
+            assertAll(
+                    () -> assertEquals(Reason.FAILED, thrown.reason()),
+                    () -> assertTrue(thrown.getMessage().contains("vanished after it was written"),
+                            thrown.getMessage()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            ERROR.ENROLMENT_KEY_UNAVAILABLE.resolveIdentifierString()),
+                    () -> assertTrue(TestLoggerFactory.getTestHandler()
+                            .resolveLogMessagesContaining(TestLogLevel.ERROR, encode(filled((byte) 9))).isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a normal create returns the key the keyring stores")
+        void normalCreate() {
+            var keyring = new GatedKeyring(false, entries -> {
+            });
+            var key = new EnrolmentKey(keyring, state, USER, new SecureRandom());
+
+            var created = key.readOrCreate();
+
+            assertEquals(keyring.entries.get(EnrolmentKey.ACCOUNT), encode(created.getEncoded()));
+        }
+    }
+
+    /**
+     * Two runtime instances over one base: two keys and two writers of the enrolments, one keyring and one lock
+     * manager. The first instance pauses inside its create; the second waits for the credentials lock and adopts the
+     * key the first created, so only one key is ever written.
+     */
+    @Nested
+    @DisplayName("two runtime instances")
+    class CrossInstance {
+
+        private static final String OTHER = "other-project";
+
+        @TempDir
+        Path base;
+
+        private final List<AuditEvent> events = new CopyOnWriteArrayList<>();
+        private final ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor();
+        private EnrolmentStore store;
+        private FileLockManager locks;
+
+        @BeforeEach
+        void create() throws IOException {
+            Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
+            store = new EnrolmentStore(base);
+            locks = new FileLockManager(events::add);
+        }
+
+        @AfterEach
+        void stop() {
+            threads.close();
+        }
+
+        private Enrolments instance(EnrolmentKey key) {
+            return new Enrolments(store, key, new EnrolmentFileCheck(USER), locks, projectId -> List.of(),
+                    events::add);
+        }
+
+        private EnrolmentKey keyringKey(SecretStore keyring) {
+            return new EnrolmentKey(keyring, base.resolve("state"), USER, new SecureRandom());
+        }
+
+        private ProjectEnrolment verifyWith(EnrolmentKey key, String projectId) {
+            try (var transaction = locks.openTransaction()) {
+                return new EnrolmentCheck(store, key, new EnrolmentFileCheck(USER), events::add)
+                        .verify(transaction, projectId);
+            }
+        }
+
+        private void assertWaitsWhileThePausedCreateHoldsTheLock(Future<?> second) {
+            assertThrows(TimeoutException.class, () -> second.get(300, TimeUnit.MILLISECONDS));
+        }
+
+        @Test
+        @DisplayName("two enrols at once: the second waits for the paused create, and the keyring sees one write")
+        void twoEnrolsOneKey() throws Exception {
+            Files.createDirectories(base.resolve("state"));
+            var keyring = new GatedKeyring(true, entries -> {
+            });
+            var firstKey = keyringKey(keyring);
+            var secondKey = keyringKey(keyring);
+
+            var first = threads.submit(() -> instance(firstKey).enrol(EnrolmentCheckTest.enrolment(PROJECT, false),
+                    false));
+            awaitBounded(keyring.paused);
+            var second = threads.submit(() -> instance(secondKey).enrol(EnrolmentCheckTest.enrolment(OTHER, false),
+                    false));
+            assertWaitsWhileThePausedCreateHoldsTheLock(second);
+            var putsWhilePaused = keyring.puts.get();
+            keyring.release.countDown();
+            first.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+            second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+
+            assertAll(
+                    () -> assertEquals(1, putsWhilePaused),
+                    () -> assertEquals(1, keyring.puts.get()),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()),
+                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId()));
+        }
+
+        @Test
+        @DisplayName("without a gate the same two enrols also write one key")
+        void twoEnrolsWithoutGate() throws Exception {
+            Files.createDirectories(base.resolve("state"));
+            var keyring = new GatedKeyring(false, entries -> {
+            });
+            var firstKey = keyringKey(keyring);
+            var secondKey = keyringKey(keyring);
+
+            var first = threads.submit(() -> instance(firstKey).enrol(EnrolmentCheckTest.enrolment(PROJECT, false),
+                    false));
+            var second = threads.submit(() -> instance(secondKey).enrol(EnrolmentCheckTest.enrolment(OTHER, false),
+                    false));
+            first.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+            second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+
+            assertAll(
+                    () -> assertEquals(1, keyring.puts.get()),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()));
+        }
+
+        @Test
+        @DisplayName("two instances over one state directory write one key file, and both enrolments verify")
+        void twoEnrolsOneKeyFile() throws Exception {
+            var stateDirectory = Files.createDirectories(base.resolve("state"));
+            var credentials = new FileSecretStore(base.resolve("credentials"));
+            var firstKey = new EnrolmentKey(credentials, stateDirectory, USER, new SecureRandom());
+            var secondKey = new EnrolmentKey(credentials, stateDirectory, USER, new SecureRandom());
+
+            var first = threads.submit(() -> instance(firstKey).enrol(EnrolmentCheckTest.enrolment(PROJECT, false),
+                    false));
+            var second = threads.submit(() -> instance(secondKey).enrol(EnrolmentCheckTest.enrolment(OTHER, false),
+                    false));
+            first.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+            second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+
+            assertAll(
+                    () -> assertEquals(List.of(EnrolmentKey.FILE_NAME), entries(stateDirectory)),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()),
+                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId()));
+        }
+
+        @Test
+        @DisplayName("a re-baseline racing an enrol on a host without a key yet takes the same lock: one write")
+        void rebaselineRacingEnrol() throws Exception {
+            var stateDirectory = Files.createDirectories(base.resolve("state"));
+            var fileKey = new EnrolmentKey(new FileSecretStore(base.resolve("credentials")), stateDirectory, USER,
+                    new SecureRandom());
+            instance(fileKey).enrol(EnrolmentCheckTest.enrolment(PROJECT, false), false);
+            var keyring = new GatedKeyring(true, entries -> {
+            });
+            var firstKey = keyringKey(keyring);
+            var secondKey = keyringKey(keyring);
+
+            var first = threads.submit(() -> instance(firstKey).rebaseline(PROJECT));
+            awaitBounded(keyring.paused);
+            var second = threads.submit(() -> instance(secondKey).enrol(EnrolmentCheckTest.enrolment(OTHER, false),
+                    false));
+            assertWaitsWhileThePausedCreateHoldsTheLock(second);
+            keyring.release.countDown();
+            first.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+            second.get(BOUND.toMillis(), TimeUnit.MILLISECONDS);
+
+            assertAll(
+                    () -> assertEquals(1, keyring.puts.get()),
+                    () -> assertEquals(PROJECT, verifyWith(secondKey, PROJECT).projectId()),
+                    () -> assertEquals(OTHER, verifyWith(firstKey, OTHER).projectId()));
         }
     }
 

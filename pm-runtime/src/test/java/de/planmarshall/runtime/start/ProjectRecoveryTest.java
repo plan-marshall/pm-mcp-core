@@ -16,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,10 +45,12 @@ import de.planmarshall.runtime.start.ProjectRecovery.StepResult;
 import de.planmarshall.runtime.start.RecoveryStep.Name;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The per-project recovery (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery)
@@ -58,6 +63,7 @@ class ProjectRecoveryTest {
 
     private static final Duration BOUND = Duration.ofSeconds(10);
     private static final Executor INLINE = Runnable::run;
+    private static final String TASK = "task";
 
     private final List<String> runs = new CopyOnWriteArrayList<>();
     private final CountDownLatch gate = new CountDownLatch(1);
@@ -156,7 +162,119 @@ class ProjectRecoveryTest {
                         outcome.steps().stream().map(StepResult::name).toList()),
                 () -> assertFalse(outcome.failed()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
-                        "Recovery of project 'p1' finished: 10 steps done"));
+                        "Recovery of project 'p1' finished: 11 steps done"));
+    }
+
+    @Test
+    @DisplayName("the names are the eleven steps of the specification, in its order")
+    void namesInSpecificationOrder() {
+        assertEquals(List.of(Name.ENROLMENT_INTEGRITY, Name.OWED_ENROLMENT_AUDIT, Name.JOBS_AND_WORKERS, Name.LEASES,
+                Name.JOURNAL_ROLL_FORWARD, Name.CROSS_SCOPE_RECONCILIATION, Name.WORKTREE_PRESENCE,
+                Name.ENGINE_DEADLINES, Name.RESUME_DRIVE, Name.PENDING_RECORD_SWEEP, Name.BASELINE_WORKTREE_SWEEP),
+                Arrays.asList(Name.values()));
+    }
+
+    /**
+     * A caller that passes the step list written before the enrolment store, without the two enrolment steps, keeps
+     * working: each missing enrolment step is a seam that does nothing.
+     */
+    @Nested
+    @DisplayName("a step list without the enrolment steps")
+    class WithoutEnrolmentSteps {
+
+        @Test
+        @DisplayName("without the owed-audit step it constructs and runs eleven steps, the owed-audit one a seam")
+        void withoutOwedAuditStep() {
+            var steps = new ArrayList<>(steps(Map.of()));
+            steps.removeIf(step -> step.name() == Name.OWED_ENROLMENT_AUDIT);
+            var recovery = new ProjectRecovery(enrolled("p1"), steps, INLINE);
+
+            var outcome = recovered(recovery.awaitRecovered("p1"));
+
+            assertAll(
+                    () -> assertFalse(outcome.failed()),
+                    () -> assertEquals(Arrays.asList(Name.values()),
+                            outcome.steps().stream().map(StepResult::name).toList()),
+                    () -> assertEquals(new StepResult(Name.OWED_ENROLMENT_AUDIT,
+                            new Outcome.Done(RecoveryStep.NOT_IMPLEMENTED)), outcome.steps().get(1)));
+        }
+
+        @Test
+        @DisplayName("without both enrolment steps it constructs and runs, both seams present")
+        void withoutBothEnrolmentSteps() {
+            var steps = new ArrayList<>(steps(Map.of()));
+            steps.removeIf(step -> step.name() == Name.OWED_ENROLMENT_AUDIT || step.name() == Name.ENROLMENT_INTEGRITY);
+            var recovery = new ProjectRecovery(enrolled("p1"), steps, INLINE, () -> runs.add(TASK));
+
+            recovery.startBackgroundPass();
+            var outcome = recovered(recovery.awaitRecovered("p1"));
+
+            assertAll(
+                    () -> assertEquals(Name.values().length, outcome.steps().size()),
+                    () -> assertEquals(new Outcome.Done(RecoveryStep.NOT_IMPLEMENTED),
+                            outcome.steps().getFirst().outcome()),
+                    () -> assertEquals(TASK, runs.getLast()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the background task")
+    class BackgroundTask {
+
+        @Test
+        @DisplayName("runs once on the executor, after the enrolled projects were submitted")
+        void runsOnceAfterTheProjects() {
+            var submitted = new ArrayList<Runnable>();
+            var task = (Runnable) () -> runs.add(TASK);
+            var recovery = new ProjectRecovery(enrolled("p1", "p2"), steps(Map.of()), submitted::add, task);
+
+            recovery.startBackgroundPass();
+
+            assertAll(
+                    () -> assertEquals(3, submitted.size()),
+                    () -> assertEquals(task, submitted.getLast()),
+                    () -> assertTrue(runs.isEmpty(), "nothing runs before the executor runs it"));
+            submitted.forEach(Runnable::run);
+            assertEquals(List.of(TASK), runs.stream().filter(TASK::equals).toList());
+        }
+
+        @Test
+        @DisplayName("never runs from the lazy trigger")
+        void notFromLazyTrigger() {
+            var taskRuns = new ArrayList<String>();
+            var recovery = new ProjectRecovery(enrolled("p1"), steps(Map.of()), INLINE, () -> taskRuns.add(TASK));
+
+            recovered(recovery.awaitRecovered("p1"));
+            var afterLazy = List.copyOf(taskRuns);
+            recovery.startBackgroundPass();
+
+            assertAll(
+                    () -> assertEquals(List.of(), afterLazy),
+                    () -> assertEquals(List.of(TASK), taskRuns));
+        }
+
+        @Test
+        @DisplayName("the three-argument constructor submits no task")
+        void noTaskByDefault() {
+            var submitted = new ArrayList<Runnable>();
+            var recovery = new ProjectRecovery(enrolled("p1"), steps(Map.of()), submitted::add);
+
+            recovery.startBackgroundPass();
+
+            assertEquals(1, submitted.size());
+        }
+
+        @Test
+        @DisplayName("an executor that rejects the task propagates the rejection to the caller")
+        void rejectedTask() {
+            Executor rejecting = _ -> {
+                throw new RejectedExecutionException("shut down");
+            };
+            var recovery = new ProjectRecovery(EnrolledProjects.NONE, steps(Map.of()), rejecting, () -> {
+            });
+
+            assertThrows(RejectedExecutionException.class, recovery::startBackgroundPass);
+        }
     }
 
     @Nested
@@ -225,7 +343,8 @@ class ProjectRecoveryTest {
 
             assertAll(
                     () -> assertTrue(failed.failed()),
-                    () -> assertEquals(List.of(Name.ENROLMENT_INTEGRITY, Name.JOBS_AND_WORKERS, Name.LEASES),
+                    () -> assertEquals(List.of(Name.ENROLMENT_INTEGRITY, Name.OWED_ENROLMENT_AUDIT,
+                                    Name.JOBS_AND_WORKERS, Name.LEASES),
                             failed.steps().stream().map(StepResult::name).toList()),
                     () -> assertEquals(new Outcome.Failed("boom"), failed.steps().getLast().outcome()),
                     () -> assertFalse(other.failed()),
@@ -235,7 +354,7 @@ class ProjectRecoveryTest {
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             "Recovery of project 'p1' finished: failed in LEASES"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
-                            "Recovery of project 'p2' finished: 10 steps done"));
+                            "Recovery of project 'p2' finished: 11 steps done"));
         }
 
         @Test
@@ -252,7 +371,7 @@ class ProjectRecoveryTest {
                     () -> assertEquals(new StepResult(Name.JOURNAL_ROLL_FORWARD,
                                     new Outcome.Failed("the step threw java.lang.IllegalStateException: broken")),
                             outcome.steps().getLast()),
-                    () -> assertEquals(4, outcome.steps().size()),
+                    () -> assertEquals(5, outcome.steps().size()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             "Recovery of project 'p1' failed in step 'JOURNAL_ROLL_FORWARD'"));
         }
@@ -369,6 +488,76 @@ class ProjectRecoveryTest {
             assertAll(
                     () -> assertEquals("p2", outcome.projectId()),
                     () -> assertEquals(allRuns("p2"), runs));
+        }
+    }
+
+    /**
+     * The recovery over a real enrolment store, key, lock manager and audit sink: the enrolment integrity and the owed
+     * enrolment audit records as steps 1 and 2, the population from the store, the other nine steps as seams.
+     */
+    @Nested
+    @DisplayName("end to end over a real enrolment store")
+    class EndToEnd {
+
+        private static final String CLEAN = "clean-project";
+        private static final String TAMPERED = "tampered-project";
+        private static final String OWING = "owing-project";
+
+        @TempDir
+        Path base;
+
+        private EnrolmentFixture fixture;
+
+        @BeforeEach
+        void enrolThreeProjects() throws IOException {
+            fixture = new EnrolmentFixture(base);
+            fixture.enrol(CLEAN, false);
+            fixture.enrol(TAMPERED, false);
+            fixture.mode = EnrolmentFixture.SinkMode.REFUSING;
+            fixture.enrol(OWING, false);
+            fixture.mode = EnrolmentFixture.SinkMode.WORKING;
+            Files.delete(fixture.store.sidecar(TAMPERED));
+        }
+
+        private ProjectRecovery recovery() {
+            var seams = Arrays.stream(Name.values()).map(RecoveryStep::notImplemented).toList();
+            return ProjectRecovery.withEnrolment(fixture.store, fixture.check, fixture.enrolments, fixture.locks,
+                    seams, INLINE);
+        }
+
+        @Test
+        @DisplayName("a clean project finishes, a tampered one fails at step 1 only, an owing one hands over in step 2")
+        void recoversThroughTheEnrolmentSteps() {
+            var recovery = recovery();
+
+            recovery.startBackgroundPass();
+            var clean = recovered(recovery.awaitRecovered(CLEAN));
+            var tampered = recovered(recovery.awaitRecovered(TAMPERED));
+            var owing = recovered(recovery.awaitRecovered(OWING));
+
+            assertAll(
+                    () -> assertFalse(clean.failed()),
+                    () -> assertEquals(Name.values().length, clean.steps().size()),
+                    () -> assertTrue(tampered.failed()),
+                    () -> assertEquals(List.of(Name.ENROLMENT_INTEGRITY),
+                            tampered.steps().stream().map(StepResult::name).toList()),
+                    () -> assertFalse(owing.failed()),
+                    () -> assertEquals(new StepResult(Name.OWED_ENROLMENT_AUDIT,
+                            new Outcome.Done("1 owed audit records handed over")), owing.steps().get(1)),
+                    () -> assertFalse(Files.exists(fixture.store.auditIntent(OWING))),
+                    () -> assertInstanceOf(Result.NotEnrolled.class, recovery.awaitRecovered("not-enrolled")),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            "Recovery of project '" + CLEAN + "' finished: 11 steps done"));
+        }
+
+        @Test
+        @DisplayName("an unenrolled project is not recovered by a new recovery")
+        void unenrolledNotRecovered() {
+            fixture.enrolments.unenrol(CLEAN);
+
+            var restarted = recovery();
+
+            assertInstanceOf(Result.NotEnrolled.class, restarted.awaitRecovered(CLEAN));
         }
     }
 

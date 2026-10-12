@@ -11,8 +11,11 @@ package de.planmarshall.runtime.enrolment;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
 
 
 import de.cuioss.tools.logging.CuiLogger;
@@ -28,8 +31,10 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 
 /**
  * The enrolment check (PM-EXEC-2, PM-SEC-4, PM-SEC-5): what the runtime runs before it trusts anything in a project's
- * enrolment file, in the project's recovery before the project is first served and before every verify-not-resolve
- * check of its jobs.
+ * enrolment file. The project's recovery runs it as its first step ({@code EnrolmentIntegrityStep},
+ * {@code RecoveryStep.Name.ENROLMENT_INTEGRITY}) before the project is first served. The verify-not-resolve check of
+ * the project's jobs, the {@code enter} request and the operator verbs must run it too and do not yet, because no job,
+ * {@code enter} or operator-verb path exists in the runtime.
  * <p>
  * The check runs under the project's enrolment lock, in this order, and the first failure refuses:
  * <ol>
@@ -45,8 +50,10 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * </ol>
  * <p>
  * A refusal as {@code enrolment_tampered} names the operator command that re-baselines the file. A refusal as
- * {@code enrolment_tampered} or {@code enrolment_insecure} is logged and handed to the audit sink; a sink that fails
- * does not lift the refusal. Every refusal blocks only the refused project.
+ * {@code enrolment_tampered} or {@code enrolment_insecure} is logged and handed to the audit sink, and so is a refusal
+ * of a strict read ({@code unreadable}, {@code format_outdated}, {@code format_newer}), which is recorded as
+ * {@code enrolment_invalid} and keeps its own outcome; a sink that fails does not lift the refusal. Every refusal
+ * blocks only the refused project.
  *
  * @since 0.1
  */
@@ -73,6 +80,10 @@ public final class EnrolmentCheck {
 
     private static final CuiLogger LOGGER = new CuiLogger(EnrolmentCheck.class);
 
+    /** The refusals of a strict read, which the check records as {@code enrolment_invalid}. */
+    private static final Set<StoreRefusal.Outcome> STRICT_READ_REFUSALS = EnumSet.of(StoreRefusal.Outcome.UNREADABLE,
+            StoreRefusal.Outcome.FORMAT_OUTDATED, StoreRefusal.Outcome.FORMAT_NEWER);
+
     private final EnrolmentStore store;
     private final EnrolmentKey key;
     private final EnrolmentFileCheck fileCheck;
@@ -93,7 +104,9 @@ public final class EnrolmentCheck {
 
     /**
      * Checks the project's enrolment and reads it. The project's enrolment lock is acquired in the transaction if it
-     * does not hold it yet.
+     * does not hold it yet. A refusal of the strict read of the sidecar or the file ({@code unreadable},
+     * {@code format_outdated}, {@code format_newer}) is logged ({@code PM_MCP-165}) and audited as
+     * {@code enrolment_invalid} with the reason {@code <outcome code> in <file name>}, and thrown as it is.
      *
      * @param transaction the transaction of the caller
      * @param projectId   the project
@@ -122,7 +135,7 @@ public final class EnrolmentCheck {
             throw tampered(file, projectId, FILE_WITHOUT_SIDECAR);
         }
         var bytes = content.get();
-        var sidecar = store.decodeSidecar(projectId, sidecarContent.get());
+        var sidecar = strictRead(sidecarFile, projectId, () -> store.decodeSidecar(projectId, sidecarContent.get()));
         if (!sidecar.matches(bytes)) {
             throw tampered(file, projectId, DIGEST_MISMATCH);
         }
@@ -133,7 +146,24 @@ public final class EnrolmentCheck {
         if (!EnrolmentHmac.verify(integrityKey.get(), bytes, sidecar.hmac())) {
             throw tampered(file, projectId, HMAC_MISMATCH);
         }
-        return store.decode(projectId, bytes);
+        return strictRead(file, projectId, () -> store.decode(projectId, bytes));
+    }
+
+    /**
+     * Runs a strict read; a refusal as {@code unreadable}, {@code format_outdated} or {@code format_newer} is logged
+     * and audited as {@code enrolment_invalid} and rethrown as it is, any other refusal passes through.
+     */
+    private <T> T strictRead(Path file, String projectId, Supplier<T> read) {
+        try {
+            return read.get();
+        } catch (StoreRefusal e) {
+            if (STRICT_READ_REFUSALS.contains(e.outcome())) {
+                var reason = e.outcome().code() + " in " + file.getFileName();
+                LOGGER.warn(WARN.ENROLMENT_INVALID, projectId, reason);
+                recorded(auditSink, e, AuditEvent.enrolmentInvalid(projectId, reason));
+            }
+            throw e;
+        }
     }
 
     /**
@@ -184,6 +214,23 @@ public final class EnrolmentCheck {
         LOGGER.warn(WARN.ENROLMENT_INSECURE, projectId, reason);
         return recorded(auditSink, StoreRefusal.enrolmentInsecure(file, reason),
                 AuditEvent.enrolmentInsecure(projectId, reason));
+    }
+
+    /**
+     * Builds the refusal as {@code enrolment_invalid}, logs it and hands it to the audit sink; a sink that fails does
+     * not lift the refusal. The enrolment write and the re-baseline refuse an enrolment that violates the enrolment
+     * policy through this path, so a refusal reads and is recorded the same wherever it arises.
+     *
+     * @param auditSink where the refusal is recorded
+     * @param file      the refused enrolment file
+     * @param projectId the project
+     * @param reason    which rule is violated, and by which value
+     * @return the refusal, for the caller to throw
+     */
+    static StoreRefusal invalid(AuditSink auditSink, Path file, String projectId, String reason) {
+        LOGGER.warn(WARN.ENROLMENT_INVALID, projectId, reason);
+        return recorded(auditSink, StoreRefusal.enrolmentInvalid(file, projectId, reason),
+                AuditEvent.enrolmentInvalid(projectId, reason));
     }
 
     /**

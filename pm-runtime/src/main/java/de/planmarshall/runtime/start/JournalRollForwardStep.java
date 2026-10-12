@@ -22,7 +22,7 @@ import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.StoreRefusal;
 
 /**
- * Step 4 of the per-project recovery ({@link RecoveryStep.Name#JOURNAL_ROLL_FORWARD}): the interrupted transaction
+ * Step 5 of the per-project recovery ({@link RecoveryStep.Name#JOURNAL_ROLL_FORWARD}): the interrupted transaction
  * journals of the project are rolled forward. For each scope of the project ({@link ProjectScopes}: the plan, epic
  * and workspace scopes and the lesson store) it opens a transaction on the {@link LockManager}, acquires the key of
  * the scope and calls {@link JournalRecovery#recover}.

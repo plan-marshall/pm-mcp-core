@@ -56,18 +56,28 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * refuses the record does not fail the write: the substrate logs {@code PM_MCP-160} and the record stays owed. A
  * mutation that fails, or a stop before the confirmation, keeps the unconfirmed record owed ({@code PM_MCP-164} when
  * it is handed over), so an attempted operator write is audited as what is known of it, never as a success that did
- * not happen. The next write of the project and {@link #replayOwedAudit()}, the recovery, hand an owed record over;
- * delivery is at least once, and a record handed over again after a stop between the append and the removal of the
- * intent carries the same transaction id, by which the audit store drops the duplicate. A refusal
- * ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code unenrol_refused}) changed nothing and recurs with
- * the next attempt; it is appended directly and not owed, and a sink that fails does not lift it: the failure is added
- * to the refusal as a suppressed exception.
+ * not happen. The next write of the project and the recovery hand an owed record over: the project's recovery calls
+ * {@link #replayOwedAudit(String)} as step {@code OWED_ENROLMENT_AUDIT} ({@code OwedEnrolmentAuditStep}), and its
+ * background pass calls {@link #replayOwedAuditOfUnenrolledProjects()} for the projects no longer enrolled;
+ * {@link #replayOwedAudit()} sweeps every project. Delivery is at least once, and a record handed over again after a
+ * stop between the append and the removal of the intent carries the same transaction id, by which the audit store
+ * drops the duplicate. A refusal ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code enrolment_invalid},
+ * {@code unenrol_refused}) changed nothing and recurs with the next attempt; it is appended directly and not owed, and
+ * a sink that fails does not lift it: the failure is added to the refusal as a suppressed exception.
+ * <p>
+ * {@code enrol} and the re-baseline check the enrolment against the enrolment policy ({@link EnrolmentPolicy}) before
+ * they sign it, and refuse a violation as {@code enrolment_invalid} before the key is resolved or anything is owed.
+ * {@code enrol} stages the file and its sidecar completely before the first rename ({@link EnrolmentStore#write}); a
+ * stopped write is settled by the project's recovery or the next write of the project, and the check refuses a
+ * mismatched pair. The store removal of {@code unenrol} also drops the staged leftovers of a stopped write.
  * <p>
  * The re-baseline reads, checks and signs one no-follow snapshot of the file ({@code EnrolmentFileCheck.snapshot}), so
  * the per-use checks, the strict read and the new sidecar record cover the same bytes; its {@code enrolment_insecure}
  * refusal is logged and audited like the refusal of the enrolment check.
  * <p>
- * The integrity key is created by the first write that needs it and never replaced. {@code enrol} creates it only
+ * The integrity key is created by the first write that needs it and never replaced, under the credentials lock
+ * ({@link EnrolmentKey#creationLock}), which {@code enrol} and the re-baseline acquire before the project's lock, so two
+ * runtime instances never create two keys. {@code enrol} creates it only
  * while no enrolment file exists; when the key is absent from the active key source although enrolment files exist,
  * {@code enrol} refuses as {@code enrolment_tampered} rather than strand them under a new key. The re-baseline is the
  * one write that creates the key over existing enrolments, because it is the operator's explicit act.
@@ -111,13 +121,20 @@ public final class Enrolments {
      * absent from the active key source while enrolment files exist (typically after the key source was switched
      * between the keyring and the key file) is not replaced by a new one; the write is refused. A sidecar without any
      * enrolment file strands nothing and does not count.
+     * <p>
+     * The enrolment is checked against the enrolment policy first ({@link EnrolmentPolicy}), before the key is
+     * resolved, a record is owed or anything is written. The credentials lock ({@link EnrolmentKey#creationLock}) is
+     * acquired before the project's lock, so two runtime instances never create two keys. The file and its sidecar are
+     * staged completely before the first rename; a stopped write is settled by the project's recovery
+     * ({@code EnrolmentIntegrityStep}) or by the next write of the project, and the check refuses a mismatched pair.
      *
      * @param enrolment the enrolment the operator confirmed
      * @param pilot     whether the project is enrolled as a pilot of the lifecycle gate ({@code --pilot})
      * @return the enrolment as written
-     * @throws StoreRefusal         as {@code enrolment_tampered} if the integrity key is absent while enrolment files
-     *                              exist, naming the first enrolled project and its {@code accept-edit} command;
-     *                              nothing was written then
+     * @throws StoreRefusal         as {@code enrolment_invalid} if the enrolment violates the enrolment policy, logged
+     *                              ({@code PM_MCP-165}) and audited, no key created; as {@code enrolment_tampered} if
+     *                              the integrity key is absent while enrolment files exist, naming the first enrolled
+     *                              project and its {@code accept-edit} command; nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
      * @throws UncheckedIOException if a file or the intent file cannot be written or the enrolment directory cannot be
      *                              listed; a file that cannot be written leaves the {@code enrolment_written} record
@@ -128,7 +145,9 @@ public final class Enrolments {
         Objects.requireNonNull(enrolment, "enrolment");
         var written = asEnrolled(enrolment, pilot);
         var projectId = written.projectId();
+        requireCompliant(written);
         try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(EnrolmentKey.creationLock(store.base()));
             transaction.acquire(store.lockKey(projectId));
             var sidecar = EnrolmentHmac.sidecar(enrolmentKey(), EnrolmentCodec.write(written));
             var event = AuditEvent.enrolmentWritten(projectId, newTransactionId());
@@ -157,8 +176,8 @@ public final class Enrolments {
     }
 
     /**
-     * Removes the project's enrolment file and its sidecar, and nothing else: the project's store below
-     * {@code projects/<project_id>/} stays as it is.
+     * Removes the project's enrolment file and its sidecar, and the staged files of a stopped write of the pair, so it
+     * is never rolled forward later; the project's store below {@code projects/<project_id>/} stays as it is.
      *
      * @param projectId the project
      * @return whether the enrolment file or its sidecar existed
@@ -208,7 +227,9 @@ public final class Enrolments {
      * sidecar record over the current bytes of the file. The file must pass the per-use checks and read strictly as
      * an enrolment of the project; nothing else of it is changed. The checks, the strict read and the signature cover
      * one no-follow snapshot of the file; a file that fails a check is refused, logged ({@code PM_MCP-162}) and
-     * audited ({@code enrolment_insecure}) without owing or writing anything.
+     * audited ({@code enrolment_insecure}) without owing or writing anything. The decoded enrolment is checked against
+     * the enrolment policy before the key is read, so a re-baseline never signs a file that violates it. The
+     * credentials lock is acquired before the project's lock, as in {@link #enrol(ProjectEnrolment, boolean)}.
      * <p>
      * The re-baseline is the operator's explicit, named act, and the one write that creates the integrity key although
      * enrolment files exist: it is the way out of the refusal of {@link #enrol(ProjectEnrolment, boolean)} after a
@@ -220,7 +241,9 @@ public final class Enrolments {
      * @throws StoreRefusal         as {@code absent} if the file does not exist, as {@code enrolment_insecure} if it
      *                              fails a per-use check (a symbolic link is refused, never followed) or changed
      *                              while it was read, as {@code unreadable}, {@code format_outdated} or
-     *                              {@code format_newer} if it does not read strictly; nothing was written then
+     *                              {@code format_newer} if it does not read strictly, as {@code enrolment_invalid} if
+     *                              it violates the enrolment policy (logged {@code PM_MCP-165} and audited, before
+     *                              the key is read or anything is owed); nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
      * @throws UncheckedIOException if a file cannot be read or written or the intent file cannot be written; a sidecar
      *                              that cannot be written leaves the {@code enrolment_rebaselined} record owed
@@ -232,6 +255,7 @@ public final class Enrolments {
         Optional<StoreDigest> recorded;
         StoreDigest current;
         try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(EnrolmentKey.creationLock(store.base()));
             transaction.acquire(store.lockKey(projectId));
             var snapshot = fileCheck.snapshot(file);
             var violation = snapshot.violation();
@@ -240,7 +264,7 @@ public final class Enrolments {
             }
             var content = snapshot.content()
                     .orElseThrow(() -> StoreRefusal.absent(file, ProjectEnrolment.FORMAT_VERSION));
-            store.decode(projectId, content);
+            requireCompliant(store.decode(projectId, content));
             recorded = store.readSidecar(transaction, projectId).flatMap(bytes -> recordedDigest(projectId, bytes));
             var sidecar = EnrolmentHmac.sidecar(key.readOrCreate(), content);
             var event = AuditEvent.enrolmentRebaselined(projectId, newTransactionId());
@@ -252,10 +276,42 @@ public final class Enrolments {
     }
 
     /**
+     * Hands over the audit records an earlier operator write of the project still owes, in one transaction that holds
+     * the project's enrolment lock: step {@code OWED_ENROLMENT_AUDIT} of the project's recovery
+     * ({@code OwedEnrolmentAuditStep}) calls it. It reads no enrolment and creates no key.
+     *
+     * @param projectId the project
+     * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
+     * @throws StoreRefusal         if the project's intent file is unreadable or of another format version; it is
+     *                              kept
+     * @throws UncheckedIOException if the intent file cannot be read, rewritten or removed; it is kept
+     */
+    public int replayOwedAudit(String projectId) {
+        try (var transaction = lockManager.openTransaction()) {
+            transaction.acquire(store.lockKey(projectId));
+            return handOverOwed(transaction, projectId, null);
+        }
+    }
+
+    /**
+     * Hands over the audit records that projects no longer enrolled still owe, as {@link #replayOwedAudit()} does,
+     * skipping every project whose enrolment file or sidecar exists: the recovery of an enrolled project hands its own
+     * records over. The background pass of the recovery calls it ({@code OwedEnrolmentAuditStep.unenrolledPass()}).
+     *
+     * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
+     * @throws UncheckedIOException as {@link #replayOwedAudit()}
+     * @throws StoreRefusal         as {@link #replayOwedAudit()}
+     */
+    public int replayOwedAuditOfUnenrolledProjects() {
+        return replay(true);
+    }
+
+    /**
      * Hands over the audit records an earlier operator write still owes, project by project in the order of their
      * ids, each in its own transaction that holds the project's enrolment lock: the recovery of the owed enrolment
-     * records. It reads no enrolment and creates no key. Nothing in the runtime calls it yet; the recovery of the
-     * project calls it once the package that wires the operator verbs and the recovery exists.
+     * records of every project. It reads no enrolment and creates no key. The recovery of a project calls
+     * {@link #replayOwedAudit(String)} for the project and {@link #replayOwedAuditOfUnenrolledProjects()} in its
+     * background pass; the operator verbs, which would call this sweep, have no caller yet.
      * <p>
      * One project's bad intent file does not stop the replay for the projects after it, whether it is refused
      * ({@link StoreRefusal}: unreadable, another format version) or fails on I/O ({@link UncheckedIOException}: it
@@ -273,12 +329,22 @@ public final class Enrolments {
      *                              order of the project ids; every such file is kept
      */
     public int replayOwedAudit() {
+        return replay(false);
+    }
+
+    /**
+     * The sweep of the owed records: the projects in the order of their ids, each in its own transaction; a failing
+     * project does not stop the sweep, the first failure is thrown at the end with the later ones suppressed.
+     */
+    private int replay(boolean unenrolledOnly) {
         var handedOver = 0;
         RuntimeException firstFailure = null;
         for (var projectId : store.auditOwingProjectIds()) {
             try (var transaction = lockManager.openTransaction()) {
                 transaction.acquire(store.lockKey(projectId));
-                handedOver += handOverOwed(transaction, projectId, null);
+                if (!unenrolledOnly || !store.exists(transaction, projectId)) {
+                    handedOver += handOverOwed(transaction, projectId, null);
+                }
             } catch (StoreRefusal | UncheckedIOException failure) {
                 firstFailure = withLater(firstFailure, failure);
             }
@@ -287,6 +353,18 @@ public final class Enrolments {
             throw firstFailure;
         }
         return handedOver;
+    }
+
+    /**
+     * Refuses an enrolment that violates the enrolment policy, before anything is signed, owed or written and before
+     * the key is resolved: logged ({@code PM_MCP-165}) and audited as {@code enrolment_invalid}.
+     */
+    private void requireCompliant(ProjectEnrolment enrolment) {
+        var violations = EnrolmentPolicy.violations(enrolment, store.base());
+        if (!violations.isEmpty()) {
+            var projectId = enrolment.projectId();
+            throw EnrolmentCheck.invalid(auditSink, store.file(projectId), projectId, String.join("; ", violations));
+        }
     }
 
     /**

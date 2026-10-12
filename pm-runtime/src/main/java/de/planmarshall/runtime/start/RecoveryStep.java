@@ -36,23 +36,25 @@ public interface RecoveryStep {
     enum Name {
         /** Step 1: enrolment integrity verification (PM-SEC-5). */
         ENROLMENT_INTEGRITY,
-        /** Step 2: jobs and workers left by the previous runtime instance are settled. */
+        /** Step 2: the audit records the project's enrolment writes still owe are handed over. */
+        OWED_ENROLMENT_AUDIT,
+        /** Step 3: jobs and workers left by the previous runtime instance are settled. */
         JOBS_AND_WORKERS,
-        /** Step 3: leases of dead holders are marked orphaned; released only on positive evidence. */
+        /** Step 4: leases of dead holders are marked orphaned; released only on positive evidence. */
         LEASES,
-        /** Step 4: interrupted transaction journals are rolled forward. */
+        /** Step 5: interrupted transaction journals are rolled forward. */
         JOURNAL_ROLL_FORWARD,
-        /** Step 5: writes outside a journal's scope are reconciled. */
+        /** Step 6: writes outside a journal's scope are reconciled. */
         CROSS_SCOPE_RECONCILIATION,
-        /** Step 6: the recorded worktree presence of the plans is reconciled. */
+        /** Step 7: the recorded worktree presence of the plans is reconciled. */
         WORKTREE_PRESENCE,
-        /** Step 7: engine deadlines are re-armed. */
+        /** Step 8: engine deadlines are re-armed. */
         ENGINE_DEADLINES,
-        /** Step 8: the drive of every non-terminal plan and epic resumes. */
+        /** Step 9: the drive of every non-terminal plan and epic resumes. */
         RESUME_DRIVE,
-        /** Step 9: pending entry records older than the maximum age are removed. */
+        /** Step 10: pending entry records older than the maximum age are removed. */
         PENDING_RECORD_SWEEP,
-        /** Step 10: baseline scratch worktrees of gone or terminal plans are removed. */
+        /** Step 11: baseline scratch worktrees of gone or terminal plans are removed. */
         BASELINE_WORKTREE_SWEEP
     }
 

@@ -1229,6 +1229,113 @@ class EnrolmentsTest {
         }
     }
 
+    /**
+     * The enrolment policy before signing (PM-EXEC-1): {@code enrol} and the re-baseline refuse an enrolment that
+     * violates it as {@code enrolment_invalid}, logged and audited, before the key is resolved or anything is owed.
+     */
+    @Nested
+    @DisplayName("the enrolment policy")
+    class Policy {
+
+        private static final String PLACEHOLDER = "placeholder";
+        private static final String WRITE_PATH = "write path";
+        private static final String ENVIRONMENT = "environment";
+
+        private ProjectEnrolment violating(String family) {
+            var build = Build.defaults();
+            var writePaths = List.<String>of();
+            var environment = new TreeMap<String, String>();
+            switch (family) {
+                case PLACEHOLDER -> build = new Build(Map.of(ProjectEnrolment.BuildSystem.MAVEN,
+                        new TreeMap<>(Map.of("verify", ProjectEnrolment.Argv.of("mvn", "{goal}")))), Map.of());
+                case WRITE_PATH -> writePaths = List.of(base.resolve("cache").toString());
+                default -> environment.put("GH_TOKEN", "ghp");
+            }
+            return new ProjectEnrolment(PROJECT, "/home/dev/git/" + PROJECT, Instant.parse("2026-10-11T08:00:00Z"),
+                    false, null, null, List.of(), List.of(), build, Map.of(), new TreeMap<>(), new TreeMap<>(),
+                    new TreeMap<>(), writePaths, environment);
+        }
+
+        private String reasonOf(ProjectEnrolment enrolment) {
+            return String.join("; ", EnrolmentPolicy.violations(enrolment, store.base()));
+        }
+
+        private void assertRefusedInvalid(StoreRefusal refusal, String reason) {
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals(store.file(PROJECT), refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INVALID.resolveIdentifierString()),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {PLACEHOLDER, WRITE_PATH, ENVIRONMENT})
+        @DisplayName("enrol refuses a violating enrolment before the key, the intent or a file exists")
+        void enrolRefused(String family) {
+            var enrolment = violating(family);
+            var reason = reasonOf(enrolment);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(enrolment, false));
+
+            assertRefusedInvalid(refusal, reason);
+            assertAll(
+                    () -> assertFalse(reason.isEmpty()),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))),
+                    () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                    () -> assertFalse(Files.exists(key.keyFile())),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a compliant enrolment is written and verifies, and nothing is refused")
+        void compliantControl() {
+            var written = enrolments.enrol(enrolment(false, null), false);
+
+            assertAll(
+                    () -> assertEquals(written, verify()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INVALID.resolveIdentifierString()),
+                    () -> assertTrue(events.stream().noneMatch(
+                            event -> AuditEvent.ENROLMENT_INVALID.equals(event.event()))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {PLACEHOLDER, WRITE_PATH, ENVIRONMENT})
+        @DisplayName("the re-baseline refuses an edited file that violates the policy, and owes nothing")
+        void rebaselineRefused(String family) throws IOException {
+            enrolments.enrol(enrolment(false, null), false);
+            var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
+            var edited = violating(family);
+            Files.write(store.file(PROJECT), EnrolmentCodec.write(edited));
+            Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString("rw-------"));
+            var reason = reasonOf(edited);
+            events.clear();
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+
+            assertRefusedInvalid(refusal, reason);
+            assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT)));
+        }
+
+        @Test
+        @DisplayName("a failing audit sink does not lift the refusal; its failure is the only suppressed exception")
+        void failingSink() {
+            var failure = auditFailure();
+            var failing = enrolmentsWith(key, failingWith(failure));
+            var enrolment = violating(ENVIRONMENT);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.enrol(enrolment, false));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
+                    () -> assertFalse(Files.exists(store.file(PROJECT))));
+        }
+    }
+
     @Test
     @DisplayName("a re-baseline outcome refuses missing components")
     void rebaselineComponents() {

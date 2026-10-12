@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -51,6 +52,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The enrolment check (PM-EXEC-2, PM-SEC-4, PM-SEC-5): an untouched enrolment passes and reads typed values; a
@@ -303,6 +307,111 @@ class EnrolmentCheckTest {
             assertAll(
                     () -> assertEquals(PROJECT, enrolment.projectId()),
                     () -> assertTrue(events.isEmpty()));
+        }
+    }
+
+    /**
+     * A refused strict read of the sidecar or the file (PM-EXEC-1): refused as before, with its own outcome and
+     * message, and also logged and audited as {@code enrolment_invalid}.
+     */
+    @Nested
+    @DisplayName("a refused strict read is recorded as enrolment_invalid")
+    class Invalid {
+
+        private static final String NEWER_VERSION = "\"format_version\":2";
+        private static final String CURRENT_VERSION = "\"format_version\":1";
+
+        /** Writes the file and a sidecar that matches it and carries a valid HMAC, so only the strict read refuses. */
+        private void writeSignedFile(byte[] content) throws IOException {
+            Files.write(store.file(PROJECT), content);
+            Files.write(store.sidecar(PROJECT), EnrolmentHmac.sidecar(key.read().orElseThrow(), content).write());
+        }
+
+        private byte[] otherVersionOfSidecar() throws IOException {
+            var current = Files.readString(store.sidecar(PROJECT));
+            return current.replace(CURRENT_VERSION, NEWER_VERSION).getBytes(StandardCharsets.UTF_8);
+        }
+
+        private void assertInvalid(StoreRefusal refusal, Outcome outcome, Path file, String expectedMessage) {
+            var reason = outcome.code() + " in " + file.getFileName();
+            assertAll(
+                    () -> assertEquals(outcome, refusal.outcome()),
+                    () -> assertEquals(expectedMessage, refusal.getMessage()),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInvalid(PROJECT, reason)), events),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INVALID.resolveIdentifierString()),
+                    () -> assertEquals(OTHER, verify(OTHER).projectId()));
+        }
+
+        @Test
+        @DisplayName("an unreadable sidecar")
+        void unreadableSidecar() throws IOException {
+            var content = "not a record".getBytes(StandardCharsets.UTF_8);
+            Files.write(store.sidecar(PROJECT), content);
+            var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
+
+            assertInvalid(refused(PROJECT), Outcome.UNREADABLE, store.sidecar(PROJECT), expected.getMessage());
+        }
+
+        @Test
+        @DisplayName("a sidecar of another format version")
+        void sidecarOfOtherVersion() throws IOException {
+            var content = otherVersionOfSidecar();
+            Files.write(store.sidecar(PROJECT), content);
+            var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
+
+            assertInvalid(refused(PROJECT), Outcome.FORMAT_NEWER, store.sidecar(PROJECT), expected.getMessage());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {"{\"format_version\":1}|UNREADABLE",
+                "{\"format_version\":0}|FORMAT_OUTDATED", "{\"format_version\":2}|FORMAT_NEWER"})
+        @DisplayName("a signed file that does not read strictly")
+        void unreadableFile(String document, Outcome outcome) throws IOException {
+            var content = document.getBytes(StandardCharsets.UTF_8);
+            writeSignedFile(content);
+            var expected = assertThrows(StoreRefusal.class, () -> store.decode(PROJECT, content));
+
+            assertInvalid(refused(PROJECT), outcome, store.file(PROJECT), expected.getMessage());
+        }
+
+        @Test
+        @DisplayName("a failing audit sink is suppressed on the refusal and does not change its outcome")
+        void failingSink() throws IOException {
+            Files.writeString(store.sidecar(PROJECT), "not a record");
+            var failure = new UncheckedIOException(new IOException("audit log full"));
+            var failingCheck = new EnrolmentCheck(store, key, new EnrolmentFileCheck(USER), event -> {
+                throw failure;
+            });
+
+            StoreRefusal refusal;
+            try (var transaction = locks.openTransaction()) {
+                refusal = assertThrows(StoreRefusal.class, () -> failingCheck.verify(transaction, PROJECT));
+            }
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"absent", "tampered", "insecure"})
+        @DisplayName("an absent, tampered or insecure enrolment is not recorded as enrolment_invalid")
+        void otherRefusals(String kind) throws IOException {
+            var projectId = "absent".equals(kind) ? "unknown-project" : PROJECT;
+            if ("tampered".equals(kind)) {
+                Files.delete(store.sidecar(PROJECT));
+            } else if ("insecure".equals(kind)) {
+                Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString("rw-r--r--"));
+            }
+
+            refused(projectId);
+
+            assertAll(
+                    () -> assertTrue(events.stream()
+                            .noneMatch(event -> AuditEvent.ENROLMENT_INVALID.equals(event.event())), events::toString),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INVALID.resolveIdentifierString()));
         }
     }
 

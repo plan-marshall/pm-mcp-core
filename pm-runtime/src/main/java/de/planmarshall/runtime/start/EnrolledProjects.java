@@ -10,21 +10,36 @@
 package de.planmarshall.runtime.start;
 
 import java.util.List;
+import java.util.Objects;
+
+
+import de.planmarshall.core.store.EnrolmentStore;
 
 /**
  * The ids of the enrolled projects, the population of the per-project recovery ({@link ProjectRecovery}) and of the
  * periodic sweep (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery). Only
  * enrolled projects are recovered and swept: the machine store an unenrolled project left behind is not touched.
  * <p>
- * The enrolment store fills this seam; until it exists, {@link #NONE} names no project.
+ * The enrolment store fills this seam ({@link #of(EnrolmentStore)}); {@link #NONE} names no project and stays the
+ * seam while no store is given.
  *
  * @since 0.1
  */
 @FunctionalInterface
 public interface EnrolledProjects {
 
-    /** The seam while no enrolment store exists: no project is enrolled. */
+    /** The seam while no enrolment store is given: no project is enrolled. */
     EnrolledProjects NONE = List::of;
+
+    /**
+     * @param store the enrolment store
+     * @return the enrolled projects as the store lists them at each call, in the order of their ids: the enrolment
+     *         files of its directory, not sidecars, audit intents or staged files of a write
+     */
+    static EnrolledProjects of(EnrolmentStore store) {
+        Objects.requireNonNull(store, "store");
+        return () -> List.copyOf(store.projectIds());
+    }
 
     /**
      * @return the ids of the enrolled projects, each once

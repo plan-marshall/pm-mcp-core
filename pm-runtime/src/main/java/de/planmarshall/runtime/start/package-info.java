@@ -33,21 +33,31 @@
  * The per-project recovery ({@link de.planmarshall.runtime.start.ProjectRecovery}) runs after the bind, never
  * before: lazily on the first call addressing a project, which waits at most the project recovery wait of 10 seconds
  * and is then answered {@code runtime_recovering}, and for every enrolled project
- * ({@link de.planmarshall.runtime.start.EnrolledProjects}) in a background pass. Each project is recovered once per
- * runtime instance, by whichever trigger comes first. Its steps ({@link de.planmarshall.runtime.start.RecoveryStep})
- * run in the order of the specification, from the enrolment integrity to the baseline worktree sweep; a failed step
- * stops the recovery of its project only. A step whose store or component does not exist yet is a named seam that
- * reports that it is not implemented in this runtime.
+ * ({@link de.planmarshall.runtime.start.EnrolledProjects}, filled by the enrolment store through
+ * {@code EnrolledProjects.of}) in a background pass, which then submits its background task once, the hand-over of
+ * the owed audit records of projects no longer enrolled. Each project is recovered once per runtime instance, by
+ * whichever trigger comes first. Its eleven steps ({@link de.planmarshall.runtime.start.RecoveryStep}) run in the
+ * order of the specification, from the enrolment integrity and the owed enrolment audit records to the baseline
+ * worktree sweep; a failed step stops the recovery of its project only. A step whose store or component does not
+ * exist yet is a named seam that reports that it is not implemented in this runtime.
+ * {@link de.planmarshall.runtime.start.ProjectRecovery#withEnrolment} builds the two enrolment steps from the
+ * enrolment store; a constructor given a step list without them uses a seam for each.
  * <p>
- * Three steps are implemented, each over a seam that a later store fills:
+ * Five steps are implemented:
  * <ul>
- * <li>{@link de.planmarshall.runtime.start.LeaseRecoveryStep} marks the leases of the project whose holder is dead
+ * <li>{@link de.planmarshall.runtime.start.EnrolmentIntegrityStep}, step 1, settles a stopped write of the enrolment
+ * pair and runs the enrolment check under the project's enrolment lock; a refusal fails the step and blocks only its
+ * project.</li>
+ * <li>{@link de.planmarshall.runtime.start.OwedEnrolmentAuditStep}, step 2, hands over the audit records the
+ * project's enrolment writes still owe under the project's lock; a record the sink refuses again stays owed and is no
+ * failure. Its {@code unenrolledPass} is the background task for the projects no longer enrolled.</li>
+ * <li>{@link de.planmarshall.runtime.start.LeaseRecoveryStep}, over a seam that a later store fills, marks the leases of the project whose holder is dead
  * as orphaned in the machine lease stores it is given, and releases one only on positive evidence of abandonment
  * ({@link de.planmarshall.runtime.start.LeaseRecoveryStep.AbandonmentEvidence}, which finds none by default).</li>
- * <li>{@link de.planmarshall.runtime.start.JournalRollForwardStep} rolls forward the interrupted journal of every
+ * <li>{@link de.planmarshall.runtime.start.JournalRollForwardStep}, over a seam, rolls forward the interrupted journal of every
  * scope of the project ({@link de.planmarshall.runtime.start.JournalRollForwardStep.ProjectScopes}) under the key of
  * the scope; an invariant violation or a refused store is a failure of its scope and modifies nothing.</li>
- * <li>{@link de.planmarshall.runtime.start.CrossScopeReconciliationStep} runs, after the roll-forward, the cross-scope
+ * <li>{@link de.planmarshall.runtime.start.CrossScopeReconciliationStep}, over a seam, runs, after the roll-forward, the cross-scope
  * reconcilers registered for the project
  * ({@link de.planmarshall.runtime.start.CrossScopeReconciliationStep.ProjectReconcilers}).</li>
  * </ul>
