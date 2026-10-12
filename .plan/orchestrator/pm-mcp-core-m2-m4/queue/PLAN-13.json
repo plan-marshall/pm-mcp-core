@@ -2,8 +2,8 @@
   "id": "PLAN-13",
   "slug": "workflow-engine",
   "workstream": "WS-03",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
+  "status": "running",
+  "plan_marshall_plan_id": "workflow-engine",
   "pr": "",
   "landing": "",
   "seq": 13
