@@ -107,7 +107,7 @@ public sealed interface EngineEvent
      */
     record QuestionResolved(String questionId, String outcome) implements EngineEvent {
 
-        private static final Pattern QUESTION_ID = Pattern.compile("^Q-[0-9]{3,6}$");
+        private static final Pattern QUESTION_ID = Pattern.compile("^Q-\\d{3,6}$");
 
         /**
          * @throws NullPointerException     if a component is {@code null}

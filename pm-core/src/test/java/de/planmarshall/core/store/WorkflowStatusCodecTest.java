@@ -275,11 +275,12 @@ class WorkflowStatusCodecTest {
         @Test
         @DisplayName("another format version is refused as outdated or newer before any member is read")
         void otherFormatVersion() {
-            var newer = assertThrows(StoreRefusal.class,
-                    () -> read(DOCUMENT.replace("\"format_version\":1", "\"format_version\":2")));
-            var outdated = assertThrows(StoreRefusal.class,
-                    () -> read(DOCUMENT.replace("\"format_version\":1", "\"format_version\":0")
-                            .replace("\"loop_back_iteration\":2", "\"loop_back_iteration\":\"2\"")));
+            var newerDocument = DOCUMENT.replace("\"format_version\":1", "\"format_version\":2");
+            var outdatedDocument = DOCUMENT.replace("\"format_version\":1", "\"format_version\":0")
+                    .replace("\"loop_back_iteration\":2", "\"loop_back_iteration\":\"2\"");
+
+            var newer = assertThrows(StoreRefusal.class, () -> read(newerDocument));
+            var outdated = assertThrows(StoreRefusal.class, () -> read(outdatedDocument));
 
             assertAll(
                     () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),

@@ -95,7 +95,7 @@ Map<String, String> retained) {
             .compile("^(?:[bcgp]-[0-9a-f]{16}|[a-z][a-z0-9_-]{0,31}+(?:\\.[a-z][a-z0-9_-]{0,31}+)*+)$");
     private static final Pattern QUEUE_TASK_ID = Pattern.compile("^qt-[0-9a-f]{16}$");
     private static final Pattern ROLE = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
-    private static final Pattern REPLAN_ID = Pattern.compile("^RP-[0-9]+$");
+    private static final Pattern REPLAN_ID = Pattern.compile("^RP-\\d+$");
     private static final Pattern FINGERPRINT = Pattern.compile("^[0-9a-f]{64}$");
     private static final Set<String> JOB_KINDS = Set.of("build", "git", "ci", "project_script");
     private static final Set<String> JOB_STATUSES = Set.of("queued", "running", "succeeded", "failed",
@@ -104,9 +104,9 @@ Map<String, String> retained) {
     private static final Set<String> TASK_OUTCOMES = Set.of("submitted", "asked", "infeasible", "lost");
     private static final Set<String> TASK_REASONS = Set.of("attempts_spent", "role_undefined", "class_mismatch",
             "role_unqualified", "role_unavailable", "deadline_expired", "withdrawn");
-    private static final Set<String> CONDITION_KINDS = Set.of("integrity_breach", "footprint_violation",
-            "job_incomplete", "config_drift", "guard_indeterminate", "precondition_unmet");
     private static final String INTEGRITY_BREACH = "integrity_breach";
+    private static final Set<String> CONDITION_KINDS = Set.of(INTEGRITY_BREACH, "footprint_violation",
+            "job_incomplete", "config_drift", "guard_indeterminate", "precondition_unmet");
     private static final Set<String> INTEGRITY_KINDS = Set.of("store_tampered", "enrolment_tampered");
     private static final Set<String> RETRY_REASONS = Set.of("flaky", "infra", "timeout");
 

@@ -128,8 +128,11 @@ outcome by result guards (Rule 6), so the fault is reachable only through a defe
 |The constructor throws `UnverifiedUnitException`; no engine is built.
 
 |A primitive returns an outcome outside its declared outcome type, or a state has no or two matching transitions for
-an outcome
-|`InternalFaultException` with the reason `undeclared_outcome`.
+an outcome; this includes the `refused` outcome of a job start the `JobStarter` declined, in a job state that has no
+`refused` transition
+|`InternalFaultException` with the reason `undeclared_outcome`. The Workflow DSL specification gives every `job`
+primitive the closed job outcome set, `refused` included, and the verifier requires a route for every outcome the
+primitive declares; a primitive that declares fewer outcomes leaves the refusal without a route.
 
 |The status names a state, sub-workflow, phase or primitive the verified units do not hold, or a frame's calling
 state is no `call` state

@@ -56,6 +56,13 @@ public interface QueueTaskCreator {
             requireNonBlank(entityKey, "entityKey");
             requireNonBlank(role, "role");
         }
+
+        private static void requireNonBlank(String value, String name) {
+            Objects.requireNonNull(value, name);
+            if (value.isBlank()) {
+                throw new IllegalArgumentException(name + " must not be blank");
+            }
+        }
     }
 
     /**
@@ -78,13 +85,6 @@ public interface QueueTaskCreator {
                 throw new IllegalArgumentException(
                         "queue_task_id does not match ^qt-[0-9a-f]{16}$: " + queueTaskId);
             }
-        }
-    }
-
-    private static void requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
         }
     }
 }

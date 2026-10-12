@@ -113,7 +113,7 @@ class WorkflowStatusStoreTest {
 
         @Test
         @DisplayName("a write goes through the journal: the document, its digest, no journal left")
-        void writeThroughJournal() throws Exception {
+        void writeThroughJournal() {
             var status = planStatus("finalize.merge-gate");
 
             commit(status);
@@ -137,14 +137,14 @@ class WorkflowStatusStoreTest {
         @DisplayName("each scope type keeps its status in its metadata directory")
         void storePaths() {
             var root = LockKey.projectStore(base, PROJECT);
+            var lessons = JournalScope.lessons(base, PROJECT);
             assertAll(
                     () -> assertEquals(root.resolve("plans/workflow-engine/mcp/status.json"), store.store()),
                     () -> assertEquals(root.resolve("epics/an-epic/status.json"),
                             new WorkflowStatusStore(JournalScope.epic(base, PROJECT, "an-epic")).store()),
                     () -> assertEquals(root.resolve("workspace/mcp/status.json"),
                             new WorkflowStatusStore(JournalScope.workspace(base, PROJECT)).store()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new WorkflowStatusStore(JournalScope.lessons(base, PROJECT))));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new WorkflowStatusStore(lessons)));
         }
     }
 
@@ -166,14 +166,14 @@ class WorkflowStatusStoreTest {
         @DisplayName("the status of another scope is refused; the status of this scope is a control")
         void refusesStatusOfAnotherScope() {
             var other = planStatus("finalize.merge-gate").withScopeId("another-plan");
+            var status = planStatus("finalize.merge-gate");
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
 
                 assertThrows(IllegalArgumentException.class, () -> store.write(write, other));
-                store.write(write, planStatus("finalize.merge-gate"));
-                assertThrows(IllegalArgumentException.class,
-                        () -> store.write(write, planStatus("finalize.merge-gate")),
+                store.write(write, status);
+                assertThrows(IllegalArgumentException.class, () -> store.write(write, status),
                         "the status is one target of a transaction");
             }
         }
@@ -190,7 +190,7 @@ class WorkflowStatusStoreTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("boundaries")
     @DisplayName("a write stopped at a step boundary leaves the previous or the new document after recovery")
-    void stoppedWrite(String name, Step stopStep, boolean rolledForward) throws Exception {
+    void stoppedWrite(String name, Step stopStep, boolean rolledForward) {
         var previous = planStatus("finalize.merge-gate");
         commit(previous);
         var next = planStatus("finalize.merge-sync").withRetryCounters(

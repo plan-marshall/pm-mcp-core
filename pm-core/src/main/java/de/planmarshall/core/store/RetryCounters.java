@@ -37,6 +37,8 @@ public record RetryCounters(Map<RetryRule, Entry> entries) {
 
     private static final RetryCounters EMPTY = new RetryCounters(Map.of());
 
+    private static final String STATE_ID = "stateId";
+
     /**
      * The retry rules whose attempts are counted, as the keys of {@code retry_counters} name them. The set is closed.
      *
@@ -97,7 +99,7 @@ public record RetryCounters(Map<RetryRule, Entry> entries) {
          * @throws IllegalArgumentException if the state is blank or the attempts are negative
          */
         public Entry {
-            Objects.requireNonNull(stateId, "stateId");
+            Objects.requireNonNull(stateId, STATE_ID);
             if (stateId.isBlank()) {
                 throw new IllegalArgumentException("'state_id' of a retry counter must not be blank");
             }
@@ -147,7 +149,7 @@ public record RetryCounters(Map<RetryRule, Entry> entries) {
      */
     public long attemptsOf(RetryRule rule, String stateId) {
         Objects.requireNonNull(rule, "rule");
-        Objects.requireNonNull(stateId, "stateId");
+        Objects.requireNonNull(stateId, STATE_ID);
         var entry = entries.get(rule);
         return entry != null && entry.stateId().equals(stateId) ? entry.attempts() : 0;
     }
@@ -159,7 +161,7 @@ public record RetryCounters(Map<RetryRule, Entry> entries) {
      * @return the counters without the entries of the state; this value if it had none
      */
     public RetryCounters clearedFor(String stateId) {
-        Objects.requireNonNull(stateId, "stateId");
+        Objects.requireNonNull(stateId, STATE_ID);
         if (entries.values().stream().noneMatch(entry -> entry.stateId().equals(stateId))) {
             return this;
         }

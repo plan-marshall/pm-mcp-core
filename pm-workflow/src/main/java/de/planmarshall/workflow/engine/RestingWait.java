@@ -69,9 +69,9 @@ public record RestingWait(String stateId, AwaitedEvent awaitedEvent, Set<String>
      */
     public boolean accepts(EngineEvent event) {
         return switch (Objects.requireNonNull(event, "event")) {
-            case EngineEvent.JobSettled(var jobId, var _) ->
+            case EngineEvent.JobSettled(var jobId, _) ->
                 awaitedEvent == AwaitedEvent.JOB_SETTLED && jobIds.contains(jobId);
-            case EngineEvent.TasksSettled(var outcomes, var _) ->
+            case EngineEvent.TasksSettled(var outcomes, _) ->
                 awaitedEvent == AwaitedEvent.TASK_SETTLED && outcomes.keySet().equals(taskEntities);
             case EngineEvent.QuestionResolved _ -> awaitedEvent == AwaitedEvent.QUESTION_ANSWER;
             case EngineEvent.TimeElapsed _ -> awaitedEvent == AwaitedEvent.TIME;

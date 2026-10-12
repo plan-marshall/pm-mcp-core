@@ -160,10 +160,17 @@ class SubWorkflowExecutionTest {
      */
     private static WorkflowDefinition depthUnit(int depth) {
         var body = depth < 4
-                ? "    call sub.d%d\n        done -> d%d.done\n        stepped_out -> d%d.stepped-out\n"
-                .formatted(depth + 1, depth, depth)
-                : "    job test.build\n        succeeded -> d4.done\n        failed -> d4.stepped-out\n"
-                + "        cancelled -> d4.stepped-out\n";
+                ? """
+                    call sub.d%d
+                        done -> d%d.done
+                        stepped_out -> d%d.stepped-out
+                """.formatted(depth + 1, depth, depth)
+                : """
+                    job test.build
+                        succeeded -> d4.done
+                        failed -> d4.stepped-out
+                        cancelled -> d4.stepped-out
+                """;
         return parse("d%d.pmwf".formatted(depth), """
                 workflow sub.d%1$d version 1 format 1
                 scope subworkflow
@@ -346,10 +353,10 @@ class SubWorkflowExecutionTest {
             var choosing = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
             var recovering = engine.stepOut(choosing).status();
             var raised = engine.raise(choosing, "job_incomplete", Map.of()).status();
+            var outsideSubWorkflow = planStatus(EXECUTE, "ent.fallback");
 
             assertAll(
-                    () -> assertThrows(IllegalStateException.class,
-                            () -> engine.stepOut(planStatus(EXECUTE, "ent.fallback"))),
+                    () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(outsideSubWorkflow)),
                     () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(raised)),
                     () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(recovering)));
         }
@@ -405,12 +412,12 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should push to four frames and refuse a fifth")
         void shouldBoundDepth() {
             var full = CallStack.empty().push(frame).push(frame).push(frame).push(frame);
+            var fiveFrames = List.of(frame, frame, frame, frame, frame);
 
             assertAll(
                     () -> assertEquals(CallStack.MAX_DEPTH, full.depth()),
                     () -> assertThrows(IllegalStateException.class, () -> full.push(frame)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CallStack(List.of(frame, frame, frame, frame, frame))));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CallStack(fiveFrames)));
         }
 
         @Test
@@ -420,14 +427,15 @@ class SubWorkflowExecutionTest {
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
+            var empty = CallStack.empty();
 
             assertAll(
                     () -> assertEquals(other, popped.frame()),
                     () -> assertEquals(List.of(frame), popped.remaining().frames()),
                     () -> assertEquals(List.of(other, frame), stack.unwound()),
                     () -> assertEquals(other, stack.top().orElseThrow()),
-                    () -> assertTrue(CallStack.empty().top().isEmpty()),
-                    () -> assertThrows(IllegalStateException.class, () -> CallStack.empty().pop()));
+                    () -> assertTrue(empty.top().isEmpty()),
+                    () -> assertThrows(IllegalStateException.class, empty::pop));
         }
 
         @Test
@@ -448,8 +456,9 @@ class SubWorkflowExecutionTest {
         void shouldRefuseOversizedInteger() {
             var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args",
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
+            var storedFrames = List.of(stored);
 
-            assertThrows(ArithmeticException.class, () -> CallStack.fromStore(List.of(stored)));
+            assertThrows(ArithmeticException.class, () -> CallStack.fromStore(storedFrames));
         }
 
         @Test

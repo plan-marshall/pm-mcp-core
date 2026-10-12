@@ -45,7 +45,7 @@ public interface QuestionRecordReader {
      */
     record ReadRequest(Optional<String> scopeId, String questionId) {
 
-        private static final Pattern QUESTION_ID = Pattern.compile("^Q-[0-9]{3,6}$");
+        private static final Pattern QUESTION_ID = Pattern.compile("^Q-\\d{3,6}$");
 
         /**
          * @throws NullPointerException if a component is {@code null}
@@ -108,12 +108,12 @@ public interface QuestionRecordReader {
                 requireNonBlank(reason, "reason");
             }
         }
-    }
 
-    private static void requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+        private static void requireNonBlank(String value, String name) {
+            Objects.requireNonNull(value, name);
+            if (value.isBlank()) {
+                throw new IllegalArgumentException(name + " must not be blank");
+            }
         }
     }
 }

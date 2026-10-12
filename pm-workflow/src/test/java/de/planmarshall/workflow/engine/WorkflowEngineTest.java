@@ -487,10 +487,11 @@ class WorkflowEngineTest {
             var engine = fixtures.engine(plan("execute.first", CHAIN));
             var unknownFrame = planStatus(EXECUTE, "sub.work").toBuilder()
                     .callStack(List.of(frame("plan", "execute.first", "sub.unknown"))).build();
+            var unknownState = planStatus(EXECUTE, "execute.nowhere");
 
             assertAll(
                     () -> assertEquals(Reason.UNRESOLVED_NAME, assertThrows(InternalFaultException.class,
-                            () -> engine.advance(planStatus(EXECUTE, "execute.nowhere"))).reason()),
+                            () -> engine.advance(unknownState)).reason()),
                     () -> assertEquals(Reason.UNRESOLVED_NAME, assertThrows(InternalFaultException.class,
                             () -> engine.advance(unknownFrame)).reason()));
         }
@@ -516,6 +517,24 @@ class WorkflowEngineTest {
                                 guard result.pushed
                             stepped_out -> handed_back
                     """), parse("sub.pmwf", SUB_COMMIT));
+
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason());
+        }
+
+        @Test
+        @DisplayName("Should fail with undeclared_outcome when a refused start has no refused route in its job state")
+        void shouldFaultOnRefusedStartWithoutRoute() {
+            fixtures.jobStarter.refusing = true;
+            var engine = fixtures.engine(plan("execute.build", """
+                    state execute.build
+                        phase execute
+                        job test.build
+                            succeeded -> completed
+                            failed -> handed_back
+                            cancelled -> handed_back
+                    """));
 
             var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
 

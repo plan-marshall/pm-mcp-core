@@ -126,12 +126,15 @@ public class WorkflowStatusCodec {
 
     /** Every member of the closed schema, in the order it declares them. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, "main_sha", "origin",
-            PHASE, "outcome", "instance_version", "setup_run", STATE, CALL_STACK, "worktree_path", "entry_baseline",
+            PHASE, OUTCOME, "instance_version", "setup_run", STATE, CALL_STACK, "worktree_path", "entry_baseline",
             "merge_outcome", "owed", "branch_name", "branch_pushed_at", LOOP_BACK_ITERATION, "counters",
             RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, "waiver_requests", "gaps", "replan_pending",
             "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs", "remediation_cause",
             "refine_relaunch_count", "outline_relaunch_count", "metadata", "freshness_reconcile", "amendments",
             "steps", ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FACTS, UPDATED_AT);
+
+    /** The members that only the status of a plan scope carries. */
+    private static final Set<String> PLAN_ONLY_MEMBERS = Set.of(OUTLINE_LOOP_BACKS, POLICY_COUNTERS);
 
     /** The members the engine owns and this codec types. */
     static final Set<String> TYPED_MEMBERS = Set.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, PHASE, STATE,
@@ -148,13 +151,16 @@ public class WorkflowStatusCodec {
      * @throws IllegalArgumentException if a retained member is not one of the schema
      */
     public static byte[] write(WorkflowStatus status) {
-        Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(status, STATUS);
         status.retained().keySet().forEach(WorkflowStatusCodec::requireRetainedMember);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.writeStartObject();
+            var plan = status.scopeType() == JournalScopeType.PLAN;
             for (var member : MEMBERS) {
-                writeMember(generator, member, status);
+                if (plan || !PLAN_ONLY_MEMBERS.contains(member)) {
+                    writeMember(generator, member, status);
+                }
             }
             generator.writeEndObject();
         } catch (IOException e) {
@@ -194,7 +200,6 @@ public class WorkflowStatusCodec {
 
     private static void writeMember(JsonGenerator generator, String member, WorkflowStatus status)
             throws IOException {
-        var plan = status.scopeType() == JournalScopeType.PLAN;
         switch (member) {
             case FIELD_FORMAT_VERSION -> generator.writeNumberField(member, FORMAT_VERSION);
             case SCOPE_TYPE -> generator.writeStringField(member, status.scopeType().wireName());
@@ -204,16 +209,8 @@ public class WorkflowStatusCodec {
             case CALL_STACK -> writeCallStack(generator, status.callStack());
             case LOOP_BACK_ITERATION -> generator.writeNumberField(member, status.loopBackIteration());
             case RETRY_COUNTERS -> writeRetryCounters(generator, status.retryCounters());
-            case OUTLINE_LOOP_BACKS -> {
-                if (plan) {
-                    generator.writeNumberField(member, status.outlineLoopBacks());
-                }
-            }
-            case POLICY_COUNTERS -> {
-                if (plan) {
-                    writePolicyCounters(generator, status.policyCounters());
-                }
-            }
+            case OUTLINE_LOOP_BACKS -> generator.writeNumberField(member, status.outlineLoopBacks());
+            case POLICY_COUNTERS -> writePolicyCounters(generator, status.policyCounters());
             case ACTIVE_JOBS -> writeJobs(generator, status.activeJobs());
             case ACTIVE_JOB -> writeActiveJob(generator, status.activeJob());
             case ACTIVE_TASKS -> writeTasks(generator, status.activeTasks());

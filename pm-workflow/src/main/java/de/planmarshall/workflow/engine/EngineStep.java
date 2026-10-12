@@ -53,9 +53,17 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
          * @throws IllegalArgumentException if the state is not the current state of the status
          */
         public Resting {
-            Objects.requireNonNull(status, "status");
+            requireStatus(status);
             Objects.requireNonNull(awaitedEvent, "awaitedEvent");
             requireCurrent(status, stateId);
+        }
+
+        private static void requireCurrent(WorkflowStatus status, String stateId) {
+            Objects.requireNonNull(stateId, "stateId");
+            if (!status.state().equals(stateId)) {
+                throw new IllegalArgumentException("the state '%s' is not the current state '%s'"
+                        .formatted(stateId, status.state()));
+            }
         }
     }
 
@@ -74,7 +82,7 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
          * @throws IllegalArgumentException if the status still has a call frame
          */
         public Ended {
-            Objects.requireNonNull(status, "status");
+            requireStatus(status);
             Objects.requireNonNull(outcomeId, "outcomeId");
             Objects.requireNonNull(outcomeClass, "outcomeClass");
             if (!status.callStack().isEmpty()) {
@@ -98,7 +106,7 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
          * @throws IllegalArgumentException if the status carries no condition, or another one
          */
         public ConditionRaised {
-            Objects.requireNonNull(status, "status");
+            requireStatus(status);
             var condition = status.condition()
                     .orElseThrow(() -> new IllegalArgumentException("the status carries no condition"));
             if (!condition.kind().equals(kind) || !condition.facts().equals(facts)) {
@@ -137,27 +145,23 @@ public sealed interface EngineStep permits EngineStep.Resting, EngineStep.Ended,
             var condition = new WorkflowStatus.PendingCondition(kind, 0, null, toJson(facts), raisedAt);
             return of(status.toBuilder().pendingCondition(condition).updatedAt(raisedAt).build());
         }
-    }
 
-    private static void requireCurrent(WorkflowStatus status, String stateId) {
-        Objects.requireNonNull(stateId, "stateId");
-        if (!status.state().equals(stateId)) {
-            throw new IllegalArgumentException("the state '%s' is not the current state '%s'"
-                    .formatted(stateId, status.state()));
-        }
-    }
-
-    private static String toJson(Map<String, String> facts) {
-        var text = new StringWriter();
-        try (var json = new JsonFactory().createGenerator(text)) {
-            json.writeStartObject();
-            for (var fact : facts.entrySet()) {
-                json.writeStringField(fact.getKey(), fact.getValue());
+        private static String toJson(Map<String, String> facts) {
+            var text = new StringWriter();
+            try (var json = new JsonFactory().createGenerator(text)) {
+                json.writeStartObject();
+                for (var fact : facts.entrySet()) {
+                    json.writeStringField(fact.getKey(), fact.getValue());
+                }
+                json.writeEndObject();
+            } catch (IOException e) {
+                throw new UncheckedIOException("a JSON object cannot be written to a string", e);
             }
-            json.writeEndObject();
-        } catch (IOException e) {
-            throw new UncheckedIOException("a JSON object cannot be written to a string", e);
+            return text.toString();
         }
-        return text.toString();
+    }
+
+    private static void requireStatus(WorkflowStatus status) {
+        Objects.requireNonNull(status, "status");
     }
 }

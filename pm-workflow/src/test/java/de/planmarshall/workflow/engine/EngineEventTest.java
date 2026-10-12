@@ -189,15 +189,15 @@ class EngineEventTest {
             var asked = engine.advance(atReview, new EngineEvent.TasksSettled(Map.of("change", "submitted"),
                     "approved"));
             var lost = engine.advance(atReview, new EngineEvent.TasksSettled(Map.of("change", "lost"), "lost"));
+            var otherEntity = new EngineEvent.TasksSettled(Map.of("other", "submitted"), "approved");
+            var elapsed = new EngineEvent.TimeElapsed(T0);
 
             assertAll(
                     () -> assertEquals("execute.ask", asked.status().state()),
                     () -> assertTrue(asked.status().activeTasks().isEmpty()),
                     () -> assertEquals("handed_back", lost.status().state()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview,
-                            new EngineEvent.TasksSettled(Map.of("other", "submitted"), "approved"))),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview,
-                            new EngineEvent.TimeElapsed(T0))));
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview, otherEntity)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atReview, elapsed)));
         }
 
         @Test
@@ -276,24 +276,24 @@ class EngineEventTest {
             fixtures.backoff.then(JobOutcome.SUCCEEDED);
 
             var ended = engine.advance(atBackoff, new EngineEvent.TimeElapsed(T0.plusSeconds(30)));
+            var resolved = new EngineEvent.QuestionResolved("Q-001", "answered");
 
             assertAll(
                     () -> assertEquals(AwaitedEvent.TIME, engine.restingWait(atBackoff).orElseThrow().awaitedEvent()),
                     () -> assertEquals("completed", assertInstanceOf(EngineStep.Ended.class, ended).status().state()),
                     () -> assertEquals(1, fixtures.backoff.calls()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atBackoff,
-                            new EngineEvent.QuestionResolved("Q-001", "answered"))));
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(atBackoff, resolved)));
         }
 
         @Test
         @DisplayName("Should report no wait for a state that does not rest")
         void shouldReportNoWaitOutsideRestingState() {
-            var ended = engine.advance(atBackoff(), new EngineEvent.TimeElapsed(T0)).status();
+            var elapsed = new EngineEvent.TimeElapsed(T0);
+            var ended = engine.advance(atBackoff(), elapsed).status();
 
             assertAll(
                     () -> assertTrue(engine.restingWait(ended).isEmpty()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> engine.advance(ended, new EngineEvent.TimeElapsed(T0))));
+                    () -> assertThrows(IllegalArgumentException.class, () -> engine.advance(ended, elapsed)));
         }
     }
 
@@ -304,17 +304,21 @@ class EngineEventTest {
         @Test
         @DisplayName("Should refuse malformed events")
         void shouldRefuseMalformedEvents() {
+            var noTasks = Map.<String, String>of();
+            var unknownTaskOutcome = Map.of("change", "done");
+            var submitted = Map.of("change", "submitted");
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new EngineEvent.JobSettled("x-0000000000000001", "succeeded")),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new EngineEvent.JobSettled(SPAWNED, "vanished")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(Map.of(), "approved")),
+                            () -> new EngineEvent.TasksSettled(noTasks, "approved")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(Map.of("change", "done"), "approved")),
+                            () -> new EngineEvent.TasksSettled(unknownTaskOutcome, "approved")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EngineEvent.TasksSettled(Map.of("change", "submitted"), " ")),
+                            () -> new EngineEvent.TasksSettled(submitted, " ")),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new EngineEvent.QuestionResolved("Q-1", "answered")),
                     () -> assertThrows(IllegalArgumentException.class,

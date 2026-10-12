@@ -126,6 +126,7 @@ class GuardEvaluatorTest {
         @DisplayName("Should read each atom from its own fact")
         void shouldReadEachAtom() {
             var facts = new Facts(HELD, NOT_HELD, UNDECIDED, Map.of("test.ready", NOT_HELD));
+            var unknownPredicate = new GuardExpr.CustomPredicate("test.unknown");
 
             assertAll(
                     () -> assertEquals(HELD, GuardEvaluator.evaluate(WORKTREE, facts)),
@@ -134,7 +135,7 @@ class GuardEvaluatorTest {
                     () -> assertEquals(NOT_HELD, GuardEvaluator.evaluate(new GuardExpr.CustomPredicate("test.ready"),
                             facts)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> GuardEvaluator.evaluate(new GuardExpr.CustomPredicate("test.unknown"), facts)));
+                            () -> GuardEvaluator.evaluate(unknownPredicate, facts)));
         }
     }
 

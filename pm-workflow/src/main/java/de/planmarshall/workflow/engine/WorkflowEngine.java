@@ -293,9 +293,9 @@ public final class WorkflowEngine {
         return switch (node.behavior()) {
             case StateBehavior.JobStep job when job.composite() ->
                 run.chain(run.runPrimitive(node, job.primitiveId(), job.transitions()));
-            case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(var _, var fate) ->
+            case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(_, var fate) ->
                 run.chain(transitionOf(node, job.transitions(), fate, Map.of()).targetStateId());
-            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(var _, var outcome) ->
+            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(_, var outcome) ->
                 run.chain(transitionOf(node, modelJob.transitions(), outcome, Map.of()).targetStateId());
             case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
                 resolve(run, status, node, question, resolved);
