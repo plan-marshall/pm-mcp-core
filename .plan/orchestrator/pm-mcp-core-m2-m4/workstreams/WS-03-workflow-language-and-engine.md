@@ -29,6 +29,9 @@ The dependency chain from the primitive SPI over the DSL parser, the static veri
 | PLAN-21-entity-addressing | staged | Entity addressing of the bootstrap units |
 | PLAN-24-plan-instance | staged | Plan instance composition |
 | PLAN-41-static-verifier-remaining-rules | staged | Static verifier: the remaining rules (added to the index by #32) |
+| PLAN-42-operator-wait-and-machine-scope | parked | The operator wait and the machine scope (added by #35; blocked on use cases) |
+| PLAN-43-phase-sub-workflows | parked | Phases as sub-workflows, the plan's history (added by #36; blocked on UC-PLN-1) |
+| PLAN-44-static-verifier-rule-gaps | staged | The rule gaps PLAN-41 left (operator decision 2026-10-12) |
 
 ## Sequencing and Surface Notes
 

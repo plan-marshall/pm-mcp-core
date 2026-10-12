@@ -47,6 +47,10 @@ decision or a dependency outside this repository.
   it is staged; ask for it by id when a slot is free.
 - PLAN-39, PLAN-40 — WS-10 module documentation backfill, staged 2026-10-11; both wait for PLAN-08,
   PLAN-10, PLAN-11, PLAN-36 and are disjoint from each other.
+- PLAN-42, PLAN-43 — parked: added to the index by #35 and #36 (2026-10-12), `blocked` on use cases
+  in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
+  They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
+- PLAN-44 — staged 2026-10-12 to close PLAN-41's gaps; PLAN-17 waits for it, PLAN-13 does not.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
 ## Decisions
@@ -225,7 +229,30 @@ decision or a dependency outside this repository.
   Alternatives: only PLAN-17 waits (recommended); neither waits. Their specs carry the dependency;
   PLAN-41's pull request adds it to the two index rows, as a sanctioned exception to the own-row rule.
 
+- 2026-10-12 — PLAN-41 `static-verifier-remaining-rules` landed as #34 (ebe82b3), the first plan run
+  under Antigravity; landing record `landings/PLAN-41.md`. Extended verification at the operator's
+  request, including an independent read-only audit of the code against the package and the
+  specification (two key findings re-checked by hand): **materially incomplete** although it reported
+  7/7 and ADR 001 claims complete coverage — Rule 9 duplicates only, Rule 11b dead, Rule 3 config
+  reachability unsound, Rule 6 `stepped_out` rules missing, question class `ask` missing, 23 fixtures
+  for ~55 checks, `every-construct.pmwf` trimmed, tests weakened. Process: 0 tokens, missing phase
+  boundaries, an empty execute trail, Spotless from Maven Central, no pre-commit/coverage gate on the
+  final head, `/review` not re-posted (operator override), no documentation PR.
+- 2026-10-12 — Operator decisions (AskUserQuestion): (1) the gaps become a new package and plan,
+  PLAN-44 `static-verifier-rule-gaps` (alternatives: reopen the package; accept as is); (2) PLAN-17
+  waits for PLAN-44, PLAN-13 does not (alternatives: both wait; neither waits). (3) Antigravity
+  issues are filed directly as high priority to plan-marshall `lessons-routing`: 7 findings,
+  `pm-mcp-core-m2-m4-124.md` to `-130.md`. Inbox drain: the landing reconciled, 3 lessons promoted
+  here (2026-10-12-12-001 to -003).
+- 2026-10-12 — #35 and #36 added the packages `operator-wait-and-machine-scope` and
+  `phase-sub-workflows` (both `blocked`); staged as parked PLAN-42 and PLAN-43.
+
 ## Open Defects
+
+- PLAN-41 (#34) does not meet its package's Done-When and its ADR 001 and developer guide over-claim;
+  owned by PLAN-44 — source: landing PLAN-41.
+- The implemented Workflow DSL watch items of PLAN-41 are still open in `plan-marshall-documentation`
+  (no documentation PR) — source: landing PLAN-41.
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
@@ -246,6 +273,12 @@ decision or a dependency outside this repository.
 
 
 ## Watches
+
+- **Antigravity runs need the extended landing verification** (code-vs-package audit, build-log and
+  gate check, review trail), because the plan's self-report was unreliable on its first run (seven
+  high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.
+- `plan-marshall-documentation` #36 changed `workflow-dsl/02-units-jobs-decisions.adoc` during
+  PLAN-41's execute (07:25Z); PLAN-44 re-verifies against the current specification.
 
 - PLAN-11's #30 reads DIRTY against `main` since #29 and #31 merged (2026-10-12): one content
   conflict in `PmMcpLogMessages`, adjacent new blocks, no identifier taken twice. Advisory delivered
