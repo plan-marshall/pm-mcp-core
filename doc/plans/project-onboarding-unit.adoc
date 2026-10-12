@@ -1,0 +1,28 @@
+= The project onboarding unit
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `project-onboarding-unit`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[Use Cases, UC-PRJ-1]; the onboarding of a project in both clients of `pm-mcp-clients`; no roadmap milestone yet
+Where:: pm-workflow (the unit of the machine scope, the setup's choices as operator waits); pm-core (detection, enrolment writes, the project's values over the machine's); pm-runtime (the projects of the machine: favourites, recent, most used)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Specification first*: the package writes the changes Onboarding a Project as One Process and Project Values over Machine Values into `plan-marshall-documentation` as part of its own work, once UC-PRJ-1 is agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
+* *The unit*: `project.checkout` to `project.enrol` in the machine scope, then the project setup; the consent kind `inspect_checkout`; detection of the remote, base branch, build wrappers, host tools, language servers, and scripts with a check line each; the id proposed from the remote; the enrolment written as `pm-operator enrol` writes it.
+* *The setup's choices as operator waits* served to both clients, the entry session still driving it where the operator starts it from a coding agent.
+* *The project's values over the machine's*: every aspect the machine's onboarding records, proposed from the machine and recorded for the project only when changed; `project_defaults` as the machine's value of the project's operator keys, one rule for all.
+* *The projects of the machine*: favourites and their order in a machine store, recent and most used from the operator's acts in a project.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[UC-PRJ-1], link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-2[UC-PRJ-2] and their changes
+* Specification: link:../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]; link:../../../plan-marshall-documentation/doc/specification/domain-extensions/04-setup-state-machine.adoc[Domain Extensions § Setup State Machine]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas § Enrolment Store]
+
+== Done When
+
+The specification of the changes is merged in `plan-marshall-documentation`; a test onboards a fixture checkout from `project.checkout` to a ready project without a session; a test shows a refused consent leaving the checkout unread; a test shows an accepted machine proposal recording nothing for the project and a changed one recorded; `pm-operator enrol` still enrols as a direct verb with its arguments as the answers.
