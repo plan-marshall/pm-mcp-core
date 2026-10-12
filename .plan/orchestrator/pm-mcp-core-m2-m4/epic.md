@@ -236,6 +236,10 @@ decision or a dependency outside this repository.
 
 ## Watches
 
+- PLAN-11's #30 reads DIRTY against `main` since #29 and #31 merged (2026-10-12): one content
+  conflict in `PmMcpLogMessages`, adjacent new blocks, no identifier taken twice. Advisory delivered
+  to its mailbox. Retire when #30 is clean or merged.
+
 - `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
