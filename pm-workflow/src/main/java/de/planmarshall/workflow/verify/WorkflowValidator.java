@@ -28,6 +28,8 @@ import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.workflow.ast.LinkAction;
+import de.planmarshall.workflow.ast.LinkForm;
+import de.planmarshall.workflow.ast.LinkRelation;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamSpec;
@@ -59,6 +61,13 @@ public final class WorkflowValidator {
      * count as reachable from every state and are exempt from {@link VerificationRule#REACHABILITY}.
      */
     private static final Set<String> ABORT_TERMINALS = Set.of("plan.aborted", "epic.aborted");
+
+    private static final Set<String> CONDITION_KINDS = Set.of(
+            "integrity_breach", "footprint_violation", "job_incomplete",
+            "config_drift", "guard_indeterminate", "precondition_unmet");
+
+    private static final List<String> RESERVED_TARGET_SUFFIXES = List.of(
+            ".blocked", ".footprint-violation", ".config-drift");
 
     /** The identifier of the link the engine renders on every link state of a sub-workflow. */
     private static final String STEP_OUT_LINK = "step_out";
@@ -121,14 +130,21 @@ public final class WorkflowValidator {
         var violations = new ArrayList<Violation>();
         var graph = UnitGraph.of(definition);
         checkSchemaBinding(definition, violations);
+        checkStateIdUniqueness(definition, violations);
+        checkStateExists(definition, violations);
+        var targetedAbortTerminals = new HashSet<String>();
         for (var state : definition.states().values()) {
             checkPrimitiveBinding(definition, state, violations);
             checkParameterEquivalence(state, violations);
             checkOutcomeCoverage(definition, state, violations);
             checkLinkIdentifiers(definition.scope(), state, violations);
+            checkLinkCompatibility(state, violations);
             checkJobStartingOutcomes(definition, state, violations);
+            checkAbortTerminalTargeting(state, violations, targetedAbortTerminals);
+            checkReservedTargets(state, violations);
         }
         checkReachability(definition, graph, violations);
+        checkConfigReachability(definition, violations);
         checkExitPaths(definition, graph, violations);
         checkReleasedStates(definition, violations);
         return new VerificationResult(ordered(definition, violations));
@@ -148,6 +164,37 @@ public final class WorkflowValidator {
             for (var link : UnitGraph.declaredLinks(state.behavior())) {
                 for (var param : link.freeParams()) {
                     checkParamSchema(param.name(), param.type(), param.location(), state.id(), violations);
+                }
+            }
+        }
+    }
+
+    private static void checkStateIdUniqueness(WorkflowDefinition definition, List<Violation> violations) {
+        for (var state : definition.states().values()) {
+            if (state.behavior() instanceof StateBehavior.ModelJob modelJob && modelJob.ask()) {
+                var askedStateId = state.id() + ".asked";
+                if (definition.states().containsKey(askedStateId)) {
+                    violations.add(new Violation(VerificationRule.STATE_ID_UNIQUE, state.id(), state.location(),
+                            "the engine-made question state '%s' of the state '%s' collides with a declared state"
+                                    .formatted(askedStateId, state.id())));
+                }
+            }
+        }
+    }
+
+    private static void checkStateExists(WorkflowDefinition definition, List<Violation> violations) {
+        if (!definition.states().containsKey(definition.startState())) {
+            violations.add(new Violation(VerificationRule.STATE_EXISTS, definition.startState(), definition.location(),
+                    "the start state '%s' does not exist in the unit".formatted(definition.startState())));
+        }
+        for (var state : definition.states().values()) {
+            for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                var target = transition.targetStateId();
+                if (!isReservedTarget(target) && !isAbortTerminal(target)
+                        && !definition.states().containsKey(target)) {
+                    violations.add(new Violation(VerificationRule.STATE_EXISTS, state.id(), transition.location(),
+                            "the target state '%s' of the transition '%s' does not exist in the unit"
+                                    .formatted(target, transition.outcomeName())));
                 }
             }
         }
@@ -521,15 +568,46 @@ public final class WorkflowValidator {
 
     private static void checkLinkIdentifiers(WorkflowScope scope, StateNode state, List<Violation> violations) {
         var identifiers = new HashSet<String>();
-        if (UnitGraph.hasImplicitExit(scope, state) && state.behavior() instanceof StateBehavior.InteractiveLinks) {
-            identifiers.add(STEP_OUT_LINK);
-        }
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
-            if (!identifiers.add(link.idPattern())) {
-                var implicit = STEP_OUT_LINK.equals(link.idPattern()) ? " the implicit" : " another";
+            var pattern = link.idPattern();
+            if (UnitGraph.isImplicitLink(scope, state, pattern)) {
                 violations.add(new Violation(VerificationRule.LINK_ID_UNIQUE, state.id(), link.location(),
-                        "the link '%s' of the state '%s' repeats the identifier of%s link".formatted(link.idPattern(),
-                                state.id(), implicit)));
+                        "the link '%s' of the state '%s' repeats the identifier of the implicit link".formatted(pattern,
+                                state.id())));
+            } else if (!identifiers.add(pattern)) {
+                violations.add(new Violation(VerificationRule.LINK_ID_UNIQUE, state.id(), link.location(),
+                        "the link '%s' of the state '%s' repeats the identifier of another link".formatted(pattern,
+                                state.id())));
+            }
+        }
+    }
+
+    private static void checkLinkCompatibility(StateNode state, List<Violation> violations) {
+        for (var link : UnitGraph.declaredLinks(state.behavior())) {
+            if (link.rel() == LinkRelation.CONSULT || link.rel() == LinkRelation.ABORT) {
+                violations.add(new Violation(VerificationRule.LINK_COMPATIBILITY, state.id(), link.location(),
+                        "the relation %s is engine-owned and must not be declared in a link clause"
+                                .formatted(link.rel())));
+            }
+            if (!link.rel().allowedForms().contains(link.form())) {
+                violations.add(new Violation(VerificationRule.LINK_COMPATIBILITY, state.id(), link.location(),
+                        "the link '%s' of relation %s does not admit the form %s"
+                                .formatted(link.idPattern(), link.rel(), link.form())));
+            }
+            if (link.form() == LinkForm.SUBMIT && link.freeParams().isEmpty()) {
+                violations.add(new Violation(VerificationRule.LINK_COMPATIBILITY, state.id(), link.location(),
+                        "the link '%s' has form 'submit' but declares no parameters"
+                                .formatted(link.idPattern())));
+            }
+            if (link.form() == LinkForm.NOOP && !link.freeParams().isEmpty()) {
+                violations.add(new Violation(VerificationRule.LINK_COMPATIBILITY, state.id(), link.location(),
+                        "the link '%s' has form 'noop' but declares parameters"
+                                .formatted(link.idPattern())));
+            }
+            if (link.rel() == LinkRelation.ESCALATE && !"request_waiver".equals(link.idPattern())) {
+                violations.add(new Violation(VerificationRule.LINK_COMPATIBILITY, state.id(), link.location(),
+                        "the link '%s' of relation ESCALATE must name 'request_waiver'"
+                                .formatted(link.idPattern())));
             }
         }
     }
@@ -544,6 +622,115 @@ public final class WorkflowValidator {
                                 definition.startState())));
             }
         }
+    }
+
+    private static void checkAbortTerminalTargeting(StateNode state, List<Violation> violations,
+            Set<String> targetedAbortTerminals) {
+        for (var transition : UnitGraph.allTransitions(state.behavior())) {
+            var target = transition.targetStateId();
+            if ("plan.aborted".equals(target)) {
+                violations.add(new Violation(VerificationRule.ABORT_TERMINAL_TARGETING, state.id(),
+                        transition.location(),
+                        "the abort terminal 'plan.aborted' must not be targeted by any declared transition"));
+            } else if ("epic.aborted".equals(target)) {
+                if (!"epic.next-work".equals(state.id()) || !"abort_landed".equals(transition.outcomeName())) {
+                    violations.add(new Violation(VerificationRule.ABORT_TERMINAL_TARGETING, state.id(),
+                            transition.location(),
+                            "the abort terminal 'epic.aborted' may only be targeted by 'abort_landed' of 'epic.next-work'"));
+                } else if (!targetedAbortTerminals.add(target)) {
+                    violations.add(new Violation(VerificationRule.ABORT_TERMINAL_TARGETING, state.id(),
+                            transition.location(),
+                            "the abort terminal 'epic.aborted' must be targeted by at most one declared transition"));
+                }
+            }
+        }
+    }
+
+    private static void checkReservedTargets(StateNode state, List<Violation> violations) {
+        for (var transition : UnitGraph.allTransitions(state.behavior())) {
+            var target = transition.targetStateId();
+            if (isReservedTarget(target)) {
+                violations.add(new Violation(VerificationRule.TARGET_NOT_RESERVED, state.id(), transition.location(),
+                        "the transition '%s' targets '%s', which is a reserved condition or state identifier"
+                                .formatted(transition.outcomeName(), target)));
+            }
+        }
+    }
+
+    private static void checkConfigReachability(WorkflowDefinition definition, List<Violation> violations) {
+        var configKeys = UnitGraph.configKeysOf(definition);
+        if (configKeys.isEmpty()) {
+            return;
+        }
+        var combinations = UnitGraph.configCombinations(configKeys);
+        var baseGraph = UnitGraph.of(definition);
+        var baseReached = baseGraph.forwardClosure(Set.of(definition.startState()));
+
+        for (var state : definition.states().values()) {
+            if (ABORT_TERMINALS.contains(state.id()) || !baseReached.contains(state.id())) {
+                continue;
+            }
+            var unreachedCombinations = new ArrayList<Map<String, Boolean>>();
+            for (var combination : combinations) {
+                var graph = UnitGraph.of(definition, combination);
+                var reached = graph.forwardClosure(Set.of(definition.startState()));
+                if (!reached.contains(state.id())) {
+                    unreachedCombinations.add(combination);
+                }
+            }
+            if (!unreachedCombinations.isEmpty()) {
+                violations.add(new Violation(VerificationRule.CONFIG_REACHABILITY, state.id(), state.location(),
+                        "the state '%s' is not reachable from the start state '%s' under configuration %s"
+                                .formatted(state.id(), definition.startState(),
+                                        formatCombinations(unreachedCombinations))));
+            }
+        }
+
+        var allReachedTransitions = new HashSet<OutcomeTransition>();
+        for (var combination : combinations) {
+            allReachedTransitions.addAll(UnitGraph.reachableTransitions(definition, combination));
+        }
+        for (var state : definition.states().values()) {
+            if (!baseReached.contains(state.id())) {
+                continue;
+            }
+            for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                if (!allReachedTransitions.contains(transition)) {
+                    violations.add(new Violation(VerificationRule.CONFIG_REACHABILITY, state.id(),
+                            transition.location(),
+                            "the transition '%s -> %s' is not reachable under any configuration combination"
+                                    .formatted(transition.outcomeName(), transition.targetStateId())));
+                }
+            }
+        }
+    }
+
+    private static boolean isReservedTarget(String target) {
+        if (CONDITION_KINDS.contains(target)) {
+            return true;
+        }
+        for (var suffix : RESERVED_TARGET_SUFFIXES) {
+            if (target.endsWith(suffix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isAbortTerminal(String target) {
+        return ABORT_TERMINALS.contains(target);
+    }
+
+    private static String formatCombinations(List<Map<String, Boolean>> combinations) {
+        return combinations.stream()
+                .map(WorkflowValidator::formatCombination)
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private static String formatCombination(Map<String, Boolean> combination) {
+        return combination.entrySet().stream()
+                .map(e -> "%s=%s".formatted(e.getKey(), e.getValue()))
+                .collect(java.util.stream.Collectors.joining(", ", "[", "]"));
     }
 
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {

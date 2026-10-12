@@ -211,11 +211,145 @@ final class UnitGraph {
         };
     }
 
-    private static List<OutcomeTransition> allTransitions(StateBehavior behavior) {
+    /**
+     * @param behavior what a state does
+     * @return all transitions of the behavior in declaration order
+     */
+    static List<OutcomeTransition> allTransitions(StateBehavior behavior) {
         var transitions = new ArrayList<>(engineTransitions(behavior));
         for (var link : declaredLinks(behavior)) {
             transitions.addAll(link.transitions());
         }
         return transitions;
+    }
+
+    /**
+     * Tells whether a link identifier pattern is an implicit link identifier for the state:
+     * {@code ack}, {@code consult:<role>}, {@code answer:<question_id>}, or {@code step_out} when
+     * the state has an implicit step out exit.
+     *
+     * @param scope the scope of the unit
+     * @param state a state of the unit
+     * @param idPattern the identifier pattern of the link
+     * @return {@code true} when the pattern matches an implicit link
+     */
+    static boolean isImplicitLink(WorkflowScope scope, StateNode state, String idPattern) {
+        if ("ack".equals(idPattern) || idPattern.startsWith("consult:") || idPattern.startsWith("answer:")) {
+            return true;
+        }
+        return hasImplicitExit(scope, state) && "step_out".equals(idPattern);
+    }
+
+    /**
+     * @param definition the unit
+     * @return all transition targets across all states of the unit
+     */
+    static Set<String> allTargets(WorkflowDefinition definition) {
+        var targets = new LinkedHashSet<String>();
+        for (var state : definition.states().values()) {
+            for (var transition : allTransitions(state.behavior())) {
+                targets.add(transition.targetStateId());
+            }
+        }
+        return Collections.unmodifiableSet(targets);
+    }
+
+    /**
+     * @param definition the unit
+     * @return all distinct configuration keys declared in {@code depends_on_config} across the unit
+     */
+    static List<String> configKeysOf(WorkflowDefinition definition) {
+        var keys = new LinkedHashSet<String>();
+        for (var state : definition.states().values()) {
+            for (var link : declaredLinks(state.behavior())) {
+                link.guard().ifPresent(guard -> keys.addAll(guard.dependsOnConfig()));
+            }
+        }
+        return List.copyOf(keys);
+    }
+
+    /**
+     * Generates all 2^N boolean assignments for the given configuration keys.
+     *
+     * @param keys the configuration keys
+     * @return the list of assignments
+     */
+    static List<Map<String, Boolean>> configCombinations(List<String> keys) {
+        if (keys.isEmpty()) {
+            return List.of(Map.of());
+        }
+        int count = 1 << keys.size();
+        var combinations = new ArrayList<Map<String, Boolean>>(count);
+        for (int i = 0; i < count; i++) {
+            var assignment = new LinkedHashMap<String, Boolean>();
+            for (int j = 0; j < keys.size(); j++) {
+                assignment.put(keys.get(j), ((i >> j) & 1) == 1);
+            }
+            combinations.add(Collections.unmodifiableMap(assignment));
+        }
+        return Collections.unmodifiableList(combinations);
+    }
+
+    /**
+     * Constructs a graph under a specific configuration assignment.
+     *
+     * @param definition the unit
+     * @param configAssignment the boolean assignment for configuration keys
+     * @return the transition graph under the assignment
+     */
+    static UnitGraph of(WorkflowDefinition definition, Map<String, Boolean> configAssignment) {
+        var successors = new LinkedHashMap<String, Set<String>>();
+        var predecessors = new LinkedHashMap<String, Set<String>>();
+        for (var state : definition.states().values()) {
+            predecessors.computeIfAbsent(state.id(), id -> new LinkedHashSet<>());
+            var targets = new LinkedHashSet<String>();
+            for (var transition : activeTransitions(state.behavior(), configAssignment)) {
+                targets.add(transition.targetStateId());
+                predecessors.computeIfAbsent(transition.targetStateId(), id -> new LinkedHashSet<>()).add(state.id());
+            }
+            successors.put(state.id(), Collections.unmodifiableSet(targets));
+        }
+        return new UnitGraph(Collections.unmodifiableMap(successors), Collections.unmodifiableMap(predecessors));
+    }
+
+    /**
+     * Tells which transitions of a behavior are active under a configuration assignment.
+     */
+    static List<OutcomeTransition> activeTransitions(StateBehavior behavior, Map<String, Boolean> configAssignment) {
+        var transitions = new ArrayList<>(engineTransitions(behavior));
+        for (var link : declaredLinks(behavior)) {
+            if (isLinkActive(link, configAssignment)) {
+                transitions.addAll(link.transitions());
+            }
+        }
+        return transitions;
+    }
+
+    /**
+     * A declared link is active if it has no depends_on_config or all its declared config keys evaluate to true.
+     */
+    static boolean isLinkActive(LinkSpec link, Map<String, Boolean> configAssignment) {
+        if (link.guard().isEmpty() || link.guard().get().dependsOnConfig().isEmpty()) {
+            return true;
+        }
+        return link.guard().get().dependsOnConfig().stream()
+                .allMatch(key -> configAssignment.getOrDefault(key, Boolean.TRUE));
+    }
+
+    /**
+     * Identifies all outcome transitions reached from the start state under a configuration assignment.
+     */
+    static Set<OutcomeTransition> reachableTransitions(WorkflowDefinition definition,
+            Map<String, Boolean> configAssignment) {
+        var graph = of(definition, configAssignment);
+        var reachableStates = graph.forwardClosure(Set.of(definition.startState()));
+        var reached = new LinkedHashSet<OutcomeTransition>();
+        for (var stateId : reachableStates) {
+            var state = definition.states().get(stateId);
+            if (state != null) {
+                reached.addAll(activeTransitions(state.behavior(), configAssignment));
+            }
+        }
+        return reached;
     }
 }

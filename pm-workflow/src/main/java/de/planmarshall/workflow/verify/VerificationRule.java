@@ -37,14 +37,26 @@ public enum VerificationRule {
     MODEL_JOB_OUTCOMES(2),
     /** The transitions of a question clause form a bijection with the closed resolution outcomes of its class. */
     QUESTION_OUTCOMES(2),
+    /** State identifiers are unique across the unit, the engine-made {@code <state>.asked} included. */
+    STATE_ID_UNIQUE(3),
+    /** The start state and every transition target exist in the unit's states. */
+    STATE_EXISTS(3),
     /** Every state is reachable from the start state. */
     REACHABILITY(3),
+    /** Every state and transition is reachable under every combination of {@code depends_on_config} values. */
+    CONFIG_REACHABILITY(3),
+    /** {@code plan.aborted} is never targeted, and {@code epic.aborted} only by {@code abort_landed} of {@code epic.next-work}. */
+    ABORT_TERMINAL_TARGETING(3),
+    /** Transitions must not target condition kinds or reserved state identifiers. */
+    TARGET_NOT_RESERVED(3),
     /** Every non-terminal state has a path to a terminal state, in a workspace unit back to the start state. */
     EXIT_PATH(3),
-    /** The link identifiers of a state are unique, the implicit {@code step_out} included. */
+    /** The link identifiers of a state are unique, the implicit links included. */
     LINK_ID_UNIQUE(3),
     /** Every released state name is a state, or is migrated directly to a state. */
-    RELEASED_STATE(5);
+    RELEASED_STATE(5),
+    /** Link relation and form compatibility, parameter requirements, and reserved relations. */
+    LINK_COMPATIBILITY(12);
 
     private final int specificationRule;
 
