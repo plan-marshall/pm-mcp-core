@@ -2,9 +2,9 @@
   "id": "PLAN-11",
   "slug": "enrolment-store",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "plan-11-enrolment-store",
-  "pr": "",
-  "landing": "",
+  "pr": "#30",
+  "landing": "landings/PLAN-11.md",
   "seq": 11
 }

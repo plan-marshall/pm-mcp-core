@@ -50,6 +50,7 @@ decision or a dependency outside this repository.
 - PLAN-42, PLAN-43 — parked: added to the index by #35 and #36 (2026-10-12), `blocked` on use cases
   in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
   They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
+- PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
 - PLAN-44 — staged 2026-10-12 to close PLAN-41's gaps; PLAN-17 waits for it, PLAN-13 does not.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
@@ -247,6 +248,15 @@ decision or a dependency outside this repository.
 - 2026-10-12 — #35 and #36 added the packages `operator-wait-and-machine-scope` and
   `phase-sub-workflows` (both `blocked`); staged as parked PLAN-42 and PLAN-43.
 
+- 2026-10-12 — PLAN-11 `enrolment-store` landed as #30 (5010969), run under Claude Code (inferred);
+  landing record `landings/PLAN-11.md`. 48 h and 11.6 M tokens, nine finalize rounds, `/review`
+  re-posted ten times with no override, documentation PR merged. New package `runtime.enrolment`
+  (the spec's `runtime.security` guess was wrong) plus recovery steps in `runtime.start` and
+  `LiveWork` in `core.service`. Inbox drain of 18 messages: the landing reconciled; 6 lessons
+  promoted here (2026-10-12-13-001 to -006), 1 folded into 2026-10-11-20-001, 10 routed to
+  plan-marshall as `pm-mcp-core-m2-m4-134.md` to `-143.md`. #37 added `project-onboarding-unit`
+  (`blocked`), staged as parked PLAN-45.
+
 ## Open Defects
 
 - PLAN-41 (#34) does not meet its package's Done-When and its ADR 001 and developer guide over-claim;
@@ -284,9 +294,6 @@ decision or a dependency outside this repository.
 - `plan-marshall-documentation` #36 changed `workflow-dsl/02-units-jobs-decisions.adoc` during
   PLAN-41's execute (07:25Z); PLAN-44 re-verifies against the current specification.
 
-- PLAN-11's #30 reads DIRTY against `main` since #29 and #31 merged (2026-10-12): one content
-  conflict in `PmMcpLogMessages`, adjacent new blocks, no identifier taken twice. Advisory delivered
-  to its mailbox. Retire when #30 is clean or merged.
 
 - `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never

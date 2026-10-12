@@ -32,6 +32,7 @@ The dependency chain from the primitive SPI over the DSL parser, the static veri
 | PLAN-42-operator-wait-and-machine-scope | parked | The operator wait and the machine scope (added by #35; blocked on use cases) |
 | PLAN-43-phase-sub-workflows | parked | Phases as sub-workflows, the plan's history (added by #36; blocked on UC-PLN-1) |
 | PLAN-44-static-verifier-rule-gaps | staged | The rule gaps PLAN-41 left (operator decision 2026-10-12) |
+| PLAN-45-project-onboarding-unit | parked | The project onboarding unit (added by #37; blocked on UC-PRJ-1 and PLAN-42) |
 
 ## Sequencing and Surface Notes
 
