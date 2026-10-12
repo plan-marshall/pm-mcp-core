@@ -16,6 +16,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 
@@ -31,6 +32,7 @@ import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.enrolment.EnrolmentCheck;
 import de.planmarshall.runtime.job.JobRefusal.Reason;
+import de.planmarshall.runtime.job.JobRequest.ProjectScriptCall;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /**
@@ -52,7 +54,8 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * argument vector;</li>
  * <li>stage 3, the argument check, last: {@link ArgumentCheck} with the caller's {@link DefaultTemplates}
  * ({@code verb_not_supported}, {@code argument_rejected}); it answers the arguments after the executable and, for a
- * build job, the source of its template.</li>
+ * build job, the source of its template; the validated arguments of a project script job are carried by the verified
+ * job as {@link VerifiedJob#projectScriptArguments()}, not in its argument vector.</li>
  * </ol>
  * <p>
  * A refusal is a value. Each refusal is logged once at WARN ({@code PM_MCP-180}); a refusal of the enrolment that the
@@ -137,7 +140,13 @@ public final class VerifyNotResolvePipeline {
 
         var argv = new ArrayList<>(executable);
         argv.addAll(arguments.arguments());
-        return new JobVerification.Verified(new VerifiedJob(workingDirectory, argv, arguments.source(), enrolment));
+        return new JobVerification.Verified(new VerifiedJob(workingDirectory, argv, arguments.source(),
+                projectScriptArguments(request.target()), enrolment));
+    }
+
+    /** The arguments of a project script job, which stage 3 validated; empty for any other job. */
+    private static Optional<JobRequest.Value> projectScriptArguments(JobRequest.Target target) {
+        return target instanceof ProjectScriptCall call ? Optional.of(call.arguments()) : Optional.empty();
     }
 
     /**

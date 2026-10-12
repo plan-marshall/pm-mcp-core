@@ -9,7 +9,11 @@
  */
 package de.planmarshall.runtime.job;
 
+import static de.planmarshall.runtime.job.JobEnrolmentFixture.MVNW;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
+import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_BINDING;
+import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_ID;
+import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -22,16 +26,22 @@ import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.Argv;
+import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
+import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
+import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.SecretStore;
 import de.planmarshall.runtime.credentials.SecretStoreException;
@@ -39,6 +49,11 @@ import de.planmarshall.runtime.enrolment.EnrolmentCheck;
 import de.planmarshall.runtime.enrolment.EnrolmentFileCheck;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.job.JobRefusal.Reason;
+import de.planmarshall.runtime.job.JobRequest.Fields;
+import de.planmarshall.runtime.job.JobRequest.Items;
+import de.planmarshall.runtime.job.JobRequest.ProjectScriptCall;
+import de.planmarshall.runtime.job.JobRequest.Text;
+import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +66,7 @@ import org.junit.jupiter.api.Test;
  * tampered, insecure, unreadable or missing enrolment is refused with its mapped reason before the working directory
  * is looked at, and a working directory outside the workspace is refused as {@code path_traversal_rejected}. Each
  * refusal has its matched positive control in the same configuration, and a fault of the key source is no refusal.
+ * The verified job carries the validated arguments of a project script job, and no such arguments for any other job.
  */
 @EnableTestLogger
 @EnableGeneratorController
@@ -270,6 +286,59 @@ class VerifyNotResolvePipelineTest {
             var refusal = refused(request);
 
             assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason());
+        }
+    }
+
+    @Nested
+    @DisplayName("the verified job carries the validated arguments of a project script, and only of one")
+    class ProjectScriptArguments {
+
+        /** The caller's defaults: Maven {@code verify}; nothing else. */
+        private static final DefaultTemplates DEFAULTS = (buildSystem, verb) ->
+                buildSystem == BuildSystem.MAVEN && "verify".equals(verb) ? Optional.of(Argv.of("verify"))
+                        : Optional.empty();
+
+        private VerifiedJob verifiedWithDefaults(JobRequest.Target target) {
+            var outcome = fixture.verify(fixture.pipeline(DEFAULTS), fixture.request(fixture.root.toString(), target));
+            return assertInstanceOf(JobVerification.Verified.class, outcome, "the job should be verified").job();
+        }
+
+        @Test
+        @DisplayName("a project script job carries exactly the validated arguments, and an argv without them")
+        void projectScript() {
+            var goal = Generators.letterStrings(3, 10).next();
+            var arguments = Fields.of(Map.of("goal", new Text(goal),
+                    "modules", new Items(List.of(new Text("core")))));
+
+            var job = verified(fixture.request(fixture.root.toString(),
+                    new ProjectScriptCall(SCRIPT_ID, SCRIPT_BINDING, arguments)));
+
+            assertAll(
+                    () -> assertEquals(Optional.of(arguments), job.projectScriptArguments()),
+                    () -> assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
+                            fixture.root.resolve(SCRIPT_PATH).toString()), job.argv()),
+                    () -> assertEquals(Optional.empty(), job.templateSource()));
+        }
+
+        @Test
+        @DisplayName("a wrapper build job carries no project script arguments")
+        void wrapperBuild() {
+            var job = verifiedWithDefaults(new WrapperBuild(WrapperName.MVNW, "verify", Optional.empty()));
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), job.projectScriptArguments()),
+                    () -> assertEquals(fixture.root.resolve(MVNW).toString(), job.argv().getFirst()));
+        }
+
+        @Test
+        @DisplayName("a host tool call carries no project script arguments")
+        void hostToolCall() {
+            var job = verified(fixture.gitStatus(fixture.root.toString()));
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), job.projectScriptArguments()),
+                    () -> assertEquals(List.of(fixture.tools.get(HostToolName.GIT).toString(), "status"),
+                            job.argv()));
         }
     }
 

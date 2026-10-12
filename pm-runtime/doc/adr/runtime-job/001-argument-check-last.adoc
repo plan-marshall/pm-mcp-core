@@ -43,6 +43,7 @@ A long flag that only begins like a forbidden one (`--filesystem`) is not refuse
 4. **Project script arguments are a typed value, not words of the argument vector.**
 The arguments of a `ProjectScriptCall` are a JSON value (`JobRequest.Value`).
 They are validated against the script's enrolled `argument_schema` by `ArgumentSchemaValidator` and are not appended to the argument vector; the script receives them as a value.
+The verified job carries exactly the validated value (`VerifiedJob.projectScriptArguments`, empty for every job that is no project script), so the launch step hands the script what stage 3 checked and nothing else.
 
 5. **A binding mismatch is refused as `executable_not_enrolled`.**
 A project script job whose `binding` (worker kind and target) is not the script's enrolled binding is refused by stage 2 as `executable_not_enrolled`: the script is not enrolled for that use.
@@ -73,6 +74,7 @@ The first implementation applied the flag list to every caller-supplied argument
 
 * Stage order is a tested invariant: `ArgumentCheckTest` shows that a job refused in stage 2 never reaches the argument check, and that with the executable verified the same arguments are refused.
 * `ArgumentCheckTest` refuses each forbidden flag in a wrapper build and an npm build and verifies the same flags in a host tool call; it refuses every metacharacter in a host tool call, and a metacharacter in a project script value and in a member name.
+* `VerifyNotResolvePipelineTest` shows that a verified project script job carries exactly the validated arguments and an argument vector without them, and that a wrapper build and a host tool call carry none.
 * The developer guide (`pm-runtime/doc/developer/runtime-job.adoc`, Stage 3) states both scopes.
 * A host tool that should not accept a given flag must be restricted by its enrolment, not by the flag list of this package.
 

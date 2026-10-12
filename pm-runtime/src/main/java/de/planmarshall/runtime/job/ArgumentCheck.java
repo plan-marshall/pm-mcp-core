@@ -45,7 +45,8 @@ import lombok.experimental.UtilityClass;
  * without a group refuses it as {@code verb_not_supported}; a whole-tree job omits the group.</li>
  * <li>A host tool call passes its arguments on after they are checked.</li>
  * <li>A project script job's arguments must validate against the script's enrolled argument schema
- * ({@link ArgumentSchemaValidator}, {@code argument_rejected} otherwise); they add nothing to the argument vector.</li>
+ * ({@link ArgumentSchemaValidator}, {@code argument_rejected} otherwise); they add nothing to the argument vector,
+ * the verified job carries them as {@link VerifiedJob#projectScriptArguments()}.</li>
  * </ul>
  * <p>
  * Every argument the caller supplies (a module, an argument of a host tool call, a string of a project script's
