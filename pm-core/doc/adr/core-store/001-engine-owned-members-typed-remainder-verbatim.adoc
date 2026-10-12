@@ -1,0 +1,50 @@
+= ADR 001: Only the Engine-Owned Members of the Status Document Are Typed
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The status document `mcp/status.json` has a closed schema (`additionalProperties: false`) with more than forty
+members. The workflow engine owns a small part of them: the position (`scope_type`, `scope_id`, `phase`, `state`,
+`call_stack`), the loop-back accounting, the retry counts, the bindings of the current state, the condition overlay and
+`updated_at`. The other members (`metadata`, `steps`, `counters`, `gaps`, `branch_pushed_at` and more) are written by
+components of later packages. Later packages must be able to add their members without a format change, and the engine
+must never rewrite what another component owns.
+
+== Decision
+
+`WorkflowStatus` types only the engine-owned members. `WorkflowStatusCodec` knows every member name the schema
+declares; it reads the typed members strictly and keeps every other declared member as the raw JSON text it was read
+with, re-emitting it byte for byte in its schema position. A member the schema does not declare is refused as a
+`StoreRefusal` naming the file and the member. A later package types a member by moving it from the retained set to
+the typed set, which needs no format change.
+
+== Alternatives Considered
+
+1. *Type the whole schema now*: every member as a record component.
+   _Rejected_: it would fix the shape of members whose owners do not exist yet, and every later change to them would
+   pass through this package's types.
+2. *Keep the whole document as a generic JSON tree*: the engine reads and writes paths in an untyped tree.
+   _Rejected_: the engine-owned members would lose their checks; a wrong type or a value outside the schema would reach
+   the store.
+3. *Tolerate unknown members*: keep any member, declared or not.
+   _Rejected_: the schema is closed; tolerating an undeclared member would hide a writer that drifted from the schema.
+
+== Consequences
+
+* The engine's members are checked at construction and at read; another component's members pass through unchanged.
+* The codec carries the full member list of the schema, which a schema change must update.
+* A document in the codec's canonical form round-trips byte for byte (`WorkflowStatusCodecTest`).
+
+== Source
+
+* `doc/plans/workflow-engine.adoc`, deliverable 3
+* Operator decision 1 of the work package `workflow-engine`
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]

@@ -1,0 +1,43 @@
+= ADR 003: The Status Is Written as a Target of the Caller's `ScopeTransaction`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+A transition of the workflow engine changes the status document and, in the same step, often other stores of the
+scope: a step record, a finding, a change-ledger entry. A killed process must leave either the state before the
+transition or the state after it in every one of these stores, never a status that moved while its sibling write was
+lost.
+
+== Decision
+
+`WorkflowStatusStore.write(ScopeTransaction, WorkflowStatus)` adds the whole document as one replace target to an open
+transaction of its scope and never commits on its own. The caller opens the transaction under its lock, adds the status
+and every sibling write, and commits once. The engine likewise returns the new status with its step, and its persisting
+`advance` variants add it to the caller's transaction only when the advance changed it.
+
+== Alternatives Considered
+
+1. *The status store commits its own transaction*: each write is a single-target transaction.
+   _Rejected_: a status write and a sibling store write would be two commits; a stop between them leaves the scope
+   inconsistent.
+2. *Write the status file directly*: an atomic rename outside the journal.
+   _Rejected_: it bypasses the journal, the digest sidecar and the recovery of the scope.
+
+== Consequences
+
+* A state change and its sibling writes are one journaled transaction; `JournalRecovery` restores either side of it.
+* The caller owns the lock and the commit; the store and the engine stay free of locking.
+* A read takes no lock and sees the document before or after a commit, never a part of one.
+
+== Source
+
+* `doc/plans/workflow-engine.adoc`, deliverable 3
+* link:../../../../../plan-marshall-documentation/doc/developer/store-substrate.adoc[Developer Guide § Store Substrate]

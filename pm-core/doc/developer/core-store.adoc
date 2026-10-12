@@ -1,0 +1,168 @@
+= Workflow State Store and Engine Ports (`core.store`, `core.spi`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7]_
+
+This guide covers what the work package `workflow-engine` added to `pm-core`: the workflow state store
+`mcp/status.json` in `de.planmarshall.core.store`, and the engine ports in `de.planmarshall.core.spi` through which the
+workflow engine of `pm-workflow` causes and observes what lies outside that store. Every run state of a plan, an epic
+or the workspace lives in the status document, so a killed run resumes where it stopped.
+
+The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
+digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
+not repeated here. The schema of the document is
+link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store].
+
+== The Workflow State Store
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+[horizontal]
+`WorkflowStatus`:: The immutable record of one scope's status document. The members the engine owns are typed: the
+position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
+the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
+(`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
+overlay (`pending_condition`) and `updated_at`. Every other member of the closed schema is kept in `retained()` as the
+raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
+constructor checks every closed value, so a copy with a value outside the schema cannot be built.
+`RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
+`WorkflowStatusCodec`:: Reads and writes the document over `StrictJson`. It checks `format_version` first
+(`FORMAT_VERSION` 1), reads the typed members strictly, each with its one JSON type and its closed values, and
+captures every other declared member verbatim. It writes every member in the order the schema declares it: the typed
+members in one canonical form, the retained members as the bytes they were read with. A document in that form
+round-trips byte for byte.
+`WorkflowStatusStore`:: The store of one `JournalScope` (`mcp/status.json` of a plan, `status.json` of an epic,
+`workspace/mcp/status.json` of the workspace). `read()` takes no lock and reads through `StoreSnapshot`; a store that
+does not exist is reported as `Optional.empty()`, never as an empty status. `write(ScopeTransaction, WorkflowStatus)`
+adds the whole document as one replace target to the caller's transaction and never commits on its own.
+
+[source]
+----
+WorkflowStatus ──write──► WorkflowStatusCodec ──bytes──► ScopeTransaction.replace("mcp/status.json")
+      ▲                                                        │ commit (journal, apply, digests)
+      └──read── WorkflowStatusCodec ◄──bytes── StoreSnapshot ◄─┘
+----
+
+=== Invariants
+
+* *Format version first*: a document of another `format_version` is refused before any member is read.
+* *Strict typed members*: a typed member with another JSON type, a value outside its closed set (phase, job kind and
+  status, task state and outcome, condition kind, policy class, retry rule), a negative counter, more than four call
+  frames, a `scope_id` for the workspace or none for a plan or epic, or a binding of another state than the current one
+  is refused.
+* *Verbatim remainder*: a member the schema declares but the engine does not own is re-emitted unchanged; the engine
+  never rewrites what another component owns.
+* *Closed schema*: a member the schema does not declare, or a member twice, is refused.
+* *Journal-only writes*: the status is written only as a target of a `ScopeTransaction` of its scope, so a state change
+  and the writes of the other stores of the same transaction are one journaled write.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A document violates the schema or has another format version
+|`read()` throws a `StoreRefusal` naming the file and the member; the file is not touched.
+
+|The store does not exist
+|`read()` returns `Optional.empty()`.
+
+|A status of another scope is written
+|`write` throws `IllegalArgumentException`; nothing is added to the transaction.
+
+|A value outside the schema is put into a `WorkflowStatus`
+|The record's constructor throws `IllegalArgumentException`; no such status exists to be written.
+
+|A write stops at any step
+|`JournalRecovery` of the scope completes or discards the transaction: the store holds the previous or the new document,
+never a mix.
+|===
+
+=== Adding a Typed Member
+
+The codec knows every member name of the closed schema (`WorkflowStatusCodec.MEMBERS`); the ones the engine owns are
+`TYPED_MEMBERS`, every other one is retained. A later package that needs to read or write a member types it without a
+format change:
+
+. add the component to `WorkflowStatus` with its check in the compact constructor;
+. add the member to `TYPED_MEMBERS` and its read and write to the codec, in its schema position;
+. remove it from the retained members of existing test documents and extend `WorkflowStatusCodecTest` with its
+  round trip and its refusals.
+
+A document written before the change still reads, because the member was declared and kept verbatim all along.
+
+[#_retry_counters]
+== Retry Counters
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+`retry_counters` persists the attempts of the server-rule retries and of the compiled condition budgets counted
+outside a condition, so a runtime restart, a drain or a re-read of the store never resets a budget. Its keys are the
+closed enum `RetryCounters.RetryRule`:
+
+[cols="2,4"]
+|===
+|Key |Counted by
+
+|`sync_failed` |a failed fetch or push of `finalize.merge-sync`
+|`merge_barrier_indeterminate` |`finalize.merge-barrier` when the findings store could not be evaluated
+|`merge_refused_re_enter` |`finalize.merge-refused`, a refusal the merge gate is entered again for
+|`merge_queue_re_enter` |`finalize.merge-queue-exit`, an ejected pull request
+|`push_failed` |`git.push-retry-wait`, a push failure other than a rejection
+|`open_pr` |the provider call of `finalize.open-pr`
+|`retry_once` |the conservative retry once per unit instance of a remediation unit
+|`condition_budget` |a compiled condition budget counted outside a condition (`finalize.adopt-blocked`,
+`finalize.merge-lease-interrupted`, `finalize.archive-plan`)
+|===
+
+Each key holds at most one entry `{state_id, attempts}`, bound to the state whose primitive counts the retry.
+
+* `attempt(rule, stateId)` counts one attempt in the same status write as the retry it records; an entry of the rule
+  bound to another state is replaced and starts at one.
+* `attemptsOf(rule, stateId)` reads 0 when the rule has no entry or its entry is bound to another state.
+* `clearedFor(stateId)` drops every entry bound to a state.
+
+Who lowers a count is fixed: the state that counts a retry clears its own count when the retry ends (the retried
+operation succeeded, or the budget's spent outcome is taken), and the workflow engine clears the counts of every state
+of a sub-workflow when it pops or unwinds that sub-workflow's call frame. Nothing else lowers a count: entering and
+leaving states within a frame keeps them, and a restart reads the same values from the store
+(link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]). The engine counts no retry itself; the retrying
+primitives of later packages count through `RetryCounters`.
+
+== Engine Ports
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+The ports are interfaces in `core.spi`. No class of `pm-core` implements them: the runtime of `pm-runtime` implements
+them later, and the tests of `pm-workflow` use recording doubles. `WorkflowEngine` of `pm-workflow` takes the four
+together as `WorkflowEngine.Ports`.
+
+[horizontal]
+`JobStarter`:: Starts the job of a `job` state for a `StartRequest(scopeId, stateId, primitiveId)`. The result is
+`Started(jobId)` with a `job_id` of the grammar `^[bcgp]-[0-9a-f]{16}$`, whose first character names the `JobKind`
+(build, ci, git, project script), or `Refused(reason)` as a value, never an exception. Worker jobs are never started
+here.
+`QueueTaskCreator`:: Creates one queue task of a role for one entity of a `job llm` state; the result carries the
+`queue_task_id` of the grammar `^qt-[0-9a-f]{16}$`. A role that cannot take the task is not refused here: the queue
+closes such a task `lost`.
+`QuestionRecordReader`:: Reads a question record (`^Q-[0-9]{3,6}$`) of a scope. The read is tri-state: `Open`,
+`Resolved(outcome)`, or `Unreadable(reason)`; a record that cannot be read is never taken for an open one.
+`WorkflowClock`:: The one source of every instant the engine writes (`updated_at`, `pushed_at`, `raised_at`, a job's
+`started_at`), so persisted state never depends on the engine's memory and tests drive time deterministically.
+
+`EnginePortsTest` guards the identifier grammars and the tri-state read.
+
+== Decisions
+
+* link:../adr/core-store/001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]: only the engine-owned members
+  are typed; the remainder is kept verbatim.
+* link:../adr/core-store/002-engine-ports-in-core-spi.adoc[ADR 002]: the engine ports are interfaces in `core.spi`.
+* link:../adr/core-store/003-status-written-through-scope-transaction.adoc[ADR 003]: the status is written as a target
+  of the caller's `ScopeTransaction`.
+* link:../adr/core-store/004-retry-counters-persisted-in-status-store.adoc[ADR 004]: retry counts are persisted in
+  `retry_counters`.
+* link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]: who clears a retry count, and when.
+* link:../adr/core-store/006-retry-counter-key-list.adoc[ADR 006]: the closed key list of `retry_counters`.
