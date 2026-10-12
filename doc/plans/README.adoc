@@ -249,6 +249,24 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:enrolment-store.adoc[`enrolment-store`]; UC-PRJ-1 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:start-from-clients.adoc[`start-from-clients`]
+|Starting work from the clients: sources as a list, the source directory, screened once stored, options asked when needed
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; UC-STA-1 to UC-STA-4 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
+|link:forgejo-provider.adoc[`forgejo-provider`]
+|Codeberg and Forgejo as a provider
+|`blocked`
+|the CI contract of `pm-provider-ci`; UC-STA-4 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
+|link:recipe-workflows.adoc[`recipe-workflows`]
+|A recipe is a workflow
+|`blocked`
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; UC-STA-5 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
