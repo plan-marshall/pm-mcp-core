@@ -25,6 +25,9 @@ import java.util.Set;
  */
 public final class QuestionClassRegistry {
 
+    private static final String ANSWERED = "answered";
+    private static final String ASSUMED = "assumed";
+
     private final Map<String, QuestionClass> classes;
 
     /**
@@ -70,10 +73,10 @@ public final class QuestionClassRegistry {
      */
     public static QuestionClassRegistry defaults() {
         return new QuestionClassRegistry(List.of(
-                new QuestionClass("init", Set.of("answered", "assumed", "returned")),
-                new QuestionClass("clarification", Set.of("answered", "assumed")),
+                new QuestionClass("init", Set.of(ANSWERED, ASSUMED, "returned")),
+                new QuestionClass("clarification", Set.of(ANSWERED, ASSUMED)),
                 new QuestionClass("review", Set.of("approve", "revise", "returned")),
-                new QuestionClass("task", Set.of("answered", "assumed")),
-                new QuestionClass("setup", Set.of("answered", "assumed"))));
+                new QuestionClass("task", Set.of(ANSWERED, ASSUMED)),
+                new QuestionClass("setup", Set.of(ANSWERED, ASSUMED))));
     }
 }
