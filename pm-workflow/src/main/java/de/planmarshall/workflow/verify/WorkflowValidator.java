@@ -834,12 +834,10 @@ public final class WorkflowValidator {
                         contractOutcomes.add(calleeState.terminalOutcome().get().id());
                     }
                 }
-                // stepped_out belongs to the exit contract only when the callee can actually step out: the
-                // implicit step_out exit of a resting-link state of a sub-workflow unit. A callee without one
-                // never returns stepped_out, so routing it is refused and omitting it is correct.
-                if (canReturnSteppedOut(callee)) {
-                    contractOutcomes.add("stepped_out");
-                }
+                // Rule 6: the exit contract of every sub-workflow is its terminals' outcomes plus the control
+                // outcome stepped_out, which is part of it implicitly. Every call routes it, whatever the callee's
+                // states are.
+                contractOutcomes.add("stepped_out");
 
                 var outcomeCounts = new HashMap<String, Integer>();
                 var resultGuardsOnDone = new ArrayList<ResultGuard>();
@@ -914,30 +912,6 @@ public final class WorkflowValidator {
                 }
             }
         }
-    }
-
-    /**
-     * Tells whether a called sub-workflow can return the control outcome {@code stepped_out}: only a sub-workflow
-     * unit with a resting-link state can, through that state's implicit {@code step_out} exit (the same exit
-     * {@link UnitGraph#isImplicitLink} reports). A link state outside a sub-workflow has no such exit, and neither
-     * does any other behaviour.
-     *
-     * @param callee the called sub-workflow
-     * @return {@code true} when {@code stepped_out} belongs to the callee's exit contract
-     */
-    private static boolean canReturnSteppedOut(WorkflowDefinition callee) {
-        if (callee.scope() != WorkflowScope.SUBWORKFLOW) {
-            return false;
-        }
-        var reached = UnitGraph.of(callee).forwardClosure(Set.of(callee.startState()));
-        for (var calleeState : callee.states().values()) {
-            if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
-                    && reached.contains(calleeState.id())
-                    && UnitGraph.hasImplicitExit(callee.scope(), calleeState)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean areComplementary(ResultGuard g1, ResultGuard g2) {

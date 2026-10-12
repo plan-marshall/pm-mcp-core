@@ -99,16 +99,19 @@ final class TestPrimitives {
                 param push : enum[enabled|disabled]
                 param attempts : int[1..5]
                 param targets : list<enum[origin|mirror]>
-                start git.review
+                start git.push
+
+                state git.push
+                    phase inherit
+                    auto test.prepare
+                        done -> git.done
+                        skipped -> git.stepped-out
 
                 state git.done terminal done success
                     phase inherit
 
-                state git.review
+                state git.stepped-out terminal stepped_out stepped_out
                     phase inherit
-                    link next proceed ()
-                        do test.proceed
-                            done -> git.done
                 """);
         var depth5 = VerifyFixtures.parseSource("test.depth5.pmwf", """
                 workflow test.depth5 version 1 format 1

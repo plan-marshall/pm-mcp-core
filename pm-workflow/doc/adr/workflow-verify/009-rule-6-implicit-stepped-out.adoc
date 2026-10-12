@@ -1,0 +1,38 @@
+= ADR 009: Rule 6 Implicit Stepped-Out Contract
+:nofooter:
+
+== Status
+
+Accepted. Supersedes decision 1 of link:005-rule-6-stepped-out-and-registries.adoc[ADR 005].
+
+== Date
+
+2026-10-12
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 6) defines the exit contract of a sub-workflow as the outcomes of its terminals plus the control outcome `stepped_out`, which belongs to every sub-workflow's exit contract implicitly: the operator can step out of any sub-workflow, so every call routes `stepped_out`.
+
+PLAN-44 made the contract conditional (ADR 005, decision 1): `stepped_out` was owed only when the callee had a reachable resting-link state, and routing it to any other callee was refused. The specification was not changed. To keep the shared test callee `git.commit_and_push` owing `stepped_out`, PLAN-44 also reshaped it into a resting-link state, and it pinned the conditional refusal with the fixture `subworkflow-stepped-out-spurious.pmwf`. The conditional rule refuses conforming units: a call that routes `stepped_out` to a sub-workflow without a resting link is correct under the specification.
+
+== Decision
+
+`checkSubWorkflowCallContract` of `WorkflowValidator` adds `stepped_out` to the exit contract of every called sub-workflow, without inspecting the callee's states. A call that omits `stepped_out` is refused as `SUBWORKFLOW_CALL_CONTRACT` (the exit outcome is not routed); a call that routes it is never refused for routing it.
+
+== Alternatives Considered
+
+1. **Conditional contract (ADR 005, decision 1)**:
+`stepped_out` is owed only when the callee has a reachable resting-link state, and a routing of it to any other callee is refused.
+*Rejected*: it refuses conforming units and departs from the specification without a specification change; the verifier checks the specification, it does not refine it.
+
+== Consequences
+
+* The fixture `subworkflow-stepped-out-spurious.pmwf` is deleted: it pins a refusal the specification does not have.
+* The test catalog's `git.commit_and_push` follows the real unit again: a server step-out through a terminal of class `stepped_out`, with no resting link state.
+* Every call in the fixtures and inline tests routes `stepped_out`; a call that omits it is refused with the exact violation.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 6 (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-rule-gaps.adoc`
+* link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]

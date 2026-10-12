@@ -474,8 +474,25 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out routed for a callee that cannot step out")
-    void subWorkflowSteppedOutSpurious() {
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out is owed by a call to a sub-workflow without a resting link")
+    void subWorkflowSteppedOutImplicitWithoutRestingLink() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                """ + DONE_TERMINAL);
+
+        var found = violations(def);
+
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the call does not route the exit outcome 'stepped_out' of 'test.depth5'")),
+                found.stream().map(RuleStateMessage::of).toList());
+    }
+
+    @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: routing stepped_out to a sub-workflow without a resting link passes")
+    void subWorkflowSteppedOutRoutedWithoutRestingLink() {
         var def = unit("plan", """
                 state verify.entry
                     phase verify
@@ -483,16 +500,20 @@ class AdditionalRulesTest {
                         done -> verify.done
                         stepped_out -> verify.done
                 """ + DONE_TERMINAL);
-        var found = violations(def);
-        assertEquals(1, found.size(), () -> "expected exactly the spurious stepped_out refusal: " + found);
-        assertEquals(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, found.getFirst().rule());
-        assertTrue(found.getFirst().message().contains(
-                        "routes the outcome 'stepped_out', which is not in the exit contract of 'test.depth5'"),
-                () -> "missing spurious stepped_out refusal: " + found);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    /** The rule, state and message of a violation: everything of it but the source location. */
+    private record RuleStateMessage(VerificationRule rule, String stateId, String message) {
+
+        static RuleStateMessage of(Violation violation) {
+            return new RuleStateMessage(violation.rule(), violation.stateId(), violation.message());
+        }
     }
 
     @Test
-    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out owed but not routed")
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out owed by a call to a stepping-out sub-workflow but not routed")
     void subWorkflowSteppedOutMissing() {
         var def = unit("subworkflow", """
                 state verify.entry
@@ -500,12 +521,12 @@ class AdditionalRulesTest {
                     call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
                         done -> verify.done
                 """ + DONE_TERMINAL);
+
         var found = violations(def);
-        assertEquals(1, found.size(), () -> "expected exactly the missing stepped_out refusal: " + found);
-        assertEquals(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, found.getFirst().rule());
-        assertTrue(found.getFirst().message().contains(
-                        "does not route the exit outcome 'stepped_out' of 'git.commit_and_push'"),
-                () -> "missing owed stepped_out refusal: " + found);
+
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                        "the call does not route the exit outcome 'stepped_out' of 'git.commit_and_push'")),
+                found.stream().map(RuleStateMessage::of).toList());
     }
 
     @Test

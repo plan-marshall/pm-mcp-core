@@ -105,7 +105,7 @@ class WorkflowValidatorTest {
             // AdditionalRulesTest.testQuestionClassUnregistered.
             var missing = EnumSet.allOf(VerificationRule.class);
             missing.removeAll(expected);
-            assertAll(() -> assertEquals(38, expected.size()),
+            assertAll(() -> assertEquals(37, expected.size()),
                     () -> assertEquals(EnumSet.of(VerificationRule.QUESTION_CLASS_BINDING), missing));
         }
 
