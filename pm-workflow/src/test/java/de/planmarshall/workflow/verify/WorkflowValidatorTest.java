@@ -99,7 +99,7 @@ class WorkflowValidatorTest {
                     .map(matcher -> VerificationRule.valueOf(matcher.group(1)))
                     .toList();
 
-            assertAll(() -> assertEquals(33, expected.size()),
+            assertAll(() -> assertEquals(35, expected.size()),
                     () -> assertEquals(EnumSet.allOf(VerificationRule.class), EnumSet.copyOf(expected)));
         }
 
@@ -317,7 +317,11 @@ class WorkflowValidatorTest {
                         phase aborted
                     """ + DONE_TERMINAL);
 
-            assertEquals(List.of(), violations(definition));
+            var found = violations(definition).stream()
+                    .filter(violation -> violation.rule() == VerificationRule.EXIT_PATH)
+                    .toList();
+
+            assertEquals(List.of(), found, found::toString);
         }
     }
 
@@ -342,6 +346,82 @@ class WorkflowValidatorTest {
 
             assertEquals(count, found.size(), found::toString);
             found.forEach(violation -> assertEquals(VerificationRule.LINK_ID_UNIQUE, violation.rule()));
+        }
+    }
+
+    @Nested
+    @DisplayName("Cycle awaited event")
+    class CycleAwaitedEvent {
+
+        @Test
+        @DisplayName("Should refuse a resting-link cycle whose traversed links await no event")
+        void shouldRefuseNoopLoopWithoutEvent() {
+            var definition = unit("subworkflow", """
+                    state verify.entry
+                        phase inherit
+                        skill pm/verify/start
+                        link next proceed ()
+                            do test.proceed
+                                done -> verify.entry
+                        link submit finish [submit] (note: text[1..80], comment: text)
+                            do test.choose
+                                chosen -> verify.done
+                                declined -> verify.done
+                    """ + DONE_TERMINAL);
+
+            var found = violations(definition);
+
+            assertEquals(1, found.size(), found::toString);
+            var violation = found.getFirst();
+            assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule()),
+                    () -> assertEquals("verify.entry", violation.stateId()),
+                    () -> assertTrue(violation.message().contains("has no awaited event"), violation::message));
+        }
+
+        @Test
+        @DisplayName("Should pass a cycle whose traversed link submits to the operator")
+        void shouldPassSubmitLinkWithEvent() {
+            var definition = unit("subworkflow", """
+                    state verify.entry
+                        phase inherit
+                        skill pm/verify/start
+                        link submit choose [submit] (note: text[1..80], comment: text)
+                            do test.choose
+                                chosen -> verify.entry
+                                declined -> verify.done
+                    """ + DONE_TERMINAL);
+
+            var found = violations(definition).stream()
+                    .filter(violation -> violation.rule() == VerificationRule.CYCLE_AWAITED_EVENT)
+                    .toList();
+
+            assertEquals(List.of(), found, found::toString);
+        }
+
+        @Test
+        @DisplayName("Should refuse an engine-chained cycle with no cycle measure")
+        void shouldRefuseEngineChainedCycleWithoutMeasure() {
+            var definition = unit("subworkflow", """
+                    state verify.entry
+                        phase inherit
+                        auto test.prepare
+                            done -> verify.second
+                            skipped -> verify.done
+
+                    state verify.second
+                        phase inherit
+                        auto test.prepare
+                            done -> verify.entry
+                            skipped -> verify.done
+                    """ + DONE_TERMINAL);
+
+            var found = violations(definition);
+
+            assertEquals(1, found.size(), found::toString);
+            var violation = found.getFirst();
+            assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule()),
+                    () -> assertEquals("verify.entry", violation.stateId()),
+                    () -> assertTrue(violation.message().contains("has no cycle measure"), violation::message));
         }
     }
 
@@ -420,7 +500,8 @@ class WorkflowValidatorTest {
 
             var stateAndRule = found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList();
             assertEquals(List.of("verify.entry PRIMITIVE_BINDING", "verify.orphan REACHABILITY",
-                            "verify.orphan EXIT_PATH", "verify.orphan LINK_ID_UNIQUE", "verify.retired RELEASED_STATE"),
+                            "verify.orphan EXIT_PATH", "verify.orphan LINK_ID_UNIQUE",
+                            "verify.orphan CYCLE_AWAITED_EVENT", "verify.retired RELEASED_STATE"),
                     stateAndRule);
         }
 

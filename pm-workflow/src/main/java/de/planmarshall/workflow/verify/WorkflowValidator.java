@@ -1438,12 +1438,35 @@ public final class WorkflowValidator {
             case StateBehavior.JobStep job -> true;
             case StateBehavior.ModelJob modelJob -> true;
             case StateBehavior.QuestionWait question -> true;
-            case StateBehavior.InteractiveLinks links -> true;
+            case StateBehavior.InteractiveLinks links -> traversedLinkAwaits(state, toId);
             case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
                     .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
             case StateBehavior.SubWorkflowCall call -> false;
             case StateBehavior.TerminalState _ -> false;
         };
+    }
+
+    /**
+     * Decides whether the edge {@code fromId -> toId} out of a resting link state waits for an external event.
+     * A traversed link awaits when its form takes a submission (a {@code submit} link waits for the operator)
+     * or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited event
+     * does not satisfy the cycle.
+     */
+    private boolean traversedLinkAwaits(StateNode state, String toId) {
+        for (var link : UnitGraph.declaredLinks(state.behavior())) {
+            boolean traverses = link.transitions().stream().anyMatch(t -> toId.equals(t.targetStateId()));
+            if (!traverses) {
+                continue;
+            }
+            if (link.form() == LinkForm.SUBMIT) {
+                return true;
+            }
+            var primitive = registry.find(primitiveOf(link));
+            if (primitive.isPresent() && primitive.get().awaitedEvent() != AwaitedEvent.NONE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
