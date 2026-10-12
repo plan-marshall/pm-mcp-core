@@ -85,6 +85,21 @@ class PmMcpLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> verifyNotResolveRecords() {
+        return Stream.of(
+                Arguments.of(PmMcpLogMessages.WARN.JOB_REFUSED, "PM_MCP-180",
+                        "Job of project '%s' refused with reason '%s': %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("verifyNotResolveRecords")
+    @DisplayName("the records of the verify-not-resolve pipeline")
+    void verifyNotResolve(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     private static List<LogRecord> records(String level) throws ReflectiveOperationException {
         var holder = Class.forName(PmMcpLogMessages.class.getName() + "$" + level);
         var records = new ArrayList<LogRecord>();

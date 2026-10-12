@@ -411,6 +411,19 @@ public final class PmMcpLogMessages {
                 .identifier(167)
                 .template("Replay of the owed audit records of unenrolled projects failed: %s")
                 .build();
+
+        // WS-04, verify-not-resolve: identifiers from 180
+
+        /**
+         * Logged when the verify-not-resolve pipeline refuses a job, with the project id, the reason code and the
+         * detail; the detail carries the reason detail and changed paths only, never an argument vector value or a
+         * secret.
+         */
+        public static final LogRecord JOB_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(180)
+                .template("Job of project '%s' refused with reason '%s': %s")
+                .build();
     }
 
     /** ERROR level messages. */
