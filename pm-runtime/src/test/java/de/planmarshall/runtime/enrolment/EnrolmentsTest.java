@@ -767,7 +767,7 @@ class EnrolmentsTest {
 
             @Test
             @DisplayName("enrol keeps its record owed as failed with the reason not_confirmed, and never as succeeded")
-            void enrol() throws IOException {
+            void enrol() throws Exception {
                 blockSidecar();
                 var enrolment = enrolment(false, null);
 
@@ -778,7 +778,7 @@ class EnrolmentsTest {
 
             @Test
             @DisplayName("unenrol keeps its record owed as failed with the reason not_confirmed, and never as succeeded")
-            void unenrol() throws IOException {
+            void unenrol() throws Exception {
                 enrolments.enrol(enrolment(false, null), false);
                 events.clear();
                 blockSidecar();
@@ -790,7 +790,7 @@ class EnrolmentsTest {
 
             @Test
             @DisplayName("the next write hands the unconfirmed record over before its own succeeded record")
-            void nextWriteFlushesFirst() throws IOException {
+            void nextWriteFlushesFirst() throws Exception {
                 blockSidecar();
                 var enrolment = enrolment(false, null);
                 assertThrows(UncheckedIOException.class, () -> owing.enrol(enrolment, false));
@@ -999,7 +999,7 @@ class EnrolmentsTest {
         @Test
         @DisplayName("an intent file of one project that is unreadable does not stop the replay for the later projects; "
                 + "the first refusal is thrown after them, the later one suppressed, every such file kept")
-        void unreadableIntentDoesNotStopTheReplay() throws IOException {
+        void unreadableIntentDoesNotStopTheReplay() throws Exception {
             audit.mode = SinkMode.REFUSING;
             owing.enrol(enrolment(ALPHA, false, null), false);
             owing.enrol(enrolment(ZETA, false, null), false);
@@ -1022,7 +1022,7 @@ class EnrolmentsTest {
 
         @Test
         @DisplayName("the replay of an intent file that is unreadable throws that refusal and nothing is suppressed")
-        void singleUnreadableIntent() throws IOException {
+        void singleUnreadableIntent() throws Exception {
             audit.mode = SinkMode.REFUSING;
             owing.enrol(enrolment(ZETA, false, null), false);
             var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
