@@ -59,7 +59,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * template before the caller's default and is refused without either; a module must be discovered and needs a
  * module-argument group; a forbidden free flag is refused in a canonical build job and passes in a host tool call or a
  * project script, a shell metacharacter in any caller-supplied argument of every job kind is refused, as are project
- * script arguments that violate the enrolled schema. Each refusal has its matched positive control, and a job refused
+ * script arguments that violate the enrolled schema and a host tool call that names an enrolled interpreter
+ * ({@code python3}, {@code ruby}). Each refusal has its matched positive control, and a job refused
  * by stage 2 never reaches the argument check.
  */
 @EnableGeneratorController
@@ -233,6 +234,114 @@ class ArgumentCheckTest {
         @DisplayName("positive control: a flag forbidden only in build jobs passes in a host tool call")
         void buildOnlyFlagPasses(String flag) {
             assertEquals(List.of("status", flag), passed(git("status", flag)).arguments());
+        }
+    }
+
+    @Nested
+    @DisplayName("a host tool call that names an enrolled interpreter")
+    class InterpreterHostToolCall {
+
+        private void assertInterpreterRefused(JobRefusal refusal, HostToolName interpreter) {
+            assertAll(
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertEquals(("the host tool %s is an enrolled interpreter and runs only through a project"
+                            + " script, a script host tool or a wrapper").formatted(interpreter.wireName()),
+                            refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("python3 with -c and caller code is refused as argument_rejected, naming the tool, not the code")
+        void pythonWithCode() {
+            var code = Generators.letterStrings(8, 32).next();
+
+            var refusal = refused(new HostToolCall(HostToolName.PYTHON3, List.of("-c", code)));
+
+            assertAll(
+                    () -> assertInterpreterRefused(refusal, HostToolName.PYTHON3),
+                    () -> assertFalse(refusal.detail().contains(code), refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("python3 without arguments is refused as argument_rejected")
+        void pythonWithoutArguments() {
+            assertInterpreterRefused(refused(new HostToolCall(HostToolName.PYTHON3, List.of())),
+                    HostToolName.PYTHON3);
+        }
+
+        @Test
+        @DisplayName("ruby, the interpreter of the script host tool asciidoctor, is refused as argument_rejected")
+        void ruby() {
+            assertInterpreterRefused(refused(new HostToolCall(HostToolName.RUBY, List.of("-e",
+                    Generators.letterStrings(8, 32).next()))), HostToolName.RUBY);
+        }
+
+        @Test
+        @DisplayName("the interpreters are derived from the enrolment: wrappers, script host tools, project scripts")
+        void derivedFromEnrolment() {
+            assertEquals(Set.of(HostToolName.PYTHON3, HostToolName.RUBY),
+                    ArgumentCheck.enrolledInterpreters(enrolment));
+        }
+
+        @Test
+        @DisplayName("positive control: python3 is a plain host tool where nothing enrolled is run by it")
+        void pythonNotAnInterpreter() {
+            var withoutPython = withoutPythonUses(enrolment);
+
+            assertAll(
+                    () -> assertEquals(Set.of(HostToolName.RUBY), ArgumentCheck.enrolledInterpreters(withoutPython)),
+                    () -> assertEquals(List.of("--version"), passed(withoutPython,
+                            new HostToolCall(HostToolName.PYTHON3, List.of("--version"))).arguments()));
+        }
+
+        @Test
+        @DisplayName("positive control: a project script still runs through python3")
+        void projectScriptRunsThroughPython() {
+            var outcome = fixture.verify(fixture.request(fixture.root.toString(),
+                    new ProjectScriptCall(SCRIPT_ID, SCRIPT_BINDING, Fields.of(Map.of()))));
+
+            assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
+                    fixture.root.resolve(JobEnrolmentFixture.SCRIPT_PATH).toString()),
+                    assertInstanceOf(JobVerification.Verified.class, outcome).job().argv());
+        }
+
+        @Test
+        @DisplayName("positive control: asciidoctor still runs with its ruby prefix")
+        void scriptHostToolRunsThroughRuby() {
+            var outcome = fixture.verify(fixture.request(fixture.root.toString(),
+                    new HostToolCall(HostToolName.ASCIIDOCTOR, List.of("--version"))));
+
+            assertEquals(List.of(fixture.tools.get(HostToolName.RUBY).toString(),
+                    fixture.tools.get(HostToolName.ASCIIDOCTOR).toString(), "--version"),
+                    assertInstanceOf(JobVerification.Verified.class, outcome).job().argv());
+        }
+
+        @Test
+        @DisplayName("positive control: a host tool call of a tool that interprets nothing, git, still passes")
+        void gitPasses() {
+            assertEquals(List.of("status"), passed(git("status")).arguments());
+        }
+
+        @Test
+        @DisplayName("a python3 whose binary drifted is refused in stage 2 first, as executable_digest_mismatch")
+        void stageTwoFirst() throws Exception {
+            Files.write(fixture.tools.get(HostToolName.PYTHON3), JobEnrolmentFixture.randomContent());
+
+            var outcome = fixture.verify(fixture.request(fixture.root.toString(),
+                    new HostToolCall(HostToolName.PYTHON3, List.of("-c", Generators.letterStrings(8, 32).next()))));
+
+            assertEquals(Reason.EXECUTABLE_DIGEST_MISMATCH,
+                    assertInstanceOf(JobVerification.Refused.class, outcome).refusal().reason());
+        }
+
+        /** @return the enrolment without the project scripts and the wrapper {@code pw}, the uses of python3 */
+        private static ProjectEnrolment withoutPythonUses(ProjectEnrolment enrolment) {
+            var wrappers = enrolment.wrappers().stream().filter(wrapper -> wrapper.name() != WrapperName.PW).toList();
+            var withoutPw = JobEnrolmentFixture.withWrappers(enrolment, wrappers);
+            return new ProjectEnrolment(withoutPw.projectId(), withoutPw.projectRoot(), withoutPw.enrolledAt(),
+                    withoutPw.pilot(), withoutPw.containerEngine(), withoutPw.releasedAt(), withoutPw.wrappers(),
+                    withoutPw.hostTools(), withoutPw.build(), withoutPw.providers(), new TreeMap<>(),
+                    withoutPw.languageServers(), withoutPw.commandBudgets(), withoutPw.writePaths(),
+                    withoutPw.buildEnvironment());
         }
     }
 

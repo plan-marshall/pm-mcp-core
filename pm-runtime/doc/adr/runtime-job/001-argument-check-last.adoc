@@ -23,6 +23,9 @@ Three further questions were left open by the plan and settled during implementa
 2. How the short flags are matched: alone only, or with an attached value.
 3. What a project script job does with its arguments: whether they are appended to the argument vector, and how a job whose `binding` differs from the script's enrolled binding is refused.
 
+A fourth question came up in the review of the pull request: a `HostToolCall` can name an enrolled interpreter, for example `python3` with `-c <code>`.
+Stage 2 checks only the path and digest of the host tool, the binding and the argument schema apply only to a `ProjectScriptCall`, and the forbidden free flags only to canonical build jobs, so arbitrary code a caller supplies would run through a verified interpreter.
+
 == Decision
 
 1. **The argument check runs last.**
@@ -48,6 +51,14 @@ The verified job carries exactly the validated value (`VerifiedJob.projectScript
 5. **A binding mismatch is refused as `executable_not_enrolled`.**
 A project script job whose `binding` (worker kind and target) is not the script's enrolled binding is refused by stage 2 as `executable_not_enrolled`: the script is not enrolled for that use.
 
+6. **An enrolled interpreter is not directly callable.**
+A `HostToolCall` whose host tool is an enrolled interpreter is refused by stage 3 as `argument_rejected`, whatever its arguments, none included.
+An interpreter is a host tool that the enrolment records as the interpreter of a wrapper (`python3` of `pw`), of a host tool that is a script (`ruby` of `asciidoctor`) or of a project script (`python3`); the set is derived from the enrolment, not from a list of names, so a `python3` that interprets nothing enrolled stays an ordinary host tool.
+An interpreter then runs only through what it interprets: a project script, bound by its binding and its argument schema, a script host tool or a wrapper, each of which stage 2 starts with the verified interpreter first.
+The rule sits in stage 3 because `argument_rejected` is a stage 3 reason and the stage order stays as it is: an interpreter that is not enrolled or whose digest drifted is refused by stage 2 first.
+The refusal names the host tool, never the arguments.
+This is the operator's decision on the security concern raised in the review.
+
 == Alternatives Considered
 
 1. **Argument check first, as the cheapest check**:
@@ -70,16 +81,23 @@ The first implementation applied the flag list to every caller-supplied argument
 6. **A distinct reason for a binding mismatch**:
 *Rejected*: the closed set of ten reasons is confirmed by the operator; a script used for another binding is, for that use, not enrolled.
 
+7. **A forbidden-flag list for interpreters** (`-c`, `-m`, `-e`, `-r` and the like):
+*Rejected*: an interpreter runs code from many places (a flag, a script path, standard input, a module name, environment variables it reads); a list can only name the ones known today and every gap is a code-execution path. Refusing the direct call closes all of them, and every legitimate use already has its enrolled route.
+
+8. **Accepting the enrolment as the trust boundary**: the operator enrolled the interpreter, so any call to it is authorized.
+*Rejected*: the operator enrolls an interpreter to run the project scripts, script host tools and wrappers that need it, not to run whatever a caller, and through it a model, passes; that is the free resolution the pipeline exists to prevent.
+
 == Consequences
 
 * Stage order is a tested invariant: `ArgumentCheckTest` shows that a job refused in stage 2 never reaches the argument check, and that with the executable verified the same arguments are refused.
 * `ArgumentCheckTest` refuses each forbidden flag in a wrapper build and an npm build and verifies the same flags in a host tool call; it refuses every metacharacter in a host tool call, and a metacharacter in a project script value and in a member name.
 * `VerifyNotResolvePipelineTest` shows that a verified project script job carries exactly the validated arguments and an argument vector without them, and that a wrapper build and a host tool call carry none.
-* The developer guide (`pm-runtime/doc/developer/runtime-job.adoc`, Stage 3) states both scopes.
+* `ArgumentCheckTest` refuses a host tool call of `python3` (with `-c` and without arguments) and of `ruby`, shows that the interpreters are derived from the enrolment, and verifies a project script through `python3`, `asciidoctor` with its `ruby` prefix and a `git` call; `VerifyNotResolveAdversarialTest` refuses the interpreter host tool call over the whole pipeline, with its positive control.
+* The developer guide (`pm-runtime/doc/developer/runtime-job.adoc`, Stage 3) states both scopes and the interpreter rule.
 * A host tool that should not accept a given flag must be restricted by its enrolment, not by the flag list of this package.
 
 == Source
 
 * `doc/plans/verify-not-resolve.adoc`
-* Operator decisions during refine (q1) and execute (scope of the forbidden flags)
+* Operator decisions during refine (q1), execute (scope of the forbidden flags) and finalize (interpreter host tool calls, after the review of pull request 43)
 * `plan-marshall-documentation/doc/specification/domain-extensions/06-configuration.adoc`, Forbidden Free Flags

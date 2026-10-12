@@ -186,6 +186,15 @@ class ExecutableCheckTest {
         }
 
         @Test
+        @DisplayName("an enrolled interpreter called as a host tool is verified here; stage 3 refuses the call")
+        void interpreterVerifiedHere() {
+            assertAll(
+                    () -> assertEquals(List.of(tool(HostToolName.PYTHON3)),
+                            passed(enrolment, call(HostToolName.PYTHON3))),
+                    () -> assertEquals(List.of(tool(HostToolName.RUBY)), passed(enrolment, call(HostToolName.RUBY))));
+        }
+
+        @Test
         @DisplayName("positive control: a build job of npm runs the enrolled npm")
         void npmBuild() {
             assertEquals(List.of(tool(HostToolName.NPM)),

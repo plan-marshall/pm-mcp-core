@@ -249,6 +249,27 @@ class VerifyNotResolveAdversarialTest {
         }
 
         @Test
+        @DisplayName("an interpreter host tool call: python3 with caller code")
+        void interpreterHostToolCall() {
+            var code = Generators.letterStrings(8, 32).next();
+
+            var refusal = refused(verify(new HostToolCall(HostToolName.PYTHON3, List.of("-c", code))));
+
+            assertAll(
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertEquals("the host tool python3 is an enrolled interpreter and runs only through a"
+                            + " project script, a script host tool or a wrapper", refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("positive control: the same interpreter runs the enrolled project script")
+        void interpreterThroughProjectScript() {
+            assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
+                    fixture.root.resolve(SCRIPT_PATH).toString()),
+                    verified(verify(script(Fields.of(Map.of("goal", new Text("module-tests")))))).argv());
+        }
+
+        @Test
         @DisplayName("positive control: a discovered module in a build job is verified")
         void discoveredModule() {
             assertEquals(List.of(fixture.root.resolve(MVNW).toString(), "verify", "-pl", MODULE),

@@ -23,7 +23,9 @@
  * ({@code path_traversal_rejected});</li>
  * <li>the executable and its digest, for a wrapper job the wrapper and its pinned files
  * ({@code executable_not_enrolled}, {@code executable_digest_mismatch}, {@code build_config_changed});</li>
- * <li>the argument check, last ({@code verb_not_supported}, {@code argument_rejected}).</li>
+ * <li>the argument check, last ({@code verb_not_supported}, {@code argument_rejected}); it also refuses a host tool
+ * call that names an enrolled interpreter (the {@code python3} of a project script or of {@code pw}, the {@code ruby}
+ * of a script host tool), which runs only through what it interprets.</li>
  * </ol>
  * <p>
  * A refusal is a value ({@link de.planmarshall.runtime.job.JobRefusal}), never an exception, and is logged once at

@@ -93,7 +93,8 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
 
 * A build job (`WrapperBuild`, `HostToolBuild`) takes the template enrolled for its build system and verb (`build.canonical_templates.<build_system>.<verb>`, source `enrolled`), else the template of the caller's `DefaultTemplates` (source `compiled_default`); without either it is refused as `verb_not_supported`. A module-scoped job renders the module-argument group with `{module}` substituted; the module must be one of the caller's modules (`argument_rejected` otherwise), and a template without a group refuses the job as `verb_not_supported`. A whole-tree job omits the group.
-* A host tool call passes its arguments on after they are checked.
+* A host tool call that names an enrolled interpreter is refused as `argument_rejected`, with or without arguments: a host tool that the enrolment records as the interpreter of a wrapper (`python3` of `pw`), of a script host tool (`ruby` of `asciidoctor`) or of a project script (`python3`). The set is derived from the enrolment, not from a list of names, and the refusal names the host tool, never its arguments (see link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001], decision 6).
+* Any other host tool call passes its arguments on after they are checked.
 * A project script's arguments are a typed JSON value. They must validate against the script's enrolled argument schema (`argument_rejected` otherwise, naming the keyword and the path, never the value), and they are not appended to the argument vector: the script receives them as a value, not as command-line words. The verified job carries exactly the validated value as `VerifiedJob.projectScriptArguments`, so the launch step hands the script what stage 3 checked and nothing else.
 
 Two rules apply to what the caller supplies, with different scopes (see link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001]):
@@ -147,7 +148,7 @@ The tests run on the JVM over a real enrolment: `JobEnrolmentFixture` builds a s
 link:{test}/VerifyNotResolvePipelineTest.java[`VerifyNotResolvePipelineTest`]:: Stages 0 and 1: each enrolment refusal and each confinement refusal, the WARN record, a key-source fault passing through; and the validated project script arguments the verified job carries, empty for a wrapper build and a host tool call.
 link:{test}/ExecutableCheckTest.java[`ExecutableCheckTest`]:: Stage 2 for host tools, script host tools, project scripts and wrapper jobs, including a host tool shadowed on `PATH` that is never started.
 link:{test}/WrapperVerificationTest.java[`WrapperVerificationTest`]:: Every way a wrapper or a pinned file can change, and a matching wrapper not tracked by git that passes.
-link:{test}/ArgumentCheckTest.java[`ArgumentCheckTest`]:: Stage 3: the forbidden flags in build jobs, the metacharacters in every job kind, templates and their sources, the module rules, project script arguments, and the stage order.
+link:{test}/ArgumentCheckTest.java[`ArgumentCheckTest`]:: Stage 3: the forbidden flags in build jobs, the metacharacters in every job kind, the refused interpreter host tool calls, templates and their sources, the module rules, project script arguments, and the stage order.
 link:{test}/ArgumentSchemaValidatorTest.java[`ArgumentSchemaValidatorTest`]:: One test per schema keyword, violating and conforming.
 link:{test}/VerifyNotResolveAdversarialTest.java[`VerifyNotResolveAdversarialTest`]:: The adversarial confinement suite over the whole pipeline: one group per pipeline fixture of PM-TEST-5 (tampered wrapper, un-enrolled host tool, unapproved arguments, out-of-tree working directory) plus a tampered enrolment file.
 
@@ -162,6 +163,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06
 3. **No git check for wrappers**: a wrapper is verified by location, enrolled name and digest, with its pinned files; whether git tracks it is not checked (see link:../adr/runtime-job/003-wrapper-verified-by-location-name-and-digest.adoc[ADR 003]).
 4. **Refusals are values**: a refusal is a `JobVerification.Refused`, never an exception. A fault (the integrity key cannot be read, a lock order violation, a file that cannot be read) is no refusal and passes through as `SecretStoreException`, `InternalFaultException` or `UncheckedIOException`.
 5. **Verify-then-run window**: a wrapper or pinned file can change between the check and the launch. The job runner launches right after verification; closing the window belongs to the job confinement, not to this package.
+6. **No direct interpreter call**: an enrolled interpreter never runs as a host tool call of its own, so no caller-supplied code (`python3 -c ...`, `ruby -e ...`) reaches it. It runs only through what it interprets: a project script bound by its binding and argument schema, a script host tool or a wrapper, each started by stage 2 with the verified interpreter first. Do not admit an interpreter call "with safe arguments"; restrict what it runs through the enrolment instead.
 
 == Specification Tracing
 
