@@ -2,8 +2,8 @@
   "id": "PLAN-41",
   "slug": "static-verifier-remaining-rules",
   "workstream": "WS-03",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
+  "status": "running",
+  "plan_marshall_plan_id": "plan-41-static-verifier-remaining-rules",
   "pr": "",
   "landing": "",
   "seq": 41
