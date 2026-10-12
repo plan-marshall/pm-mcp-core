@@ -1,0 +1,144 @@
+= Workflow Verification (`workflow.verify`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+== Purpose
+
+Package `de.planmarshall.workflow.verify` implements the static AST verifier and transition fuzzer for the Workflow Domain-Specific Language (Workflow DSL) in Plan Marshall (PM-IMPL-5, PM-TEST-3).
+The static verifier inspects an immutable `WorkflowDefinition` AST and its transition graph ahead of workflow execution to guarantee structural, semantic, and behavioural invariants across all workflow scopes (`plan`, `epic`, `workspace`, `session`, `subworkflow`, `entity`).
+
+== Architecture & Core Types
+
+The static verification subsystem consists of the following key components:
+
+[horizontal]
+`WorkflowValidator`:: The primary verification entry point. Executes Rules 1 through 12 across a definition unit in a deterministic pipeline, producing an ordered `VerificationResult`.
+`VerificationRule`:: Enumeration naming each distinct specification check (27 rule constants covering Rules 1 to 12).
+`Violation`:: An immutable record capturing a single diagnosed defect: the `VerificationRule`, the associated `stateId`, the precise `SourceLocation` (file, line, column), and a human-readable diagnostic explanation.
+`VerificationResult`:: An immutable outcome record holding the list of violations and providing convenience accessors such as `passed()` and `hasViolation(rule)`.
+`UnitGraph`:: The directed transition graph substrate derived from a `WorkflowDefinition`. Computes forward closures, backward closures, reachability across configuration combinations (`depends_on_config`), acyclic call graphs, artifact producer paths, and cycle detection.
+`TransitionFuzzer`:: A combinatorial transition exploration engine that searches for unreachable or dead states under valid Boolean guard assignments.
+`WorkflowCatalog`:: An immutable catalog of known sub-workflows for resolving `call` invocations, enforcing call-graph DAG constraints (depth $\le 4$, no recursion), and validating parameter/result contracts.
+`EntityKindRegistry`:: Registry of known entity kinds with optional entity units and return-evaluation primitives (Rule 1).
+`QuestionClassRegistry`:: Registry of known question classes and their closed resolution outcome sets (Rules 1 and 2).
+`SchemaRegistry`:: Registry of known schema identifiers referenced in sub-workflow parameter and result declarations (Rule 1).
+
+=== Component Interaction
+
+[source]
+----
+WorkflowDefinition (AST)
+       │
+       ▼
+UnitGraph.of(definition) ──────┐
+       │                       │
+       ▼                       ▼
+WorkflowValidator  ◄─── Registries & WorkflowCatalog
+       │
+       ▼
+VerificationResult ───► List<Violation> (ordered by state, then rule)
+----
+
+== Verification Rules Reference
+
+The static verifier implements the following rules:
+
+=== Rule 1: Primitive and Entity Binding
+* `PRIMITIVE_BINDING`: Every primitive cited in an `auto`, `job`, `composite_job`, `facts`, `do`, `predicate:` or `each` clause must be registered in the `PrimitiveRegistry`.
+* `ENTITY_KIND_BINDING`: Every `job llm` entity kind must be registered in `EntityKindRegistry`. `role each` is admitted only in `adjudicate.decisions` with a registered read-only primitive returning role names. `ask` is refused on `role each` or on states lacking an entity unit.
+* `ROLE_NAME_GRAMMAR`: Role names of `job llm` states and `consult role` clauses must match `^[a-z][a-z0-9-]{1,31}$` and cannot be reserved keywords.
+* `SCHEMA_BINDING`: Every `schema[...]` in sub-workflow parameters and results must name a registered schema in `SchemaRegistry`.
+* `QUESTION_CLASS_BINDING`: Every `question` clause must name a registered question class in `QuestionClassRegistry`.
+* `JOB_STARTING_OUTCOME`: Primitives declaring `enqueuesJob()` must declare job-starting outcomes, and only their transitions may target `job` or `composite_job` states.
+
+=== Rule 2: Outcome Coverage and Bijections
+* `OUTCOME_COVERAGE`: `auto`, `job`, and `composite_job` states must cover all primitive outcomes.
+* `MODEL_JOB_OUTCOMES`: `job llm` transitions must form a bijection with the outcomes of its return-evaluation primitive plus `lost`. `asked` is engine-made and refused if declared.
+* `QUESTION_OUTCOMES`: `question` transitions must form a bijection with the closed resolution outcomes of the question class.
+
+=== Rule 3: State Graph Invariants
+* `STATE_ID_UNIQUE`: State identifiers must be unique, including engine-made `<state>.asked` states.
+* `STATE_EXISTS`: `startState` and every transition target must exist in the unit.
+* `REACHABILITY`: Every state must be reachable from `startState` (abort terminals exempt).
+* `CONFIG_REACHABILITY`: States and transitions must remain reachable under all `depends_on_config` Boolean flag combinations.
+* `EXIT_PATH`: In `workspace` scope, all non-terminal states must have a path back to `startState`. In other scopes, every state must have a path to a terminal state.
+* `ABORT_TERMINAL_TARGETING`: `plan.aborted` cannot be targeted by declared transitions. `epic.aborted` may only be targeted by `abort_landed` of `epic.next-work`.
+* `TARGET_NOT_RESERVED`: Reserved state suffixes (`.blocked`, `.footprint-violation`, `.config-drift`) and condition kinds cannot be transition targets.
+
+=== Rule 4: Leaf Task Constraint
+* `LEAF_TASK_CONSTRAINT`: Workflows of scope `entity` or `subworkflow` cannot declare sub-workflow calls or task subdivisions.
+
+=== Rule 5: Released States & Migrations
+* `RELEASED_STATE`: Every released state must exist in the unit or be renamed via a valid `migrate` declaration.
+
+=== Rule 6: Sub-Workflow Call Contract
+* `SUBWORKFLOW_CALL_CONTRACT`: Sub-workflow invocations must reference an existing sub-workflow in `WorkflowCatalog`, match required parameter bindings, and route `done` and `stepped_out`.
+
+=== Rule 7: Call Graph Topology
+* `CALL_GRAPH_DAG`: The sub-workflow call graph must be acyclic and call depth must not exceed 4 levels.
+
+=== Rule 8: Gate Producer Coverage
+* `GATE_PRODUCER_COVERAGE`: Every path reaching a gate requiring artifacts must pass through a producer of that artifact.
+
+=== Rule 9: Step Completion
+* `STEP_COMPLETION`: Each execution path between step boundaries must contain exactly one completion matching the outcome class.
+
+=== Rule 10: Session-Driven Links
+* `SESSION_DRIVEN_LINKS`: Resting `link` states and declared question links are admitted only in `workspace` and `session` scopes; they are forbidden in `plan` and `epic` scopes.
+
+=== Rule 11: Cycle Constraints
+* `CYCLE_AWAITED_EVENT`:
+  ** Rule 11a: Engine-chained cycles (consisting exclusively of `auto` and `call` states) must declare a decreasing cycle measure.
+  ** Rule 11b: Cycles containing resting states (`InteractiveLinks`, `QuestionWait`) or asynchronous tasks (`JobStep`, `ModelJob`) must contain at least one state awaiting an external event ($\ne \text{NONE}$).
+
+=== Rule 12: Link Compatibility
+* `LINK_ID_UNIQUE`: Link identifiers must be unique within a state, including implicit engine links (`ack`, `consult:<role>`, `answer:<question_id>`).
+* `LINK_COMPATIBILITY`: Link relation and form must be compatible; form `submit` requires parameters; form `noop` forbids parameters; engine-owned relations `CONSULT` and `ABORT` cannot be declared.
+
+== Usage & Extension
+
+=== Verifying a Workflow
+
+[source,java]
+----
+WorkflowValidator validator = new WorkflowValidator(
+        primitiveRegistry,
+        releasedStates,
+        EntityKindRegistry.defaults(),
+        QuestionClassRegistry.defaults(),
+        SchemaRegistry.defaults(),
+        workflowCatalog);
+
+WorkflowDefinition definition = WorkflowParser.parse("workflow.pmwf", source).orElseThrow();
+VerificationResult result = validator.verify(definition);
+
+if (!result.passed()) {
+    result.violations().forEach(v -> 
+        logger.warn("Rule violation [{}] at {}: {}", v.rule(), v.location(), v.message()));
+}
+----
+
+=== Adding New Entity Kinds or Question Classes
+
+Registries are immutable and offer `.with(...)` methods for extension:
+
+[source,java]
+----
+EntityKindRegistry customKinds = EntityKindRegistry.defaults()
+        .with(new EntityKind("custom", Optional.of("custom-unit"), "custom.evaluate"));
+
+QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
+        .with(new QuestionClass("custom_gate", Set.of("approved", "rejected")));
+----
+
+== Invariants & Failure Modes
+
+1. **Deterministic Order**: Violations are ordered first by AST state declaration sequence, then by `VerificationRule` enum ordinal.
+2. **Fail-Soft / Diagnostic**: Verification never throws runtime exceptions on semantic failures; it collects all observable violations in `VerificationResult`.
+3. **Parse Boundary Separation**: Structural syntax errors are refused at parse time by `WorkflowParser`; semantic cross-references and graph reachability are checked by `WorkflowValidator`.
+
+== Specification Tracing
+
+* Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
+* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
