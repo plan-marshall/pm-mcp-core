@@ -2,9 +2,9 @@
   "id": "PLAN-36",
   "slug": "code-analysis-base",
   "workstream": "WS-07",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "code-analysis-base",
+  "pr": "#31",
+  "landing": "landings/PLAN-36.md",
   "seq": 36
 }

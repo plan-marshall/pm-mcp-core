@@ -2,9 +2,9 @@
   "id": "PLAN-08",
   "slug": "runtime-lifecycle",
   "workstream": "WS-01",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "runtime-lifecycle",
+  "pr": "#29",
+  "landing": "landings/PLAN-08.md",
   "seq": 8
 }

@@ -2,9 +2,9 @@
   "id": "PLAN-03",
   "slug": "workspace-confinement",
   "workstream": "WS-01",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "workspace-confinement",
+  "pr": "#19",
+  "landing": "landings/PLAN-03.md",
   "seq": 3
 }

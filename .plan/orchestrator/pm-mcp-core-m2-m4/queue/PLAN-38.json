@@ -1,0 +1,10 @@
+{
+  "id": "PLAN-38",
+  "slug": "review-bot-re-review",
+  "workstream": "WS-09",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-38-review-bot-re-review",
+  "pr": "#24",
+  "landing": "landings/PLAN-38.md",
+  "seq": 38
+}

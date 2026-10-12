@@ -35,9 +35,18 @@ decision or a dependency outside this repository.
   It gates PLAN-25 `waits` and PLAN-26 `role-sets-and-model-caller`, and through them most of
   WS-04 and WS-05 — the first external dependency on the critical path.
 - PLAN-27 — staged, but also waits on `pm-mcp-clients` / `exec-read-denied-paths`.
+- PLAN-04, PLAN-06 — shipped 2026-10-11 as #25 and #26.
+- PLAN-09, PLAN-11, PLAN-12, PLAN-14 — ready since PLAN-06 shipped, but all four declare
+  `core.store/` and overlap each other: run one at a time unless the operator pairs them.
+  PLAN-09 also declares `runtime.start/` and so overlaps PLAN-08.
+- PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
+- PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
+- PLAN-38 — shipped as #24 on 2026-10-10; WS-09 closes with it.
 - PLAN-36 — serves Milestone 6; ready now and disjoint by package from every other plan, so it
   is a good filler for a free slot. It sits at the queue end because a row's order is fixed when
   it is staged; ask for it by id when a slot is free.
+- PLAN-39, PLAN-40 — WS-10 module documentation backfill, staged 2026-10-11; both wait for PLAN-08,
+  PLAN-10, PLAN-11, PLAN-36 and are disjoint from each other.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
 ## Decisions
@@ -70,18 +79,207 @@ decision or a dependency outside this repository.
   under-declaration: plans of one workstream still share a block, and the guard is
   `PmMcpLogMessagesTest`, which refuses an identifier used twice.
 
+- 2026-10-10 — PLAN-02 `primitive-spi-and-validators` landed as #18 (abaf95d); landing record
+  `landings/PLAN-02.md`. Inbox drain of its 25 messages: the landing reconciled, and the 24
+  candidate lessons `primitive-spi-and-validators-001.md` to `-024.md` each promoted to the
+  lessons store as 2026-10-10-07-001 to -024 in the same order. Messages 003 to 010 are `pm-core`
+  engineering rules from defects fixed inside #18. Messages 001, 002 and 011 to 024 concern
+  plan-marshall tooling; the store of this repository does not own that bundle, so they were
+  filed with the foreign-store override and still need routing to plan-marshall.
+
+- 2026-10-10 — PLAN-03 `workspace-confinement` landed as #19 (7d99648); landing record
+  `landings/PLAN-03.md`. Inbox drain of its 20 messages: the landing reconciled; of the 19
+  candidate lessons, 6 promoted (009, 010, 014, 017, 018, 019 as lessons 2026-10-10-08-001 to
+  -006), 11 folded (001 to 003, 012, 015 as recurrences into lessons -07-001, -07-013, -07-016;
+  004 to 008 and 011 into the specs not yet started), 2 discarded as uncorroborated (013, 016).
+- 2026-10-10 — #19 reworded the working rules on `main` by operator decision: no draft pull
+  request claims a package, and the documentation pull request need not name the code pull
+  request. The 34 specs not yet started (PLAN-04 to PLAN-37) were regenerated with these rules,
+  with the settled confinement design (a refused project path is a `ConfinementOutcome` value, no
+  checked exception) and with a rule against leaving open a design choice that changes the file
+  set. The specs of PLAN-01, PLAN-02 and PLAN-03 were left as launched.
+- 2026-10-10 — Package homes re-checked against the package table after PLAN-03 refuted both of
+  its inferred homes. Covered by a package description and kept: PLAN-17 `workflow.finalize`,
+  PLAN-20 `core.service`, PLAN-25 `workflow.hypermedia`, PLAN-31 `runtime.launch`. Not covered and
+  now labelled as guesses that will need an operator answer at refine: PLAN-09 and PLAN-23
+  (`runtime.start`, and `core.store` for PLAN-23), PLAN-11 (`runtime.security`), PLAN-34
+  (`workflow.model`). Their declared surfaces are unchanged, because no better home is known.
+- 2026-10-10 — Collision recorded: PLAN-01 (#20) and PLAN-03 (#19) both took WARN 150 in the shared
+  WS-01 block of `PmMcpLogMessages`, which no spec declares by the block decision of 2026-10-09.
+  The pairing gate could not predict it. PLAN-01 was told through its mailbox.
+
+- 2026-10-10 — Operator asked for the review-bot fix as a plan. Staged PLAN-38
+  `review-bot-re-review` in a new workstream WS-09 `project-configuration`: set
+  `re_review_on_loopback` to `true` so the review step posts `/review` after a fix commit. The
+  Docker Hub pull rate limit of the reviewer image is a change in `cuioss/cuioss-organization`
+  and was handed to the operator as a command for that repository; it is not a plan of this epic.
+
+- 2026-10-10 — PLAN-01 `lock-manager-and-leases` landed as #20 (c2b608b); landing record
+  `landings/PLAN-01.md`. Inbox drain of its 20 messages: the landing reconciled; of the 19
+  candidate lessons, 15 promoted (002, 003, 007 to 019 as lessons 2026-10-10-14-001 to -015 in that
+  order), 4 folded: 001 into lesson -14-011 (same `scope_creep_check` failure, also filed as 015),
+  004 as a recurrence into lesson -07-016, 005 as a recurrence into lesson -07-013 and the
+  review-bot Open Defect (PLAN-38 owns it), 006 into the same-block identifier Open Defect.
+  Lessons 007 to 009 are dispatcher reports the plan itself marks as not confirmed in its logs.
+
+- 2026-10-10 — Operator decision: all 32 plan-marshall tooling lessons of this repository's store
+  routed to plan-marshall's `lessons-routing` epic inbox as `pm-mcp-core-m2-m4-001.md` to `-032.md`
+  (sender orchestrator, kind candidate-lesson), then retired here with verdict `superseded`. The
+  13 lessons left here are `pm-core`, `pm-runtime` and `pm-mcp-parent` rules.
+
+- 2026-10-10 — The reviewer image no longer comes from Docker Hub: cuioss-organization #321
+  (merged 0faf9b2, released v0.41.0) pulls it from `ghcr.io/cuioss/pr-agent-mirror` by digest
+  sha256:b253845c…, byte-identical to `pragent/pr-agent`. The pin moved here with #23 (067032c,
+  opened and merged by plan-marshall-release-bot): `reusable-cuioss-review-bot.yml@73712a1 # v0.41.0`,
+  checked against the dereferenced tag. Not a plan of this epic.
+
+- 2026-10-10 — PLAN-38 `review-bot-re-review` landed as #24 (66950bb); landing record
+  `landings/PLAN-38.md`. `re_review_on_loopback` is `true` on `main`; the proof on a pull request
+  was not possible on #24 (both required bots skip `.plan/` paths) and became a Watch by operator
+  decision. Inbox drain of its 7 messages: the landing reconciled; the 6 candidate lessons, all
+  plan-marshall tooling, routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-033.md` to
+  `-038.md` under the routing decision above, nothing kept in this store.
+
+- 2026-10-10 — Operator decision: `parallelization_scope` raised from 3 to 4, because PLAN-05
+  `http-baseline` is disjoint from the running PLAN-04, PLAN-06 and PLAN-07 (only
+  `doc/plans/README.adoc` shared). PLAN-36 is also disjoint and is the next filler.
+
+- 2026-10-11 — PLAN-04 `service-unit` landed as #25 (0ca1b24) and PLAN-06 `store-substrate` as
+  #26 (cbdd04e); landing records `landings/PLAN-04.md`, `landings/PLAN-06.md`. Inbox drain of 29
+  messages: both landings reconciled; of the 27 candidate lessons, 9 about this repository's code
+  promoted here (PLAN-04 003 to 006 and PLAN-06 004 to 008 as lessons 2026-10-11-07-002 to -010),
+  18 about plan-marshall routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-039.md` to
+  `-056.md`.
+- 2026-10-11 — The review-bot proof of PLAN-38 was taken on #26: plan-marshall posted `/review`
+  (06:30:39Z), the run started from it (the posting account passed the author-association guard),
+  pulled the image from ghcr.io and produced a review of head 64414e3. Watch retired.
+- 2026-10-11 — Advisory delivered to PLAN-07's mailbox (`inbox/to/workflow-dsl-parser-and-ast/`):
+  its manifest carries the stale `re_review_on_loopback: false`; set it plan-locally.
+
+- 2026-10-11 — PLAN-05 `http-baseline` landed as #28 (268d2c0); landing record
+  `landings/PLAN-05.md`. WS-08 closes. The provider tests run on the mock web server and the
+  `FakeServer` classes are gone. First plan with `re_review_on_loopback: true` from the start:
+  plan-marshall posted `/review` after both fix commits and the bot reviewed each time, no stall.
+  Inbox drain of 10 messages: the landing reconciled; 8 lessons routed to plan-marshall
+  `lessons-routing` as `pm-mcp-core-m2-m4-057.md` to `-064.md`; 1 folded as a recurrence into lesson
+  2026-10-10-14-001 (pre-commit recipe).
+
+- 2026-10-11 — Correction: the documentation of PLAN-01 was not missing. `plan-marshall-documentation`
+  #24 ("document the lock manager, lock order and leases of PM-IMPL-7", LogMessages 50/151/250)
+  merged on 2026-10-10; the plan's landing message predated it. Watch retired. Likewise PLAN-04's
+  documentation (#26 there) and PLAN-06's (#28 there) are merged; their Watches retired. PLAN-02's
+  (#20 there) and PLAN-07's (#27 there) are open.
+
+- 2026-10-11 — Operator asked whether the per-package documentation pull requests are sensible.
+  Analysis of doc PRs #19–#28: about a third is contract change (specification, concepts); the rest
+  copies code state (trace class lists, roadmap checkboxes, watch counts, log table, package
+  descriptions) or describes code (developer guides). Staged, at the operator's request, as a plain
+  Claude Code session plan outside this epic: `.plan/temp/doc-structure-single-pr-plan.md` of
+  pm-mcp-core. When its PRs merge, the Standing Constraints of the specs not yet started are
+  rewritten from its report.
+
+- 2026-10-11 — PLAN-07 `workflow-dsl-parser-and-ast` landed as #27 (d091527), its documentation as
+  `plan-marshall-documentation` #27; landing record `landings/PLAN-07.md`. The mailbox advisory was
+  applied (manifest `re_review_on_loopback: true`), so the re-review ran without an override. Inbox
+  drain of 20 messages: the landing reconciled; 1 lesson promoted here (2026-10-11-16-001,
+  `pm-workflow`), 18 routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-065.md` to
+  `-082.md`. Closed the stale re-review defect: PLAN-07 was the last plan composed before #24.
+  Still open as an operator question: whether one bot review is enough to merge (asked on #26).
+- 2026-10-11 — Spec quality: PLAN-07 hit two contradictions between specification documents only in
+  execute (instance header vs store schema; `question` as a reserved word). Specs not yet started
+  name specification sections the same way and can carry the same kind of contradiction.
+
+- 2026-10-11 — Operator decision: every module documents itself — `{module}/README.adoc`, and all
+  other documentation below `{module}/doc/`: developer documentation per package
+  (`doc/developer/{package}.adoc`) and ADRs (`doc/adr/{package}/NNN-{slug}.adoc`, repository-wide in
+  `doc/adr/`). The per-package file and ADR directory names, and numbering per package directory so
+  parallel plans of different packages never collide, were chosen by the orchestrator. New
+  workstream WS-10 `module-documentation`; staged PLAN-39 `module-readmes-and-adrs` (rule, template,
+  READMEs, ADRs for decisions already shipped) and PLAN-40 `module-developer-docs` (developer files,
+  taking over the guides in `plan-marshall-documentation`). The 26 staged and parked specs got the
+  Standing Constraint "Module documentation" and their package's developer file and ADR directory in
+  the Expected Surface; the "Documents" bullet no longer sends developer documentation to
+  `plan-marshall-documentation`. Running PLAN-08, PLAN-10, PLAN-11 and PLAN-36 keep their specs; the
+  backfill covers them. The session plan `.plan/temp/doc-structure-single-pr-plan.md` was aligned:
+  its decision 1 is settled and its pm-mcp-core moves belong to PLAN-40.
+
+- 2026-10-11 — PLAN-36 `code-analysis-base` landed as #31 (d1608b7) and PLAN-08 `runtime-lifecycle`
+  as #29 (e163bf8); landing records `landings/PLAN-36.md`, `landings/PLAN-08.md`. WS-07 closes.
+  Inbox drain of 42 messages: both landings reconciled; of the 40 candidate lessons, 8 about this
+  repository's code promoted here (2026-10-11-20-001 to -008), 32 routed to plan-marshall
+  `lessons-routing` as `pm-mcp-core-m2-m4-083.md` to `-114.md`. Both plans re-reviewed without an
+  override. PLAN-36 added the test-scope dependencies `json-schema-validator` (pinned 1.5.8) and
+  `archunit-junit5` with the operator's consent recorded at refine.
+- 2026-10-11 — The WS-01 WARN block 150-159 is full since #29. Allocated WARN 141-149 (free on main
+  at e163bf8) as WS-01 overflow, keeping the three-digit scheme of 2026-10-09; PLAN-09 and PLAN-23,
+  the WS-01 plans left, were amended.
+
+- 2026-10-12 — PLAN-10 `static-verifier-and-fuzzer` landed as #32 (c0d4b92); landing record
+  `landings/PLAN-10.md`. By operator override it implemented part of the rules and added the package
+  `static-verifier-remaining-rules` to the index; staged as PLAN-41 in WS-03 (overlaps PLAN-17 in
+  `workflow.verify`). Inbox drain of 11 messages: the landing reconciled; 1 lesson promoted here
+  (2026-10-12-05-001), 9 routed to plan-marshall as `pm-mcp-core-m2-m4-115.md` to `-123.md`.
+
+- 2026-10-12 — Operator decision (AskUserQuestion): PLAN-13 `workflow-engine` and PLAN-17
+  `project-units-and-invariants` both wait for PLAN-41 `static-verifier-remaining-rules`.
+  Alternatives: only PLAN-17 waits (recommended); neither waits. Their specs carry the dependency;
+  PLAN-41's pull request adds it to the two index rows, as a sanctioned exception to the own-row rule.
+
 ## Open Defects
+
+- No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
+  by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
+  package to adopt the check itself — source: landing PLAN-03.
+- Two plans of one workstream can take the same log identifier; it surfaced as a merge conflict
+  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03;
+  confirmed by PLAN-01 (inbox 006), which moved to WARN 151. PLAN-04, PLAN-08 and PLAN-09 share the
+  same WS-01 block.
+
+- The roadmap item behind PLAN-02 is only partly delivered and no staged plan owns the rest:
+  validators for `request.md` and pull request bodies (PM-WF-6), the `OutlineValidator` rules that
+  need the working tree, task derivation or build extensions, the registry checks that need the
+  closed gate list or the keyword list, and the binding of free parameters — source: landing
+  PLAN-02 (plan's own statement; not checked against the roadmap).
+- `AsciiDocValidator` treats `!===` as the nested-table delimiter; CodeRabbit named `!==`. Neither
+  was checked against the AsciiDoc documentation. If `!==` is valid, such a nested table is read
+  as ordinary text — source: landing PLAN-02 and lesson 2026-10-10-07-010.
+
 
 ## Watches
 
-- PR #16 must be on `main`, and the ledger worktree on that base, before the first `land`:
-  until then the worktree's `.gitignore` still ignores the ledger.
-- `code-analysis-base` (added by #15, serves Milestone 6, depends on nothing, `open`) is in the
-  index but outside the Milestone 2 to 4 scope this epic was framed for — decide at `decompose`
-  whether it joins the queue.
-- Nearly every package is expected to edit both `doc/plans/README.adoc` (its status row) and
-  `PmMcpLogMessages` in `pm-core`; two shared files is the threshold at which the disjointness
-  gate asks the operator — decide at `decompose` how the specs declare these two files.
+- PLAN-11's #30 reads DIRTY against `main` since #29 and #31 merged (2026-10-12): one content
+  conflict in `PmMcpLogMessages`, adjacent new blocks, no identifier taken twice. Advisory delivered
+  to its mailbox. Retire when #30 is clean or merged.
+
+- `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
+  (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
+  runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
+- Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
+  (PLAN-02) — operator merges. (#33 of PLAN-08 merged.)
+- Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
+  `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
+  `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).
+
+- PLAN-06 changed the signatures of `AuditEvent` and `CrossScopeReconciler` and the journal format;
+  `plan-marshall-mcp` must follow. Closing a channel on a POSIX file drops the process's OS locks on
+  it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock — PLAN-09
+  `audit-trail` must account for it; the fix belongs in the lock manager.
+
+- The `plan-marshall-mcp` package that wires `FileLockManager` must create one instance per runtime
+  (a second one can release the first holder's OS lock on POSIX); stated only in the Javadoc.
+  Outside this repository — carry to whoever stages that wiring.
+- `verify -Ppre-commit` of `pm-mcp-parent` is not idempotent and rewrites files a plan never
+  touched (27 `pm-runtime` files on PLAN-01; lesson 2026-10-10-14-001). Every running plan can
+  pull unrelated diffs into its PR. A parent POM change, outside this repository.
+
+- `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
+  PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
+- Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
+  6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
+
+> ↪ Relocated to `settled.md` § "Watch: PR #16 before the first land" — PR #16 merged (f049631) and the first land #17 carried the ledger
+> ↪ Relocated to `settled.md` § "Watch: code-analysis-base at decompose" — it joined as PLAN-36 and shipped as #31
+> ↪ Relocated to `settled.md` § "Watch: the two files nearly every package edits" — settled by the per-workstream identifier block decision of 2026-10-09
 - About eleven packages land in `pm-core` package `core.store` — re-check at each pairing decision.
 - Cross-repository blockers: `profile-loader` waits on `pm-mcp-clients` / `profile-documents`;
   `job-confinement-and-environment` waits on `pm-mcp-clients` / `exec-read-denied-paths` —

@@ -2,9 +2,9 @@
   "id": "PLAN-06",
   "slug": "store-substrate",
   "workstream": "WS-02",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-06-store-substrate",
+  "pr": "#26",
+  "landing": "landings/PLAN-06.md",
   "seq": 6
 }

@@ -2,9 +2,9 @@
   "id": "PLAN-04",
   "slug": "service-unit",
   "workstream": "WS-01",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-04-service-unit",
+  "pr": "#25",
+  "landing": "landings/PLAN-04.md",
   "seq": 4
 }
