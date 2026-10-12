@@ -1,0 +1,83 @@
+= ADR 001: The Argument Check Is the Last Stage of the Pipeline, and the Scope of Its Rules
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+Work package `verify-not-resolve` (Roadmap Milestone 4) implements the verify-not-resolve pipeline of a job in `pm-runtime` package `runtime.job` (PM-EXEC-1, PM-EXEC-2).
+The specification names the checks of the pipeline (enrolment, working directory, executable and digest, arguments) but leaves open in which order the argument check runs relative to the others.
+
+The arguments are the part of a job a caller, and through the caller a model, controls most freely.
+Looking at them early would mean parsing and matching caller-controlled input for a job whose executable is not yet known to be the enrolled one, and a refusal for an argument could hide that the executable itself was tampered with.
+
+Three further questions were left open by the plan and settled during implementation:
+
+1. The configuration specification (`domain-extensions/06-configuration.adoc`, Forbidden Free Flags) refuses the free flags `-D`, `-f`, `--file`, `-s`, `--settings`, `--init-script` "in canonical build jobs". The first implementation refused them in every caller-supplied argument of every job kind, so a host tool call such as `git status -sb` was refused.
+2. How the short flags are matched: alone only, or with an attached value.
+3. What a project script job does with its arguments: whether they are appended to the argument vector, and how a job whose `binding` differs from the script's enrolled binding is refused.
+
+== Decision
+
+1. **The argument check runs last.**
+`ArgumentCheck` is stage 3 and runs only after the enrolment (stage 0), the working directory (stage 1) and the executable with its digest (stage 2) passed.
+The first stage that refuses decides; a later stage never runs.
+A job refused for its executable is therefore refused as `executable_digest_mismatch` or `build_config_changed` even if its arguments would also be refused, and nothing a caller supplies is looked at for a job whose executable is not verified.
+
+2. **Shell metacharacters are refused in every job kind; the forbidden free flags in canonical build jobs only.**
+A shell metacharacter (`|`, `;`, `&`, `$`, `` ` ``, `>`, `<`) is refused as `argument_rejected` in every caller-supplied argument of every job kind: the module of a build job, every argument of a host tool call, every string and member name of a project script's arguments.
+The forbidden free flags are refused as `argument_rejected` only in canonical build jobs (`WrapperBuild`, `HostToolBuild`), where the caller supplies the module; there they would redirect the build to other settings, another project file or injected properties.
+A host tool call and a project script are not checked against the flag list: their arguments stay bound by the enrolment of the tool, and those of a project script by its argument schema.
+This follows the scope the configuration specification states and is the operator's decision taken during the implementation.
+
+3. **Short forbidden flags are matched as prefixes in build jobs.**
+`-D`, `-f` and `-s` are refused alone and with an attached value (`-Dfoo=bar`, `-fother-pom.xml`, `-sother-settings.xml`); the long flags alone and with `=value`.
+A long flag that only begins like a forbidden one (`--filesystem`) is not refused.
+
+4. **Project script arguments are a typed value, not words of the argument vector.**
+The arguments of a `ProjectScriptCall` are a JSON value (`JobRequest.Value`).
+They are validated against the script's enrolled `argument_schema` by `ArgumentSchemaValidator` and are not appended to the argument vector; the script receives them as a value.
+
+5. **A binding mismatch is refused as `executable_not_enrolled`.**
+A project script job whose `binding` (worker kind and target) is not the script's enrolled binding is refused by stage 2 as `executable_not_enrolled`: the script is not enrolled for that use.
+
+== Alternatives Considered
+
+1. **Argument check first, as the cheapest check**:
+Matching the arguments needs no file access and would refuse many bad jobs early.
+*Rejected*: it parses caller-controlled input before the executable is verified, and its refusal would mask a tampered executable or build configuration, which the operator must see first.
+
+2. **Forbidden flags in every job kind**:
+The first implementation applied the flag list to every caller-supplied argument.
+*Rejected*: it refuses ordinary host tool calls (`git status -sb`, `git log -f`), and the specification scopes the list to canonical build jobs; the arguments of host tools and project scripts are bound by their enrolment and schema.
+
+3. **Metacharacters only in build jobs, like the flags**:
+*Rejected*: the argument vector is never passed through a shell, but a metacharacter in an argument has no legitimate use in a verified job and would be dangerous for any consumer that ever interprets it; refusing it everywhere costs nothing.
+
+4. **Exact matching of the short flags**:
+*Rejected*: `-Dexec.executable=/bin/sh` is the attack the rule exists for; only a prefix match refuses it.
+
+5. **Appending project script arguments as `--key value` words**:
+*Rejected*: it would invent a command-line convention the specification does not define and reintroduce argument parsing on the script's side; the typed value is validated once against the schema.
+
+6. **A distinct reason for a binding mismatch**:
+*Rejected*: the closed set of ten reasons is confirmed by the operator; a script used for another binding is, for that use, not enrolled.
+
+== Consequences
+
+* Stage order is a tested invariant: `ArgumentCheckTest` shows that a job refused in stage 2 never reaches the argument check, and that with the executable verified the same arguments are refused.
+* `ArgumentCheckTest` refuses each forbidden flag in a wrapper build and an npm build and verifies the same flags in a host tool call; it refuses every metacharacter in a host tool call, and a metacharacter in a project script value and in a member name.
+* The developer guide (`pm-runtime/doc/developer/runtime-job.adoc`, Stage 3) states both scopes.
+* A host tool that should not accept a given flag must be restricted by its enrolment, not by the flag list of this package.
+
+== Source
+
+* `doc/plans/verify-not-resolve.adoc`
+* Operator decisions during refine (q1) and execute (scope of the forbidden flags)
+* `plan-marshall-documentation/doc/specification/domain-extensions/06-configuration.adoc`, Forbidden Free Flags

@@ -1,0 +1,54 @@
+= ADR 003: The Build Wrapper Is Verified by Location, Enrolled Name and Digest
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+A build job runs a repository build wrapper (`mvnw`, `gradlew`, `pw`).
+The wrapper is a file of the repository, and so are the files that steer it (`.mvn/wrapper/maven-wrapper.properties`, `.mvn/maven.config` and the like); a pull request, a model or a branch switch can change them.
+
+The requirement and the specification wording at the start of this package spoke of a "git-tracked" or "committed" wrapper.
+Checking that would need a git interface in `runtime.job`, and it would not protect anything: a committed wrapper can be as malicious as an uncommitted one, and what the operator approved at enrolment is a digest, not a commit.
+
+== Decision
+
+1. **Location**: the wrapper must sit at the root of the verified working-directory tree. Its enrolled `relative_path` is a single name, resolved against the canonical working directory and read without following a symbolic link; a wrapper enrolled anywhere else, or replaced by a link, counts as changed.
+
+2. **Name and digest**: the wrapper must match an enrolled wrapper name (`executable_not_enrolled` otherwise) and its enrolled SHA-256.
+
+3. **Pinned files**: every file pinned to the wrapper at enrolment must match its digest; a recorded file that is missing or differs, and a file recorded as must-stay-absent that now exists, each count as changed.
+
+4. **One refusal for every change**: any change refuses the job as `build_config_changed`, naming every changed repository-relative path, sorted, and the command `pm-operator enrol <project_id>` that records the new configuration once the operator reviewed it.
+
+5. **No git**: `WrapperVerification` checks neither whether git tracks the wrapper nor whether it is committed, and `runtime.job` has no git interface. The linked-worktree check of the working directory (PM-SEC-2) is unchanged: the caller verifies the live linked worktrees and passes them in.
+
+== Alternatives Considered
+
+1. **Require a git-tracked or committed wrapper**:
+*Rejected*: it needs a git interface in a package that has none, and the approval the operator gave is a digest; a committed file is not a trusted one.
+
+2. **Refuse at the first changed file**:
+*Rejected*: the operator re-enrols once and must see every file that changed, not discover them one refusal at a time.
+
+3. **Follow symbolic links when hashing**:
+*Rejected*: a link to unchanged content elsewhere would pass while the tree no longer holds the enrolled file.
+
+== Consequences
+
+* The requirement and specification wording about git-tracked or committed wrappers is corrected in `plan-marshall-documentation` (PM-EXEC-1, PM-SEC-5, the Job Runtime specification).
+* `WrapperVerificationTest` covers every change, and a matching wrapper in a tree without git that passes.
+* `VerifyNotResolveAdversarialTest` refuses a tampered wrapper, a changed pinned file and a pinned file that appeared, each naming the file.
+* The window between verification and launch is not closed here; it belongs to the job confinement.
+
+== Source
+
+* `doc/plans/verify-not-resolve.adoc`
+* Operator decision during refine (q3)
+* `plan-marshall-documentation/doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc`, Verify-Not-Resolve Execution Pipeline

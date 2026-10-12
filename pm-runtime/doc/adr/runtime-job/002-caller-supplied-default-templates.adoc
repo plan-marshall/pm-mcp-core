@@ -1,0 +1,55 @@
+= ADR 002: Default Templates of the Build Verbs Are Supplied by the Caller
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+A canonical build job (`WrapperBuild`, `HostToolBuild`) names a build system and a verb; the argument vector after the executable comes from a template.
+The configuration specification lets the operator enrol templates per build system and verb (`build.canonical_templates.<build_system>.<verb>`) and gives the enrolled template precedence over a compiled default (source `enrolled` over `compiled_default`).
+
+Where the compiled defaults live was open.
+They decide what a build verb runs for every project that enrols none, and they are product content that changes with the build tools; `pm-runtime` is the daemon's logic without a framework and carries no model-facing or product-tuned content.
+
+== Decision
+
+1. **The caller supplies the defaults.**
+`DefaultTemplates` is a public functional interface: the default template (`ProjectEnrolment.Argv`) of a build system and canonical verb, empty when there is none.
+The caller passes it to the `VerifyNotResolvePipeline` constructor.
+No implementation and no table of defaults ship in `runtime.job`.
+
+2. **Enrolled before default, refused without either.**
+`ArgumentCheck` takes the enrolled template (source `enrolled`), else the caller's default (source `compiled_default`); with neither the job is refused as `verb_not_supported`.
+A module-scoped job of a template without a module-argument group is refused as `verb_not_supported` too; a whole-tree job omits the group.
+
+3. **The source is recorded.**
+`VerifiedJob.templateSource()` carries the source, so the job record can state which template ran.
+
+== Alternatives Considered
+
+1. **A default table in `runtime.job`**:
+*Rejected*: it would fix product content (the Maven, Gradle, Python and npm defaults) in the plain-Java engine and couple its release to every change of a default; the assembly owns it.
+
+2. **Defaults read from a file at run time**:
+*Rejected*: a file a model or a repository can write must never decide what runs (verify-not-resolve); the defaults are compiled into the caller.
+
+3. **No defaults, enrolled templates only**:
+*Rejected*: every project would have to enrol every verb before its first build; the specification provides compiled defaults for this.
+
+== Consequences
+
+* The tests supply their own `DefaultTemplates` (and `JobEnrolmentFixture.NO_DEFAULTS`); `ArgumentCheckTest` covers enrolled-wins, default-when-none-enrolled and `verb_not_supported`.
+* The content of the default templates (PM-WATCH-EXT-9) is owned by the caller of `DefaultTemplates`, not by this package.
+* A caller that supplies no default for a verb makes that verb available only to projects that enrol a template for it.
+
+== Source
+
+* `doc/plans/verify-not-resolve.adoc`
+* Operator decision during refine (q2)
+* `plan-marshall-documentation/doc/specification/domain-extensions/06-configuration.adoc`, Enrolled Argument Templates

@@ -1,0 +1,170 @@
+= Job Verification (`runtime.job`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/job
+:test: ../../src/test/java/de/planmarshall/runtime/job
+
+== Purpose
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2]
+
+Package `de.planmarshall.runtime.job` of `pm-runtime` implements the verify-not-resolve pipeline of a job: the deterministic check that turns what a caller asks to run into either a verified job or a refusal.
+Nothing is resolved at launch.
+No executable is looked up through `PATH`, no shebang decides an interpreter, no template is read from a file a model can write.
+Everything that ends up in the argument vector and the working directory comes from the project's verified enrolment or from the caller's own, trusted defaults.
+
+Launching the verified job through `pm-exec`, its confinement and its environment are not part of this package; they belong to the job runner packages.
+
+== Core Types
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
+
+[horizontal]
+`JobRequest`:: The job as the caller asks for it, before anything in it is trusted: the project id, the working directory as text, the live linked worktrees the caller verified, the module set of the project, and a sealed `Target` (`WrapperBuild`, `HostToolBuild`, `HostToolCall`, `ProjectScriptCall`). The arguments of a project script are a typed JSON `Value`, not strings.
+`VerifyNotResolvePipeline`:: The entry point. Runs the four stages in order under the caller's `LockTransaction` and answers a `JobVerification`.
+`JobVerification`:: The sealed outcome: `Verified(VerifiedJob)` or `Refused(JobRefusal)`.
+`VerifiedJob`:: The canonical working directory, the verified absolute argument vector, the `TemplateSource` of a build job (`enrolled` or `compiled_default`) and the verified enrolment.
+`JobRefusal`:: Why a job was refused: a closed `Reason`, a diagnostic detail that never carries an argument value or a secret, the changed paths of a changed build configuration and the operator command that re-baselines what was refused.
+`ExecutableCheck`:: Stage 2: the executable, its interpreter where one runs it, and their digests.
+`WrapperVerification`:: The wrapper part of stage 2: the build wrapper by location, enrolled name and digest, with every pinned file.
+`FileDigest`:: The SHA-256 of a file read without following a symbolic link; a missing file is `Absent`, a link or a non-regular file is `NotRegular`.
+`ArgumentCheck`:: Stage 3: the arguments after the verified executable.
+`ArgumentSchemaValidator`:: The JSON Schema subset of a project script's enrolled `argument_schema` (`type`, `properties`, `required`, `additionalProperties: false`, `enum`, `pattern`, `minimum`, `maximum`, `maxLength`).
+`DefaultTemplates`:: The interface through which the caller supplies the default templates of the build verbs. No implementation ships here.
+
+=== Component Interaction
+
+[source]
+----
+JobRequest ──► VerifyNotResolvePipeline.verify(transaction, request)
+                 │
+                 ├─ 0  EnrolmentCheck.verify          (runtime.enrolment)  ──► Refused: enrolment_tampered
+                 │                                                                       enrolment_insecure
+                 │                                                                       enrolment_invalid
+                 │                                                                       not_enrolled
+                 ├─ 1  WorkspaceConfinement.confine   (runtime.workspace)  ──► Refused: path_traversal_rejected
+                 │       project_root + live worktrees of the caller
+                 ├─ 2  ExecutableCheck                                     ──► Refused: executable_not_enrolled
+                 │       └─ WrapperVerification (wrapper + pinned files)               executable_digest_mismatch
+                 │                                                                       build_config_changed
+                 ├─ 3  ArgumentCheck  (last)                               ──► Refused: verb_not_supported
+                 │       ├─ enrolled template, else DefaultTemplates                    argument_rejected
+                 │       └─ ArgumentSchemaValidator (project scripts)
+                 ▼
+JobVerification.Verified(VerifiedJob: working directory, argv = stage 2 + stage 3, template source)
+----
+
+The first stage that refuses decides; a later stage never runs.
+The verified argument vector is the absolute start that stage 2 answers (the interpreter first where one runs the target) followed by the arguments stage 3 answers.
+
+== The Stages
+
+=== Stage 0: Enrolment
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
+
+`EnrolmentCheck.verify` reads the project's enrolment under the caller's transaction and checks its HMAC, its digest and its per-use rules.
+Its refusal is mapped: a tampered file to `enrolment_tampered` (with the command `pm-operator accept-edit enrolment <project_id>`), a failed per-use check to `enrolment_insecure`, a refused strict read of the file or its sidecar, an outdated or newer format, or a violated enrolment rule to `enrolment_invalid`, and a project with neither file nor sidecar to `not_enrolled`.
+
+=== Stage 1: Working Directory
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2]
+
+The working directory is confined by `WorkspaceConfinement` to the enrolled `project_root` and the live linked worktrees the caller verified.
+A path outside them, a symbolic link out of the tree and a `..` traversal are refused as `path_traversal_rejected`.
+The verified job runs in the canonical path of the confinement outcome, never in the text the caller gave.
+
+=== Stage 2: Executable and Digest
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3]
+
+* A host tool must be enrolled by name (`executable_not_enrolled` otherwise), its recorded `executable_path` must be absolute and its current SHA-256 the enrolled one (`executable_digest_mismatch` otherwise). A host tool that is a script (`asciidoctor`) is verified with its enrolled interpreter (`ruby`) and starts as the interpreter followed by the script.
+* A build job of `npm` (`HostToolBuild`) runs the enrolled host tool `npm`.
+* A wrapper job is verified by `WrapperVerification`: the wrapper must sit at the root of the verified working-directory tree, match an enrolled wrapper name and its enrolled SHA-256, and every pinned file must match its digest; a pinned file recorded as must-stay-absent that now exists and a recorded file that is missing both count as changed. Any change is refused as `build_config_changed`, naming every changed repository-relative path, sorted, and the command `pm-operator enrol <project_id>`. `pw` runs through the enrolled host tool `python3` with the wrapper as its first argument.
+* A project script must be enrolled by id and the job's `binding` (worker kind and target) must be its enrolled binding. A binding that does not match is refused as `executable_not_enrolled`: the script is not enrolled for that use. Its `script_path`, inside the verified tree, and its interpreter `python3` must match their digests (`executable_digest_mismatch` otherwise).
+
+=== Stage 3: Arguments
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
+
+* A build job (`WrapperBuild`, `HostToolBuild`) takes the template enrolled for its build system and verb (`build.canonical_templates.<build_system>.<verb>`, source `enrolled`), else the template of the caller's `DefaultTemplates` (source `compiled_default`); without either it is refused as `verb_not_supported`. A module-scoped job renders the module-argument group with `{module}` substituted; the module must be one of the caller's modules (`argument_rejected` otherwise), and a template without a group refuses the job as `verb_not_supported`. A whole-tree job omits the group.
+* A host tool call passes its arguments on after they are checked.
+* A project script's arguments are a typed JSON value. They must validate against the script's enrolled argument schema (`argument_rejected` otherwise, naming the keyword and the path, never the value), and they are not appended to the argument vector: the script receives them as a value, not as command-line words.
+
+Two rules apply to what the caller supplies, with different scopes (see link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001]):
+
+* A shell metacharacter (`|`, `;`, `&`, `$`, `` ` ``, `>`, `<`) is refused as `argument_rejected` in every caller-supplied argument of every job kind: the module of a build job, an argument of a host tool call, every string and member name of a project script's arguments.
+* The forbidden free flags `-D`, `-f`, `-s`, `--file`, `--settings`, `--init-script` are refused as `argument_rejected` in canonical build jobs only, where the caller supplies the module. The short flags are matched as prefixes, so an attached value (`-Dfoo=bar`, `-sother.xml`) is refused too; the long flags alone or with `=value`. A host tool call and a project script are not checked against them: their arguments stay bound by the enrolment of the tool and by the script's argument schema, and a call such as `git status -sb` is verified.
+
+The enrolled templates are the operator's and are not filtered.
+Flags that repository files inject (`.mvn/maven.config` and the like) are governed by the pinned files of stage 2.
+
+== Refusal Reasons
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
+
+The closed set of reasons, their codes and the stage that raises each are declared in link:{src}/JobRefusal.java[`JobRefusal.Reason`]; this guide does not repeat the table.
+Two reasons name an operator command: `build_config_changed` (`pm-operator enrol <project_id>`) and `enrolment_tampered` (`pm-operator accept-edit enrolment <project_id>`).
+Only `build_config_changed` names changed paths.
+Each refusal is logged once at WARN as `PM_MCP-180` (`JOB_REFUSED`); a refusal of the enrolment that `EnrolmentCheck` has logged and audited itself (tampered, insecure, unreadable, outdated or newer format) is not logged again, so of stage 0 the pipeline logs only `not_enrolled` and an `enrolment_invalid` raised by a violated enrolment rule.
+
+== What the Caller Supplies
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2]
+
+The package has no git interface and no module discovery, and it ships no defaults.
+The caller supplies:
+
+* the live linked worktrees of the project, which it has verified (`JobRequest.liveWorktrees`);
+* the module set of the project for the `{module}` placeholder (`JobRequest.modules`);
+* the default templates of the build verbs, as a `DefaultTemplates` passed to the `VerifyNotResolvePipeline` constructor (see link:../adr/runtime-job/002-caller-supplied-default-templates.adoc[ADR 002]).
+
+[source,java]
+----
+DefaultTemplates defaults = (buildSystem, verb) -> ...;            // the caller's compiled defaults
+var pipeline = new VerifyNotResolvePipeline(enrolmentCheck, defaults);
+
+try (var transaction = locks.openTransaction()) {
+    switch (pipeline.verify(transaction, request)) {
+        case JobVerification.Verified verified -> launch(verified.job());
+        case JobVerification.Refused refused -> answer(refused.refusal());
+    }
+}
+----
+
+== Testing
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5], link:{req}/12-testing.adoc#PM-TEST-3[PM-TEST-3]
+
+The tests run on the JVM over a real enrolment: `JobEnrolmentFixture` builds a store, a key file, a lock manager, the enrolment check and the operator writes over a short base of `TestBases`, a project tree with build wrappers, pinned files, host tool and script binaries, and a live linked worktree as the pointer files git writes. No git process runs and there is no test double. The binaries carry content generated by cui-test-generator, so no two digests are alike.
+
+[horizontal]
+link:{test}/VerifyNotResolvePipelineTest.java[`VerifyNotResolvePipelineTest`]:: Stages 0 and 1: each enrolment refusal and each confinement refusal, the WARN record, a key-source fault passing through.
+link:{test}/ExecutableCheckTest.java[`ExecutableCheckTest`]:: Stage 2 for host tools, script host tools, project scripts and wrapper jobs, including a host tool shadowed on `PATH` that is never started.
+link:{test}/WrapperVerificationTest.java[`WrapperVerificationTest`]:: Every way a wrapper or a pinned file can change, and a matching wrapper not tracked by git that passes.
+link:{test}/ArgumentCheckTest.java[`ArgumentCheckTest`]:: Stage 3: the forbidden flags in build jobs, the metacharacters in every job kind, templates and their sources, the module rules, project script arguments, and the stage order.
+link:{test}/ArgumentSchemaValidatorTest.java[`ArgumentSchemaValidatorTest`]:: One test per schema keyword, violating and conforming.
+link:{test}/VerifyNotResolveAdversarialTest.java[`VerifyNotResolveAdversarialTest`]:: The adversarial confinement suite over the whole pipeline: one group per pipeline fixture of PM-TEST-5 (tampered wrapper, un-enrolled host tool, unapproved arguments, out-of-tree working directory) plus a tampered enrolment file.
+
+Every refused case has its matched positive control in the same configuration: the same enrolment and tree verify the job once the one thing that was wrong is right.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3]
+
+1. **No `PATH` lookup**: every argument vector starts with an enrolled absolute path. Do not add a lookup "for convenience"; a same-named executable earlier on `PATH` must never be started.
+2. **No shebang start**: a script runs through its enrolled interpreter (`pw` through `python3`, `asciidoctor` through `ruby`), verified by digest like the script itself.
+3. **No git check for wrappers**: a wrapper is verified by location, enrolled name and digest, with its pinned files; whether git tracks it is not checked (see link:../adr/runtime-job/003-wrapper-verified-by-location-name-and-digest.adoc[ADR 003]).
+4. **Refusals are values**: a refusal is a `JobVerification.Refused`, never an exception. A fault (the integrity key cannot be read, a lock order violation, a file that cannot be read) is no refusal and passes through as `SecretStoreException`, `InternalFaultException` or `UncheckedIOException`.
+5. **Verify-then-run window**: a wrapper or pinned file can change between the check and the launch. The job runner launches right after verification; closing the window belongs to the job confinement, not to this package.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2], link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5]
+
+* Specification: link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime § Verify-Not-Resolve Execution Pipeline], link:{spec}/domain-extensions/06-configuration.adoc#enrolled-argument-templates[Configuration § Enrolled Argument Templates]
+* Decisions: link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001], link:../adr/runtime-job/002-caller-supplied-default-templates.adoc[ADR 002], link:../adr/runtime-job/003-wrapper-verified-by-location-name-and-digest.adoc[ADR 003]
