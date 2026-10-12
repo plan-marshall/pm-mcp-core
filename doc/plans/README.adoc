@@ -93,6 +93,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
 |Milestone 3
 
+|link:static-verifier-rule-gaps.adoc[`static-verifier-rule-gaps`]
+|Static verifier: the rule gaps PLAN-41 left
+|`done`
+|link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`]; link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
+|Milestone 3
+
 |link:workflow-engine.adoc[`workflow-engine`]
 |State machine interpreter and sub-workflow execution
 |`open`

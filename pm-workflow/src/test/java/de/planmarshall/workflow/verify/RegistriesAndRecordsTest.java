@@ -66,6 +66,16 @@ class RegistriesAndRecordsTest {
                 () -> assertFalse(defaults.find("nonexistent").isPresent())
         );
 
+        assertAll(
+                () -> assertEquals(Optional.empty(), defaults.find("screen").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("worker-task"), defaults.find("task").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("change").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("decision").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("triage").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity"), defaults.find("simplify").orElseThrow().entityUnit()),
+                () -> assertEquals(Optional.of("entity-multi"), defaults.find("review").orElseThrow().entityUnit())
+        );
+
         var custom = new EntityKind("custom", Optional.empty(), "custom.eval");
         var updated = defaults.with(custom);
         assertTrue(updated.find("custom").isPresent());
@@ -100,7 +110,17 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.find("review").isPresent()),
                 () -> assertTrue(defaults.find("task").isPresent()),
                 () -> assertTrue(defaults.find("setup").isPresent()),
+                () -> assertTrue(defaults.find("ask").isPresent()),
                 () -> assertFalse(defaults.find("nonexistent").isPresent())
+        );
+
+        assertAll(
+                () -> assertEquals(Set.of("answered", "assumed", "returned"), defaults.find("init").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("clarification").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("approve", "revise", "returned"), defaults.find("review").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("task").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("setup").orElseThrow().outcomes()),
+                () -> assertEquals(Set.of("answered", "assumed"), defaults.find("ask").orElseThrow().outcomes())
         );
 
         var custom = new QuestionClass("custom", Set.of("yes", "no"));

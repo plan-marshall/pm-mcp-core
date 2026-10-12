@@ -24,11 +24,13 @@ Key architectural questions addressed in this package:
 
 1. **Immutable Registries**:
 We introduced immutable registries (`EntityKindRegistry`, `QuestionClassRegistry`, and `SchemaRegistry`) configured with specification defaults via `.defaults()` and extensible via `.with(...)`. This separates parser syntax validation from static verifier type-binding checks and allows test suites to inject mock or unregistered items cleanly.
+(Superseded by link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: the shipped defaults carried placeholder entity units and missed the `ask` question class; the corrected defaults are recorded there.)
 
 2. **Workflow Catalog for Call Graphs**:
 We introduced `WorkflowCatalog`, an immutable catalog of parsed sub-workflow definitions. `WorkflowValidator` queries `WorkflowCatalog` to:
 - Verify sub-workflow existence and parameter type compatibility (Rule 6).
 - Ensure routing of `done` and `stepped_out` terminal outcomes (Rule 6).
+(Superseded by link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: `stepped_out` belongs to the exit contract only where the callee can return it through a resting-link implicit `step_out` exit.)
 - Traverse the call graph to verify acyclicity and maximum nesting depth of 4 (Rule 7).
 - Verify that called sub-workflows do not declare resting links when invoked from plan or epic workflows (Rule 10).
 
@@ -36,6 +38,7 @@ We introduced `WorkflowCatalog`, an immutable catalog of parsed sub-workflow def
 Rule 11 separates:
 - **Engine-chained cycles (Rule 11a)**: Cycles consisting exclusively of automatic execution steps (`AutoStep`, `SubWorkflowCall`). These require an explicit decreasing `cycleMeasure` to ensure termination.
 - **Resting cycles (Rule 11b)**: Cycles passing through states that halt engine execution awaiting external events (`InteractiveLinks` waiting for client/user action, `QuestionWait` waiting for operator answers, `JobStep` waiting for job settlement, `ModelJob` waiting for task completion). These naturally pause execution and satisfy the awaited event constraint.
+(Superseded by link:003-rule-11b-per-link-awaited-event.adoc[ADR 003]: satisfaction is decided per traversed link, not per state; a `NOOP` self-loop with no external wait does not satisfy the cycle.)
 
 4. **Deterministic Diagnostic Attribution**:
 Violations are created with precise `SourceLocation` tokens:
@@ -61,6 +64,7 @@ Assuming links do not await events unless they have a `SUBMIT` form.
 == Consequences
 
 * Complete coverage of Rules 1 through 12 in `WorkflowValidator` with 27 discrete `VerificationRule` constants.
+(Superseded by link:002-rule-9-firing-model.adoc[ADR 002], link:003-rule-11b-per-link-awaited-event.adoc[ADR 003], link:004-rule-3-configuration-reachability.adoc[ADR 004], and link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: PLAN-41 shipped the rule slices with gaps — the once-per-firing model with the unconditional `SUCCESS` fallback, per-state awaited events, the vacuous transition-level configuration check, the unconditional `stepped_out` contract with placeholder registry units and the missing `ask` class. This plan closes them; the rule count is unchanged.)
 * Pure static analysis: no runtime side-effects or network dependencies.
 * Robust negative testing: every added check has a dedicated refusing fixture verified against an exact rule, state, and source line.
 * Clear integration seam for `project-units-and-invariants` (Milestone 3) and `workflow-engine` (Milestone 4).

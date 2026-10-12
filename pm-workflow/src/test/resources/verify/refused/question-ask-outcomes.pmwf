@@ -1,5 +1,5 @@
-# expect: QUESTION_CLASS_BINDING state verify.entry line 6
-workflow verify.unregistered-question version 1 format 1
+# expect: QUESTION_OUTCOMES state verify.entry line 6
+workflow verify.ask-outcomes version 1 format 1
 scope workspace
 start verify.entry
 
@@ -7,7 +7,6 @@ state verify.entry
     phase verify
     question ask
         answered -> verify.done
-        assumed -> verify.done
 
 state verify.done terminal done success
     phase verify

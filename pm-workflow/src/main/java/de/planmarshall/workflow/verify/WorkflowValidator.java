@@ -700,16 +700,26 @@ public final class WorkflowValidator {
         var baseGraph = UnitGraph.of(definition);
         var baseReached = baseGraph.forwardClosure(Set.of(definition.startState()));
 
+        // One active graph per combination. The reached set feeds the state-level report below, so the 2^N
+        // enumeration is built once per combination rather than once per state per combination. There is no
+        // transition-level report: configCombinations always includes the all-true assignment, under which
+        // every link is active, so every base-reachable transition is reachable under at least that
+        // combination and a not-reachable-under-any-combination predicate is unsatisfiable.
+        var reachedByCombination = new ArrayList<Set<String>>(combinations.size());
+        for (var combination : combinations) {
+            var graph = UnitGraph.of(definition, combination);
+            var reached = graph.forwardClosure(Set.of(definition.startState()));
+            reachedByCombination.add(reached);
+        }
+
         for (var state : definition.states().values()) {
             if (ABORT_TERMINALS.contains(state.id()) || !baseReached.contains(state.id())) {
                 continue;
             }
             var unreachedCombinations = new ArrayList<Map<String, Boolean>>();
-            for (var combination : combinations) {
-                var graph = UnitGraph.of(definition, combination);
-                var reached = graph.forwardClosure(Set.of(definition.startState()));
-                if (!reached.contains(state.id())) {
-                    unreachedCombinations.add(combination);
+            for (int i = 0; i < combinations.size(); i++) {
+                if (!reachedByCombination.get(i).contains(state.id())) {
+                    unreachedCombinations.add(combinations.get(i));
                 }
             }
             if (!unreachedCombinations.isEmpty()) {
@@ -717,24 +727,6 @@ public final class WorkflowValidator {
                         "the state '%s' is not reachable from the start state '%s' under configuration %s"
                                 .formatted(state.id(), definition.startState(),
                                         formatCombinations(unreachedCombinations))));
-            }
-        }
-
-        var allReachedTransitions = new HashSet<OutcomeTransition>();
-        for (var combination : combinations) {
-            allReachedTransitions.addAll(UnitGraph.reachableTransitions(definition, combination));
-        }
-        for (var state : definition.states().values()) {
-            if (!baseReached.contains(state.id())) {
-                continue;
-            }
-            for (var transition : UnitGraph.allTransitions(state.behavior())) {
-                if (!allReachedTransitions.contains(transition)) {
-                    violations.add(new Violation(VerificationRule.CONFIG_REACHABILITY, state.id(),
-                            transition.location(),
-                            "the transition '%s -> %s' is not reachable under any configuration combination"
-                                    .formatted(transition.outcomeName(), transition.targetStateId())));
-                }
             }
         }
     }
@@ -842,7 +834,12 @@ public final class WorkflowValidator {
                         contractOutcomes.add(calleeState.terminalOutcome().get().id());
                     }
                 }
-                contractOutcomes.add("stepped_out");
+                // stepped_out belongs to the exit contract only when the callee can actually step out: the
+                // implicit step_out exit of a resting-link state of a sub-workflow unit. A callee without one
+                // never returns stepped_out, so routing it is refused and omitting it is correct.
+                if (canReturnSteppedOut(callee)) {
+                    contractOutcomes.add("stepped_out");
+                }
 
                 var outcomeCounts = new HashMap<String, Integer>();
                 var resultGuardsOnDone = new ArrayList<ResultGuard>();
@@ -917,6 +914,27 @@ public final class WorkflowValidator {
                 }
             }
         }
+    }
+
+    /**
+     * Tells whether a called sub-workflow can return the control outcome {@code stepped_out}: only a sub-workflow
+     * unit with a resting-link state can, through that state's implicit {@code step_out} exit (the same exit
+     * {@link UnitGraph#isImplicitLink} reports). A link state outside a sub-workflow has no such exit, and neither
+     * does any other behaviour.
+     *
+     * @param callee the called sub-workflow
+     * @return {@code true} when {@code stepped_out} belongs to the callee's exit contract
+     */
+    private static boolean canReturnSteppedOut(WorkflowDefinition callee) {
+        if (callee.scope() != WorkflowScope.SUBWORKFLOW) {
+            return false;
+        }
+        for (var calleeState : callee.states().values()) {
+            if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean areComplementary(ResultGuard g1, ResultGuard g2) {

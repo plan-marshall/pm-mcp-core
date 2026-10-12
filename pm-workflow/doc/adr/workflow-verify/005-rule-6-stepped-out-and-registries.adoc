@@ -1,0 +1,42 @@
+= ADR 005: Rule 6 Conditional Stepped-Out Contract and Registry Corrections
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 6 slice that PLAN-41 shipped with three gaps: `stepped_out` belonged to every call's exit contract unconditionally, the entity-unit defaults shared one placeholder literal, and the `ask` question class was missing from the registry.
+
+== Decision
+
+1. **Conditional `stepped_out`**: `stepped_out` belongs to a call's exit contract only when the callee can actually step out through a resting-link implicit `step_out` exit (a link state of a sub-workflow unit). Routing it for any other callee is refused; omitting it where owed is refused. Parameter bindings (enum range, int range, non-empty list, undeclared and omitted parameters), result-guard admission only on `done` with the complementary pair for double `done`, and the scope and registration checks are unchanged.
+2. **Specified entity units**: the shared placeholder literal is replaced with the specified units — `screen` without a unit, `task` bound to `worker-task`, the single-submit kinds (`change`, `decision`, `triage`, `simplify`) on the generic `entity` unit, and the multi-submit lesson review kind `review` on `entity-multi`. The `review` mapping is a specification-interpretation call: the catalogue lists lesson review (merge, retire, supersede, closing `submit:review`) as multi-submit against single-submit finalize and artifact reviews; the generic kind follows the lesson review shape. The alternative (all five on `entity`) is recorded here and rejected for leaving the placeholder value in place.
+3. **The `ask` class**: the engine-made `<state>.asked` state waits on a record of class `ask`, whose closed resolution outcomes are `answered` and `assumed`; the class is registered and enforced by `QUESTION_OUTCOMES` like every other class.
+4. **Grammar-closed binding exception**: the question-class grammar closes the class vocabulary and every parseable class is registered by default, so no refusing fixture can plant an unregistered class. The retired `question-class-unregistered.pmwf` fixture is replaced by a custom-registry inline case, and the fixture-coverage assertion pins `QUESTION_CLASS_BINDING` as its single documented exception.
+
+== Alternatives Considered
+
+1. **Keeping unconditional `stepped_out`**:
+Every callee owes `stepped_out`; callers always route it.
+*Rejected*: it forces callers to route an outcome the callee can never return and refuses nothing, so spurious routings pass silently.
+
+2. **Keeping the placeholder units**:
+The unit value is never looked up by the verifier (only its presence feeds the `ask` check), so any literal would do.
+*Rejected*: the defaults document the specified wiring; a shared placeholder asserts a sameness the specification does not state and hides the one real difference.
+
+== Consequences
+
+* Fixtures `subworkflow-stepped-out-spurious.pmwf` (spurious routing refused) and `question-ask-outcomes.pmwf` (broken `ask` bijection refused) pin the corrected contract, each with one planted defect; the shared fixture callee carries a resting-link state so existing `stepped_out` routings stay owed.
+* Plan and epic scopes still refuse resting-link callees through the session-driven rule, independently of the contract: a caller in those scopes cannot call a stepping callee at all.
+* The pull request body names the dropped Rule 3 transition fixture per the verify-first clause (see link:004-rule-3-configuration-reachability.adoc[ADR 004]).
+
+== Source
+
+* `doc/plans/static-verifier-rule-gaps.adoc`
+* `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-44-static-verifier-rule-gaps.md`

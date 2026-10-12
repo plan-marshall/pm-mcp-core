@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -470,6 +471,94 @@ class AdditionalRulesTest {
                 && v.message().contains("does not route the exit outcome 'done'")));
         assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.SUBWORKFLOW_CALL_CONTRACT
                 && v.message().contains("does not route the exit outcome 'stepped_out'")));
+    }
+
+    @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out routed for a callee that cannot step out")
+    void testSubWorkflowSteppedOutSpurious() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call test.depth5()
+                        done -> verify.done
+                        stepped_out -> verify.done
+                """ + DONE_TERMINAL);
+        var found = violations(def);
+        assertEquals(1, found.size(), () -> "expected exactly the spurious stepped_out refusal: " + found);
+        assertEquals(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                "routes the outcome 'stepped_out', which is not in the exit contract of 'test.depth5'"),
+                () -> "missing spurious stepped_out refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: stepped_out owed but not routed")
+    void testSubWorkflowSteppedOutMissing() {
+        var def = unit("subworkflow", """
+                state verify.entry
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.done
+                """ + DONE_TERMINAL);
+        var found = violations(def);
+        assertEquals(1, found.size(), () -> "expected exactly the missing stepped_out refusal: " + found);
+        assertEquals(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                "does not route the exit outcome 'stepped_out' of 'git.commit_and_push'"),
+                () -> "missing owed stepped_out refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("QUESTION_CLASS_BINDING: question class not registered")
+    void testQuestionClassUnregistered() {
+        var customQuestions = new QuestionClassRegistry(List.of(
+                new QuestionClass("init", Set.of("answered", "assumed", "returned")),
+                new QuestionClass("clarification", Set.of("answered", "assumed")),
+                new QuestionClass("review", Set.of("approve", "revise", "returned")),
+                new QuestionClass("task", Set.of("answered", "assumed")),
+                new QuestionClass("setup", Set.of("answered", "assumed"))));
+        var customVal = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
+                EntityKindRegistry.defaults(), customQuestions, SchemaRegistry.defaults(), TestPrimitives.catalog());
+
+        var def = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                        assumed -> verify.done
+                """ + DONE_TERMINAL);
+        var found = customVal.verify(def).violations();
+        assertEquals(1, found.size(), () -> "expected exactly the unregistered class refusal: " + found);
+        assertEquals(VerificationRule.QUESTION_CLASS_BINDING, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                "the question class 'ask' of the state 'verify.entry' is not registered"),
+                () -> "missing unregistered class refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("QUESTION_OUTCOMES: ask class bijection and missing outcome")
+    void testQuestionAskOutcomes() {
+        var passing = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                        assumed -> verify.done
+                """ + DONE_TERMINAL);
+        assertTrue(violations(passing).isEmpty(), () -> "ask bijection should pass: " + violations(passing));
+
+        var missing = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    question ask
+                        answered -> verify.done
+                """ + DONE_TERMINAL);
+        var found = violations(missing);
+        assertEquals(1, found.size(), () -> "expected exactly the missing assumed refusal: " + found);
+        assertEquals(VerificationRule.QUESTION_OUTCOMES, found.getFirst().rule());
+        assertTrue(found.getFirst().message().contains(
+                "does not route the outcome 'assumed' of the question class 'ask'"),
+                () -> "missing ask assumed refusal: " + found);
     }
 
     @Test

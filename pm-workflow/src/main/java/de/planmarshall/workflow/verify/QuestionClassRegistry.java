@@ -69,7 +69,9 @@ public final class QuestionClassRegistry {
     }
 
     /**
-     * @return the default registry containing the standard specification question classes
+     * @return the default registry containing the standard specification question classes. The engine-made
+     *         {@code <state>.asked} state waits on a record of class {@code ask}, whose closed resolution outcomes
+     *         are {@code answered} and {@code assumed}.
      */
     public static QuestionClassRegistry defaults() {
         return new QuestionClassRegistry(List.of(
@@ -77,6 +79,7 @@ public final class QuestionClassRegistry {
                 new QuestionClass("clarification", Set.of(ANSWERED, ASSUMED)),
                 new QuestionClass("review", Set.of("approve", "revise", "returned")),
                 new QuestionClass("task", Set.of(ANSWERED, ASSUMED)),
-                new QuestionClass("setup", Set.of(ANSWERED, ASSUMED))));
+                new QuestionClass("setup", Set.of(ANSWERED, ASSUMED)),
+                new QuestionClass("ask", Set.of(ANSWERED, ASSUMED))));
     }
 }

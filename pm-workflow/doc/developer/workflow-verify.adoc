@@ -20,8 +20,8 @@ The static verification subsystem consists of the following key components:
 `UnitGraph`:: The directed transition graph substrate derived from a `WorkflowDefinition`. Computes forward closures, backward closures, reachability across configuration combinations (`depends_on_config`), acyclic call graphs, artifact producer paths, and cycle detection.
 `TransitionFuzzer`:: A combinatorial transition exploration engine that searches for unreachable or dead states under valid Boolean guard assignments.
 `WorkflowCatalog`:: An immutable catalog of known sub-workflows for resolving `call` invocations, enforcing call-graph DAG constraints (depth $\le 4$, no recursion), and validating parameter/result contracts.
-`EntityKindRegistry`:: Registry of known entity kinds with optional entity units and return-evaluation primitives (Rule 1).
-`QuestionClassRegistry`:: Registry of known question classes and their closed resolution outcome sets (Rules 1 and 2).
+`EntityKindRegistry`:: Registry of known entity kinds with optional entity units and return-evaluation primitives (Rule 1). `screen` has no entity unit, `task` runs `worker-task`, single-submit kinds run the generic `entity` unit, and the multi-submit lesson review kind `review` runs `entity-multi`.
+`QuestionClassRegistry`:: Registry of known question classes and their closed resolution outcome sets (Rules 1 and 2): `init`, `clarification`, `review`, `task`, `setup`, and the engine-made `ask` (`answered`, `assumed`).
 `SchemaRegistry`:: Registry of known schema identifiers referenced in sub-workflow parameter and result declarations (Rule 1).
 
 === Component Interaction
@@ -61,7 +61,7 @@ The static verifier implements the following rules:
 * `STATE_ID_UNIQUE`: State identifiers must be unique, including engine-made `<state>.asked` states.
 * `STATE_EXISTS`: `startState` and every transition target must exist in the unit.
 * `REACHABILITY`: Every state must be reachable from `startState` (abort terminals exempt).
-* `CONFIG_REACHABILITY`: States and transitions must remain reachable under all `depends_on_config` Boolean flag combinations.
+* `CONFIG_REACHABILITY`: Every state must remain reachable from `startState` under all `depends_on_config` Boolean flag combinations; the report names the exact failing assignments. There is no transition-level check: the enumeration always includes the all-true assignment, under which every link is active, so a not-reachable-under-any-combination predicate over transitions is unsatisfiable.
 * `EXIT_PATH`: In `workspace` scope, all non-terminal states must have a path back to `startState`. In other scopes, every state must have a path to a terminal state.
 * `ABORT_TERMINAL_TARGETING`: `plan.aborted` cannot be targeted by declared transitions. `epic.aborted` may only be targeted by `abort_landed` of `epic.next-work`.
 * `TARGET_NOT_RESERVED`: Reserved state suffixes (`.blocked`, `.footprint-violation`, `.config-drift`) and condition kinds cannot be transition targets.
@@ -73,7 +73,7 @@ The static verifier implements the following rules:
 * `RELEASED_STATE`: Every released state must exist in the unit or be renamed via a valid `migrate` declaration.
 
 === Rule 6: Sub-Workflow Call Contract
-* `SUBWORKFLOW_CALL_CONTRACT`: Sub-workflow invocations must reference an existing sub-workflow in `WorkflowCatalog`, match required parameter bindings, and route `done` and `stepped_out`.
+* `SUBWORKFLOW_CALL_CONTRACT`: Sub-workflow invocations must reference an existing sub-workflow in `WorkflowCatalog`, match required parameter bindings, and route every exit outcome of the callee. `stepped_out` belongs to the exit contract only where the callee can return it through a resting-link implicit `step_out` exit; routing it for any other callee is refused, and omitting it where owed is refused.
 
 === Rule 7: Call Graph Topology
 * `CALL_GRAPH_DAG`: The sub-workflow call graph must be acyclic and call depth must not exceed 4 levels.
@@ -82,7 +82,7 @@ The static verifier implements the following rules:
 * `GATE_PRODUCER_COVERAGE`: Every path reaching a gate requiring artifacts must pass through a producer of that artifact.
 
 === Rule 9: Step Completion
-* `STEP_COMPLETION`: Step completion once per firing, outcome classes admit status, and cycle measures fit.
+* `STEP_COMPLETION`: Step completion is decided once per firing: the same step completed twice on one transition, or on two states joined by a path without an intervening dispatch (barriers `finalize.next-step` and the start state), is refused. Outcome classes admit status by a fixed table: `done` only on `SUCCESS`; `skipped` on `SUCCESS`, `SKIP`, the `INDETERMINATE` lost route, and the `FAILURE` infeasible exit; `failed` is refused on `UNSETTLED` and `STEPPED_OUT`; `waived` only on the `waived` outcome of a remediation call. An outcome whose class cannot be established is a visible refusal, never a silent pass. Cycle measures fit: `STEP_LIST` only on `finalize.next-step`, `ARCHIVE_STEPS` only on `epic.next-work`, and an exhausted `ATTEMPT_CAP` must leave the cycle.
 
 === Rule 10: Session-Driven Links
 * `SESSION_DRIVEN_LINKS`: Resting `link` states and declared question links are admitted only in `workspace` and `session` scopes; they are forbidden in `plan` and `epic` scopes.
@@ -90,7 +90,7 @@ The static verifier implements the following rules:
 === Rule 11: Cycle Constraints
 * `CYCLE_AWAITED_EVENT`:
   ** Rule 11a: Engine-chained cycles (consisting exclusively of `auto` and `call` states) must declare a decreasing cycle measure.
-  ** Rule 11b: Cycles containing resting states (`InteractiveLinks`, `QuestionWait`) or asynchronous tasks (`JobStep`, `ModelJob`) must contain at least one state awaiting an external event ($\ne \text{NONE}$).
+  ** Rule 11b: A cycle is satisfied only by an awaited event on its traversed links: a link awaits when its form and primitive await an external event. A `NOOP` self-loop with no external wait does not satisfy the cycle, and neither does a resting state whose traversed links await nothing. `JobStep`, `ModelJob`, `QuestionWait`, and genuinely awaiting links keep their exemption.
 
 === Rule 12: Link Compatibility
 * `LINK_ID_UNIQUE`: Link identifiers must be unique within a state, including implicit engine links (`ack`, `consult:<role>`, `answer:<question_id>`).

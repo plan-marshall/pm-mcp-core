@@ -1,0 +1,42 @@
+= ADR 002: Rule 9 Firing Model and Outcome-Class Admission
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 9 slice that PLAN-41 shipped with gaps: once-per-firing was not decided per firing, and an unresolvable outcome class fell through to an unconditional `SUCCESS`.
+
+== Decision
+
+1. **Once per firing**: the same step completed twice on one transition is refused, and so is the same step completed on two states joined by a path without an intervening dispatch. The dispatch barriers are `finalize.next-step` and the start state, checked through the resting reachability substrate.
+2. **Outcome-class admission table**: `done` is admitted only on `SUCCESS`; `skipped` on `SUCCESS`, `SKIP`, the `INDETERMINATE` lost route, and the `FAILURE` infeasible exit; `failed` is refused on `UNSETTLED` and `STEPPED_OUT`; `waived` is admitted only on the `waived` outcome of a remediation call.
+3. **No silent fallback**: an outcome whose class cannot be established (an unregistered primitive, an unknown shape) is a visible `STEP_COMPLETION` refusal, never a silent pass.
+4. **Cycle-measure fit**: `STEP_LIST` is admitted only on `finalize.next-step`, `ARCHIVE_STEPS` only on `epic.next-work`, and an exhausted `ATTEMPT_CAP` must leave the cycle.
+
+== Alternatives Considered
+
+1. **Per-state firing identity**:
+Deciding once-per-firing by state identity alone, without the path check.
+*Rejected*: the same step completed on two states in sequence is the defect; state identity alone cannot tell a re-firing from two independent firings.
+
+2. **Keeping the `SUCCESS` fallback with a warning**:
+Downgrading the unresolvable class to a warning instead of a refusal.
+*Rejected*: a warning is not a refusal; an unresolvable class would keep passing units whose outcome semantics the verifier cannot see.
+
+== Consequences
+
+* `outcomeClassOf` has no default arm: every shape either resolves or refuses.
+* Fixtures `step-completion-firing.pmwf`, `step-completion-outcome-class.pmwf`, and `step-completion-waived-guard.pmwf` pin the firing duplicate, the done-on-`FAILURE` and unresolvable-class refusals, and the waived-guard refusal, each with one planted defect.
+* Product units that relied on the silent pass surface their violations now; the passing `every-construct.pmwf` carries completions only on admitted classes.
+
+== Source
+
+* `doc/plans/static-verifier-rule-gaps.adoc`
+* `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-44-static-verifier-rule-gaps.md`

@@ -32,8 +32,13 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the transitions of every {@link StateBehavior} variant and of every declared link. A target that is not a state of
  * the unit is kept as a successor; whether a target exists is not this graph's concern.
  * <p>
- * {@link WorkflowValidator} searches it for reachability and exit paths, and {@link TransitionFuzzer} reads the exits
- * of a state from the same behaviour switches and the atoms of a guard from {@link #atomsOf(GuardExpr)}.
+ * {@link WorkflowValidator} searches it for reachability, configuration reachability, and exit paths, and
+ * {@link TransitionFuzzer} reads the exits of a state from the same behaviour switches and the atoms of a guard
+ * from {@link #atomsOf(GuardExpr)}. The configuration substrate ({@link #configKeysOf},
+ * {@link #configCombinations}, {@link #of(WorkflowDefinition, Map)}, {@link #isLinkActive},
+ * {@link #activeTransitions} and {@link #reachableTransitions}) builds the active graph under each
+ * configuration assignment: engine transitions are always active while a declared link contributes its
+ * transitions only when its {@code depends_on_config} keys evaluate true.
  */
 final class UnitGraph {
 
@@ -256,7 +261,8 @@ final class UnitGraph {
 
     /**
      * @param definition the unit
-     * @return all distinct configuration keys declared in {@code depends_on_config} across the unit
+     * @return all distinct configuration keys declared in {@code depends_on_config} across the unit, in first-use
+     *         order; guards live on links only, so every key the unit reads is found on a declared link
      */
     static List<String> configKeysOf(WorkflowDefinition definition) {
         var keys = new LinkedHashSet<String>();
@@ -269,10 +275,12 @@ final class UnitGraph {
     }
 
     /**
-     * Generates all 2^N boolean assignments for the given configuration keys.
+     * Generates all 2^N boolean assignments for the given configuration keys. The enumeration is exponential by
+     * design and stays lean because the grammar admits only small key sets: a {@code depends_on_config} clause
+     * names a handful of keys per link, so N stays in the single digits on every unit the verifier accepts.
      *
      * @param keys the configuration keys
-     * @return the list of assignments
+     * @return the list of assignments, in binary-counting order over the key list
      */
     static List<Map<String, Boolean>> configCombinations(List<String> keys) {
         if (keys.isEmpty()) {
@@ -291,7 +299,8 @@ final class UnitGraph {
     }
 
     /**
-     * Constructs a graph under a specific configuration assignment.
+     * Constructs the active graph under one configuration assignment: engine transitions are always active while a
+     * declared link contributes its transitions only when {@link #isLinkActive} admits it under the assignment.
      *
      * @param definition the unit
      * @param configAssignment the boolean assignment for configuration keys
@@ -313,7 +322,8 @@ final class UnitGraph {
     }
 
     /**
-     * Tells which transitions of a behavior are active under a configuration assignment.
+     * Tells which transitions of a behavior are active under a configuration assignment: every engine transition
+     * plus the transitions of each active declared link.
      */
     static List<OutcomeTransition> activeTransitions(StateBehavior behavior, Map<String, Boolean> configAssignment) {
         var transitions = new ArrayList<>(engineTransitions(behavior));
@@ -326,18 +336,22 @@ final class UnitGraph {
     }
 
     /**
-     * A declared link is active if it has no depends_on_config or all its declared config keys evaluate to true.
+     * A declared link is active when it reads no configuration: no guard at all, or a guard with no
+     * {@code depends_on_config} keys. Otherwise it is active only when every declared key evaluates to true
+     * under the assignment; a key the assignment does not name counts as not true.
      */
     static boolean isLinkActive(LinkSpec link, Map<String, Boolean> configAssignment) {
         if (link.guard().isEmpty() || link.guard().get().dependsOnConfig().isEmpty()) {
             return true;
         }
         return link.guard().get().dependsOnConfig().stream()
-                .allMatch(key -> configAssignment.getOrDefault(key, Boolean.TRUE));
+                .allMatch(key -> Boolean.TRUE.equals(configAssignment.get(key)));
     }
 
     /**
-     * Identifies all outcome transitions reached from the start state under a configuration assignment.
+     * Identifies the outcome transitions reached from the start state under one configuration assignment: the
+     * active transitions of every state the active graph reaches, so engine transitions and active-link
+     * transitions alike.
      */
     static Set<OutcomeTransition> reachableTransitions(WorkflowDefinition definition,
             Map<String, Boolean> configAssignment) {

@@ -91,7 +91,7 @@ class WorkflowValidatorTest {
         }
 
         @Test
-        @DisplayName("Should hold a refusing fixture for every check, one for each outcome variant")
+        @DisplayName("Should hold a refusing fixture for every plantable check, one for each outcome variant")
         void shouldCoverEveryCheck() {
             var expected = refusedFixtures().stream()
                     .map(resource -> EXPECTATION.matcher(VerifyFixtures.read(resource)))
@@ -99,8 +99,14 @@ class WorkflowValidatorTest {
                     .map(matcher -> VerificationRule.valueOf(matcher.group(1)))
                     .toList();
 
-            assertAll(() -> assertEquals(35, expected.size()),
-                    () -> assertEquals(EnumSet.allOf(VerificationRule.class), EnumSet.copyOf(expected)));
+            // QUESTION_CLASS_BINDING holds no fixture by construction: the grammar closes the question-class
+            // vocabulary and every parseable class is registered by default, so no fixture can plant an
+            // unregistered class. The check itself stays covered by the custom-registry case in
+            // AdditionalRulesTest.testQuestionClassUnregistered.
+            var missing = EnumSet.allOf(VerificationRule.class);
+            missing.removeAll(expected);
+            assertAll(() -> assertEquals(38, expected.size()),
+                    () -> assertEquals(EnumSet.of(VerificationRule.QUESTION_CLASS_BINDING), missing));
         }
 
         @Test
@@ -108,7 +114,8 @@ class WorkflowValidatorTest {
         void shouldPassEveryConstruct() {
             var result = validator.verify(VerifyFixtures.parse(VerifyFixtures.PASSING + "/every-construct.pmwf"));
 
-            assertTrue(result.passed(), result::toString);
+            assertAll(() -> assertTrue(result.passed(), result::toString),
+                    () -> assertTrue(result.violations().isEmpty(), result::toString));
         }
     }
 
