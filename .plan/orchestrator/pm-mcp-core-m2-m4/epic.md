@@ -274,6 +274,10 @@ decision or a dependency outside this repository.
 
 ## Watches
 
+- No plan records its harness: no archived plan has the `client.toon` pre-flight artifact
+  (`runtime-info` → `harness:`), so Antigravity vs Claude Code is told apart only by indirect traces
+  (`antigravity_runtime` calls, `unmeasured` metrics). Ask the operator which harness ran a plan
+  until plan-marshall stamps it (high-priority finding `pm-mcp-core-m2-m4-132.md`).
 - **Antigravity runs need the extended landing verification** (code-vs-package audit, build-log and
   gate check, review trail), because the plan's self-report was unreliable on its first run (seven
   high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.

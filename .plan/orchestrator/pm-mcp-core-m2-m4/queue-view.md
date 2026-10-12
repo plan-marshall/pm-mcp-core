@@ -4,10 +4,11 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-11 enrolment-store (#30, UNSTABLE). Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator, PLAN-44 static-verifier-rule-gaps. Shipped: PLAN-01..08, 10, 36, 38, 41 (41 materially incomplete, remediation PLAN-44). After PLAN-11: PLAN-13, PLAN-15, PLAN-18, PLAN-39, PLAN-40, one of PLAN-09/12/14; after PLAN-44: PLAN-17. Parked: PLAN-19, 37, 42, 43. Next action: record running on confirmation; analyze landings (extended check for Antigravity runs); land the ledger. Open for the operator: doc PR for PLAN-41's watch items; one-review merge rule; doc PRs #20/#31/#34 there; unowned remainder of PLAN-02's roadmap item; schema parity test in CI; executor behind registry.
+**Resume anchor**: Running: PLAN-11 enrolment-store (#30), PLAN-44 static-verifier-rule-gaps. Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator. Shipped: PLAN-01..08, 10, 36, 38, 41 (41 incomplete, remediation PLAN-44). After PLAN-11: PLAN-13, PLAN-15, PLAN-18, PLAN-39, PLAN-40, one of PLAN-09/12/14; after PLAN-44: PLAN-17. Parked: PLAN-19, 37, 42, 43. Next action: analyze landings (ask the harness; extended check for Antigravity); land the ledger. Open for the operator: doc PR for PLAN-41's watch items; one-review merge rule; doc PRs there; unowned remainder of PLAN-02's roadmap item; schema parity test in CI; executor behind registry.
 **Phase**: orchestrating
 **Running**:
 - PLAN-11 (WS-02) — plan=plan-11-enrolment-store
+- PLAN-44 (WS-03) — plan=plan-44-static-verifier-rule-gaps
 **Parked**:
 - PLAN-19 (WS-05)
 - PLAN-37 (WS-06)
@@ -40,7 +41,6 @@
 24. PLAN-35 (WS-06)
 25. PLAN-39 (WS-10)
 26. PLAN-40 (WS-10)
-27. PLAN-44 (WS-03)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -89,4 +89,4 @@
 | 29 | PLAN-40 | WS-10 | staged | pm-core/doc/developer/; pm-providers/pm-provider-ci/doc/developer/; pm-providers/pm-provider-git/doc/developer/; pm-providers/pm-provider-github/doc/developer/; pm-providers/pm-provider-gitlab/doc/developer/; pm-providers/pm-provider-sonar/doc/developer/; pm-runtime/doc/developer/; pm-workflow/doc/developer/ |
 | 30 | PLAN-42 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/dsl/; pm-workflow/src/main/java/de/planmarshall/workflow/engine/; pm-workflow/src/main/java/de/planmarshall/workflow/verify/ |
 | 31 | PLAN-43 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/; pm-workflow/src/main/java/de/planmarshall/workflow/engine/; pm-workflow/src/main/java/de/planmarshall/workflow/plan/; pm-workflow/src/main/java/de/planmarshall/workflow/unit/; pm-workflow/src/main/java/de/planmarshall/workflow/verify/ |
-| 32 | PLAN-44 | WS-03 | staged | doc/plans/README.adoc; doc/plans/static-verifier-rule-gaps.adoc; pm-workflow/doc/adr/workflow-verify/; pm-workflow/doc/developer/workflow-verify.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/resources/verify/ |
+| 32 | PLAN-44 | WS-03 | running | doc/plans/README.adoc; doc/plans/static-verifier-rule-gaps.adoc; pm-workflow/doc/adr/workflow-verify/; pm-workflow/doc/developer/workflow-verify.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/resources/verify/ |

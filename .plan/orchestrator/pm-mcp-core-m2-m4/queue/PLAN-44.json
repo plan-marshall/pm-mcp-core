@@ -2,8 +2,8 @@
   "id": "PLAN-44",
   "slug": "static-verifier-rule-gaps",
   "workstream": "WS-03",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
+  "status": "running",
+  "plan_marshall_plan_id": "plan-44-static-verifier-rule-gaps",
   "pr": "",
   "landing": "",
   "seq": 44
