@@ -30,6 +30,7 @@ import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.EnrolmentCodec;
 import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.PairRecovery;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.core.store.StoreRefusal;
@@ -58,8 +59,9 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * it is handed over), so an attempted operator write is audited as what is known of it, never as a success that did
  * not happen. The next write of the project and the recovery hand an owed record over: the project's recovery calls
  * {@link #replayOwedAudit(String)} as step {@code OWED_ENROLMENT_AUDIT} ({@code OwedEnrolmentAuditStep}), and its
- * background pass calls {@link #replayOwedAuditOfUnenrolledProjects()} for the projects no longer enrolled;
- * {@link #replayOwedAudit()} sweeps every project. Delivery is at least once, and a record handed over again after a
+ * background pass calls {@link #replayOwedAuditOfUnenrolledProjects()} for the projects no longer enrolled: a project
+ * without its enrolment file, with or without the orphan sidecar of an interrupted {@code unenrol}, whose sidecar it
+ * removes; {@link #replayOwedAudit()} sweeps every project. Delivery is at least once, and a record handed over again after a
  * stop between the append and the removal of the intent carries the same transaction id, by which the audit store
  * drops the duplicate. A refusal ({@code enrolment_tampered}, {@code enrolment_insecure}, {@code enrolment_invalid},
  * {@code unenrol_refused}) changed nothing and recurs with the next attempt; it is appended directly and not owed, and
@@ -77,7 +79,8 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * a staged pair can never replace the re-baselined pair later; it then reads, checks and signs one no-follow snapshot
  * of the settled file ({@code EnrolmentFileCheck.snapshot}), so the per-use checks, the strict read and the new sidecar
  * record cover the same bytes; its {@code enrolment_insecure} refusal is logged and audited like the refusal of the
- * enrolment check.
+ * enrolment check. Its outcome reports the stopped writes it settled first ({@link Rebaseline#settled()}), so the
+ * operator is told when the signed file is a recovered write rather than the file they reviewed.
  * <p>
  * The integrity key is created by the first write that needs it and never replaced, under the credentials lock
  * ({@link EnrolmentKey#creationLock}), which {@code enrol} and the re-baseline acquire before the project's lock, so two
@@ -183,7 +186,9 @@ public final class Enrolments {
      * Removes the project's enrolment file and its sidecar, and the staged files of a stopped write of the pair, so it
      * is never rolled forward later; the project's store below {@code projects/<project_id>/} stays as it is. A first
      * enrolment that was staged and stopped, with neither a file nor a sidecar in place, is cancelled and audited the
-     * same way.
+     * same way. The store removes the file before the sidecar: a stop between the two leaves an orphan sidecar and the
+     * owed {@code enrolment_removed} record, which the background pass of the recovery settles
+     * ({@link #replayOwedAuditOfUnenrolledProjects()}); running {@code unenrol} again also settles it.
      *
      * @param projectId the project
      * @return whether the enrolment file, its sidecar or the staged files of a stopped write existed; {@code false}
@@ -248,7 +253,8 @@ public final class Enrolments {
      * mismatch naming the {@code accept-edit} command of their project, and are re-baselined one by one.
      *
      * @param projectId the project
-     * @return the recorded and the current size and SHA-256 of the file, for the operator's display
+     * @return the recorded and the current size and SHA-256 of the file, for the operator's display, and the stopped
+     *         writes of the pair the re-baseline settled first, before it signed
      * @throws StoreRefusal         as {@code absent} if the file does not exist, as {@code enrolment_insecure} if it
      *                              fails a per-use check (a symbolic link is refused, never followed) or changed
      *                              while it was read, as {@code unreadable}, {@code format_outdated} or
@@ -266,10 +272,11 @@ public final class Enrolments {
         var file = store.file(projectId);
         Optional<StoreDigest> recorded;
         StoreDigest current;
+        List<PairRecovery> settled;
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(EnrolmentKey.creationLock(store.base()));
             transaction.acquire(store.lockKey(projectId));
-            store.recoverPair(transaction, projectId);
+            settled = store.recoverPair(transaction, projectId);
             var snapshot = fileCheck.snapshot(file);
             var violation = snapshot.violation();
             if (violation.isPresent()) {
@@ -285,7 +292,7 @@ public final class Enrolments {
             current = sidecar.digest();
         }
         LOGGER.info(INFO.ENROLMENT_REBASELINED, projectId);
-        return new Rebaseline(file, recorded, current);
+        return new Rebaseline(file, recorded, current, settled);
     }
 
     /**
@@ -308,8 +315,13 @@ public final class Enrolments {
 
     /**
      * Hands over the audit records that projects no longer enrolled still owe, as {@link #replayOwedAudit()} does,
-     * skipping every project whose enrolment file or sidecar exists: the recovery of an enrolled project hands its own
-     * records over. The background pass of the recovery calls it ({@code OwedEnrolmentAuditStep.unenrolledPass()}).
+     * skipping a project whose enrolment file exists ({@link EnrolmentStore#hasEnrolmentFile}): the recovery of an
+     * enrolled project hands its own records over. For every other project it hands the owed records over and then
+     * removes the sidecar an interrupted {@code unenrol} left without its file
+     * ({@link EnrolmentStore#removeOrphanSidecar}), so the project ends with no file, no sidecar and no intent; a
+     * project whose records cannot be handed over keeps its sidecar for the next pass. The background pass of the
+     * recovery calls it
+     * ({@code OwedEnrolmentAuditStep.unenrolledPass()}).
      *
      * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
      * @throws UncheckedIOException as {@link #replayOwedAudit()}
@@ -322,7 +334,8 @@ public final class Enrolments {
     /**
      * Hands over the audit records an earlier operator write still owes, project by project in the order of their
      * ids, each in its own transaction that holds the project's enrolment lock: the recovery of the owed enrolment
-     * records of every project. It reads no enrolment and creates no key. The recovery of a project calls
+     * records of every project. It reads no enrolment, creates no key and removes nothing. The recovery of a project
+     * calls
      * {@link #replayOwedAudit(String)} for the project and {@link #replayOwedAuditOfUnenrolledProjects()} in its
      * background pass; the operator verbs, which would call this sweep, have no caller yet.
      * <p>
@@ -355,9 +368,7 @@ public final class Enrolments {
         for (var projectId : store.auditOwingProjectIds()) {
             try (var transaction = lockManager.openTransaction()) {
                 transaction.acquire(store.lockKey(projectId));
-                if (!unenrolledOnly || !store.exists(transaction, projectId)) {
-                    handedOver += handOverOwed(transaction, projectId, null);
-                }
+                handedOver += replayProject(transaction, projectId, unenrolledOnly);
             } catch (StoreRefusal | UncheckedIOException failure) {
                 firstFailure = withLater(firstFailure, failure);
             }
@@ -365,6 +376,23 @@ public final class Enrolments {
         if (firstFailure != null) {
             throw firstFailure;
         }
+        return handedOver;
+    }
+
+    /**
+     * The replay of one project: the sweep of every project hands over what it owes and removes nothing; the sweep of
+     * the unenrolled projects leaves a project whose enrolment file exists to its own recovery, and otherwise hands
+     * over what the project owes and then removes the orphan sidecar of an interrupted {@code unenrol}.
+     */
+    private int replayProject(LockTransaction transaction, String projectId, boolean unenrolledOnly) {
+        if (!unenrolledOnly) {
+            return handOverOwed(transaction, projectId, null);
+        }
+        if (store.hasEnrolmentFile(transaction, projectId)) {
+            return 0;
+        }
+        var handedOver = handOverOwed(transaction, projectId, null);
+        store.removeOrphanSidecar(transaction, projectId);
         return handedOver;
     }
 
@@ -449,17 +477,23 @@ public final class Enrolments {
      * @param file     the re-baselined enrolment file
      * @param recorded the size and SHA-256 the old sidecar recorded; empty if there was no readable sidecar
      * @param current  the size and SHA-256 of the file, as the new sidecar records them
+     * @param settled  the stopped writes of the pair the re-baseline settled before it signed, in the order of their
+     *                 transaction ids ({@link EnrolmentStore#recoverPair}); empty when nothing was staged, the normal
+     *                 case. A {@link PairRecovery.Completed} entry means the signed file is the recovered write, whose
+     *                 bytes may differ from the bytes the operator reviewed
      * @since 0.1
      */
-    public record Rebaseline(Path file, Optional<StoreDigest> recorded, StoreDigest current) {
+    public record Rebaseline(Path file, Optional<StoreDigest> recorded, StoreDigest current,
+            List<PairRecovery> settled) {
 
         /**
-         * @throws NullPointerException if a component is {@code null}
+         * @throws NullPointerException if a component or an element of {@code settled} is {@code null}
          */
         public Rebaseline {
             Objects.requireNonNull(file, "file");
             Objects.requireNonNull(recorded, "recorded");
             Objects.requireNonNull(current, "current");
+            settled = List.copyOf(Objects.requireNonNull(settled, "settled"));
         }
     }
 

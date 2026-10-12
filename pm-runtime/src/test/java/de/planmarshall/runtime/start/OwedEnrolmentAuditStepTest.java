@@ -207,6 +207,47 @@ class OwedEnrolmentAuditStepTest {
         }
 
         @Test
+        @DisplayName("settles an interrupted unenrol: delivers its record, removes the orphan sidecar, spares an enrolled one")
+        void settlesAnInterruptedUnenrol() throws Exception {
+            var unconfirmed = fixture.interruptUnenrol(PROJECT);
+            enrolOwing(OTHER);
+            fixture.events.clear();
+
+            step.unenrolledPass().run();
+
+            assertAll(
+                    () -> assertEquals(List.of(unconfirmed), fixture.events),
+                    () -> assertFalse(Files.exists(fixture.store.sidecar(PROJECT))),
+                    () -> assertFalse(owes(PROJECT)),
+                    () -> assertTrue(owes(OTHER)),
+                    () -> assertTrue(Files.exists(fixture.store.file(OTHER))),
+                    () -> assertTrue(Files.exists(fixture.store.sidecar(OTHER))),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.ENROLMENT_AUDIT_REPLAY_FAILED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("an orphan sidecar that cannot be removed is logged once, nothing is thrown, the others are settled")
+        void undeletableOrphanSidecarLogged() throws Exception {
+            var unconfirmed = fixture.interruptUnenrol(GONE);
+            var blocker = fixture.undeletableSidecar(GONE);
+            unenrolOwing(PROJECT);
+            fixture.events.clear();
+            var pass = step.unenrolledPass();
+
+            pass.run();
+
+            assertAll(
+                    () -> assertEquals(2, fixture.events.size()),
+                    () -> assertEquals(unconfirmed, fixture.events.getFirst()),
+                    () -> assertEquals(AuditEvent.ENROLMENT_REMOVED, fixture.events.getLast().event()),
+                    () -> assertFalse(owes(PROJECT)),
+                    () -> assertTrue(Files.isDirectory(blocker)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_AUDIT_REPLAY_FAILED.resolveIdentifierString()));
+        }
+
+        @Test
         @DisplayName("a stop of the sink is not caught")
         void stopNotCaught() {
             unenrolOwing(PROJECT);

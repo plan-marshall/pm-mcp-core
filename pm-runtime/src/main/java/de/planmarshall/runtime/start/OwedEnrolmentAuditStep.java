@@ -29,8 +29,10 @@ import de.planmarshall.runtime.enrolment.Enrolments;
  * intent is kept.
  * <p>
  * {@link #unenrolledPass()} is the background pass of the specification for an intent whose project is no longer
- * enrolled: it hands over what those projects owe ({@link Enrolments#replayOwedAuditOfUnenrolledProjects()}), and a
- * failure is logged ({@code PM_MCP-167}) and leaves the intent in place.
+ * enrolled: it hands over what every project without its enrolment file owes and removes the orphan sidecar an
+ * interrupted {@code unenrol} left ({@link Enrolments#replayOwedAuditOfUnenrolledProjects()}); the per-project recovery
+ * lists enrolment files only and never sees such a project. A failure is logged ({@code PM_MCP-167}) and leaves the
+ * intent, and the sidecar, in place; one project's failure does not block the others.
  *
  * @since 0.1
  */
@@ -62,8 +64,9 @@ public final class OwedEnrolmentAuditStep implements RecoveryStep {
     }
 
     /**
-     * @return the background task that hands over the records of the projects no longer enrolled; it catches a
-     *         refused or failing intent and logs it, and lets any other failure propagate
+     * @return the background task that hands over the records of the projects without an enrolment file and removes
+     *         the orphan sidecar of an interrupted {@code unenrol}; it catches a refused or failing intent or sidecar
+     *         and logs it, and lets any other failure propagate
      */
     public Runnable unenrolledPass() {
         return () -> {

@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
@@ -108,6 +109,33 @@ final class EnrolmentFixture {
         try (var transaction = locks.openTransaction()) {
             return check.verify(transaction, projectId);
         }
+    }
+
+    /**
+     * Leaves what an unenrol stopped between the removal of the enrolment file and of its sidecar leaves: the sidecar
+     * without its file and the unconfirmed {@code enrolment_removed} record owed in the project's intent, as the
+     * unenrol owes it before its mutation.
+     *
+     * @return the owed unconfirmed record
+     */
+    AuditEvent interruptUnenrol(String projectId) throws IOException {
+        enrol(projectId, false);
+        var unconfirmed = AuditEvent
+                .enrolmentRemoved(projectId, TransactionId.generate(Clock.systemUTC()).value()).notConfirmed();
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(store.lockKey(projectId));
+            store.oweAudit(transaction, projectId, unconfirmed);
+        }
+        Files.delete(store.file(projectId));
+        return unconfirmed;
+    }
+
+    /** Replaces the project's sidecar by a directory with an entry, so that it cannot be deleted. */
+    Path undeletableSidecar(String projectId) throws IOException {
+        Files.delete(store.sidecar(projectId));
+        var blocker = Files.createDirectory(store.sidecar(projectId));
+        Files.writeString(blocker.resolve("entry"), projectId);
+        return blocker;
     }
 
     /** @return the staged name a stopped write of the transaction leaves for the target */

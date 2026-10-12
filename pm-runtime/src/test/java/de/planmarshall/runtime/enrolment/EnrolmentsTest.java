@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -591,17 +592,22 @@ class EnrolmentsTest {
         }
     }
 
-    /** A stopped write of the pair of an enrolled project, and whether it leaves the new file in place once settled. */
+    /**
+     * A stopped write of the pair of an enrolled project, whether it leaves the new file in place once settled, and
+     * the kinds of what the re-baseline reports it settled.
+     */
     enum StoppedWrite {
-        NOTHING_STAGED(false),
-        COMPLETE_PAIR(true),
-        TORN_STAGED_SIDECAR(false),
-        STAGED_SIDECAR_ONLY(true);
+        NOTHING_STAGED(false, List.of()),
+        COMPLETE_PAIR(true, List.of(PairRecovery.Completed.class)),
+        TORN_STAGED_SIDECAR(false, List.of(PairRecovery.Discarded.class)),
+        STAGED_SIDECAR_ONLY(true, List.of(PairRecovery.Completed.class));
 
         private final boolean newFileInPlace;
+        private final List<Class<? extends PairRecovery>> settled;
 
-        StoppedWrite(boolean newFileInPlace) {
+        StoppedWrite(boolean newFileInPlace, List<Class<? extends PairRecovery>> settled) {
             this.newFileInPlace = newFileInPlace;
+            this.settled = settled;
         }
     }
 
@@ -625,6 +631,7 @@ class EnrolmentsTest {
                     () -> assertEquals(store.file(PROJECT), outcome.file()),
                     () -> assertEquals(Optional.of(recorded), outcome.recorded()),
                     () -> assertEquals(StoreDigest.of(edited), outcome.current()),
+                    () -> assertTrue(outcome.settled().isEmpty()),
                     () -> assertTrue(verify().pilot()),
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_REBASELINED, PROJECT)),
                             withoutTransactionIds(events)),
@@ -672,6 +679,12 @@ class EnrolmentsTest {
                     () -> assertArrayEquals(expected, file),
                     () -> assertEquals(StoreDigest.of(expected), store.decodeSidecar(PROJECT, sidecar).digest()),
                     () -> assertEquals(StoreDigest.of(expected), outcome.current()),
+                    () -> assertEquals(stopped.settled,
+                            outcome.settled().stream().map(PairRecovery::getClass).toList()),
+                    () -> assertTrue(outcome.settled().stream()
+                            .filter(PairRecovery.Discarded.class::isInstance)
+                            .map(PairRecovery.Discarded.class::cast)
+                            .noneMatch(discarded -> discarded.reason().isBlank())),
                     () -> assertTrue(recovered.isEmpty()),
                     () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
                     () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
@@ -1397,6 +1410,152 @@ class EnrolmentsTest {
                     () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ALPHA)),
                             withoutTransactionIds(events)));
         }
+
+        /**
+         * An unenrol stopped between the removal of the enrolment file and of its sidecar leaves an orphan sidecar and
+         * the unconfirmed {@code enrolment_removed} record. The project recovery lists enrolment files only; the
+         * background pass finds the project by its owed record, hands it over and removes the orphan sidecar.
+         */
+        @Nested
+        @DisplayName("an unenrol stopped between the removal of the file and of the sidecar")
+        class InterruptedUnenrol {
+
+            /** Owes the unconfirmed record of an unenrol of the project, as the unenrol does before its mutation. */
+            private AuditEvent oweRemoval(String projectId) {
+                var unconfirmed = AuditEvent
+                        .enrolmentRemoved(projectId, TransactionId.generate(Clock.systemUTC()).value()).notConfirmed();
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(store.lockKey(projectId));
+                    store.oweAudit(transaction, projectId, unconfirmed);
+                }
+                return unconfirmed;
+            }
+
+            /** Leaves what the stop leaves: the sidecar without its file and the owed unconfirmed record. */
+            private AuditEvent interruptUnenrol(String projectId) throws IOException {
+                enrolments.enrol(enrolment(projectId, false, null), false);
+                var unconfirmed = oweRemoval(projectId);
+                Files.delete(store.file(projectId));
+                events.clear();
+                return unconfirmed;
+            }
+
+            /** Replaces the project's sidecar by a directory with an entry, so that it cannot be deleted. */
+            private Path undeletableSidecar(String projectId) throws IOException {
+                Files.delete(store.sidecar(projectId));
+                var blocker = Files.createDirectory(store.sidecar(projectId));
+                Files.writeString(blocker.resolve("entry"), projectId);
+                return blocker;
+            }
+
+            private static Object projectOf(AuditEvent event) {
+                return event.details().get(AuditEvent.DETAIL_PROJECT_ID);
+            }
+
+            @Test
+            @DisplayName("the background pass hands the record over as not confirmed and removes the orphan sidecar")
+            void settledByTheBackgroundPass() throws Exception {
+                var unconfirmed = interruptUnenrol(PROJECT);
+
+                var replayed = owing.replayOwedAuditOfUnenrolledProjects();
+                var sidecarLeft = Files.exists(store.sidecar(PROJECT));
+                var again = owing.replayOwedAuditOfUnenrolledProjects();
+
+                assertAll(
+                        () -> assertEquals(1, replayed),
+                        () -> assertEquals(List.of(unconfirmed), events),
+                        () -> assertEquals(AuditEvent.OUTCOME_FAILED, events.getFirst().outcome()),
+                        () -> assertEquals(AuditEvent.REASON_NOT_CONFIRMED,
+                                events.getFirst().details().get(AuditEvent.DETAIL_REASON)),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                WARN.ENROLMENT_WRITE_NOT_CONFIRMED.resolveIdentifierString()),
+                        () -> assertFalse(sidecarLeft),
+                        () -> assertFalse(owes(PROJECT)),
+                        () -> assertTrue(store.projectIds().isEmpty()),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()),
+                        () -> assertEquals(0, again));
+            }
+
+            @Test
+            @DisplayName("the sweep of every project hands the same record over but leaves the sidecar in place")
+            void sweepOfEveryProjectRemovesNothing() throws Exception {
+                var unconfirmed = interruptUnenrol(PROJECT);
+
+                var replayed = owing.replayOwedAudit();
+
+                assertAll(
+                        () -> assertEquals(1, replayed),
+                        () -> assertEquals(List.of(unconfirmed), events),
+                        () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
+                        () -> assertFalse(owes(PROJECT)));
+            }
+
+            @Test
+            @DisplayName("a project whose enrolment file exists is left to its own recovery, even without a sidecar")
+            void enrolmentFileLeftAlone() throws Exception {
+                enrolments.enrol(enrolment(false, null), false);
+                oweRemoval(PROJECT);
+                Files.delete(store.sidecar(PROJECT));
+                var file = Files.readAllBytes(store.file(PROJECT));
+                var intent = Files.readAllBytes(store.auditIntent(PROJECT));
+                events.clear();
+
+                var replayed = owing.replayOwedAuditOfUnenrolledProjects();
+
+                assertAll(
+                        () -> assertEquals(0, replayed),
+                        () -> assertTrue(events.isEmpty()),
+                        () -> assertArrayEquals(file, Files.readAllBytes(store.file(PROJECT))),
+                        () -> assertArrayEquals(intent, Files.readAllBytes(store.auditIntent(PROJECT))));
+            }
+
+            @Test
+            @DisplayName("a sidecar that cannot be removed fails only its project; the others are settled first")
+            void isolation() throws Exception {
+                interruptUnenrol(ALPHA);
+                var blocker = undeletableSidecar(ALPHA);
+                interruptUnenrol(ZETA);
+                enrolments.enrol(enrolment(BETA, false, null), false);
+                audit.mode = SinkMode.REFUSING;
+                owing.unenrol(BETA);
+                audit.mode = SinkMode.WORKING;
+                events.clear();
+
+                var failure = assertThrows(UncheckedIOException.class,
+                        owing::replayOwedAuditOfUnenrolledProjects);
+
+                assertAll(
+                        () -> assertTrue(failure.getMessage().contains("'" + ALPHA + "'"), failure::getMessage),
+                        () -> assertEquals(0, failure.getSuppressed().length),
+                        () -> assertEquals(List.of(ALPHA, BETA, ZETA),
+                                events.stream().map(InterruptedUnenrol::projectOf).toList()),
+                        () -> assertTrue(Files.isDirectory(blocker)),
+                        () -> assertFalse(Files.exists(store.sidecar(ZETA))),
+                        () -> assertTrue(store.auditOwingProjectIds().isEmpty()));
+            }
+
+            @Test
+            @DisplayName("running unenrol again removes the sidecar, hands both records over in order, and enrol works")
+            void unenrolAgain() throws Exception {
+                var unconfirmed = interruptUnenrol(PROJECT);
+
+                var removed = owing.unenrol(PROJECT);
+                var sidecarLeft = Files.exists(store.sidecar(PROJECT));
+                var handedOver = List.copyOf(events);
+                var written = owing.enrol(enrolment(false, null), false);
+
+                assertAll(
+                        () -> assertTrue(removed),
+                        () -> assertFalse(sidecarLeft),
+                        () -> assertEquals(2, handedOver.size()),
+                        () -> assertEquals(unconfirmed, handedOver.getFirst()),
+                        () -> assertEquals(succeeded(AuditEvent.ENROLMENT_REMOVED, PROJECT),
+                                withoutTransactionIds(handedOver).getLast()),
+                        () -> assertNotEquals(transactionIdOf(unconfirmed), transactionIdOf(handedOver.getLast())),
+                        () -> assertEquals(written, verify()),
+                        () -> assertFalse(owes(PROJECT)));
+            }
+        }
     }
 
     /**
@@ -1553,16 +1712,26 @@ class EnrolmentsTest {
     }
 
     @Test
-    @DisplayName("a re-baseline outcome refuses missing components")
+    @DisplayName("a re-baseline outcome refuses missing components and keeps its own copy of what it settled")
     void rebaselineComponents() {
         var digest = StoreDigest.of(new byte[0]);
         var file = base.resolve("f");
+        var none = List.<PairRecovery>of();
+        var settled = new ArrayList<PairRecovery>();
+        var outcome = new Enrolments.Rebaseline(file, Optional.empty(), digest, settled);
+        settled.add(new PairRecovery.Completed(TransactionId.generate(Clock.systemUTC()), List.of(file)));
+        var reported = outcome.settled();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(null, Optional.empty(), digest)),
-                () -> assertThrows(NullPointerException.class, () -> new Enrolments.Rebaseline(file, null, digest)),
+                        () -> new Enrolments.Rebaseline(null, Optional.empty(), digest, none)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new Enrolments.Rebaseline(file, Optional.empty(), null)));
+                        () -> new Enrolments.Rebaseline(file, null, digest, none)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new Enrolments.Rebaseline(file, Optional.empty(), null, none)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new Enrolments.Rebaseline(file, Optional.empty(), digest, null)),
+                () -> assertTrue(reported.isEmpty()),
+                () -> assertThrows(UnsupportedOperationException.class, reported::clear));
     }
 }

@@ -12,6 +12,7 @@ package de.planmarshall.runtime.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,6 +35,8 @@ import org.junit.jupiter.api.io.TempDir;
 class EnrolledProjectsTest {
 
     private static final String JSON = "{}";
+    private static final String ENROLLED = "enrolled-project";
+    private static final String ORPHAN = "orphan-project";
 
     @TempDir
     Path base;
@@ -84,6 +87,19 @@ class EnrolledProjectsTest {
                 () -> assertEquals(List.of(), EnrolledProjects.of(new EnrolmentStore(base.resolve("elsewhere")))
                         .projectIds()),
                 () -> assertEquals(List.of(), EnrolledProjects.NONE.projectIds()));
+    }
+
+    @Test
+    @DisplayName("a project an interrupted unenrol left with an orphan sidecar and an intent is not listed")
+    void orphanSidecarIsNotListed() throws Exception {
+        var fixture = new EnrolmentFixture(base);
+        fixture.enrol(ENROLLED, false);
+        fixture.interruptUnenrol(ORPHAN);
+
+        assertAll(
+                () -> assertEquals(List.of(ENROLLED), EnrolledProjects.of(fixture.store).projectIds()),
+                () -> assertTrue(Files.exists(fixture.store.sidecar(ORPHAN))),
+                () -> assertTrue(Files.exists(fixture.store.auditIntent(ORPHAN))));
     }
 
     @Test
