@@ -126,7 +126,7 @@ class OwedEnrolmentAuditStepTest {
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {NOT_JSON, "{\"format_version\":2,\"owed_events\":[]}"})
     @DisplayName("an unreadable intent or one of another version fails the step and is kept")
-    void badIntent(String content) throws IOException {
+    void badIntent(String content) throws Exception {
         var intent = Files.writeString(fixture.store.auditIntent(PROJECT), content);
 
         var outcome = step.run(PROJECT);
@@ -139,7 +139,7 @@ class OwedEnrolmentAuditStepTest {
 
     @Test
     @DisplayName("an intent that fails on I/O fails the step and is kept")
-    void intentIoFailure() throws IOException {
+    void intentIoFailure() throws Exception {
         var intent = Files.createDirectory(fixture.store.auditIntent(PROJECT));
 
         var outcome = step.run(PROJECT);
@@ -151,7 +151,7 @@ class OwedEnrolmentAuditStepTest {
 
     @Test
     @DisplayName("a bad intent of another project does not matter to this project's run")
-    void otherProjectIsolated() throws IOException {
+    void otherProjectIsolated() throws Exception {
         enrolOwing(PROJECT);
         Files.writeString(fixture.store.auditIntent(OTHER), NOT_JSON);
 
@@ -190,7 +190,7 @@ class OwedEnrolmentAuditStepTest {
 
         @Test
         @DisplayName("a bad intent of an unenrolled project is logged, nothing is thrown, the good ones are handed over")
-        void badIntentLogged() throws IOException {
+        void badIntentLogged() throws Exception {
             unenrolOwing(PROJECT);
             var bad = Files.writeString(fixture.store.auditIntent(GONE), NOT_JSON);
             fixture.events.clear();

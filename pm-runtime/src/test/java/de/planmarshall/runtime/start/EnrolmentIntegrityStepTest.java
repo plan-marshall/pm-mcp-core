@@ -114,7 +114,7 @@ class EnrolmentIntegrityStepTest {
 
     @Test
     @DisplayName("a good enrolment is verified, and the step writes nothing and creates no key")
-    void verified() throws IOException {
+    void verified() throws Exception {
         var names = fixture.names();
         var keyBytes = Files.readAllBytes(fixture.key.keyFile());
 
@@ -158,7 +158,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("only the file staged: discarded, the old enrolment is verified")
-        void fileStagedOnly() throws IOException {
+        void fileStagedOnly() throws Exception {
             writeStaged(staged(fixture.store.file(PROJECT), transactionId), newFile);
 
             assertSettled(step.run(PROJECT), oldFile);
@@ -168,7 +168,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("both staged: completed, the new enrolment is in place and verified")
-        void bothStaged() throws IOException {
+        void bothStaged() throws Exception {
             writeStaged(staged(fixture.store.file(PROJECT), transactionId), newFile);
             writeStaged(staged(fixture.store.sidecar(PROJECT), transactionId), newSidecar);
 
@@ -179,7 +179,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("file replaced, old sidecar, staged sidecar: completed, the pair verifies")
-        void fileReplaced() throws IOException {
+        void fileReplaced() throws Exception {
             Files.write(fixture.store.file(PROJECT), newFile);
             writeStaged(staged(fixture.store.sidecar(PROJECT), transactionId), newSidecar);
 
@@ -190,7 +190,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("a torn staged sidecar: discarded with its file, the old enrolment is verified")
-        void tornSidecar() throws IOException {
+        void tornSidecar() throws Exception {
             writeStaged(staged(fixture.store.file(PROJECT), transactionId), newFile);
             writeStaged(staged(fixture.store.sidecar(PROJECT), transactionId),
                     Arrays.copyOf(newSidecar, newSidecar.length / 2));
@@ -219,7 +219,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("a file edited without its sidecar is tampered")
-        void tampered() throws IOException {
+        void tampered() throws Exception {
             Files.write(fixture.store.file(PROJECT), newFile);
 
             var reason = failure(step.run(PROJECT));
@@ -236,7 +236,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("a file with mode 0666 is insecure")
-        void insecureMode() throws IOException {
+        void insecureMode() throws Exception {
             Files.setPosixFilePermissions(fixture.store.file(PROJECT), PosixFilePermissions.fromString("rw-rw-rw-"));
 
             var reason = failure(step.run(PROJECT));
@@ -252,7 +252,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("a file that is a symbolic link is insecure")
-        void symbolicLink() throws IOException {
+        void symbolicLink() throws Exception {
             var target = Files.move(fixture.store.file(PROJECT), base.resolve("elsewhere.json"));
             Files.createSymbolicLink(fixture.store.file(PROJECT), target);
 
@@ -264,7 +264,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("an unreadable file with a matching sidecar and HMAC is unreadable, audited as enrolment_invalid")
-        void unreadableFile() throws IOException {
+        void unreadableFile() throws Exception {
             var content = "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8);
             Files.write(fixture.store.file(PROJECT), content);
             Files.write(fixture.store.sidecar(PROJECT), fixture.signedSidecar(content));
@@ -283,7 +283,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("a project that vanished from the store is absent")
-        void vanished() throws IOException {
+        void vanished() throws Exception {
             Files.delete(fixture.store.file(PROJECT));
             Files.delete(fixture.store.sidecar(PROJECT));
 
@@ -297,7 +297,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("a missing key is tampered")
-        void missingKey() throws IOException {
+        void missingKey() throws Exception {
             Files.delete(fixture.key.keyFile());
 
             var reason = failure(step.run(PROJECT));
@@ -307,7 +307,7 @@ class EnrolmentIntegrityStepTest {
 
         @Test
         @DisplayName("an unreadable key fails with its reason code and never with the key")
-        void unreadableKey() throws IOException {
+        void unreadableKey() throws Exception {
             var keyText = Files.readString(fixture.key.keyFile()).strip();
             var failingKey = new EnrolmentKey(new LockedKeyring(), base.resolve("state"), EnrolmentFixture.USER,
                     new SecureRandom());

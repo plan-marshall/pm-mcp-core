@@ -819,7 +819,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("a write leaves exactly the complete pair, a second write replaces both, a mismatch writes nothing")
-        void writeLeavesTheCompletePairAndNoStagedFile() throws IOException {
+        void writeLeavesTheCompletePairAndNoStagedFile() throws Exception {
             write(store, old);
             var namesAfterFirst = names();
             var firstConsistent = consistent(PROJECT);
@@ -847,7 +847,7 @@ class EnrolmentStoreTest {
         @CsvSource({"FILE_STAGED, false, Discarded", "SIDECAR_STAGED, true, Completed",
                 "FILE_REPLACED, true, Completed", "SIDECAR_REPLACED, true, none"})
         @DisplayName("a write stopped after each step is settled to the old or the new pair, never a half-new one")
-        void stoppedAfterEachStep(EnrolmentStore.PairStep step, boolean newPair, String kind) throws IOException {
+        void stoppedAfterEachStep(EnrolmentStore.PairStep step, boolean newPair, String kind) throws Exception {
             write(store, old);
             writeStopped(step, newer);
             var stopped = stagedTransactions();
@@ -867,7 +867,7 @@ class EnrolmentStoreTest {
         @ParameterizedTest(name = "stopped after {0}")
         @CsvSource({"FILE_STAGED, Discarded, false", "SIDECAR_STAGED, Completed, true"})
         @DisplayName("a stopped first enrolment is no enrolment before the recovery, and one after a completion")
-        void firstEnrolmentStopped(EnrolmentStore.PairStep step, String kind, boolean enrolled) throws IOException {
+        void firstEnrolmentStopped(EnrolmentStore.PairStep step, String kind, boolean enrolled) throws Exception {
             writeStopped(step, newer);
             var before = store.projectIds();
 
@@ -902,7 +902,7 @@ class EnrolmentStoreTest {
         @MethodSource("incompleteStagings")
         @DisplayName("an incomplete or mismatching staging is discarded with its file, the old pair untouched")
         void incompleteStagingDiscarded(String description, byte[] stagedFile, byte[] stagedSidecar)
-                throws IOException {
+                throws Exception {
             write(store, old);
             var oldFile = Files.readAllBytes(store.file(PROJECT));
             var oldSidecar = Files.readAllBytes(store.sidecar(PROJECT));
@@ -922,7 +922,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("a replaced file with a staged sidecar that does not match it: the sidecar is discarded, the file kept")
-        void replacedFileWithForeignSidecar() throws IOException {
+        void replacedFileWithForeignSidecar() throws Exception {
             write(store, old);
             Files.write(store.file(PROJECT), EnrolmentCodec.write(newer));
             var oldSidecar = Files.readAllBytes(store.sidecar(PROJECT));
@@ -932,8 +932,8 @@ class EnrolmentStoreTest {
 
             assertAll(
                     () -> assertEquals(List.of(new PairRecovery.Discarded(transactionId,
-                                    List.of(staged(store.sidecar(PROJECT), transactionId)),
-                                    ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered),
+                            List.of(staged(store.sidecar(PROJECT), transactionId)),
+                            ((PairRecovery.Discarded) recovered.getFirst()).reason())), recovered),
                     () -> assertArrayEquals(EnrolmentCodec.write(newer), Files.readAllBytes(store.file(PROJECT))),
                     () -> assertArrayEquals(oldSidecar, Files.readAllBytes(store.sidecar(PROJECT))),
                     () -> assertFalse(consistent(PROJECT)),
@@ -942,7 +942,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("a staged sidecar whose enrolment file is missing is discarded")
-        void stagedSidecarWithoutFile() throws IOException {
+        void stagedSidecarWithoutFile() throws Exception {
             stage(PROJECT, null, sidecarOf(newer).write(), Instant.now());
 
             var recovered = recover(PROJECT);
@@ -955,7 +955,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("the staged names of one project never claim those of a project whose id begins with it")
-        void isolation() throws IOException {
+        void isolation() throws Exception {
             var projectContent = EnrolmentCodec.write(newer);
             var sibling = enrolment(SIBLING, true);
             var siblingContent = EnrolmentCodec.write(sibling);
@@ -987,7 +987,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("several stopped writes of one project are settled in ascending transaction order")
-        void severalTransactionsInOrder() throws IOException {
+        void severalTransactionsInOrder() throws Exception {
             var first = enrolment(PROJECT, false);
             var second = enrolment(PROJECT, true);
             var later = Instant.parse("2026-10-12T08:00:01Z");
@@ -1008,7 +1008,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("a write settles an earlier stopped write first, and its own pair is the one in place")
-        void writeSettlesAnEarlierStoppedWriteFirst() throws IOException {
+        void writeSettlesAnEarlierStoppedWriteFirst() throws Exception {
             write(store, old);
             writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
 
@@ -1023,7 +1023,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("a removal drops staged leftovers, so the unenrolled project is never rolled forward again")
-        void removeDropsStagedLeftovers() throws IOException {
+        void removeDropsStagedLeftovers() throws Exception {
             write(store, old);
             writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
 
@@ -1046,7 +1046,7 @@ class EnrolmentStoreTest {
 
         @Test
         @DisplayName("the recovery is refused without the project's lock, another project's lock does not count")
-        void recoverWithoutLock() throws IOException {
+        void recoverWithoutLock() throws Exception {
             writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
             var before = names();
 

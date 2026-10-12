@@ -95,7 +95,7 @@ class EnrolmentPolicyTest {
                 case CANONICAL -> enrolment(new Build(Map.of(BuildSystem.MAVEN, new TreeMap<>(Map.of("verify", argv))),
                         Map.of()), Map.of(), List.of(), Map.of());
                 case DISCOVERY -> enrolment(new Build(Map.of(),
-                        Map.of(BuildSystem.GRADLE, new TreeMap<>(Map.of("modules", argv)))), Map.of(), List.of(),
+                                Map.of(BuildSystem.GRADLE, new TreeMap<>(Map.of("modules", argv)))), Map.of(), List.of(),
                         Map.of());
                 case PROVIDER -> enrolment(Build.defaults(), Map.of(Provider.GH, new ProviderVerification(argv)),
                         List.of(), Map.of());
@@ -178,7 +178,7 @@ class EnrolmentPolicyTest {
         @CsvSource({"base, true", "base/sub, true", "base/missing/deeper, true", "'', true", "/, true",
                 "sibling, false", "sibling/cache, false", "base-like, false"})
         @DisplayName("a path that is, lies below or contains the base is refused, naming the path")
-        void judged(String relative, boolean violates) throws IOException {
+        void judged(String relative, boolean violates) throws Exception {
             Files.createDirectories(base.resolve("sub"));
             Files.createDirectories(root.resolve("sibling"));
             var path = absolute(relative);
@@ -200,7 +200,7 @@ class EnrolmentPolicyTest {
 
         @Test
         @DisplayName("a symbolic link into the base is refused by its real path, a link to a sibling is not")
-        void symbolicLinks() throws IOException {
+        void symbolicLinks() throws Exception {
             var inside = Files.createDirectories(base.resolve("cache"));
             var sibling = Files.createDirectories(root.resolve("sibling"));
             var intoBase = Files.createSymbolicLink(root.resolve("into-base"), inside);
@@ -216,7 +216,7 @@ class EnrolmentPolicyTest {
 
         @Test
         @DisplayName("a base given by a symbolic link is compared by its real path too")
-        void baseByLink() throws IOException {
+        void baseByLink() throws Exception {
             var linkedBase = Files.createSymbolicLink(root.resolve("linked-base"), base);
             var below = Files.createDirectories(base.resolve("x"));
 

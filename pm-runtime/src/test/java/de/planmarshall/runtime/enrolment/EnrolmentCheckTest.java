@@ -345,7 +345,7 @@ class EnrolmentCheckTest {
 
         @Test
         @DisplayName("an unreadable sidecar")
-        void unreadableSidecar() throws IOException {
+        void unreadableSidecar() throws Exception {
             var content = "not a record".getBytes(StandardCharsets.UTF_8);
             Files.write(store.sidecar(PROJECT), content);
             var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
@@ -355,7 +355,7 @@ class EnrolmentCheckTest {
 
         @Test
         @DisplayName("a sidecar of another format version")
-        void sidecarOfOtherVersion() throws IOException {
+        void sidecarOfOtherVersion() throws Exception {
             var content = otherVersionOfSidecar();
             Files.write(store.sidecar(PROJECT), content);
             var expected = assertThrows(StoreRefusal.class, () -> store.decodeSidecar(PROJECT, content));
@@ -367,7 +367,7 @@ class EnrolmentCheckTest {
         @CsvSource(delimiter = '|', value = {"{\"format_version\":1}|UNREADABLE",
                 "{\"format_version\":0}|FORMAT_OUTDATED", "{\"format_version\":2}|FORMAT_NEWER"})
         @DisplayName("a signed file that does not read strictly")
-        void unreadableFile(String document, Outcome outcome) throws IOException {
+        void unreadableFile(String document, Outcome outcome) throws Exception {
             var content = document.getBytes(StandardCharsets.UTF_8);
             writeSignedFile(content);
             var expected = assertThrows(StoreRefusal.class, () -> store.decode(PROJECT, content));
@@ -377,7 +377,7 @@ class EnrolmentCheckTest {
 
         @Test
         @DisplayName("a failing audit sink is suppressed on the refusal and does not change its outcome")
-        void failingSink() throws IOException {
+        void failingSink() throws Exception {
             Files.writeString(store.sidecar(PROJECT), "not a record");
             var failure = new UncheckedIOException(new IOException("audit log full"));
             var failingCheck = new EnrolmentCheck(store, key, new EnrolmentFileCheck(USER), event -> {
@@ -397,7 +397,7 @@ class EnrolmentCheckTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"absent", "tampered", "insecure"})
         @DisplayName("an absent, tampered or insecure enrolment is not recorded as enrolment_invalid")
-        void otherRefusals(String kind) throws IOException {
+        void otherRefusals(String kind) throws Exception {
             var projectId = "absent".equals(kind) ? "unknown-project" : PROJECT;
             if ("tampered".equals(kind)) {
                 Files.delete(store.sidecar(PROJECT));

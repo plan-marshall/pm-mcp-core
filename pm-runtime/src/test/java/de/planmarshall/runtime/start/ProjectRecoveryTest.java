@@ -169,8 +169,8 @@ class ProjectRecoveryTest {
     @DisplayName("the names are the eleven steps of the specification, in its order")
     void namesInSpecificationOrder() {
         assertEquals(List.of(Name.ENROLMENT_INTEGRITY, Name.OWED_ENROLMENT_AUDIT, Name.JOBS_AND_WORKERS, Name.LEASES,
-                Name.JOURNAL_ROLL_FORWARD, Name.CROSS_SCOPE_RECONCILIATION, Name.WORKTREE_PRESENCE,
-                Name.ENGINE_DEADLINES, Name.RESUME_DRIVE, Name.PENDING_RECORD_SWEEP, Name.BASELINE_WORKTREE_SWEEP),
+                        Name.JOURNAL_ROLL_FORWARD, Name.CROSS_SCOPE_RECONCILIATION, Name.WORKTREE_PRESENCE,
+                        Name.ENGINE_DEADLINES, Name.RESUME_DRIVE, Name.PENDING_RECORD_SWEEP, Name.BASELINE_WORKTREE_SWEEP),
                 Arrays.asList(Name.values()));
     }
 

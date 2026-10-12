@@ -21,12 +21,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.regex.Pattern;
-import lombok.experimental.UtilityClass;
 
 
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
+import lombok.experimental.UtilityClass;
 
 /**
  * The enrolment policy (PM-EXEC-1, PM-EXEC-2): the rules the runtime applies to an enrolment before it signs it, at

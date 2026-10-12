@@ -1305,7 +1305,7 @@ class EnrolmentsTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {PLACEHOLDER, WRITE_PATH, ENVIRONMENT})
         @DisplayName("the re-baseline refuses an edited file that violates the policy, and owes nothing")
-        void rebaselineRefused(String family) throws IOException {
+        void rebaselineRefused(String family) throws Exception {
             enrolments.enrol(enrolment(false, null), false);
             var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
             var edited = violating(family);

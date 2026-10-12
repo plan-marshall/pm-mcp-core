@@ -53,7 +53,7 @@ class EnrolledProjectsTest {
 
     @Test
     @DisplayName("lists the enrolment files in the order of their ids, not sidecars, intents or staged files")
-    void listsEnrolmentFilesOnly() throws IOException {
+    void listsEnrolmentFilesOnly() throws Exception {
         file("b-project.json");
         file("a-project.json");
         file("c-project.json.hmac");
@@ -65,7 +65,7 @@ class EnrolledProjectsTest {
 
     @Test
     @DisplayName("returns a copy; a later enrolment shows in the next call")
-    void copyPerCall() throws IOException {
+    void copyPerCall() throws Exception {
         file("a-project.json");
         var enrolled = EnrolledProjects.of(store);
         var first = enrolled.projectIds();
