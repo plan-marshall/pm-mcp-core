@@ -146,6 +146,9 @@ public final class VerifyNotResolvePipeline {
      * @param <T> what the stage verifies
      * @since 0.1
      */
+    // T is a phantom type parameter: it types Passed<T>.value() for the pattern matches on a Stage<T>, and the
+    // interface itself needs no member of type T.
+    @SuppressWarnings("java:S2326")
     sealed interface Stage<T> permits Stage.Passed, Stage.Failed {
 
         /**
