@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
@@ -45,8 +46,6 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
-import de.planmarshall.workflow.ast.StepCompletionStatus;
-import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -356,7 +355,7 @@ public final class WorkflowValidator {
                 }
             }
             case StateBehavior.JobStep _, StateBehavior.ModelJob _, StateBehavior.SubWorkflowCall _,
-                 StateBehavior.TerminalState _ -> {
+                StateBehavior.TerminalState _ -> {
             }
         }
     }
@@ -758,13 +757,13 @@ public final class WorkflowValidator {
     private static String formatCombinations(List<Map<String, Boolean>> combinations) {
         return combinations.stream()
                 .map(WorkflowValidator::formatCombination)
-                .collect(java.util.stream.Collectors.joining(", "));
+                .collect(Collectors.joining(", "));
     }
 
     private static String formatCombination(Map<String, Boolean> combination) {
         return combination.entrySet().stream()
                 .map(e -> "%s=%s".formatted(e.getKey(), e.getValue()))
-                .collect(java.util.stream.Collectors.joining(", ", "[", "]"));
+                .collect(Collectors.joining(", ", "[", "]"));
     }
 
     private static void checkLeafTaskConstraint(WorkflowDefinition definition, List<Violation> violations) {
@@ -886,7 +885,7 @@ public final class WorkflowValidator {
                         violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
                                 state.location(),
                                 "the call routes the exit outcome '%s' of '%s' multiple times"
-                                            .formatted(contractOutcome, call.subWorkflowId())));
+                                        .formatted(contractOutcome, call.subWorkflowId())));
                     }
                 }
 
@@ -1065,10 +1064,11 @@ public final class WorkflowValidator {
                 registry.find(auto.primitiveId()).ifPresent(p -> produced.addAll(p.producedArtifacts()));
             case StateBehavior.JobStep job ->
                 registry.find(job.primitiveId()).ifPresent(p -> produced.addAll(p.producedArtifacts()));
-            default -> {}
+            default -> {
+            }
         }
         state.factsPrimitiveId().ifPresent(factsId ->
-            registry.find(factsId).ifPresent(p -> produced.addAll(p.producedArtifacts())));
+                registry.find(factsId).ifPresent(p -> produced.addAll(p.producedArtifacts())));
         return produced;
     }
 
@@ -1079,25 +1079,27 @@ public final class WorkflowValidator {
                 registry.find(auto.primitiveId()).ifPresent(p -> required.addAll(p.requiredArtifacts()));
             case StateBehavior.JobStep job ->
                 registry.find(job.primitiveId()).ifPresent(p -> required.addAll(p.requiredArtifacts()));
-            default -> {}
+            default -> {
+            }
         }
         state.factsPrimitiveId().ifPresent(factsId ->
-            registry.find(factsId).ifPresent(p -> required.addAll(p.requiredArtifacts())));
+                registry.find(factsId).ifPresent(p -> required.addAll(p.requiredArtifacts())));
         return required;
     }
 
     private Set<String> requiredArtifactsOf(LinkSpec link) {
         var required = new LinkedHashSet<String>();
         link.guard().ifPresent(guard ->
-            UnitGraph.predicatesOf(guard.expr()).forEach(predId ->
-                registry.find(predId).ifPresent(p -> required.addAll(p.requiredArtifacts()))));
+                UnitGraph.predicatesOf(guard.expr()).forEach(predId ->
+                        registry.find(predId).ifPresent(p -> required.addAll(p.requiredArtifacts()))));
         if (link.action() instanceof LinkAction.ExecutePrimitive(var primitiveId)) {
             registry.find(primitiveId).ifPresent(p -> required.addAll(p.requiredArtifacts()));
         }
         return required;
     }
 
-    private record StepCompletionSite(String stateId, OutcomeTransition transition, StepCompletion completion) {}
+    private record StepCompletionSite(String stateId, OutcomeTransition transition, StepCompletion completion) {
+    }
 
     private void checkStepCompletion(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
         var completionsByStep = new LinkedHashMap<String, List<StepCompletionSite>>();
@@ -1128,9 +1130,9 @@ public final class WorkflowValidator {
                             boolean admitted = outcomeClass == OutcomeClass.SUCCESS
                                     || outcomeClass == OutcomeClass.SKIP
                                     || (outcomeClass == OutcomeClass.INDETERMINATE
-                                            && "lost".equals(transition.outcomeName()))
+                                    && "lost".equals(transition.outcomeName()))
                                     || (outcomeClass == OutcomeClass.FAILURE
-                                            && "infeasible".equals(transition.outcomeName()));
+                                    && "infeasible".equals(transition.outcomeName()));
                             if (!admitted) {
                                 violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
                                         comp.location(),
@@ -1314,7 +1316,8 @@ public final class WorkflowValidator {
                     }
                 }
             }
-            case StateBehavior.TerminalState _ -> {}
+            case StateBehavior.TerminalState _ -> {
+            }
         }
         return OutcomeClass.SUCCESS;
     }
@@ -1338,7 +1341,7 @@ public final class WorkflowValidator {
                     for (var calleeState : callee.states().values()) {
                         if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
                                 || (calleeState.behavior() instanceof StateBehavior.QuestionWait qw
-                                        && !qw.links().isEmpty())) {
+                                && !qw.links().isEmpty())) {
                             violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(),
                                     state.location(),
                                     "the called sub-workflow '%s' contains resting links, which are not admitted in a unit of scope %s"
