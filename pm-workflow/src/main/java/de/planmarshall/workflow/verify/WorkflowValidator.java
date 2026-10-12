@@ -57,8 +57,9 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the released state names from the baseline its caller passes. No check stops at the first violation, so the result
  * lists all of them, ordered by the declaration order of their state and then by rule.
  * <p>
- * Reachability is graph reachability over every transition: a guard's configuration keys are known to the tree, but
- * not the values they can take, so configuration combinations are not enumerated here.
+ * Reachability is graph reachability over every transition, enumerated under every
+ * configuration combination the guards' {@code depends_on_config} keys admit (Rule 3
+ * configuration reachability).
  *
  * @since 0.1
  */
@@ -1115,7 +1116,15 @@ public final class WorkflowValidator {
                     completionsByStep.computeIfAbsent(comp.stepId(), _ -> new ArrayList<>())
                             .add(new StepCompletionSite(state.id(), transition, comp));
 
-                    var outcomeClass = outcomeClassOf(definition, state, transition);
+                    var outcomeClassOpt = outcomeClassOf(definition, state, transition);
+                    if (outcomeClassOpt.isEmpty()) {
+                        violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                comp.location(),
+                                "the step '%s' is completed on the outcome '%s', whose class cannot be established"
+                                        .formatted(comp.stepId(), transition.outcomeName())));
+                        continue;
+                    }
+                    var outcomeClass = outcomeClassOpt.get();
                     var status = comp.status();
                     switch (status) {
                         case DONE -> {
@@ -1226,7 +1235,7 @@ public final class WorkflowValidator {
         }
     }
 
-    private OutcomeClass outcomeClassOf(WorkflowDefinition definition, StateNode state,
+    private Optional<OutcomeClass> outcomeClassOf(WorkflowDefinition definition, StateNode state,
             OutcomeTransition transition) {
         var outcomeName = transition.outcomeName();
         switch (state.behavior()) {
@@ -1236,7 +1245,7 @@ public final class WorkflowValidator {
                     for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                         var po = (PrimitiveOutcome) outcome;
                         if (po.wireName().equals(outcomeName)) {
-                            return po.outcomeClass();
+                            return Optional.of(po.outcomeClass());
                         }
                     }
                 }
@@ -1247,14 +1256,14 @@ public final class WorkflowValidator {
                     for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                         var po = (PrimitiveOutcome) outcome;
                         if (po.wireName().equals(outcomeName)) {
-                            return po.outcomeClass();
+                            return Optional.of(po.outcomeClass());
                         }
                     }
                 }
             }
             case StateBehavior.ModelJob modelJob -> {
                 if (UnitGraph.LOST_OUTCOME.equals(outcomeName)) {
-                    return OutcomeClass.INDETERMINATE;
+                    return Optional.of(OutcomeClass.INDETERMINATE);
                 }
                 var entityKind = entityKinds.find(modelJob.entityKind());
                 if (entityKind.isPresent()) {
@@ -1263,7 +1272,7 @@ public final class WorkflowValidator {
                         for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                             var po = (PrimitiveOutcome) outcome;
                             if (po.wireName().equals(outcomeName)) {
-                                return po.outcomeClass();
+                                return Optional.of(po.outcomeClass());
                             }
                         }
                     }
@@ -1271,14 +1280,14 @@ public final class WorkflowValidator {
             }
             case StateBehavior.SubWorkflowCall call -> {
                 if ("stepped_out".equals(outcomeName)) {
-                    return OutcomeClass.STEPPED_OUT;
+                    return Optional.of(OutcomeClass.STEPPED_OUT);
                 }
                 var callee = catalog.find(call.subWorkflowId());
                 if (callee.isPresent()) {
                     for (var calleeState : callee.get().states().values()) {
                         if (calleeState.terminalOutcome().isPresent()
                                 && calleeState.terminalOutcome().get().id().equals(outcomeName)) {
-                            return calleeState.terminalOutcome().get().outcomeClass();
+                            return Optional.of(calleeState.terminalOutcome().get().outcomeClass());
                         }
                     }
                 }
@@ -1292,13 +1301,13 @@ public final class WorkflowValidator {
                             for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                                 var po = (PrimitiveOutcome) outcome;
                                 if (po.wireName().equals(outcomeName)) {
-                                    return po.outcomeClass();
+                                    return Optional.of(po.outcomeClass());
                                 }
                             }
                         }
                     }
                 }
-                return OutcomeClass.SUCCESS;
+                return Optional.of(OutcomeClass.SUCCESS);
             }
             case StateBehavior.InteractiveLinks _ -> {
                 for (var link : UnitGraph.declaredLinks(state.behavior())) {
@@ -1309,17 +1318,19 @@ public final class WorkflowValidator {
                             for (var outcome : primitive.get().outcomeType().getEnumConstants()) {
                                 var po = (PrimitiveOutcome) outcome;
                                 if (po.wireName().equals(outcomeName)) {
-                                    return po.outcomeClass();
+                                    return Optional.of(po.outcomeClass());
                                 }
                             }
                         }
                     }
                 }
+                return Optional.empty();
             }
             case StateBehavior.TerminalState _ -> {
+                return Optional.empty();
             }
         }
-        return OutcomeClass.SUCCESS;
+        return Optional.empty();
     }
 
     private void checkSessionDrivenLinks(WorkflowDefinition definition, List<Violation> violations) {

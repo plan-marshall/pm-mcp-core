@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.verify;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -491,10 +492,48 @@ class AdditionalRulesTest {
                         skipped -> verify.done
                 """ + DONE_TERMINAL);
         var found = violations(def);
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION
-                && v.message().contains("completed twice on a path without an intervening dispatch")));
-        assertTrue(found.stream().anyMatch(v -> v.rule() == VerificationRule.STEP_COMPLETION
-                && v.message().contains("completed as waived on a transition that is not the 'waived' outcome of a remediation call")));
+        assertEquals(2, found.size(), () -> "expected exactly the firing duplicate and the waived refusal: " + found);
+        assertTrue(found.stream().anyMatch(v -> v.message().contains("completed twice on a path without an intervening dispatch")),
+                () -> "missing firing duplicate: " + found);
+        assertTrue(found.stream().anyMatch(v -> v.message().contains("completed as waived on a transition that is not the 'waived' outcome of a remediation call")),
+                () -> "missing waived refusal: " + found);
+    }
+
+    @Test
+    @DisplayName("STEP_COMPLETION: done on a non-SUCCESS class and on an unresolvable outcome")
+    void testStepCompletionDoneAdmission() {
+        var classDef = unit("plan", """
+                state verify.entry
+                    phase verify
+                    job test.build
+                        succeeded -> verify.done
+                        failed -> verify.done
+                            completes step:y as done
+                        cancelled -> verify.done
+                """ + DONE_TERMINAL);
+        var classFound = violations(classDef);
+        assertEquals(1, classFound.size(), () -> "expected exactly the done-on-FAILURE refusal: " + classFound);
+        assertEquals(VerificationRule.STEP_COMPLETION, classFound.getFirst().rule());
+        assertTrue(classFound.getFirst().message().contains("completed as done on an outcome of class FAILURE"),
+                () -> "missing done-on-FAILURE refusal: " + classFound);
+
+        var unknownDef = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.missing
+                        done -> verify.done
+                            completes step:z as done
+                """ + DONE_TERMINAL);
+        var unknownFound = violations(unknownDef);
+        assertEquals(2, unknownFound.size(), () -> "expected exactly binding plus unresolvable-class: " + unknownFound);
+        assertTrue(unknownFound.stream().anyMatch(v -> v.rule() == VerificationRule.PRIMITIVE_BINDING),
+                () -> "missing primitive binding refusal: " + unknownFound);
+        var unresolvable = unknownFound.stream()
+                .filter(v -> v.rule() == VerificationRule.STEP_COMPLETION)
+                .toList();
+        assertEquals(1, unresolvable.size(), () -> "expected exactly the unresolvable-class refusal: " + unknownFound);
+        assertTrue(unresolvable.getFirst().message().contains("whose class cannot be established"),
+                () -> "missing unresolvable-class refusal: " + unknownFound);
     }
 
     @Test

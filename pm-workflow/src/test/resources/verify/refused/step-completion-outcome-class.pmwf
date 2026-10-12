@@ -1,0 +1,15 @@
+# expect: STEP_COMPLETION state verify.entry line 11
+workflow verify.step-completion-outcome-class version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    job test.build
+        succeeded -> verify.done
+        failed -> verify.done
+            completes test:class as done
+        cancelled -> verify.done
+
+state verify.done terminal done success
+    phase verify

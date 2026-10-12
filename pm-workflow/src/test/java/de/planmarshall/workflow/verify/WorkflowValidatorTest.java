@@ -99,7 +99,7 @@ class WorkflowValidatorTest {
                     .map(matcher -> VerificationRule.valueOf(matcher.group(1)))
                     .toList();
 
-            assertAll(() -> assertEquals(31, expected.size()),
+            assertAll(() -> assertEquals(33, expected.size()),
                     () -> assertEquals(EnumSet.allOf(VerificationRule.class), EnumSet.copyOf(expected)));
         }
 
