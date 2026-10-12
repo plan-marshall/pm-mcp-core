@@ -64,11 +64,15 @@ ProjectEnrolment enrolment) {
     }
 
     /**
-     * @throws NullPointerException if a component or an argument is {@code null}
+     * @throws NullPointerException     if a component or an argument is {@code null}
+     * @throws IllegalArgumentException if the argument vector is empty
      */
     public VerifiedJob {
         Objects.requireNonNull(workingDirectory, "workingDirectory");
         argv = List.copyOf(Objects.requireNonNull(argv, "argv"));
+        if (argv.isEmpty()) {
+            throw new IllegalArgumentException("A verified argument vector has at least the executable");
+        }
         Objects.requireNonNull(templateSource, "templateSource");
         Objects.requireNonNull(enrolment, "enrolment");
     }

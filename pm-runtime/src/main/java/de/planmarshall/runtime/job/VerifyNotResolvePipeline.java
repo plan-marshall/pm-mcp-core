@@ -46,7 +46,10 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * <li>stage 1, the working directory: confined by {@link WorkspaceConfinement} to the enrolled {@code project_root}
  * and the live linked worktrees the caller verified, refused as {@code path_traversal_rejected}; the verified job runs
  * in the canonical path of the outcome;</li>
- * <li>stage 2, the executable and its digest;</li>
+ * <li>stage 2, the executable and its digest: {@link ExecutableCheck}, for a wrapper job with
+ * {@link WrapperVerification} over the wrapper and its pinned files ({@code executable_not_enrolled},
+ * {@code executable_digest_mismatch}, {@code build_config_changed}); it answers the verified absolute start of the
+ * argument vector;</li>
  * <li>stage 3, the argument check, last.</li>
  * </ol>
  * <p>
@@ -111,7 +114,68 @@ public final class VerifyNotResolvePipeline {
         }
         var workingDirectory = ((Confined) confinement).path();
 
-        return new JobVerification.Verified(new VerifiedJob(workingDirectory, List.of(), Optional.empty(), enrolment));
+        List<String> executable;
+        switch (ExecutableCheck.check(projectId, enrolment, workingDirectory, request.target())) {
+            case Stage.Failed<List<String>> failed -> {
+                return refused(projectId, failed.refusal());
+            }
+            case Stage.Passed<List<String>> passed -> executable = passed.value();
+        }
+
+        return new JobVerification.Verified(new VerifiedJob(workingDirectory, executable, Optional.empty(), enrolment));
+    }
+
+    /**
+     * The outcome of a stage after stage 1: the value the stage verified, or its refusal.
+     *
+     * @param <T> what the stage verifies
+     * @since 0.1
+     */
+    sealed interface Stage<T> permits Stage.Passed, Stage.Failed {
+
+        /**
+         * @param <T>   what the stage verifies
+         * @param value what the stage verified
+         * @return the outcome of a stage that passed
+         */
+        static <T> Stage<T> passed(T value) {
+            return new Passed<>(value);
+        }
+
+        /**
+         * @param <T>     what the stage verifies
+         * @param refusal why the stage refused the job
+         * @return the outcome of a stage that refused
+         */
+        static <T> Stage<T> failed(JobRefusal refusal) {
+            return new Failed<>(refusal);
+        }
+
+        /**
+         * The stage passed.
+         *
+         * @param <T>   what the stage verifies
+         * @param value what it verified
+         */
+        record Passed<T>(T value) implements Stage<T> {
+
+            public Passed {
+                Objects.requireNonNull(value, "value");
+            }
+        }
+
+        /**
+         * The stage refused the job.
+         *
+         * @param <T>     what the stage verifies
+         * @param refusal why
+         */
+        record Failed<T>(JobRefusal refusal) implements Stage<T> {
+
+            public Failed {
+                Objects.requireNonNull(refusal, "refusal");
+            }
+        }
     }
 
     /** Maps a refusal of the enrolment check to the refusal of the job. */

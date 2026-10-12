@@ -165,6 +165,24 @@ final class JobEnrolmentFixture implements AutoCloseable {
                 new TreeMap<>());
     }
 
+    /** @return the enrolment with other build wrappers */
+    static ProjectEnrolment withWrappers(ProjectEnrolment enrolment, List<Wrapper> wrappers) {
+        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
+                enrolment.pilot(), enrolment.containerEngine(), enrolment.releasedAt(), wrappers,
+                enrolment.hostTools(), enrolment.build(), enrolment.providers(), enrolment.projectScripts(),
+                enrolment.languageServers(), enrolment.commandBudgets(), enrolment.writePaths(),
+                enrolment.buildEnvironment());
+    }
+
+    /** @return the enrolment without the host tool of that name */
+    static ProjectEnrolment withoutHostTool(ProjectEnrolment enrolment, HostToolName name) {
+        return new ProjectEnrolment(enrolment.projectId(), enrolment.projectRoot(), enrolment.enrolledAt(),
+                enrolment.pilot(), enrolment.containerEngine(), enrolment.releasedAt(), enrolment.wrappers(),
+                enrolment.hostTools().stream().filter(tool -> tool.name() != name).toList(), enrolment.build(),
+                enrolment.providers(), enrolment.projectScripts(), enrolment.languageServers(),
+                enrolment.commandBudgets(), enrolment.writePaths(), enrolment.buildEnvironment());
+    }
+
     /** Enrols the project over the files of the tree as they are now. */
     ProjectEnrolment enrol() {
         var enrolment = enrolments.enrol(enrolment(), false);
