@@ -72,7 +72,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-07 (`workflow-dsl-parser-and-ast`); PLAN-10 (`static-verifier-and-fuzzer`); PLAN-06 (`store-substrate`)
+- Depends on: PLAN-07 (`workflow-dsl-parser-and-ast`); PLAN-10 (`static-verifier-and-fuzzer`); PLAN-06 (`store-substrate`); PLAN-41 (`static-verifier-remaining-rules`) — operator decision 2026-10-12, not yet in the index row (PLAN-41's pull request adds it)
 - Overlaps with: PLAN-01 (`lock-manager-and-leases`) in `core.store`; PLAN-03 (`workspace-confinement`) in `core.store`; PLAN-06 (`store-substrate`) in `core.store`; PLAN-09 (`audit-trail`) in `core.store`; PLAN-11 (`enrolment-store`) in `core.store`; PLAN-12 (`session-log-and-generations`) in `core.store`; PLAN-14 (`operator-and-question-stores`) in `core.store`; PLAN-15 (`project-machine-store`) in `core.store`; PLAN-20 (`job-runner`) in `core.store`; PLAN-21 (`entity-addressing`) in `workflow.engine`; PLAN-23 (`stalled-scope-detection`) in `core.store`; PLAN-25 (`waits`) in `workflow.engine`; PLAN-31 (`slots-usage-and-budgets`) in `core.store`; every plan through `doc/plans/README.adoc`; the plans of WS-03 through their shared identifier block in `PmMcpLogMessages`, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `doc/LogMessages.adoc` of `plan-marshall-documentation`, which goes into the documentation pull request
 

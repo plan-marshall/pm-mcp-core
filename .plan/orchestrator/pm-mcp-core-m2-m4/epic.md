@@ -214,6 +214,17 @@ decision or a dependency outside this repository.
   at e163bf8) as WS-01 overflow, keeping the three-digit scheme of 2026-10-09; PLAN-09 and PLAN-23,
   the WS-01 plans left, were amended.
 
+- 2026-10-12 — PLAN-10 `static-verifier-and-fuzzer` landed as #32 (c0d4b92); landing record
+  `landings/PLAN-10.md`. By operator override it implemented part of the rules and added the package
+  `static-verifier-remaining-rules` to the index; staged as PLAN-41 in WS-03 (overlaps PLAN-17 in
+  `workflow.verify`). Inbox drain of 11 messages: the landing reconciled; 1 lesson promoted here
+  (2026-10-12-05-001), 9 routed to plan-marshall as `pm-mcp-core-m2-m4-115.md` to `-123.md`.
+
+- 2026-10-12 — Operator decision (AskUserQuestion): PLAN-13 `workflow-engine` and PLAN-17
+  `project-units-and-invariants` both wait for PLAN-41 `static-verifier-remaining-rules`.
+  Alternatives: only PLAN-17 waits (recommended); neither waits. Their specs carry the dependency;
+  PLAN-41's pull request adds it to the two index rows, as a sanctioned exception to the own-row rule.
+
 ## Open Defects
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
@@ -243,8 +254,8 @@ decision or a dependency outside this repository.
 - `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
-- Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #33 (PLAN-08), #20
-  (PLAN-02) — operator merges.
+- Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
+  (PLAN-02) — operator merges. (#33 of PLAN-08 merged.)
 - Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
   `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
   `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).

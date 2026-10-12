@@ -28,6 +28,7 @@ The dependency chain from the primitive SPI over the DSL parser, the static veri
 | PLAN-17-project-units-and-invariants | staged | Loader of project-owned units and the compiled invariants |
 | PLAN-21-entity-addressing | staged | Entity addressing of the bootstrap units |
 | PLAN-24-plan-instance | staged | Plan instance composition |
+| PLAN-41-static-verifier-remaining-rules | staged | Static verifier: the remaining rules (added to the index by #32) |
 
 ## Sequencing and Surface Notes
 
