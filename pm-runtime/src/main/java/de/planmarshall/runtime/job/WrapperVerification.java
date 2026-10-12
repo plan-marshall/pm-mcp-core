@@ -26,7 +26,9 @@ import lombok.experimental.UtilityClass;
  * <p>
  * The wrapper must sit at the root of the verified working-directory tree: its enrolled {@code relative_path} is a
  * single name, resolved against the canonical working directory and read without following a symbolic link. Its
- * name must be enrolled ({@code executable_not_enrolled} otherwise) and its SHA-256 must be the enrolled one. Every
+ * name must be enrolled ({@code executable_not_enrolled} otherwise), the file name of its enrolled
+ * {@code relative_path} must be that name ({@code mvnw}, {@code gradlew}, {@code pw}), and its SHA-256 must be the
+ * enrolled one; a wrong name or digest counts as a changed path. Every
  * enrolled pinned file must match its digest: a file recorded with a digest that is missing or differs, and a file
  * recorded as must-stay-absent that now exists, each count as changed. Any change refuses the job as
  * {@code build_config_changed}, naming every changed repository-relative path and the {@code pm-operator enrol}
@@ -60,7 +62,7 @@ class WrapperVerification {
         var changed = new ArrayList<String>();
         var relativePath = wrapper.relativePath();
         if (!FileDigest.of(workingDirectory, relativePath).matches(wrapper.sha256())
-                || Path.of(relativePath).getNameCount() != 1) {
+                || !isRootFileNamed(Path.of(relativePath), name)) {
             changed.add(relativePath);
         }
         for (var pinned : wrapper.pinnedFiles()) {
@@ -76,5 +78,10 @@ class WrapperVerification {
                             .formatted(name.wireName())));
         }
         return VerifyNotResolvePipeline.Stage.passed(workingDirectory.resolve(relativePath));
+    }
+
+    /** @return whether the path is a single name, and that name is the file name of the wrapper */
+    private static boolean isRootFileNamed(Path relativePath, WrapperName name) {
+        return relativePath.getNameCount() == 1 && relativePath.getFileName().toString().equals(name.wireName());
     }
 }

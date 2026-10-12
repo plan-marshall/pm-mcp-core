@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Wrapper;
@@ -190,6 +191,28 @@ class WrapperVerificationTest {
                     "../" + MVNW, original.sha256(), List.of(), null)));
 
             assertChanged(List.of("../" + MVNW), refused(escaping, WrapperName.MVNW));
+        }
+
+        @Test
+        @DisplayName("a wrapper enrolled with another root file name, even with a matching digest")
+        void otherFileName() throws Exception {
+            var other = "other-" + Generators.letterStrings(1, 12).next();
+            Files.copy(fixture.root.resolve(MVNW), fixture.root.resolve(other));
+            var original = enrolment.wrappers().getFirst();
+            var renamed = JobEnrolmentFixture.withWrappers(enrolment, List.of(new Wrapper(WrapperName.MVNW, other,
+                    original.sha256(), original.pinnedFiles(), null)));
+
+            assertChanged(List.of(other), refused(renamed, WrapperName.MVNW));
+        }
+
+        @Test
+        @DisplayName("positive control: a wrapper enrolled with its own root file name passes")
+        void ownFileName() {
+            var original = enrolment.wrappers().getFirst();
+            var named = JobEnrolmentFixture.withWrappers(enrolment, List.of(new Wrapper(WrapperName.MVNW,
+                    WrapperName.MVNW.wireName(), original.sha256(), original.pinnedFiles(), null)));
+
+            assertEquals(fixture.root.resolve(MVNW), passed(named, fixture.root));
         }
     }
 
