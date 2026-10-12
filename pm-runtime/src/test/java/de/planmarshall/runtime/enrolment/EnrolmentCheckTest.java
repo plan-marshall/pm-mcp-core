@@ -273,6 +273,37 @@ class EnrolmentCheckTest {
                     () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
                             events));
         }
+
+        @Test
+        @DisplayName("an enrolment file that is a symbolic link is refused even when its target is the recorded file")
+        void symlinkedEnrolmentFileIsRefusedEvenWhenItsTargetIsValid() throws Exception {
+            var target = Files.move(store.file(PROJECT), base.resolve("elsewhere.json"));
+            Files.createSymbolicLink(store.file(PROJECT), target);
+
+            var refusal = refused(PROJECT);
+            var other = verify(OTHER);
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
+                    () -> assertEquals(store.file(PROJECT), refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
+                            refusal.getMessage()),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
+                            events),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
+                    () -> assertEquals(OTHER, other.projectId()));
+        }
+
+        @Test
+        @DisplayName("the same file and sidecar, unmoved, verify")
+        void unmovedPairVerifies() {
+            var enrolment = verify(PROJECT);
+
+            assertAll(
+                    () -> assertEquals(PROJECT, enrolment.projectId()),
+                    () -> assertTrue(events.isEmpty()));
+        }
     }
 
     @Test

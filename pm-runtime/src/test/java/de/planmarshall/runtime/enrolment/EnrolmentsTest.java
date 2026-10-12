@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,6 +77,9 @@ class EnrolmentsTest {
 
     private static final String PROJECT = "pm-mcp-core";
     private static final String USER = System.getProperty("user.name");
+    private static final String LIVE_PLAN = "add-login";
+    private static final String WORLD_WRITABLE = "rw-rw-rw-";
+    private static final String AUDIT_LOG_FULL = "audit log full";
 
     @TempDir
     Path base;
@@ -118,6 +122,18 @@ class EnrolmentsTest {
                 new TreeMap<>(), new TreeMap<>(), List.of(), new TreeMap<>());
     }
 
+    /** @return a failure of the audit sink, prepared before the call that meets it */
+    private static UncheckedIOException auditFailure() {
+        return new UncheckedIOException(new IOException(AUDIT_LOG_FULL));
+    }
+
+    /** @return an audit sink that fails every append with the given failure */
+    private static AuditSink failingWith(UncheckedIOException failure) {
+        return event -> {
+            throw failure;
+        };
+    }
+
     private ProjectEnrolment verify() {
         try (var transaction = locks.openTransaction()) {
             return check.verify(transaction, PROJECT);
@@ -135,22 +151,22 @@ class EnrolmentsTest {
     }
 
     private static List<AuditEvent> withoutTransactionIds(List<AuditEvent> records) {
-        return records.stream().map(record -> {
-            var details = new HashMap<>(record.details());
+        return records.stream().map(event -> {
+            var details = new HashMap<>(event.details());
             details.remove(AuditEvent.DETAIL_TRANSACTION_ID);
-            return new AuditEvent(record.event(), record.category(), record.outcome(), details);
+            return new AuditEvent(event.event(), event.category(), event.outcome(), details);
         }).toList();
     }
 
-    private static String transactionIdOf(AuditEvent record) {
-        return (String) record.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
+    private static String transactionIdOf(AuditEvent event) {
+        return (String) event.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
     }
 
     /** Every record carries a transaction id that is a valid, non-empty {@link TransactionId}. */
     private static void assertValidTransactionIds(List<AuditEvent> records) {
         assertFalse(records.isEmpty(), "no record to check");
-        for (var record : records) {
-            var id = transactionIdOf(record);
+        for (var event : records) {
+            var id = transactionIdOf(event);
             assertEquals(id, new TransactionId(id).value());
         }
     }
@@ -286,7 +302,7 @@ class EnrolmentsTest {
         @DisplayName("a failing audit sink does not lift the refusal, and the refusal carries the failure")
         void failingSink() {
             enrolments.enrol(enrolment(false, null), false);
-            var failure = new UncheckedIOException(new IOException("audit log full"));
+            var failure = auditFailure();
             var failing = enrolmentsWith(keyringKey, event -> {
                 throw failure;
             });
@@ -382,7 +398,7 @@ class EnrolmentsTest {
         void refusedForLiveWork() {
             enrolments.enrol(enrolment(false, null), false);
             events.clear();
-            var items = List.of(new Item(Kind.PLAN, "add-login"), new Item(Kind.EPIC, "auth-rework"),
+            var items = List.of(new Item(Kind.PLAN, LIVE_PLAN), new Item(Kind.EPIC, "auth-rework"),
                     new Item(Kind.JOB, "job-1"));
             liveWork.put(PROJECT, items);
 
@@ -397,6 +413,30 @@ class EnrolmentsTest {
                     () -> assertTrue(Files.exists(store.file(PROJECT))),
                     () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
                     () -> assertEquals(List.of(AuditEvent.unenrolRefused(PROJECT)), events),
+                    () -> assertEquals(0, refusal.getSuppressed().length),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.UNENROL_REFUSED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("stays refused with scope_active when the audit sink fails, and carries the failure")
+        void refusalSurvivesAFailingAuditSink() {
+            enrolments.enrol(enrolment(false, null), false);
+            var items = List.of(new Item(Kind.PLAN, LIVE_PLAN));
+            liveWork.put(PROJECT, items);
+            var failure = auditFailure();
+            var failing = enrolmentsWith(key, failingWith(failure));
+
+            var refusal = assertThrows(ScopeActiveException.class, () -> failing.unenrol(PROJECT));
+
+            assertAll(
+                    () -> assertEquals(PROJECT, refusal.projectId()),
+                    () -> assertEquals(items, refusal.items()),
+                    () -> assertTrue(refusal.getMessage().contains(ScopeActiveException.CODE), refusal.getMessage()),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
+                    () -> assertTrue(Files.exists(store.file(PROJECT))),
+                    () -> assertTrue(Files.exists(store.sidecar(PROJECT))),
+                    () -> assertTrue(store.auditOwingProjectIds().isEmpty()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.UNENROL_REFUSED.resolveIdentifierString()));
         }
@@ -497,13 +537,62 @@ class EnrolmentsTest {
         void insecure() throws Exception {
             enrolments.enrol(enrolment(false, null), false);
             var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
-            Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString("rw-rw-rw-"));
+            Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString(WORLD_WRITABLE));
+            var reason = new EnrolmentFileCheck(USER).violation(store.file(PROJECT)).orElseThrow();
+            events.clear();
 
             var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
 
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
-                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))));
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertTrue(refusal.getMessage().contains(reason), refusal.getMessage()),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, reason)), events),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))),
+                    () -> assertTrue(events.stream()
+                            .noneMatch(event -> AuditEvent.ENROLMENT_REBASELINED.equals(event.event()))));
+        }
+
+        @Test
+        @DisplayName("of an insecure file stays refused when the audit sink fails, and carries the failure")
+        void insecureRefusalSurvivesAFailingAuditSink() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString(WORLD_WRITABLE));
+            var failure = auditFailure();
+            var failing = enrolmentsWith(key, failingWith(failure));
+
+            var refusal = assertThrows(StoreRefusal.class, () -> failing.rebaseline(PROJECT));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
+                    () -> assertEquals(List.of(failure), List.of(refusal.getSuppressed())),
+                    () -> assertFalse(Files.exists(store.auditIntent(PROJECT))));
+        }
+
+        @Test
+        @DisplayName("of an enrolment file that is a symbolic link is refused and never follows it")
+        void symbolicLinkIsRefusedAndNeverFollowed() throws Exception {
+            enrolments.enrol(enrolment(false, null), false);
+            var content = Files.readAllBytes(store.file(PROJECT));
+            var sidecar = Files.readAllBytes(store.sidecar(PROJECT));
+            var real = Files.move(store.file(PROJECT), base.resolve("real.json"));
+            Files.createSymbolicLink(store.file(PROJECT), real);
+            events.clear();
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.rebaseline(PROJECT));
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INSECURE, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains(EnrolmentFileCheck.SYMBOLIC_LINK),
+                            refusal.getMessage()),
+                    () -> assertArrayEquals(sidecar, Files.readAllBytes(store.sidecar(PROJECT))),
+                    () -> assertArrayEquals(content, Files.readAllBytes(real)),
+                    () -> assertEquals(List.of(AuditEvent.enrolmentInsecure(PROJECT, EnrolmentFileCheck.SYMBOLIC_LINK)),
+                            events),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.ENROLMENT_INSECURE.resolveIdentifierString()));
         }
 
         @Test
@@ -943,7 +1032,7 @@ class EnrolmentsTest {
             void liveWorkRefusal() {
                 enrolments.enrol(enrolment(false, null), false);
                 events.clear();
-                liveWork.put(PROJECT, List.of(new Item(Kind.PLAN, "add-login")));
+                liveWork.put(PROJECT, List.of(new Item(Kind.PLAN, LIVE_PLAN)));
 
                 assertThrows(ScopeActiveException.class, () -> owing.unenrol(PROJECT));
 
@@ -960,7 +1049,7 @@ class EnrolmentsTest {
                     enrolments.enrol(enrolment(false, null), false);
                 }
                 if ("insecure".equals(damage)) {
-                    Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString("rw-rw-rw-"));
+                    Files.setPosixFilePermissions(store.file(PROJECT), PosixFilePermissions.fromString(WORLD_WRITABLE));
                 } else if ("unreadable".equals(damage)) {
                     Files.writeString(store.file(PROJECT), "{\"format_version\":1}");
                 }
@@ -1037,6 +1126,85 @@ class EnrolmentsTest {
                             withoutTransactionIds(events)),
                     () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
                     () -> assertEquals(List.of(BETA), List.copyOf(store.auditOwingProjectIds())));
+        }
+
+        /** Owes one record for each project: the enrol of each meets a refusing sink. */
+        private void oweRecords(String... projectIds) {
+            audit.mode = SinkMode.REFUSING;
+            for (var projectId : projectIds) {
+                owing.enrol(enrolment(projectId, false, null), false);
+            }
+            audit.mode = SinkMode.WORKING;
+        }
+
+        /** Puts a directory where the project's intent file is: reading it fails on I/O, not as a refusal. */
+        private Path directoryIntent(String projectId) throws IOException {
+            return Files.createDirectory(store.auditIntent(projectId));
+        }
+
+        @Test
+        @DisplayName("an intent file that fails on I/O does not stop the replay for the later projects")
+        void unreadableIntentIoFailureDoesNotStopTheReplay() throws Exception {
+            oweRecords(ZETA);
+            var directory = directoryIntent(ALPHA);
+
+            var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit);
+
+            assertAll(
+                    () -> assertEquals(0, failure.getSuppressed().length),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
+                            withoutTransactionIds(events)),
+                    () -> assertTrue(Files.isDirectory(directory)),
+                    () -> assertEquals(List.of(ALPHA), List.copyOf(store.auditOwingProjectIds())));
+        }
+
+        @Test
+        @DisplayName("a refusal before an I/O failure is thrown, the I/O failure suppressed")
+        void refusalBeforeIoFailureThrowsTheRefusal() throws Exception {
+            oweRecords(ZETA);
+            var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
+            var directory = directoryIntent(GAMMA);
+
+            var refusal = assertThrows(StoreRefusal.class, owing::replayOwedAudit);
+
+            assertAll(
+                    () -> assertEquals(unreadable, refusal.file()),
+                    () -> assertEquals(1, refusal.getSuppressed().length),
+                    () -> assertInstanceOf(UncheckedIOException.class, refusal.getSuppressed()[0]),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
+                            withoutTransactionIds(events)),
+                    () -> assertEquals(NOT_JSON, Files.readString(unreadable)),
+                    () -> assertTrue(Files.isDirectory(directory)));
+        }
+
+        @Test
+        @DisplayName("an I/O failure before a refusal is thrown, the refusal suppressed")
+        void ioFailureBeforeRefusalThrowsTheIoFailure() throws Exception {
+            oweRecords(ZETA);
+            directoryIntent(ALPHA);
+            var unreadable = Files.writeString(store.auditIntent(BETA), NOT_JSON);
+
+            var failure = assertThrows(UncheckedIOException.class, owing::replayOwedAudit);
+
+            assertAll(
+                    () -> assertEquals(1, failure.getSuppressed().length),
+                    () -> assertEquals(unreadable,
+                            assertInstanceOf(StoreRefusal.class, failure.getSuppressed()[0]).file()),
+                    () -> assertEquals(List.of(succeeded(AuditEvent.ENROLMENT_WRITTEN, ZETA)),
+                            withoutTransactionIds(events)));
+        }
+
+        @Test
+        @DisplayName("a stopped process still stops the replay at once")
+        void aStoppedProcessStillStopsTheReplay() {
+            oweRecords(ZETA, ALPHA);
+            audit.mode = SinkMode.STOPPING;
+
+            assertThrows(ProcessStopped.class, owing::replayOwedAudit);
+
+            assertAll(
+                    () -> assertEquals(List.of(ALPHA, ZETA), List.copyOf(store.auditOwingProjectIds())),
+                    () -> assertTrue(events.isEmpty()));
         }
 
         @Test
