@@ -326,12 +326,10 @@ and next step
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 * *Never fold an undecided guard.* A `CouldNotEvaluate` that is read as `NotHeld` hides a link, one read as `Held`
-  offers a wrong one. Handle `GuardResult` exhaustively and raise `guard_indeterminate` (from
-  `PM-WATCH-DSL-2`).
+  offers a wrong one. Handle `GuardResult` exhaustively and raise `guard_indeterminate`.
 * *A step-out is one frame.* Never unwind more than the frame of the unit that steps out: a commit that steps out
   inside a remediation unit returns to the remediation unit, which can still remedy. Only `unwindToFallback`, the
-  fallback of a spent condition budget, unwinds every frame, and it takes no caller's `stepped_out` route (from
-  `PM-WATCH-DSL-14`).
+  fallback of a spent condition budget, unwinds every frame, and it takes no caller's `stepped_out` route.
 * *A step-out is offered on resting link states only.* `stepOut` refuses every other state, so a model cannot leave a
   bounded wait of an `auto`, job or task state.
 * *Persist in the transaction of the advance.* A caller that writes the new status in a later transaction than its
