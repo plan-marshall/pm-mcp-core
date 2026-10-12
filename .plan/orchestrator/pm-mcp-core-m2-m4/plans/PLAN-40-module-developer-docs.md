@@ -72,9 +72,13 @@ taken-over guides are complete here; relative links resolve.
 ## Claim Labels
 
 - OBSERVED: `plan-marshall-documentation` holds `doc/developer/store-substrate.adoc` and `locks-and-leases.adoc` on main; `primitive-spi.adoc` is in its open #20; `workflow-dsl.adoc` came with its merged #27 — read on 2026-10-11
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - OBSERVED: no `doc/` exists below any module of this repository — directory listing at d091527
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - HYPOTHESIS: the package list per module is the set of `package-info.java` files below `src/main/java` — confirm/refute at the first module (verify-at-outline)
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before writing, check which of PLAN-08, PLAN-10, PLAN-11 and PLAN-36 have shipped and whether PLAN-39 already created any module `doc/`; check whether the documentation-repository session already removed or moved a guide, and take the content from wherever it is now.
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-first clause is executed by the plan at refine
 
 ## Expected Surface
 

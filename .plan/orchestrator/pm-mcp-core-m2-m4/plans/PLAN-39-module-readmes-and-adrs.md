@@ -103,10 +103,15 @@ the rule write their own share as they implement.
 ## Claim Labels
 
 - OBSERVED: no module has a README and no `doc/` exists below a module; the repository root has `README.md` and `doc/plans/` only — directory listing of `main` at d091527 on 2026-10-11
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - OBSERVED: the modules are `pm-core`, `pm-workflow`, `pm-runtime` and `pm-providers` with `pm-provider-git`, `-ci`, `-github`, `-gitlab`, `-sonar` — read at `pom.xml` and `pm-providers/pom.xml` § `modules`
+  - verdict: corroborated | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pom.xml exists at c0d4b92 (presence checked, content not re-read)
 - OBSERVED: the candidate decisions come from the landing records `landings/PLAN-01` to `PLAN-07` of this epic and the epic decisions — read on 2026-10-11
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - HYPOTHESIS: the archived plan decision logs below `.plan/local/archived-plans/` of the main checkout carry the operator decisions with their alternatives — confirm/refute at the first ADR (verify-at-outline)
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before writing, check whether PLAN-08, PLAN-10, PLAN-11 and PLAN-36 have shipped (their decisions belong in the backfill) and whether any module already gained a README or `doc/` since 2026-10-11; extend rather than overwrite.
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-first clause is executed by the plan at refine
 
 ## Expected Surface
 

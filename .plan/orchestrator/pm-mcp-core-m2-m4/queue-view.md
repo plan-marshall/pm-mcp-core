@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-11 enrolment-store (#30, rebase advised), PLAN-41 static-verifier-remaining-rules. Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator. One slot free, nothing else emittable. Shipped: PLAN-01..08, 10, 36, 38. After PLAN-41: PLAN-13 and PLAN-17 (operator decision); after PLAN-11: PLAN-15, PLAN-18, PLAN-39, PLAN-40 and one of PLAN-09/12/14. Next action: analyze landings; land the ledger. Open for the operator: one-review merge rule; doc PRs #20/#31/#34 there; unowned remainder of PLAN-02's roadmap item; schema parity test in CI.
+**Resume anchor**: Running: PLAN-11 enrolment-store (#30, rebase advised), PLAN-41 static-verifier-remaining-rules. Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator. One slot free, nothing else emittable. Shipped: PLAN-01..08, 10, 36, 38. After PLAN-41: PLAN-13 and PLAN-17; after PLAN-11: PLAN-15, PLAN-18, PLAN-39, PLAN-40 and one of PLAN-09/12/14. Cleanup 2026-10-12 done (237 claims re-grounded). Next action: analyze landings; land the ledger. Open for the operator: one-review merge rule; doc PRs #20/#31/#34 there; unowned remainder of PLAN-02's roadmap item; schema parity test in CI; executor behind registry (0.1.1890 vs 0.1.1905).
 **Phase**: orchestrating
 **Running**:
 - PLAN-11 (WS-02) — plan=plan-11-enrolment-store

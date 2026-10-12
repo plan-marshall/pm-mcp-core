@@ -277,14 +277,9 @@ decision or a dependency outside this repository.
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
-- PR #16 must be on `main`, and the ledger worktree on that base, before the first `land`:
-  until then the worktree's `.gitignore` still ignores the ledger.
-- `code-analysis-base` (added by #15, serves Milestone 6, depends on nothing, `open`) is in the
-  index but outside the Milestone 2 to 4 scope this epic was framed for — decide at `decompose`
-  whether it joins the queue.
-- Nearly every package is expected to edit both `doc/plans/README.adoc` (its status row) and
-  `PmMcpLogMessages` in `pm-core`; two shared files is the threshold at which the disjointness
-  gate asks the operator — decide at `decompose` how the specs declare these two files.
+> ↪ Relocated to `settled.md` § "Watch: PR #16 before the first land" — PR #16 merged (f049631) and the first land #17 carried the ledger
+> ↪ Relocated to `settled.md` § "Watch: code-analysis-base at decompose" — it joined as PLAN-36 and shipped as #31
+> ↪ Relocated to `settled.md` § "Watch: the two files nearly every package edits" — settled by the per-workstream identifier block decision of 2026-10-09
 - About eleven packages land in `pm-core` package `core.store` — re-check at each pairing decision.
 - Cross-repository blockers: `profile-loader` waits on `pm-mcp-clients` / `profile-documents`;
   `job-confinement-and-environment` waits on `pm-mcp-clients` / `exec-read-denied-paths` —

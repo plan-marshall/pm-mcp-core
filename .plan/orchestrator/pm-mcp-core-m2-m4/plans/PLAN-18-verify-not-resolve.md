@@ -49,13 +49,21 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/verify-not-resolve.adoc` § What, Trace, Done When (origin/main at 7d99648)
+  - verdict: corroborated | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/verify-not-resolve.adoc exists at c0d4b92 (presence checked, content not re-read)
 - OBSERVED: the index gives this package the status `open` and the dependencies `enrolment-store` — read at `doc/plans/README.adoc` § Packages
+  - verdict: corroborated | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row of verify-not-resolve still reads open as claimed at c0d4b92; dependencies cell: link:enrolment-store.adoc[`enrolment-store`]
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09
+  - verdict: corroborated | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-runtime/src/main/java/de/planmarshall/runtime/job/ still holds only package-info.java at c0d4b92
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - OBSERVED: `PmMcpLogMessagesTest` refuses an identifier used twice and one outside the range of its level, and the scheme is INFO 001-099, WARN 100-199, ERROR 200-299 with 10-29, 30 and 40 of each level in use — read at `pm-core/src/test/java/de/planmarshall/core/log/PmMcpLogMessagesTest.java` § `unique`, `ranges` and `pm-core/src/main/java/de/planmarshall/core/log/PmMcpLogMessages.java`
+  - verdict: corroborated | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: the guard test exists; identifiers in use at c0d4b92: [1, 10, 11, 12, 13, 14, 15, 17, 30, 40, 50, 51, 52, 53, 54, 55, 56, 57, 110, 111, 112, 113, 130, 140, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 210, 230, 250, 251, 252, 253] (more blocks than the claim lists; ranges per workstream unchanged)
 - HYPOTHESIS: the package adds INFO, WARN or ERROR messages; `PmMcpLogMessages` is deliberately NOT in the Expected Surface, because the operator chose per-workstream identifier blocks on 2026-10-09 so that concurrent plans add in different places — confirm/refute the need at the trace matrix (verify-at-outline)
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - HYPOTHESIS: the package makes no HTTP call, so the two HTTP constraints bind only if the trace matrix shows one — confirm/refute at the specification sections of the trace starting set (verify-at-outline)
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `verify-not-resolve`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
+  - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-first clause is executed by the plan at refine
 
 ## Expected Surface
 
