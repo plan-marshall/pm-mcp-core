@@ -67,6 +67,12 @@ import de.planmarshall.core.service.LockTransaction;
  * record with the same transaction id: delivery is at least once. The intent file is not an enrolment, and
  * {@link #auditOwingProjectIds()} lists the projects that still owe a record.
  * <p>
+ * {@link #remove} deletes the enrolment file before its sidecar: the removal of the file is the commit point of an
+ * unenrol. A stop between the two deletions leaves a sidecar without its file, which is not an enrolment
+ * ({@link #projectIds()} does not list it), beside the record the unenrol owes. The background pass of the recovery
+ * finds such a project by its owed record, asks {@link #hasEnrolmentFile} rather than {@link #exists}, hands the
+ * project's owed records over and removes that sidecar ({@link #removeOrphanSidecar}).
+ * <p>
  * The directory {@code enrolments/} exists before the first write; this type does not create it.
  *
  * @since 0.1
@@ -329,6 +335,10 @@ public final class EnrolmentStore {
     }
 
     /**
+     * Answers whether anything of the project's enrolment pair is left: the enrolment file or its sidecar. The unenrol
+     * uses it to tell that there is something to remove; a sidecar without its file is not an enrolment, which
+     * {@link #hasEnrolmentFile} tells apart.
+     *
      * @param transaction a transaction that holds the project's lock
      * @param projectId   the project
      * @return whether the project's enrolment file or its sidecar exists
@@ -339,6 +349,23 @@ public final class EnrolmentStore {
         StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
         return Files.exists(file, LinkOption.NOFOLLOW_LINKS)
                 || Files.exists(sidecar(projectId), LinkOption.NOFOLLOW_LINKS);
+    }
+
+    /**
+     * Answers whether the project's enrolment file exists, under the project's lock: exactly the fact
+     * {@link #projectIds()} lists the project for. The sidecar, a staged name of a stopped write and the audit intent
+     * do not count. It is the test of whether the project's own recovery is the one that hands its owed records over;
+     * {@link #exists} answers for the file or the sidecar instead.
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @return whether the project's enrolment file exists
+     * @throws InternalFaultException if the transaction does not hold the project's lock
+     */
+    public boolean hasEnrolmentFile(LockTransaction transaction, String projectId) {
+        var file = file(projectId);
+        StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
+        return Files.exists(file, LinkOption.NOFOLLOW_LINKS);
     }
 
     /**
@@ -627,7 +654,9 @@ public final class EnrolmentStore {
     /**
      * Removes the project's enrolment file and its sidecar, and the staged files of every stopped write of the pair
      * first, so a stopped write is never rolled forward later and an unenrolled project never comes back. Its audit
-     * intent and everything else stay.
+     * intent and everything else stay. The file is deleted before the sidecar: a stop in between leaves the sidecar
+     * without its file, which is no longer an enrolment, and the record the unenrol owes;
+     * {@link #removeOrphanSidecar} removes such a sidecar.
      *
      * @param transaction a transaction that holds the project's lock
      * @param projectId   the project
@@ -650,6 +679,35 @@ public final class EnrolmentStore {
             return removed;
         } catch (IOException e) {
             throw new UncheckedIOException("Enrolment of '%s' cannot be removed".formatted(projectId), e);
+        }
+    }
+
+    /**
+     * Removes the sidecar an interrupted unenrol left without its enrolment file. If the enrolment file exists, the
+     * sidecar beside it is never an orphan: nothing is touched. No staged name of a stopped write, no audit intent and
+     * nothing of another project is touched.
+     *
+     * @param transaction a transaction that holds the project's lock
+     * @param projectId   the project
+     * @return whether an orphan sidecar was deleted
+     * @throws InternalFaultException if the transaction does not hold the project's lock; nothing was removed then
+     * @throws UncheckedIOException   if the sidecar cannot be removed
+     */
+    public boolean removeOrphanSidecar(LockTransaction transaction, String projectId) {
+        var file = file(projectId);
+        StoreLockGuard.requireHeld(transaction, file, lockKey(projectId));
+        if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        try {
+            var removed = Files.deleteIfExists(sidecar(projectId));
+            if (removed) {
+                SyncedFiles.forceDirectory(directory);
+            }
+            return removed;
+        } catch (IOException e) {
+            throw new UncheckedIOException(
+                    "Orphan sidecar of the enrolment of '%s' cannot be removed".formatted(projectId), e);
         }
     }
 

@@ -29,6 +29,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1210,6 +1211,209 @@ class EnrolmentStoreTest {
                             new EnrolmentStore(Path.of("relative/../x")).base()),
                     () -> assertEquals(base.toAbsolutePath().normalize().resolve("b"),
                             new EnrolmentStore(base.resolve("a/../b")).base()));
+        }
+
+        /**
+         * An unenrol deletes the enrolment file before its sidecar; a stop in between leaves a sidecar without its file
+         * beside the record the unenrol owes. Such a sidecar is not an enrolment: {@link EnrolmentStore#hasEnrolmentFile}
+         * tells it from one, and {@link EnrolmentStore#removeOrphanSidecar} removes it and nothing else.
+         */
+        @Nested
+        @DisplayName("the orphan sidecar of an interrupted unenrol")
+        class OrphanSidecar {
+
+            /** What the enrolments directory holds for the project before the query. */
+            enum Leftover {
+                PAIR(true),
+                NOTHING(false),
+                ORPHAN_SIDECAR(false),
+                STAGED_ONLY(false),
+                FILE_ONLY(true),
+                NO_DIRECTORY(false);
+
+                private final boolean enrolmentFile;
+
+                Leftover(boolean enrolmentFile) {
+                    this.enrolmentFile = enrolmentFile;
+                }
+            }
+
+            /** Leaves what an unenrol stopped between its two deletions leaves: the sidecar and the owed record. */
+            private void interruptRemoval(String projectId) throws IOException {
+                write(store, enrolment(projectId, false));
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(store.lockKey(projectId));
+                    store.oweAudit(transaction, projectId,
+                            AuditEvent.enrolmentRemoved(projectId, transactionId()).notConfirmed());
+                }
+                Files.delete(store.file(projectId));
+            }
+
+            private EnrolmentStore arrange(Leftover leftover) throws IOException {
+                if (leftover == Leftover.NO_DIRECTORY) {
+                    return new EnrolmentStore(base.resolve(ELSEWHERE));
+                }
+                switch (leftover) {
+                    case PAIR -> write(store, old);
+                    case ORPHAN_SIDECAR -> interruptRemoval(PROJECT);
+                    case STAGED_ONLY -> writeStopped(EnrolmentStore.PairStep.SIDECAR_STAGED, newer);
+                    case FILE_ONLY -> {
+                        write(store, old);
+                        Files.delete(store.sidecar(PROJECT));
+                    }
+                    default -> {
+                        // the directory holds nothing of the project
+                    }
+                }
+                return store;
+            }
+
+            private boolean hasEnrolmentFile(EnrolmentStore enrolmentStore, String projectId) {
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(enrolmentStore.lockKey(projectId));
+                    return enrolmentStore.hasEnrolmentFile(transaction, projectId);
+                }
+            }
+
+            private boolean removeOrphanSidecar(String projectId) {
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(store.lockKey(projectId));
+                    return store.removeOrphanSidecar(transaction, projectId);
+                }
+            }
+
+            /** The bytes of every regular file of the directory, by name. */
+            private Map<String, String> contents() throws IOException {
+                var contents = new TreeMap<String, String>();
+                for (var name : names()) {
+                    var file = store.directory().resolve(name);
+                    if (Files.isRegularFile(file)) {
+                        contents.put(name, HexFormat.of().formatHex(Files.readAllBytes(file)));
+                    }
+                }
+                return contents;
+            }
+
+            @ParameterizedTest(name = "{0}")
+            @EnumSource(Leftover.class)
+            @DisplayName("the enrolment file is there only for a written pair and a file without its sidecar")
+            void enrolmentFileOnlyForAFile(Leftover leftover) throws Exception {
+                var enrolmentStore = arrange(leftover);
+
+                assertEquals(leftover.enrolmentFile, hasEnrolmentFile(enrolmentStore, PROJECT));
+            }
+
+            @Test
+            @DisplayName("an orphan sidecar is something left to remove, but no enrolment file and no enrolment")
+            void orphanIsNoEnrolment() throws Exception {
+                interruptRemoval(PROJECT);
+
+                assertAll(
+                        () -> assertTrue(exists(PROJECT)),
+                        () -> assertFalse(hasEnrolmentFile(store, PROJECT)),
+                        () -> assertTrue(store.projectIds().isEmpty()),
+                        () -> assertEquals(Set.of(PROJECT), store.auditOwingProjectIds()));
+            }
+
+            @Test
+            @DisplayName("the orphan sidecar is removed once, and the intent, staged names and other projects stay")
+            void removesTheOrphanSidecarOnly() throws Exception {
+                interruptRemoval(PROJECT);
+                stage(PROJECT, EnrolmentCodec.write(newer), sidecarOf(newer).write(), Instant.now());
+                write(store, enrolment(SIBLING, false));
+                var before = contents();
+                before.remove(store.sidecar(PROJECT).getFileName().toString());
+
+                var removed = removeOrphanSidecar(PROJECT);
+                var removedAgain = removeOrphanSidecar(PROJECT);
+
+                assertAll(
+                        () -> assertTrue(removed),
+                        () -> assertFalse(removedAgain),
+                        () -> assertFalse(Files.exists(store.sidecar(PROJECT))),
+                        () -> assertEquals(before, contents()));
+            }
+
+            @Test
+            @DisplayName("a sidecar beside its enrolment file is no orphan, and the pair is left as it is")
+            void keepsASidecarBesideItsFile() throws Exception {
+                write(store, old);
+                var before = contents();
+
+                var removed = removeOrphanSidecar(PROJECT);
+
+                assertAll(
+                        () -> assertFalse(removed),
+                        () -> assertEquals(before, contents()));
+            }
+
+            @Test
+            @DisplayName("the orphan sidecar of a project whose id begins with another is never removed for the other")
+            void isolation() throws Exception {
+                interruptRemoval(SIBLING);
+                var removedForProject = removeOrphanSidecar(PROJECT);
+                var siblingKept = Files.exists(store.sidecar(SIBLING));
+                interruptRemoval(PROJECT);
+
+                var removedForSibling = removeOrphanSidecar(SIBLING);
+                var projectKept = Files.exists(store.sidecar(PROJECT));
+                var removedForItself = removeOrphanSidecar(PROJECT);
+
+                assertAll(
+                        () -> assertFalse(removedForProject),
+                        () -> assertTrue(siblingKept),
+                        () -> assertTrue(removedForSibling),
+                        () -> assertFalse(Files.exists(store.sidecar(SIBLING))),
+                        () -> assertTrue(projectKept),
+                        () -> assertTrue(removedForItself));
+            }
+
+            @Test
+            @DisplayName("both queries are refused without the project's lock, another project's lock does not count")
+            void withoutLock() throws Exception {
+                interruptRemoval(PROJECT);
+                var before = contents();
+
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(store.lockKey(SIBLING));
+
+                    assertAll(
+                            () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
+                                    () -> store.hasEnrolmentFile(transaction, PROJECT)).reason()),
+                            () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, assertThrows(InternalFaultException.class,
+                                    () -> store.removeOrphanSidecar(transaction, PROJECT)).reason()));
+                }
+                var unchanged = contents();
+                var enrolmentFile = hasEnrolmentFile(store, PROJECT);
+                var removed = removeOrphanSidecar(PROJECT);
+
+                assertAll(
+                        () -> assertEquals(before, unchanged),
+                        () -> assertFalse(enrolmentFile),
+                        () -> assertTrue(removed));
+            }
+
+            @Test
+            @DisplayName("a sidecar that cannot be deleted fails naming the project, and nothing changes")
+            void undeletableSidecar() throws Exception {
+                interruptRemoval(PROJECT);
+                Files.delete(store.sidecar(PROJECT));
+                var kept = Files.writeString(Files.createDirectory(store.sidecar(PROJECT)).resolve("kept"), PROJECT);
+                var before = contents();
+                var namesBefore = names();
+
+                try (var transaction = locks.openTransaction()) {
+                    transaction.acquire(store.lockKey(PROJECT));
+
+                    var failure = assertThrows(UncheckedIOException.class,
+                            () -> store.removeOrphanSidecar(transaction, PROJECT));
+                    assertTrue(failure.getMessage().contains("'" + PROJECT + "'"), failure::getMessage);
+                }
+                assertAll(
+                        () -> assertEquals(before, contents()),
+                        () -> assertEquals(namesBefore, names()),
+                        () -> assertTrue(Files.exists(kept)));
+            }
         }
     }
 
