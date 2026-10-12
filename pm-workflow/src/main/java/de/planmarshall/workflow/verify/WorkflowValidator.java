@@ -988,36 +988,40 @@ public final class WorkflowValidator {
     }
 
     private void checkCallGraphDag(WorkflowDefinition definition, List<Violation> violations) {
-        var callStack = new ArrayList<String>();
-        callStack.add(definition.id());
-        checkDagDfs(definition, callStack, violations);
+        for (var state : definition.states().values()) {
+            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
+                var callStack = new ArrayList<String>();
+                callStack.add(definition.id());
+                checkDagDfs(state, call.subWorkflowId(), callStack, violations);
+            }
+        }
     }
 
-    private void checkDagDfs(WorkflowDefinition current, List<String> callStack, List<Violation> violations) {
-        for (var state : current.states().values()) {
-            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
-                var calleeId = call.subWorkflowId();
-                if (callStack.contains(calleeId)) {
-                    var cyclePath = new ArrayList<>(callStack);
-                    cyclePath.add(calleeId);
-                    violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, state.id(), state.location(),
-                            "the sub-workflow call graph contains a cycle: %s".formatted(String.join(" -> ", cyclePath))));
-                    return;
-                }
-                if (callStack.size() >= 5) {
-                    var depthPath = new ArrayList<>(callStack);
-                    depthPath.add(calleeId);
-                    violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, state.id(), state.location(),
-                            "the sub-workflow call stack exceeds the maximum depth 4: %s".formatted(String.join(" -> ", depthPath))));
-                    return;
-                }
-                var calleeOpt = catalog.find(calleeId);
-                if (calleeOpt.isPresent()) {
-                    callStack.add(calleeId);
-                    checkDagDfs(calleeOpt.get(), callStack, violations);
-                    callStack.removeLast();
+    private void checkDagDfs(StateNode rootState, String calleeId, List<String> callStack,
+            List<Violation> violations) {
+        if (callStack.contains(calleeId)) {
+            var cyclePath = new ArrayList<>(callStack);
+            cyclePath.add(calleeId);
+            violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, rootState.id(), rootState.location(),
+                    "the sub-workflow call graph contains a cycle: %s".formatted(String.join(" -> ", cyclePath))));
+            return;
+        }
+        if (callStack.size() >= 5) {
+            var depthPath = new ArrayList<>(callStack);
+            depthPath.add(calleeId);
+            violations.add(new Violation(VerificationRule.CALL_GRAPH_DAG, rootState.id(), rootState.location(),
+                    "the sub-workflow call stack exceeds the maximum depth 4: %s".formatted(String.join(" -> ", depthPath))));
+            return;
+        }
+        var calleeOpt = catalog.find(calleeId);
+        if (calleeOpt.isPresent()) {
+            callStack.add(calleeId);
+            for (var state : calleeOpt.get().states().values()) {
+                if (state.behavior() instanceof StateBehavior.SubWorkflowCall nextCall) {
+                    checkDagDfs(rootState, nextCall.subWorkflowId(), callStack, violations);
                 }
             }
+            callStack.removeLast();
         }
     }
 
@@ -1419,48 +1423,13 @@ public final class WorkflowValidator {
         return switch (state.behavior()) {
             case StateBehavior.JobStep job -> true;
             case StateBehavior.ModelJob modelJob -> true;
-            case StateBehavior.QuestionWait question -> {
-                for (var t : question.transitions()) {
-                    if (t.targetStateId().equals(toId)) {
-                        yield true;
-                    }
-                }
-                for (var link : question.links()) {
-                    for (var t : link.transitions()) {
-                        if (t.targetStateId().equals(toId)) {
-                            yield linkAwaitsEvent(link);
-                        }
-                    }
-                }
-                yield false;
-            }
-            case StateBehavior.InteractiveLinks links -> {
-                for (var link : links.links()) {
-                    for (var t : link.transitions()) {
-                        if (t.targetStateId().equals(toId)) {
-                            if (linkAwaitsEvent(link)) {
-                                yield true;
-                            }
-                        }
-                    }
-                }
-                yield false;
-            }
+            case StateBehavior.QuestionWait question -> true;
+            case StateBehavior.InteractiveLinks links -> true;
             case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
                     .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
             case StateBehavior.SubWorkflowCall call -> false;
             case StateBehavior.TerminalState _ -> false;
         };
-    }
-
-    private boolean linkAwaitsEvent(LinkSpec link) {
-        if (link.form() == LinkForm.SUBMIT) {
-            return true;
-        }
-        if (link.action() instanceof LinkAction.ExecutePrimitive(var primId)) {
-            return registry.find(primId).map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
-        }
-        return false;
     }
 
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {

@@ -74,7 +74,6 @@ public final class QuestionClassRegistry {
                 new QuestionClass("clarification", Set.of("answered", "assumed")),
                 new QuestionClass("review", Set.of("approve", "revise", "returned")),
                 new QuestionClass("task", Set.of("answered", "assumed")),
-                new QuestionClass("setup", Set.of("answered", "assumed")),
-                new QuestionClass("ask", Set.of("answered", "assumed"))));
+                new QuestionClass("setup", Set.of("answered", "assumed"))));
     }
 }

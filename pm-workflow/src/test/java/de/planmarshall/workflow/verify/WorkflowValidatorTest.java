@@ -47,7 +47,9 @@ class WorkflowValidatorTest {
                 phase verify
             """;
 
-    private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), RELEASED);
+    private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), RELEASED,
+            EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+            TestPrimitives.catalog());
 
     static List<String> refusedFixtures() {
         return VerifyFixtures.list(VerifyFixtures.REFUSED);
@@ -97,7 +99,7 @@ class WorkflowValidatorTest {
                     .map(matcher -> VerificationRule.valueOf(matcher.group(1)))
                     .toList();
 
-            assertAll(() -> assertEquals(8, expected.size()),
+            assertAll(() -> assertEquals(31, expected.size()),
                     () -> assertEquals(EnumSet.allOf(VerificationRule.class), EnumSet.copyOf(expected)));
         }
 
@@ -117,7 +119,7 @@ class WorkflowValidatorTest {
         @Test
         @DisplayName("Should report every unregistered site and check nothing else of it")
         void shouldReportEveryUnregisteredSite() {
-            var definition = unit("plan", """
+            var definition = unit("workspace", """
                     state verify.entry
                         phase verify
                         facts test.missing
@@ -135,6 +137,7 @@ class WorkflowValidatorTest {
                         phase verify
                         composite_job test.missing
                             done -> verify.done
+                            failed -> verify.entry
                     """ + DONE_TERMINAL);
 
             var found = violations(definition);
@@ -160,7 +163,7 @@ class WorkflowValidatorTest {
         })
         @DisplayName("Should compare names, type and bounds, but not optionality")
         void shouldCompareFreeParameters(String params, int count, String fragment) {
-            var definition = unit("plan", """
+            var definition = unit("workspace", """
                     state verify.entry
                         phase verify
                         link submit choose [submit] %s
@@ -187,14 +190,14 @@ class WorkflowValidatorTest {
                 "a job state without cancelled;job test.build|succeeded -> verify.done|failed -> verify.done;'cancelled'",
                 "an auto state routing an outcome twice;"
                         + "auto test.prepare|done -> verify.done|skipped -> verify.done|done -> verify.done;twice",
-                "a link routing one of two outcomes;link next choose (note: text[1..80], comment: text)"
+                "a link routing one of two outcomes;link submit choose [submit] (note: text[1..80], comment: text)"
                         + "|do test.choose|chosen -> verify.done;'declined'"
         })
         @DisplayName("Should refuse every gap of the bijection with the outcome enum")
         void shouldRefuseGaps(String description, String body, String fragment) {
             var states = "state verify.entry\nphase verify\n" + body.replace('|', '\n') + "\n";
 
-            var found = violations(unit("plan", states + DONE_TERMINAL));
+            var found = violations(unit("workspace", states + DONE_TERMINAL));
 
             assertAll(description, () -> assertEquals(1, found.size(), found::toString),
                     () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule()),
@@ -234,6 +237,7 @@ class WorkflowValidatorTest {
         private static final String SELF_LINK = """
                 state verify.entry
                     phase verify
+                    skill pm/verify/start
                     link next proceed ()
                         do test.proceed
                             done -> verify.entry
@@ -243,7 +247,10 @@ class WorkflowValidatorTest {
         @CsvSource({"subworkflow, 0", "plan, 1"})
         @DisplayName("Should let a link state of a sub-workflow exit through the implicit step_out")
         void shouldExitThroughStepOut(String scope, int count) {
-            assertEquals(count, violations(unit(scope, SELF_LINK)).size());
+            var found = violations(unit(scope, SELF_LINK)).stream()
+                    .filter(violation -> violation.rule() == VerificationRule.EXIT_PATH)
+                    .toList();
+            assertEquals(count, found.size(), found::toString);
         }
 
         @ParameterizedTest(name = "lost declared: {0}")
@@ -270,7 +277,7 @@ class WorkflowValidatorTest {
             var definition = unit("workspace", """
                     state verify.entry
                         phase setup
-                        link next work ()
+                        link submit work [submit] ()
                             do test.proceed
                                 done -> verify.stuck
 
@@ -278,10 +285,12 @@ class WorkflowValidatorTest {
                         phase setup
                         auto test.prepare
                             done -> %s
-                            skipped -> verify.stuck
-                    """.formatted(doneTarget));
+                            skipped -> %s
+                    """.formatted(doneTarget, doneTarget));
 
-            var found = violations(definition);
+            var found = violations(definition).stream()
+                    .filter(violation -> violation.rule() == VerificationRule.EXIT_PATH)
+                    .toList();
 
             assertEquals(count, found.size(), found::toString);
             found.forEach(violation -> assertAll(() -> assertEquals(VerificationRule.EXIT_PATH, violation.rule()),
@@ -317,12 +326,13 @@ class WorkflowValidatorTest {
     class LinkIdentifiers {
 
         @ParameterizedTest(name = "{0}")
-        @CsvSource({"subworkflow, 1", "plan, 0"})
+        @CsvSource({"subworkflow, 1", "workspace, 0"})
         @DisplayName("Should refuse a declared step_out only where the engine renders the implicit one")
         void shouldRefuseDeclaredStepOut(String scope, int count) {
             var definition = unit(scope, """
                     state verify.entry
                         phase verify
+                        skill pm/verify/start
                         link next step_out ()
                             do test.proceed
                                 done -> verify.done
@@ -387,7 +397,7 @@ class WorkflowValidatorTest {
         @Test
         @DisplayName("Should report every defect of a unit, ordered by state and then by rule")
         void shouldReportEveryDefectInOrder() {
-            var definition = unit("plan", """
+            var definition = unit("workspace", """
                     state verify.entry
                         phase verify
                         auto test.missing
@@ -403,7 +413,8 @@ class WorkflowValidatorTest {
                                 done -> verify.orphan
                     """ + DONE_TERMINAL);
             var withRetiredName = new WorkflowValidator(TestPrimitives.registry(),
-                    List.of("verify.retired", "verify.entry"));
+                    List.of("verify.retired", "verify.entry"), EntityKindRegistry.defaults(),
+                    QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 
             var found = withRetiredName.verify(definition).violations();
 

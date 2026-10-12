@@ -1,0 +1,12 @@
+# expect: QUESTION_OUTCOMES state verify.entry line 6
+workflow verify.missing-question-outcome version 1 format 1
+scope workspace
+start verify.entry
+
+state verify.entry
+    phase verify
+    question clarification
+        answered -> verify.done
+
+state verify.done terminal done success
+    phase verify

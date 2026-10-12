@@ -2,7 +2,7 @@
 # A plan unit whose link declares the bounded free parameter note with other bounds
 # than the parameter record of its primitive.
 workflow verify.parameters version 1 format 1
-scope plan
+scope workspace
 start verify.entry
 
 state verify.entry

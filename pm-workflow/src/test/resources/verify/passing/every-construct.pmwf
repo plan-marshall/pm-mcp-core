@@ -41,7 +41,6 @@ state verify.prepare
             completes verify:prepare as done
         skipped -> verify.compose
             completes verify:prepare as skipped
-            completes verify:probe as waived
 
 state verify.build
     phase inherit
@@ -62,14 +61,14 @@ state verify.review
     phase inherit
     job llm change role implementer each test.list-changes ask
     consult role reviewer
-        done -> verify.judge
+        approved -> verify.judge
         lost -> verify.failed
 
 state verify.judge
     phase inherit
     job llm change role reviewer
         approved -> verify.commit
-        rejected -> verify.review
+        lost -> verify.failed
 
 state verify.commit
     phase inherit
@@ -84,7 +83,7 @@ state verify.ask
     phase inherit
     question clarification
         answered -> verify.entry
-        expired -> verify.skipped
+        assumed -> verify.skipped
     link next skip_wait ()
         do test.proceed
             done -> verify.done

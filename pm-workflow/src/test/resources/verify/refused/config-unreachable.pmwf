@@ -1,0 +1,24 @@
+# expect: CONFIG_REACHABILITY state verify.conditional line 17
+workflow verify.config-reachability version 1 format 1
+scope workspace
+start verify.entry
+
+state verify.entry
+    phase verify
+    link next choose ()
+        guard in_worktree
+        depends_on_config [feature.flag]
+        do test.proceed
+            done -> verify.conditional
+    link next fallback ()
+        do test.proceed
+            done -> verify.done
+
+state verify.conditional
+    phase verify
+    auto test.prepare
+        done -> verify.done
+        skipped -> verify.entry
+
+state verify.done terminal done success
+    phase verify
