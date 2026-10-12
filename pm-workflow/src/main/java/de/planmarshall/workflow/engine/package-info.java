@@ -21,6 +21,11 @@
  * condition was raised on the current state. Each carries the new status, which the caller writes in the transaction of
  * the advance, so the engine keeps no state outside the status store (PM-ARCH-4).
  * <p>
+ * A resting state is parked in the same write: a job state binds its job, a task state its queue task, through the
+ * ports of {@code core.spi}. {@link de.planmarshall.workflow.engine.RestingWait} derives from the store what the state
+ * waits for, and only the matching {@link de.planmarshall.workflow.engine.EngineEvent} (a settled job, settled tasks, a
+ * resolved question, the passing of time) resumes it (PM-WF-2: waiting on a job is an engine event, never a link).
+ * <p>
  * {@link de.planmarshall.workflow.engine.GuardEvaluator} evaluates guards with three values and raises the condition
  * {@code guard_indeterminate} for a guard that could not be evaluated, and decides the result guards of a returned
  * outcome. {@link de.planmarshall.workflow.engine.LoopBackBudget} keeps the loop-back and remediation budgets of a plan,

@@ -46,6 +46,7 @@ import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
+import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.engine.EngineFixtures.CapOutcome;
@@ -211,7 +212,8 @@ class WorkflowEngineTest {
         @DisplayName("Should return a resting, an ended and a condition-carrying status unchanged")
         void shouldReturnSettledStatusUnchanged() {
             var engine = fixtures.engine(plan("execute.first", CHAIN_TO_JOB));
-            var resting = planStatus(EXECUTE, "execute.build");
+            var resting = planStatus(EXECUTE, "execute.build").toBuilder()
+                    .activeJob(new WorkflowStatus.ActiveJob("execute.build", "b-00000000000000aa")).build();
             var ended = planStatus("completed", "completed");
             var raised = engine.raise(resting, "precondition_unmet", Map.of("fact", "push_remote")).status();
 
@@ -220,7 +222,8 @@ class WorkflowEngineTest {
                     () -> assertSame(ended, engine.advance(ended).status()),
                     () -> assertSame(raised, assertInstanceOf(EngineStep.ConditionRaised.class,
                             engine.advance(raised)).status()),
-                    () -> assertEquals(0, fixtures.step.calls()));
+                    () -> assertEquals(0, fixtures.step.calls()),
+                    () -> assertTrue(fixtures.jobStarter.requests.isEmpty()));
         }
 
         @Test
@@ -314,7 +317,7 @@ class WorkflowEngineTest {
             var refused = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
                     () -> new WorkflowEngine(plan("execute.commit", CALL_COMMIT), WorkflowCatalog.empty(),
                             fixtures.validator(callee), fixtures.registry(), (primitive, status) -> null,
-                            fixtures.clock));
+                            fixtures.ports()));
 
             assertAll(
                     () -> assertEquals("sub.commit", refused.unitId()),
@@ -548,7 +551,7 @@ class WorkflowEngineTest {
         void shouldRefuseWrongParameterRecord() {
             var engine = new WorkflowEngine(plan("execute.first", CHAIN), WorkflowCatalog.empty(),
                     fixtures.validator(), fixtures.registry(), (primitive, status) -> new Unexpected(),
-                    fixtures.clock);
+                    fixtures.ports());
 
             assertThrows(IllegalStateException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
         }

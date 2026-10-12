@@ -23,16 +23,23 @@ import java.util.Optional;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
+import de.planmarshall.core.spi.QuestionRecordReader;
+import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
+import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.WorkflowStatus;
+import de.planmarshall.core.store.WorkflowStatus.ActiveJob;
+import de.planmarshall.core.store.WorkflowStatus.JobEntry;
+import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
 import de.planmarshall.core.store.WorkflowStatusStore;
 import de.planmarshall.workflow.ast.CallFrame;
 import de.planmarshall.workflow.ast.OutcomeTransition;
@@ -65,9 +72,20 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <li>a terminal state of the top-level unit ends the unit ({@link EngineStep.Ended});</li>
  * <li>every other state (a link, job, composite job, task or question state) rests ({@link EngineStep.Resting}).</li>
  * </ul>
+ * Entering a resting state parks it in the same status write: a {@code job} state binds the job a job-starting outcome
+ * just reported, or starts its job through the {@link JobStarter} and binds that ({@code active_job},
+ * {@code active_jobs}); a refused start is routed as the state's {@code refused} outcome. A {@code composite_job} state
+ * binds itself; a task state creates its queue task through the {@link QueueTaskCreator} ({@code active_tasks}). A
+ * resting state whose binding is in the store only waits: an advance after a restart never starts its job again. The
+ * wait of the state ({@link RestingWait}) is derived from the store, and only the {@link EngineEvent} it waits for
+ * resumes it ({@link #advance(WorkflowStatus, EngineEvent)}): a settled job routes its fate, settled tasks the evaluated
+ * outcome, a time event re-runs the composite job's primitive, and a question resolution routes the outcome the record
+ * read through the {@link QuestionRecordReader} reports. Waiting on a job is an engine event, never a link.
+ * <p>
  * The advance returns the new status with {@code updated_at} from the clock; the caller writes it in the transaction
  * of the advance ({@link #advance(WorkflowStatus, WorkflowStatusStore, ScopeTransaction)}). Leaving a state clears the
- * job and task bindings of the state. The engine counts no retry itself: the retrying primitives count through
+ * job and task bindings of the state, and the engine holds no state outside the status. The engine counts no retry
+ * itself: the retrying primitives count through
  * {@link RetryCounters}, and the engine drops the retry counts of every state of a sub-workflow when it pops or unwinds
  * the frame of that sub-workflow, in the same status write; entering and leaving states within a frame keeps them.
  * <p>
@@ -105,7 +123,30 @@ public final class WorkflowEngine {
     private final Map<String, WorkflowDefinition> units;
     private final PrimitiveRegistry registry;
     private final ParameterBinder binder;
+    private final JobStarter jobs;
+    private final QueueTaskCreator tasks;
+    private final QuestionRecordReader questions;
     private final WorkflowClock clock;
+
+    /**
+     * The ports through which the engine causes and observes what lies outside the status store.
+     *
+     * @param jobs      starts the job of a job state
+     * @param tasks     creates the queue task of a task state
+     * @param questions reads the question record a question state waits on
+     * @param clock     the clock of {@code updated_at}, {@code pushed_at}, {@code raised_at} and a job's start
+     * @since 0.1
+     */
+    public record Ports(JobStarter jobs, QueueTaskCreator tasks, QuestionRecordReader questions, WorkflowClock clock) {
+
+        /** @throws NullPointerException if a port is {@code null} */
+        public Ports {
+            Objects.requireNonNull(jobs, "jobs");
+            Objects.requireNonNull(tasks, "tasks");
+            Objects.requireNonNull(questions, "questions");
+            Objects.requireNonNull(clock, "clock");
+        }
+    }
 
     /**
      * Binds the parameter record of a primitive the engine runs: the parameters the engine resolves from state.
@@ -131,19 +172,23 @@ public final class WorkflowEngine {
      * @param validator the verifier, built over the same primitives and catalog
      * @param registry  the primitives the units name
      * @param binder    the binder of the parameters of a primitive
-     * @param clock     the clock of {@code updated_at}, {@code pushed_at} and {@code raised_at}
+     * @param ports     the ports of jobs, queue tasks, question records and time
      * @throws NullPointerException    if an argument is {@code null}
      * @throws UnverifiedUnitException if the unit, or a sub-workflow it calls, violates a rule of the verifier, or a
      *                                 called sub-workflow is not in the catalog
      */
     public WorkflowEngine(WorkflowDefinition unit, WorkflowCatalog catalog, WorkflowValidator validator,
-            PrimitiveRegistry registry, ParameterBinder binder, WorkflowClock clock) {
+            PrimitiveRegistry registry, ParameterBinder binder, Ports ports) {
         this.unit = Objects.requireNonNull(unit, "unit");
         Objects.requireNonNull(catalog, "catalog");
         Objects.requireNonNull(validator, "validator");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.binder = Objects.requireNonNull(binder, "binder");
-        this.clock = Objects.requireNonNull(clock, "clock");
+        Objects.requireNonNull(ports, "ports");
+        this.jobs = ports.jobs();
+        this.tasks = ports.tasks();
+        this.questions = ports.questions();
+        this.clock = ports.clock();
         var verified = new LinkedHashMap<String, WorkflowDefinition>();
         verifyWithCallees(unit, catalog, validator, verified);
         this.units = Collections.unmodifiableMap(verified);
@@ -193,8 +238,9 @@ public final class WorkflowEngine {
     }
 
     /**
-     * Advances a scope from its current state. A scope that rests, that ended, or that carries a condition is
-     * returned unchanged; from any other state the engine chains until the scope rests or ends.
+     * Advances a scope from its current state. A scope that ended, that carries a condition, or that rests in a parked
+     * state or a link or question state is returned unchanged; a job, composite job or task state the store binds
+     * nothing to is parked now; from any other state the engine chains until the scope rests or ends.
      *
      * @param status the status of the scope as the store holds it
      * @return the step the advance ends in
@@ -211,8 +257,50 @@ public final class WorkflowEngine {
         return switch (node.behavior()) {
             case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _ -> new Run(status).chain(node.id());
             case StateBehavior.TerminalState _ -> stack.isEmpty() ? ended(status, node) : new Run(status).chain(node.id());
-            case StateBehavior.InteractiveLinks _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
-                StateBehavior.QuestionWait _ -> resting(status, node);
+            case StateBehavior.JobStep _, StateBehavior.ModelJob _ ->
+                parked(status) ? resting(status, node) : new Run(status).chain(node.id());
+            case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _ -> resting(status, node);
+        };
+    }
+
+    /**
+     * Resumes a resting state by the event it waits for: the state routes the event's outcome, the binding of the state
+     * is cleared in the transition that leaves it, and the engine chains on. A job state routes the fate of its settled
+     * job, a task state the outcome its tasks were evaluated to, a composite job state the outcome its primitive returns
+     * when it runs again on the event, and a question state the resolution the question record reports.
+     *
+     * @param status the status of the scope as the store holds it
+     * @param event  the event
+     * @return the step the advance ends in; the raised condition {@code precondition_unmet} when the question record
+     *         of a resolution cannot be read; the status unchanged when the scope carries a condition
+     * @throws IllegalArgumentException if the event is not the one the current state waits for, or the question record
+     *                                  is still open or resolved with another outcome; the status stays as it is
+     * @throws InternalFaultException   see {@link #advance(WorkflowStatus)}
+     */
+    public EngineStep advance(WorkflowStatus status, EngineEvent event) {
+        Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(event, "event");
+        if (status.condition().isPresent()) {
+            return EngineStep.ConditionRaised.of(status);
+        }
+        var node = stateOf(unitOf(CallStack.fromStore(status.callStack())), status.state());
+        var wait = RestingWait.of(status, awaitedEventOf(node.behavior()));
+        if (!wait.accepts(event)) {
+            throw new IllegalArgumentException("the state '%s' waits for %s and does not accept %s"
+                    .formatted(node.id(), wait, event));
+        }
+        var run = new Run(status);
+        return switch (node.behavior()) {
+            case StateBehavior.JobStep job when job.composite() ->
+                run.chain(run.runPrimitive(node, job.primitiveId(), job.transitions()));
+            case StateBehavior.JobStep job when event instanceof EngineEvent.JobSettled(var _, var fate) ->
+                run.chain(transitionOf(node, job.transitions(), fate, Map.of()).targetStateId());
+            case StateBehavior.ModelJob modelJob when event instanceof EngineEvent.TasksSettled(var _, var outcome) ->
+                run.chain(transitionOf(node, modelJob.transitions(), outcome, Map.of()).targetStateId());
+            case StateBehavior.QuestionWait question when event instanceof EngineEvent.QuestionResolved resolved ->
+                resolve(run, status, node, question, resolved);
+            default -> throw new IllegalStateException("the state '%s' accepted %s, which it cannot route"
+                    .formatted(node.id(), event));
         };
     }
 
@@ -227,13 +315,72 @@ public final class WorkflowEngine {
      * @throws InternalFaultException see {@link #advance(WorkflowStatus)}
      */
     public EngineStep advance(WorkflowStatus status, WorkflowStatusStore store, ScopeTransaction transaction) {
+        return persisted(status, advance(status), store, transaction);
+    }
+
+    /**
+     * Resumes a resting state by an event and adds the new status to the transaction of the advance.
+     *
+     * @param status      the status of the scope as the store holds it
+     * @param event       the event
+     * @param store       the status store of the scope
+     * @param transaction the open transaction of the scope
+     * @return the step the advance ends in
+     * @throws IllegalArgumentException see {@link #advance(WorkflowStatus, EngineEvent)}
+     */
+    public EngineStep advance(WorkflowStatus status, EngineEvent event, WorkflowStatusStore store,
+            ScopeTransaction transaction) {
+        return persisted(status, advance(status, event), store, transaction);
+    }
+
+    /**
+     * @param status the status of a scope
+     * @return what the current state waits for; empty when it is no resting state
+     */
+    public Optional<RestingWait> restingWait(WorkflowStatus status) {
+        Objects.requireNonNull(status, "status");
+        var node = stateOf(unitOf(CallStack.fromStore(status.callStack())), status.state());
+        return switch (node.behavior()) {
+            case StateBehavior.InteractiveLinks _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
+                StateBehavior.QuestionWait _ -> Optional.of(RestingWait.of(status, awaitedEventOf(node.behavior())));
+            case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ ->
+                Optional.empty();
+        };
+    }
+
+    private static EngineStep persisted(WorkflowStatus before, EngineStep step, WorkflowStatusStore store,
+            ScopeTransaction transaction) {
         Objects.requireNonNull(store, "store");
         Objects.requireNonNull(transaction, "transaction");
-        var step = advance(status);
-        if (step.status() != status) {
+        if (step.status() != before) {
             store.write(transaction, step.status());
         }
         return step;
+    }
+
+    private static boolean parked(WorkflowStatus status) {
+        return status.activeJobBinding().filter(binding -> binding.stateId().equals(status.state())).isPresent();
+    }
+
+    private EngineStep resolve(Run run, WorkflowStatus status, StateNode node, StateBehavior.QuestionWait question,
+            EngineEvent.QuestionResolved resolved) {
+        var read = questions.read(new QuestionRecordReader.ReadRequest(Optional.ofNullable(status.scopeId()),
+                resolved.questionId()));
+        return switch (read) {
+            case QuestionRead.Resolved(var outcome) when outcome.equals(resolved.outcome()) ->
+                run.chain(transitionOf(node, question.transitions(), outcome, Map.of()).targetStateId());
+            case QuestionRead.Resolved(var outcome) -> throw new IllegalArgumentException(
+                    "the question %s resolved with '%s', not with '%s'".formatted(resolved.questionId(), outcome,
+                            resolved.outcome()));
+            case QuestionRead.Open _ -> throw new IllegalArgumentException(
+                    "the question %s is still open".formatted(resolved.questionId()));
+            case QuestionRead.Unreadable(var reason) -> {
+                var facts = new LinkedHashMap<String, String>();
+                facts.put("question_id", resolved.questionId());
+                facts.put("reason", reason);
+                yield raise(status, "precondition_unmet", facts);
+            }
+        };
     }
 
     /**
@@ -409,6 +556,9 @@ public final class WorkflowEngine {
         private final Deque<Map<String, Object>> results = new ArrayDeque<>();
         private int transitions;
 
+        /** The job a job-starting outcome reported, which the job state the transition enters binds. */
+        private String spawnedJobId;
+
         Run(WorkflowStatus status) {
             this.status = status;
             this.stack = CallStack.fromStore(status.callStack());
@@ -426,8 +576,11 @@ public final class WorkflowEngine {
                 }
                 var node = stateOf(unitOf(stack), stateId);
                 enter(node);
+                var spawned = spawnedJobId;
+                spawnedJobId = null;
                 switch (node.behavior()) {
-                    case StateBehavior.AutoStep auto -> stateId = runAuto(node, auto);
+                    case StateBehavior.AutoStep auto -> stateId = runPrimitive(node, auto.primitiveId(),
+                            auto.transitions());
                     case StateBehavior.SubWorkflowCall call -> stateId = call(node, call);
                     case StateBehavior.TerminalState _ -> {
                         if (stack.isEmpty()) {
@@ -437,12 +590,72 @@ public final class WorkflowEngine {
                                 Reason.UNRESOLVED_NAME, "the terminal state '%s' declares no outcome", node.id()))
                                 .id());
                     }
-                    case StateBehavior.InteractiveLinks _, StateBehavior.JobStep _, StateBehavior.ModelJob _,
-                        StateBehavior.QuestionWait _ -> {
+                    case StateBehavior.JobStep job -> {
+                        var refused = parkJob(node, job, spawned);
+                        if (refused.isEmpty()) {
+                            return resting(finish(), node);
+                        }
+                        stateId = refused.get();
+                    }
+                    case StateBehavior.ModelJob modelJob -> {
+                        parkTasks(node, modelJob);
+                        return resting(finish(), node);
+                    }
+                    case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _ -> {
                         return resting(finish(), node);
                     }
                 }
             }
+        }
+
+        /**
+         * Binds a job state to its job: the composite job state to itself, the job state to the job a job-starting
+         * outcome just reported or, without one, to the job the starter starts now.
+         *
+         * @return the target of the {@code refused} transition when the starter refused the start; empty when the state
+         *         is parked
+         */
+        private Optional<String> parkJob(StateNode node, StateBehavior.JobStep job, String spawned) {
+            if (job.composite()) {
+                status = status.toBuilder().activeJob(new ActiveJob(node.id(), node.id())).build();
+                return Optional.empty();
+            }
+            var jobId = spawned;
+            if (jobId == null) {
+                var started = jobs.start(new JobStarter.StartRequest(Optional.ofNullable(status.scopeId()), node.id(),
+                        job.primitiveId()));
+                if (!(started instanceof JobStarter.StartResult.Started(var startedId))) {
+                    return Optional.of(transitionOf(node, job.transitions(), "refused", Map.of()).targetStateId());
+                }
+                jobId = startedId;
+            }
+            var kind = new JobStarter.StartResult.Started(jobId).kind().wireName();
+            status = status.toBuilder()
+                    .activeJob(new ActiveJob(node.id(), jobId))
+                    .activeJobs(Map.of(job.primitiveId(), new JobEntry(jobId, kind, "queued", clock.now())))
+                    .build();
+            return Optional.empty();
+        }
+
+        /**
+         * Creates the queue task of a task state for the one entity of its kind and binds the state to itself.
+         *
+         * @throws IllegalStateException for a fan-out state ({@code each}, {@code role each}), whose entity list the
+         *                               package that computes it parks
+         */
+        private void parkTasks(StateNode node, StateBehavior.ModelJob modelJob) {
+            if (modelJob.fanOutPrimitiveId().isPresent() || modelJob.roleName().isEmpty()) {
+                throw new IllegalStateException("the fan-out task state '%s' is not parked by this engine"
+                        .formatted(node.id()));
+            }
+            var role = modelJob.roleName().get();
+            var entity = modelJob.entityKind();
+            var created = tasks.create(new QueueTaskCreator.CreateRequest(Optional.ofNullable(status.scopeId()),
+                    node.id(), entity, role));
+            status = status.toBuilder()
+                    .activeJob(new ActiveJob(node.id(), node.id()))
+                    .activeTasks(Map.of(entity, new TaskEntry(created.queueTaskId(), role, "queued", null, null)))
+                    .build();
         }
 
         /** Makes the state current: its phase applies, and the bindings of the state left are cleared. */
@@ -458,8 +671,14 @@ public final class WorkflowEngine {
                     .build();
         }
 
-        private String runAuto(StateNode node, StateBehavior.AutoStep auto) {
-            var primitive = primitiveOf(auto.primitiveId());
+        /**
+         * Runs the primitive of an {@code auto} state, or of a composite job state its event resumes, and selects the
+         * transition of the returned outcome.
+         *
+         * @return the target of that transition
+         */
+        String runPrimitive(StateNode node, String primitiveId, List<OutcomeTransition> transitions) {
+            var primitive = primitiveOf(primitiveId);
             var parameters = Objects.requireNonNull(binder.bind(primitive, status), "parameters");
             var scopeId = Optional.ofNullable(status.scopeId());
             WorkflowExecutionContext context = () -> scopeId;
@@ -471,8 +690,9 @@ public final class WorkflowEngine {
             if (!results.isEmpty()) {
                 results.peek().putAll(result.updatedFacts());
             }
+            spawnedJobId = result.spawnedJobId().orElse(null);
             var outcome = result.outcome().wireName();
-            return transitionOf(node, auto.transitions(), outcome, Map.of()).targetStateId();
+            return transitionOf(node, transitions, outcome, Map.of()).targetStateId();
         }
 
         private String call(StateNode node, StateBehavior.SubWorkflowCall call) {

@@ -86,6 +86,54 @@ final class EngineFixtures {
                 phase inherit
             """;
 
+    /** The transitions of every fate of {@code test.fate} but {@code succeeded} and {@code killed}. */
+    static final String OTHER_FATES = """
+                    failed -> handed_back
+                    failed_unparsed -> handed_back
+                    refused -> handed_back
+                    cancelled -> handed_back
+                    timed_out -> handed_back
+                    indeterminate -> handed_back
+            """;
+
+    /**
+     * The states of a plan that rests in every kind of resting state in turn: the job a job-starting outcome reports,
+     * a task state of the entity kind {@code change}, a question state of the class {@code clarification}, and a
+     * composite job state that waits for time.
+     */
+    static final String WAIT_STATES = """
+            state execute.enqueue
+                phase execute
+                auto test.enqueue
+                    started -> execute.run
+                    skipped -> execute.review
+
+            state execute.run
+                phase execute
+                job test.fate
+                    succeeded -> execute.review
+                    killed -> handed_back
+            %s
+            state execute.review
+                phase execute
+                job llm change role reviewer
+                    approved -> execute.ask
+                    lost -> handed_back
+
+            state execute.ask
+                phase execute
+                question clarification
+                    answered -> execute.backoff
+                    assumed -> handed_back
+
+            state execute.backoff
+                phase execute
+                composite_job test.backoff
+                    succeeded -> completed
+                    failed -> handed_back
+                    cancelled -> handed_back
+            """.formatted(OTHER_FATES);
+
     /** The two plan terminals the fixture plan units end in. */
     static final String PLAN_TERMINALS = """
 
@@ -117,12 +165,37 @@ final class EngineFixtures {
     /** The {@code auto} primitive of {@code epic.next-work}: {@code abort_landed}. */
     final Scripted<LandedOutcome> nextWork = new Scripted<>("test.next-work", LandedOutcome.class, AwaitedEvent.NONE);
 
+    /** A {@code job} primitive whose outcomes are every fate of a job record. */
+    final Scripted<FateOutcome> job = new Scripted<>("test.fate", FateOutcome.class, AwaitedEvent.JOB_SETTLED);
+
+    /** An {@code auto} primitive that enqueues a job: {@code started} reports it, {@code skipped} enqueues none. */
+    final Scripted<EnqueueOutcome> enqueue = new Scripted<>("test.enqueue", EnqueueOutcome.class, AwaitedEvent.NONE);
+
+    /** The return-evaluation primitive of the entity kind {@code change}: {@code approved}. */
+    final Scripted<ApprovedOutcome> evaluateChange = new Scripted<>("test.evaluate-change", ApprovedOutcome.class,
+            AwaitedEvent.NONE);
+
     /** The clock of the engine. */
     final ManualClock clock = new ManualClock(T0);
 
+    /** The job port of the engine. */
+    final RecordingJobStarter jobStarter = new RecordingJobStarter();
+
+    /** The queue task port of the engine. */
+    final RecordingQueueTaskCreator taskCreator = new RecordingQueueTaskCreator();
+
+    /** The question port of the engine. */
+    final FixedQuestionRecordReader questionReader = new FixedQuestionRecordReader();
+
+    /** @return the ports of the engine: the recording doubles and the manual clock of this fixture */
+    WorkflowEngine.Ports ports() {
+        return new WorkflowEngine.Ports(jobStarter, taskCreator, questionReader, clock);
+    }
+
     /** @return the registry of every primitive of this fixture */
     PrimitiveRegistry registry() {
-        return new PrimitiveRegistry(List.of(step, mark, proceed, build, backoff, cap, nextWork));
+        return new PrimitiveRegistry(List.of(step, mark, proceed, build, backoff, cap, nextWork, job, enqueue,
+                evaluateChange));
     }
 
     /**
@@ -182,7 +255,7 @@ final class EngineFixtures {
      */
     WorkflowEngine engine(WorkflowDefinition unit, WorkflowDefinition... callees) {
         return new WorkflowEngine(unit, WorkflowCatalog.of(callees), validator(callees), registry(),
-                (primitive, status) -> new NoParams(), clock);
+                (primitive, status) -> new NoParams(), ports());
     }
 
     /**
@@ -282,6 +355,75 @@ final class EngineFixtures {
         }
     }
 
+    /** The fates of a job record, the outcomes of {@code test.fate}. */
+    enum FateOutcome implements PrimitiveOutcome {
+        SUCCEEDED("succeeded", OutcomeClass.SUCCESS), FAILED("failed", OutcomeClass.FAILURE),
+        FAILED_UNPARSED("failed_unparsed", OutcomeClass.FAILURE), REFUSED("refused", OutcomeClass.FAILURE),
+        CANCELLED("cancelled", OutcomeClass.INDETERMINATE), TIMED_OUT("timed_out", OutcomeClass.FAILURE),
+        KILLED("killed", OutcomeClass.INDETERMINATE), INDETERMINATE("indeterminate", OutcomeClass.INDETERMINATE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        FateOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    /** The outcomes of {@code test.enqueue}: {@code started} reports the job it started. */
+    enum EnqueueOutcome implements PrimitiveOutcome {
+        STARTED("started", OutcomeClass.SUCCESS), SKIPPED("skipped", OutcomeClass.SKIP);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        EnqueueOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+
+        @Override
+        public boolean startsJob() {
+            return this == STARTED;
+        }
+    }
+
+    /** The one outcome of the return evaluation of {@code change}. */
+    enum ApprovedOutcome implements PrimitiveOutcome {
+        APPROVED;
+
+        @Override
+        public String wireName() {
+            return "approved";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
+        }
+    }
+
     /** The one outcome of {@code test.next-work}. */
     enum LandedOutcome implements PrimitiveOutcome {
         ABORT_LANDED;
@@ -333,6 +475,21 @@ final class EngineFixtures {
         Scripted<R> then(R outcome, Map<String, Object> facts) {
             script.add(new PrimitiveResult<>(outcome, facts, Optional.empty()));
             return this;
+        }
+
+        /**
+         * @param outcome the outcome of the next call, which reports the job it started
+         * @param jobId   the job the next call reports
+         * @return this primitive
+         */
+        Scripted<R> thenSpawning(R outcome, String jobId) {
+            script.add(new PrimitiveResult<>(outcome, Map.of(), Optional.of(jobId)));
+            return this;
+        }
+
+        @Override
+        public boolean enqueuesJob() {
+            return EnqueueOutcome.class.equals(outcomeType);
         }
 
         /** @return how often the primitive ran */
@@ -409,15 +566,19 @@ final class EngineFixtures {
         }
     }
 
-    /** A job starter that starts a fixed job for every request and records the requests. */
+    /** A job starter that starts a numbered build job for every request, or refuses it, and records the requests. */
     static final class RecordingJobStarter implements JobStarter {
 
         final List<StartRequest> requests = new ArrayList<>();
 
+        /** Whether the next starts are refused. */
+        boolean refusing;
+
         @Override
         public StartResult start(StartRequest request) {
             requests.add(request);
-            return new StartResult.Started("b-%016x".formatted(requests.size()));
+            return refusing ? new StartResult.Refused("no build slot")
+                    : new StartResult.Started("b-%016x".formatted(requests.size()));
         }
     }
 
