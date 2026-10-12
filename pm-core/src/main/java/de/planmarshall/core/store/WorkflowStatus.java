@@ -92,7 +92,7 @@ Map<String, String> retained) {
     private static final Pattern SCOPE_ID = Pattern.compile("^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$");
     private static final Pattern SCOPE_JOB_ID = Pattern.compile("^[bcgp]-[0-9a-f]{16}$");
     private static final Pattern BOUND_JOB_ID = Pattern
-            .compile("^([bcgp]-[0-9a-f]{16}|[a-z][a-z0-9_-]{0,31}(\\.[a-z][a-z0-9_-]{0,31})*)$");
+            .compile("^(?:[bcgp]-[0-9a-f]{16}|[a-z][a-z0-9_-]{0,31}+(?:\\.[a-z][a-z0-9_-]{0,31}+)*+)$");
     private static final Pattern QUEUE_TASK_ID = Pattern.compile("^qt-[0-9a-f]{16}$");
     private static final Pattern ROLE = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
     private static final Pattern REPLAN_ID = Pattern.compile("^RP-[0-9]+$");

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
@@ -291,6 +292,42 @@ class WorkflowStatusCodecTest {
             var status = read(WORKSPACE).withRetained(Map.of("engine_cache", "{}"));
 
             assertThrows(IllegalArgumentException.class, () -> WorkflowStatusCodec.write(status));
+        }
+    }
+
+    @Nested
+    @DisplayName("the bound job id")
+    class BoundJobId {
+
+        private static final String STATE = "finalize.merge-sync";
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"g-0123456789abcdef", "finalize.merge-sync", "sync", "a.b.c", "a_b-c.d9"})
+        @DisplayName("a job id or a dotted state identifier is accepted")
+        void accepted(String jobId) {
+            assertDoesNotThrow(() -> new WorkflowStatus.ActiveJob(STATE, jobId));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"", "G-0123456789abcdef", "1sync", "Sync", "sync.", ".sync", "sync..x", "sync.1x",
+                "a.-b", "sync merge"})
+        @DisplayName("a value of neither shape is refused")
+        void refused(String jobId) {
+            assertThrows(IllegalArgumentException.class, () -> new WorkflowStatus.ActiveJob(STATE, jobId));
+        }
+
+        @Test
+        @DisplayName("every segment is at most 32 characters long")
+        void segmentLength() {
+            var longest = "a" + "b".repeat(31);
+            var tooLong = "a" + "b".repeat(32);
+
+            assertAll(
+                    () -> assertDoesNotThrow(() -> new WorkflowStatus.ActiveJob(STATE, longest + "." + longest)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new WorkflowStatus.ActiveJob(STATE, longest + "." + tooLong)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new WorkflowStatus.ActiveJob(STATE, tooLong)));
         }
     }
 }
