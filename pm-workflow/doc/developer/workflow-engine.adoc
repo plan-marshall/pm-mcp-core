@@ -316,7 +316,8 @@ and logs nothing.
 entity) or `Refused` (a closed `Reason` and a detail for the caller's report). Its reasons are `invalid_arguments`,
 `scope_not_found` and `entry_unreadable`.
 `PendingEntryReader`:: The port of `core.spi` that reads one pending entry record: `Live` with its kind (`plan` or
-`epic`), `Deleted`, or `Unreadable` with the reason. The pending entry store of `pm-runtime` implements it; see
+`epic`), `Deleted`, or `Unreadable` with the reason. No class of `pm-core` implements it; the runtime implements it
+with the pending entry store, which does not exist yet, and until then only the test double does; see
 link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports].
 
 === The Entities of the Workspace Scope
