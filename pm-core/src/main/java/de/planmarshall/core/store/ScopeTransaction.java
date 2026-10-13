@@ -153,6 +153,11 @@ public final class ScopeTransaction {
         return transactionId;
     }
 
+    /** @return the scope whose stores the transaction writes; a store of this package checks it is its own */
+    JournalScope scope() {
+        return scope;
+    }
+
     /**
      * Owes an audit record that the transaction hands over once its targets are applied, such as the
      * {@code cross_scope_reconciled} record of a derived write. The record is written into the journal before the
