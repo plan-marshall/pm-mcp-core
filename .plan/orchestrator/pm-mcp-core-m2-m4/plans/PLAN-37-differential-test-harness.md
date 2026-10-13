@@ -46,6 +46,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **One file is shared by every plan.** In `doc/plans/README.adoc` change only this package's own row.
 - **Log messages: no identifier block.** This plan is expected to add no INFO, WARN or ERROR message. If the trace matrix shows one, stop and report it through the inbox message instead of taking an identifier of another workstream.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/differential-test-harness.adoc` § What, Trace, Done When (origin/main at 7d99648)

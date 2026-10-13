@@ -55,6 +55,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **Do not weaken a test to get green.** A failing existing test is either a real defect of this plan or a fixture that must be corrected to fit its own rule; record which.
 - **Never restate the target to fit the result.** The package file, the ADRs and the developer guide follow the work order and the specification; where the code falls short, they say so.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: the firing ends at any other opening (`openings.contains(target) && !target.equals(opening)`), while the specification says "the next opening of the same step" — read at `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java` (580815e) and `../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc`, re-checked by the orchestrator

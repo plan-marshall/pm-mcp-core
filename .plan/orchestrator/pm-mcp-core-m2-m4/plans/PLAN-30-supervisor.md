@@ -44,6 +44,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **One file is shared by every plan.** In `doc/plans/README.adoc` change only this package's own row.
 - **Log messages: the identifier block of WS-04.** New records in `PmMcpLogMessages` take the lowest free identifier of INFO 080-089, WARN 180-189, ERROR 280-289 and stand under one block comment for the workstream, as the existing blocks do. Renumber nothing. The block is shared with the other plans of WS-04: after a rebase, run `PmMcpLogMessagesTest`, which refuses an identifier used twice, and move to the next free one. A plan that needs more than the block holds stops and reports it through its inbox message. The same identifiers go into `doc/LogMessages.adoc` in the documentation pull request.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/supervisor.adoc` § What, Trace, Done When (origin/main at 7d99648)

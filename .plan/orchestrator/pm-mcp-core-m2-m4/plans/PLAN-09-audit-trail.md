@@ -48,6 +48,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 - **Carried from PLAN-12 (#51) and PLAN-11 (#30).** The pending-entry removal events of one sweep run share one `transaction_id`; an audit reader that deduplicates by `transaction_id` (PLAN-11's open follow-up) would drop events. Settle the deduplication key in this package and say so.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/audit-trail.adoc` § What, Trace, Done When (origin/main at 7d99648)

@@ -58,6 +58,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **One file is shared by every plan.** In `doc/plans/README.adoc` change only this package's own row.
 - **Log messages: the identifier block of WS-03.** New records in `PmMcpLogMessages` take the lowest free identifier of INFO 070-079, WARN 170-179, ERROR 270-279 and stand under one block comment for the workstream, as the existing blocks do. Renumber nothing. The block is shared with the other plans of WS-03: after a rebase, run `PmMcpLogMessagesTest`, which refuses an identifier used twice, and move to the next free one. A plan that needs more than the block holds stops and reports it through its inbox message. The same identifiers go into `doc/LogMessages.adoc` in the documentation pull request.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`, `chat`, `machine-onboarding-unit`, `project-onboarding-unit`; UC-CTL-1, UC-CTL-2, UC-CTL-4, UC-CTL-5, UC-PLN-5, and UC-PRJ-3 agreed (no work package)) — read at `doc/plans/plan-and-epic-control.adoc` and `doc/plans/README.adoc` (main at bed24eb)

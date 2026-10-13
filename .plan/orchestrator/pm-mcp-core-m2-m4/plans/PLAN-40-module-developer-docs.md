@@ -69,6 +69,8 @@ taken-over guides are complete here; relative links resolve.
 - The usual flow of `CLAUDE.md` § Git Workflow. No pull request in `plan-marshall-documentation`.
 - Log messages: none.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: `plan-marshall-documentation` holds `doc/developer/store-substrate.adoc` and `locks-and-leases.adoc` on main; `primitive-spi.adoc` is in its open #20; `workflow-dsl.adoc` came with its merged #27 — read on 2026-10-11

@@ -47,6 +47,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 - **Carried from PLAN-18 (#43, 2026-10-13).** (a) The caller closes its `LockTransaction` as soon as `VerifyNotResolvePipeline.verify` returns, never while the job launches or runs (`pm-runtime/doc/developer/runtime-job.adoc`). (b) Open review concern recorded in ADR runtime-job/001: `maxLength` bounds the input but not the regex matching time under the caller's enrolment lock; a per-match time budget (no new dependency) or a non-backtracking engine (new dependency — ask first) would close it. Decide at refine whether this package takes it or leaves it to `job-confinement-and-environment`, and say so.
 
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/job-runner.adoc` § What, Trace, Done When (origin/main at 7d99648)

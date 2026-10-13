@@ -343,7 +343,26 @@ decision or a dependency outside this repository.
   were regenerated from their package files, and PLAN-42, PLAN-43 and PLAN-45 were marked for
   re-reading before any emit.
 
+- 2026-10-13 — Operator decision: every versioned artifact stays at `format_version` 1 until the
+  first release; a format change replaces version 1 in place. Existing bumps are an Open Defect to
+  clean up at the end of this epic. Added as a Standing Constraint to every staged and parked spec;
+  the running PLAN-17, PLAN-21 and PLAN-39 were told through their mailboxes.
+
 ## Open Defects
+
+- **Format version bumped although nothing is released (cleanup at the end of the epic).**
+  - `TransactionJournal.FORMAT_VERSION = 3` (`pm-core/src/main/java/de/planmarshall/core/store/TransactionJournal.java`
+    l.77, and its Javadoc l.48): raised 1→2 by PLAN-06 (#26, owed audit events) and 2→3 by PLAN-12 (#51,
+    delete mode).
+  - The bump is also recorded in `pm-core/doc/developer/core-store.adoc` (l.169, l.414) and ADR
+    `pm-core/doc/adr/core-store/007-delete-mode-of-the-transaction-journal.adoc`, plus any test fixture
+    or test that pins 2 or 3.
+  - Open `plan-marshall-documentation` #59 (PLAN-12) puts `"format_version": 3` into the store schema
+    specification.
+
+  The target: the journal at version 1 everywhere — code, tests, fixtures, guide, ADR (record the
+  decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
+  2026-10-13 at bed24eb) — source: operator, 2026-10-13.
 
 - Documentation behind the code: (a) the Job Runtime specification lacks PLAN-18's mandatory
   `maxLength` for enrolled patterns (doc #46 merged before the review fixes); (b) the Workflow DSL
