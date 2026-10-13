@@ -1,0 +1,57 @@
+= ADR 003: Log Identifiers in Three Digits, One Block per Workstream
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-09
+
+== Context
+
+Every INFO, WARN and ERROR message is a `LogRecord` constant in `PmMcpLogMessages` of `pm-core`, in the identifier
+ranges INFO 001-099, WARN 100-199 and ERROR 200-299. Nearly every work package adds log messages there. When the
+plans first declared `PmMcpLogMessages` as shared surface, the gate that checks whether two plans touch the same
+files asked the operator on 553 of 666 plan pairs.
+
+== Decision
+
+The operator decided on 2026-10-09 that log identifiers stay in the three-digit scheme and are allocated per
+workstream, with the same offset in each level:
+
+[cols="1,2"]
+|===
+|Workstream |Identifiers
+
+|WS-01 |x50-x59
+|WS-02 |x60-x69
+|WS-03 |x70-x79
+|WS-04 |x80-x89
+|WS-05 |x90-x99
+|WS-07 |x02-x09
+|===
+
+WS-06 and WS-08 get no block. `PmMcpLogMessages` is no longer declared as shared surface of a plan. An identifier
+already in use is never renumbered.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+1. *Four digits with a block per plan.* Recommended to the operator; declined.
+2. *No allocation.* Declined.
+
+== Consequences
+
+* The plans of one workstream still share a block, and two of them can take the same identifier: #19 and #20 both took WARN 150 of the WS-01 block, and #20 moved to WARN 151.
+* `PmMcpLogMessagesTest` is the guard: it refuses an identifier used twice.
+* The blocks are marked by comments in `PmMcpLogMessages`. On 2026-10-13 the WS-01 block holds INFO 050-057, WARN 150-159 and ERROR 250-253, the WS-02 block INFO 060-064, WARN 160-167 and ERROR 260, and the WS-04 block starts at WARN 180.
+
+== Source
+
+* Epic `pm-mcp-core-m2-m4`, operator decision of 2026-10-09 on the log identifiers, in the orchestrator ledger
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep` (INFO 050, WARN 151, ERROR 250)
+* Pull request #29, `feat(runtime): add drain, recovery, sweep and version check` (INFO 053-057, WARN 152-159, ERROR 252)
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity` (INFO 060-064, WARN 161-167, ERROR 260, nothing renumbered)
