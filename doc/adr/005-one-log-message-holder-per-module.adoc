@@ -54,7 +54,8 @@ The reasons are the ones the context names.
 
 == Consequences
 
-* A plan adds a record to the holder of the module it changes and touches no shared file for it.
+* A plan adds a record to the holder of the module it changes; no holder is shared between modules any more. The
+  record is still documented in `doc/LogMessages.adoc` of the documentation, the one shared file left for it.
 * The test of each holder refuses an identifier used twice and one outside its level's range; `CoreLogMessagesTest`
   refuses two holders with one prefix and a holder whose prefix is not in its list of known prefixes, so a new holder
   adds its prefix there.
@@ -66,4 +67,5 @@ The reasons are the ones the context names.
 == Source
 
 * Epic `pm-mcp-core-m2-m4`, operator decision of 2026-10-13 on the log-message holders, in the orchestrator ledger
-* Pull request `refactor/log-messages-per-module`, with the full mapping of the old to the new identifiers
+* Pull request #64, `refactor(log): one log-message holder per module`, with the full mapping of the old to the new
+  identifiers
