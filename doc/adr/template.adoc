@@ -1,0 +1,36 @@
+= ADR NNN: {Title}
+:nofooter:
+
+// Copy this file to doc/adr/NNN-{slug}.adoc for a decision that concerns the whole repository, or to
+// {module}/doc/adr/{package}/NNN-{slug}.adoc for a decision of one package. NNN is the next free three-digit number
+// of the target directory; a number is never reused. Replace every line of guidance below.
+
+== Status
+
+Accepted, Superseded by ADR NNN, or Deprecated: one word or phrase.
+
+== Date
+
+The date the decision took effect, as YYYY-MM-DD: the merge date of the pull request that carries it.
+
+== Context
+
+The situation that required a decision, stated as facts from the sources: the forces, the constraint, the question.
+
+== Decision
+
+What was decided, in the present tense, with the names of the types, files or rules that carry it. When the sources
+give no reason for the decision, write "rationale not recorded" instead of supplying one.
+
+== Alternatives Considered
+
+The alternatives the sources name, each with the reason it was not taken. When the sources name none, write
+"alternatives not recorded".
+
+== Consequences
+
+What follows from the decision: what it makes possible, what it rules out, and what a later change has to respect.
+
+== Source
+
+The pull request, the work package below `doc/plans/` and the specification sections the decision rests on, as links.
