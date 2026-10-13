@@ -28,7 +28,7 @@ of being lost.
 
 == Consequences
 
-* The remaining rules were implemented by the package `static-verifier-remaining-rules` (link:001-static-verifier-remaining-rules.adoc[ADR 001]).
+* The checks in scope of the package `static-verifier-remaining-rules` were implemented by that package (link:001-static-verifier-remaining-rules.adoc[ADR 001]). The loader of project units and the compiled invariants belong to the work package link:../../../../doc/plans/project-units-and-invariants.adoc[`project-units-and-invariants`], and the role existence, class fit and skill resolution checks stay seams for later milestones.
 
 == Source
 
