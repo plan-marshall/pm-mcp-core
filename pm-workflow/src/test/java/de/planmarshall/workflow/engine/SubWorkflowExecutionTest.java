@@ -310,30 +310,30 @@ class SubWorkflowExecutionTest {
             // unit that reaches a link state through a call, so the top-level unit is an entity unit.
             var engine = fixtures.engine(parse("ent.pmwf", ENTITY_TOP.replace("call sub.outer", "call sub.mid")),
                     parse("mid.pmwf", """
-                    workflow sub.mid version 1 format 1
-                    scope subworkflow
-                    start mid.invoke
-
-                    state mid.invoke
-                        phase inherit
-                        call sub.commit
-                            done -> mid.done
-                            stepped_out -> mid.hold
-
-                    state mid.hold
-                        phase inherit
-                        skill pm/test/hold
-                        link next proceed ()
-                            do test.proceed
-                                done -> mid.done
-                                failed -> mid.stepped-out
-
-                    state mid.done terminal done success
-                        phase inherit
-
-                    state mid.stepped-out terminal stepped_out stepped_out
-                        phase inherit
-                    """), parse("sub.pmwf", SUB_COMMIT));
+                            workflow sub.mid version 1 format 1
+                            scope subworkflow
+                            start mid.invoke
+                            
+                            state mid.invoke
+                                phase inherit
+                                call sub.commit
+                                    done -> mid.done
+                                    stepped_out -> mid.hold
+                            
+                            state mid.hold
+                                phase inherit
+                                skill pm/test/hold
+                                link next proceed ()
+                                    do test.proceed
+                                        done -> mid.done
+                                        failed -> mid.stepped-out
+                            
+                            state mid.done terminal done success
+                                phase inherit
+                            
+                            state mid.stepped-out terminal stepped_out stepped_out
+                                phase inherit
+                            """), parse("sub.pmwf", SUB_COMMIT));
 
             var resting = engine.start(JournalScopeType.PLAN, PLAN_ID);
 
