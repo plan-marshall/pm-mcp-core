@@ -24,4 +24,4 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Done When
 
-The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing; each operator act of the review and each branch of `decomposition.read-back` is tested; no state of the start or the decomposition asks `parallelization_scope`; a later run changes only staged rows and reports each change.
+The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing, the first one and every later run that adds, drops, or re-scopes a plan; only a recut after a landing that re-orders staged rows or amends a staged row's surface or prerequisites is applied without it, once the checks pass (link:epic-auto.adoc[`epic-auto`]); each operator act of the review and each branch of `decomposition.read-back` is tested; no state of the start or the decomposition asks `parallelization_scope`; a later run changes only staged rows and reports each change.
