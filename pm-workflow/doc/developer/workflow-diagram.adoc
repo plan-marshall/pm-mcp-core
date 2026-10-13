@@ -61,6 +61,8 @@ The excerpts below are copied from the golden files of the fixture unit `diagram
 
 The states are grouped by phase value into composite states `phase_<phase>` in first-declaration order; the states of phase `inherit` stay at the top level (see link:../adr/workflow-diagram/010-mermaid-phase-composite-states.adoc[ADR 010]).
 A state is declared as `state "<id>" as <alias>`, the alias with `.` and `-` mapped to `_`, and described as `<kind> <target>`; a task state is described by its task label.
+Every alias is unique within the diagram: since the grammar admits `build.judge`, `build-judge` and `build_judge` as distinct states, and a state `phase-build` maps to the composite of phase `build`, the aliases are allocated once per rendering, states in declaration order first, then the composites in first-declaration order, and an alias that is already taken gets the next free numeric suffix `_2`, `_3`, …; an allocated alias is never handed out again.
+A unit without such a collision renders exactly with the plain mapping.
 A transition of a declared link is labelled `<rel> <link_id> [<form>] [<guard>] / <outcome>`, an engine transition `<trigger> [<guard>] / <outcome>`, the trigger being the kind, `question` for the resolution outcomes of a question, or the task label of a task state.
 A transition between two states of one phase stays inside the composite; every other transition follows at the top level after `[*] --> <start>`.
 
@@ -167,12 +169,12 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |`NullPointerException`.
 
 |The unit did not pass the static verifier
-|Not detected. The forms check nothing else of the unit; a transition target that is no state of the unit is rendered as it is named and stays outside every phase composite.
+|Not detected. The forms check nothing else of the unit; a transition target that is no state of the unit is rendered as it is named and stays outside every phase composite, its Mermaid alias allocated after those of the states and the composites.
 |===
 
 == Testing
 
-* `WorkflowDiagramGeneratorTest` compares each form of the fixture unit with its golden file byte for byte, renders twice, checks the line endings, the active state, the refusal of an unknown one, the task-state rows, the `role each` label and every parameter type of the link table.
+* `WorkflowDiagramGeneratorTest` compares each form of the fixture unit with its golden file byte for byte, renders twice, checks the line endings, the active state, the refusal of an unknown one, the task-state rows, the `role each` label, every parameter type of the link table and the distinct Mermaid aliases of colliding state names, of a composite whose alias a state holds and of an undeclared target.
 * `StateKindTest` maps each variant of `StateBehavior`, a plain and a composite job apart, to its kind label.
 * `DiagramFixtures` parses the fixture unit and verifies it with `WorkflowValidator` before any test renders it, with the primitives, the entity kind `change` and the called sub-workflow `diagram.callee` registered in the test package.
 

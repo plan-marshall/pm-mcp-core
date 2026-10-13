@@ -10,10 +10,14 @@
 package de.planmarshall.workflow.diagram;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -23,8 +27,14 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * <p>
  * The states are grouped by their phase value into one composite state {@code phase_<phase>} each, in the order in
  * which the phase values are first declared; the states of phase {@code inherit} (of a sub-workflow or an entity unit)
- * stay at the top level. Inside a composite come the state declarations ({@code state "<id>" as <alias>}, the alias
- * with {@code .} and {@code -} mapped to {@code _}), the description lines ({@code <alias> : <kind> <target>}, see
+ * stay at the top level. Every state and every composite gets a Mermaid identifier, its alias, that is unique within
+ * the diagram: the alias of a state is its identifier with {@code .} and {@code -} mapped to {@code _}, that of a
+ * composite {@code phase_} followed by the phase value mapped the same way; when that alias is already taken, because
+ * the grammar admits {@code build.judge}, {@code build-judge} and {@code build_judge} as distinct states, the next free
+ * numeric suffix {@code _2}, {@code _3}, … is appended. The aliases are allocated once per rendering, states first in
+ * declaration order and then the composites, and every line of the diagram names a state through that table. Inside a
+ * composite come the state declarations ({@code state "<id>" as <alias>}), the description lines
+ * ({@code <alias> : <kind> <target>}, see
  * {@link StateTransitions#description(StateNode)}) and the transitions between two states of that phase; every other
  * transition follows at the top level, after the arrow {@code [*]} into the start state, because Mermaid admits no
  * transition between inner states of different composites inside a composite block.
@@ -65,32 +75,33 @@ final class MermaidRenderer {
     private void renderUnit(WorkflowDefinition definition, Optional<String> activeState) {
         var transitions = StateTransitions.of(definition);
         var groups = phaseGroups(definition);
+        var aliases = Aliases.of(definition, groups.keySet(), transitions);
         line(0, "stateDiagram-v2");
         groups.forEach((phase, states) -> {
             if (INHERIT.equals(phase)) {
-                declare(1, states);
+                declare(1, states, aliases);
             } else {
-                line(1, "state " + PHASE_PREFIX + alias(phase) + " {");
-                declare(2, states);
+                line(1, "state " + aliases.phase(phase) + " {");
+                declare(2, states, aliases);
                 states.stream().flatMap(state -> transitions.outgoing(state.id()).stream())
                         .filter(edge -> isInsideComposite(definition, edge))
-                        .forEach(edge -> line(2, transition(edge)));
+                        .forEach(edge -> line(2, transition(edge, aliases)));
                 line(1, "}");
             }
         });
-        line(1, "[*] --> " + alias(definition.startState()));
+        line(1, "[*] --> " + aliases.state(definition.startState()));
         definition.states().values().stream().flatMap(state -> transitions.outgoing(state.id()).stream())
                 .filter(edge -> !isInsideComposite(definition, edge))
-                .forEach(edge -> line(1, transition(edge)));
+                .forEach(edge -> line(1, transition(edge, aliases)));
         activeState.ifPresent(state -> {
             line(1, ACTIVE_STYLE);
-            line(1, "class " + alias(state) + " active");
+            line(1, "class " + aliases.state(state) + " active");
         });
     }
 
-    private void declare(int depth, List<StateNode> states) {
-        states.forEach(state -> line(depth, "state \"%s\" as %s".formatted(state.id(), alias(state.id()))));
-        states.forEach(state -> line(depth, alias(state.id()) + " : " + StateTransitions.description(state)));
+    private void declare(int depth, List<StateNode> states, Aliases aliases) {
+        states.forEach(state -> line(depth, "state \"%s\" as %s".formatted(state.id(), aliases.state(state.id()))));
+        states.forEach(state -> line(depth, aliases.state(state.id()) + " : " + StateTransitions.description(state)));
     }
 
     private void line(int depth, String text) {
@@ -117,7 +128,7 @@ final class MermaidRenderer {
         return !INHERIT.equals(phase) && target != null && phase.equals(target.phase());
     }
 
-    private static String transition(StateTransitions.Edge edge) {
+    private static String transition(StateTransitions.Edge edge, Aliases aliases) {
         var label = new StringBuilder();
         edge.link().ifPresentOrElse(
                 link -> label.append(StateTransitions.lower(link.rel())).append(' ').append(link.idPattern())
@@ -125,13 +136,56 @@ final class MermaidRenderer {
                 () -> label.append(StateTransitions.engineTrigger(edge.source().behavior())));
         edge.guard().ifPresent(guard -> label.append(" [").append(guard).append(']'));
         label.append(" / ").append(edge.outcome());
-        return "%s --> %s : %s".formatted(alias(edge.source().id()), alias(edge.target()), label);
+        return "%s --> %s : %s".formatted(aliases.state(edge.source().id()), aliases.state(edge.target()), label);
     }
 
     /**
-     * Maps a state identifier or a phase value to a Mermaid identifier: {@code .} and {@code -} become {@code _}.
+     * The Mermaid identifiers of one rendering, each unique within the diagram.
+     * <p>
+     * The first choice for a name is its preferred form: {@code .} and {@code -} become {@code _}, and a phase value
+     * is prefixed with {@code phase_}. When that identifier is already taken, the name gets the first free identifier
+     * of the form {@code <preferred>_2}, {@code <preferred>_3}, … The names are allocated in a fixed order: the state
+     * identifiers in the declaration order of the unit, then the phase values other than {@code inherit} in the order
+     * they are first declared, then any start state or transition target that names no declared state, in the order
+     * they are referenced. An allocated identifier is never handed out again, also not to a later name whose preferred
+     * form it is.
+     *
+     * @param states the identifier of every state and of every referenced, undeclared target
+     * @param phases the identifier of every phase composite
      */
-    private static String alias(String id) {
-        return id.replace('.', '_').replace('-', '_');
+    private record Aliases(Map<String, String> states, Map<String, String> phases) {
+
+        static Aliases of(WorkflowDefinition definition, Set<String> phaseValues, StateTransitions transitions) {
+            var taken = new HashSet<String>();
+            var states = new LinkedHashMap<String, String>();
+            var phases = new LinkedHashMap<String, String>();
+            definition.states().keySet().forEach(id -> states.put(id, allocate(preferred(id), taken)));
+            phaseValues.stream().filter(phase -> !INHERIT.equals(phase))
+                    .forEach(phase -> phases.put(phase, allocate(PHASE_PREFIX + preferred(phase), taken)));
+            Stream.concat(Stream.of(definition.startState()), definition.states().keySet().stream()
+                    .flatMap(id -> transitions.outgoing(id).stream()).map(StateTransitions.Edge::target))
+                    .forEach(id -> states.computeIfAbsent(id, unknown -> allocate(preferred(unknown), taken)));
+            return new Aliases(Map.copyOf(states), Map.copyOf(phases));
+        }
+
+        String state(String id) {
+            return Objects.requireNonNull(states.get(id), id);
+        }
+
+        String phase(String phase) {
+            return Objects.requireNonNull(phases.get(phase), phase);
+        }
+
+        private static String preferred(String name) {
+            return name.replace('.', '_').replace('-', '_');
+        }
+
+        private static String allocate(String preferred, Set<String> taken) {
+            var candidate = preferred;
+            for (var suffix = 2; !taken.add(candidate); suffix++) {
+                candidate = preferred + "_" + suffix;
+            }
+            return candidate;
+        }
     }
 }

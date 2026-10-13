@@ -18,6 +18,10 @@ States of sub-workflows and entity units carry the phase value `inherit`, which 
 == Decision
 
 1. Every phase value other than `inherit` becomes one composite state `phase_<phase>` (`.` and `-` mapped to `_`), in the order the phase values are first declared; inside it come the state declarations, the description lines and the transitions between two states of that phase.
+The identifier of a state is its name with `.` and `-` mapped to `_` in the same way.
+Because the grammar admits `build.judge`, `build-judge` and `build_judge` as three distinct states, and a state `phase-build` maps to the identifier of the composite of phase `build`, the identifiers are allocated once per rendering and made unique: the mapped form is the first choice, and when it is already taken the next free numeric suffix `_2`, `_3`, … is appended.
+The states are allocated first, in declaration order, then the composites, in the order the phase values are first declared, and last a start state or transition target that names no declared state, which only a unit refused by the static verifier has; an allocated identifier is never handed out again, also not to a later name whose mapped form it is.
+Every line of the diagram names a state or a composite through that table, so a unit without such a collision renders exactly as with the plain mapping.
 2. States of phase `inherit` stay at the top level.
 3. Every other transition, crossing phases or leaving an `inherit` state, follows at the top level after `[*] --> <start>`, in declaration order.
 4. The specification example is corrected to show the composite states.

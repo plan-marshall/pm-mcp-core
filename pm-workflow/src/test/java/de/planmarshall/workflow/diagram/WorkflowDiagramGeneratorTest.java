@@ -212,6 +212,98 @@ class WorkflowDiagramGeneratorTest {
     }
 
     @Nested
+    @DisplayName("Mermaid identifiers")
+    class MermaidIdentifiers {
+
+        @Test
+        @DisplayName("Should give colliding state identifiers distinct nodes in declaration order")
+        void shouldSeparateCollidingStateIdentifiers() {
+            var unit = DiagramFixtures.parse("collision.pmwf", """
+                    workflow diagram.collision version 1 format 1
+                    scope workspace
+                    start build.judge
+
+                    state build.judge
+                        phase build
+                        auto diagram.proceed
+                            done -> build-judge
+
+                    state build-judge
+                        phase build
+                        auto diagram.proceed
+                            done -> build_judge
+
+                    state build_judge
+                        phase build
+                        auto diagram.proceed
+                            done -> build.judge
+                    """);
+
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("build_judge"));
+
+            assertAll(() -> assertTrue(rendered.contains("state \"build.judge\" as build_judge\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"build-judge\" as build_judge_2\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"build_judge\" as build_judge_3\n"), rendered),
+                    () -> assertTrue(rendered.contains("build_judge --> build_judge_2 : "), rendered),
+                    () -> assertTrue(rendered.contains("build_judge_2 --> build_judge_3 : "), rendered),
+                    () -> assertTrue(rendered.contains("build_judge_3 --> build_judge : "), rendered),
+                    () -> assertTrue(rendered.contains("[*] --> build_judge\n"), rendered),
+                    () -> assertTrue(rendered.endsWith("class build_judge_3 active\n"), rendered));
+        }
+
+        @Test
+        @DisplayName("Should give a phase composite an identifier no state holds, never reusing an allocated one")
+        void shouldSeparatePhaseFromStateAlias() {
+            var unit = DiagramFixtures.parse("phase-collision.pmwf", """
+                    workflow diagram.phases version 1 format 1
+                    scope workspace
+                    start phase-build
+
+                    state phase-build
+                        phase build
+                        auto diagram.proceed
+                            done -> phase_build-2
+
+                    state phase_build-2
+                        phase review
+                        auto diagram.proceed
+                            done -> phase-build
+                    """);
+
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.of("phase-build"));
+
+            assertAll(() -> assertTrue(rendered.contains("state \"phase-build\" as phase_build\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"phase_build-2\" as phase_build_2\n"), rendered),
+                    () -> assertTrue(rendered.contains("state phase_build_3 {\n"), rendered),
+                    () -> assertTrue(rendered.contains("state phase_review {\n"), rendered),
+                    () -> assertTrue(rendered.contains("phase_build --> phase_build_2 : "), rendered),
+                    () -> assertTrue(rendered.contains("phase_build_2 --> phase_build : "), rendered),
+                    () -> assertTrue(rendered.contains("[*] --> phase_build\n"), rendered),
+                    () -> assertTrue(rendered.endsWith("class phase_build active\n"), rendered));
+        }
+
+        @Test
+        @DisplayName("Should give an undeclared target a node of its own after the declared states")
+        void shouldSeparateUndeclaredTarget() {
+            var unit = DiagramFixtures.parse("undeclared.pmwf", """
+                    workflow diagram.undeclared version 1 format 1
+                    scope workspace
+                    start build_missing
+
+                    state build_missing
+                        phase build
+                        auto diagram.proceed
+                            done -> build.missing
+                    """);
+
+            var rendered = WorkflowDiagramGenerator.renderMermaid(unit, Optional.empty());
+
+            assertAll(() -> assertTrue(rendered.contains("state \"build_missing\" as build_missing\n"), rendered),
+                    () -> assertTrue(rendered.contains("build_missing --> build_missing_2 : "), rendered));
+        }
+    }
+
+    @Nested
     @DisplayName("Link table")
     class LinkTable {
 
