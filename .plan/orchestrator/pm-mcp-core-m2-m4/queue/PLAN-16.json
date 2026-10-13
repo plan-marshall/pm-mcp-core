@@ -2,9 +2,9 @@
   "id": "PLAN-16",
   "slug": "diagram-generator",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "diagram-generator",
-  "pr": "",
-  "landing": "",
+  "pr": "#49",
+  "landing": "landings/PLAN-16.md",
   "seq": 16
 }

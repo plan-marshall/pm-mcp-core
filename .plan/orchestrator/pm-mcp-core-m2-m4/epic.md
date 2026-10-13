@@ -304,6 +304,13 @@ decision or a dependency outside this repository.
   (blocks nothing). Inbox drain of 14 messages: the landing reconciled, 13 lessons routed
   (`pm-mcp-core-m2-m4-190.md` to `-202.md`). #47 widened the scope of the parked `chat` package.
 
+- 2026-10-13 — PLAN-16 `diagram-generator` landed as #49 (f4b14f2), Claude Code; landing record
+  `landings/PLAN-16.md`. Clean: exactly the declared surface, pre-commit on the final head, required
+  bots reviewed (override only for the optional Sourcery), module docs plus 10 ADRs. Documentation PR
+  #52 open, and it overlaps that repository's still-open #34 (PLAN-10). Inbox drain of 11 messages:
+  the landing reconciled; 1 lesson promoted (2026-10-13-10-001), 9 routed (`pm-mcp-core-m2-m4-203.md`
+  to `-211.md`).
+
 ## Open Defects
 
 - Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
@@ -345,6 +352,7 @@ decision or a dependency outside this repository.
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
 - `plan-marshall-documentation` #46 (PLAN-18) is open and predates the review fixes (host-tool refusal, `maxLength`, `projectScriptArguments`) — needs a follow-up commit before merge.
+- `plan-marshall-documentation` #52 (PLAN-16) and #34 (PLAN-10) overlap on the static-verifier lines — merge one, rebase the other.
 - Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
   (PLAN-02) — operator merges. (#33 of PLAN-08 merged.)
 - Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
