@@ -321,6 +321,18 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; the change Reports to the Operator and UC-PLN-6 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:runtime-control.adoc[`runtime-control`]
+|Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
+|`blocked`
+|link:runtime-lifecycle.adoc[`runtime-lifecycle`]; link:service-unit.adoc[`service-unit`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the change The Runtime's Lifecycle and UC-SYS-1 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
+|link:runtime-metrics.adoc[`runtime-metrics`]
+|What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
+|`blocked`
+|link:runtime-lifecycle.adoc[`runtime-lifecycle`]; link:lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); link:entity-addressing.adoc[`entity-addressing`]; the operator's choice of the metrics library (no work package); the change The Runtime's Metrics and UC-SYS-2 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
