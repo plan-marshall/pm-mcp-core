@@ -1,0 +1,41 @@
+= ADR 013: The Invariants Are Tested over Units Written for the Tests
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Every invariant needs a passing unit and a refusing one. The product's default units live in `plan-marshall-mcp`, which depends on `pm-mcp-core`, so they are not available to the tests of `pm-workflow`, and no module of `pm-mcp-core` may carry model-facing content.
+The operator decided (question q3 of the work package) to test the invariants over units written for the tests and to leave the check of the shipped units to the assembly.
+
+== Decision
+
+The tests read the passing units of `src/test/resources/unit-fixtures/defaults/`: the seven phase files of the plan unit and the four project-ownable sub-workflows, written for the tests with primitives and entity kinds written for them (`InvariantFixtures`), never copied from the shipped content.
+Each refusing unit is the passing source with one named textual mutation; every invariant and every declaration bound has one, refused at the file and line of the offending node.
+`DefaultUnitInvariantTest`, which runs the invariants over the shipped default units, belongs to `plan-marshall-mcp`.
+The tests generate their data with `cui-test-generator` and assert the log records with `cui-test-juli-logger`, both declared in test scope only, with the operator's consent.
+
+== Alternatives Considered
+
+1. **Copying the shipped units into the test resources**:
+*Rejected*: the copies would drift from the product and would place model-facing content in this repository.
+
+2. **Thirty hand-written refusing files**:
+*Rejected*: a named mutation of the passing source states what it breaks in one line and keeps every other part passing.
+
+== Consequences
+
+* The fixtures prove the checks, not the shipped units; the shipped units are proven in `plan-marshall-mcp`.
+* The unit-loader tests of `workflow.unit` build their fixture projects from the same units.
+
+== Source
+
+* Workflow DSL specification, § Project-Owned Workflow Units & Compiled Invariants (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`, operator decision q3

@@ -1,0 +1,80 @@
+= Finalize Pipeline (`workflow.finalize`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+== Purpose
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+Package `de.planmarshall.workflow.finalize` describes the steps of the finalize pipeline of a plan and checks a roster of them against the static rules of the pipeline.
+It holds the descriptor of a step and the validator, and no table of the default steps: the default roster lives in the assembly in `plan-marshall-mcp`, and the validator takes every roster as input (link:../adr/workflow-finalize/001-descriptor-and-validator-only.adoc[ADR 001]).
+
+The descriptor and the rules are specified in link:../../../../plan-marshall-documentation/doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[the Phase Workflows specification, part 05]; the decisions are recorded in `pm-workflow/doc/adr/workflow-finalize/`.
+
+== Architecture and Core Types
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+[horizontal]
+`FinalizeStepDescriptor`:: The immutable record of one step, built-in, bundle or project-local: its name, order, default state and presets, description, whether it mutates source, whether its verdict depends on the commit it ran at (`headDependent`) with its `inputScope` and `verdictInputs`, whether it rebases onto main, whether it reviews the run after the merge (`postRunReview`), the artifact tokens it `reads` and `destroys`, the facts it records, its lane, the steps it requires, its configurable keys, persona, required prompt fields, the defect class it cannot reach, and the finding sources it may file. The compact constructor copies every list and set into an immutable collection and refuses a `null` component, element or nested value. The nested types are `Lane`, `LaneClass`, `InputScope` and `ConfigurableKey`.
+`PipelineRule`:: The closed set of the validator's rules 1 to 8, the only source of their vocabulary; each constant names its specification rule number and, where a part of the rule cannot be decided from a descriptor, a named hook.
+`PipelineViolation`:: One violation: the `PipelineRule`, the name of the step and a message; a value, never an exception.
+`FinalizePipelineValidator`:: `validate(roster)` returns every violation, ordered by the order of the step and then by rule; `findingSources(roster)` derives the finding-filing steps.
+
+The order constants of the descriptor fix the bands of the pipeline: `PRE_PUSH_QUALITY_GATE_ORDER` 10, `PUSH_ORDER` 11, `MERGE_GATE_ORDER` 70 (the merge gate `default:branch-cleanup`), `POST_RUN_MIN_ORDER` 900 and `TERMINUS_ARCHIVE_ORDER` 1100 (`default:archive-plan`, which destroys the plan directory).
+
+== The Rules
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+[cols="1,3,2",options="header"]
+|===
+|Rule |What the validator refuses |Named hook
+|1 `ORDER_UNIQUE` |two steps of the roster at one order; each of the two is reported |—
+|2 `PRE_PUSH_PLACEMENT` |`default:pre-push-quality-gate` at another order than 10, `default:push` at another order than 11, any other step at 10 or 11 |—
+|3 `SOURCE_MUTATION_BEFORE_MERGE_GATE` |a step that mutates source at order 70 or later |—
+|4 `POST_RUN_REVIEW_BAND` |a post-run review step that mutates source or lies outside 900 to 1000 |—
+|5 `READS_BEFORE_DESTROYS` |a step that reads an artifact at or after the order of a step that destroys it; a reader of `metrics` before `record-metrics` at 998 that does not record the fact `measured_until` |—
+|6 `ANCHOR_AND_FACT_CONTRACT` |a head-dependent step without input scope; a step that is not head-dependent with an input scope or verdict inputs; the scope `declared` without verdict inputs; another scope with verdict inputs |whether a step's `done` is reached through a no-op and a work-performing branch, and so must record `work_performed`
+|7 `NO_GUARD_AFTER_MERGE` |— |the outcomes of a step are not part of its descriptor; whether a post-merge step refuses on its inputs is checked over its outcomes
+|8 `DECLARED_FINDING_SOURCES` |— (the finding-filing steps are derived by `findingSources`, the steps with non-empty `filesFindings`) |a finding whose source the filing step does not declare is refused by the findings store at the write
+|===
+
+The parts named as hooks are not decided by the validator (link:../adr/workflow-finalize/003-validator-rules-6-and-7-as-hooks.adoc[ADR 003]); `FinalizePipelineValidatorTest` fails when a `PipelineRule` has neither a refusing case nor a named hook.
+
+== The Project Roster
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+The validator runs over two rosters.
+The assembly runs it over the default roster at build time.
+The loader of the project-owned units (`ProjectUnitLoader` in `workflow.unit`) runs it on every load of a project's units over the *project roster*: the default descriptors of the steps the project's plan unit contains, in the order of the default roster, followed by the project's declared project step descriptors.
+A step is contained when a transition of the unit carries a `completes <step>` clause for it.
+A violation is reported as a finding located at the first state, in declaration order, with a transition that completes the step, or at the header of the plan unit when no state completes it (link:../adr/workflow-finalize/002-project-roster-and-violation-location.adoc[ADR 002]).
+The compiled invariant `INV-FIN-2` takes the same result; see the link:workflow-verify.adoc#_compiled_invariants[Workflow Verification Developer Guide § Compiled Invariants].
+
+== Usage
+
+[source,java]
+----
+List<PipelineViolation> violations = FinalizePipelineValidator.validate(roster);
+Set<String> filingSteps = FinalizePipelineValidator.findingSources(roster);
+----
+
+== Invariants and Failure Modes
+
+1. **Roster as input**: no default step is compiled into this module; a test builds its own roster.
+2. **Every violation at once**: the validator never stops at the first violation.
+3. **Values, not exceptions**: a violation is a `PipelineViolation`; only a `null` roster or descriptor component throws.
+
+== Testing
+
+`FinalizeFixtures` builds descriptors and a passing roster written for the tests, never copied from the shipped content.
+`FinalizePipelineValidatorTest` refuses one roster per checkable rule and enumerates the hooks; `FinalizeStepDescriptorTest` covers immutability and the refusal of `null`.
+
+== Specification Tracing
+
+* Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* Specification: link:../../../../plan-marshall-documentation/doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[Phase Workflows specification, part 05]
+* Decisions: `pm-workflow/doc/adr/workflow-finalize/` ADRs 001 to 003

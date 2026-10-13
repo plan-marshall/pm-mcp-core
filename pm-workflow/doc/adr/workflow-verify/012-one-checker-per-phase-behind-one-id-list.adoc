@@ -1,0 +1,43 @@
+= ADR 012: One Checker per Phase behind One List of Invariant Ids
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+A project-owned unit satisfies thirty compiled invariants (`INV-GEN-*`, the phase invariants of the plan unit, and the unit invariants of `adjudicate.decisions`, `replan`, `git.commit_and_push` and the remediation units). Many are path properties stated relative to the default unit: a state lies on every path, or the unit equals the default unit except its declarations.
+The static verifier already reports `Violation` values named by the closed `VerificationRule`, whose constants carry the number of a specification rule.
+The operator decided (question q2 of the work package) to place one checker class per phase or unit kind behind one list of invariant ids.
+
+== Decision
+
+`InvariantId` is the one list of the thirty invariants and the only source of their vocabulary; each constant carries its wire id, the unit patterns it applies to and an optional named hook.
+`GeneralInvariants`, `InitInvariants`, `RefineInvariants`, `OutlineInvariants`, `PlanInvariants`, `ExecuteInvariants`, `FinalizeInvariants`, `SubWorkflowInvariants` and `RemediationInvariants` contribute the checks; the facade `CompiledInvariants` collects them, refuses at class load an invariant with no check or two, and runs the checks that apply to a unit's id.
+The default unit of the same id is the reference of every check: the shared path helpers compare the dominance and the routes around a gate in the unit with those of the default unit, so a project unit may tighten its default unit but never open a path it does not have.
+A violation is an `InvariantViolation` of its own: the invariant, the state, the source location and a message.
+
+== Alternatives Considered
+
+1. **Widening `Violation` and `VerificationRule`**:
+The invariants become further constants of `VerificationRule`, reported as `Violation` values.
+*Rejected*: a `VerificationRule` names a static verification rule of the specification by its number, and the verifier runs over every unit; the invariants apply to project units only, are named by wire ids and need a reference unit. Mixing them would blur both vocabularies.
+
+2. **One class for all invariants**:
+*Rejected*: the checks of the phases are independent of one another, and one class holding thirty path checks would be hard to review.
+
+== Consequences
+
+* Adding an invariant means a constant, a check in the class of its phase and a refusing fixture; the class load and a guard test fail without the check or the fixture.
+* The invariants of a project unit are only as strict as its default unit: the reference must itself be verified first.
+
+== Source
+
+* Workflow DSL specification, § Project-Owned Workflow Units & Compiled Invariants, item 5 (`plan-marshall-documentation`)
+* PM-IMPL-5, PM-WF-16
+* `doc/plans/project-units-and-invariants.adoc`, operator decision q2

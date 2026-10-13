@@ -1,0 +1,37 @@
+= ADR 001: The Descriptor and the Validator Only, No Default-Step Table
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The finalize pipeline is a roster of steps, each described by a `FinalizeStepDescriptor`, and the `FinalizePipelineValidator` checks a roster against the static rules of the pipeline: at build time over the default roster, and on every load of a project's finalize unit over the project's roster.
+The default steps are part of the product's content, which ships with the assembly in `plan-marshall-mcp`.
+The operator decided (question q1 of the work package) that `pm-workflow` holds the descriptor and the validator only.
+
+== Decision
+
+`workflow.finalize` holds the immutable descriptor record with its nested types and order constants, the closed `PipelineRule` set, the `PipelineViolation` value and the validator. It compiles no table of the default steps.
+The validator takes every roster as input; the default roster comes from the assembly, a project roster from the project-unit loader, and the tests build their own.
+
+== Alternatives Considered
+
+1. **A compiled table of the default steps in `pm-workflow`**:
+*Rejected*: the table would duplicate content owned by the assembly and drift from it; the validator does not need it to check a roster.
+
+== Consequences
+
+* The build-time check of the default roster runs in `plan-marshall-mcp`.
+* The tests of the validator use a passing roster written for them (`FinalizeFixtures`).
+
+== Source
+
+* Phase Workflows specification, part 05, § Java FinalizeStepDescriptor Record Schema and § FinalizePipelineValidator (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`, operator decision q1
