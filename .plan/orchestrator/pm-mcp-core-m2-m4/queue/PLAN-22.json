@@ -2,9 +2,9 @@
   "id": "PLAN-22",
   "slug": "scenario-replay-harness",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "scenario-replay-harness",
-  "pr": "",
-  "landing": "",
+  "pr": "#50",
+  "landing": "landings/PLAN-22.md",
   "seq": 22
 }

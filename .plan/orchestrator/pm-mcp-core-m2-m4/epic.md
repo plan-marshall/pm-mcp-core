@@ -311,6 +311,16 @@ decision or a dependency outside this repository.
   the landing reconciled; 1 lesson promoted (2026-10-13-10-001), 9 routed (`pm-mcp-core-m2-m4-203.md`
   to `-211.md`).
 
+- 2026-10-13 — PLAN-22 `scenario-replay-harness` landed as #50 (115d7ed), Claude Code; landing record
+  `landings/PLAN-22.md`. Clean: declared surface only, pre-commit on the final head, required bots
+  reviewed (override for the optional Sourcery only), module docs plus 6 ADRs; documentation PR #53
+  open. Inbox drain of 17 messages: the landing reconciled; 1 lesson promoted (2026-10-13-11-001),
+  1 folded into 2026-10-10-14-001, 14 routed (`pm-mcp-core-m2-m4-212.md` to `-225.md`).
+- 2026-10-13 — Operator decision (AskUserQuestion, overlap prompt): start PLAN-39 alongside PLAN-12,
+  PLAN-17 and PLAN-21 despite the shared ADR directories; its backfilled ADRs are renumbered onto the
+  free numbers after a rebase before push (rule added to the spec). Alternative: leave the slot
+  empty. PLAN-40 stays behind PLAN-12 (`core-store.adoc`).
+
 ## Open Defects
 
 - Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
