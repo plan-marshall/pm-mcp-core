@@ -1,0 +1,43 @@
+= ADR 005: State Table with the Catalogue Columns and an Empty *Defined in*
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+PM-IMPL-5 requires the State Catalogue to be normatively equal to the state table the generator produces.
+The catalogue's columns are State id, Phase value, Kind, Entered from, Offered links / outcomes, Exits to and Defined in.
+The last one links the specification section of a state; the unit knows nothing of it.
+
+== Decision
+
+1. The state table of every phase group has exactly the catalogue's seven columns in the catalogue's order.
+2. *Defined in* is emitted empty; it is maintained by hand in the catalogue.
+3. *Entered from* lists `start` for the start state, then the source of every incoming transition once, in the declaration order of the sources; *Offered links / outcomes* lists the task label of a task state, the declared and implicit links, the distinct outcomes of the engine transitions, or the outcome a terminal state reports; *Exits to* lists every target once.
+4. The link table and the outcome table follow the state table of each group and are omitted for a group without links or transitions.
+
+== Alternatives Considered
+
+1. **Omitting *Defined in***:
+Six generated columns.
+*Rejected*: the generated table would no longer have the catalogue's shape, and a comparison would need a column mapping.
+
+2. **Deriving *Defined in* from a source location**:
+Linking the `.pmwf` file and line of the state.
+*Rejected*: the catalogue links the specification section that defines the behaviour, not the file that declares the state.
+
+== Consequences
+
+* A comparison with the catalogue (the `StateCatalogueDriftTest` of `plan-marshall-mcp`) compares the six generated columns directly and checks the links of the seventh separately.
+* The wording of the generated cells is the generator's own; the catalogue prose is not reproduced.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/AsciiDocTableRenderer.java`

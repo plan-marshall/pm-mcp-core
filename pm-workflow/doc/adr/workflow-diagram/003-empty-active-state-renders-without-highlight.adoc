@@ -1,0 +1,42 @@
+= ADR 003: An Empty Active State Renders Without a Highlight, an Unknown One Is Refused
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+`renderMermaid` and `renderAscii` take an `Optional<String> activeState`.
+Committed documentation renders a unit as a template, with no state active; a live plan renders the state it is in.
+An active state that is not a state of the unit can only come from a caller error, for example a plan whose state belongs to another unit version.
+
+== Decision
+
+1. An empty `activeState` renders the whole unit without a highlight: the Mermaid diagram defines no `classDef` and assigns no class, and the terminal table marks no state.
+2. A present `activeState` adds `classDef active fill:#90ee90` and `class <alias> active` at the end of the Mermaid diagram, and prefixes the state's identifier with `*` and adds an `(ACTIVE)` line in the terminal table.
+3. A present `activeState` that names no state of the unit is refused with `IllegalArgumentException` naming the state and the unit, before any rendering.
+
+== Alternatives Considered
+
+1. **Ignoring an unknown active state**:
+Rendering without a highlight when the state is not found.
+*Rejected*: a live view that silently shows no active state hides a caller error behind a plausible picture.
+
+2. **A separate method for the template form**:
+`renderMermaid(WorkflowDefinition)` beside the method with the active state.
+*Rejected*: the specification names one signature per form with `Optional<String> activeState`; an empty optional states the template case explicitly.
+
+== Consequences
+
+* The golden files are rendered with an empty active state and carry no highlight.
+* Tests cover the present, the empty and the unknown active state for both forms.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java`

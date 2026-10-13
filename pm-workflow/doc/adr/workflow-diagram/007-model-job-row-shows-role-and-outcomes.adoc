@@ -1,0 +1,43 @@
+= ADR 007: A Task State Row Shows Its Role and Its Outcomes
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The specification's example of `renderAscii` renders the task state `remediation-ci.choose` with the remedy links `retry`, `fix`, `loop_back` and `request_waiver`.
+Those links belong to the entity unit of the task, which a worker follows; the unit that declares the task state declares none of them.
+`renderAscii(WorkflowDefinition, Optional<String> activeState)` receives one unit and cannot show links that unit does not declare.
+The operator decided, when asked during planning, to keep the signature and to correct the example.
+
+== Decision
+
+1. `renderAscii` keeps the signature `renderAscii(WorkflowDefinition, Optional<String> activeState)`.
+2. A task state (`ModelJob`) shows its task label in the state cell (`task <role>`, `task <role> each <primitive>`, or `task role each <primitive>`) and one line per outcome transition with `-` in the link column; it never shows a link its unit does not declare.
+3. The same task label names the transitions of the task state in the Mermaid diagram (`task reviewer / approved`) and leads its *Offered links / outcomes* cell in the state table.
+4. The specification example is corrected in `plan-marshall-documentation`.
+
+== Alternatives Considered
+
+1. **Passing the entity unit as well**:
+An overload taking the entity units to render a task's links.
+*Rejected*: the links of a task belong to its entity unit, which is rendered as a unit of its own; mixing two units in one table blurs which unit offers what.
+
+2. **Rendering a fixed list of task links**:
+*Rejected*: the generator would state links that no unit in its input declares.
+
+== Consequences
+
+* Every row of the terminal table is backed by a declaration of the rendered unit.
+* `WorkflowDiagramGeneratorTest` checks that the rows of the task state `build.judge` hold its role, its two outcomes and no link.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/AsciiTableRenderer.java`
