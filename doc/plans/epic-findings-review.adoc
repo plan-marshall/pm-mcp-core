@@ -12,7 +12,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * *Specification first*: the package writes the changes An Epic's Findings and Watches and The Review into `plan-marshall-documentation` as part of its own work, once UC-CTL-3 is agreed.
 * The registers of findings and watches in the epic's ledger; `epic.analyze-landing` and `coordinate` adding items; a watch's trigger re-checked; new findings as a `needs_operator` kind.
-* The sub-workflow `epic.review`: the planning role's proposal per item; keep, drop, promote (the drafted plan staged under the surface checks), edit (instruct, rewrite, read-back), talk; the remaining proposals accepted at once; the dispositions written and landed in one ledger write.
+* The sub-workflow `epic.review`: the planning role's proposal per item; keep, drop, promote (the drafted plan staged under the surface checks), edit (instruct, rewrite, read-back), chat (the sub-workflow link:chat.adoc[`chat`] with one item or the whole register as its scope); the remaining proposals accepted at once; the dispositions written and landed in one ledger write.
 
 == Trace
 
