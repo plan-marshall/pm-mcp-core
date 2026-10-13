@@ -29,7 +29,7 @@ Alternatives not recorded.
 
 == Consequences
 
-* A stopped write never leaves a file without its sidecar or a sidecar without its file once recovery has run.
+* Recovery completes matching staged data and discards incomplete or mismatched staging. If a stopped write has already replaced the file but its sidecar is incomplete or mismatched, recovery leaves the file in place and the integrity check refuses the unmatched pair.
 * The pair recovery is part of the enrolment integrity step that runs first in recovery (`ENROLMENT_INTEGRITY`, step 1, built by `ProjectRecovery.withEnrolment(...)` in `pm-runtime`).
 
 == Source

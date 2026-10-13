@@ -30,7 +30,7 @@ Alternatives not recorded.
 
 * A test proves that the gate refuses a plan lifecycle on a closed gate and that a pilot enrolment passes it.
 * Opening the gate is a change of the release, not of a project's configuration.
-* An edited enrolment is refused by its integrity check in `pm-runtime` before the gate reads it (link:../../../../pm-runtime/doc/adr/runtime-enrolment/001-integrity-hmac-in-the-runtime.adoc[`runtime-enrolment` ADR 001]).
+* `LifecycleGate.decide` expects its `ProjectEnrolment` argument to have been read and verified by its caller; the integrity check of `pm-runtime` is described in link:../../../../pm-runtime/doc/adr/runtime-enrolment/001-integrity-hmac-in-the-runtime.adoc[`runtime-enrolment` ADR 001]. No production code connects the two yet.
 
 == Source
 

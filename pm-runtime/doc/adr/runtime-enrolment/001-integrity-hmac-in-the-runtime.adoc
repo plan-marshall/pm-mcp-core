@@ -19,7 +19,7 @@ as valid. The enrolment store lives in `pm-core`; the keyring is in `pm-runtime`
 
 * Integrity lives in `pm-runtime`, where the keyring is, in the package `runtime.enrolment` (`EnrolmentKey`, `EnrolmentHmac`, `EnrolmentCheck`, `Enrolments`).
 * Each enrolment file has an HMAC sidecar under the keyring key.
-* The sidecar is verified in recovery and before every verify-not-resolve check.
+* The sidecar is verified by the `EnrolmentIntegrityStep` that `ProjectRecovery.withEnrolment` installs, and before every verify-not-resolve check. A `ProjectRecovery` built by a constructor that leaves the step out gets a seam that does nothing for it and does not verify the sidecar.
 * The sidecar is re-baselined only by the operator.
 * A tampered enrolment, a sidecar without its file and a file without its sidecar are each refused and audited.
 

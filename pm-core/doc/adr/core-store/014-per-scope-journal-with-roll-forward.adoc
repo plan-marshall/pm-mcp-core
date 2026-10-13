@@ -26,7 +26,7 @@ Alternatives not recorded.
 
 == Consequences
 
-* A kill between any two writes of a transaction is completed by recovery; crash-point tests prove it.
+* After the journal is written, recovery rolls a stopped commit forward. Before journaling, recovery removes orphan staged files and leaves the stores unchanged; crash-point tests cover both outcomes.
 * Later stores write through `ScopeTransaction`; the workflow status store adds its document to the caller's transaction (ADR 003).
 * The runtime-start wiring of recovery belongs to a later package.
 

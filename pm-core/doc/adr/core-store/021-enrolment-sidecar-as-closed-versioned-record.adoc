@@ -11,9 +11,9 @@ Accepted
 
 == Context
 
-Enrolment integrity is an HMAC sidecar beside each enrolment file, re-baselined only by the operator. When the operator
-accepts an edit of an enrolment file (`accept-edit`), the recorded and the current state of the file have to be shown
-side by side.
+Enrolment integrity is an HMAC sidecar beside each enrolment file, re-baselined only by the operator. The re-baseline
+that accepts an edit of an enrolment file (`accept-edit enrolment`) has to report the recorded and the current state of
+the file, so that they can be shown side by side.
 
 == Decision
 
@@ -21,7 +21,8 @@ The enrolment sidecar (`EnrolmentSidecar`) is a closed, versioned record with th
 `sha256` and `hmac`. This is the operator-approved requirement correction C1; it changes the wording of the
 specification only, not its intent.
 
-The record carries size and SHA-256 so that `accept-edit` can show the recorded versus the current size and SHA-256.
+The record carries size and SHA-256 so that `Enrolments.rebaseline` can return the recorded and the current digest. The
+display of the two is not part of this repository.
 
 == Alternatives Considered
 

@@ -20,7 +20,7 @@ project.
 
 * `HolderLiveness` judges a holder by its PID and its start instant, as the specification fixes them.
 * `StaleLeaseSweep` removes or orphans a lease of a dead holder, per the specification, and keeps a lease of a live holder.
-* The sweep is not called from startup; that belongs to `runtime-lifecycle`.
+* `StartupSequence` does not call the sweep; `ProjectRecovery` invokes it through `LeaseRecoveryStep` during per-project recovery, which never runs before the socket is bound.
 * With `runtime-lifecycle` (pull request #29), `StaleLeaseSweep` gains a project-selecting overload, which the recovery step `LeaseRecoveryStep` uses for orphan marking.
 
 Because leases are records, a sweep can remove those of a dead holder while keeping those of a live one.

@@ -16,7 +16,7 @@ could outlive a crashed holder.
 
 == Decision
 
-* A lease is a plain record (`project_id`, `scope_type`, `scope_id`, `holder_instance`, `orphaned_at`) with `LeaseCodec` and `LeaseStore`. It is claimed and released under the short transaction lock, never held as an OS lock, and it survives a restart.
+* A lease is a plain record (`LeaseRecord`: `key`, `owner`, `acquiredAt`, `leaseExpiresAt`) with `LeaseCodec` and `LeaseStore`; its owner (`LeaseOwner`) carries `project_id`, `scope_type`, `scope_id`, `holder_instance` and `orphaned_at`. It is claimed and released under the short transaction lock, never held as an OS lock, and it survives a restart.
 * `LeaseStore.release(key, expectedOwner)` removes a lease only when the stored owner matches; it is additive, and `release(key)` is unchanged. `reviseAll` refuses a revision that returns a lease under another key.
 
 Because leases are records, a restart keeps them and a sweep can remove those of a dead holder while keeping those of a
