@@ -309,6 +309,18 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; UC-STA-6 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:epic-auto.adoc[`epic-auto`]
+|An epic runs by itself: its automatic mode, the overlap wait, its reactions on a finished plan
+|`blocked`
+|link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-decomposition.adoc[`epic-decomposition`]; the change An Epic Runs by Itself and UC-CTL-2 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
+|link:operator-reports.adoc[`operator-reports`]
+|Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; the change Reports to the Operator and UC-PLN-6 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
