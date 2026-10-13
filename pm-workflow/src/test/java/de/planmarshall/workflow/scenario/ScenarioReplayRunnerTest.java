@@ -148,7 +148,7 @@ class ScenarioReplayRunnerTest {
 
         @Test
         @DisplayName("Should replay every directive kind against the real engine to the unit's terminal")
-        void shouldReplayToTerminal() throws Exception {
+        void shouldReplayToTerminal() {
             var runner = runner();
 
             runner.run(ScenarioScript.read(EVERY_DIRECTIVE));

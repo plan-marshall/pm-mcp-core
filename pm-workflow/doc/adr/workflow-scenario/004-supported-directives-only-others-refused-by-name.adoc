@@ -37,8 +37,9 @@ the specification by name when the script is read, with its line and the work pa
 
 * A script that names a later directive fails before it runs, naming the line and the package; adding a directive is
   removing it from `REFUSED` and implementing it in `ScenarioDirective`, `ScenarioScript` and the runner.
-* `ScenarioScriptTest` holds `REFUSED` to the directives of the specification, so a directive the specification adds
-  is noticed.
+* `REFUSED` is the one list of the refused directives, kept by hand; `ScenarioScriptTest` takes its cases from it and
+  proves that each entry is refused by name and line with its work package. Nothing compares `REFUSED` with the
+  specification, so a change to the specification's directives changes `REFUSED` with it.
 
 == Source
 

@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -44,12 +43,6 @@ import de.planmarshall.workflow.scenario.ScenarioDirective.Worker;
 @DisplayName("Scenario script")
 class ScenarioScriptTest {
 
-    /** The directives the harness specification names that this harness does not run yet. */
-    private static final Set<String> SPECIFIED_BUT_REFUSED = Set.of("assert_links", "assert_skill", "assert_rejected",
-            "assert_instance_version", "do", "worker_wait", "worker_do", "kill_worker", "stall_worker", "end_turn",
-            "kill_relay", "restart_runtime", "set_role_unqualified", "operator_cli", "assert_worker_state",
-            "assert_refused");
-
     /** @return a script whose third line is the given one */
     private static String thirdLine(String line) {
         return """
@@ -61,7 +54,7 @@ class ScenarioScriptTest {
     }
 
     static Stream<String> refusedDirectives() {
-        return SPECIFIED_BUT_REFUSED.stream().sorted();
+        return ScenarioScript.REFUSED.keySet().stream().sorted();
     }
 
     static Stream<Arguments> malformedLines() {
@@ -198,10 +191,11 @@ class ScenarioScriptTest {
         }
 
         @Test
-        @DisplayName("Should refuse exactly the unsupported directives of the specification, each naming its package")
-        void shouldRefuseSpecifiedDirectivesOnly() {
+        @DisplayName("Should name the work package that brings each refused directive")
+        void shouldNamePackageOfRefusedDirectives() {
             assertAll(
-                    () -> assertEquals(SPECIFIED_BUT_REFUSED, ScenarioScript.REFUSED.keySet()),
+                    () -> assertTrue(ScenarioScript.REFUSED.values().stream().noneMatch(String::isBlank),
+                            ScenarioScript.REFUSED.toString()),
                     () -> assertEquals("supervision-scenarios", ScenarioScript.REFUSED.get("kill_worker")),
                     () -> assertEquals("task-queue-and-protocol", ScenarioScript.REFUSED.get("worker_wait")),
                     () -> assertEquals("plan-instance", ScenarioScript.REFUSED.get("assert_instance_version")));

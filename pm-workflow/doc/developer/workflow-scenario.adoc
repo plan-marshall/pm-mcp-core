@@ -116,7 +116,8 @@ Every other directive the specification names is refused by name when the script
 package that brings it: the link and entry-session directives, the worker directives, the worker faults and the
 runtime restart, the unqualified role, the plan instance version and the operator verbs
 (link:../adr/workflow-scenario/004-supported-directives-only-others-refused-by-name.adoc[ADR 004]). The list and the
-packages are `ScenarioScript.REFUSED`; `ScenarioScriptTest` holds it to the directives of the specification. A word
+packages are `ScenarioScript.REFUSED`, kept by hand, and `ScenarioScriptTest` runs every entry of it; nothing compares
+it with the specification, so a change to the specification's directives changes `REFUSED` with it. A word
 that is no directive at all is refused as unknown, and so is a missing or surplus argument, a malformed id, an unknown
 fate or task outcome, a second `scenario` line and a script without steps. Every refusal is an
 `IllegalArgumentException` whose message starts with `line <n>:`.
