@@ -1,0 +1,41 @@
+= ADR 003: Stores in a Temporary Directory, Without Git
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The Workflow DSL specification runs the scenarios against a hermetic temporary git repository, and PM-TEST-4 against
+hermetic fixture repositories. No state the engine runs today has a git step: the engine writes the status store of
+the scope and calls its ports, and nothing in it reads or writes a repository.
+
+== Decision
+
+The operator decided that scenarios run with the stores in a temporary directory: `ScenarioReplayRunner` creates the
+journal scope of the started scope below the directory the test gives (a `@TempDir`), and the status store
+`mcp/status.json` lies there. No git repository is created. The hermetic git repository arrives with the first package
+that has a git step.
+
+== Alternatives Considered
+
+1. *A temporary git repository now*: initialise a repository in the temporary directory as the specification
+   describes.
+   _Rejected_: no step of a scenario would touch it, so it would be set up and never tested, and its shape would be
+   decided before the package that needs it.
+
+== Consequences
+
+* Each replay owns its directory; two replays never share stores, and nothing outside the directory is written.
+* The specification's hermetic git repository stays to be built, with the first package that has a git step.
+
+== Source
+
+* Operator decision at refine (git fixture), work package `scenario-replay-harness`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* `doc/plans/scenario-replay-harness.adoc`

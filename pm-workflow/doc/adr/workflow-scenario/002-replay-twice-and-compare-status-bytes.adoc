@@ -1,0 +1,53 @@
+= ADR 002: Replay Twice and Compare the Status Bytes
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The work package is done when "a recorded scenario replays to the same store bytes twice; a changed transition makes
+the replay fail at the first differing step". The Workflow DSL specification calls the scenarios `.pmscenario`
+scripts but defines no recording of a run. Whether "recorded" meant a new file that holds the bytes of a reference run
+decided what the package had to build and keep up to date.
+
+== Decision
+
+The operator decided that the script alone is the recorded scenario. `ScenarioReplayRunner` keeps the bytes of the
+status store after every step; `ScenarioDeterminismTest` replays one script twice from empty stores, in two temporary
+directories, and compares the bytes step by step, and the script's own `assert_state` catches a changed transition.
+No new file format is introduced.
+
+For the bytes to be comparable, nothing in them may come from the machine: the manual clock of the fixtures starts at
+`T0` and moves by one second per step and also sets the instant of every `ScopeTransaction`, the job and queue task
+ids come from counters (`b-0000000000000001`, `qt-0000000000000001`, …), and every fixture primitive returns one fixed
+outcome.
+
+== Alternatives Considered
+
+1. *A golden file per scenario*: record the bytes of every step of a reference run in a file and compare each replay
+   against it.
+   _Rejected_: every change of the status format or of a fixture would rewrite the golden files, a review would compare
+   bytes no reader checks, and the specification defines no such format.
+2. *Compare the parsed status instead of the bytes*: compare `WorkflowStatus` values.
+   _Rejected_: the done-when names the store bytes, and a value comparison would hide a difference of the encoding.
+
+== Consequences
+
+* Two replays of one script yield byte-identical snapshots after every step; a new port double or fixture keeps every
+  instant and id deterministic.
+* A changed transition writes different bytes at the step that takes it, and the replay fails at the script's next
+  assertion that observes the new state; the steps before it match byte for byte. A script therefore asserts the state
+  after every step whose route it pins.
+* There is nothing to re-record when the status format changes.
+
+== Source
+
+* Operator decision at refine (recorded scenario), work package `scenario-replay-harness`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* `doc/plans/scenario-replay-harness.adoc` § Done When

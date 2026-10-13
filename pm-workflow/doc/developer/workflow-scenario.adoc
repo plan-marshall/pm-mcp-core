@@ -1,0 +1,289 @@
+= Scenario Replay Harness (`workflow.scenario`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:dsl: {docs}/specification/workflow-dsl
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+Package `de.planmarshall.workflow.scenario` is the deterministic scenario replay harness `pm-scenario`. It lives in the
+test scope of `pm-workflow` (`src/test/java`), not in a module of its own, and runs in process under JUnit: a scenario
+script drives the real `WorkflowEngine` over a fixture unit written for the test, with the status store of the scope
+in a temporary directory, without a live model and without starting any process. A scripted fixture worker stands in
+for the model that would take the tasks of a task state.
+
+The harness implements the part of
+link:{dsl}/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]
+that the engine supports today; its place follows
+link:{docs}/specification/module-structure.adoc#test-placement[Module Structure § Test Placement]. The engine it drives
+is described in link:workflow-engine.adoc[Workflow Engine].
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+All types are package-private test code.
+
+[horizontal]
+`ScenarioScript`:: The parsed script: its name, the worker declarations, and the steps in order. `read(text)` reads it
+from the text of a script and refuses every line the harness does not run; `REFUSED` maps each refused directive of
+the specification to the work package that brings it.
+`ScenarioDirective`:: The sealed step of a script, each with its line: `Start`, `AssertState`, `AssertOutcome`,
+`CompleteJob`, `AnswerQuestion`, `ExpireQuestion`, `AssertTaskOutcome`. `Worker` is the declaration of the scripted
+worker of one role; it is no step. Job ids, question ids, fates and task outcomes are checked against the shapes and
+closed sets `EngineEvent` states.
+`ScenarioReplayRunner`:: Replays one script once against the real engine and keeps the stored status bytes after every
+step (`snapshots()`); a deviation is a `ScenarioFailure` (an `AssertionError`) that names the step's line.
+`ScriptedFixtureWorker`:: The worker of one role: it settles the queue task of its role with the next task outcome the
+script declares and yields the `EngineEvent.TasksSettled` of the task state.
+`ScenarioFixtures`:: The fixture plan unit `PLAN_UNIT`, its primitives, a manual clock, deterministic doubles of the
+four engine ports, and the assembly of the engine and of the journal scope in the replay's directory.
+
+[source]
+----
+ text block ──read──► ScenarioScript ──run──► ScenarioReplayRunner ──start / advance(status, event)──► WorkflowEngine
+                       (directives,              │        │                                              │ ports
+                        worker declarations)     │        └── task state rests ──► ScriptedFixtureWorker │
+                                                 │                                 └► TasksSettled ──────┘
+                                                 ▼
+                         ScopeTransaction ──► WorkflowStatusStore (mcp/status.json in @TempDir)
+                                                 │
+                                                 └──► Snapshot(line, bytes) after every step
+----
+
+== Scenario Script
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+A script is text in the test, usually a Java text block, in the line syntax of the specification
+(link:../adr/workflow-scenario/005-scenario-script-as-text-in-the-test.adoc[ADR 005]). This script of
+`ScenarioReplayRunnerTest` replays the fixture unit to its terminal with every supported directive:
+
+[source,text]
+----
+scenario every-directive
+worker reviewer submitted
+start plan scenario-plan
+assert_state execute.build                                 # prepare ran, the build job was started
+complete_job b-0000000000000001 {"outcome":"succeeded"}
+assert_state execute.review                                # the task of the reviewer is queued
+assert_task_outcome reviewer submitted                     # the worker settles it first
+assert_state execute.ask
+answer_question Q-001 web {"branch_key":"approve"}
+assert_state execute.confirm
+expire_question Q-002
+assert_state completed
+assert_outcome merged
+----
+
+* The first line that is not empty or a comment is `scenario <name>`, the name in `[a-z0-9][a-z0-9-]*`.
+* One directive per line; words are separated by blanks; a `#` outside a quoted string starts a comment.
+* `worker <role> <task outcome>...` declares the scripted worker of a role and the task outcomes it delivers, one per
+  task, in order; a role is declared at most once.
+* The JSON-shaped argument of `complete_job` and `answer_question` is read with its scalar members, and the directive
+  uses one of them: `outcome` (the fate of the job) and `branch_key` (the outcome the answer chooses). Other scalar
+  members are accepted and not used.
+
+[cols="2,3"]
+|===
+|Directive |Step
+
+|`start <plan\|epic> <scope id>`, `start workspace`
+|Starts the scope at the unit's start state.
+
+|`complete_job <job id> {"outcome":"<fate>"}`
+|Delivers `JobSettled` of the job with the fate.
+
+|`answer_question <question id> <channel> {"branch_key":"<outcome>"}`
+|Resolves the question with the outcome and delivers `QuestionResolved`; the channel is recorded in the step only.
+
+|`expire_question <question id>`
+|Resolves the question with the deadline outcome of the resting question state's class and delivers
+`QuestionResolved`.
+
+|`assert_state <state id>`
+|Compares the state of the stored status.
+
+|`assert_outcome <outcome>`
+|Compares the outcome the top-level unit ended with.
+
+|`assert_task_outcome <role> <task outcome>`
+|Compares the outcome of the last task the worker of the role settled.
+|===
+
+Every other directive the specification names is refused by name when the script is read, with its line and the work
+package that brings it: the link and entry-session directives, the worker directives, the worker faults and the
+runtime restart, the unqualified role, the plan instance version and the operator verbs
+(link:../adr/workflow-scenario/004-supported-directives-only-others-refused-by-name.adoc[ADR 004]). The list and the
+packages are `ScenarioScript.REFUSED`, kept by hand, and `ScenarioScriptTest` runs every entry of it; nothing compares
+it with the specification, so a change to the specification's directives changes `REFUSED` with it. A word
+that is no directive at all is refused as unknown, and so is a missing or surplus argument, a malformed id, an unknown
+fate or task outcome, a second `scenario` line and a script without steps. Every refusal is an
+`IllegalArgumentException` whose message starts with `line <n>:`.
+
+== Runner
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+`new ScenarioReplayRunner(unit, directory)` assembles the engine over the unit; the engine verifies the unit first, so
+a fixture unit that breaks a verifier rule never runs. `run(script)` replays the steps in order:
+
+* `start` creates the journal scope in the directory (`ScenarioFixtures.scope`), calls `WorkflowEngine.start` and
+  writes the first status;
+* `complete_job`, `answer_question` and `expire_question` call `advance(status, event, store, transaction)`; the new
+  status is committed in one `ScopeTransaction` of the scope, opened at the clock's instant under a lock that holds
+  every key, because the replay is the only writer;
+* before every step that is not an `assert_state`, a task state the scope rests in is settled by the worker of the
+  queued task's role, so a script can assert the task state first and then what the task ended with;
+* the assertions read the stored status, the `Ended` step of the engine and the worker's record, and change nothing.
+
+After every step the runner keeps the bytes of the status store (`mcp/status.json` of a plan) with the step's line. The
+snapshots of the steps that ran are kept when a later step fails. When the steps have run, every declared worker
+outcome that no task took fails at the line of its declaration. One runner replays one script once.
+
+The stores live in the directory the test gives, a `@TempDir`; there is no git repository
+(link:../adr/workflow-scenario/003-stores-in-a-temporary-directory-without-git.adoc[ADR 003]).
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Result
+
+|An assertion expects another state, outcome or task outcome
+|`ScenarioFailure` at the step's line with the expected and the actual value, for example
+`line 12: assert_state expected 'completed' but the scope is in 'handed_back'`.
+
+|`assert_outcome` before the scope ended
+|`ScenarioFailure` naming the state the scope is in.
+
+|An event the resting state does not wait for: another job, a question resolution at a job state, an
+`expire_question` outside a question state
+|`ScenarioFailure` at the step's line with the engine's refusal; nothing is written and the step is not skipped.
+
+|A step before `start`, or a second `start`
+|`ScenarioFailure` at the step's line.
+
+|A queued task whose role has no worker, a worker without an outcome left, or a task outcome the fixture evaluation
+does not evaluate (`asked`)
+|`ScenarioFailure` at the line of the step before which the task was settled, naming the role.
+
+|A declared worker outcome that no task took
+|`ScenarioFailure` at the line of the worker declaration, naming the role and the outcomes left.
+
+|The unit violates a verifier rule
+|The engine's `UnverifiedUnitException` from the runner's constructor.
+|===
+
+== Fixtures and the Scripted Worker
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+`ScenarioFixtures` is written for the scenario tests and copied from no unit of the product; it does not reuse the
+package-private `EngineFixtures` of the engine tests
+(link:../adr/workflow-scenario/006-own-fixtures-of-the-scenario-package.adoc[ADR 006]).
+
+* `PLAN_UNIT`: a plan unit with an `auto` state (`execute.prepare`), a job state (`execute.build`), a task state of the
+  role `reviewer` (`execute.review`, entity kind `change`), a question state of the class `review` (`execute.ask`), a
+  question state of the class `clarification` (`execute.confirm`), and the terminals `completed` (outcome `merged`) and
+  `handed_back`.
+* The primitives `scenario.prepare`, `scenario.build` and `scenario.evaluate` each return one fixed outcome. The job
+  state is entered without a job-starting outcome, so the engine starts its job through the job port.
+* The entity kind `change` is registered with no entity unit and the return evaluation `scenario.evaluate`
+  (`approved`, `rejected`).
+* `DEADLINE_OUTCOMES`: the outcome a question resolves with when its deadline fires, by class (`review` to `returned`,
+  `clarification` to `assumed`). The question records and their deadlines are not built yet, so the fixture states the
+  class fallback.
+* The ports: `SequenceJobStarter` starts the build jobs `b-0000000000000001`, `b-0000000000000002`, … in order,
+  `RecordingQueueTaskCreator` creates the queue tasks `qt-0000000000000001`, … and records each request,
+  `ScriptedQuestionRecordReader` reports the resolution the runner set for a question and every other question open, and
+  `ManualClock` starts at `T0` and moves by `STEP` (one second) per step.
+
+`ScriptedFixtureWorker` settles the queue task of its role directly with the next declared task outcome and the
+fixture return evaluation (`ScenarioFixtures.evaluate`): `submitted` evaluates to `approved`, `infeasible` to
+`rejected`, `lost` to `lost`. It follows no link, holds no lease and has no generation
+(link:../adr/workflow-scenario/001-worker-settles-tasks-directly.adoc[ADR 001]).
+
+== Determinism
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+The script is the recorded scenario; there is no recording file
+(link:../adr/workflow-scenario/002-replay-twice-and-compare-status-bytes.adoc[ADR 002]). Everything a replay writes is
+fixed by the script and the fixtures: the clock and the transaction instant come from the manual clock, job and queue
+task ids from counters, and every primitive returns one fixed outcome. `ScenarioDeterminismTest` proves it:
+
+* the same script replayed twice from empty stores, in two temporary directories, yields byte-identical snapshots after
+  every step;
+* the same script against a unit with one changed transition (the clarification deadline `assumed -> handed_back`
+  instead of `assumed -> completed`) writes the same bytes as the unchanged unit up to the step that takes the changed
+  transition, writes different bytes at that step, and fails at the script's next `assert_state`, which names its line.
+
+A changed transition shows in the bytes at the step that takes it; the replay fails at the first assertion that
+observes it, so a script asserts the state after every step whose route it pins.
+
+== Writing a Scenario
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+. Write the script as a text block in the test: `scenario <name>`, a `worker` line for every role whose task state the
+  replay passes, `start`, then alternate the actions and the assertions.
+. Assert the state after every action; assert a task state before the next step settles it, and the task's outcome
+  with `assert_task_outcome`.
+. Use the job ids the job port hands out in order (`b-0000000000000001` for the first job state entered without a
+  job-starting outcome) and any question id of the form `Q-NNN`.
+. Replay it with `new ScenarioReplayRunner(ScenarioFixtures.planUnit(), directory).run(ScenarioScript.read(text))`, the
+  directory a `@TempDir`.
+. A scenario that needs another unit writes its own unit as DSL text and parses it with `ScenarioFixtures.parse`; a
+  new primitive or entity kind goes into `ScenarioFixtures.registry()` and `entityKinds()`.
+
+[cols="1,3"]
+|===
+|Test |Guards
+
+|`ScenarioScriptTest` |Every supported directive and the worker declaration read with arguments and lines; every
+refused directive refused by name and line with its package; malformed lines refused with their line
+|`ScenarioReplayRunnerTest` |A replay to the unit's terminal with every directive; each assertion failing at its line
+with the expected and actual value; an unaccepted event failing, never skipped; the worker settling `submitted`,
+`infeasible` and `lost`; a missing worker, an `asked` task and a surplus outcome failing with the role; the bytes kept
+after every step
+|`ScenarioDeterminismTest` |Two replays with identical bytes after every step; a changed transition failing at the
+assertion after the step that takes it, with the same bytes before it
+|===
+
+== Developer Pitfalls
+_Requirements: link:{docs}/Requirements.adoc#PM-TEST-4[PM-TEST-4]_
+
+* *Nothing in the stored bytes may come from the machine.* A wall-clock instant or a random id in the status breaks
+  the byte comparison. Take every instant from the manual clock, every id from a counter of the fixtures, and every
+  primitive outcome from the fixture; a new port double follows the same rule.
+* *A deviation fails, it is never skipped.* An event the resting state does not wait for, a task without a declared
+  outcome, and an outcome no task took are failures with the line. A runner that skipped them would let a script pass
+  that no longer describes the run.
+* *Prove a guard by making it fire.* The determinism test plants a changed transition and sees the replay fail; a new
+  check of the runner gets the same kind of test, and failures are asserted by their message, not only by their type.
+* *Drive the real producers.* The runner parses and verifies the unit and runs the real engine and status store; the
+  directive values are checked against the sets `EngineEvent` states, not against copies.
+* *Each replay owns its directory.* The stores of a replay live only in its `@TempDir`, and two replays never share one;
+  nothing machine-wide is read or written.
+
+== What Follows
+
+The harness runs what the engine supports today. These parts of the specification follow with later packages:
+
+* the link and worker directives (`assert_links`, `assert_skill`, `assert_rejected`, `do`, `worker_wait`,
+  `worker_do`) and a worker that follows the offered links, with the task protocol;
+* the worker faults and the supervision assertions, with `supervision-scenarios`;
+* the hermetic git repository, with the first package that has a git step;
+* the sixteen regression scenarios of the specification, as the layers they need land.
+
+== Decisions
+
+* link:../adr/workflow-scenario/001-worker-settles-tasks-directly.adoc[ADR 001]: the scripted worker settles the queued
+  task directly.
+* link:../adr/workflow-scenario/002-replay-twice-and-compare-status-bytes.adoc[ADR 002]: the script is the recorded
+  scenario; two replays are compared byte by byte after every step.
+* link:../adr/workflow-scenario/003-stores-in-a-temporary-directory-without-git.adoc[ADR 003]: the stores live in a
+  temporary directory, without git.
+* link:../adr/workflow-scenario/004-supported-directives-only-others-refused-by-name.adoc[ADR 004]: only the
+  supported directives run; every other one is refused by name.
+* link:../adr/workflow-scenario/005-scenario-script-as-text-in-the-test.adoc[ADR 005]: the script is text in the test.
+* link:../adr/workflow-scenario/006-own-fixtures-of-the-scenario-package.adoc[ADR 006]: the scenario package has its
+  own fixtures.

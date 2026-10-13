@@ -155,7 +155,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 
 |link:scenario-replay-harness.adoc[`scenario-replay-harness`]
 |Deterministic scenario replay harness
-|`open`
+|`done`
 |link:workflow-engine.adoc[`workflow-engine`]
 |Milestone 3
 
