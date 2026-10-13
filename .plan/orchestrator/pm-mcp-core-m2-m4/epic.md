@@ -377,6 +377,16 @@ decision or a dependency outside this repository.
   added the `blocked` package `token-usage`, staged as parked PLAN-61. WS-10: PLAN-39 is done,
   PLAN-40 remains.
 
+- 2026-10-13 — PLAN-17 `project-units-and-invariants` landed as #56 (df4b318), Claude Code; landing
+  record `landings/PLAN-17.md`. Code clean (8/8 deliverables, pre-commit on the final head, `/review`
+  x6, Sonar 0 new issues). Rules 6 (`work_performed`), 7 and 8 of the finalize validator and three
+  invariants are named hooks (operator-accepted). Test-scope dependencies `cui-test-juli-logger` and
+  `cui-test-generator` were added to pm-workflow with consent. **Not complete under the related-PR
+  rule:** doc #57 is OPEN (content matches the code). Inbox drain of 12 messages: the landing
+  reconciled, 11 lessons routed (`pm-mcp-core-m2-m4-252.md` to `-262.md`). #61 and #62 added the
+  `blocked` packages `process-designer` and `cleanup`, staged as parked PLAN-62 (WS-03) and PLAN-63
+  (WS-01). No plan is running: the drain is complete, and the log-holder session plan is next.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
@@ -423,6 +433,8 @@ decision or a dependency outside this repository.
 
 - Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
 - A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
+- Documentation PR `plan-marshall-documentation` #57 (PLAN-17) is OPEN — PLAN-17's landing completes when it is merged. Merge it before the log-holder plan's documentation PR (both edit `doc/LogMessages.adoc`; the split renumbers rows 70/170/270).
+- plan-marshall-mcp owes, from PLAN-17: `DefaultUnitInvariantTest` over the real default units, and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal).
 
 - plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
 
