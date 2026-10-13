@@ -71,6 +71,8 @@ taken-over guides are complete here; relative links resolve.
 
 - **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
 
+- **Carried from PLAN-39 (#53).** PLAN-39 backfilled ADRs and renumbered them after collisions (core-store now runs to 023, runtime-start to 010, workflow-verify to 016). Developer files that cite ADR ranges (for example `workflow-verify.adoc`: "ADRs 001 to 012") must cite the current ones; check every ADR reference in the files you write.
+
 ## Claim Labels
 
 - OBSERVED: `plan-marshall-documentation` holds `doc/developer/store-substrate.adoc` and `locks-and-leases.adoc` on main; `primitive-spi.adoc` is in its open #20; `workflow-dsl.adoc` came with its merged #27 — read on 2026-10-11

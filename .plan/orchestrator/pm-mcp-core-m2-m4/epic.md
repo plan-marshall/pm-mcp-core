@@ -367,6 +367,16 @@ decision or a dependency outside this repository.
   parked PLAN-57 to PLAN-60; PLAN-51 and PLAN-53 were regenerated. Practice from now on: re-check a
   spec's premises against the landings since staging, right before emitting it.
 
+- 2026-10-13 — PLAN-39 `module-readmes-and-adrs` landed as #53 (c0ecf33), Claude Code; landing
+  record `landings/PLAN-39.md`. Complete (no documentation PR required): 9 module READMEs, the ADR
+  template and index, 44 ADRs including 4 repository-wide ones, and the rule in CLAUDE.md. The
+  concurrent-numbering rule worked: two collisions, and only its own ADRs were renumbered. ADR 003
+  (log identifier blocks) is to be superseded by the log-holder split. Inbox drain of 11 messages:
+  the landing reconciled, 10 lessons routed (`pm-mcp-core-m2-m4-242.md` to `-251.md`). #57 moved
+  plan-marshall to the `functional-review` / `code-review` finalize steps (required bots kept). #60
+  added the `blocked` package `token-usage`, staged as parked PLAN-61. WS-10: PLAN-39 is done,
+  PLAN-40 remains.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
