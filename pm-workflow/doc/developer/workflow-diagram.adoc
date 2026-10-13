@@ -84,6 +84,7 @@ stateDiagram-v2
 ...
     build_commit --> diagram_done : call [result.pushed] / done
     build_commit --> review_ask : call [not result.pushed] / done
+    build_commit --> diagram_failed : call / stepped_out
 ----
 
 === AsciiDoc tables
@@ -111,11 +112,12 @@ A task state shows its task label and its outcome transitions, never a link of i
 
 [source,text]
 ----
-│ build.judge                                 │ -                │ -                                                                │ approved -> build.commit     │
-│  task reviewer                              │ -                │ -                                                                │ lost -> diagram.failed       │
-├─────────────────────────────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────────────┤
-│ build.commit                                │ -                │ result.pushed                                                    │ done -> diagram.done         │
-│  call diagram.callee                        │ -                │ not result.pushed                                                │ done -> review.ask           │
+│ build.judge                                 │ -                │ -                                                                │ approved -> build.commit      │
+│  task reviewer                              │ -                │ -                                                                │ lost -> diagram.failed        │
+├─────────────────────────────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────────┼───────────────────────────────┤
+│ build.commit                                │ -                │ result.pushed                                                    │ done -> diagram.done          │
+│  call diagram.callee                        │ -                │ not result.pushed                                                │ done -> review.ask            │
+│                                             │ -                │ -                                                                │ stepped_out -> diagram.failed │
 ----
 
 == Extension

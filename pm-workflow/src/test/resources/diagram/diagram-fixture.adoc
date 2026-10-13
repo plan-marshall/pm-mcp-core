@@ -166,8 +166,8 @@
 |`build`
 |`call`
 |`build.judge`
-|outcomes `done`
-|`diagram.done`, `review.ask`
+|outcomes `done`, `stepped_out`
+|`diagram.done`, `review.ask`, `diagram.failed`
 |
 |===
 
@@ -249,6 +249,11 @@
 |`done`
 |`not result.pushed`
 |`review.ask`
+
+|`build.commit`
+|`stepped_out`
+|-
+|`diagram.failed`
 |===
 
 .Phase `inherit`: states
@@ -267,7 +272,7 @@
 |`diagram.failed`
 |`inherit`
 |`terminal`
-|`build.compile`, `build.compose`, `build.implement`, `build.judge`
+|`build.compile`, `build.compose`, `build.implement`, `build.judge`, `build.commit`
 |reports `failed` (`failure`)
 |-
 |

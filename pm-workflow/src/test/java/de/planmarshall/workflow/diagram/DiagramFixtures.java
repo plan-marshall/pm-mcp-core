@@ -47,7 +47,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * The fixture is parsed and checked by the static verifier before a test renders it, so the golden files show a unit
  * the generator is meant for. The primitives, the entity kind {@code change} and the called sub-workflow
  * {@code diagram.callee} it names are registered here, because the helpers of the verifier tests are package-private
- * to their package.
+ * to their package. The kind {@code change} names no entity unit: no state of the fixture asks, and the verifier
+ * refuses a named entity unit the catalog does not hold.
  */
 final class DiagramFixtures {
 
@@ -116,7 +117,7 @@ final class DiagramFixtures {
                 new Fixed<>("diagram.evaluate-change", NoParams.class, EvaluationOutcome.class),
                 new Fixed<>("diagram.list-changes", NoParams.class, DoneOutcome.class)));
         var entityKinds = new EntityKindRegistry(List.of(
-                new EntityKind("change", Optional.of("entity"), "diagram.evaluate-change")));
+                new EntityKind("change", Optional.empty(), "diagram.evaluate-change")));
         var callee = parse("diagram.callee.pmwf", """
                 workflow diagram.callee version 1 format 1
                 scope subworkflow

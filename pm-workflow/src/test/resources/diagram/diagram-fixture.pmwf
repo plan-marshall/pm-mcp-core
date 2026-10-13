@@ -63,6 +63,7 @@ state build.commit
             guard result.pushed
         done -> review.ask
             guard not result.pushed
+        stepped_out -> diagram.failed
 
 state review.ask
     phase review

@@ -43,5 +43,6 @@ stateDiagram-v2
     build_judge --> diagram_failed : task reviewer / lost
     build_commit --> diagram_done : call [result.pushed] / done
     build_commit --> review_ask : call [not result.pushed] / done
+    build_commit --> diagram_failed : call / stepped_out
     review_ask --> diagram_done : question / assumed
     review_ask --> diagram_done : next skip_wait [noop] / done
