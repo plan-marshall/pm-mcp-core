@@ -41,14 +41,20 @@ import lombok.experimental.UtilityClass;
  * An instant has one shape in a store: an RFC 3339 string in UTC with the suffix {@code Z}, as
  * {@link Instant#toString()} writes it. Another spelling of the same moment (an offset, a fraction padded
  * differently) is refused, so what is read is written again byte for byte.
+ * <p>
+ * The reading entry {@link #read(Path, byte[], int, DocumentReader)}, the field helpers and the refusals they raise are
+ * public API of {@code core.store}: the codec of a store of another package of {@code pm-core} (the session generation
+ * record of {@code core.queue}) reads its document with them, so every store of the runtime is read with the one
+ * strictness and refused with a {@link StoreRefusal} in the same shape. A {@link Malformed} thrown by a field helper is
+ * caught by {@code read} and becomes the refusal naming the file; it never leaves {@code read} on its own.
  *
  * @since 0.1
  */
 @UtilityClass
-class StrictJson {
+public class StrictJson {
 
     /** The field every store document declares first in its check. */
-    static final String FIELD_FORMAT_VERSION = "format_version";
+    public static final String FIELD_FORMAT_VERSION = "format_version";
 
     private static final JsonFactory JSON = new JsonFactory();
 
@@ -59,7 +65,7 @@ class StrictJson {
      * @since 0.1
      */
     @FunctionalInterface
-    interface DocumentReader<T> {
+    public interface DocumentReader<T> {
 
         /**
          * @param parser the parser, positioned on the start of the document object
@@ -77,7 +83,7 @@ class StrictJson {
      * @since 0.1
      */
     @FunctionalInterface
-    interface ValueReader<V> {
+    public interface ValueReader<V> {
 
         /**
          * @param parser the parser, positioned on the value
@@ -95,7 +101,7 @@ class StrictJson {
      *
      * @since 0.1
      */
-    static final class Malformed extends RuntimeException {
+    public static final class Malformed extends RuntimeException {
 
         @Serial
         private static final long serialVersionUID = 1L;
@@ -117,7 +123,7 @@ class StrictJson {
      * @return what the reader read
      * @throws StoreRefusal if the document declares another format version or is unreadable
      */
-    static <T> T read(Path file, byte[] document, int current, DocumentReader<T> reader) {
+    public static <T> T read(Path file, byte[] document, int current, DocumentReader<T> reader) {
         Objects.requireNonNull(reader, "reader");
         requireCurrentVersion(file, document, current);
         try (var parser = JSON.createParser(document)) {
@@ -179,7 +185,7 @@ class StrictJson {
      * @param detail what does not have the shape of its kind
      * @return the refusal of the content, to be thrown
      */
-    static Malformed unreadable(String detail) {
+    public static Malformed unreadable(String detail) {
         return new Malformed(detail, null);
     }
 
@@ -188,7 +194,7 @@ class StrictJson {
      * @param cause  the failure that found it
      * @return the refusal of the content, to be thrown
      */
-    static Malformed unreadable(String detail, Throwable cause) {
+    public static Malformed unreadable(String detail, Throwable cause) {
         return new Malformed(detail, cause);
     }
 
@@ -196,7 +202,7 @@ class StrictJson {
      * @param field a field the object does not declare
      * @return the refusal of the field, to be thrown
      */
-    static Malformed undeclared(String field) {
+    public static Malformed undeclared(String field) {
         return unreadable("undeclared field '%s'".formatted(field));
     }
 
@@ -208,7 +214,7 @@ class StrictJson {
      * @return the name of the field
      * @throws IOException if the document does not parse as JSON
      */
-    static String nextField(JsonParser parser, Set<String> seen) throws IOException {
+    public static String nextField(JsonParser parser, Set<String> seen) throws IOException {
         var field = parser.currentName();
         if (!seen.add(field)) {
             throw unreadable("field '%s' twice".formatted(field));
@@ -221,7 +227,7 @@ class StrictJson {
      * @param parser the parser, positioned on a value
      * @param name   the name of the value in a refusal
      */
-    static void requireObject(JsonParser parser, String name) {
+    public static void requireObject(JsonParser parser, String name) {
         if (parser.currentToken() != JsonToken.START_OBJECT) {
             throw unreadable("'%s' must be an object".formatted(name));
         }
@@ -231,7 +237,7 @@ class StrictJson {
      * @param parser the parser, positioned on a value
      * @param name   the name of the value in a refusal
      */
-    static void requireArray(JsonParser parser, String name) {
+    public static void requireArray(JsonParser parser, String name) {
         if (parser.currentToken() != JsonToken.START_ARRAY) {
             throw unreadable("'%s' must be an array".formatted(name));
         }
@@ -242,7 +248,7 @@ class StrictJson {
      * @param object   the name of the object in a refusal
      * @param required the fields the object must have
      */
-    static void requireFields(Set<String> seen, String object, String... required) {
+    public static void requireFields(Set<String> seen, String object, String... required) {
         for (var field : required) {
             if (!seen.contains(field)) {
                 throw unreadable("field '%s' of the %s is missing".formatted(field, object));
@@ -256,7 +262,7 @@ class StrictJson {
      * @return the string value
      * @throws IOException if the document does not parse as JSON
      */
-    static String string(JsonParser parser, String field) throws IOException {
+    public static String string(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() != JsonToken.VALUE_STRING) {
             throw unreadable("'%s' must be a string".formatted(field));
         }
@@ -269,7 +275,7 @@ class StrictJson {
      * @return the string value; {@code null} for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    static String nullableString(JsonParser parser, String field) throws IOException {
+    public static String nullableString(JsonParser parser, String field) throws IOException {
         return parser.currentToken() == JsonToken.VALUE_NULL ? null : string(parser, field);
     }
 
@@ -279,7 +285,7 @@ class StrictJson {
      * @return the integer value
      * @throws IOException if the document does not parse as JSON or the integer exceeds a {@code long}
      */
-    static long integer(JsonParser parser, String field) throws IOException {
+    public static long integer(JsonParser parser, String field) throws IOException {
         if (parser.currentToken() != JsonToken.VALUE_NUMBER_INT) {
             throw unreadable("'%s' must be an integer".formatted(field));
         }
@@ -291,7 +297,7 @@ class StrictJson {
      * @param field  the name of the field
      * @return the boolean value
      */
-    static boolean bool(JsonParser parser, String field) {
+    public static boolean bool(JsonParser parser, String field) {
         return switch (parser.currentToken()) {
             case VALUE_TRUE -> true;
             case VALUE_FALSE -> false;
@@ -305,7 +311,7 @@ class StrictJson {
      * @return the strings of the array, in order; unmodifiable
      * @throws IOException if the document does not parse as JSON
      */
-    static List<String> stringList(JsonParser parser, String field) throws IOException {
+    public static List<String> stringList(JsonParser parser, String field) throws IOException {
         return array(parser, field, StrictJson::string);
     }
 
@@ -319,7 +325,7 @@ class StrictJson {
      * @return the elements, in order; unmodifiable
      * @throws IOException if the document does not parse as JSON
      */
-    static <V> List<V> array(JsonParser parser, String field, ValueReader<V> element) throws IOException {
+    public static <V> List<V> array(JsonParser parser, String field, ValueReader<V> element) throws IOException {
         requireArray(parser, field);
         var values = new ArrayList<V>();
         while (parser.nextToken() != JsonToken.END_ARRAY) {
@@ -338,7 +344,7 @@ class StrictJson {
      * @return the values by their keys, in the order of the document; unmodifiable
      * @throws IOException if the document does not parse as JSON
      */
-    static <V> Map<String, V> map(JsonParser parser, String field, ValueReader<V> value) throws IOException {
+    public static <V> Map<String, V> map(JsonParser parser, String field, ValueReader<V> value) throws IOException {
         requireObject(parser, field);
         var values = new LinkedHashMap<String, V>();
         var seen = new HashSet<String>();
@@ -357,7 +363,7 @@ class StrictJson {
      * @return the instant
      * @throws IOException if the document does not parse as JSON
      */
-    static Instant instant(JsonParser parser, String field) throws IOException {
+    public static Instant instant(JsonParser parser, String field) throws IOException {
         var text = string(parser, field);
         try {
             var instant = Instant.parse(text);
@@ -377,7 +383,7 @@ class StrictJson {
      * @return the instant; {@code null} for a JSON {@code null}
      * @throws IOException if the document does not parse as JSON
      */
-    static Instant nullableInstant(JsonParser parser, String field) throws IOException {
+    public static Instant nullableInstant(JsonParser parser, String field) throws IOException {
         return parser.currentToken() == JsonToken.VALUE_NULL ? null : instant(parser, field);
     }
 
@@ -389,7 +395,7 @@ class StrictJson {
      * @param instant   the instant; {@code null} writes a JSON {@code null}
      * @throws IOException if the generator cannot write
      */
-    static void writeInstant(JsonGenerator generator, String field, Instant instant) throws IOException {
+    public static void writeInstant(JsonGenerator generator, String field, Instant instant) throws IOException {
         if (instant == null) {
             generator.writeNullField(field);
         } else {
@@ -398,7 +404,7 @@ class StrictJson {
     }
 
     /** @return the shared factory of parsers and generators */
-    static JsonFactory factory() {
+    public static JsonFactory factory() {
         return JSON;
     }
 

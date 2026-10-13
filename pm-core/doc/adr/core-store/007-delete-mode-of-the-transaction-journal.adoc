@@ -1,0 +1,66 @@
+= ADR 007: The Transaction Journal Gets a Delete Mode, in Format Version 3
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+A target of the transaction journal could replace a store or append to a JSONL store; nothing could remove a store.
+The work package `session-log-and-generations` needs a removal: a terminal of a bootstrap deletes its pending entry
+record `pending/<entry_id>.json`, and the periodic sweep removes the records older than the pending entry record
+maximum age. The record lies in the workspace scope and is covered by its digest sidecar, so a removal outside the
+journal would leave a sidecar entry without its file: the next integrity check would report the store as tampered.
+
+The default reading of the package left the delete out (the stores only, the sweep wiring later). The journal document
+has a closed shape and a `format_version`; a new target shape changes it.
+
+== Decision
+
+The operator decided to add the delete mode now (refine, question q1):
+
+1. `TransactionJournal.Mode.DELETE` with the wire name `delete`. A delete target is `{"path", "mode"}` alone: no
+   staged path, no size before, no new digest. A journal whose delete target carries one of them is unreadable.
+2. `ScopeTransaction.delete(relativePath)` collects the target under the checks of `replace` and `append`. The stage
+   step writes nothing for it, the apply step removes the store if it exists, the digests step drops its sidecar entry
+   (`DigestSidecar.without`).
+3. `JournalRecovery` takes a delete target as applied when its store is absent and as always appliable, so the
+   roll-forward is idempotent and a delete is never an invariant violation.
+4. A store with neither a file nor a sidecar entry is consistent (`ScopeIntegrity.Absent`), so a completed delete never
+   raises `store_tampered`.
+5. `TransactionJournal.FORMAT_VERSION` goes from 2 to 3. A version-2 journal is refused as outdated, as version 1 is.
+   There is no reader of version 2 and no shim.
+
+== Alternatives Considered
+
+1. *No delete mode; remove a record outside the journal* (the default reading).
+   _Rejected_: the removal would not be journaled, a crash could leave half of it, and the sidecar entry of the removed
+   record would outlive its file and be reported as an edit.
+2. *Remove the store and rewrite the sidecar in a second write after the transaction*.
+   _Rejected_: two writes without one journal are exactly the state the journal exists to avoid; a crash between them
+   reports `store_tampered`.
+3. *Keep format version 2 and accept both target shapes*.
+   _Rejected_: before 1.0 a reader accepts exactly the current version of a file kind; a second shape under the same
+   version would let an older binary read a journal it cannot apply.
+
+== Consequences
+
+* Every store of a scope can be removed with the guarantees of every other write; the pending entry record
+  (`PendingEntryStore.remove`) is the first user.
+* A journal left by a runtime of the previous version is refused as outdated after an upgrade; the drain rule of the
+  specification (finish the scopes before upgrading) applies.
+* `ScopeIntegrity.Verification` has a fourth member, `Absent`, beside `Verified`, `Mismatch` and `Untracked`.
+* `TransactionJournalTest`, `ScopeTransactionTest`, `JournalRecoveryTest`, `DigestSidecarTest` and `ScopeIntegrityTest`
+  cover the shape, the crash after each step of a delete, the recovery of a half-applied delete and the absent store.
+
+== Source
+
+* Operator decision q1 of the work package `session-log-and-generations` (refine)
+* `doc/plans/session-log-and-generations.adoc`
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

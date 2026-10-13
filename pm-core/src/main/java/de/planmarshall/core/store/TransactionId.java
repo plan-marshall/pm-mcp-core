@@ -81,17 +81,19 @@ public record TransactionId(String value) {
 
     /**
      * The one definition of the name of a staged file: {@code <file>.tmp.<id>} for a replace,
-     * {@code <file>.append.<id>} for an append.
+     * {@code <file>.append.<id>} for an append. A delete stages nothing, so it has no such name.
      *
      * @param file the store or sidecar, as a path or a file name
      * @param mode how the store is written
      * @return the staged file of the store in this transaction, in the form of the given path
+     * @throws IllegalArgumentException if the mode is {@link TransactionJournal.Mode#DELETE}
      */
     String stagedName(String file, TransactionJournal.Mode mode) {
         Objects.requireNonNull(file, "file");
         var segment = switch (Objects.requireNonNull(mode, "mode")) {
             case REPLACE -> STAGED_TMP;
             case APPEND -> STAGED_APPEND;
+            case DELETE -> throw new IllegalArgumentException("A delete stages no file: " + file);
         };
         return file + segment + value;
     }

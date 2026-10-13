@@ -226,7 +226,8 @@ public class WorkflowStatusCodec {
         }
     }
 
-    private static void writeCallStack(JsonGenerator generator, List<CallFrame> frames) throws IOException {
+    /** Writes the member {@code call_stack}; the pending entry record writes its bootstrap's call stack with it. */
+    static void writeCallStack(JsonGenerator generator, List<CallFrame> frames) throws IOException {
         generator.writeArrayFieldStart(CALL_STACK);
         for (var frame : frames) {
             generator.writeStartObject();
@@ -345,7 +346,8 @@ public class WorkflowStatusCodec {
         generator.writeEndObject();
     }
 
-    private static void writeCondition(JsonGenerator generator, PendingCondition condition) throws IOException {
+    /** Writes the member {@code pending_condition}; the pending entry record writes its bootstrap's overlay with it. */
+    static void writeCondition(JsonGenerator generator, PendingCondition condition) throws IOException {
         if (condition == null) {
             generator.writeNullField(PENDING_CONDITION);
             return;
@@ -415,7 +417,8 @@ public class WorkflowStatusCodec {
         return status.retained(retained).build();
     }
 
-    private static CallFrame readFrame(JsonParser parser, String name) throws IOException {
+    /** Reads one call frame; the frames of a pending entry record's bootstrap have the same shape. */
+    static CallFrame readFrame(JsonParser parser, String name) throws IOException {
         requireObject(parser, name);
         String callerWorkflowId = null;
         String callerStateId = null;
@@ -607,7 +610,8 @@ public class WorkflowStatusCodec {
         return new TaskEntry(queueTaskId, role, state, outcome, reason);
     }
 
-    private static PendingCondition readCondition(JsonParser parser, byte[] document) throws IOException {
+    /** Reads a condition overlay; a pending entry record's bootstrap carries one of the same shape. */
+    static PendingCondition readCondition(JsonParser parser, byte[] document) throws IOException {
         requireObject(parser, PENDING_CONDITION);
         String kind = null;
         long remedyAttempts = 0;
@@ -665,9 +669,9 @@ public class WorkflowStatusCodec {
 
     /**
      * Captures the current value as the exact text of the document: from its first byte to the byte after its
-     * last token.
+     * last token. The pending entry record keeps its raw members the same way.
      */
-    private static String raw(JsonParser parser, byte[] document) throws IOException {
+    static String raw(JsonParser parser, byte[] document) throws IOException {
         var start = parser.currentTokenLocation().getByteOffset();
         parser.skipChildren();
         parser.finishToken();

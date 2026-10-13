@@ -39,6 +39,7 @@ import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.store.JournalRecovery.InvariantViolation;
+import de.planmarshall.core.store.ScopeIntegrity.Absent;
 import de.planmarshall.core.store.ScopeIntegrity.Mismatch;
 import de.planmarshall.core.store.ScopeIntegrity.Untracked;
 import de.planmarshall.core.store.ScopeIntegrity.Verification;
@@ -332,6 +333,12 @@ class ScopeIntegrityTest {
     class WithoutEntry {
 
         @Test
+        @DisplayName("Absent is built only with a store")
+        void absentRecord() {
+            assertThrows(NullPointerException.class, () -> new Absent(null));
+        }
+
+        @Test
         @DisplayName("is Untracked under the lock and UNCHECKED lock-free")
         void untracked() throws Exception {
             Files.write(store(REFERENCES), bytes(NEW_STATUS));
@@ -342,6 +349,49 @@ class ScopeIntegrityTest {
             assertAll(
                     () -> assertEquals(new Untracked(REFERENCES), outcome),
                     () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity()));
+        }
+
+        @Test
+        @DisplayName("that does not exist either is Absent, consistent and no Mismatch, and UNCHECKED lock-free")
+        void absent() {
+            var outcome = verify(REFERENCES);
+            var snapshot = ScopeIntegrity.snapshot(scope, REFERENCES);
+
+            assertAll(
+                    () -> assertEquals(new Absent(REFERENCES), outcome),
+                    () -> assertEquals(StoreIntegrity.UNCHECKED, snapshot.integrity()),
+                    () -> assertTrue(snapshot.content().isEmpty()),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+
+        @Test
+        @DisplayName("because a transaction deleted it is Absent, and verifyAll no longer names it")
+        void deletedByTransaction() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+                write.delete(STATUS);
+                write.commit();
+            }
+
+            var outcome = verify(STATUS);
+            var all = verifyAll();
+
+            assertAll(
+                    () -> assertEquals(new Absent(STATUS), outcome),
+                    () -> assertEquals(List.of(new Verified(WORK_LOG, StoreDigest.of(bytes(FIRST)))), all),
+                    () -> assertTrue(all.stream().noneMatch(Mismatch.class::isInstance), "no store_tampered"));
+        }
+
+        /** Matched control of {@link #absent()}: an entry that outlives its store stays the evidence of an edit. */
+        @Test
+        @DisplayName("a store absent while its digest is present stays a Mismatch")
+        void absentWithDigest() throws Exception {
+            Files.delete(store(STATUS));
+
+            var outcome = verify(STATUS);
+
+            assertEquals(new Mismatch(STATUS, StoreDigest.of(bytes(OLD_STATUS)), Optional.empty()), outcome);
         }
 
         @Test

@@ -341,6 +341,154 @@ class JournalRecoveryTest {
         }
     }
 
+    /**
+     * A delete target is applied when its store is absent and is always appliable, so a recovery of a stopped delete
+     * removes a store still present, drops its sidecar entry, and does it once however often it runs.
+     */
+    @Nested
+    @DisplayName("a journal with a delete target")
+    class DeleteTarget {
+
+        /**
+         * Deletes the status and replaces the references in a commit stopped at the boundary.
+         *
+         * @return the journal the stopped commit left
+         */
+        private TransactionJournal stopDeleteAt(Step stopStep, int stopTarget) {
+            ScopeTransaction.StepHook hook = (step, target) -> {
+                if (step == stopStep && target == stopTarget) {
+                    throw new StopWrite(step, target);
+                }
+            };
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, hook);
+                write.delete(STATUS);
+                write.replace(REFERENCES, bytes(NEW_REFERENCES));
+                assertThrows(StopWrite.class, write::commit);
+            }
+            return TransactionJournal.read(scope.journalFile(),
+                    StoreSnapshot.read(scope.journalFile()).content().orElseThrow());
+        }
+
+        private byte[] deletedSidecar() {
+            return DigestSidecar.of(Map.of(
+                    REFERENCES, StoreDigest.of(bytes(NEW_REFERENCES)),
+                    WORK_LOG, StoreDigest.of(bytes(FIRST)))).write();
+        }
+
+        private AuditEvent rollForward(TransactionJournal journal) {
+            return AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(), PLAN,
+                    journal.transactionId().value(), List.of(STATUS, REFERENCES));
+        }
+
+        @Test
+        @DisplayName("stopped after its journal, with the store still present, removes the store and drops its digest")
+        void storePresent() {
+            var journal = stopDeleteAt(Step.JOURNAL, 0);
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, List.of(STATUS, REFERENCES)), outcome),
+                    () -> assertFalse(Files.exists(store(STATUS)), "the store is removed"),
+                    () -> assertArrayEquals(bytes(NEW_REFERENCES), Files.readAllBytes(store(REFERENCES))),
+                    () -> assertArrayEquals(deletedSidecar(), Files.readAllBytes(scope.sidecarFile())),
+                    () -> assertEquals(Set.of(REFERENCES, WORK_LOG, "mcp/digests.json"),
+                            snapshot(scope.pathBase()).keySet(), "no journal and no staged file remains"),
+                    () -> assertEquals(List.of(rollForward(journal)), audit.events()));
+        }
+
+        @Test
+        @DisplayName("stopped after the delete was applied, with the store absent, only drops its digest")
+        void storeAbsent() {
+            var journal = stopDeleteAt(Step.APPLY, 0);
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, List.of(REFERENCES)), outcome,
+                            "the delete was applied already"),
+                    () -> assertFalse(Files.exists(store(STATUS))),
+                    () -> assertArrayEquals(deletedSidecar(), Files.readAllBytes(scope.sidecarFile())),
+                    () -> assertFalse(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(rollForward(journal)), audit.events()));
+        }
+
+        @Test
+        @DisplayName("is never an invariant violation, whatever became of its store")
+        void neverViolating() throws Exception {
+            var journal = stopDeleteAt(Step.JOURNAL, 0);
+            Files.write(store(STATUS), bytes(NEW_STATUS));
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new RolledForward(journal, List.of(STATUS, REFERENCES)), outcome),
+                    () -> assertFalse(Files.exists(store(STATUS)), "a store present after the journal is removed"));
+        }
+
+        @Test
+        @DisplayName("recovered again changes no byte and records no second roll-forward")
+        void idempotent() throws Exception {
+            stopDeleteAt(Step.JOURNAL, 0);
+            recover();
+            var recovered = snapshot(scope.pathBase());
+
+            var second = recover();
+            var third = recover();
+
+            assertAll(
+                    () -> assertEquals(new NothingToRecover(List.of()), second),
+                    () -> assertEquals(new NothingToRecover(List.of()), third),
+                    () -> assertEquals(recovered, snapshot(scope.pathBase())),
+                    () -> assertEquals(1, rolledForward().size()));
+        }
+
+        @Test
+        @DisplayName("whose journal is torn is refused and left in place, and its store is not removed")
+        void tornJournal() throws Exception {
+            var journal = stopDeleteAt(Step.JOURNAL, 0);
+            var document = journal.write();
+            var torn = Arrays.copyOf(document, document.length / 2);
+            Files.write(scope.journalFile(), torn);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> recover());
+
+            assertAll(
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(scope.journalFile(), refusal.file()),
+                    () -> assertArrayEquals(torn, Files.readAllBytes(scope.journalFile()), "the journal is kept"),
+                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
+                            "nothing is deleted on a journal that cannot be read"),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+
+        @Test
+        @DisplayName("stopped before its journal leaves the store and its digest as they were")
+        void beforeJournal() throws Exception {
+            var before = snapshot(scope.pathBase());
+            ScopeTransaction.StepHook hook = (step, target) -> {
+                if (step == Step.STAGE) {
+                    throw new StopWrite(step, target);
+                }
+            };
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, hook);
+                write.delete(STATUS);
+                assertThrows(StopWrite.class, write::commit);
+            }
+
+            var outcome = recover();
+
+            assertAll(
+                    () -> assertEquals(new NothingToRecover(List.of()), outcome),
+                    () -> assertEquals(before, snapshot(scope.pathBase())),
+                    () -> assertEquals(List.of(), audit.events()));
+        }
+    }
+
     @Nested
     @DisplayName("a journal that cannot be rolled forward")
     class Violations {

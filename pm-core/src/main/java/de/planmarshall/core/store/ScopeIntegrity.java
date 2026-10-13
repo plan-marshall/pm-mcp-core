@@ -37,7 +37,9 @@ import de.planmarshall.core.store.JournalRecovery.InvariantViolation;
  * differs, and every store while a journal exists, as {@link StoreIntegrity#DIGEST_UNVERIFIED}.
  * <p>
  * A digest is recorded only through the transaction journal of the scope, so {@link #rebaseline} re-records one by a
- * {@link ScopeTransaction} that replaces the store by its own current bytes.
+ * {@link ScopeTransaction} that replaces the store by its own current bytes. A store that a transaction deleted has
+ * neither a file nor a sidecar entry, which is consistent ({@link Absent}): only a store whose entry outlives its file
+ * is a {@link Mismatch}.
  *
  * @since 0.1
  */
@@ -52,7 +54,7 @@ public class ScopeIntegrity {
      *
      * @since 0.1
      */
-    public sealed interface Verification permits Verified, Mismatch, Untracked, InvariantViolation {
+    public sealed interface Verification permits Verified, Absent, Mismatch, Untracked, InvariantViolation {
     }
 
     /**
@@ -68,6 +70,21 @@ public class ScopeIntegrity {
         public Verified {
             Objects.requireNonNull(store, STORE);
             Objects.requireNonNull(digest, "digest");
+        }
+    }
+
+    /**
+     * The store does not exist and the sidecar has no entry for it: no transaction wrote it, or a transaction deleted
+     * it and dropped its entry. The two agree, so the store is consistent and never evidence of an edit.
+     *
+     * @param store the store, relative to the path base of the scope
+     * @since 0.1
+     */
+    public record Absent(String store) implements Verification {
+
+        /** @throws NullPointerException if the store is {@code null} */
+        public Absent {
+            Objects.requireNonNull(store, STORE);
         }
     }
 
@@ -91,7 +108,8 @@ public class ScopeIntegrity {
     }
 
     /**
-     * The sidecar has no entry for the store: no transaction of the scope wrote it, so there is nothing to compare.
+     * The store exists, but the sidecar has no entry for it: no transaction of the scope wrote it, so there is nothing
+     * to compare.
      *
      * @param store the store, relative to the path base of the scope
      * @since 0.1
@@ -230,7 +248,8 @@ public class ScopeIntegrity {
     private static Verification compare(JournalScope scope, DigestSidecar sidecar, String relativePath) {
         var recorded = sidecar.digest(relativePath);
         if (recorded.isEmpty()) {
-            return new Untracked(relativePath);
+            return Files.exists(scope.resolve(relativePath), LinkOption.NOFOLLOW_LINKS) ? new Untracked(relativePath)
+                    : new Absent(relativePath);
         }
         Optional<StoreDigest> current;
         try {

@@ -112,6 +112,17 @@ public record DigestSidecar(SortedMap<String, StoreDigest> stores) {
         return new DigestSidecar(changed);
     }
 
+    /**
+     * @param path the path of a store that a transaction deleted, relative to the path base of the scope
+     * @return a sidecar without an entry for the store, and every other digest unchanged; equal to this one if it
+     *         has no entry for the store
+     */
+    public DigestSidecar without(String path) {
+        var changed = new TreeMap<>(stores);
+        changed.remove(Objects.requireNonNull(path, "path"));
+        return new DigestSidecar(changed);
+    }
+
     /** @return the document, UTF-8 encoded, with the entries in the sorted order of their paths */
     public byte[] write() {
         var out = new ByteArrayOutputStream();

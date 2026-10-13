@@ -31,7 +31,9 @@ import de.planmarshall.core.log.PmMcpLogMessages.WARN;
  * The periodic sweep of the runtime over the enrolled projects
  * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery): every {@link #INTERVAL} it
  * runs each {@link SweepStep} for each project of {@link EnrolledProjects}, with the pending entry records older than
- * {@link #PENDING_ENTRY_MAX_AGE} as the ones to remove. Both durations are compiled constants and not configurable.
+ * {@link #PENDING_ENTRY_MAX_AGE} and the session generations fenced longer ago as the ones to remove
+ * ({@link PendingEntryRecordsSweep}, {@link FencedSessionGenerationsSweep}). Both durations are compiled constants and
+ * not configurable.
  * <p>
  * A project whose recovery has not finished is skipped in a run and taken up by the next; a project whose recovery
  * failed is skipped as well, because its stores wait for the integrity breach to be resolved. A failing step, one
@@ -48,7 +50,7 @@ public final class PeriodicSweep {
     /** The interval of the sweep. */
     public static final Duration INTERVAL = Duration.ofSeconds(3600);
 
-    /** The age from which a pending entry record is removed. */
+    /** The age from which a pending entry record is removed, and a session generation fenced that long ago. */
     public static final Duration PENDING_ENTRY_MAX_AGE = Duration.ofSeconds(86400);
 
     private final EnrolledProjects enrolled;

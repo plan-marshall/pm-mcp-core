@@ -100,6 +100,23 @@ class PmMcpLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> sessionLogAndGenerationsRecords() {
+        return Stream.of(
+                Arguments.of(PmMcpLogMessages.INFO.PENDING_ENTRY_RECORDS_SWEPT, "PM_MCP-65",
+                        "Periodic sweep removed %s pending entry records of project '%s'"),
+                Arguments.of(PmMcpLogMessages.INFO.FENCED_SESSION_GENERATIONS_SWEPT, "PM_MCP-66",
+                        "Periodic sweep removed %s fenced session generations of project '%s'"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("sessionLogAndGenerationsRecords")
+    @DisplayName("the records of the two sweep steps of the session log and the session generations")
+    void sessionLogAndGenerations(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     private static List<LogRecord> records(String level) throws ReflectiveOperationException {
         var holder = Class.forName(PmMcpLogMessages.class.getName() + "$" + level);
         var records = new ArrayList<LogRecord>();

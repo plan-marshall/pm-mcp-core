@@ -106,6 +106,71 @@ class AuditEventTest {
         }
     }
 
+    @Test
+    @DisplayName("a removed pending entry record names the entry, its store, its creation instant and the transaction")
+    void pendingEntryRemoved() {
+        var event = AuditEvent.pendingEntryRemoved("ent-0123abcd", "pending/ent-0123abcd.json",
+                "2026-10-13T08:00:00Z", TRANSACTION_ID);
+
+        assertAll(
+                () -> assertEquals("pending_entry_removed", event.event()),
+                () -> assertEquals(AuditEvent.PENDING_ENTRY_REMOVED, event.event()),
+                () -> assertEquals("store", event.category()),
+                () -> assertEquals("succeeded", event.outcome()),
+                () -> assertEquals(Map.of("entry_id", "ent-0123abcd", "store", "pending/ent-0123abcd.json",
+                        "created_at", "2026-10-13T08:00:00Z", "transaction_id", TRANSACTION_ID), event.details()),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved(null, "s", "c", TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved("e", null, "c", TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved("e", "s", null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved("e", "s", "c", null)));
+    }
+
+    @Nested
+    @DisplayName("client change of a session log")
+    class EntryClientChanged {
+
+        @Test
+        @DisplayName("is a succeeded identity event naming both clients, both session ids and the transaction")
+        void withSessionIds() {
+            var event = AuditEvent.entryClientChanged("claude", "opencode", "session-1", "session-2", TRANSACTION_ID);
+
+            assertAll(
+                    () -> assertEquals("entry_client_changed", event.event()),
+                    () -> assertEquals(AuditEvent.ENTRY_CLIENT_CHANGED, event.event()),
+                    () -> assertEquals("identity", event.category()),
+                    () -> assertEquals("succeeded", event.outcome()),
+                    () -> assertEquals(Map.of("previous_client", "claude", "client", "opencode",
+                            "previous_client_session_id", "session-1", "client_session_id", "session-2",
+                            "transaction_id", TRANSACTION_ID), event.details()));
+        }
+
+        /** The matched case to the one above: a host without a session id leaves its detail out. */
+        @Test
+        @DisplayName("leaves a session id out that the host did not provide")
+        void withoutSessionIds() {
+            var event = AuditEvent.entryClientChanged("codex", "neutral", null, null, TRANSACTION_ID);
+
+            assertEquals(Map.of("previous_client", "codex", "client", "neutral", "transaction_id", TRANSACTION_ID),
+                    event.details());
+        }
+
+        @Test
+        @DisplayName("refuses a missing client or transaction")
+        void missing() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.entryClientChanged(null, "claude", null, null, TRANSACTION_ID)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.entryClientChanged("claude", null, null, null, TRANSACTION_ID)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> AuditEvent.entryClientChanged("claude", "codex", null, null, null)));
+        }
+    }
+
     @Nested
     @DisplayName("enrolment events")
     class Enrolment {

@@ -1,0 +1,163 @@
+= Sweep Steps of the Periodic Sweep (`runtime.start`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/start
+:test: ../../src/test/java/de/planmarshall/runtime/start
+
+== Purpose
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
+
+Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
+periodic sweep of the runtime; they are described in link:{docs}/developer/runtime-lifecycle.adoc[Developer Guide §
+Runtime Lifecycle]. This guide covers what the work package `session-log-and-generations` added to it: the two steps of
+the periodic sweep, which remove what has aged out of the stores the package added in `pm-core`.
+
+* `PendingEntryRecordsSweep` removes the pending entry records of the workspace scope older than the pending entry
+  record maximum age.
+* `FencedSessionGenerationsSweep` removes the session generations fenced longer ago than the same age.
+
+The periodic sweep has no seam factory any more: the two steps are real classes, and the assembly `pm-mcp-server`
+registers them when it builds the `PeriodicSweep`
+(link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
+
+== Core Types
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+[horizontal]
+`PeriodicSweep`:: Runs every step for every enrolled project whose recovery has finished, once per `INTERVAL` (3600
+seconds), handing each step the instant `PENDING_ENTRY_MAX_AGE` (86400 seconds) before the run. Both durations are
+compiled constants. A failed step is logged at WARN as `PM_MCP-159` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither
+the other steps nor the other projects.
+`SweepStep`:: The contract of a step: its `Name` and `run(projectId, olderThan)`, which reports a
+`RecoveryStep.Outcome` (`Done` with a report, or `Failed` with a reason it can name), never an exception for a failure
+it can name.
+`SweepStep.Name`:: The closed set of steps: `PENDING_ENTRY_RECORDS` and `FENCED_SESSION_GENERATIONS`.
+`PendingEntryRecordsSweep`:: The step `PENDING_ENTRY_RECORDS`, over `PendingEntryStore` of `core.store`.
+`FencedSessionGenerationsSweep`:: The step `FENCED_SESSION_GENERATIONS`, over `SessionGenerationStore` of `core.queue`.
+
+=== Component Interaction
+
+[source]
+----
+PeriodicSweep.runOnce(now)            olderThan = now - PENDING_ENTRY_MAX_AGE
+  for each enrolled, recovered project:
+    ├─ PendingEntryRecordsSweep.run(projectId, olderThan)
+    │    PendingEntryStore.entryIds()                      (lock-free, only names that parse as entry ids)
+    │    workspace lock ─► ScopeTransaction of the workspace
+    │      for each record created before olderThan:
+    │        PendingEntryStore.remove(transaction, id)     (delete target)
+    │        transaction.owe(pending_entry_removed)        (one audit record per record)
+    │      commit (journal, apply, digests, close: owed records handed over)
+    │    ──► Done("removed N pending entry records") | Failed(unreadable records kept, or the write failed)
+    │
+    └─ FencedSessionGenerationsSweep.run(projectId, olderThan)
+         SessionGenerationStore.removeFencedOlderThan(olderThan)   (queue lock, one atomic write)
+         ──► Done("removed N fenced session generations") | Failed(record refused or not written)
+----
+
+== The Pending-Record Step
+
+_Requirements:_ link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+The only evidence that nobody will come back for a pending entry record is its age, the creation instant the record
+states. The step lists the candidates without a lock, then opens one lock transaction on the workspace lock and one
+`ScopeTransaction` of the workspace, and decides on each record as it reads it under that lock, so a record created or
+replaced meanwhile is judged as it is now.
+
+* A record created before the instant is removed as a delete target of that transaction, and the transaction owes one
+  `pending_entry_removed` record (category `store`, details `entry_id`, `store`, `created_at` and `transaction_id`)
+  for it (link:../adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR 001]).
+* A younger record is kept, and so is one created exactly at the instant.
+* A file of `pending/` whose name does not parse as an entry id is never listed, so it is never selected.
+* A record that cannot be read states no age: it is kept, and the step reports a failure naming it after the readable
+  old records were removed.
+* All removals of a run are one transaction, committed only if a record is removed. A stopped removal is completed by
+  the recovery of the workspace, which hands the owed records over again.
+* A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
+
+A run that removed records logs `PM_MCP-65` (`PENDING_ENTRY_RECORDS_SWEPT`) with the count and the project.
+
+== The Fenced-Generation Step
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+The evidence is a fence and its age: a current generation is never removed, and neither is one fenced at or after the
+instant. The removal is one write of the record under the queue lock
+(`SessionGenerationStore.removeFencedOlderThan`); a project without a record has nothing to remove, and a call that
+carries a removed generation finds it unknown. A run that removed entries logs `PM_MCP-66`
+(`FENCED_SESSION_GENERATIONS_SWEPT`). A record that is refused (another format version, unreadable) or cannot be
+written is a failure of the step, reported with the refusal code.
+
+== Registering the Steps
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+The package ships no seam factory and no default list of steps. The caller, the assembly `pm-mcp-server` of
+`plan-marshall-mcp`, builds both steps from the runtime's base directory, lock manager, audit sink and clock and hands
+them to the sweep in the order they run:
+
+[source,java]
+----
+List<SweepStep> steps = List.of(
+        new PendingEntryRecordsSweep(base, lockManager, auditSink, clock),
+        new FencedSessionGenerationsSweep(base, lockManager, clock));
+var sweep = new PeriodicSweep(enrolledProjects, projectRecovery::isRecovered, steps, clock);
+sweep.start(executor);     // first run one INTERVAL from now; stop() for the drain
+----
+
+`RecoveryStep.notImplemented` stays: the per-project recovery still has steps that are named seams. Only the sweep side
+lost its factory.
+
+== Testing
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+The tests run on the JVM over a test base with the file lock manager of the runtime and the recording audit sink of
+`RecoveryStepFixtures`; no test double replaces a store.
+
+[horizontal]
+link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: An old record removed with its audit
+record and the INFO record of the run, a young one and one created at the instant kept, a name that is no entry id
+never touched however old, an unreadable record kept and reported as a failure, and a workspace journal still to
+recover reported as a failure with nothing removed.
+link:{test}/FencedSessionGenerationsSweepTest.java[`FencedSessionGenerationsSweepTest`]:: A generation fenced before
+the instant removed and then unknown; one fenced later and the current ones kept; an old current generation never
+removed; a project without a record; a record of another format version reported as a failure and left as it is.
+link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skipped projects and the failing steps,
+with recording steps.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+1. **Age is the only evidence**: never select a record because its name does not parse or its content is odd; an
+   unreadable record is kept and reported. A name that is no entry id is not an entry.
+2. **Decide under the lock**: the lock-free listing names candidates only; the age is read again under the workspace
+   lock before a record is removed.
+3. **Remove through the journal**: a record removed outside the workspace transaction leaves its sidecar entry behind
+   and is reported as tampered; the delete target drops both together.
+4. **One audit record per removed record, owed by the transaction**: append nothing to the audit log after the commit;
+   the owed record is handed over at least once, also after a crash.
+5. **Fence age, not issue age**: a generation is removed by the age of its fence; a current generation is never old
+   enough.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
+
+* Specification: link:{spec}/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
+  Sweep], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry Record
+  Maximum Age], link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending
+  Entry Record], link:{spec}/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session
+  Generation Record]
+* Stores: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (delete mode, pending entry record),
+  link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`] (session generations)
+* Decisions: link:../adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR 001],
+  link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]

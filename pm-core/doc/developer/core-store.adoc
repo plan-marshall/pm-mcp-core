@@ -1,4 +1,4 @@
-= Workflow State Store and Engine Ports (`core.store`, `core.spi`) Developer Guide
+= Scope Stores and Engine Ports (`core.store`, `core.spi`) Developer Guide
 :toc:
 :toclevels: 3
 :nofooter:
@@ -6,17 +6,25 @@
 :docs: ../../../../plan-marshall-documentation/doc
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7]_
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{docs}/Requirements.adoc#PM-CLIENT-3[PM-CLIENT-3]_
 
-This guide covers what the work package `workflow-engine` added to `pm-core`: the workflow state store
-`mcp/status.json` in `de.planmarshall.core.store`, and the engine ports in `de.planmarshall.core.spi` through which the
-workflow engine of `pm-workflow` causes and observes what lies outside that store. Every run state of a plan, an epic
-or the workspace lives in the status document, so a killed run resumes where it stopped.
+This guide covers the stores of a scope that `pm-core` adds on top of the store substrate, and the engine ports:
+
+* the work package `workflow-engine` added the workflow state store `mcp/status.json` in `de.planmarshall.core.store`,
+  and the engine ports in `de.planmarshall.core.spi` through which the workflow engine of `pm-workflow` causes and
+  observes what lies outside that store. Every run state of a plan, an epic or the workspace lives in the status
+  document, so a killed run resumes where it stopped;
+* the work package `session-log-and-generations` added a third target mode to the transaction journal, the delete,
+  and on it the scope session log `sessions.jsonl` and the pending entry record `pending/<entry_id>.json` of the
+  workspace scope. The session generation record of the task queue, which the same package added, lives in
+  `core.queue` and has a guide of its own (link:core-queue.adoc[Session Generations (`core.queue`)]).
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
-not repeated here. The schema of the document is
-link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store].
+not repeated here; this guide describes only what the delete mode changes in it. The schemas of the documents are in
+link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store] and
+link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session
+Log].
 
 == The Workflow State Store
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
@@ -34,7 +42,9 @@ constructor checks every closed value, so a copy with a value outside the schema
 (`FORMAT_VERSION` 1), reads the typed members strictly, each with its one JSON type and its closed values, and
 captures every other declared member verbatim. It writes every member in the order the schema declares it: the typed
 members in one canonical form, the retained members as the bytes they were read with. A document in that form
-round-trips byte for byte.
+round-trips byte for byte. Its readers and writers of a call frame and a condition overlay, and its capture of a raw
+member, are package-private, because the pending entry record holds members of the same shapes
+(<<_pending_entry_record>>).
 `WorkflowStatusStore`:: The store of one `JournalScope` (`mcp/status.json` of a plan, `status.json` of an epic,
 `workspace/mcp/status.json` of the workspace). `read()` takes no lock and reads through `StoreSnapshot`; a store that
 does not exist is reported as `Optional.empty()`, never as an empty status. `write(ScopeTransaction, WorkflowStatus)`
@@ -133,6 +143,223 @@ leaving states within a frame keeps them, and a restart reads the same values fr
 (link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]). The engine counts no retry itself; the retrying
 primitives of later packages count through `RetryCounters`.
 
+[#_delete_mode]
+== The Delete Mode of the Transaction Journal
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+A target of a `ScopeTransaction` replaces a store, appends to a JSONL store, or deletes a store. The delete is what
+removes a store of a scope with the same guarantees as every other write: journaled, applied once, rolled forward
+after a crash, and reflected in the digest sidecar, so a removed store is never mistaken for an edit outside a
+transaction. The pending entry record is the first store removed this way
+(link:../adr/core-store/007-delete-mode-of-the-transaction-journal.adoc[ADR 007]).
+
+[horizontal]
+`ScopeTransaction.delete(relativePath)`:: Collects a delete target under the same checks as `replace` and `append`: a
+store of the scope, at most one target per store, so a delete and a replace of the same store in one transaction are
+refused. Deleting a store that does not exist is no error.
+`TransactionJournal.Mode.DELETE`:: The wire name `delete`. A delete target is `{"path", "mode"}` alone: it stages no
+file and leaves no store whose digest could be recorded, so `staged_path`, `size_before`, `new_size` and `new_sha256`
+are absent. A journal that gives a delete target one of them is refused as unreadable.
+`TransactionJournal.Target.delete(path)`:: The one way to build a delete target; the record constructor refuses a
+delete with a staged path, a size before or a new digest.
+`DigestSidecar.without(path)`:: The sidecar without the entry of a deleted store, every other digest unchanged.
+`ScopeIntegrity.Absent`:: The verification of a store that has neither a file nor a sidecar entry. That is the state a
+completed delete leaves, and it is consistent: only a sidecar entry that outlives its file is a `Mismatch`.
+
+The journal is written in `format_version` 3 (`TransactionJournal.FORMAT_VERSION`). A journal of version 1 (no owed
+audit records) or version 2 (no delete target) is refused as outdated; there is no reader for the older shapes.
+
+=== The Five Steps for a Delete
+
+[cols="1,4"]
+|===
+|Step |What a delete target does
+
+|Stage |Nothing is staged. `TransactionId.stagedName` refuses the delete mode, so no staged name can be derived for it.
+|Journal |The target is written into the journal like every other; from here on the delete is completed by the recovery.
+|Apply |The store is removed if it exists (`Files.deleteIfExists`) and its directory is forced to disk.
+|Digests |The entry of the store is dropped from the sidecar; the digests of the other stores stay as they are.
+|Close |The owed audit records are handed over and the journal is deleted, as for every transaction.
+|===
+
+=== Recovery
+
+`JournalRecovery` decides a delete target idempotently. It is *applied* when its store is absent, and it is always
+*appliable*: a store still present is removed. A delete target is therefore never reported as an invariant violation,
+and applying it a second time changes nothing. The check for links below the path base covers only the store path of a
+delete, since it has no staged path. The digests step of the recovery drops the entry as the commit does.
+
+=== Invariants
+
+* *One lock*: a delete is a check-then-act on the store and on its sidecar entry. It runs only inside a
+  `ScopeTransaction` whose `LockTransaction` holds the scope lock, the same serialization every other target relies on.
+* *Absent and untracked agree*: after a completed delete the store has neither file nor sidecar entry, and
+  `ScopeIntegrity` verifies it `Absent`; a store whose file is gone while its entry remains is still a `Mismatch`, and a
+  file without an entry is still `Untracked`.
+* *No shim*: a version-2 journal is refused as outdated, as version 1 is; the drain rule of the specification applies to
+  an upgrade.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A crash after the stage step of a transaction with a delete target
+|The journal was not written: the store and its digest are unchanged, and the recovery has nothing to complete for the
+delete.
+
+|A crash after the journal, apply or digests step
+|`JournalRecovery` removes the store if it is still present and drops its sidecar entry; the owed audit records are
+handed over again.
+
+|A journal of version 2 is found
+|It is refused as outdated (`format_outdated`); nothing is applied.
+
+|A delete target in a journal carries a staged path, a size before or a digest
+|The journal is refused as unreadable.
+|===
+
+Tested by `TransactionJournalTest` (round trip of a delete target, version 2 refused, a delete target with staged
+members refused), `ScopeTransactionTest` (a delete stopped after each step through the step hook, the delete of an
+absent store, a delete and a replace of one store refused), `JournalRecoveryTest` (a half-applied delete with the store
+present and absent, a torn journal of a delete, a repeated recovery), `DigestSidecarTest` and `ScopeIntegrityTest`.
+
+[#_scope_session_log]
+== The Scope Session Log
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-CLIENT-3[PM-CLIENT-3]_
+
+Every plan, epic and workspace scope keeps the history of the sessions that entered it in `sessions.jsonl`: one row
+per `pm-mcp enter`, appended and never changed. The log is history and audit data; no call resolves anything from it.
+
+[horizontal]
+`ScopeSessionRow`:: One entry row in `format_version` 1: the client session id, the declared and the detected client,
+the environment match tier, the client build, the model family, id and source, the runtime and bundle versions, the
+project id, where the session entered from (`main_checkout` or `worktree`), the worktree name, the generation id the
+entry issued and the entry instant. The constructor checks the two coupled rules of the schema: a worktree name is
+present exactly when the session entered from a worktree, and an unknown model has neither family nor id while a known
+model has its family. No component holds a path of a checkout: a worktree is named, never located.
+`ScopeSessionRowCodec`:: Reads and writes one row over `StrictJson`: exactly the declared members, each once, every
+required member, the current version. A refused line names its file and line.
+`ScopeSessionLog`:: The log of one `JournalScope`: `sessions.jsonl` at the path base of a plan or an epic,
+`workspace/sessions.jsonl` for the workspace. The lesson store has no log.
+`ScopeSessionLog.Rows`:: What a read found: one entry per complete line, each a row or a refused line with its line
+number, and the offset of a torn tail apart from them. `latest()` is the last row read.
+
+[source]
+----
+caller: LockTransaction (scope lock) ──► ScopeTransaction.open
+ScopeSessionLog.append(transaction, row)
+   ├─ ScopeSessionRowCodec.write(row) + "\n" ──► transaction.append("sessions.jsonl")
+   └─ latest row declares another client? ──yes──► transaction.owe(AuditEvent.entryClientChanged(...))
+caller: transaction.commit()  ──► journal, apply (torn tail repaired first), digests, close (audit records handed over)
+----
+
+=== Invariants
+
+* *Append-only through the scope's transaction*: `append` adds one append target to the caller's transaction and never
+  commits on its own; a transaction of another scope is refused. The JSONL discipline of the substrate repairs a torn
+  tail before the append, and the scope's digest sidecar covers the log.
+* *The client change is part of the row's transaction*: when the row declares another client than the latest row, the
+  same transaction owes `entry_client_changed` (category `identity`, details `previous_client`, `client`,
+  `previous_client_session_id`, `client_session_id` where present, and the `transaction_id`). The record is handed over
+  once the row is applied, or by the next recovery of the scope; a row without its record cannot occur
+  (link:../adr/core-store/009-entry-client-changed-written-in-the-log-append.adoc[ADR 009]). The first row of a log and a
+  row of the same client owe none.
+* *Decided under the lock*: the comparison with the latest row is made while the caller's transaction holds the scope
+  lock, so no other append comes between the comparison and the write.
+* *Lock-free reads never see a part of a row*: `read()` reports an append in progress as a torn tail, never as a row,
+  and a refused line keeps its line number while the rows around it stay readable.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A line of the log is unreadable or of another format version
+|`read()` reports it as a refused entry with its line number; the other rows are read.
+
+|The last line has no newline (a torn append)
+|`read()` reports its offset as the torn tail; the next append repairs it first.
+
+|The append stops at any step
+|The recovery of the scope completes or discards the row together with its owed record.
+
+|A transaction of another scope, or a second append of the log in one transaction
+|`append` throws `IllegalArgumentException`; nothing is added.
+|===
+
+Tested by `ScopeSessionRowCodecTest`, `ScopeSessionLogTest` (append-only across appends, a torn tail read back as tail
+with every earlier row intact, a refused row with its line, one owed `entry_client_changed` for a client change and
+none for the same client, the crash points of the append) and `ScopeSessionRowSchemaParityTest`, which compares the
+codec with the schema of the specification and asserts that no member of a row holds a path.
+
+[#_pending_entry_record]
+== The Pending Entry Record
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+A `pm-mcp enter` on a plan or an epic that does not exist yet records what the user named in a pending entry record
+`pending/<entry_id>.json` of the workspace scope. The record is the state store of that entry's bootstrap until a
+terminal of the bootstrap, or the pending-record sweep, removes it.
+
+[horizontal]
+`EntryId`:: `ent-` and 8 to 32 lower-case hexadecimal digits; a new id has 16 random digits. `ofFileName` parses the
+name of a record; a name that does not parse is never an entry id.
+`PendingEntryRecord`:: The typed envelope: id, kind (`plan` or `epic`), `requested_id` and `hint` as given, the parent
+epic of a server-started plan, the creation and update instants, and the entry row (`ScopeSessionRow`, `null` for a
+plan the server starts for an epic row). `createdBefore(instant)` is the age the sweep compares.
+`PendingEntryRecord.Bootstrap`:: The bootstrap state. The members the engine owns are typed in the shapes of the
+workflow state store: the state, the call frames and the condition overlay, and the reason of the last refused
+re-check. `facts`, `source` and `options` are kept as the raw JSON text they were read with
+(link:../adr/core-store/008-pending-entry-record-engine-owned-members-typed.adoc[ADR 008]).
+`PendingEntryCodec`:: Reads and writes the record over `StrictJson` in `format_version` 1; the raw members are written
+back byte for byte. It reuses the call-frame, condition and raw-member helpers of `WorkflowStatusCodec`.
+`PendingEntryStore`:: The records of one workspace scope: `allocate`, `create`, `replace` and `remove` as targets of
+the caller's workspace `ScopeTransaction`, `read` and `entryIds` without a lock.
+
+=== Invariants
+
+* *Journaled under the workspace lock*: a record is created or replaced as a replace target and removed as a delete
+  target (<<_delete_mode>>), so it is covered by the workspace's digest sidecar and a removed record verifies `Absent`.
+* *A fresh id per entry*: `allocate` draws an id and redraws while it names a record present or a record the same
+  transaction already writes; the caller creates the record in that transaction under the same lock, so two
+  concurrent entries never share a record.
+* *Only entry ids are entries*: `entryIds()` lists the regular files of `pending/` whose name parses as
+  `<entry_id>.json`; a staged file, a foreign file or a link is never listed, and no sweep selects it.
+* *`create` and `replace` know the record*: `create` refuses an id whose record exists, `replace` one whose record does
+  not; `remove` of an absent record is no error and reports that it was absent.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A record is unreadable or of another format version
+|`read` throws a `StoreRefusal` naming the file; the record is not touched.
+
+|The directory `pending/` does not exist
+|`entryIds()` is empty.
+
+|A transaction of another scope
+|Every writing method throws `IllegalArgumentException`; nothing is added.
+|===
+
+Tested by `PendingEntryCodecTest` (round trip with byte-identical raw members, refusals), `PendingEntryStoreTest`
+(create, replace, read and remove, the removal of an absent record, two concurrent entries with two distinct records,
+names that do not parse never listed) and `PendingEntrySchemaParityTest`.
+
+== Reading Helpers Shared with `core.queue`
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+The session generation record of `core.queue` is read with the same strictness as every store of this package. Its
+codec uses `StrictJson` directly: the reading entry `read(file, document, current, reader)`, the field helpers, the
+refusals `unreadable` and `undeclared`, and the instant reader and writer are public API of `core.store`. A `Malformed`
+thrown by a helper is caught by `read` and becomes the `StoreRefusal` naming the file. `LockKey.projectStore(base,
+projectId)` is public so the queue resolves `projects/<project_id>/queue/` with the one path grammar of the locks
+(link:../adr/core-queue/002-substrate-codec-helpers-shared-with-core-queue.adoc[ADR core-queue/002]).
+
 == Engine Ports
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
 
@@ -155,6 +382,23 @@ closes such a task `lost`.
 
 `EnginePortsTest` guards the identifier grammars and the tri-state read.
 
+== Testing
+
+The tests run on the JVM over stores in a temporary base. The schema parity tests (`ScopeSessionRowSchemaParityTest`,
+`PendingEntrySchemaParityTest`) read the JSON schema from the documentation checkout named by the system property
+`pm.documentation.root` (`SpecificationDocument`), by default `../plan-marshall-documentation` beside the repository.
+Without the checkout they are skipped with the missing path named, never passed unseen; a build in a worktree that is
+not beside the checkout passes `-Dpm.documentation.root=<path>` to run them.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
+  Store], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas §
+  Transaction Journal], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store
+  Schemas § Scope Session Log], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store
+  Schemas § Pending Entry Record]
+* Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
+
 == Decisions
 
 * link:../adr/core-store/001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]: only the engine-owned members
@@ -166,3 +410,9 @@ closes such a task `lost`.
   `retry_counters`.
 * link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]: who clears a retry count, and when.
 * link:../adr/core-store/006-retry-counter-key-list.adoc[ADR 006]: the closed key list of `retry_counters`.
+* link:../adr/core-store/007-delete-mode-of-the-transaction-journal.adoc[ADR 007]: the journal gets a delete target
+  now, in format version 3, without a reader for version 2.
+* link:../adr/core-store/008-pending-entry-record-engine-owned-members-typed.adoc[ADR 008]: of the pending entry record,
+  the envelope and the engine-owned members are typed, `facts`, `source` and `options` kept raw.
+* link:../adr/core-store/009-entry-client-changed-written-in-the-log-append.adoc[ADR 009]: `entry_client_changed` is
+  owed by the transaction that appends the row.

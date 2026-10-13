@@ -64,11 +64,14 @@
  * <p>
  * The periodic sweep ({@link de.planmarshall.runtime.start.PeriodicSweep}) runs every hour
  * ({@link de.planmarshall.runtime.start.PeriodicSweep#INTERVAL}, 3600 seconds) over the enrolled projects whose
- * recovery has finished; a project still recovering is taken up by the next run. Its steps
- * ({@link de.planmarshall.runtime.start.SweepStep}) remove pending entry records older than
- * {@link de.planmarshall.runtime.start.PeriodicSweep#PENDING_ENTRY_MAX_AGE} (86400 seconds) and fenced session
- * generations; both are named seams until the pending store and the queue exist. Both durations are compiled
- * constants, not configuration. A failing step is logged and does not stop the run; the drain stops the schedule.
+ * recovery has finished; a project still recovering is taken up by the next run. Its two steps
+ * ({@link de.planmarshall.runtime.start.SweepStep}) are
+ * {@link de.planmarshall.runtime.start.PendingEntryRecordsSweep}, which removes the pending entry records older than
+ * {@link de.planmarshall.runtime.start.PeriodicSweep#PENDING_ENTRY_MAX_AGE} (86400 seconds) in one transaction of the
+ * workspace scope, one owed {@code pending_entry_removed} audit record per record, and
+ * {@link de.planmarshall.runtime.start.FencedSessionGenerationsSweep}, which removes the session generations fenced
+ * longer ago under the queue lock. The assembly registers both. Both durations are compiled constants, not
+ * configuration. A failing step is logged and does not stop the run; the drain stops the schedule.
  * <p>
  * The version-mismatch detection ({@link de.planmarshall.runtime.start.RelayVersionCheck}) compares the
  * {@code PM-MCP-Relay-Version} header of every relayed request with the version of the runtime; a request without

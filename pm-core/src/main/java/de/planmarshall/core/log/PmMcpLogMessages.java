@@ -206,6 +206,28 @@ public final class PmMcpLogMessages {
                 .identifier(64)
                 .template("Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'")
                 .build();
+
+        // WS-02, session log and generations: identifiers 65-69
+
+        /**
+         * Logged when the periodic sweep removed the pending entry records of a project older than the pending entry
+         * record maximum age, each with its {@code pending_entry_removed} audit record.
+         */
+        public static final LogRecord PENDING_ENTRY_RECORDS_SWEPT = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(65)
+                .template("Periodic sweep removed %s pending entry records of project '%s'")
+                .build();
+
+        /**
+         * Logged when the periodic sweep removed the entries of a project's session generation record fenced before
+         * the pending entry record maximum age.
+         */
+        public static final LogRecord FENCED_SESSION_GENERATIONS_SWEPT = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(66)
+                .template("Periodic sweep removed %s fenced session generations of project '%s'")
+                .build();
     }
 
     /** WARN level messages. */

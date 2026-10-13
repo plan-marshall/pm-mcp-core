@@ -147,6 +147,42 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
+     * The name of the event that records an entry row of a scope session log whose declared client differs from the
+     * client of the previous row.
+     */
+    public static final String ENTRY_CLIENT_CHANGED = "entry_client_changed";
+
+    /** The category of the events of the identity of the sessions that enter a scope. */
+    public static final String CATEGORY_IDENTITY = "identity";
+
+    /** The detail of a client change that names the client the previous row declared. */
+    public static final String DETAIL_PREVIOUS_CLIENT = "previous_client";
+
+    /** The detail of a client change that names the client the new row declares. */
+    public static final String DETAIL_CLIENT = "client";
+
+    /** The detail of a client change that holds the host session id of the previous row; left out when it had none. */
+    public static final String DETAIL_PREVIOUS_CLIENT_SESSION_ID = "previous_client_session_id";
+
+    /** The detail of a client change that holds the host session id of the new row; left out when it has none. */
+    public static final String DETAIL_CLIENT_SESSION_ID = "client_session_id";
+
+    /**
+     * The name of the event that records a pending entry record removed by the pending-record sweep because it is
+     * older than the pending entry record maximum age.
+     */
+    public static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
+
+    /** The detail of a removed pending entry record that names the entry by its id. */
+    public static final String DETAIL_ENTRY_ID = "entry_id";
+
+    /** The detail of a removed pending entry record that holds the instant the record was created. */
+    public static final String DETAIL_CREATED_AT = "created_at";
+
+    /** The name of the transaction id argument, as a null check reports it. */
+    private static final String TRANSACTION_ID_ARGUMENT = "transactionId";
+
+    /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
      */
     public AuditEvent {
@@ -213,6 +249,56 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         return new AuditEvent(CROSS_SCOPE_RECONCILED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_RECONCILIATION, reconciliation, DETAIL_STORE, store, DETAIL_TRANSACTION_ID,
                         transactionId));
+    }
+
+    /**
+     * The {@code identity} record a scope session log owes when an entry row declares another client than the row
+     * before it. It changes nothing else; it is owed by the transaction that appends the row.
+     *
+     * @param previousClient          the client the previous row declared, by its wire name
+     * @param client                  the client the new row declares, by its wire name
+     * @param previousClientSessionId the host session id of the previous row; {@code null} leaves the detail out
+     * @param clientSessionId         the host session id of the new row; {@code null} leaves the detail out
+     * @param transactionId           the transaction that appends the row, by which a record handed over again is
+     *                                recognised as the same
+     * @return the record of the client change
+     * @throws NullPointerException if a client or the transaction id is {@code null}
+     */
+    public static AuditEvent entryClientChanged(String previousClient, String client, String previousClientSessionId,
+            String clientSessionId, String transactionId) {
+        var details = new HashMap<String, Object>();
+        details.put(DETAIL_PREVIOUS_CLIENT, Objects.requireNonNull(previousClient, "previousClient"));
+        details.put(DETAIL_CLIENT, Objects.requireNonNull(client, DETAIL_CLIENT));
+        if (previousClientSessionId != null) {
+            details.put(DETAIL_PREVIOUS_CLIENT_SESSION_ID, previousClientSessionId);
+        }
+        if (clientSessionId != null) {
+            details.put(DETAIL_CLIENT_SESSION_ID, clientSessionId);
+        }
+        details.put(DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT));
+        return new AuditEvent(ENTRY_CLIENT_CHANGED, CATEGORY_IDENTITY, OUTCOME_SUCCEEDED, details);
+    }
+
+    /**
+     * The record a pending-record sweep owes for every pending entry record it removes, as the evidence of its
+     * removal: the entry, the creation instant the age was measured from, and the store path. It is owed by the
+     * workspace transaction that removes the record.
+     *
+     * @param entryId       the id of the removed entry
+     * @param store         the record, relative to the path base of the workspace scope
+     * @param createdAt     the creation instant of the record, in its one wire shape
+     * @param transactionId the transaction that removes the record, by which a record handed over again is
+     *                      recognised as the same
+     * @return the record of the removal
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public static AuditEvent pendingEntryRemoved(String entryId, String store, String createdAt,
+            String transactionId) {
+        return new AuditEvent(PENDING_ENTRY_REMOVED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
+                Map.of(DETAIL_ENTRY_ID, Objects.requireNonNull(entryId, "entryId"), DETAIL_STORE,
+                        Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
+                        Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
+                        Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
     /**
@@ -315,7 +401,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     private static AuditEvent operatorSucceeded(String event, String projectId, String transactionId) {
         return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_TRANSACTION_ID,
-                        Objects.requireNonNull(transactionId, "transactionId")));
+                        Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
     private static String lockPath(LockKey key) {
