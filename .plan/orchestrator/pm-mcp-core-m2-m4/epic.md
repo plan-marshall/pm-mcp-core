@@ -321,11 +321,25 @@ decision or a dependency outside this repository.
   free numbers after a rebase before push (rule added to the spec). Alternative: leave the slot
   empty. PLAN-40 stays behind PLAN-12 (`core-store.adoc`).
 
+- 2026-10-13 — Operator rule: every landing analysis verifies that all PRs related to the plan,
+  especially its `plan-marshall-documentation` PR, are **merged**, and that their content matches the
+  merged code. Each landing record lists them by number with state and merge time. Applied at once to
+  all shipped plans: the documentation PRs of PLAN-01, 02, 03, 04, 06, 07, 08, 10, 11, 13, 16, 18, 22
+  and 36 (doc #19, 20, 24, 26, 27, 28, 30, 31, 33, 34, 46, 49, 52, 53) are all MERGED; no PR is open
+  in `plan-marshall-documentation`. Gaps found: doc #46 (PLAN-18) merged with its single pre-review
+  commit, so the mandatory `maxLength` of enrolled patterns is not in the specification; PLAN-41,
+  PLAN-44 and PLAN-54 opened no documentation PR, so PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 stay open on
+  documentation main although the verifier implements them.
+
 ## Open Defects
 
+- Documentation behind the code: (a) the Job Runtime specification lacks PLAN-18's mandatory
+  `maxLength` for enrolled patterns (doc #46 merged before the review fixes); (b) the Workflow DSL
+  watch items PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 are still open on documentation main although
+  PLAN-41/44/54 implemented them (no documentation PR). Proposed owner: PLAN-56 (residuals) takes (b);
+  (a) is a small direct documentation PR — source: PR check of 2026-10-13.
+
 - Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
-- The implemented Workflow DSL watch items of PLAN-41 are still open in `plan-marshall-documentation`
-  (no documentation PR) — source: landing PLAN-41.
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
@@ -361,10 +375,6 @@ decision or a dependency outside this repository.
 - `FindingSchemaParityTest` of PLAN-36 and `WorkflowStatusSchemaParityTest` of PLAN-13 read the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
-- `plan-marshall-documentation` #46 (PLAN-18) is open and predates the review fixes (host-tool refusal, `maxLength`, `projectScriptArguments`) — needs a follow-up commit before merge.
-- `plan-marshall-documentation` #52 (PLAN-16) and #34 (PLAN-10) overlap on the static-verifier lines — merge one, rebase the other.
-- Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
-  (PLAN-02) — operator merges. (#33 of PLAN-08 merged.)
 - Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
   `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
   `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).

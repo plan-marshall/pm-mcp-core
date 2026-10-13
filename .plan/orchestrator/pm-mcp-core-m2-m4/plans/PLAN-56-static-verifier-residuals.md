@@ -32,6 +32,8 @@ Re-verify each item against HEAD and the specification (Workflow DSL § Static A
 6. **Rule 3 activation.** Remove the invented all-keys-true activation that ADR 006 itself rejects, or record it as an explicit interim choice in an ADR with the specification issue's link; the issue "define how a `depends_on_config` value activates a guard" must exist in `plan-marshall-documentation` (file it if the operator has not).
 7. **Documentation.** The developer guide's l.12 claim and ADR 001's "each atomic check has one refusing fixture" match the code; name the remaining unchecked parts (Rule 4 worker callees and the consultation-by-id heuristic, the 11a measure inside a callee, the per-phase fallback, escalate by id) as seams in the package file and the guide.
 
+8. **Documentation repository.** Open the documentation PR the verifier plans never opened: retire or trim the Workflow DSL watch items PM-WATCH-DSL-3, 4, 5, 8, 9, 11, 15, 16, 29 and 32 that PLAN-41, PLAN-44, PLAN-54 and this plan implement, in `plan-marshall-documentation` `doc/implementation-watch/workflow-dsl.adoc` and the roadmap item; it must be merged before the landing message (the orchestrator checks it).
+
 **Done when:** each item above is implemented to the specification or named as a seam with an ADR in the package file; each new check has a refusing fixture with an exact assertion and an entry in the `shouldCoverEveryCheck` checklist; no assertion weakened; the four gates green on the pushed head with their logs in the build results.
 
 ## Standing Constraints
