@@ -146,7 +146,7 @@ The invariants are specified in link:../../../../plan-marshall-documentation/doc
 [horizontal]
 `InvariantId`:: The closed list of the 30 invariants, the only source of their vocabulary: `INV-GEN-1` to `5`, `INV-INIT-1` and `2`, `INV-REFINE-1`, `INV-OUTLINE-1` and `2`, `INV-PLAN-1`, `INV-EXEC-1` to `3`, `INV-FIN-1` to `6`, `INV-ADJ-1`, `INV-REPLAN-1`, `INV-GIT-1` and `INV-REM-1` to `7`. Each constant carries its wire id, the patterns of the units it applies to (a unit id, `*` for every unit, or a namespace such as `remediation.*`) and an optional named hook; `ofWireId` finds a constant by its wire id.
 `CompiledInvariants`:: The facade. Built from the `PrimitiveRegistry`, the verified default units and the default finalize roster, it checks one project unit, `check(unit, rules, pipeline)`, against every invariant whose pattern matches the unit's id.
-`InvariantViolation`:: One violation: the `InvariantId`, the state it concerns, its `SourceLocation` and a message; a value, never an exception. It is a record of its own rather than a widened `Violation` (link:../adr/workflow-verify/012-one-checker-per-phase-behind-one-id-list.adoc[ADR 012]).
+`InvariantViolation`:: One violation: the `InvariantId`, the state it concerns, its `SourceLocation` and a message; a value, never an exception. It is a record of its own rather than a widened `Violation` (link:../adr/workflow-verify/013-one-checker-per-phase-behind-one-id-list.adoc[ADR 013]).
 `GeneralInvariants`, `InitInvariants`, `RefineInvariants`, `OutlineInvariants`, `PlanInvariants`, `ExecuteInvariants`, `FinalizeInvariants`, `SubWorkflowInvariants`, `RemediationInvariants`:: One checker class per phase or unit kind, package-private, each contributing the checks of its invariants. `CompiledInvariants` collects them at class load and fails when an invariant has no check or two; `checkedIds()` returns the checked set.
 `DeclarationBounds`:: The compiled declaration schemas and the check of the `declare` and `decide` lines against them (<<_declaration_bounds>>).
 
@@ -170,7 +170,7 @@ No configuration switches a check off, and no check stops at the first violation
 === Named Hooks
 
 The part of an invariant that the syntax tree cannot decide is a named hook: the reason, as a code constant on the `InvariantId` (`namedHook()`), that the part is checked elsewhere.
-The checker checks the tree part of these invariants (link:../adr/workflow-verify/014-tree-checkable-invariants-and-named-hooks.adoc[ADR 014]):
+The checker checks the tree part of these invariants (link:../adr/workflow-verify/015-tree-checkable-invariants-and-named-hooks.adoc[ADR 015]):
 
 [cols="1,2,2",options="header"]
 |===
@@ -192,7 +192,7 @@ The bounds admit the shipped value and stricter ones.
 Every finding has the code `declaration_invalid`, the bound, and the location of the offending `declare` or `decide` line, which the syntax tree records (`ValueDeclaration` and the decision declarations carry their location); a missing declaration is located at the unit header.
 The parser refuses a name or decision kind declared twice before the check runs.
 The nine decision kinds are defined once, as `DecisionDeclaration.DECISION_KINDS` in `workflow.ast`: the parser admits exactly these on a `decide` line, and the bound of a decision-kind declaration admits exactly these values, so the two cannot drift apart; `DeclarationBoundsTest` asserts both against the shared set.
-The class lives in `workflow.verify` because the invariants use it and the loader in `workflow.unit` calls it; in `workflow.unit` it would close a package cycle (link:../adr/workflow-verify/015-declaration-bounds-in-workflow-verify.adoc[ADR 015]).
+The class lives in `workflow.verify` because the invariants use it and the loader in `workflow.unit` calls it; in `workflow.unit` it would close a package cycle (link:../adr/workflow-verify/016-declaration-bounds-in-workflow-verify.adoc[ADR 016]).
 
 === Adding an Invariant
 
@@ -204,7 +204,7 @@ The class lives in `workflow.verify` because the invariants use it and the loade
 
 `WorkflowValidatorTest` counts the refusing fixtures of `src/test/resources/verify/refused` against an enumerated checklist of atomic checks, one fixture per check; each fixture states its expected violations in leading `# expect: <RULE> state <state> line <line>` comments and is refused with exactly those. The checks no fixture can plant and the seams are listed there by name. `every-construct.pmwf` passes every check, and inline units are the matched controls of the exemptions.
 
-`CompiledInvariantsTest` and `DeclarationBoundsTest` run over the units of `src/test/resources/unit-fixtures/defaults/`, which are written for the tests and never copied from the shipped content (link:../adr/workflow-verify/013-invariants-over-test-written-units.adoc[ADR 013]); `InvariantFixtures` loads them with the primitives and entity kinds written for them. Every passing unit passes Rules 1-12 and every invariant; every invariant and every declaration bound has a refusing case at its file and line.
+`CompiledInvariantsTest` and `DeclarationBoundsTest` run over the units of `src/test/resources/unit-fixtures/defaults/`, which are written for the tests and never copied from the shipped content (link:../adr/workflow-verify/014-invariants-over-test-written-units.adoc[ADR 014]); `InvariantFixtures` loads them with the primitives and entity kinds written for them. Every passing unit passes Rules 1-12 and every invariant; every invariant and every declaration bound has a refusing case at its file and line.
 
 == Usage
 
@@ -248,4 +248,4 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
 * Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules], link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units]
-* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 015
+* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 016

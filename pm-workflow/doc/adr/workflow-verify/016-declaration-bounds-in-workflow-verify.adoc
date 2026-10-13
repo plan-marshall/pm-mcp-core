@@ -1,4 +1,4 @@
-= ADR 015: The Declaration Bounds Live in `workflow.verify`
+= ADR 016: The Declaration Bounds Live in `workflow.verify`
 :nofooter:
 
 == Status
