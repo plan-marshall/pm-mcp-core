@@ -9,6 +9,7 @@
  */
 package de.planmarshall.workflow.verify;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -46,6 +47,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -57,9 +59,9 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the released state names from the baseline its caller passes. No check stops at the first violation, so the result
  * lists all of them, ordered by the declaration order of their state and then by rule.
  * <p>
- * Reachability is graph reachability over every transition, enumerated under every
- * configuration combination the guards' {@code depends_on_config} keys admit (Rule 3
- * configuration reachability).
+ * Reachability is graph reachability over every transition. Configuration reachability (Rule 3) enumerates the
+ * Boolean combinations of the guards' {@code depends_on_config} keys and returns a state or transition that some
+ * combinations do not reach as an advisory of the result, not as a violation (ADR 004, ADR 006, ADR 008).
  *
  * @since 0.1
  */
@@ -70,6 +72,32 @@ public final class WorkflowValidator {
      * count as reachable from every state and are exempt from {@link VerificationRule#REACHABILITY}.
      */
     private static final Set<String> ABORT_TERMINALS = Set.of("plan.aborted", "epic.aborted");
+
+    /*
+     * The states the specification names for the firing model of Rule 9 (Workflow DSL, Static AST Verification
+     * Rules, Rule 9 "Once per firing"). They are the only state ids the firing model names; every other opening is
+     * derived from the unit (its start state and the link targets of its STEP_LIST hub), see ADR 007.
+     */
+
+    /** The region entry states, each the beginning state of the steps that share it. */
+    private static final Set<String> REGION_ENTRY_STATES = Set.of("finalize.review-cap-check",
+            "finalize.merge-evidence-wait");
+
+    /** The state of order 70; a firing ends on entry into it. */
+    private static final String MERGE_GATE = "finalize.merge-gate";
+
+    /** The states whose entry records every begun step whose firing is still open as {@code failed}. */
+    private static final Set<String> IMPLICIT_FAILED_STATES = Set.of("plan.aborted", "plan.return",
+            "finalize.hand-back");
+
+    /** The namespace of the remediation units, the only callees whose {@code waived} outcome completes a step. */
+    private static final String REMEDIATION_UNIT_PREFIX = "remediation.";
+
+    /** The control outcome every sub-workflow returns implicitly (Rule 6). */
+    private static final String STEPPED_OUT = "stepped_out";
+
+    /** The fallback states of the plan phases, the only targets of {@code stepped_out} in a plan unit (Rule 6). */
+    private static final Set<String> PHASE_FALLBACK_STATES = Set.of("plan.return", "finalize.hand-back");
 
     private static final Set<String> CONDITION_KINDS = Set.of(
             "integrity_breach", "footprint_violation", "job_incomplete",
@@ -149,7 +177,8 @@ public final class WorkflowValidator {
      * Runs every check over the unit.
      *
      * @param definition the parsed unit
-     * @return every violation of the unit; {@link VerificationResult#passed()} when there is none
+     * @return every violation and every advisory of the unit; {@link VerificationResult#passed()} when there is no
+     *         violation
      * @throws NullPointerException if the definition is {@code null}
      */
     public VerificationResult verify(WorkflowDefinition definition) {
@@ -178,10 +207,11 @@ public final class WorkflowValidator {
         checkSessionDrivenLinks(definition, violations);
         checkCycleAwaitedEvent(definition, violations);
         checkReachability(definition, graph, violations);
-        checkConfigReachability(definition, violations);
+        var advisories = new ArrayList<Violation>();
+        checkConfigReachability(definition, advisories);
         checkExitPaths(definition, graph, violations);
         checkReleasedStates(definition, violations);
-        return new VerificationResult(ordered(definition, violations));
+        return new VerificationResult(ordered(definition, violations), ordered(definition, advisories));
     }
 
     private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
@@ -290,6 +320,10 @@ public final class WorkflowValidator {
                         "the state '%s' declares 'ask' on the entity kind '%s', which has no entity unit"
                                 .formatted(state.id(), entityKind.name())));
             }
+            entityKind.entityUnit().filter(unit -> !catalog.contains(unit)).ifPresent(unit -> violations.add(
+                    new Violation(VerificationRule.ENTITY_KIND_BINDING, state.id(), state.location(),
+                            "the entity unit '%s' of the entity kind '%s' is not registered"
+                                    .formatted(unit, entityKind.name()))));
         }
 
         modelJob.fanOutPrimitiveId().ifPresent(primitiveId -> {
@@ -691,44 +725,90 @@ public final class WorkflowValidator {
         }
     }
 
-    private static void checkConfigReachability(WorkflowDefinition definition, List<Violation> violations) {
+    /**
+     * Rule 3, configuration reachability: enumerates the Boolean combinations of the unit's {@code depends_on_config}
+     * keys with the all-keys-true activation of {@link UnitGraph} and reports, as an advisory, every state and every
+     * outcome transition that some combinations reach and others do not, naming both sets. A transition is reached
+     * under a combination when its source state is reached and, for the transition of a declared link, the link is
+     * active. A state the unconditional graph does not reach is refused by {@link VerificationRule#REACHABILITY}, and
+     * an abort terminal counts as reachable from every state.
+     * <p>
+     * No violation is raised here. Under all-keys-true activation the all-true combination activates every link, so
+     * its graph is the unconditional graph and every state and transition the unconditional graph reaches is reached
+     * under at least that combination: the refusal of a state or transition no combination reaches cannot be met.
+     * It becomes satisfiable only with the activation of enum values, which ADR 006 names as a seam.
+     */
+    private static void checkConfigReachability(WorkflowDefinition definition, List<Violation> advisories) {
         var configKeys = UnitGraph.configKeysOf(definition);
         if (configKeys.isEmpty()) {
             return;
         }
         var combinations = UnitGraph.configCombinations(configKeys);
-        var baseGraph = UnitGraph.of(definition);
-        var baseReached = baseGraph.forwardClosure(Set.of(definition.startState()));
+        var baseReached = UnitGraph.of(definition).forwardClosure(Set.of(definition.startState()));
 
-        // One active graph per combination. The reached set feeds the state-level report below, so the 2^N
-        // enumeration is built once per combination rather than once per state per combination. There is no
-        // transition-level report: configCombinations always includes the all-true assignment, under which
-        // every link is active, so every base-reachable transition is reachable under at least that
-        // combination and a not-reachable-under-any-combination predicate is unsatisfiable.
+        // One active graph per combination, built once and read by every state and transition below rather than
+        // rebuilt per state.
         var reachedByCombination = new ArrayList<Set<String>>(combinations.size());
         for (var combination : combinations) {
-            var graph = UnitGraph.of(definition, combination);
-            var reached = graph.forwardClosure(Set.of(definition.startState()));
-            reachedByCombination.add(reached);
+            reachedByCombination.add(UnitGraph.of(definition, combination)
+                    .forwardClosure(Set.of(definition.startState())));
         }
 
         for (var state : definition.states().values()) {
             if (ABORT_TERMINALS.contains(state.id()) || !baseReached.contains(state.id())) {
                 continue;
             }
-            var unreachedCombinations = new ArrayList<Map<String, Boolean>>();
+            var stateReach = new boolean[combinations.size()];
             for (int i = 0; i < combinations.size(); i++) {
-                if (!reachedByCombination.get(i).contains(state.id())) {
-                    unreachedCombinations.add(combinations.get(i));
+                stateReach[i] = reachedByCombination.get(i).contains(state.id());
+            }
+            partialReach(combinations, stateReach).ifPresent(reach -> advisories.add(new Violation(
+                    VerificationRule.CONFIG_REACHABILITY, state.id(), state.location(),
+                    "the state '%s' is reached from the start state '%s' %s"
+                            .formatted(state.id(), definition.startState(), reach))));
+            for (var transition : UnitGraph.engineTransitions(state.behavior())) {
+                reportPartialTransition(state, transition, combinations, stateReach, advisories);
+            }
+            for (var link : UnitGraph.declaredLinks(state.behavior())) {
+                var linkReach = new boolean[combinations.size()];
+                for (int i = 0; i < combinations.size(); i++) {
+                    linkReach[i] = stateReach[i] && UnitGraph.isLinkActive(link, combinations.get(i));
+                }
+                for (var transition : link.transitions()) {
+                    reportPartialTransition(state, transition, combinations, linkReach, advisories);
                 }
             }
-            if (!unreachedCombinations.isEmpty()) {
-                violations.add(new Violation(VerificationRule.CONFIG_REACHABILITY, state.id(), state.location(),
-                        "the state '%s' is not reachable from the start state '%s' under configuration %s"
-                                .formatted(state.id(), definition.startState(),
-                                        formatCombinations(unreachedCombinations))));
+        }
+    }
+
+    private static void reportPartialTransition(StateNode state, OutcomeTransition transition,
+            List<Map<String, Boolean>> combinations, boolean[] reached, List<Violation> advisories) {
+        partialReach(combinations, reached).ifPresent(reach -> advisories.add(new Violation(
+                VerificationRule.CONFIG_REACHABILITY, state.id(), transition.location(),
+                "the transition '%s' of the state '%s' into '%s' is reached %s"
+                        .formatted(transition.outcomeName(), state.id(), transition.targetStateId(), reach))));
+    }
+
+    /**
+     * @param combinations the configuration combinations
+     * @param reached      per combination, whether it reaches the state or transition
+     * @return the combinations that reach it and those that do not, when both sets are non-empty; empty otherwise
+     */
+    private static Optional<String> partialReach(List<Map<String, Boolean>> combinations, boolean[] reached) {
+        var reaching = new ArrayList<Map<String, Boolean>>();
+        var notReaching = new ArrayList<Map<String, Boolean>>();
+        for (int i = 0; i < combinations.size(); i++) {
+            if (reached[i]) {
+                reaching.add(combinations.get(i));
+            } else {
+                notReaching.add(combinations.get(i));
             }
         }
+        if (reaching.isEmpty() || notReaching.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of("only under configuration %s, not under %s"
+                .formatted(formatCombinations(reaching), formatCombinations(notReaching)));
     }
 
     private static boolean isReservedTarget(String target) {
@@ -797,6 +877,14 @@ public final class WorkflowValidator {
 
     private void checkSubWorkflowCallContract(WorkflowDefinition definition, List<Violation> violations) {
         for (var state : definition.states().values()) {
+            state.terminalOutcome()
+                    .filter(outcome -> STEPPED_OUT.equals(outcome.id())
+                            && outcome.outcomeClass() != OutcomeClass.STEPPED_OUT)
+                    .ifPresent(outcome -> violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
+                            state.id(), state.location(),
+                            "the terminal '%s' declares the outcome 'stepped_out' with the class %s; only a terminal of class STEPPED_OUT declares it"
+                                    .formatted(state.id(), outcome.outcomeClass()))));
+
             if ("inherit".equals(state.phase()) && definition.scope() != WorkflowScope.SUBWORKFLOW
                     && definition.scope() != WorkflowScope.ENTITY) {
                 violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), state.location(),
@@ -834,18 +922,19 @@ public final class WorkflowValidator {
                         contractOutcomes.add(calleeState.terminalOutcome().get().id());
                     }
                 }
-                // stepped_out belongs to the exit contract only when the callee can actually step out: the
-                // implicit step_out exit of a resting-link state of a sub-workflow unit. A callee without one
-                // never returns stepped_out, so routing it is refused and omitting it is correct.
-                if (canReturnSteppedOut(callee)) {
-                    contractOutcomes.add("stepped_out");
-                }
+                // Rule 6: the exit contract of every sub-workflow is its terminals' outcomes plus the control
+                // outcome stepped_out, which is part of it implicitly. Every call routes it, whatever the callee's
+                // states are.
+                contractOutcomes.add(STEPPED_OUT);
 
                 var outcomeCounts = new HashMap<String, Integer>();
                 var resultGuardsOnDone = new ArrayList<ResultGuard>();
                 for (var transition : call.transitions()) {
                     var outcome = transition.outcomeName();
                     outcomeCounts.put(outcome, outcomeCounts.getOrDefault(outcome, 0) + 1);
+                    if (STEPPED_OUT.equals(outcome)) {
+                        checkSteppedOutTarget(definition, state, transition, violations);
+                    }
                     if (transition.resultGuard().isPresent()) {
                         if (!"done".equals(outcome)) {
                             violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
@@ -871,6 +960,11 @@ public final class WorkflowValidator {
                                 state.location(),
                                 "the call does not route the exit outcome '%s' of '%s'"
                                         .formatted(contractOutcome, call.subWorkflowId())));
+                    } else if (count == 1 && !resultGuardsOnDone.isEmpty() && "done".equals(contractOutcome)) {
+                        violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                                state.location(),
+                                "the call routes the exit outcome 'done' of '%s' once under a result guard; a guarded 'done' is admitted only as the complementary pair"
+                                        .formatted(call.subWorkflowId())));
                     } else if (count == 2) {
                         if (!"done".equals(contractOutcome) || resultGuardsOnDone.size() != 2
                                 || !areComplementary(resultGuardsOnDone.get(0), resultGuardsOnDone.get(1))) {
@@ -917,27 +1011,50 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Tells whether a called sub-workflow can return the control outcome {@code stepped_out}: only a sub-workflow
-     * unit with a resting-link state can, through that state's implicit {@code step_out} exit (the same exit
-     * {@link UnitGraph#isImplicitLink} reports). A link state outside a sub-workflow has no such exit, and neither
-     * does any other behaviour.
-     *
-     * @param callee the called sub-workflow
-     * @return {@code true} when {@code stepped_out} belongs to the callee's exit contract
+     * Rule 6, where the {@code stepped_out} route of a call may lead. A terminal of class {@code SUCCESS} is never
+     * admitted. In a plan unit the target is the phase's fallback state, {@code plan.return} or
+     * {@code finalize.hand-back} (which of the two belongs to the calling phase is not checked); in an epic, workspace
+     * or entity unit (the bootstrap units are entity units) a resting state of the calling unit; in a sub-workflow a
+     * state that continues the unwinding or handles the failure: a terminal of class {@code STEPPED_OUT} or
+     * {@code FAILURE}, or a link state whose own {@code step_out} continues it. A remediation unit may also route it to
+     * its budget re-check, a state the language does not mark, so in a remediation unit only the success terminal is
+     * refused (ADR 010). A target that is not a state of the unit is refused by {@link VerificationRule#STATE_EXISTS}.
      */
-    private static boolean canReturnSteppedOut(WorkflowDefinition callee) {
-        if (callee.scope() != WorkflowScope.SUBWORKFLOW) {
-            return false;
+    private static void checkSteppedOutTarget(WorkflowDefinition definition, StateNode state,
+            OutcomeTransition transition, List<Violation> violations) {
+        var target = definition.states().get(transition.targetStateId());
+        if (target == null) {
+            return;
         }
-        var reached = UnitGraph.of(callee).forwardClosure(Set.of(callee.startState()));
-        for (var calleeState : callee.states().values()) {
-            if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
-                    && reached.contains(calleeState.id())
-                    && UnitGraph.hasImplicitExit(callee.scope(), calleeState)) {
-                return true;
-            }
+        var targetClass = target.terminalOutcome().map(TerminalOutcome::outcomeClass);
+        String detail;
+        if (targetClass.isPresent() && targetClass.get() == OutcomeClass.SUCCESS) {
+            detail = "a terminal state of class SUCCESS";
+        } else {
+            detail = switch (definition.scope()) {
+                case PLAN -> PHASE_FALLBACK_STATES.contains(target.id()) ? null
+                        : "not the phase's fallback state 'plan.return' or 'finalize.hand-back'";
+                case EPIC, WORKSPACE, ENTITY -> isRestingState(target) ? null : "not a resting state of the unit";
+                case SUBWORKFLOW -> definition.id().startsWith(REMEDIATION_UNIT_PREFIX)
+                        || target.behavior() instanceof StateBehavior.InteractiveLinks
+                        || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
+                        || outcomeClass == OutcomeClass.FAILURE).isPresent() ? null
+                        : "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
+            };
         }
-        return false;
+        if (detail != null) {
+            violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
+                    "the call routes 'stepped_out' to '%s', which is %s".formatted(target.id(), detail)));
+        }
+    }
+
+    /** A state that rests between events: a link, question, {@code job}, {@code composite_job} or {@code job llm}. */
+    private static boolean isRestingState(StateNode state) {
+        return switch (state.behavior()) {
+            case StateBehavior.InteractiveLinks _, StateBehavior.QuestionWait _, StateBehavior.JobStep _,
+                StateBehavior.ModelJob _ -> true;
+            case StateBehavior.AutoStep _, StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> false;
+        };
     }
 
     private static boolean areComplementary(ResultGuard g1, ResultGuard g2) {
@@ -1120,140 +1237,291 @@ public final class WorkflowValidator {
         return required;
     }
 
-    private record StepCompletionSite(String stateId, OutcomeTransition transition, StepCompletion completion) {
-    }
-
+    /**
+     * Rule 9: every completion is admitted by the class of the outcome it is declared on, every firing completes each
+     * of its steps exactly once on every path, and every cycle measure sits where the specification admits it.
+     */
     private void checkStepCompletion(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
-        var completionsByStep = new LinkedHashMap<String, List<StepCompletionSite>>();
-
+        var outcomeClasses = new HashMap<OutcomeTransition, Optional<OutcomeClass>>();
         for (var state : definition.states().values()) {
             for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                var outcomeClass = outcomeClassOf(definition, state, transition);
+                outcomeClasses.put(transition, outcomeClass);
                 var seenStepsOnTransition = new HashSet<String>();
-                for (var comp : transition.completions()) {
-                    if (!seenStepsOnTransition.add(comp.stepId())) {
-                        violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), comp.location(),
-                                "the step '%s' is completed twice on the same transition".formatted(comp.stepId())));
-                    }
-                    completionsByStep.computeIfAbsent(comp.stepId(), _ -> new ArrayList<>())
-                            .add(new StepCompletionSite(state.id(), transition, comp));
-
-                    var outcomeClassOpt = outcomeClassOf(definition, state, transition);
-                    if (outcomeClassOpt.isEmpty()) {
+                for (var completion : transition.completions()) {
+                    if (!seenStepsOnTransition.add(completion.stepId())) {
                         violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
-                                comp.location(),
-                                "the step '%s' is completed on the outcome '%s', whose class cannot be established"
-                                        .formatted(comp.stepId(), transition.outcomeName())));
-                        continue;
+                                completion.location(), "the step '%s' is completed twice on the same transition"
+                                .formatted(completion.stepId())));
                     }
-                    var outcomeClass = outcomeClassOpt.get();
-                    var status = comp.status();
-                    switch (status) {
-                        case DONE -> {
-                            if (outcomeClass != OutcomeClass.SUCCESS) {
-                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
-                                        comp.location(),
-                                        "the step '%s' is completed as done on an outcome of class %s, which is not SUCCESS"
-                                                .formatted(comp.stepId(), outcomeClass)));
-                            }
-                        }
-                        case SKIPPED -> {
-                            boolean admitted = outcomeClass == OutcomeClass.SUCCESS
-                                    || outcomeClass == OutcomeClass.SKIP
-                                    || (outcomeClass == OutcomeClass.INDETERMINATE
-                                    && "lost".equals(transition.outcomeName()))
-                                    || (outcomeClass == OutcomeClass.FAILURE
-                                    && "infeasible".equals(transition.outcomeName()));
-                            if (!admitted) {
-                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
-                                        comp.location(),
-                                        "the step '%s' is completed as skipped on an outcome of class %s"
-                                                .formatted(comp.stepId(), outcomeClass)));
-                            }
-                        }
-                        case FAILED -> {
-                            if (outcomeClass == OutcomeClass.UNSETTLED || outcomeClass == OutcomeClass.STEPPED_OUT) {
-                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
-                                        comp.location(),
-                                        "the step '%s' is completed as failed on an outcome of class %s"
-                                                .formatted(comp.stepId(), outcomeClass)));
-                            }
-                        }
-                        case WAIVED -> {
-                            boolean admitted = state.behavior() instanceof StateBehavior.SubWorkflowCall
-                                    && "waived".equals(transition.outcomeName());
-                            if (!admitted) {
-                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
-                                        comp.location(),
-                                        "the step '%s' is completed as waived on a transition that is not the 'waived' outcome of a remediation call"
-                                                .formatted(comp.stepId())));
-                            }
-                        }
+                    checkCompletionAdmission(state, transition, completion, outcomeClass, violations);
+                }
+            }
+            checkStateCycleMeasures(definition, graph, state, violations);
+        }
+        checkFirings(definition, outcomeClasses, violations);
+    }
+
+    /**
+     * Checks that the class of the outcome admits the status a completion settles the step with (Rule 9, "Class
+     * admits the completion"). An outcome whose class cannot be established admits no completion.
+     */
+    private static void checkCompletionAdmission(StateNode state, OutcomeTransition transition,
+            StepCompletion completion, Optional<OutcomeClass> outcomeClassOpt, List<Violation> violations) {
+        var stepId = completion.stepId();
+        if (outcomeClassOpt.isEmpty()) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), completion.location(),
+                    "the step '%s' is completed on the outcome '%s', whose class cannot be established"
+                            .formatted(stepId, transition.outcomeName())));
+            return;
+        }
+        var outcomeClass = outcomeClassOpt.get();
+        var detail = switch (completion.status()) {
+            case DONE -> outcomeClass == OutcomeClass.SUCCESS ? null
+                    : "is completed as done on an outcome of class %s, which is not SUCCESS".formatted(outcomeClass);
+            // Whether a lost or infeasible route is the declared conservative route of an optional step is not
+            // checked: the AST declares no optional step and no conservative route (ADR 002, named seam).
+            case SKIPPED -> outcomeClass == OutcomeClass.SUCCESS || outcomeClass == OutcomeClass.SKIP
+                    || (outcomeClass == OutcomeClass.INDETERMINATE
+                    && UnitGraph.LOST_OUTCOME.equals(transition.outcomeName()))
+                    || (outcomeClass == OutcomeClass.FAILURE && "infeasible".equals(transition.outcomeName()))
+                    ? null : "is completed as skipped on an outcome of class %s".formatted(outcomeClass);
+            case FAILED -> outcomeClass != OutcomeClass.UNSETTLED && outcomeClass != OutcomeClass.STEPPED_OUT ? null
+                    : "is completed as failed on an outcome of class %s".formatted(outcomeClass);
+            case WAIVED -> isRemediationWaiver(state, transition) && outcomeClass == OutcomeClass.SUCCESS ? null
+                    : "is completed as waived on a transition that is not the 'waived' outcome of a call to a"
+                    + " remediation unit";
+        };
+        if (detail != null) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), completion.location(),
+                    "the step '%s' %s".formatted(stepId, detail)));
+        }
+    }
+
+    private static boolean isRemediationWaiver(StateNode state, OutcomeTransition transition) {
+        return state.behavior() instanceof StateBehavior.SubWorkflowCall call
+                && call.subWorkflowId().startsWith(REMEDIATION_UNIT_PREFIX)
+                && "waived".equals(transition.outcomeName());
+    }
+
+    /**
+     * Checks every firing of the unit (Rule 9, "Once per firing"). A firing opens at an opening: the start state, a
+     * named region entry state, or a link target of a {@link CycleMeasure#STEP_LIST} hub. Its steps are the steps
+     * completed on a path from the opening before the firing ends, and every such path completes each of them
+     * exactly once. A path ends at the next opening (a re-entry into its own opening continues the firing while the
+     * step is open), at {@link #MERGE_GATE}, or at a terminal state; it ends early, without judgement, on an outcome
+     * of class {@code UNSETTLED} or {@code STEPPED_OUT}; entering one of {@link #IMPLICIT_FAILED_STATES} completes
+     * the open step as {@code failed}.
+     */
+    private void checkFirings(WorkflowDefinition definition,
+            Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, List<Violation> violations) {
+        var openings = openingsOf(definition);
+        var reported = new HashSet<Violation>();
+        for (var opening : openings) {
+            for (var stepId : stepsOfFiring(definition, openings, opening, outcomeClasses)) {
+                walkFiring(definition, openings, opening, stepId, outcomeClasses, reported);
+            }
+        }
+        reported.stream()
+                .sorted(Comparator.comparing((Violation violation) -> violation.location().line())
+                        .thenComparing(Violation::message))
+                .forEach(violations::add);
+    }
+
+    private Set<String> openingsOf(WorkflowDefinition definition) {
+        var openings = new LinkedHashSet<String>();
+        openings.add(definition.startState());
+        definition.states().keySet().stream().filter(REGION_ENTRY_STATES::contains).forEach(openings::add);
+        for (var state : definition.states().values()) {
+            if (cycleMeasureOf(state) == CycleMeasure.STEP_LIST) {
+                for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                    var target = definition.states().get(transition.targetStateId());
+                    if (target != null && !isTerminal(target) && !MERGE_GATE.equals(target.id())
+                            && !IMPLICIT_FAILED_STATES.contains(target.id())) {
+                        openings.add(target.id());
                     }
                 }
             }
-
-            checkStateCycleMeasures(graph, state, violations);
         }
+        return openings;
+    }
 
-        var barriers = Set.of("finalize.next-step", definition.startState());
-        for (var entry : completionsByStep.entrySet()) {
-            var stepId = entry.getKey();
-            var sites = entry.getValue();
-            if (sites.size() > 1) {
-                for (int i = 0; i < sites.size(); i++) {
-                    for (int j = 0; j < sites.size(); j++) {
-                        if (i != j) {
-                            var site1 = sites.get(i);
-                            var site2 = sites.get(j);
-                            if (graph.hasPathAvoiding(site1.transition().targetStateId(), site2.stateId(), barriers)) {
-                                violations.add(new Violation(VerificationRule.STEP_COMPLETION, site2.stateId(),
-                                        site2.completion().location(),
-                                        "the step '%s' is completed twice on a path without an intervening dispatch"
-                                                .formatted(stepId)));
-                            }
-                        }
+    private Set<String> stepsOfFiring(WorkflowDefinition definition, Set<String> openings, String opening,
+            Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
+        var steps = new LinkedHashSet<String>();
+        var seen = new HashSet<>(Set.of(opening));
+        var queue = new ArrayDeque<>(List.of(opening));
+        while (!queue.isEmpty()) {
+            var state = definition.states().get(queue.poll());
+            if (state == null) {
+                continue;
+            }
+            for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                transition.completions().forEach(completion -> steps.add(completion.stepId()));
+                var target = transition.targetStateId();
+                var targetState = definition.states().get(target);
+                boolean ends = endsEarly(transition, outcomeClasses) || IMPLICIT_FAILED_STATES.contains(target)
+                        || MERGE_GATE.equals(target) || targetState == null || isTerminal(targetState)
+                        || (openings.contains(target) && !target.equals(opening));
+                if (!ends && seen.add(target)) {
+                    queue.add(target);
+                }
+            }
+        }
+        return steps;
+    }
+
+    /** A position of a firing path: the state reached and whether the step has been completed on the way. */
+    private record FiringPosition(String stateId, boolean completed) {
+    }
+
+    private void walkFiring(WorkflowDefinition definition, Set<String> openings, String opening, String stepId,
+            Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, Set<Violation> reported) {
+        var start = new FiringPosition(opening, false);
+        var seen = new HashSet<>(Set.of(start));
+        var stack = new ArrayDeque<>(List.of(start));
+        while (!stack.isEmpty()) {
+            var position = stack.pop();
+            var state = definition.states().get(position.stateId());
+            if (state == null) {
+                continue;
+            }
+            for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                var completion = transition.completions().stream()
+                        .filter(candidate -> candidate.stepId().equals(stepId)).findFirst();
+                if (completion.isPresent() && position.completed()) {
+                    reported.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                            completion.get().location(), "the step '%s' is completed twice in one firing from '%s'"
+                            .formatted(stepId, opening)));
+                    continue;
+                }
+                var completed = position.completed() || completion.isPresent();
+                var target = transition.targetStateId();
+                if (endsEarly(transition, outcomeClasses)) {
+                    continue;
+                }
+                if (IMPLICIT_FAILED_STATES.contains(target)) {
+                    if (completion.isPresent()) {
+                        reported.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(),
+                                completion.get().location(),
+                                "the step '%s' is completed on the transition into '%s', whose entry records the open firing as failed"
+                                        .formatted(stepId, target)));
+                    }
+                    continue;
+                }
+                var targetState = definition.states().get(target);
+                boolean ends = MERGE_GATE.equals(target) || (targetState != null && isTerminal(targetState))
+                        || (openings.contains(target) && (completed || !target.equals(opening)));
+                if (ends) {
+                    if (!completed) {
+                        reported.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), transition.location(),
+                                "the step '%s' is not completed on a firing path from '%s' that ends with the outcome '%s' into '%s'"
+                                        .formatted(stepId, opening, transition.outcomeName(), target)));
+                    }
+                } else if (targetState != null) {
+                    var next = new FiringPosition(target, completed);
+                    if (seen.add(next)) {
+                        stack.push(next);
                     }
                 }
             }
         }
     }
 
-    private void checkStateCycleMeasures(UnitGraph graph, StateNode state, List<Violation> violations) {
-        String primitiveId = switch (state.behavior()) {
-            case StateBehavior.AutoStep auto -> auto.primitiveId();
-            case StateBehavior.JobStep job -> job.primitiveId();
-            default -> null;
+    private static boolean endsEarly(OutcomeTransition transition,
+            Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
+        return outcomeClasses.getOrDefault(transition, Optional.empty())
+                .filter(outcomeClass -> outcomeClass == OutcomeClass.UNSETTLED
+                        || outcomeClass == OutcomeClass.STEPPED_OUT)
+                .isPresent();
+    }
+
+    private CycleMeasure cycleMeasureOf(StateNode state) {
+        return primitiveOfState(state).map(Primitive::cycleMeasure).orElse(CycleMeasure.NONE);
+    }
+
+    private Optional<Primitive<?, ?>> primitiveOfState(StateNode state) {
+        return switch (state.behavior()) {
+            case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId());
+            case StateBehavior.JobStep job -> registry.find(job.primitiveId());
+            case StateBehavior.ModelJob _, StateBehavior.QuestionWait _, StateBehavior.InteractiveLinks _,
+                StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> Optional.empty();
         };
-        if (primitiveId == null) {
+    }
+
+    /**
+     * Checks where a primitive's cycle measure may sit (Rule 9, "Cycle measures"), naming no state id: a
+     * {@code STEP_LIST} hub belongs to a unit with a step list (a unit that completes steps); an
+     * {@code ARCHIVE_STEPS} state to an epic unit, with an archive path from it to a terminal state; the transition of
+     * the exhaustion outcome of an {@code ATTEMPT_CAP} primitive leaves every cycle through the state (that the
+     * outcome exists and has the class {@code FAILURE} is refused at registration by {@code PrimitiveRegistry}).
+     */
+    private void checkStateCycleMeasures(WorkflowDefinition definition, UnitGraph graph, StateNode state,
+            List<Violation> violations) {
+        var primitiveOpt = primitiveOfState(state);
+        if (primitiveOpt.isEmpty()) {
             return;
         }
-        var primOpt = registry.find(primitiveId);
-        if (primOpt.isEmpty()) {
-            return;
-        }
-        var prim = primOpt.get();
-        var measure = prim.cycleMeasure();
-        if (measure == CycleMeasure.STEP_LIST && !"finalize.next-step".equals(state.id())) {
-            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
-                    "the cycle measure STEP_LIST is admitted only on the dispatch hub 'finalize.next-step', but declared on '%s'"
-                            .formatted(state.id())));
-        } else if (measure == CycleMeasure.ARCHIVE_STEPS && !"epic.next-work".equals(state.id())) {
-            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
-                    "the cycle measure ARCHIVE_STEPS is admitted only on 'epic.next-work', but declared on '%s'"
-                            .formatted(state.id())));
-        } else if (measure == CycleMeasure.ATTEMPT_CAP) {
-            prim.exhaustionOutcome().ifPresent(exhaustion -> {
-                for (var t : UnitGraph.allTransitions(state.behavior())) {
-                    if (exhaustion.equals(t.outcomeName())) {
-                        if (graph.forwardClosure(Set.of(t.targetStateId())).contains(state.id())) {
-                            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), t.location(),
-                                    "the exhaustion transition of the attempt cap on state '%s' does not leave the cycle"
-                                            .formatted(state.id())));
-                        }
-                    }
+        var primitive = primitiveOpt.get();
+        switch (primitive.cycleMeasure()) {
+            case STEP_LIST -> {
+                if (!hasStepList(definition)) {
+                    violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                            "the cycle measure STEP_LIST of the state '%s' is admitted only on the dispatch hub of a unit with a step list, but the unit '%s' completes no step"
+                                    .formatted(state.id(), definition.id())));
                 }
-            });
+            }
+            case ARCHIVE_STEPS -> {
+                if (definition.scope() != WorkflowScope.EPIC) {
+                    violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                            "the cycle measure ARCHIVE_STEPS of the state '%s' is admitted only in an epic unit, but the unit has scope %s"
+                                    .formatted(state.id(), definition.scope())));
+                } else if (!reachesTerminal(definition, graph, state)) {
+                    violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                            "the cycle measure ARCHIVE_STEPS of the state '%s' is admitted only on the archive path, but no path leads from it to a terminal state"
+                                    .formatted(state.id())));
+                }
+            }
+            case ATTEMPT_CAP -> checkAttemptCap(graph, state, primitive, violations);
+            case NONE -> {
+                // no measure, nothing to place
+            }
         }
+    }
+
+    private void checkAttemptCap(UnitGraph graph, StateNode state, Primitive<?, ?> primitive,
+            List<Violation> violations) {
+        // PrimitiveRegistry refuses to register an ATTEMPT_CAP primitive without an exhaustion outcome among its
+        // outcomes of class FAILURE (ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION), so a registered primitive always has
+        // one; a primitive that has none is still refused here rather than passed.
+        var exhaustionOpt = primitive.exhaustionOutcome();
+        if (exhaustionOpt.isEmpty()) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                    "the primitive '%s' of the state '%s' declares the cycle measure ATTEMPT_CAP but no exhaustion outcome"
+                            .formatted(primitive.id(), state.id())));
+            return;
+        }
+        var exhaustion = exhaustionOpt.get();
+        for (var transition : UnitGraph.allTransitions(state.behavior())) {
+            if (exhaustion.equals(transition.outcomeName())
+                    && graph.forwardClosure(Set.of(transition.targetStateId())).contains(state.id())) {
+                violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), transition.location(),
+                        "the exhaustion transition '%s' of the attempt cap of the state '%s' does not leave the cycle"
+                                .formatted(exhaustion, state.id())));
+            }
+        }
+    }
+
+    private static boolean hasStepList(WorkflowDefinition definition) {
+        return definition.states().values().stream()
+                .flatMap(state -> UnitGraph.allTransitions(state.behavior()).stream())
+                .anyMatch(transition -> !transition.completions().isEmpty());
+    }
+
+    private static boolean reachesTerminal(WorkflowDefinition definition, UnitGraph graph, StateNode state) {
+        return graph.forwardClosure(Set.of(state.id())).stream()
+                .map(definition.states()::get)
+                .anyMatch(reached -> reached != null && isTerminal(reached));
     }
 
     private Optional<OutcomeClass> outcomeClassOf(WorkflowDefinition definition, StateNode state,
@@ -1314,8 +1582,11 @@ public final class WorkflowValidator {
                 }
             }
             case StateBehavior.QuestionWait question -> {
+                // The resolution outcomes of a question class carry no outcome class: the specification gives each
+                // class its closed outcome set and no class per outcome (Workflow DSL, Question States), and every
+                // resolution enters a re-entrant state that decides. A completion on one is therefore refused.
                 if (question.transitions().contains(transition)) {
-                    return Optional.of(OutcomeClass.SUCCESS);
+                    return Optional.empty();
                 }
                 for (var link : question.links()) {
                     if (link.transitions().contains(transition)
@@ -1372,21 +1643,50 @@ public final class WorkflowValidator {
                         "declared links on the question state '%s' are not admitted in a unit of scope %s"
                                 .formatted(state.id(), definition.scope())));
             } else if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
-                catalog.find(call.subWorkflowId()).ifPresent(callee -> {
-                    for (var calleeState : callee.states().values()) {
-                        if (calleeState.behavior() instanceof StateBehavior.InteractiveLinks
-                                || (calleeState.behavior() instanceof StateBehavior.QuestionWait qw
-                                && !qw.links().isEmpty())) {
-                            violations.add(new Violation(VerificationRule.SESSION_DRIVEN_LINKS, state.id(),
-                                    state.location(),
-                                    "the called sub-workflow '%s' contains resting links, which are not admitted in a unit of scope %s"
-                                            .formatted(callee.id(), definition.scope())));
-                            break;
-                        }
-                    }
-                });
+                firstCalleeWithLinks(call.subWorkflowId()).ifPresent(callee -> violations.add(new Violation(
+                        VerificationRule.SESSION_DRIVEN_LINKS, state.id(), state.location(),
+                        "the sub-workflow '%s' reached by the call contains resting links, which are not admitted in a unit of scope %s"
+                                .formatted(callee, definition.scope()))));
             }
         }
+    }
+
+    /**
+     * Walks the sub-workflows a call reaches, the callee and every unit it calls in turn (Rule 10 covers every
+     * sub-workflow a plan or epic unit calls, ADR 011). Each unit is visited once, so a call cycle, which Rule 7
+     * refuses, does not loop; an unregistered callee is refused by Rule 6 and contributes nothing.
+     *
+     * @param calleeId the unit the call names
+     * @return the first reached unit, in call order, with a resting link state or a question state with declared links
+     */
+    private Optional<String> firstCalleeWithLinks(String calleeId) {
+        var visited = new HashSet<String>();
+        var queue = new ArrayDeque<>(List.of(calleeId));
+        while (!queue.isEmpty()) {
+            var id = queue.poll();
+            if (!visited.add(id)) {
+                continue;
+            }
+            var calleeOpt = catalog.find(id);
+            if (calleeOpt.isEmpty()) {
+                continue;
+            }
+            for (var calleeState : calleeOpt.get().states().values()) {
+                switch (calleeState.behavior()) {
+                    case StateBehavior.InteractiveLinks _ -> {
+                        return Optional.of(id);
+                    }
+                    case StateBehavior.QuestionWait question when !question.links().isEmpty() -> {
+                        return Optional.of(id);
+                    }
+                    case StateBehavior.SubWorkflowCall nested -> queue.add(nested.subWorkflowId());
+                    default -> {
+                        // no link and no further call
+                    }
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private void checkCycleAwaitedEvent(WorkflowDefinition definition, List<Violation> violations) {
@@ -1453,28 +1753,34 @@ public final class WorkflowValidator {
         return false;
     }
 
+    /**
+     * Decides whether the edge {@code fromId -> toId} waits for an event (Rule 11b). A {@code job},
+     * {@code composite_job} or {@code job llm} state awaits its job or task on every edge. A question state awaits
+     * the answer or its deadline on the edges of its own resolution outcomes only; an edge of one of its declared links
+     * is judged by that link like the edge of a link state.
+     */
     private boolean stepAwaitsEvent(WorkflowDefinition definition, String fromId, String toId) {
         var state = definition.states().get(fromId);
         if (state == null) {
             return false;
         }
         return switch (state.behavior()) {
-            case StateBehavior.JobStep job -> true;
-            case StateBehavior.ModelJob modelJob -> true;
-            case StateBehavior.QuestionWait question -> true;
-            case StateBehavior.InteractiveLinks links -> traversedLinkAwaits(state, toId);
+            case StateBehavior.JobStep _, StateBehavior.ModelJob _ -> true;
+            case StateBehavior.QuestionWait question -> question.transitions().stream()
+                    .anyMatch(transition -> toId.equals(transition.targetStateId()))
+                    || traversedLinkAwaits(state, toId);
+            case StateBehavior.InteractiveLinks _ -> traversedLinkAwaits(state, toId);
             case StateBehavior.AutoStep auto -> registry.find(auto.primitiveId())
                     .map(p -> p.awaitedEvent() != AwaitedEvent.NONE).orElse(false);
-            case StateBehavior.SubWorkflowCall call -> false;
-            case StateBehavior.TerminalState _ -> false;
+            case StateBehavior.SubWorkflowCall _, StateBehavior.TerminalState _ -> false;
         };
     }
 
     /**
-     * Decides whether the edge {@code fromId -> toId} out of a resting link state waits for an external event.
-     * A traversed link awaits when its form takes a submission (a {@code submit} link waits for the operator)
-     * or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited event
-     * does not satisfy the cycle.
+     * Decides whether the edge {@code fromId -> toId} through a declared link of a link or question state waits for
+     * an external event. A traversed link awaits when its form takes a submission (a {@code submit} link waits for
+     * the model) or its primitive declares an awaited event; a {@code noop} link over a primitive with no awaited
+     * event does not satisfy the cycle.
      */
     private boolean traversedLinkAwaits(StateNode state, String toId) {
         for (var link : UnitGraph.declaredLinks(state.behavior())) {

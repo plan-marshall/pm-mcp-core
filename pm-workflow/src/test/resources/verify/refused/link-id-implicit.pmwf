@@ -1,0 +1,13 @@
+# expect: LINK_ID_UNIQUE state verify.entry line 8
+workflow verify.link-id-implicit version 1 format 1
+scope workspace
+start verify.entry
+
+state verify.entry
+    phase verify
+    link next ack ()
+        do test.proceed
+            done -> verify.done
+
+state verify.done terminal done success
+    phase verify

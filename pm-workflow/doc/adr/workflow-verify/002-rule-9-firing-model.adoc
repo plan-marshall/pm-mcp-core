@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted. The decision text was corrected by PLAN-54 to what `WorkflowValidator` checks; the PLAN-44 text described a pairwise path check with the barriers `finalize.next-step` and the start state, a `SUCCESS` class for every question resolution outcome, and cycle measures tied to state ids, none of which is the specification's rule.
 
 == Date
 
@@ -11,32 +11,33 @@ Accepted
 
 == Context
 
-Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 9 slice that PLAN-41 shipped with gaps: once-per-firing was not decided per firing, and an unresolvable outcome class fell through to an unconditional `SUCCESS`.
+Rule 9 of the specification (Workflow DSL, § Static AST Verification Rules) has three parts: a step is completed once per firing, the class of an outcome admits the completion declared on it, and a cycle measure sits only where the specification admits it. PLAN-41 shipped the rule with gaps, and PLAN-44 left them open: `checkStepCompletion` refused only a duplicate on one transition and two completions joined by a path avoiding `finalize.next-step` and the start state, had no firing model and refused no path without a completion; `outcomeClassOf` answered `SUCCESS` for every question resolution outcome; `checkStateCycleMeasures` tied `STEP_LIST` to `finalize.next-step` and `ARCHIVE_STEPS` to `epic.next-work`, and checked the `ATTEMPT_CAP` exhaustion outcome only when one was declared.
 
 == Decision
 
-1. **Once per firing**: the same step completed twice on one transition is refused, and so is the same step completed on two states joined by a path without an intervening dispatch. The dispatch barriers are `finalize.next-step` and the start state, checked through the resting reachability substrate.
-2. **Outcome-class admission table**: `done` is admitted only on `SUCCESS`; `skipped` on `SUCCESS`, `SKIP`, the `INDETERMINATE` lost route, and the `FAILURE` infeasible exit; `failed` is refused on `UNSETTLED` and `STEPPED_OUT`; `waived` is admitted only on the `waived` outcome of a remediation call.
-3. **No silent fallback**: an outcome whose class cannot be established (an unregistered primitive, an unknown shape) is a visible `STEP_COMPLETION` refusal, never a silent pass.
-4. **Cycle-measure fit**: `STEP_LIST` is admitted only on `finalize.next-step`, `ARCHIVE_STEPS` only on `epic.next-work`, and an exhausted `ATTEMPT_CAP` must leave the cycle.
+1. **Firing model**: a firing opens at an opening — the unit's start state, a region entry state the specification names (`finalize.review-cap-check`, `finalize.merge-evidence-wait`), or a link target of the unit's `STEP_LIST` hub (link:007-rule-9-derived-firing-openings.adoc[ADR 007]). The steps of a firing are those completed on a path from its opening before the firing ends. A path ends at the next opening (a re-entry into its own opening continues the firing while the step is open), on entry into `finalize.merge-gate`, or on entry into a terminal state; it ends early, without judgement, on an outcome of class `UNSETTLED` or `STEPPED_OUT`. Entering `plan.aborted`, `plan.return`, or `finalize.hand-back` records the open step `failed`, so that path needs no completion, and a completion on the entering transition itself is refused. Every other path that ends without a completion of the step, and every path with two, is refused as `STEP_COMPLETION`; a step completed twice on one transition is refused as well.
+2. **Class admission**: `done` only on `SUCCESS`; `skipped` on `SUCCESS` or `SKIP`, and on the reserved `lost` (`INDETERMINATE`) or a task's `infeasible` (`FAILURE`); `failed` on every class except `UNSETTLED` and `STEPPED_OUT`; `waived` only on the `SUCCESS` outcome `waived` of a `call` to a remediation unit (a unit of the namespace `remediation.`).
+3. **No fallback class**: an outcome whose class cannot be established admits no completion and is refused visibly. This covers an unregistered primitive and the resolution outcomes of a question class: the specification gives each question class a closed outcome set and no class per outcome, and every resolution enters a re-entrant state that decides, so no completion is admitted on a question resolution outcome.
+4. **Cycle measures**: no state id is named. `STEP_LIST` is admitted only in a unit with a step list (a unit that completes steps); `ARCHIVE_STEPS` only in an epic unit and on a state with a path to a terminal state; `ATTEMPT_CAP` requires that the transition of the exhaustion outcome leaves every cycle through the state. That the exhaustion outcome is declared, is an outcome of the primitive and has the class `FAILURE` is refused earlier, at registration, by `PrimitiveRegistry` of `pm-core` (`ATTEMPT_CAP_WITHOUT_FAILURE_EXHAUSTION`); the verifier still refuses a primitive without an exhaustion outcome instead of passing it.
 
 == Alternatives Considered
 
-1. **Per-state firing identity**:
-Deciding once-per-firing by state identity alone, without the path check.
-*Rejected*: the same step completed on two states in sequence is the defect; state identity alone cannot tell a re-firing from two independent firings.
+1. **Pairwise path check with dispatch barriers (PLAN-41, PLAN-44)**:
+Refuse two completions of a step joined by a path that avoids `finalize.next-step` and the start state.
+*Rejected*: it names state ids, cannot see a path without a completion, and does not end a firing where the specification ends it.
 
-2. **Keeping the `SUCCESS` fallback with a warning**:
-Downgrading the unresolvable class to a warning instead of a refusal.
-*Rejected*: a warning is not a refusal; an unresolvable class would keep passing units whose outcome semantics the verifier cannot see.
+2. **A class per question resolution outcome**:
+Give every outcome of every question class a class (for example `answered` as `SUCCESS`, `returned` as `FAILURE`).
+*Rejected*: the specification gives none; inventing them would admit completions the specification does not admit.
 
 == Consequences
 
-* `outcomeClassOf` has no default arm: every shape either resolves or refuses.
-* Fixtures `step-completion-firing.pmwf`, `step-completion-outcome-class.pmwf`, and `step-completion-waived-guard.pmwf` pin the firing duplicate, the done-on-`FAILURE` and unresolvable-class refusals, and the waived-guard refusal, each with one planted defect.
-* Product units that relied on the silent pass surface their violations now; the passing `every-construct.pmwf` carries completions only on admitted classes.
+* Named seam: whether a `lost` or `infeasible` route that completes a step `skipped` is the *declared conservative route of an optional step* is not checked. The AST declares no optional step and no conservative route, so the verifier cannot tell that route from another; it admits `skipped` on `lost` and `infeasible` by their outcome name and class. The package file `doc/plans/static-verifier-rule-gaps.adoc` names this seam.
+* Named limit: `ARCHIVE_STEPS` is checked for the epic scope and a path to a terminal state; that the archive path commits and lands is not declared by any primitive and is not checked.
+* Units whose steps are completed on some paths of a firing but not on others are refused now; fixtures and inline tests carry a completion on every path of every firing.
 
 == Source
 
+* Workflow DSL specification, § Static AST Verification Rules, Rule 9; § Question States (`plan-marshall-documentation`)
 * `doc/plans/static-verifier-rule-gaps.adoc`
-* `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-44-static-verifier-rule-gaps.md`
+* link:007-rule-9-derived-firing-openings.adoc[ADR 007]

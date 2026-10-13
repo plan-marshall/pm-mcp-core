@@ -1,0 +1,45 @@
+= ADR 010: Seams Where the Primitive SPI and the Registries Cannot Express a Check
+:nofooter:
+
+== Status
+
+Accepted. Names seams; each closes when the SPI or the registry concerned carries the declaration.
+
+== Date
+
+2026-10-12
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules) asks for checks whose input the verifier cannot read today:
+
+* Rule 1: every `each` primitive of a `job llm` state is a registered read-only list primitive, and the primitive of `role each` is a registered read-only primitive that returns role names. The primitive SPI (`de.planmarshall.core.spi.Primitive`) declares the identifier, the parameter record, the outcome enumeration, the awaited event, the artifacts, the job it enqueues, the waivable gates and the cycle measure. It declares neither whether a primitive is read-only, nor that it returns a list, nor what the elements of that list are.
+* Rule 6: a result guard `guard result.<f>` names a boolean or optional field `<f>` of the callee's result schema. `SchemaRegistry` registers schema names only, not the fields of a schema and their types.
+* Rule 6: inside a remediation unit, `stepped_out` may target the unit's budget re-check (`INV-REM-4`). The language does not mark which state is the budget re-check.
+
+== Decision
+
+1. Rule 1 checks that the `each` and `role each` primitives are registered, and that `role each` occurs only in `adjudicate.decisions` and never with `ask`; whether the primitive is read-only, returns a list, or returns role names is not checked and not claimed.
+2. Rule 6 checks that a guarded `done` is routed only as the complementary pair `guard result.<f>` / `guard not result.<f>` over one field; whether `<f>` is a boolean or optional field of the callee's result schema is not checked and not claimed, and no refusing fixture plants it.
+3. Rule 6 refuses, inside a remediation unit, only a `stepped_out` route to a terminal of class `SUCCESS`; every other target is admitted, because the budget re-check cannot be told from any other state.
+
+== Alternatives Considered
+
+1. **Deriving the declarations from the parameter or outcome types** (for example, a primitive whose outcome is a list record counts as list-returning):
+The checks could be written without an SPI change.
+*Rejected*: the outcome type of a primitive is a closed enumeration, not the value it reads, and a naming convention would be a rule the specification does not state.
+
+2. **Adding the declarations to the SPI and the field types to `SchemaRegistry` in this package**:
+The checks could be written now.
+*Rejected*: the SPI is `pm-core`'s contract with every primitive of the product, and the schema fields are owned by the hypermedia specification's Named Parameter Schemas; both are changes of their own, outside the verifier package.
+
+== Consequences
+
+* The developer guide and the package file `doc/plans/static-verifier-rule-gaps.adoc` name these seams with this ADR.
+* The planned refusing fixture `result-guard-field-type.pmwf` is not written.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rules 1 and 6 (`plan-marshall-documentation`)
+* Workflow DSL specification, § Remediation Policy Units, `INV-REM-4` (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-rule-gaps.adoc`

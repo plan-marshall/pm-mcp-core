@@ -1,0 +1,42 @@
+= ADR 007: Rule 9 Derived Firing Openings
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The firing model of Rule 9 (Workflow DSL, § Static AST Verification Rules) opens a firing at a step's beginning state: the state `finalize.next-step` selects for it, or a region entry state for steps that share one (`finalize.review-cap-check`, `finalize.merge-evidence-wait`). It ends a firing at the next opening, at `finalize.merge-gate`, or at a terminal, and records the open firing `failed` on entry into `plan.aborted`, `plan.return`, or `finalize.hand-back`. The cycle-measure checks of the same rule must not be tied to state ids (`STEP_LIST` was tied to `finalize.next-step`, `ARCHIVE_STEPS` to `epic.next-work`). Operator decision q3 of PLAN-54 settled where the openings come from.
+
+== Decision
+
+* The dispatch hub is derived: it is the state whose primitive declares the cycle measure `STEP_LIST`. The targets of its transitions are openings, together with the unit's start state.
+* The states the specification names for the firing model — the region entry states, `finalize.merge-gate`, and the implicit-`failed` states `plan.aborted`, `plan.return`, `finalize.hand-back` — are constants in one block of `WorkflowValidator`, with the namespace `remediation.` of the remediation units. No other state id is named by Rule 9.
+* The cycle-measure checks name no state: `STEP_LIST` is checked against the unit (a unit with a step list), `ARCHIVE_STEPS` against the scope and the archive path, `ATTEMPT_CAP` against the primitive's exhaustion outcome and the graph (link:002-rule-9-firing-model.adoc[ADR 002]).
+
+== Alternatives Considered
+
+1. **Hard-coded state ids**:
+Name `finalize.next-step` as the hub and `epic.next-work` as the archive state.
+*Rejected*: a project unit or an instance version may lay out its hub differently; the measure is declared by the primitive, so the hub follows from the primitive.
+
+2. **A new constants file**:
+Keep the named states in a class of their own.
+*Rejected*: the states are read by one check of one class; a separate file adds a type and no reader.
+
+== Consequences
+
+* A unit without a `STEP_LIST` hub has its start state and the named region entries as its only openings.
+* A hub target that is a terminal state, `finalize.merge-gate`, or an implicit-`failed` state is not an opening.
+* A rename of a named state in the specification is a change of the one constant block.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 9 and Rule 11a (`plan-marshall-documentation`)
+* PLAN-54 operator decision q3
+* link:002-rule-9-firing-model.adoc[ADR 002]

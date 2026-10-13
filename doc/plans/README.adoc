@@ -114,7 +114,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:project-units-and-invariants.adoc[`project-units-and-invariants`]
 |Loader of project-owned units and the compiled invariants
 |`open`
-|link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]; link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`]
+|link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]; link:static-verifier-remaining-rules.adoc[`static-verifier-remaining-rules`]; link:static-verifier-rule-gaps.adoc[`static-verifier-rule-gaps`]
 |Milestone 3
 
 |link:plan-instance.adoc[`plan-instance`]

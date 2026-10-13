@@ -1,0 +1,14 @@
+# expect: LINK_COMPATIBILITY state verify.entry line 8
+workflow verify.link-escalate-id version 1 format 1
+scope workspace
+start verify.entry
+
+state verify.entry
+    phase verify
+    link escalate other (note: text[1..80], comment: text)
+        do test.choose
+            chosen -> verify.done
+            declined -> verify.done
+
+state verify.done terminal done success
+    phase verify

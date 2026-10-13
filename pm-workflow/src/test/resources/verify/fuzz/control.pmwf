@@ -1,9 +1,10 @@
 # The matched control of planted-dead-state.pmwf, written for the transition fuzzer tests:
 # the same unit, except that the link of verify.gate carries no guard. Its link holds under
 # every assignment, so the fuzzer must report no dead state with the seed that finds the
-# planted one.
+# planted one. Like the planted unit it is an entity unit, so its resting link states fit
+# Rule 10, which admits none in a plan or epic unit.
 workflow verify.fuzz version 1 format 1
-scope plan
+scope entity
 start verify.entry
 
 state verify.entry

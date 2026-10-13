@@ -1,0 +1,47 @@
+= ADR 006: Rule 3 Value Activation Gap
+:nofooter:
+
+== Status
+
+Accepted. Names a seam; it closes when the specification states how a configuration value activates a guard.
+
+== Date
+
+2026-10-12
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 3) checks reachability for every combination of the values of the configuration keys the unit's guards declare in `depends_on_config`: every enum value, `true` and `false` for a boolean. A state or outcome transition that no combination reaches fails validation; one that some combinations do not reach is reported with those combinations.
+
+The specification gives each key its domain (enum or boolean) but no rule by which a value makes a guard true, and the grammar's `depends_on_config` clause names keys only, never a value a link needs. Without that rule the verifier cannot tell, for an enum key, under which values a link is active: a unit with a link that needs `mode=strict` followed by a link that needs `mode=lenient` (the case in which no combination reaches the second link's transition) cannot even be written.
+
+Under the activation the verifier has, a link is active when every key its guard names is `true`. The all-true assignment then activates every link, so every state and transition the unconditional graph reaches is reached under at least that assignment: the refusal of Rule 3 cannot be met, and the check yields advisories only (link:004-rule-3-configuration-reachability.adoc[ADR 004]).
+
+== Decision
+
+1. The verifier keeps the Boolean enumeration with all-keys-true activation (`UnitGraph.configCombinations`, `UnitGraph.isLinkActive`): every key, an enum key included, is enumerated as `true` and `false`.
+2. The following are a named seam, not checked and not claimed: the enumeration of the values of an enum key, the rule by which a value activates a guard, and the refusal of a state or transition no combination reaches, with its refusing fixture (a link needing `mode=strict` followed by a link needing `mode=lenient`).
+3. The gap is raised with the specification in the repository `plan-marshall-documentation`. The issue verb of the project's CI provider files an issue in the repository of the working tree only and cannot target another repository, so the issue text is recorded in the pull request body of PLAN-54 and the operator files it there; its number is added to § Source when it is filed.
+
+== Alternatives Considered
+
+1. **Inventing an activation rule** (for example: a link is active for every value of its keys, or the key name encodes the value):
+The enumeration of enum values could be written today.
+*Rejected*: the verifier would check a rule the specification does not state and refuse or admit units by it; the verifier checks the specification, it does not refine it.
+
+2. **Extending the grammar with a value per key** (`depends_on_config mode=strict`):
+The value a link needs would be in the unit.
+*Rejected*: a grammar change is a specification change; it belongs in `plan-marshall-documentation` first.
+
+== Consequences
+
+* `CONFIG_REACHABILITY` reports partial reachability as advisories and refuses nothing until the seam closes.
+* `UnitGraph`'s Javadoc names the Boolean-only enumeration and the all-keys-true activation and points here.
+* The package file `doc/plans/static-verifier-rule-gaps.adoc` names this seam; the developer guide names it with this ADR.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 3, and § Formal EBNF Grammar, `depends_on_config` (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-rule-gaps.adoc`
+* link:004-rule-3-configuration-reachability.adoc[ADR 004]
+* Specification issue in `plan-marshall-documentation`: filed by the operator from the text in the PR body of PLAN-54 (number added when filed)

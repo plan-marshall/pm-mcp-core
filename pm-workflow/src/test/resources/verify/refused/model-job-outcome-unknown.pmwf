@@ -1,0 +1,14 @@
+# expect: MODEL_JOB_OUTCOMES state verify.entry line 11
+workflow verify.model-job-outcome-unknown version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    job llm change role reviewer
+        approved -> verify.done
+        lost -> verify.done
+        vanished -> verify.done
+
+state verify.done terminal done success
+    phase verify

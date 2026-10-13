@@ -13,6 +13,7 @@ import static de.planmarshall.workflow.engine.EngineFixtures.EXECUTE;
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
 import static de.planmarshall.workflow.engine.EngineFixtures.SUB_COMMIT;
 import static de.planmarshall.workflow.engine.EngineFixtures.T0;
+import static de.planmarshall.workflow.engine.EngineFixtures.callingPlan;
 import static de.planmarshall.workflow.engine.EngineFixtures.frame;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
 import static de.planmarshall.workflow.engine.EngineFixtures.plan;
@@ -98,12 +99,13 @@ class WorkflowEngineTest {
                     cancelled -> handed_back
             """;
 
+    /** A call whose step-out enters the plan's fallback state, the one target Rule 6 admits in a plan unit. */
     private static final String CALL_COMMIT = """
             state execute.commit
                 phase execute
                 call sub.commit
                     done -> completed
-                    stepped_out -> handed_back
+                    stepped_out -> plan.return
             """;
 
     private final EngineFixtures fixtures = new EngineFixtures();
@@ -173,7 +175,7 @@ class WorkflowEngineTest {
         @DisplayName("Should return each exit of a sub-workflow to its caller, which routes it")
         void shouldReturnSubWorkflowExitToCaller(StepOutcome outcome, String terminal) {
             fixtures.mark.then(outcome);
-            var engine = fixtures.engine(plan("execute.commit", CALL_COMMIT), parse("sub.pmwf", SUB_COMMIT));
+            var engine = fixtures.engine(callingPlan("execute.commit", CALL_COMMIT), parse("sub.pmwf", SUB_COMMIT));
 
             var ended = assertInstanceOf(EngineStep.Ended.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
 
@@ -304,7 +306,7 @@ class WorkflowEngineTest {
             var callee = parse("sub.pmwf", SUB_COMMIT.replace("        failed -> sub.stepped-out\n", ""));
 
             var refused = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
-                    () -> fixtures.engine(plan("execute.commit", CALL_COMMIT), callee));
+                    () -> fixtures.engine(callingPlan("execute.commit", CALL_COMMIT), callee));
 
             assertEquals("sub.commit", refused.unitId());
         }
@@ -315,7 +317,7 @@ class WorkflowEngineTest {
             var callee = parse("sub.pmwf", SUB_COMMIT);
 
             var refused = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
-                    () -> new WorkflowEngine(plan("execute.commit", CALL_COMMIT), WorkflowCatalog.empty(),
+                    () -> new WorkflowEngine(callingPlan("execute.commit", CALL_COMMIT), WorkflowCatalog.empty(),
                             fixtures.validator(callee), fixtures.registry(), (primitive, status) -> null,
                             fixtures.ports()));
 
@@ -365,10 +367,10 @@ class WorkflowEngineTest {
                     phase execute
                     call sub.retry
                         done -> completed
-                        stepped_out -> handed_back
+                        stepped_out -> plan.return
                 """;
 
-        private final WorkflowEngine engine = fixtures.engine(plan("execute.retry-call", CALL_RETRY),
+        private final WorkflowEngine engine = fixtures.engine(callingPlan("execute.retry-call", CALL_RETRY),
                 parse("sub.pmwf", SUB_RETRY));
 
         private final RetryCounters counted = RetryCounters.empty()
@@ -506,21 +508,26 @@ class WorkflowEngineTest {
             assertEquals(Reason.UNRESOLVED_NAME, fault.reason());
         }
 
+        /*
+         * A returned outcome no result guard routes is not reachable in a verified unit: Rule 6 admits a guarded 'done'
+         * only as the complementary pair, of which exactly one guard holds over any result record. A returned outcome
+         * the calling state does not route at all is reachable when the engine's catalog holds another callee than the
+         * one the verifier checked the caller against; the engine then fails instead of guessing a route.
+         */
         @Test
-        @DisplayName("Should fail with undeclared_outcome when no result guard of the returned outcome holds")
-        void shouldFaultOnUndeclaredOutcome() {
-            var engine = fixtures.engine(plan("execute.commit", """
-                    state execute.commit
-                        phase execute
-                        call sub.commit
-                            done -> completed
-                                guard result.pushed
-                            stepped_out -> handed_back
-                    """), parse("sub.pmwf", SUB_COMMIT));
+        @DisplayName("Should fail with undeclared_outcome when the catalog's callee returns an outcome the caller lacks")
+        void shouldFaultOnOutcomeOutsideVerifiedContract() {
+            var verifiedCallee = parse("sub.pmwf", SUB_COMMIT);
+            var catalogCallee = parse("sub.pmwf", SUB_COMMIT.replace("terminal done success", "terminal pushed success"));
+            var engine = new WorkflowEngine(callingPlan("execute.commit", CALL_COMMIT),
+                    WorkflowCatalog.of(catalogCallee), fixtures.validator(verifiedCallee), fixtures.registry(),
+                    (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
 
             var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
 
-            assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason());
+            assertAll(
+                    () -> assertEquals(Reason.UNDECLARED_OUTCOME, fault.reason()),
+                    () -> assertEquals(1, fixtures.mark.calls()));
         }
 
         @Test

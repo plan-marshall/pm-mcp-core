@@ -1,0 +1,13 @@
+# expect: ENTITY_KIND_BINDING state verify.entry line 6
+workflow verify.entity-unit-unresolved version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    job llm unresolved role reviewer
+        approved -> verify.done
+        lost -> verify.done
+
+state verify.done terminal done success
+    phase verify

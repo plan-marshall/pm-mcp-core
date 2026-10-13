@@ -14,30 +14,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
- * The static verifier (PM-IMPL-5, PM-TEST-3): every refusing fixture states its expected rule, state and line in a
- * leading comment and is refused with exactly that violation; the unit that uses every construct passes every check
- * and is the matched negative control; inline units cover the exemptions and the variants of each check.
+ * The static verifier (PM-IMPL-5, PM-TEST-3): every refusing fixture states its expected violations in leading
+ * comments and is refused with exactly those; the fixtures are counted against an enumerated checklist of atomic
+ * checks, one fixture per check; the unit that uses every construct passes every check; inline units are the matched
+ * controls of the exemptions and cover the variants of each check.
  */
 @DisplayName("WorkflowValidator")
 class WorkflowValidatorTest {
-
-    private static final Pattern EXPECTATION =
-            Pattern.compile("^#\\s*expect:\\s*([A-Z_]+)\\s+state\\s+(\\S+)\\s+line\\s+(\\d+)");
 
     private static final List<String> RELEASED = List.of("verify.entry");
 
@@ -47,8 +48,223 @@ class WorkflowValidatorTest {
                 phase verify
             """;
 
+    /**
+     * One atomic check of the verifier: a statement of the specification's static verification rules (Workflow DSL §
+     * Static AST Verification Rules) as {@code static-verifier-remaining-rules.adoc} and
+     * {@code static-verifier-rule-gaps.adoc} § What list them, the rule that reports it, and the one refusing fixture
+     * that pins it.
+     *
+     * @param check   what is checked
+     * @param rule    the rule that refuses it
+     * @param fixture the file name of its refusing fixture below {@code verify/refused}
+     */
+    private record Check(String check, VerificationRule rule, String fixture) {
+    }
+
+    /**
+     * An atomic check no refusing fixture pins, with the reason.
+     *
+     * @param check  what is checked, or what the specification asks and the verifier does not check
+     * @param rule   the rule it belongs to
+     * @param reason why no fixture pins it, and where it is pinned or named instead
+     */
+    private record Unpinned(String check, VerificationRule rule, String reason) {
+    }
+
+    private static final List<Check> CHECKLIST = List.of(
+            new Check("Rule 1: every primitive a state, link or predicate guard names is registered",
+                    VerificationRule.PRIMITIVE_BINDING, "primitive-binding.pmwf"),
+            new Check("Rule 1: the free parameters of a link equal the @FreeParam components of its primitive",
+                    VerificationRule.PARAMETER_EQUIVALENCE, "parameter-equivalence.pmwf"),
+            new Check("Rule 1: the entity kind of a job llm state is registered",
+                    VerificationRule.ENTITY_KIND_BINDING, "entity-kind-unregistered.pmwf"),
+            new Check("Rule 1: the entity unit of an entity kind is registered in the catalog",
+                    VerificationRule.ENTITY_KIND_BINDING, "entity-unit-unresolved.pmwf"),
+            new Check("Rule 1: the return-evaluation primitive of an entity kind is registered",
+                    VerificationRule.ENTITY_KIND_BINDING, "entity-kind-evaluation-unregistered.pmwf"),
+            new Check("Rule 1: the primitive of an each clause is registered",
+                    VerificationRule.ENTITY_KIND_BINDING, "each-primitive-unregistered.pmwf"),
+            new Check("Rule 1: role each is admitted only in adjudicate.decisions",
+                    VerificationRule.ENTITY_KIND_BINDING, "role-each-outside-adjudicate.pmwf"),
+            new Check("Rule 1: the primitive of a role each clause is registered",
+                    VerificationRule.ENTITY_KIND_BINDING, "role-each-primitive-unregistered.pmwf"),
+            new Check("Rule 1: ask is refused on a role each state",
+                    VerificationRule.ENTITY_KIND_BINDING, "role-each-ask.pmwf"),
+            new Check("Rule 1: ask is refused on a state whose entity kind has no entity unit",
+                    VerificationRule.ENTITY_KIND_BINDING, "ask-without-entity-unit.pmwf"),
+            new Check("Rule 1: every role name of a job llm state and of a consult role clause matches the grammar",
+                    VerificationRule.ROLE_NAME_GRAMMAR, "role-name-grammar.pmwf"),
+            new Check("Rule 1: every schema[...] names a registered schema",
+                    VerificationRule.SCHEMA_BINDING, "schema-unregistered.pmwf"),
+            new Check("Rule 1: only the job-starting outcomes of an enqueuing primitive target a job state",
+                    VerificationRule.JOB_STARTING_OUTCOME, "job-starting-outcome.pmwf"),
+            new Check("Rule 2: an auto, job or link action routes every outcome of its primitive",
+                    VerificationRule.OUTCOME_COVERAGE, "outcome-missing.pmwf"),
+            new Check("Rule 2: an auto, job or link action routes no outcome its primitive has not",
+                    VerificationRule.OUTCOME_COVERAGE, "outcome-unknown.pmwf"),
+            new Check("Rule 2: an auto, job or link action routes each outcome once",
+                    VerificationRule.OUTCOME_COVERAGE, "outcome-twice.pmwf"),
+            new Check("Rule 2: a job llm state routes every outcome of its return-evaluation primitive",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-missing.pmwf"),
+            new Check("Rule 2: a job llm state routes no outcome its return-evaluation primitive has not",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-unknown.pmwf"),
+            new Check("Rule 2: a job llm state routes each outcome once",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-twice.pmwf"),
+            new Check("Rule 2: lost stays undeclared only in a plan unit",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-undeclared.pmwf"),
+            new Check("Rule 2: asked is engine-made and refused when declared",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-asked-declared.pmwf"),
+            new Check("Rule 2: a question clause routes every resolution outcome of its class",
+                    VerificationRule.QUESTION_OUTCOMES, "question-outcome-missing.pmwf"),
+            new Check("Rule 2: a question clause routes no outcome its class has not",
+                    VerificationRule.QUESTION_OUTCOMES, "question-outcome-unknown.pmwf"),
+            new Check("Rule 2: a question clause routes each outcome once",
+                    VerificationRule.QUESTION_OUTCOMES, "question-outcome-twice.pmwf"),
+            new Check("Rule 3: the engine-made <state>.asked is unique among the state ids",
+                    VerificationRule.STATE_ID_UNIQUE, "state-id-duplicate.pmwf"),
+            new Check("Rule 3: the start state exists",
+                    VerificationRule.STATE_EXISTS, "state-start-missing.pmwf"),
+            new Check("Rule 3: every transition target exists",
+                    VerificationRule.STATE_EXISTS, "state-not-found.pmwf"),
+            new Check("Rule 3: every state is reachable from the start state",
+                    VerificationRule.REACHABILITY, "unreachable-state.pmwf"),
+            new Check("Rule 3: plan.aborted is never targeted",
+                    VerificationRule.ABORT_TERMINAL_TARGETING, "abort-terminal-targeted.pmwf"),
+            new Check("Rule 3: epic.aborted is targeted only by abort_landed of epic.next-work",
+                    VerificationRule.ABORT_TERMINAL_TARGETING, "abort-epic-wrong-source.pmwf"),
+            new Check("Rule 3: epic.aborted is targeted by at most one transition",
+                    VerificationRule.ABORT_TERMINAL_TARGETING, "abort-epic-twice.pmwf"),
+            new Check("Rule 3: no transition targets a condition kind or a reserved state id",
+                    VerificationRule.TARGET_NOT_RESERVED, "reserved-target.pmwf"),
+            new Check("Rule 3: every state has a path to a terminal state",
+                    VerificationRule.EXIT_PATH, "no-exit-path.pmwf"),
+            new Check("Rule 3: every state of a workspace unit has a path back to its start state",
+                    VerificationRule.EXIT_PATH, "exit-path-workspace.pmwf"),
+            new Check("Rule 3: the link identifiers of a state are unique",
+                    VerificationRule.LINK_ID_UNIQUE, "duplicate-link-id.pmwf"),
+            new Check("Rule 3: a declared link repeats no implicit link identifier (ack, consult:, answer:, step_out)",
+                    VerificationRule.LINK_ID_UNIQUE, "link-id-implicit.pmwf"),
+            new Check("Rule 4: a worker unit holds no job llm state and no link into one",
+                    VerificationRule.LEAF_TASK_CONSTRAINT, "leaf-task-constraint.pmwf"),
+            new Check("Rule 4: a consultation task offers no consult link",
+                    VerificationRule.LEAF_TASK_CONSTRAINT, "leaf-consult-link.pmwf"),
+            new Check("Rule 4: a consultation task consults no further role",
+                    VerificationRule.LEAF_TASK_CONSTRAINT, "leaf-consult-roles.pmwf"),
+            new Check("Rule 5: every released state name is a state or migrated directly to one",
+                    VerificationRule.RELEASED_STATE, "released-state-dropped.pmwf"),
+            new Check("Rule 6: the called unit is registered",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-contract.pmwf"),
+            new Check("Rule 6: the called unit is a sub-workflow",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-callee-scope.pmwf"),
+            new Check("Rule 6: a call routes every exit outcome, the implicit stepped_out included",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-stepped-out-unrouted.pmwf"),
+            new Check("Rule 6: a call routes no outcome outside the exit contract",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-exit-unknown.pmwf"),
+            new Check("Rule 6: a call routes each exit outcome once, a guarded done pair aside",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-exit-twice.pmwf"),
+            new Check("Rule 6: a result guard sits only on the outcome done",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-not-done.pmwf"),
+            new Check("Rule 6: a guarded done is admitted only as the complementary pair",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-single-done.pmwf"),
+            new Check("Rule 6: the parameter bindings of a call match the callee's parameters",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-param-binding.pmwf"),
+            new Check("Rule 6: phase inherit is admitted only in sub-workflow and entity units",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "phase-inherit-outside.pmwf"),
+            new Check("Rule 6: a resting link state of a sub-workflow declares a skill",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-link-without-skill.pmwf"),
+            new Check("Rule 6: stepped_out never targets a success terminal and fits the scope's target rule",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-target.pmwf"),
+            new Check("Rule 6: stepped_out is declared only by a terminal of class stepped_out",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
+            new Check("Rule 7: the call graph is acyclic",
+                    VerificationRule.CALL_GRAPH_DAG, "call-graph-cycle.pmwf"),
+            new Check("Rule 7: the call graph is at most four calls deep",
+                    VerificationRule.CALL_GRAPH_DAG, "call-graph-depth.pmwf"),
+            new Check("Rule 8: every path to a state requiring an artifact passes a producer",
+                    VerificationRule.GATE_PRODUCER_COVERAGE, "gate-producer-missing.pmwf"),
+            new Check("Rule 9: a transition completes a step at most once",
+                    VerificationRule.STEP_COMPLETION, "step-completion-same-transition.pmwf"),
+            new Check("Rule 9: a firing completes a step at most once on every path",
+                    VerificationRule.STEP_COMPLETION, "step-completion-firing.pmwf"),
+            new Check("Rule 9: a firing completes each of its steps on every path",
+                    VerificationRule.STEP_COMPLETION, "step-completion-no-completion.pmwf"),
+            new Check("Rule 9: entering an implicit-failed state completes the open step, no transition into it does",
+                    VerificationRule.STEP_COMPLETION, "step-completion-implicit-failed.pmwf"),
+            new Check("Rule 9: an outcome whose class cannot be established admits no completion",
+                    VerificationRule.STEP_COMPLETION, "step-completion-question-class.pmwf"),
+            new Check("Rule 9: done is admitted only on an outcome of class SUCCESS",
+                    VerificationRule.STEP_COMPLETION, "step-completion-outcome-class.pmwf"),
+            new Check("Rule 9: skipped is admitted on SUCCESS and SKIP, and on lost and infeasible by name",
+                    VerificationRule.STEP_COMPLETION, "step-completion-skipped-route.pmwf"),
+            new Check("Rule 9: failed is refused on an outcome of class UNSETTLED or STEPPED_OUT",
+                    VerificationRule.STEP_COMPLETION, "step-completion-failed-class.pmwf"),
+            new Check("Rule 9: waived is admitted only on the waived outcome of a call to a remediation unit",
+                    VerificationRule.STEP_COMPLETION, "step-completion-waived-guard.pmwf"),
+            new Check("Rule 9: STEP_LIST sits on the hub of a unit with a step list",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-step-list.pmwf"),
+            new Check("Rule 9: ARCHIVE_STEPS sits in an epic unit",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-archive-steps.pmwf"),
+            new Check("Rule 9: ARCHIVE_STEPS sits on the archive path",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-archive-path.pmwf"),
+            new Check("Rule 9: the exhaustion transition of an ATTEMPT_CAP leaves every cycle through its state",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-attempt-cap.pmwf"),
+            new Check("Rule 10: a plan or epic unit holds no resting link state",
+                    VerificationRule.SESSION_DRIVEN_LINKS, "session-link-forbidden.pmwf"),
+            new Check("Rule 10: a plan or epic unit declares no link on a question state",
+                    VerificationRule.SESSION_DRIVEN_LINKS, "session-question-links.pmwf"),
+            new Check("Rule 10: no sub-workflow a plan or epic unit reaches by calls holds a resting link",
+                    VerificationRule.SESSION_DRIVEN_LINKS, "session-link-transitive.pmwf"),
+            new Check("Rule 11a: an engine-chained cycle carries a cycle measure",
+                    VerificationRule.CYCLE_AWAITED_EVENT, "cycle-measure-missing.pmwf"),
+            new Check("Rule 11b: a resting cycle traverses a link that awaits an event",
+                    VerificationRule.CYCLE_AWAITED_EVENT, "cycle-noop-without-event.pmwf"),
+            new Check("Rule 11b: a question state's declared link is judged by its primitive like any link",
+                    VerificationRule.CYCLE_AWAITED_EVENT, "question-link-no-awaited-event.pmwf"),
+            new Check("Rule 12: the engine-owned relations consult and abort are never declared",
+                    VerificationRule.LINK_COMPATIBILITY, "link-engine-owned.pmwf"),
+            new Check("Rule 12: the form of a link is one its relation admits",
+                    VerificationRule.LINK_COMPATIBILITY, "link-form-not-admitted.pmwf"),
+            new Check("Rule 12: a submit link declares parameters",
+                    VerificationRule.LINK_COMPATIBILITY, "link-submit-without-params.pmwf"),
+            new Check("Rule 12: a noop link declares none",
+                    VerificationRule.LINK_COMPATIBILITY, "link-noop-with-params.pmwf"),
+            new Check("Rule 12: an escalate link is request_waiver",
+                    VerificationRule.LINK_COMPATIBILITY, "link-escalate-id.pmwf"));
+
+    /** The checks a fixture cannot plant: the language or the primitive registry refuses the input first. */
+    private static final List<Unpinned> UNPLANTABLE = List.of(
+            new Unpinned("Rule 1: every question clause names a registered question class",
+                    VerificationRule.QUESTION_CLASS_BINDING,
+                    "the grammar closes the question-class vocabulary and the default registry registers every class;"
+                            + " pinned by AdditionalRulesTest#questionClassUnregistered with a narrower registry"),
+            new Unpinned("Rule 1: a primitive declaring enqueuesJob() declares a job-starting outcome",
+                    VerificationRule.JOB_STARTING_OUTCOME,
+                    "PrimitiveRegistry refuses such a primitive at registration"),
+            new Unpinned("Rule 9: an ATTEMPT_CAP primitive names an exhaustion outcome of class FAILURE",
+                    VerificationRule.STEP_COMPLETION,
+                    "PrimitiveRegistry refuses such a primitive at registration"));
+
+    /** What the specification asks and the verifier does not check: the seams, each named by its ADR. */
+    private static final List<Unpinned> SEAMS = List.of(
+            new Unpinned("Rule 3: a state or transition no combination of the depends_on_config values reaches",
+                    VerificationRule.CONFIG_REACHABILITY,
+                    "ADR 006: no activation rule for enum values; under the Boolean all-keys-true activation the"
+                            + " all-true combination reaches everything, so partial reachability is an advisory"),
+            new Unpinned("Rule 1: each runs over a read-only list primitive, role each over one returning role names",
+                    VerificationRule.ENTITY_KIND_BINDING,
+                    "ADR 010: the primitive SPI cannot express either; only the registration is checked"),
+            new Unpinned("Rule 6: the guarded field is a boolean or optional field of the callee's result schema",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
+                    "ADR 010: SchemaRegistry registers schema names only"),
+            new Unpinned("Rule 6: inside a remediation unit stepped_out targets the budget re-check",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
+                    "ADR 010: the language does not mark the budget re-check; only a SUCCESS target is refused"),
+            new Unpinned("Rule 9: skipped on lost or infeasible only on the declared conservative route of an optional"
+                    + " step", VerificationRule.STEP_COMPLETION,
+                    "ADR 002: the AST declares no optional step and no conservative route"));
+
     private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), RELEASED,
-            EntityKindRegistry.defaults(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+            TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
             TestPrimitives.catalog());
 
     static List<String> refusedFixtures() {
@@ -56,16 +272,24 @@ class WorkflowValidatorTest {
     }
 
     private static WorkflowDefinition unit(String scope, String states) {
+        return unit("verify.inline", scope, states);
+    }
+
+    private static WorkflowDefinition unit(String id, String scope, String states) {
         return VerifyFixtures.parseSource("inline.pmwf", """
-                workflow verify.inline version 1 format 1
+                workflow %s version 1 format 1
                 scope %s
                 start verify.entry
 
-                %s""".formatted(scope, states));
+                %s""".formatted(id, scope, states));
     }
 
     private List<Violation> violations(WorkflowDefinition definition) {
         return validator.verify(definition).violations();
+    }
+
+    private static String fileName(String resource) {
+        return resource.substring(resource.lastIndexOf('/') + 1);
     }
 
     @Nested
@@ -74,39 +298,40 @@ class WorkflowValidatorTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.verify.WorkflowValidatorTest#refusedFixtures")
-        @DisplayName("Should refuse each fixture with exactly the violation it expects")
-        void shouldRefuseWithExactlyTheExpectedViolation(String resource) {
-            var expectation = EXPECTATION.matcher(VerifyFixtures.read(resource).lines().findFirst().orElseThrow());
-            assertTrue(expectation.find(), () -> resource + " states no expectation");
-
+        @DisplayName("Should refuse each fixture with exactly the violations it expects")
+        void shouldRefuseWithExactlyTheExpectedViolations(String resource) {
             var found = violations(VerifyFixtures.parse(resource));
 
-            assertEquals(1, found.size(), () -> resource + " reported " + found);
-            var violation = found.getFirst();
-            assertAll(resource,
-                    () -> assertEquals(VerificationRule.valueOf(expectation.group(1)), violation.rule()),
-                    () -> assertEquals(expectation.group(2), violation.stateId()),
-                    () -> assertEquals(resource, violation.location().resourceName()),
-                    () -> assertEquals(Integer.parseInt(expectation.group(3)), violation.location().line()));
+            VerifyFixtures.assertRefusedExactly(resource, found);
         }
 
         @Test
-        @DisplayName("Should hold a refusing fixture for every plantable check, one for each outcome variant")
+        @DisplayName("Should hold exactly one refusing fixture for every atomic check of the checklist")
         void shouldCoverEveryCheck() {
-            var expected = refusedFixtures().stream()
-                    .map(resource -> EXPECTATION.matcher(VerifyFixtures.read(resource)))
-                    .filter(Matcher::find)
-                    .map(matcher -> VerificationRule.valueOf(matcher.group(1)))
-                    .toList();
+            var fixtures = refusedFixtures().stream().map(WorkflowValidatorTest::fileName)
+                    .collect(Collectors.toCollection(TreeSet::new));
+            var named = CHECKLIST.stream().map(Check::fixture).toList();
+            var checks = Stream.of(CHECKLIST.stream().map(Check::check), UNPLANTABLE.stream().map(Unpinned::check),
+                    SEAMS.stream().map(Unpinned::check)).flatMap(stream -> stream).toList();
 
-            // QUESTION_CLASS_BINDING holds no fixture by construction: the grammar closes the question-class
-            // vocabulary and every parseable class is registered by default, so no fixture can plant an
-            // unregistered class. The check itself stays covered by the custom-registry case in
-            // AdditionalRulesTest.testQuestionClassUnregistered.
-            var missing = EnumSet.allOf(VerificationRule.class);
-            missing.removeAll(expected);
-            assertAll(() -> assertEquals(38, expected.size()),
-                    () -> assertEquals(EnumSet.of(VerificationRule.QUESTION_CLASS_BINDING), missing));
+            assertAll(() -> assertEquals(named.size(), new HashSet<>(named).size(), "a fixture pins two checks"),
+                    () -> assertEquals(checks.size(), new HashSet<>(checks).size(), "a check is listed twice"),
+                    () -> assertEquals(new TreeSet<>(named), fixtures,
+                            "the fixtures and the checklist name different files"));
+            for (var check : CHECKLIST) {
+                var rules = VerifyFixtures.expectations(VerifyFixtures.REFUSED + "/" + check.fixture()).stream()
+                        .map(VerifyFixtures.Expectation::rule).toList();
+                assertTrue(rules.contains(check.rule()), () -> check + " is refused with " + rules);
+            }
+        }
+
+        @Test
+        @DisplayName("Should name every rule in the checklist, as unplantable, or as a seam")
+        void shouldAccountForEveryRule() {
+            var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
+                    SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
+
+            assertEquals(Set.of(VerificationRule.values()), accounted);
         }
 
         @Test
@@ -115,7 +340,117 @@ class WorkflowValidatorTest {
             var result = validator.verify(VerifyFixtures.parse(VerifyFixtures.PASSING + "/every-construct.pmwf"));
 
             assertAll(() -> assertTrue(result.passed(), result::toString),
-                    () -> assertTrue(result.violations().isEmpty(), result::toString));
+                    () -> assertEquals(List.of(), result.violations(), result::toString),
+                    () -> assertEquals(List.of("verify.entry CONFIG_REACHABILITY", "verify.entry CONFIG_REACHABILITY"),
+                            result.advisories().stream()
+                                    .map(advisory -> advisory.stateId() + " " + advisory.rule()).toList(),
+                            "only the transitions of the link that depends on configuration are partial"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Exemptions")
+    class Exemptions {
+
+        static Stream<Arguments> controls() {
+            return Stream.of(
+                    Arguments.of("epic.aborted targeted by abort_landed of epic.next-work, matched with "
+                            + "abort-epic-wrong-source.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> epic.next-work
+                                    skipped -> verify.done
+
+                            state epic.next-work
+                                phase verify
+                                auto test.land-work
+                                    landed -> verify.done
+                                    abort_landed -> epic.aborted
+
+                            state epic.aborted terminal aborted failure
+                                phase aborted
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a call graph exactly four calls deep, matched with call-graph-depth.pmwf",
+                            "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                call test.depth2()
+                                    done -> verify.done
+                                    stepped_out -> plan.return
+
+                            state plan.return terminal returned failure
+                                phase verify
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a producer on every path to the consumer, matched with gate-producer-missing.pmwf",
+                            "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.produce
+                                    done -> verify.consume
+
+                            state verify.consume
+                                phase verify
+                                auto test.consume
+                                    done -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("the escalate link request_waiver, matched with link-escalate-id.pmwf",
+                            "verify.inline", "workspace", """
+                            state verify.entry
+                                phase verify
+                                link escalate request_waiver (note: text[1..80], comment: text)
+                                    do test.choose
+                                        chosen -> verify.done
+                                        declined -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a job-starting outcome into a job state, matched with job-starting-outcome.pmwf",
+                            "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.enqueue
+                                    enqueued -> verify.build
+                                    skipped -> verify.done
+
+                            state verify.build
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.done
+                                    failed -> verify.done
+                                    cancelled -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("role each in adjudicate.decisions, matched with role-each-outside-adjudicate.pmwf",
+                            "adjudicate.decisions", "plan", """
+                            state verify.entry
+                                phase verify
+                                job llm change role each test.list-roles
+                                    approved -> verify.done
+                                    lost -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("the default lost route of a plan unit, matched with model-job-lost-undeclared.pmwf",
+                            "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                job llm change role reviewer
+                                    approved -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("the engine-made asked of an ask state, matched with model-job-asked-declared.pmwf",
+                            "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                job llm change role reviewer ask
+                                    approved -> verify.done
+                                    lost -> verify.done
+                            """ + DONE_TERMINAL));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.WorkflowValidatorTest$Exemptions#controls")
+        @DisplayName("Should pass the matched control of each exemption")
+        void shouldPassTheMatchedControl(String exemption, String id, String scope, String states) {
+            var result = validator.verify(unit(id, scope, states));
+
+            assertAll(exemption, () -> assertEquals(List.of(), result.violations()),
+                    () -> assertEquals(List.of(), result.advisories()));
         }
     }
 
@@ -241,23 +576,29 @@ class WorkflowValidatorTest {
     @DisplayName("Exit path")
     class ExitPath {
 
+        /*
+         * A link state that returns to itself through a submission, so the cycle awaits an event. A plan unit admits
+         * no resting link state (Rule 10), so the matched control of the sub-workflow is an entity unit, whose link
+         * states have no implicit step_out either.
+         */
         private static final String SELF_LINK = """
                 state verify.entry
                     phase verify
                     skill pm/verify/start
-                    link next proceed ()
-                        do test.proceed
-                            done -> verify.entry
+                    link submit choose [submit] (note: text[1..80], comment: text)
+                        do test.choose
+                            chosen -> verify.entry
+                            declined -> verify.entry
                 """;
 
         @ParameterizedTest(name = "{0}")
-        @CsvSource({"subworkflow, 0", "plan, 1"})
+        @CsvSource({"subworkflow, 0", "entity, 1"})
         @DisplayName("Should let a link state of a sub-workflow exit through the implicit step_out")
         void shouldExitThroughStepOut(String scope, int count) {
-            var found = violations(unit(scope, SELF_LINK)).stream()
-                    .filter(violation -> violation.rule() == VerificationRule.EXIT_PATH)
-                    .toList();
-            assertEquals(count, found.size(), found::toString);
+            var found = violations(unit(scope, SELF_LINK));
+
+            assertEquals(count == 0 ? List.of() : List.of("verify.entry EXIT_PATH"),
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
         }
 
         @ParameterizedTest(name = "lost declared: {0}")
@@ -273,35 +614,33 @@ class WorkflowValidatorTest {
 
             var found = violations(definition);
 
-            assertEquals(count, found.size(), found::toString);
-            found.forEach(violation -> assertEquals(VerificationRule.EXIT_PATH, violation.rule()));
+            assertEquals(count == 0 ? List.of() : List.of("verify.entry EXIT_PATH"),
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
         }
 
         @ParameterizedTest(name = "done -> {0}")
-        @CsvSource({"verify.entry, 0", "verify.stuck, 1"})
+        @CsvSource({"verify.entry, 0", "verify.done, 1"})
         @DisplayName("Should require every state of a workspace unit to return to the start state")
         void shouldReturnToStartInWorkspace(String doneTarget, int count) {
             var definition = unit("workspace", """
                     state verify.entry
                         phase setup
-                        link submit work [submit] ()
-                            do test.proceed
-                                done -> verify.stuck
+                        link submit work [submit] (note: text[1..80], comment: text)
+                            do test.choose
+                                chosen -> verify.stuck
+                                declined -> verify.done
 
                     state verify.stuck
                         phase setup
                         auto test.prepare
                             done -> %s
                             skipped -> %s
-                    """.formatted(doneTarget, doneTarget));
+                    """.formatted(doneTarget, doneTarget) + DONE_TERMINAL);
 
-            var found = violations(definition).stream()
-                    .filter(violation -> violation.rule() == VerificationRule.EXIT_PATH)
-                    .toList();
+            var found = violations(definition);
 
-            assertEquals(count, found.size(), found::toString);
-            found.forEach(violation -> assertAll(() -> assertEquals(VerificationRule.EXIT_PATH, violation.rule()),
-                    () -> assertEquals("verify.stuck", violation.stateId())));
+            assertEquals(count == 0 ? List.of() : List.of("verify.stuck EXIT_PATH"),
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
         }
 
         @Test
@@ -310,9 +649,10 @@ class WorkflowValidatorTest {
             var definition = unit("workspace", """
                     state verify.entry
                         phase setup
-                        link next work ()
-                            do test.proceed
-                                done -> verify.stuck
+                        link submit work [submit] (note: text[1..80], comment: text)
+                            do test.choose
+                                chosen -> verify.stuck
+                                declined -> verify.stuck
 
                     state verify.stuck
                         phase setup
@@ -324,11 +664,7 @@ class WorkflowValidatorTest {
                         phase aborted
                     """ + DONE_TERMINAL);
 
-            var found = violations(definition).stream()
-                    .filter(violation -> violation.rule() == VerificationRule.EXIT_PATH)
-                    .toList();
-
-            assertEquals(List.of(), found, found::toString);
+            assertEquals(List.of(), violations(definition));
         }
     }
 
@@ -351,8 +687,8 @@ class WorkflowValidatorTest {
 
             var found = violations(definition);
 
-            assertEquals(count, found.size(), found::toString);
-            found.forEach(violation -> assertEquals(VerificationRule.LINK_ID_UNIQUE, violation.rule()));
+            assertEquals(count == 0 ? List.of() : List.of("verify.entry LINK_ID_UNIQUE"),
+                    found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
         }
     }
 
@@ -382,7 +718,8 @@ class WorkflowValidatorTest {
             var violation = found.getFirst();
             assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule()),
                     () -> assertEquals("verify.entry", violation.stateId()),
-                    () -> assertTrue(violation.message().contains("has no awaited event"), violation::message));
+                    () -> assertEquals("the cycle 'verify.entry -> verify.entry' has no awaited event",
+                            violation.message()));
         }
 
         @Test
@@ -398,11 +735,7 @@ class WorkflowValidatorTest {
                                 declined -> verify.done
                     """ + DONE_TERMINAL);
 
-            var found = violations(definition).stream()
-                    .filter(violation -> violation.rule() == VerificationRule.CYCLE_AWAITED_EVENT)
-                    .toList();
-
-            assertEquals(List.of(), found, found::toString);
+            assertEquals(List.of(), violations(definition));
         }
 
         @Test
@@ -428,7 +761,8 @@ class WorkflowValidatorTest {
             var violation = found.getFirst();
             assertAll(() -> assertEquals(VerificationRule.CYCLE_AWAITED_EVENT, violation.rule()),
                     () -> assertEquals("verify.entry", violation.stateId()),
-                    () -> assertTrue(violation.message().contains("has no cycle measure"), violation::message));
+                    () -> assertEquals("the engine-chained cycle 'verify.entry -> verify.second -> verify.entry' has"
+                            + " no cycle measure", violation.message()));
         }
     }
 
@@ -437,7 +771,8 @@ class WorkflowValidatorTest {
     class ReleasedStates {
 
         private final WorkflowValidator retiring = new WorkflowValidator(TestPrimitives.registry(),
-                List.of("verify.entry", "verify.old"));
+                List.of("verify.entry", "verify.old"), TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(),
+                SchemaRegistry.defaults(), TestPrimitives.catalog());
 
         private List<Violation> verify(String migration) {
             return retiring.verify(VerifyFixtures.parseSource("inline.pmwf", """
@@ -500,7 +835,7 @@ class WorkflowValidatorTest {
                                 done -> verify.orphan
                     """ + DONE_TERMINAL);
             var withRetiredName = new WorkflowValidator(TestPrimitives.registry(),
-                    List.of("verify.retired", "verify.entry"), EntityKindRegistry.defaults(),
+                    List.of("verify.retired", "verify.entry"), TestPrimitives.entityKinds(),
                     QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), TestPrimitives.catalog());
 
             var found = withRetiredName.verify(definition).violations();

@@ -1,0 +1,40 @@
+= ADR 008: Advisories on the Verification Result
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 3) asks the verifier to report a state or outcome transition that some configuration combinations do not reach, without failing validation. Until PLAN-54 the verifier had a single channel: every finding was a `Violation` in `VerificationResult.violations()`, and `passed()` is "no violation". A finding that is reported but does not fail the unit needs a channel of its own.
+
+== Decision
+
+`VerificationResult` carries a second component, `advisories`, a `List<Violation>` next to `violations`. Both are copied immutably in the compact constructor and refuse `null`. `WorkflowValidator.verify` orders the advisories like the violations: by the declaration order of their state, released names after every state, and within a state by rule. `passed()` reads `violations` only. An advisory names its `VerificationRule` (so far only `CONFIG_REACHABILITY`), its state and the source location like a violation does.
+
+== Alternatives Considered
+
+1. **A severity on `Violation`**:
+One list, each entry marked as refusing or reporting.
+*Rejected*: every consumer of `violations()` would have to filter by severity to decide whether a unit passes, and a consumer that forgets the filter refuses conforming units; the name `Violation` would no longer mean a violation.
+
+2. **A separate report type returned by its own method**:
+`WorkflowValidator` returns the advisories from a second call.
+*Rejected*: the enumeration of configuration combinations would run twice, or the validator would keep state between calls; one verification, one result.
+
+== Consequences
+
+* The canonical constructor of `VerificationResult` takes two lists; a consumer outside this repository (the `SNAPSHOT` consumers in `plan-marshall-mcp`) passes both. The project is pre-1.0, so there is no shim.
+* A consumer that only decides pass or fail reads `passed()` and is unaffected by advisories.
+* A future reported-not-refused finding of the specification uses the same channel.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 3 (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-rule-gaps.adoc`
+* link:004-rule-3-configuration-reachability.adoc[ADR 004]

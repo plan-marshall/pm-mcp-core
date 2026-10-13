@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted. Corrected by PLAN-54: the refusal of partial reachability PLAN-44 recorded here is replaced by an advisory (link:008-verification-result-advisories.adoc[ADR 008]), and the enumeration of enum values is a named seam (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
 
 == Date
 
@@ -11,31 +11,38 @@ Accepted
 
 == Context
 
-Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 3 slice: reachability must hold under every `depends_on_config` combination, and the check PLAN-41 shipped carried a transition-level loop whose predicate is unsatisfiable.
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 3) checks reachability for every combination of the values of the configuration keys that the unit's guards declare in `depends_on_config` (every enum value, `true` and `false` for a boolean): a state or outcome transition that no combination reaches fails validation, and one that some combinations do not reach is reported with those combinations.
+
+PLAN-44 (work package `static-verifier-rule-gaps`) refused a state that some combination does not reach, which the specification only reports, and named the enumeration of enum values a future seam, although the specification defines the key domains. PLAN-41 had carried a transition-level loop whose predicate is unsatisfiable.
 
 == Decision
 
-1. **Every-combination enumeration**: `configKeysOf` collects every `depends_on_config` key, `configCombinations` enumerates all 2^N assignments, and the active graph per assignment decides reachability. The enumeration stays lean because the grammar admits only small key sets; the bound is documented where the substrate lives.
-2. **State-level report only**: a state unreachable under some combination is refused with the exact failing assignment set. The transition-level not-reachable-under-any-combination loop is removed: the enumeration always includes the all-true assignment, under which every link is active, so every base-reachable transition is reachable under at least that combination.
-3. **Dropped transition fixture**: the planned transition refusing fixture is dropped as infeasible under the verify-first clause (no transition can be unreachable under every combination, so the fixture cannot be both planted and refused). The drop is named in the pull request body, not hidden.
-4. **Enum-valued enumeration seam**: the substrate enumerates Boolean assignments only. Configuration keys with enum (non-Boolean) values would need a product enumeration over each key's value set; that seam is left open and is out of scope here.
+1. **Every-combination enumeration**: `configKeysOf` collects every `depends_on_config` key, `configCombinations` enumerates all 2^N Boolean assignments, and the active graph per assignment, built once per assignment, decides reachability. A declared link is active when every key its guard names is `true` (all-keys-true activation); engine transitions are always active.
+2. **Partial reachability is an advisory**: a state, or an outcome transition, that some combinations reach and others do not is returned as an advisory of `VerificationResult` naming both sets of combinations; the unit still passes (link:008-verification-result-advisories.adoc[ADR 008]). A transition is reached under a combination when its source state is reached and, for the transition of a declared link, the link is active.
+3. **No refusal under the Boolean activation**: the all-true assignment activates every link, so its graph is the unconditional graph; every state and transition the unconditional graph reaches is reached under at least that assignment, and a state the unconditional graph does not reach is refused by `REACHABILITY`. The refusal of a state or transition no combination reaches therefore cannot be met and is not written as code; it becomes satisfiable with the activation of enum values, the seam of link:006-rule-3-value-activation-gap.adoc[ADR 006].
 
 == Alternatives Considered
 
-1. **Keeping the transition-level loop as a backstop**:
-A check that can never fire costs nothing and might catch a future regression.
-*Rejected*: a check with an unsatisfiable predicate is dead code with a live name; it suggests a guarantee the verifier does not provide and draws fixture effort toward an unplantable defect.
+1. **Refusing partial reachability (PLAN-44)**:
+A state that some combination does not reach fails validation.
+*Rejected*: the specification reports partial reachability and refuses only what no combination reaches; the refusal failed conforming units.
 
-2. **Per-state-per-combination graph rebuilds**:
+2. **Keeping a refusal for what no combination reaches as a backstop**:
+A check that can never fire costs nothing and might catch a future regression.
+*Rejected*: under the Boolean all-keys-true activation its predicate is unsatisfiable; a check with an unsatisfiable predicate is dead code with a live name, suggests a guarantee the verifier does not provide, and draws fixture effort toward an unplantable defect.
+
+3. **Per-state-per-combination graph rebuilds**:
 Rebuilding the active graph inside the per-state loop instead of once per combination.
-*Rejected*: the same 2^N enumeration would be built once per state per combination; the single pass feeds every state report.
+*Rejected*: the same 2^N enumeration would be built once per state per combination; the single pass feeds every state and transition report.
 
 == Consequences
 
-* `CONFIG_REACHABILITY` fires only at state level with the failing assignments named; the existing `config-unreachable.pmwf` fixture keeps pinning it.
-* A future enum-valued `depends_on_config` reopens the enumeration shape through the seam named above; the state-level report shape is unchanged by it.
+* `CONFIG_REACHABILITY` names advisories only; `VerificationResult.passed()` ignores them.
+* The fixture `config-unreachable.pmwf`, which pinned the refusal of partial reachability, is removed: its unit passes with advisories, and no fixture can plant the refusal of what no combination reaches. The advisories are pinned by the inline `CONFIG_REACHABILITY` cases of `AdditionalRulesTest`, and the checklist of `WorkflowValidatorTest` lists the refusal as the seam of ADR 006.
+* The enumeration of enum values, the value activation and the transition-level refusal with its fixture stay open as the seam of link:006-rule-3-value-activation-gap.adoc[ADR 006].
 
 == Source
 
+* Workflow DSL specification, § Static AST Verification Rules, Rule 3 (`plan-marshall-documentation`)
 * `doc/plans/static-verifier-rule-gaps.adoc`
-* `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-44-static-verifier-rule-gaps.md`
+* link:006-rule-3-value-activation-gap.adoc[ADR 006], link:008-verification-result-advisories.adoc[ADR 008]

@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Decision 1 (conditional `stepped_out`): Superseded by link:009-rule-6-implicit-stepped-out.adoc[ADR 009].
+Decisions 2 to 4: Accepted.
 
 == Date
 
@@ -11,20 +12,20 @@ Accepted
 
 == Context
 
-Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) corrects the Rule 6 slice that PLAN-41 shipped with three gaps: `stepped_out` belonged to every call's exit contract unconditionally, the entity-unit defaults shared one placeholder literal, and the `ask` question class was missing from the registry.
+Work package `static-verifier-rule-gaps` (Roadmap Milestone 3, PLAN-44) changed the Rule 6 slice that PLAN-41 shipped in three places: `stepped_out` belonged to every call's exit contract unconditionally, the entity-unit defaults shared one placeholder literal, and the `ask` question class was missing from the registry.
 
 == Decision
 
-1. **Conditional `stepped_out`**: `stepped_out` belongs to a call's exit contract only when the callee can actually step out through a resting-link implicit `step_out` exit (a link state of a sub-workflow unit). Routing it for any other callee is refused; omitting it where owed is refused. Parameter bindings (enum range, int range, non-empty list, undeclared and omitted parameters), result-guard admission only on `done` with the complementary pair for double `done`, and the scope and registration checks are unchanged.
-2. **Specified entity units**: the shared placeholder literal is replaced with the specified units — `screen` without a unit, `task` bound to `worker-task`, the single-submit kinds (`change`, `decision`, `triage`, `simplify`) on the generic `entity` unit, and the multi-submit lesson review kind `review` on `entity-multi`. The `review` mapping is a specification-interpretation call: the catalogue lists lesson review (merge, retire, supersede, closing `submit:review`) as multi-submit against single-submit finalize and artifact reviews; the generic kind follows the lesson review shape. The alternative (all five on `entity`) is recorded here and rejected for leaving the placeholder value in place.
+1. **Conditional `stepped_out`** (superseded by link:009-rule-6-implicit-stepped-out.adoc[ADR 009]): PLAN-44 decided that `stepped_out` belongs to a call's exit contract only when the callee can actually step out through a resting-link implicit `step_out` exit (a link state of a sub-workflow unit), that routing it for any other callee is refused, and that omitting it where owed is refused. This decision contradicted the specification (Workflow DSL, Rule 6), which makes `stepped_out` part of every sub-workflow's exit contract implicitly; it was taken without a change of the specification. It is recorded here as what PLAN-44 shipped, and ADR 009 restores the specification rule. Parameter bindings (enum range, int range, non-empty list, undeclared and omitted parameters), result-guard admission only on `done` with the complementary pair for double `done`, and the scope and registration checks were not part of this decision.
+2. **Specified entity units**: the shared placeholder literal is replaced with the specified units — `screen` without a unit, `task` bound to `worker-task`, the single-submit kinds (`decision`, `triage`, `simplify`) on the generic `entity` unit, and the multi-submit lesson review kind `review` on `entity-multi`. (PLAN-44 also registered a kind `change` with the test identifier `test.evaluate-change`; the specification defines no such kind, and PLAN-54 removed it from the defaults: the tests register their kinds themselves, and the validator checks that a kind's entity unit is registered in `WorkflowCatalog`.) The `review` mapping is a specification-interpretation call: the catalogue lists lesson review (merge, retire, supersede, closing `submit:review`) as multi-submit against single-submit finalize and artifact reviews; the generic kind follows the lesson review shape. The alternative (all five on `entity`) is recorded here and rejected for leaving the placeholder value in place.
 3. **The `ask` class**: the engine-made `<state>.asked` state waits on a record of class `ask`, whose closed resolution outcomes are `answered` and `assumed`; the class is registered and enforced by `QUESTION_OUTCOMES` like every other class.
-4. **Grammar-closed binding exception**: the question-class grammar closes the class vocabulary and every parseable class is registered by default, so no refusing fixture can plant an unregistered class. The retired `question-class-unregistered.pmwf` fixture is replaced by a custom-registry inline case, and the fixture-coverage assertion pins `QUESTION_CLASS_BINDING` as its single documented exception.
+4. **Grammar-closed binding exception**: the question-class grammar closes the class vocabulary and every parseable class is registered by default, so no refusing fixture can plant an unregistered class. The retired `question-class-unregistered.pmwf` fixture is replaced by a custom-registry inline case, and the checklist of `WorkflowValidatorTest` lists the check among those no fixture can plant.
 
 == Alternatives Considered
 
 1. **Keeping unconditional `stepped_out`**:
 Every callee owes `stepped_out`; callers always route it.
-*Rejected*: it forces callers to route an outcome the callee can never return and refuses nothing, so spurious routings pass silently.
+*Rejected by PLAN-44*: it was held to force callers to route an outcome the callee can never return. ADR 009 reverses this rejection: the unconditional contract is the specification rule.
 
 2. **Keeping the placeholder units**:
 The unit value is never looked up by the verifier (only its presence feeds the `ask` check), so any literal would do.
@@ -32,8 +33,9 @@ The unit value is never looked up by the verifier (only its presence feeds the `
 
 == Consequences
 
-* Fixtures `subworkflow-stepped-out-spurious.pmwf` (spurious routing refused) and `question-ask-outcomes.pmwf` (broken `ask` bijection refused) pin the corrected contract, each with one planted defect; the shared fixture callee carries a resting-link state so existing `stepped_out` routings stay owed.
-* Plan and epic scopes still refuse resting-link callees through the session-driven rule, independently of the contract: a caller in those scopes cannot call a stepping callee at all.
+* PLAN-44 added the fixture `subworkflow-stepped-out-spurious.pmwf` (spurious routing refused) and reshaped the shared fixture callee into a resting-link state so existing `stepped_out` routings stayed owed. Both consequences of decision 1 are undone by ADR 009: the fixture is deleted and the callee follows the real unit again.
+* Decision 3 is pinned by the inline case `AdditionalRulesTest#questionAskOutcomes` (the `ask` bijection passes, a missing `assumed` is refused) and by the `question ask` state of `every-construct.pmwf`. The fixture `question-ask-outcomes.pmwf` PLAN-44 added duplicated `question-outcome-missing.pmwf` (the same check on another class) and was removed by PLAN-54.
+* Plan and epic scopes refuse resting-link callees through the session-driven rule, independently of the exit contract.
 * The pull request body names the dropped Rule 3 transition fixture per the verify-first clause (see link:004-rule-3-configuration-reachability.adoc[ADR 004]).
 
 == Source

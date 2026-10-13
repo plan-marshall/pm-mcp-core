@@ -1,13 +1,14 @@
-# expect: CYCLE_AWAITED_EVENT state verify.entry line 6
-workflow verify.cycle-no-event version 1 format 1
+# expect: OUTCOME_COVERAGE state verify.entry line 11
+workflow verify.outcome-twice version 1 format 1
 scope plan
 start verify.entry
 
 state verify.entry
     phase verify
     auto test.prepare
-        done -> verify.entry
+        done -> verify.done
         skipped -> verify.done
+        done -> verify.done
 
 state verify.done terminal done success
     phase verify

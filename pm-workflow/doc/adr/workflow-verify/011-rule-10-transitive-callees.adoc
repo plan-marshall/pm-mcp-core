@@ -1,0 +1,36 @@
+= ADR 011: Rule 10 Checks Callees Transitively
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 10) admits a resting `link` state, and a declared link of a question state, only in the session-driven units: a unit of `scope plan` or `scope epic`, and every sub-workflow such a unit calls, holds none. A sub-workflow a plan unit calls may itself call another sub-workflow, and the nested one runs inside the plan's call stack just the same.
+
+Until PLAN-54, `checkSessionDrivenLinks` inspected the direct callees of a plan or epic unit only, and nothing said so.
+
+== Decision
+
+`checkSessionDrivenLinks` walks the sub-workflows a call reaches through the `WorkflowCatalog`: the callee and every unit it calls in turn, each visited once. A call from a plan or epic unit that reaches a unit with a resting link state or a question state with declared links is refused as `SESSION_DRIVEN_LINKS` on the calling state, naming the first such unit in call order. The walk is bounded by the visited set, so a call cycle, which Rule 7 refuses, does not loop; an unregistered callee is refused by Rule 6 and contributes nothing.
+
+== Alternatives Considered
+
+1. **Direct callees only, documented**:
+The check stays as it was and the developer guide states its limit.
+*Rejected*: a resting link nested one call deeper reaches the plan or epic unit just the same, and the specification's "every sub-workflow such a unit calls" covers it.
+
+== Consequences
+
+* A plan or epic unit is refused for a resting link at any depth of its call graph.
+* The refusing fixture `session-link-transitive.pmwf` plants a link state two calls deep; an inline control with a link-free nested callee passes.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 10, and § Session-Driven Units (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-rule-gaps.adoc`

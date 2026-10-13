@@ -18,6 +18,10 @@
  * <li><b>Result</b>: {@link de.planmarshall.workflow.verify.VerificationResult} lists every
  * {@link de.planmarshall.workflow.verify.Violation}, each naming its rule, its state and the source location of the
  * offending node. A violation is a value, never an exception, and no check stops at the first one.</li>
+ * <li><b>Advisories</b>: the result carries a second list of the same type, its advisories: findings the specification
+ * asks to be reported without failing validation, so far a state or transition that some combinations of the
+ * {@code depends_on_config} keys do not reach (Rule 3). They are ordered like the violations, and
+ * {@link de.planmarshall.workflow.verify.VerificationResult#passed()} never reads them.</li>
  * <li><b>Transition fuzzer</b>: {@link de.planmarshall.workflow.verify.TransitionFuzzer} walks a unit that passed the
  * verifier under seeded random assignments of the guard atoms its guards name (a built-in guard such as
  * {@code in_worktree}, or a {@code predicate:} primitive) and reports every reached non-terminal state

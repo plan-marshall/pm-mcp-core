@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.AwaitedEvent;
+import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.FreeParam;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.Primitive;
@@ -22,6 +23,7 @@ import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
+import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
  * Primitives written for the verifier tests and the registry that holds them. The fixtures under {@code verify/} name
@@ -53,8 +55,23 @@ final class TestPrimitives {
     /** A return-evaluation primitive for entity kind change: {@code approved}. */
     static final String EVALUATE_CHANGE = "test.evaluate-change";
 
+    /**
+     * A return-evaluation primitive for the entity kind {@link #JUDGEMENT_KIND}: {@code approved} ({@code SUCCESS}),
+     * {@code rejected} ({@code FAILURE}).
+     */
+    static final String EVALUATE_JUDGEMENT = "test.evaluate-judgement";
+
     /** A list primitive for each clause: {@code done}. */
     static final String LIST_CHANGES = "test.list-changes";
+
+    /** A primitive for the {@code role each} clause, standing for one that returns role names: {@code done}. */
+    static final String LIST_ROLES = "test.list-roles";
+
+    /**
+     * The primitive of a next-work state that may land an abort: {@code landed} ({@code SUCCESS}),
+     * {@code abort_landed} ({@code FAILURE}).
+     */
+    static final String LAND_WORK = "test.land-work";
 
     /** A primitive that enqueues a job: {@code enqueued}, {@code skipped}. */
     static final String ENQUEUE = "test.enqueue";
@@ -65,10 +82,74 @@ final class TestPrimitives {
     /** A primitive producing artifact {@code test.artifact}: {@code done}. */
     static final String PRODUCE = "test.produce";
 
+    /**
+     * A dispatch hub declaring {@link CycleMeasure#STEP_LIST}: {@code first}, {@code second}, {@code settled}, all of
+     * class {@code SUCCESS}.
+     */
+    static final String NEXT_STEP = "test.next-step";
+
+    /**
+     * A next-work primitive declaring {@link CycleMeasure#ARCHIVE_STEPS}: {@code archive_uncommitted},
+     * {@code archived}, both of class {@code SUCCESS}.
+     */
+    static final String NEXT_WORK = "test.next-work";
+
+    /**
+     * A primitive declaring {@link CycleMeasure#ATTEMPT_CAP} with the exhaustion outcome {@code exhausted} of class
+     * {@code FAILURE}: {@code retry} ({@code SUCCESS}), {@code exhausted}.
+     */
+    static final String CAPPED = "test.capped";
+
+    /** A primitive with an outcome that hands the step back: {@code fixed} ({@code SUCCESS}), {@code fix_requested}
+     * ({@code UNSETTLED}). */
+    static final String FIX = "test.fix";
+
+    /** The remediation unit of the test catalog: exit contract {@code done}, {@code waived}, {@code stepped_out}. */
+    static final String REMEDIATION = "remediation.test-waiver";
+
     /** The id the fixtures name for a primitive that is not registered. */
     static final String MISSING = "test.missing";
 
+    /** The entity kind of the tests: entity unit {@code entity}, return evaluation {@link #EVALUATE_CHANGE}. */
+    static final String CHANGE_KIND = "change";
+
+    /** The entity kind of the tests whose entity unit {@code test.no-such-unit} the catalog does not hold. */
+    static final String UNRESOLVED_KIND = "unresolved";
+
+    /** The entity kind of the tests whose return-evaluation primitive {@link #MISSING} is not registered. */
+    static final String UNEVALUATED_KIND = "unevaluated";
+
+    /** The entity kind of the tests without an entity unit, return evaluation {@link #EVALUATE_CHANGE}. */
+    static final String UNIT_LESS_KIND = "glance";
+
+    /** The entity kind of the tests whose evaluation can reject: entity unit {@code entity}, {@link #EVALUATE_JUDGEMENT}. */
+    static final String JUDGEMENT_KIND = "judgement";
+
+    /** A workspace unit of the test catalog, which no call may name. */
+    static final String WORKSPACE_UNIT = "test.workspace-unit";
+
+    /** A sub-workflow that holds no link and calls {@link #LINKS_INNER}. */
+    static final String LINKS_OUTER = "test.links-outer";
+
+    /** A session-driven sub-workflow with a resting link state. */
+    static final String LINKS_INNER = "test.links-inner";
+
     private TestPrimitives() {
+    }
+
+    /**
+     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND} and {@link #JUDGEMENT_KIND},
+     *         whose entity unit the test catalog holds, {@link #UNRESOLVED_KIND}, whose entity unit it does not hold,
+     *         {@link #UNEVALUATED_KIND}, whose return-evaluation primitive is not registered, and
+     *         {@link #UNIT_LESS_KIND}, which has no entity unit
+     */
+    static EntityKindRegistry entityKinds() {
+        return EntityKindRegistry.defaults()
+                .with(new EntityKind(CHANGE_KIND, "entity", EVALUATE_CHANGE))
+                .with(new EntityKind(JUDGEMENT_KIND, "entity", EVALUATE_JUDGEMENT))
+                .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE))
+                .with(new EntityKind(UNEVALUATED_KIND, "entity", MISSING))
+                .with(new EntityKind(UNIT_LESS_KIND, Optional.empty(), EVALUATE_CHANGE));
     }
 
     /**
@@ -83,14 +164,24 @@ final class TestPrimitives {
                 new Fixed<>(READ_FACTS, NoParams.class, DoneOutcome.class),
                 new Fixed<>(READY, NoParams.class, PredicateOutcome.class),
                 new Fixed<>(EVALUATE_CHANGE, NoParams.class, EvaluateChangeOutcome.class),
+                new Fixed<>(EVALUATE_JUDGEMENT, NoParams.class, JudgementOutcome.class),
                 new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
+                new Fixed<>(LIST_ROLES, NoParams.class, DoneOutcome.class),
+                new Fixed<>(LAND_WORK, NoParams.class, LandOutcome.class),
                 new EnqueuePrimitive(),
                 new ArtifactConsumer(),
-                new ArtifactProducer()));
+                new ArtifactProducer(),
+                new Measured<>(NEXT_STEP, DispatchOutcome.class, CycleMeasure.STEP_LIST, Optional.empty()),
+                new Measured<>(NEXT_WORK, ArchiveOutcome.class, CycleMeasure.ARCHIVE_STEPS, Optional.empty()),
+                new Measured<>(CAPPED, AttemptOutcome.class, CycleMeasure.ATTEMPT_CAP, Optional.of("exhausted")),
+                new Measured<>(FIX, FixOutcome.class, CycleMeasure.NONE, Optional.empty())));
     }
 
     /**
-     * @return a catalog providing sub-workflows for test call verification
+     * @return a catalog of the units the tests call: {@code git.commit_and_push}, the link-free call chain
+     *         {@code test.depth1} to {@code test.depth5}, the self-calling {@code verify.call-cycle}, the remediation
+     *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND},
+     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, and the workspace unit {@link #WORKSPACE_UNIT}
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
@@ -99,16 +190,19 @@ final class TestPrimitives {
                 param push : enum[enabled|disabled]
                 param attempts : int[1..5]
                 param targets : list<enum[origin|mirror]>
-                start git.review
+                start git.push
+
+                state git.push
+                    phase inherit
+                    auto test.prepare
+                        done -> git.done
+                        skipped -> git.stepped-out
 
                 state git.done terminal done success
                     phase inherit
 
-                state git.review
+                state git.stepped-out terminal stepped_out stepped_out
                     phase inherit
-                    link next proceed ()
-                        do test.proceed
-                            done -> git.done
                 """);
         var depth5 = VerifyFixtures.parseSource("test.depth5.pmwf", """
                 workflow test.depth5 version 1 format 1
@@ -118,62 +212,10 @@ final class TestPrimitives {
                 state depth5.done terminal done success
                     phase inherit
                 """);
-        var depth4 = VerifyFixtures.parseSource("test.depth4.pmwf", """
-                workflow test.depth4 version 1 format 1
-                scope subworkflow
-                start depth4.step
-
-                state depth4.step
-                    phase inherit
-                    call test.depth5()
-                        done -> depth4.done
-                        stepped_out -> depth4.done
-
-                state depth4.done terminal done success
-                    phase inherit
-                """);
-        var depth3 = VerifyFixtures.parseSource("test.depth3.pmwf", """
-                workflow test.depth3 version 1 format 1
-                scope subworkflow
-                start depth3.step
-
-                state depth3.step
-                    phase inherit
-                    call test.depth4()
-                        done -> depth3.done
-                        stepped_out -> depth3.done
-
-                state depth3.done terminal done success
-                    phase inherit
-                """);
-        var depth2 = VerifyFixtures.parseSource("test.depth2.pmwf", """
-                workflow test.depth2 version 1 format 1
-                scope subworkflow
-                start depth2.step
-
-                state depth2.step
-                    phase inherit
-                    call test.depth3()
-                        done -> depth2.done
-                        stepped_out -> depth2.done
-
-                state depth2.done terminal done success
-                    phase inherit
-                """);
-        var depth1 = VerifyFixtures.parseSource("test.depth1.pmwf", """
-                workflow test.depth1 version 1 format 1
-                scope subworkflow
-                start depth1.step
-
-                state depth1.step
-                    phase inherit
-                    call test.depth2()
-                        done -> depth1.done
-                        stepped_out -> depth1.done
-
-                state depth1.done terminal done success
-                    phase inherit
-                """);
+        var depth4 = depthUnit(4, "test.depth5");
+        var depth3 = depthUnit(3, "test.depth4");
+        var depth2 = depthUnit(2, "test.depth3");
+        var depth1 = depthUnit(1, "test.depth2");
         var callCycle = VerifyFixtures.parseSource("verify.call-cycle.pmwf", """
                 workflow verify.call-cycle version 1 format 1
                 scope subworkflow
@@ -183,12 +225,237 @@ final class TestPrimitives {
                     phase inherit
                     call verify.call-cycle()
                         done -> verify.done
-                        stepped_out -> verify.done
+                        stepped_out -> verify.stepped-out
 
                 state verify.done terminal done success
                     phase inherit
+
+                state verify.stepped-out terminal stepped_out stepped_out
+                    phase inherit
                 """);
-        return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle));
+        var entity = VerifyFixtures.parseSource("entity.pmwf", """
+                workflow entity version 1 format 1
+                scope entity
+                start entity.completed
+
+                state entity.completed terminal submitted success
+                    phase inherit
+                """);
+        var linksInner = VerifyFixtures.parseSource("test.links-inner.pmwf", """
+                workflow test.links-inner version 1 format 1
+                scope subworkflow
+                start inner.rest
+
+                state inner.rest
+                    phase inherit
+                    skill pm/verify/start
+                    link next proceed ()
+                        do test.proceed
+                            done -> inner.done
+
+                state inner.done terminal done success
+                    phase inherit
+                """);
+        var linksOuter = VerifyFixtures.parseSource("test.links-outer.pmwf", """
+                workflow test.links-outer version 1 format 1
+                scope subworkflow
+                start outer.step
+
+                state outer.step
+                    phase inherit
+                    call test.links-inner()
+                        done -> outer.done
+                        stepped_out -> outer.stepped-out
+
+                state outer.done terminal done success
+                    phase inherit
+
+                state outer.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """);
+        var remediation = VerifyFixtures.parseSource("remediation.test-waiver.pmwf", """
+                workflow remediation.test-waiver version 1 format 1
+                scope subworkflow
+                start remediation.decide
+
+                state remediation.decide
+                    phase inherit
+                    auto test.prepare
+                        done -> remediation.done
+                        skipped -> remediation.waived
+
+                state remediation.done terminal done success
+                    phase inherit
+
+                state remediation.waived terminal waived success
+                    phase inherit
+                """);
+        var workspaceUnit = VerifyFixtures.parseSource("test.workspace-unit.pmwf", """
+                workflow test.workspace-unit version 1 format 1
+                scope workspace
+                start workspace.done
+
+                state workspace.done terminal done success
+                    phase setup
+                """);
+        return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
+                remediation, entity, linksInner, linksOuter, workspaceUnit));
+    }
+
+    /** A link-free sub-workflow {@code test.depth<n>} whose one state calls {@code callee}. */
+    private static WorkflowDefinition depthUnit(int depth, String callee) {
+        return VerifyFixtures.parseSource("test.depth%d.pmwf".formatted(depth), """
+                workflow test.depth%1$d version 1 format 1
+                scope subworkflow
+                start depth%1$d.step
+
+                state depth%1$d.step
+                    phase inherit
+                    call %2$s()
+                        done -> depth%1$d.done
+                        stepped_out -> depth%1$d.stepped-out
+
+                state depth%1$d.done terminal done success
+                    phase inherit
+
+                state depth%1$d.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """.formatted(depth, callee));
+    }
+
+    /** A primitive that declares a cycle measure and, for an attempt cap, its exhaustion outcome. */
+    static final class Measured<R extends Enum<R> & PrimitiveOutcome> implements Primitive<NoParams, R> {
+
+        private final String id;
+        private final Class<R> outcomeType;
+        private final CycleMeasure cycleMeasure;
+        private final Optional<String> exhaustionOutcome;
+
+        Measured(String id, Class<R> outcomeType, CycleMeasure cycleMeasure, Optional<String> exhaustionOutcome) {
+            this.id = id;
+            this.outcomeType = outcomeType;
+            this.cycleMeasure = cycleMeasure;
+            this.exhaustionOutcome = exhaustionOutcome;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public Class<NoParams> parameterType() {
+            return NoParams.class;
+        }
+
+        @Override
+        public Class<R> outcomeType() {
+            return outcomeType;
+        }
+
+        @Override
+        public PrimitiveResult<R> execute(WorkflowExecutionContext context, NoParams parameters) {
+            return new PrimitiveResult<>(outcomeType.getEnumConstants()[0], Map.of(), Optional.empty());
+        }
+
+        @Override
+        public AwaitedEvent awaitedEvent() {
+            return AwaitedEvent.NONE;
+        }
+
+        @Override
+        public CycleMeasure cycleMeasure() {
+            return cycleMeasure;
+        }
+
+        @Override
+        public Optional<String> exhaustionOutcome() {
+            return exhaustionOutcome;
+        }
+    }
+
+    enum DispatchOutcome implements PrimitiveOutcome {
+        FIRST("first"), SECOND("second"), SETTLED("settled");
+
+        private final String wireName;
+
+        DispatchOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum ArchiveOutcome implements PrimitiveOutcome {
+        ARCHIVE_UNCOMMITTED("archive_uncommitted"), ARCHIVED("archived");
+
+        private final String wireName;
+
+        ArchiveOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum AttemptOutcome implements PrimitiveOutcome {
+        RETRY("retry", OutcomeClass.SUCCESS), EXHAUSTED("exhausted", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        AttemptOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    enum FixOutcome implements PrimitiveOutcome {
+        FIXED("fixed", OutcomeClass.SUCCESS), FIX_REQUESTED("fix_requested", OutcomeClass.UNSETTLED);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        FixOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
     }
 
     /** A primitive that returns its first outcome and overrides no default of the SPI. */
@@ -354,6 +621,50 @@ final class TestPrimitives {
         @Override
         public OutcomeClass outcomeClass() {
             return OutcomeClass.SUCCESS;
+        }
+    }
+
+    enum JudgementOutcome implements PrimitiveOutcome {
+        APPROVED("approved", OutcomeClass.SUCCESS), REJECTED("rejected", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        JudgementOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    enum LandOutcome implements PrimitiveOutcome {
+        LANDED("landed", OutcomeClass.SUCCESS), ABORT_LANDED("abort_landed", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        LandOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
         }
     }
 

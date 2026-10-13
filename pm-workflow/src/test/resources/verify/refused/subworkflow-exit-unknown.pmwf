@@ -1,0 +1,17 @@
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 11
+workflow verify.subworkflow-exit-unknown version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    call test.depth5()
+        done -> verify.done
+        stepped_out -> plan.return
+        vanished -> verify.done
+
+state plan.return terminal returned failure
+    phase verify
+
+state verify.done terminal done success
+    phase verify

@@ -12,8 +12,8 @@ package de.planmarshall.workflow.engine;
 import static de.planmarshall.workflow.engine.EngineFixtures.OTHER_FATES;
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
 import static de.planmarshall.workflow.engine.EngineFixtures.T0;
+import static de.planmarshall.workflow.engine.EngineFixtures.callingPlan;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
-import static de.planmarshall.workflow.engine.EngineFixtures.plan;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -80,7 +80,7 @@ class EngineResumeTest {
                 phase execute
                 call sub.worker
                     done -> execute.review
-                    stepped_out -> handed_back
+                    stepped_out -> plan.return
 
             state execute.review
                 phase execute
@@ -143,8 +143,8 @@ class EngineResumeTest {
     private static Restarted restart() {
         var fixtures = new EngineFixtures();
         fixtures.questionReader.answer = new QuestionRead.Resolved("answered");
-        return new Restarted(fixtures, fixtures.engine(plan("execute.invoke", RESUME_STATES), parse("sub.pmwf",
-                SUB_JOB)));
+        return new Restarted(fixtures, fixtures.engine(callingPlan("execute.invoke", RESUME_STATES),
+                parse("sub.pmwf", SUB_JOB)));
     }
 
     private record Restarted(EngineFixtures fixtures, WorkflowEngine engine) {

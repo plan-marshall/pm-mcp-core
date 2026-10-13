@@ -1,5 +1,5 @@
 # expect: LINK_COMPATIBILITY state verify.entry line 8
-workflow verify.link-compatibility version 1 format 1
+workflow verify.link-submit-without-params version 1 format 1
 scope workspace
 start verify.entry
 
