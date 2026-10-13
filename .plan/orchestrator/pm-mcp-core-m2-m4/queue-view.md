@@ -4,10 +4,11 @@
 
 ## START HERE
 
-**Resume anchor**: Running (scope 4 full with emitted PLAN-16): PLAN-12 session-log-and-generations, PLAN-18 verify-not-resolve (#43), PLAN-54 static-verifier-rule-gaps-completion. Emitted, awaiting operator-confirmed launch: PLAN-16 diagram-generator. Shipped: PLAN-01..08, 10, 11, 13, 36, 38, 41, 44 (41/44 incomplete -> PLAN-54). Next slots: PLAN-21, PLAN-22; after PLAN-12: PLAN-23 and the next core.store plan (PLAN-09/14/15); after PLAN-54: PLAN-17, PLAN-39, PLAN-40; after PLAN-18: PLAN-20. Parked: PLAN-19, 37, 42, 43, 45-53, 55. Harness: Claude Code unless stated. Next action: analyze landings (extended check for PLAN-54); land the ledger. Open for the operator: doc PR for PLAN-41's watch items; one-review merge rule; unowned remainder of PLAN-02's roadmap item; parity tests in CI; PLAN-11's seven follow-ups without owner.
+**Resume anchor**: Running (scope 4 full): PLAN-12 session-log-and-generations, PLAN-16 diagram-generator, PLAN-18 verify-not-resolve (#43), PLAN-54 static-verifier-rule-gaps-completion. Shipped: PLAN-01..08, 10, 11, 13, 36, 38, 41, 44 (41/44 incomplete -> PLAN-54). Next slots: PLAN-21, PLAN-22; after PLAN-12: PLAN-23 and the next core.store plan (PLAN-09/14/15); after PLAN-54: PLAN-17, PLAN-39, PLAN-40; after PLAN-16 + PLAN-17: PLAN-24; after PLAN-18: PLAN-20. Parked: PLAN-19, 37, 42, 43, 45-53, 55. Harness: Claude Code unless stated. Next action: analyze landings (extended check for PLAN-54); land the ledger. Open for the operator: doc PR for PLAN-41's watch items; one-review merge rule; unowned remainder of PLAN-02's roadmap item; parity tests in CI; PLAN-11's seven follow-ups without owner.
 **Phase**: orchestrating
 **Running**:
 - PLAN-12 (WS-02) — plan=session-log-and-generations
+- PLAN-16 (WS-03) — plan=diagram-generator
 - PLAN-18 (WS-04) — plan=verify-not-resolve
 - PLAN-54 (WS-03) — plan=static-verifier-rule-gaps-completion
 **Parked**:
@@ -29,26 +30,25 @@
 1. PLAN-09 (WS-01)
 2. PLAN-14 (WS-02)
 3. PLAN-15 (WS-02)
-4. PLAN-16 (WS-03)
-5. PLAN-17 (WS-03)
-6. PLAN-20 (WS-04)
-7. PLAN-21 (WS-03)
-8. PLAN-22 (WS-06)
-9. PLAN-23 (WS-01)
-10. PLAN-24 (WS-03)
-11. PLAN-25 (WS-05)
-12. PLAN-26 (WS-05)
-13. PLAN-27 (WS-04)
-14. PLAN-28 (WS-05)
-15. PLAN-29 (WS-04)
-16. PLAN-30 (WS-04)
-17. PLAN-31 (WS-04)
-18. PLAN-32 (WS-05)
-19. PLAN-33 (WS-05)
-20. PLAN-34 (WS-05)
-21. PLAN-35 (WS-06)
-22. PLAN-39 (WS-10)
-23. PLAN-40 (WS-10)
+4. PLAN-17 (WS-03)
+5. PLAN-20 (WS-04)
+6. PLAN-21 (WS-03)
+7. PLAN-22 (WS-06)
+8. PLAN-23 (WS-01)
+9. PLAN-24 (WS-03)
+10. PLAN-25 (WS-05)
+11. PLAN-26 (WS-05)
+12. PLAN-27 (WS-04)
+13. PLAN-28 (WS-05)
+14. PLAN-29 (WS-04)
+15. PLAN-30 (WS-04)
+16. PLAN-31 (WS-04)
+17. PLAN-32 (WS-05)
+18. PLAN-33 (WS-05)
+19. PLAN-34 (WS-05)
+20. PLAN-35 (WS-06)
+21. PLAN-39 (WS-10)
+22. PLAN-40 (WS-10)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -73,7 +73,7 @@
 | 2 | PLAN-12 | WS-02 | running | doc/plans/README.adoc; pm-core/doc/adr/core-queue/; pm-core/doc/adr/core-store/; pm-core/doc/developer/core-queue.adoc; pm-core/doc/developer/core-store.adoc; pm-core/src/main/java/de/planmarshall/core/queue/; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/queue/; pm-core/src/test/java/de/planmarshall/core/store/ |
 | 3 | PLAN-14 | WS-02 | staged | doc/plans/README.adoc; pm-core/doc/adr/core-store/; pm-core/doc/developer/core-store.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/store/ |
 | 4 | PLAN-15 | WS-02 | staged | doc/plans/README.adoc; pm-core/doc/adr/core-config/; pm-core/doc/adr/core-store/; pm-core/doc/developer/core-config.adoc; pm-core/doc/developer/core-store.adoc; pm-core/src/main/java/de/planmarshall/core/config/; pm-core/src/main/java/de/planmarshall/core/store/; pm-core/src/test/java/de/planmarshall/core/config/; pm-core/src/test/java/de/planmarshall/core/store/ |
-| 5 | PLAN-16 | WS-03 | staged | doc/plans/README.adoc; pm-workflow/doc/adr/workflow-diagram/; pm-workflow/doc/developer/workflow-diagram.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/; pm-workflow/src/test/java/de/planmarshall/workflow/diagram/; pm-workflow/src/test/resources/ |
+| 5 | PLAN-16 | WS-03 | running | doc/plans/README.adoc; pm-workflow/doc/adr/workflow-diagram/; pm-workflow/doc/developer/workflow-diagram.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/; pm-workflow/src/test/java/de/planmarshall/workflow/diagram/; pm-workflow/src/test/resources/diagram/ |
 | 6 | PLAN-17 | WS-03 | staged | doc/plans/README.adoc; pm-workflow/doc/adr/workflow-finalize/; pm-workflow/doc/adr/workflow-unit/; pm-workflow/doc/adr/workflow-verify/; pm-workflow/doc/developer/workflow-finalize.adoc; pm-workflow/doc/developer/workflow-unit.adoc; pm-workflow/doc/developer/workflow-verify.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/finalize/; pm-workflow/src/main/java/de/planmarshall/workflow/unit/; pm-workflow/src/main/java/de/planmarshall/workflow/verify/; pm-workflow/src/test/java/de/planmarshall/workflow/finalize/; pm-workflow/src/test/java/de/planmarshall/workflow/unit/; pm-workflow/src/test/java/de/planmarshall/workflow/verify/ |
 | 7 | PLAN-18 | WS-04 | running | doc/plans/README.adoc; pm-runtime/doc/adr/runtime-job/; pm-runtime/doc/developer/runtime-job.adoc; pm-runtime/src/main/java/de/planmarshall/runtime/job/; pm-runtime/src/test/java/de/planmarshall/runtime/job/ |
 | 8 | PLAN-19 | WS-05 | parked | doc/plans/README.adoc; pm-core/doc/adr/core-profile/; pm-core/doc/developer/core-profile.adoc; pm-core/src/main/java/de/planmarshall/core/profile/; pm-core/src/test/java/de/planmarshall/core/profile/ |
