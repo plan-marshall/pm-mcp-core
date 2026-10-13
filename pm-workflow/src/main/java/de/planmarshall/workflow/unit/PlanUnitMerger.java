@@ -30,9 +30,11 @@ import de.planmarshall.workflow.verify.VerificationRule;
  * each recorded in {@link WorkflowDefinition#partVersions()} under the file it was read from; and
  * {@link WorkflowDefinition#derivedFrom()} holds the default revision every project file derives from, by file.
  * <p>
- * Every part must be a unit {@value #PLAN_UNIT} of scope {@code plan}; the parts must declare one DSL format and
- * one origin, so a project never mixes a default file into its own plan unit; and a state is declared in one part
- * only. Every violation is a {@link UnitFinding} with file and line, and a merge with findings yields no unit.
+ * Every part must declare scope {@code plan}; its header names the part, for example {@code workflow finalize}, and
+ * identifies the file only, so the merged unit takes the identifier {@value #PLAN_UNIT} whatever its parts are named.
+ * The parts must declare one DSL format and one origin, so a project never mixes a default file into its own plan
+ * unit; and a state is declared in one part only. Every violation is a {@link UnitFinding} with file and line, and a
+ * merge with findings yields no unit.
  *
  * @since 0.1
  */
@@ -45,7 +47,7 @@ public final class PlanUnitMerger {
     public static final List<String> PHASE_FILES = List.of("init.pmwf", "refine.pmwf", "outline.pmwf", "plan.pmwf",
             "execute.pmwf", "land.pmwf", "finalize.pmwf");
 
-    /** The code of a part that is no part of the plan unit: another identifier or another scope. */
+    /** The code of a part that is no part of the plan unit: a file of another scope than {@code plan}. */
     public static final String NOT_A_PLAN_PART = "not_a_plan_part";
 
     /** The code of a part whose DSL format differs from that of the first part. */
@@ -103,10 +105,10 @@ public final class PlanUnitMerger {
 
     private static void checkPart(WorkflowDefinition first, WorkflowDefinition part, List<UnitFinding> findings) {
         var file = part.location().resourceName();
-        if (!PLAN_UNIT.equals(part.id()) || part.scope() != WorkflowScope.PLAN) {
+        if (part.scope() != WorkflowScope.PLAN) {
             findings.add(UnitFinding.at(UnitFinding.Kind.RULE, NOT_A_PLAN_PART, part.location(),
-                    "'%s' declares the unit '%s' of scope %s, not the unit '%s' of scope PLAN".formatted(file,
-                            part.id(), part.scope(), PLAN_UNIT)));
+                    "'%s' declares the unit '%s' of scope %s, not a part of the unit '%s' of scope PLAN"
+                            .formatted(file, part.id(), part.scope(), PLAN_UNIT)));
         }
         if (part.formatVersion() != first.formatVersion()) {
             findings.add(UnitFinding.at(UnitFinding.Kind.FORMAT, MIXED_FORMATS, part.location(),

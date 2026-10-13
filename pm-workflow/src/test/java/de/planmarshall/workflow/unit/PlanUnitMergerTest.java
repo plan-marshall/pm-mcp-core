@@ -42,8 +42,8 @@ import de.planmarshall.workflow.verify.VerificationRule;
 /**
  * The merge of the seven phase files into the plan unit (PM-IMPL-5): the states and migrations are the union, the
  * start state is that of the init file, the version is the sum of the part versions, each recorded under its file,
- * and {@code derivedFrom} is recorded per file. A part of another unit or scope, a part of another format or origin
- * and a state declared in two files are each refused with the file and line of the offending node, and the merge then
+ * and {@code derivedFrom} is recorded per file. The header of a part names the part and identifies the file only. A
+ * part of another scope, a part of another format or origin and a state declared in two files are each refused with the file and line of the offending node, and the merge then
  * yields no unit.
  */
 @DisplayName("PlanUnitMerger")
@@ -143,6 +143,20 @@ class PlanUnitMergerTest {
         }
 
         @Test
+        @DisplayName("merges parts whose headers name the phase into the unit plan")
+        void partHeadersNameThePhase() {
+            var parts = new ArrayList<>(phases(UnitOrigin.PROJECT));
+            parts.set(0, withHeader(INIT_FILE, "workflow init version 1 format 1", UnitOrigin.PROJECT));
+            parts.set(1, withHeader(REFINE_FILE, "workflow refine version 1 format 1", UnitOrigin.PROJECT));
+
+            var merge = PlanUnitMerger.merge(parts);
+
+            assertAll(
+                    () -> assertEquals(List.of(), merge.findings()),
+                    () -> assertEquals(PlanUnitMerger.PLAN_UNIT, merge.unit().orElseThrow().id()));
+        }
+
+        @Test
         @DisplayName("merges without a finding")
         void noFinding() {
             var merge = PlanUnitMerger.merge(phases(UnitOrigin.PROJECT));
@@ -168,7 +182,7 @@ class PlanUnitMergerTest {
                             REFINE_FILE, headerLine(REFINE_FILE),
                             () -> List.of(parse(INIT_FILE, UnitOrigin.PROJECT),
                                     withHeader(REFINE_FILE, "workflow plan version 1 format 2", UnitOrigin.PROJECT))),
-                    refusal("a part of another unit", UnitFinding.Kind.RULE, PlanUnitMerger.NOT_A_PLAN_PART,
+                    refusal("a sub-workflow among the parts", UnitFinding.Kind.RULE, PlanUnitMerger.NOT_A_PLAN_PART,
                             InvariantFixtures.REPLAN_FILE,
                             UnitFixtures.lineOf(InvariantFixtures.REPLAN_FILE, UnitFixtures.REPLAN_HEADER),
                             () -> List.of(parse(INIT_FILE, UnitOrigin.PROJECT),

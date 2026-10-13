@@ -144,7 +144,7 @@ public final class InvariantFixtures {
             partVersions.put(part.location().resourceName(), part.version());
             version += part.version();
         }
-        return new WorkflowDefinition(first.id(), version, first.scope(), List.of(), Optional.empty(),
+        return new WorkflowDefinition(PLAN_UNIT, version, first.scope(), List.of(), Optional.empty(),
                 Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(), first.origin(), Map.of(),
                 first.startState(), migrations, states, first.location());
     }

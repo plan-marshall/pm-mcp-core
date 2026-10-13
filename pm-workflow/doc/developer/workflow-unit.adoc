@@ -86,7 +86,8 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 * the version is the sum of the part versions, and `partVersions` records each part version under the resource name of its file;
 * `derivedFrom` records, under the resource name of each file, the default revision the file's header names with `derived_from`. The parser records the clause only for a project unit and refuses it on a default unit, so a default plan unit has an empty map.
 
-Every part must declare the unit `plan` of scope `plan` (otherwise `not_a_plan_part`), the format of the first part (`mixed_formats`, kind `FORMAT`) and the origin of the first part (`mixed_origins`): a project never mixes a default file into its own plan unit.
+Every part must declare scope `plan` (otherwise `not_a_plan_part`); its header names the part, for example `workflow finalize`, and identifies the file only, so the merged unit is `plan` whatever its parts are named.
+Every part must declare the format of the first part (`mixed_formats`, kind `FORMAT`) and the origin of the first part (`mixed_origins`): a project never mixes a default file into its own plan unit.
 A state declared in two parts is a `STATE_ID_UNIQUE` finding at the second declaration.
 Every finding is reported, and a merge with a finding yields no unit.
 

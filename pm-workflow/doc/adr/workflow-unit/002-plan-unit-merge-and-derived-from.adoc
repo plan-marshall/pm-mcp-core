@@ -20,7 +20,7 @@ Both the default and the project loader need the merge, and the merged unit must
 `PlanUnitMerger` in `workflow.unit` merges the parsed phase files; both loaders call it.
 The parser records `derived_from` in `WorkflowDefinition.derivedFrom` as `{<unit id> -> n}` for a project unit and refuses the clause on a default unit; the printer prints it back.
 The merger records the revision of every project file under the file's resource name in the merged unit's `derivedFrom`, and the part versions in `partVersions`.
-Every part must be a part of the unit `plan` of scope `plan`, with the format and origin of the first part; a state declared in two parts is refused. Each violation is a finding with file and line, and a merge with a finding yields no unit.
+Every part must declare scope `plan`, with the format and origin of the first part; its header names the part and identifies the file only, so the merged unit is `plan` whatever its parts are named. A state declared in two parts is refused. Each violation is a finding with file and line, and a merge with a finding yields no unit.
 
 == Alternatives Considered
 
