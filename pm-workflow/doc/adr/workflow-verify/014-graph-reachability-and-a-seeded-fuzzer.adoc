@@ -1,4 +1,4 @@
-= ADR 013: Reachability Is Plain Graph Reachability, and a Seeded Fuzzer Covers the Guards
+= ADR 014: Reachability Is Plain Graph Reachability, and a Seeded Fuzzer Covers the Guards
 :nofooter:
 
 == Status

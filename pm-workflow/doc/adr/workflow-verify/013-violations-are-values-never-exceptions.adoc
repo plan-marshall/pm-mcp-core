@@ -1,4 +1,4 @@
-= ADR 012: The Verifier Reports Every Violation as a Value and Never Throws for One
+= ADR 013: The Verifier Reports Every Violation as a Value and Never Throws for One
 :nofooter:
 
 == Status

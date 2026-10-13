@@ -1,4 +1,4 @@
-= ADR 014: The Released-State Baseline and the Primitive Registry Are Arguments
+= ADR 015: The Released-State Baseline and the Primitive Registry Are Arguments
 :nofooter:
 
 == Status
