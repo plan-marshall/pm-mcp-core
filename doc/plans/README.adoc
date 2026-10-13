@@ -324,7 +324,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:runtime-lifecycle.adoc[`runtime-lifecycle`]; link:service-unit.adoc[`service-unit`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the change The Runtime's Lifecycle and UC-SYS-1 agreed (no work package)
+|link:runtime-lifecycle.adoc[`runtime-lifecycle`]; link:audit-trail.adoc[`audit-trail`]; link:service-unit.adoc[`service-unit`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the change The Runtime's Lifecycle and UC-SYS-1 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
