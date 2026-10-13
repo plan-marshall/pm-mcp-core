@@ -1,0 +1,56 @@
+= `pm-runtime`
+:nofooter:
+
+`pm-runtime` holds the daemon's logic that needs no framework. It implements the service interfaces of `pm-core`: the
+start of the runtime, the credential stores, the lock manager, the verification of a job, the language server client
+and the ingestion validator. The assembly `pm-mcp-server` in plan-marshall-mcp produces its services through CDI;
+no class here references a Quarkus, CDI, Vert.x or MCP type. What the module may depend on is stated in the
+https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
+
+== Packages
+
+All packages lie below `de.planmarshall.runtime`. Each line is the first sentence of the package's
+`package-info.java`.
+
+* `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores, the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
+* `credentials`: the credential stores of the runtime: exactly one active secret store per machine, chosen at runtime start.
+* `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
+* `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`.
+* `ingest`: the level-1 ingestion validator for external text.
+* `job`: the verify-not-resolve pipeline of a job: the deterministic check that turns a job request into a verified job or a refusal.
+* `launch`: the launch composition of a worker: the harness templates, the job token and generation, the launch prompt and the model slots.
+* `lock`: the lock manager of the runtime and the stale lease sweep: the implementation of the locking interface of `pm-core`.
+* `lsp`: the product LSP client of the warm language-server pool.
+* `security`: what the authentication of the daemon resolves a presented credential through.
+* `start`: the start sequence of the runtime up to the socket bind.
+* `web`: the state of web access and the self-signed TLS certificate of the web listener on a LAN address.
+* `worker`: the worker supervisor, one per project and role.
+* `workspace`: the entry through which the file, git and build operations of the daemon obtain a confined path of a project.
+
+== Build and Test
+
+Run from the root of the repository:
+
+* Tests: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-runtime -am"`
+* Integration tests: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "verify -Pintegration-tests -pl pm-runtime -am"`
+
+The commands for the whole repository are in `CLAUDE.md`.
+
+== Test JAR
+
+The module builds a test JAR with the fixtures the tests of the assembly share: `TestBases`, `FakeBus` and
+`FakeSecretService`. It is deployed with the `SNAPSHOT`.
+
+== Developer Documentation
+
+* link:doc/developer/runtime-job.adoc[Job Verification (`runtime.job`)]
+* link:doc/developer/runtime-start.adoc[Sweep Steps of the Periodic Sweep (`runtime.start`)]
+
+== ADRs
+
+* link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
+* link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job.
+* link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
+* link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime.
+
+The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].

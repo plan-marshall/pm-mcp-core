@@ -1,0 +1,39 @@
+= ADR 019: The Enrolment Store Has a Schema Closed at Every Level
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The enrolment of a project had no store, no integrity protection and no refusal path. Later packages (the runtime
+lifecycle, plan instances, the job runner) need typed values they can trust, and a tampered, orphaned or unprotected
+enrolment must never be read as valid.
+
+== Decision
+
+* The enrolment store is one file per project (`ProjectEnrolment`, `EnrolmentCodec`, `EnrolmentStore` in `core.store`), and its schema is typed and closed at every level: an unknown field at any nesting level is refused rather than ignored.
+* The store extends the existing store-substrate declarations (`AtomicStoreFile`, `DigestSidecar`, `StoreIntegrity`, `StoreRefusal`, `StrictJson`) instead of adding a parallel mechanism. `StrictJson` and `StoreRefusal` are extended for the closed schema with the refusals `enrolment_tampered`, `enrolment_insecure` and `enrolment_invalid`.
+
+The pull request states that the approach follows the settled confinement design; no further rationale is recorded.
+
+== Alternatives Considered
+
+1. *A parallel mechanism* beside the store-substrate declarations. _Not taken_: reason not recorded.
+
+== Consequences
+
+* An unknown field anywhere in an enrolment file is refused.
+* The enrolment store shares the atomic write, the digest sidecar and the refusals of the other stores (ADR 012, ADR 015, ADR 016).
+* `ProjectEnrolment.Provider` names its constants `GH` and `GLAB` (wire values `github` and `gitlab` unchanged) so that the provider-neutrality guard holds (link:../core-findings/002-provider-neutrality-guard-with-one-exemption.adoc[`core-findings` ADR 002]).
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/11-enrolment-store.adoc[Store Schemas § Enrolment Store]

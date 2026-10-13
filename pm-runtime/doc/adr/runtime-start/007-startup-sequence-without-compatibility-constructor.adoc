@@ -1,0 +1,34 @@
+= ADR 007: `StartupSequence` Gains Two Components without a Compatibility Constructor
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The bounded verification step of the startup order needs the audit-chain seam and the audit sink inside
+`StartupSequence`, a record. Its single caller lives in `plan-marshall/plan-marshall-mcp`.
+
+== Decision
+
+`StartupSequence` gains two record components, the audit-chain seam and the audit sink, and no compatibility
+constructor is added. The repository is pre-1.0 and keeps no compatibility shims.
+
+== Alternatives Considered
+
+* A compatibility constructor that keeps the old shape: not taken, because the repository is pre-1.0 and keeps no shims.
+
+== Consequences
+
+* The pull request is a breaking change: the single caller of `StartupSequence` in `plan-marshall/plan-marshall-mcp` breaks once the `SNAPSHOT` of this repository deploys, until a follow-up pull request there adapts it.
+
+== Source
+
+* Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, section "Breaking change and open follow-ups"
+* Work package link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]

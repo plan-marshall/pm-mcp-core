@@ -1,0 +1,40 @@
+= ADR 021: The Enrolment Sidecar Is a Closed, Versioned Record
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+Enrolment integrity is an HMAC sidecar beside each enrolment file, re-baselined only by the operator. The re-baseline
+that accepts an edit of an enrolment file (`accept-edit enrolment`) has to report the recorded and the current state of
+the file, so that they can be shown side by side.
+
+== Decision
+
+The enrolment sidecar (`EnrolmentSidecar`) is a closed, versioned record with the members `format_version`, `size`,
+`sha256` and `hmac`. This is the operator-approved requirement correction C1; it changes the wording of the
+specification only, not its intent.
+
+The record carries size and SHA-256 so that `Enrolments.rebaseline` can return the recorded and the current digest. The
+display of the two is not part of this repository.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The sidecar is refused like every other closed record when it carries another `format_version` or an unknown member.
+* The C1 wording went into the specification with the companion documentation pull request.
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, section "Requirement corrections"
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/11-enrolment-store.adoc[Store Schemas § Enrolment Store]

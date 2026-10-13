@@ -1,0 +1,37 @@
+= ADR 005: On-Demand Start Stays the Default; the Service Unit Is Opt-In
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The work package `service-unit` adds a per-user service unit that starts the daemon at login. Until then the daemon was
+started on demand only, so the question was which of the two start modes is the default.
+
+== Decision
+
+On-demand start stays the default. The per-user service unit is written only when the operator asks for it through
+`pm-operator runtime install`, and removed through `pm-operator runtime uninstall`.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Nothing changes for a machine whose operator does not install the service unit.
+* The service unit is the runtime side of `pm-operator runtime install|uninstall`; the `pm-operator` verbs and the API endpoint were not touched by this work package.
+
+== Source
+
+* Pull request #25, `feat(runtime): add per-user service unit for launchd and systemd`, sections "Summary" and "Intent"
+* Work package link:../../../../doc/plans/service-unit.adoc[`service-unit`]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime Model § Start Modes]

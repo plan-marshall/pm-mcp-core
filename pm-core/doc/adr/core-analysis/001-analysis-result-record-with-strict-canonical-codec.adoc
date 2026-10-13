@@ -1,0 +1,40 @@
+= ADR 001: `AnalysisResult` Is a Self-Checking Record With a Strict Canonical Codec
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The foundation had no analysis-result record. The work package asks for the analysis result record as a Java record
+with its nested types (target, quality gate with its conditions, the counts), serialized as one canonical JSON line
+with every member present, and its consistency rules checked on construction.
+
+== Decision
+
+* `AnalysisResult` in `de.planmarshall.core.analysis` is a record that checks the specification's consistency rules on construction.
+* `AnalysisResultCodec` writes it as canonical one-line JSON on `jackson-core` streaming and reads it with a strict reader.
+* `Finding` of `core.findings` (all 36 members of the `FindingRecord` schema, its rules checked on construction) has no codec; its fit to the schema is proven by the parity test `FindingSchemaParityTest` against the specification instead.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The record round-trips byte for byte through its JSON line, and each consistency rule has a refusing test.
+* `AnalysisResultSchemaTest` and `FindingSchemaParityTest` read the specification from `../plan-marshall-documentation` (override with `-Dpm.documentation.root`). Where that checkout is absent, CI included, they are skipped with a visible message naming the missing path.
+* `com.networknt:json-schema-validator` is a test-scope dependency of `pm-core`, pinned by the property `version.json-schema-validator`, added with the operator's consent.
+
+== Source
+
+* Pull request #31, `feat(core): add code analysis base and settle the findings registry key`
+* Work package link:../../../../doc/plans/code-analysis-base.adoc[`code-analysis-base`] (PLAN-36)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/03-findings-and-review-records.adoc#analysis-result[Store Schemas § Analysis Result Record]

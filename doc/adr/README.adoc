@@ -1,0 +1,52 @@
+= Architectural Decision Records of `pm-mcp-core`
+:nofooter:
+
+An ADR records one design decision: the situation, what was decided, the alternatives and what follows. The ADRs of
+this repository live in two kinds of directory:
+
+* `doc/adr/`: the decisions that concern the whole repository.
+* `{module}/doc/adr/{package}/`: the decisions of one package of a module.
+
+== Numbering
+
+ADRs are numbered per directory, with three digits: `NNN-{slug}.adoc`. A new ADR takes the next free number of its
+directory. A number is never reused, not even for a superseded ADR. Two plans that write into the same directory at
+the same time can take the same number; the plan that merges later renumbers its own ADR before the push.
+
+== Writing an ADR
+
+A new ADR follows the template link:template.adoc[`doc/adr/template.adoc`]. The template states the sections and what
+each one holds. The layout of the module documentation is ADR
+link:004-module-documentation-layout.adoc[004 The Module Documentation Layout].
+
+== Directories
+
+The repository:
+
+* link:./[`doc/adr/`]: the decisions that concern the whole repository.
+
+`pm-core`:
+
+* link:../../pm-core/doc/adr/core-analysis/[`pm-core/doc/adr/core-analysis/`]: the code-analysis contract.
+* link:../../pm-core/doc/adr/core-findings/[`pm-core/doc/adr/core-findings/`]: the findings contract.
+* link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the task queue store and the session generations.
+* link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.
+* link:../../pm-core/doc/adr/core-store/[`pm-core/doc/adr/core-store/`]: the state stores and the engine ports.
+
+`pm-runtime`:
+
+* link:../../pm-runtime/doc/adr/runtime-enrolment/[`pm-runtime/doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
+* link:../../pm-runtime/doc/adr/runtime-job/[`pm-runtime/doc/adr/runtime-job/`]: the verification of a job.
+* link:../../pm-runtime/doc/adr/runtime-lock/[`pm-runtime/doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
+* link:../../pm-runtime/doc/adr/runtime-start/[`pm-runtime/doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime.
+
+`pm-workflow`:
+
+* link:../../pm-workflow/doc/adr/workflow-ast/[`pm-workflow/doc/adr/workflow-ast/`]: the tree of the workflow language.
+* link:../../pm-workflow/doc/adr/workflow-diagram/[`pm-workflow/doc/adr/workflow-diagram/`]: the documentation generator of a workflow unit.
+* link:../../pm-workflow/doc/adr/workflow-dsl/[`pm-workflow/doc/adr/workflow-dsl/`]: the parser and printer of the workflow language.
+* link:../../pm-workflow/doc/adr/workflow-engine/[`pm-workflow/doc/adr/workflow-engine/`]: the interpreter of the state machine.
+* link:../../pm-workflow/doc/adr/workflow-scenario/[`pm-workflow/doc/adr/workflow-scenario/`]: the scenario replay harness.
+* link:../../pm-workflow/doc/adr/workflow-verify/[`pm-workflow/doc/adr/workflow-verify/`]: the static verifier and the fuzzer.
+
+The README of each module links the ADR directories of its packages.

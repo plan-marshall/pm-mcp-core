@@ -1,0 +1,40 @@
+= ADR 003: The Integrity Key Is Created Atomically and Never Silently Replaced
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The HMAC sidecars of the enrolments are signed under the integrity key. The review rounds of the pull request settled
+how the key file is created, how two instances that create it at the same time are kept apart, and what `enrol` does
+when the key source yields no key.
+
+== Decision
+
+* The integrity key file is created atomically: a synced 0600 temporary file is published by hard link, never replacing an existing key (`EnrolmentKey`).
+* Creation of the key is serialised across instances under `credentials.lock`, and the keyring path adopts a key that another instance stored first.
+* `enrol` refuses with `enrolment_tampered` when the key source yields no key while enrolments exist, instead of silently creating a new key.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+* Silently creating a new key when the key source yields none: refused, as stated in the decision; the reason is not recorded.
+
+== Consequences
+
+* An existing key file is never replaced by the creation of a key.
+* An instance that finds a key another instance stored first adopts it instead of creating its own.
+* While enrolments exist, a missing key stops `enrol` with a refusal; no new key is created for them.
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, section "Changes from the review rounds"
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]

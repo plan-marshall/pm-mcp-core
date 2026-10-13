@@ -1,0 +1,39 @@
+= ADR 013: Leases Are Records, Never OS Locks
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+Long-lived claims such as leases would, without a rule, either block writers or silently leak, and a held OS lock
+could outlive a crashed holder.
+
+== Decision
+
+* A lease is a plain record (`LeaseRecord`: `key`, `owner`, `acquiredAt`, `leaseExpiresAt`) with `LeaseCodec` and `LeaseStore`; its owner (`LeaseOwner`) carries `project_id`, `scope_type`, `scope_id`, `holder_instance` and `orphaned_at`. It is claimed and released under the short transaction lock, never held as an OS lock, and it survives a restart.
+* `LeaseStore.release(key, expectedOwner)` removes a lease only when the stored owner matches; it is additive, and `release(key)` is unchanged. `reviseAll` refuses a revision that returns a lease under another key.
+
+Because leases are records, a restart keeps them and a sweep can remove those of a dead holder while keeping those of a
+live one.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A test claims and releases a lease under the short transaction lock and proves that it survives a restart; a test covers the owner-checked release.
+* The stale lease sweep of `pm-runtime` removes or orphans a dead holder's lease and keeps a live one.
+* `LeaseStore.adopt` does not check for concurrent adopters, because the specification has one runtime.
+
+== Source
+
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`
+* Work package link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease Stores]

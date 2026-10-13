@@ -1,0 +1,41 @@
+= ADR 011: One Total Lock Order, Asserted on Every Acquisition
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+The runtime had no single place that decided who may touch a store and in which order. Without one, each store would
+invent its own locking. The work package asks for one lock manager for every acquisition, with the one total lock
+order asserted on every acquisition and an out-of-order acquisition refused as `internal_fault` with an audit record
+(PM-IMPL-7).
+
+== Decision
+
+* Every acquisition goes through one lock manager (`LockManager` / `LockTransaction` in `pm-core`, `FileLockManager` in `pm-runtime`). The lock keys (`LockLevel`, `LockKey`) form one total order (`LockOrder`), asserted on every acquisition against the locks the transaction already holds; re-entry is allowed.
+* An out-of-order acquisition is refused as `internal_fault` (`InternalFaultException`) with a `lock_order_violation` audit record (`category: store`, `outcome: refused`, `details{held, requested}`), and nothing is written.
+
+The refusal at acquisition time makes a mis-ordered caller fail loudly before anything is written.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Each rule of the lock order has a unit test; the refusal and its audit record are asserted.
+* The audit record goes through the `AuditSink` seam and is tested with a recording fake, because the audit trail is a later package.
+* The order is asserted per transaction only.
+* The violation is logged as ERROR 250 `LOCK_ORDER_VIOLATION` of `PmMcpLogMessages`.
+
+== Source
+
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`
+* Work package link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]

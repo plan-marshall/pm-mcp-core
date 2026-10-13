@@ -1,0 +1,41 @@
+= ADR 001: Java 25 as the Language Baseline
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-09
+
+== Context
+
+The modules of this repository are plain Java. The Java release they compile against is not set in their own POMs:
+the root POM inherits it from the parent `de.planmarshall:pm-mcp-parent`, which also supplies the managed
+third-party versions and the plugin management. When the work packages of Milestones 2 to 4 were cut into plans,
+every plan needed the same language baseline.
+
+== Decision
+
+Java 25 is the language baseline of every module. The release is supplied by `pm-mcp-parent`, never by a module
+POM. The decomposition of the epic `pm-mcp-core-m2-m4` on 2026-10-09 records the Java 25 baseline as one of the
+operator's planning rules, which stand in every plan as a Standing Constraint.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Code may use the language features of Java 25: records, sealed interfaces, `var`.
+* A change of the release is a change of `pm-mcp-parent`, not of this repository.
+* The compiler runs with `failOnWarning`, so a deprecation under the new release has to be fixed, not suppressed.
+
+== Source
+
+* Epic `pm-mcp-core-m2-m4`, decision of 2026-10-09 (the operator's planning rules), in the orchestrator ledger
+* `pom.xml`, the parent `pm-mcp-parent` and its comment on the Java release
+* `CLAUDE.md`, section Code Standards

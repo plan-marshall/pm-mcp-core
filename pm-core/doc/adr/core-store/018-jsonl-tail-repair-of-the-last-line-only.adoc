@@ -1,0 +1,41 @@
+= ADR 018: JSONL Appends Under the Store's Lock, Only a Torn Last Line Is Repaired
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+JSONL stores had no append discipline. The work package asks for the JSONL append discipline with tail repair under
+the store's lock.
+
+== Decision
+
+`JsonlStoreFile` appends under the store's lock with a single `APPEND` write followed by `force`; every record is
+newline-terminated. Only a torn last line is repaired; a malformed complete line is reported `unreadable` with its line
+number, never repaired.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A torn last JSONL line is repaired at the tail only; a crash-point test proves it.
+* `AuditEvent` of `core.service` gains the `jsonl_tail_repaired` event.
+* Appends on file-locked stores (audit log, plan mailbox) are not yet safe against lock loss: closing a channel on a
+  POSIX file releases the process's OS locks on that file. The fix belongs in the lock manager and must land before
+  the audit-trail or mailbox packages use `JsonlStoreFile`.
+
+== Source
+
+* Pull request #26, `feat(core): add versioned store substrate with journal and digests`, section "Known limitation"
+* Work package link:../../../../doc/plans/store-substrate.adoc[`store-substrate`] (PLAN-06)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]

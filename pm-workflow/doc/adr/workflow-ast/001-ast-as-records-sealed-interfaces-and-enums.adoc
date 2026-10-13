@@ -1,0 +1,40 @@
+= ADR 001: The AST Is the Complete Specification Listing as Records, Sealed Interfaces and Enums
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The AST model of the specification existed only as a document, and `pm-workflow` carried just four of its types
+(`SourceLocation`, `WorkflowScope`, `LinkForm` and `LinkRelation` existed as declarations). The work package asks for
+the immutable AST records.
+
+== Decision
+
+The package `workflow.ast` holds the complete AST of the specification listing as immutable records, sealed interfaces
+and enums: `WorkflowDefinition`, `StateNode`, `StateBehavior`, `LinkSpec`, `GuardExpr`, `ParamDecl`, `InstanceHeader`,
+`CallFrame`, `GuardResult`, `UnitOrigin` and the others.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The later packages (static verifier, multi-file merge, plan instance, engine) work on the parsed, immutable `WorkflowDefinition`.
+* The interpretation of `GuardResult` and `CallFrame` belongs to other packages; this package declares them only.
+* An AST model test covers the records.
+
+== Source
+
+* Pull request #27, `feat(workflow): add workflow DSL parser, printer and immutable AST`, sections "Changes" and "Intent"
+* Work package link:../../../../doc/plans/workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model]

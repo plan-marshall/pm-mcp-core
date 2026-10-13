@@ -1,0 +1,51 @@
+= ADR 004: The Module Documentation Layout
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+On 2026-10-11 the operator found that the modules of this repository have no README, no module documentation and no
+ADRs. `CLAUDE.md` and the index of the work packages said that the developer documentation lives in the documentation
+repository `plan-marshall-documentation`. Plans shipped since then have started to write ADRs and developer documents
+below the modules (`pm-core/doc/adr/core-store/`, `pm-runtime/doc/developer/runtime-job.adoc`, the ADR directories of
+`pm-workflow`).
+
+== Decision
+
+The documentation that belongs to the code lives beside it, in four places:
+
+* `{module}/README.adoc`: the module's purpose, its packages, its build and test commands, and links to its developer documentation and ADRs.
+* `{module}/doc/developer/{package}.adoc`: the developer documentation of one package.
+* `{module}/doc/adr/{package}/NNN-{slug}.adoc`: one ADR per design decision of the package.
+* `doc/adr/NNN-{slug}.adoc`: one ADR per design decision that concerns the whole repository.
+
+A plan writes the developer documentation of the packages it changes and one ADR per design decision it takes, in
+its own pull request. The requirements, specifications, concept and user documentation stay in
+`plan-marshall-documentation`. `CLAUDE.md` (section Module Documentation) and the index of the work packages
+(section How to Work a Package) state the rule.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+1. *All developer documentation in `plan-marshall-documentation`.* The rule before this decision; replaced.
+
+== Consequences
+
+* Each module has a `README.adoc`, linked from the root `README.md`.
+* ADRs are numbered per directory, with three digits; a number is never reused. New ADRs follow `doc/adr/template.adoc`; the index is `doc/adr/README.adoc`.
+* Two plans that write into the same ADR directory at the same time can take the same number; the plan that merges later renumbers its own ADR before the push.
+
+== Source
+
+* Pull request link:https://github.com/plan-marshall/pm-mcp-core/pull/53[#53], `docs: add module READMEs, the ADR template and backfilled ADRs`
+* Plan `plan-39-module-readmes-and-adrs` (PLAN-39 of the epic `pm-mcp-core-m2-m4`, workstream WS-10), its request; the plan has no work package file below `doc/plans/`
+* link:../../CLAUDE.md#module-documentation[`CLAUDE.md`, section Module Documentation]
+* link:../plans/README.adoc#how[Work packages, How to Work a Package]

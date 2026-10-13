@@ -1,0 +1,64 @@
+= `pm-workflow`
+:nofooter:
+
+`pm-workflow` is the workflow engine. It reads the workflow language into a tree, verifies a unit, runs verified units
+as a state machine, and holds the plan-domain primitives and the model work around them. It carries no workflow
+units; the assembly supplies them on the classpath. What the module may depend on is stated in the
+https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
+
+== Packages
+
+All packages lie below `de.planmarshall.workflow`. Each line is the first sentence of the package's
+`package-info.java`.
+
+* `ast`: the immutable tree the parser of the workflow language produces.
+* `classification`: the classification of a plan and its deliverables by the intent of the change.
+* `consult`: the consultation of one role by another.
+* `decision`: the decision quorum and the decision records.
+* `diagram`: the generator of the documentation of a workflow unit.
+* `dsl`: the line-oriented workflow language: it reads the text of a unit into the immutable tree of `ast` and prints a tree back to text.
+* `engine`: the deterministic interpreter of the state machine.
+* `envelope`: the task envelopes: the packing of plan tasks into envelopes by their predicted cost.
+* `epic`: the coordination of the plans of an epic.
+* `finalize`: the finalize steps: the descriptor of a step, the checks over the pipeline of steps, and the currency of a recorded verdict.
+* `hypermedia`: the hypermedia state engine: the representation of the current state, its link forms and link grammar, and the composite wait.
+* `model`: the one model caller: it reads the artifact of the role a model state names and turns the step into queue tasks.
+* `plan`: the composition of a plan instance from the workflow units and the configuration of its project.
+* `primitive`: the plan-domain primitives, which implement the SPI of `pm-core`.
+* `question`: the question records, their adjudication and their deadlines.
+* `screening`: the screening of untrusted text and the triage states.
+* `setup`: the state machine of the project setup.
+* `spend`: the completion of a task, its usage and the spend accounting.
+* `task`: the task protocol unit `worker-task`: offers, acknowledgement, leases and fencing, task outcomes and re-offers.
+* `unit`: the loader of the default workflow units, which are read from `classpath:/workflows/` and supplied by the assembly; this module carries none.
+* `verify`: the verification of workflow units.
+
+The test sources hold one more package:
+
+* `scenario`: the deterministic scenario replay harness `pm-scenario`, a test-scope part of this module.
+
+== Build and Test
+
+Run from the root of the repository:
+
+* Tests: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-workflow -am"`
+
+The commands for the whole repository are in `CLAUDE.md`.
+
+== Developer Documentation
+
+* link:doc/developer/workflow-diagram.adoc[Workflow Diagrams (`workflow.diagram`)]
+* link:doc/developer/workflow-engine.adoc[Workflow Engine (`workflow.engine`)]
+* link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]
+* link:doc/developer/workflow-verify.adoc[Workflow Verification (`workflow.verify`)]
+
+== ADRs
+
+* link:doc/adr/workflow-ast/[`doc/adr/workflow-ast/`]: the tree of the workflow language.
+* link:doc/adr/workflow-diagram/[`doc/adr/workflow-diagram/`]: the documentation generator of a workflow unit.
+* link:doc/adr/workflow-dsl/[`doc/adr/workflow-dsl/`]: the parser and printer of the workflow language.
+* link:doc/adr/workflow-engine/[`doc/adr/workflow-engine/`]: the interpreter of the state machine.
+* link:doc/adr/workflow-scenario/[`doc/adr/workflow-scenario/`]: the scenario replay harness.
+* link:doc/adr/workflow-verify/[`doc/adr/workflow-verify/`]: the static verifier and the fuzzer.
+
+The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].

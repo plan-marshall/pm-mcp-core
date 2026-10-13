@@ -1,0 +1,38 @@
+= ADR 002: Exactly One Lock Manager per Runtime Is a Precondition of the Assembly
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+`FileLockManager` holds at most one OS `FileChannel.lock()` per lock file. With a second instance on the same lock
+file, the failing acquisition closes the channel it just opened, which on POSIX can release the first holder's lock.
+
+== Decision
+
+Exactly one `FileLockManager` per runtime is a precondition the assembly must meet. It is documented, not enforced:
+the exception message and the class Javadoc of `FileLockManager` say so, and the behaviour is unchanged. The pull
+request lists this as accepted as specified.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The assembly that wires the runtime creates one `FileLockManager` and shares it; a second instance on the same lock file can release another holder's lock.
+* The same one-runtime assumption carries `LeaseStore.adopt`, which does not check for concurrent adopters.
+
+== Source
+
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`, section "For reviewers", "Accepted as specified"
+* Work package link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]

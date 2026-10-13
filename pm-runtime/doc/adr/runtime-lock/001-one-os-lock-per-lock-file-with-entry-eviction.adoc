@@ -1,0 +1,43 @@
+= ADR 001: One OS Lock per Lock File, with Per-Key Entries Evicted
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+Every acquisition goes through one lock manager, whose contracts (`LockManager`, `LockTransaction`, the lock keys and
+the total lock order) live in `pm-core`. `pm-runtime` needs the implementation on the file system: how in-process
+locking and OS file locks combine, and how long the bookkeeping of a key lives. The documented design kept one entry
+per key for the lifetime of the runtime.
+
+== Decision
+
+* `FileLockManager` in `runtime.lock` holds one in-process lock per key and at most one OS `FileChannel.lock()` per lock file.
+* Lock files are siblings of the stores they guard, outside the directories they protect.
+* Per-key entries are reference-counted and removed when no thread holds or waits on the key. This entry eviction replaces the documented "one entry per key for the lifetime of the runtime"; the pull request lists it as a decision beyond the written specification.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+* One entry per key for the lifetime of the runtime, as documented before: replaced by the entry eviction; the reason is not recorded.
+
+== Consequences
+
+* A two-process integration test (`FileLockManagerTwoProcessIT`) proves the OS lock; a test covers entry eviction, including a key released while another thread waits on it.
+* Entry eviction has no concurrent stress test, and a thread that dies between entering and leaving a key leaves its entry behind.
+* The reverse release order of `FileLockManager` has no test.
+* `java:S2222` on `FileLockManager.lock` is suppressed with its reason: the method returns holding the lock by design, and the transaction releases it on close.
+
+== Source
+
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`, sections "Changes" and "For reviewers"
+* Work package link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]
+* Related: link:../../../../pm-core/doc/adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[`core-store` ADR 011], the lock order this manager asserts

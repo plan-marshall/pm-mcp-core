@@ -1,0 +1,39 @@
+= ADR 020: The Lifecycle Gate Is Compiled
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The work package asks for the enrolment store with `--pilot` and the compiled lifecycle gate: the gate refuses a plan
+lifecycle while it is closed, and a pilot enrolment passes it.
+
+== Decision
+
+`LifecycleGate` in `core.store` is compiled into the release (`LifecycleGate.RELEASE`), never a setting: no
+configuration key, environment variable or file opens it. While it is closed, a plan or an epic is created only in a
+project enrolled as a pilot (`pilot: true`), and every other project is refused with `lifecycle_closed`.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A test proves that the gate refuses a plan lifecycle on a closed gate and that a pilot enrolment passes it.
+* Opening the gate is a change of the release, not of a project's configuration.
+* `LifecycleGate.decide` expects its `ProjectEnrolment` argument to have been read and verified by its caller; the integrity check of `pm-runtime` is described in link:../../../../pm-runtime/doc/adr/runtime-enrolment/001-integrity-hmac-in-the-runtime.adoc[`runtime-enrolment` ADR 001]. No production code connects the two yet.
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]

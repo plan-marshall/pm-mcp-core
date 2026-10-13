@@ -1,0 +1,44 @@
+= ADR 003: The Stale Lease Sweep Judges a Lease by the Liveness of Its Holder
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+Leases are plain records that survive a restart, so a lease of a holder that crashed stays in its store until
+something removes it. The work package asks for a stale lease sweep that removes a lease of a dead holder and keeps a
+live one. Per-project crash recovery, added later by the work package `runtime-lifecycle`, needs the sweep for a single
+project.
+
+== Decision
+
+* `HolderLiveness` judges a holder by its PID and its start instant, as the specification fixes them.
+* `StaleLeaseSweep` removes or orphans a lease of a dead holder, per the specification, and keeps a lease of a live holder.
+* `StartupSequence` does not call the sweep. `ProjectRecovery` invokes it through `LeaseRecoveryStep` when the caller supplies that step. The Javadoc of `ProjectRecovery` fixes that per-project recovery runs after the socket is bound, but no code of this module enforces it: the registration of the step and the two recovery triggers are wired by the daemon in `plan-marshall/plan-marshall-mcp`.
+* With `runtime-lifecycle` (pull request #29), `StaleLeaseSweep` gains a project-selecting overload, which the recovery step `LeaseRecoveryStep` uses for orphan marking.
+
+Because leases are records, a sweep can remove those of a dead holder while keeping those of a live one.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A test proves that the sweep removes a lease of a dead holder and keeps a live one.
+* Lease cleanup can target a single project and leaves the leases of other projects unchanged.
+* The sweep finishing is logged as INFO 050 `STALE_LEASE_SWEEP_FINISHED`, an orphaned lease as WARN 151 `LEASE_ORPHANED` of `PmMcpLogMessages`.
+
+== Source
+
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`
+* Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, deliverable 5
+* Work packages link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`] and link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease Stores]
+* Related: link:../../../../pm-core/doc/adr/core-store/013-leases-are-records-never-os-locks.adoc[`core-store` ADR 013], leases as records

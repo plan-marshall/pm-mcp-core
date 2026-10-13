@@ -1,0 +1,39 @@
+= ADR 009: The Cold-Start Guard Forces the Seeded Base before Timing and Compares Lower Quartiles
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The work package requires the cold start bound of PM-TECH-3 to be measured again after the change. `StartupColdStartIT`
+measures startup steps 1 to 5 on the JVM with 0 and with 300 enrolled projects. An earlier measurement gave 5.9 ms
+against 7.9 ms, but that figure included the write backlog of the seeding, which step 5's `fsync` flushed, and the
+guard was flaky on CI.
+
+== Decision
+
+`StartupColdStartIT` forces the seeded base to disk before it starts timing, and it compares the lower quartiles of the
+two measurements.
+
+Forcing the seeded base keeps the seeding's write backlog out of the measured steps; the change also fixed the CI flake.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The JVM median for startup steps 1 to 5 is about 5 to 6 ms with both 0 and 300 enrolled projects, agreeing within about 0.5 ms.
+* The native-image figure for PM-TECH-3 is a non-blocking follow-up after the `SNAPSHOT` deploys.
+
+== Source
+
+* Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, section "Breaking change and open follow-ups"
+* Work package link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../../plan-marshall-documentation/doc/requirements/09-technology.adoc#PM-TECH-3[PM-TECH-3]

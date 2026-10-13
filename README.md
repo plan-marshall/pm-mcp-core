@@ -4,9 +4,13 @@ The plain-Java engine of [plan-marshall-mcp](https://github.com/plan-marshall/pl
 
 | Module | What it is |
 |---|---|
-| `pm-core` | The foundation every other library module builds on: service interfaces, stores, the TOON encoder |
-| `pm-providers` | The external integrations: `pm-provider-git`, `pm-provider-ci`, `pm-provider-github`, `pm-provider-gitlab` |
-| `pm-runtime` | The daemon's logic that needs no framework: the runtime start, the credential stores, the language server client, the ingestion validator |
+| [`pm-core`](pm-core/README.adoc) | The foundation every other library module builds on: service interfaces, stores, the TOON encoder |
+| [`pm-workflow`](pm-workflow/README.adoc) | The workflow engine: the workflow language, the verifier, the interpreter of the state machine, the plan-domain primitives |
+| [`pm-providers`](pm-providers/README.adoc) | The external integrations: [`pm-provider-git`](pm-providers/pm-provider-git/README.adoc), [`pm-provider-ci`](pm-providers/pm-provider-ci/README.adoc), [`pm-provider-github`](pm-providers/pm-provider-github/README.adoc), [`pm-provider-gitlab`](pm-providers/pm-provider-gitlab/README.adoc), [`pm-provider-sonar`](pm-providers/pm-provider-sonar/README.adoc) |
+| [`pm-runtime`](pm-runtime/README.adoc) | The daemon's logic that needs no framework: the runtime start, the credential stores, the language server client, the ingestion validator |
+
+The architectural decision records of the repository and of its modules are indexed in
+[`doc/adr/README.adoc`](doc/adr/README.adoc).
 
 No module here uses Quarkus, CDI, Vert.x or an MCP library; the Quarkus assembly that wires them is `pm-mcp-server`
 in plan-marshall-mcp. The modules are proprietary software; see [LICENSE.md](LICENSE.md). They are deployed as

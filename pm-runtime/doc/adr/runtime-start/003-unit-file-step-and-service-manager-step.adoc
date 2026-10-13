@@ -1,0 +1,40 @@
+= ADR 003: The Service Unit Is Installed in a Unit-File Step and a Service-Manager Step
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The daemon could only be started on demand; `pm-operator runtime install|uninstall` had no runtime side that writes or
+removes a per-user service unit or drives the platform service manager. The work package asks for the launchd unit on
+macOS and the systemd user unit on Linux, with golden-file tests of both unit files and tests that install and remove
+the unit in a temporary home.
+
+== Decision
+
+* A unit-file step, `ServiceUnitFile`, renders, writes and removes the launchd property list and the systemd user unit, both naming the absolute `pm-mcpd` path the caller hands in. Install replaces an existing unit, so an upgrade can install again. `ServiceUnitException` reports failures.
+* A separate service-manager step, `ServiceManager` with `LaunchdServiceManager` (`launchctl`) and `SystemdServiceManager` (`systemctl --user`), loads and enables the unit on install and unloads and disables it on uninstall.
+* `ServiceUnitInstaller` is the install and uninstall entry.
+* The home directory and the external-process call (`ProcessCall`) are injectable, so tests use a temporary home and a recording fake and never reach the real launchd or systemd.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Golden-file tests cover both unit files (`pm-runtime/src/test/resources/service-unit/`); `@EnabledOnOs` tests install and remove the unit in a temporary home; the service-manager tests run against the hand-written `RecordingProcessCall`.
+* The unit names the `pm-mcpd` path of the install; a unit that names the old path after an upgrade (PM-WATCH-RUN-15) is left open for the upgrade work.
+* Install, uninstall and a service-manager failure are logged with records of the WS-01 block of `PmMcpLogMessages`.
+
+== Source
+
+* Pull request #25, `feat(runtime): add per-user service unit for launchd and systemd`, sections "Changes" and "Intent"
+* Work package link:../../../../doc/plans/service-unit.adoc[`service-unit`]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime Model § Start Modes]

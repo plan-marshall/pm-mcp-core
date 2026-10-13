@@ -1,0 +1,40 @@
+= ADR 001: `parse()` Returns a Sealed Result, and a Refusal Is a Value
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The work package asks for the lexer and parser of the workflow DSL with every statement of the grammar, and for errors
+with file and line: every malformed fixture is refused with its line. The parser needs a way to answer both a parsed
+unit and a refusal.
+
+== Decision
+
+* `WorkflowParser.parse()` returns the sealed `ParseResult`: `Parsed`, carrying the `WorkflowDefinition`, or `Refused`.
+* A refusal is a value carrying one `Diagnostic`: the rule key (`RefusalRule`), the resource name, the line, the column and a message.
+* No checked exception type is introduced.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A caller distinguishes a parsed unit from a refused one by the type of the result, for example with `instanceof ParseResult.Parsed`.
+* A refusal names one diagnostic; the parser does not collect several.
+* Syntax is refused by `WorkflowParser`; cross-references and the graph are checked later by `WorkflowValidator`.
+
+== Source
+
+* Pull request #27, `feat(workflow): add workflow DSL parser, printer and immutable AST`, section "Intent"
+* Work package link:../../../../doc/plans/workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl.adoc[Workflow DSL]

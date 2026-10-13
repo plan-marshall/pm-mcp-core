@@ -1,0 +1,39 @@
+= ADR 004: `unenrol` Is Refused while the Project Has Live Work
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The work package asks that `unenrol` is refused while the project has live work and that it leaves the project store in
+place. No producer of live work exists yet: lease records, plan instances and the job runner come with later packages.
+
+== Decision
+
+* `unenrol` asks the live-work interface `LiveWork` of `core.service` and is refused while it reports live work.
+* `unenrol` leaves the project store in place.
+* `unenrol` also cancels a staged-only enrolment.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* `LiveWork` is tested with a fake; its real sources come with `plan-instance` and `job-runner`.
+* `unenrol` asks `LiveWork` under the project's enrolment lock. That prevents stranding only if the first path that creates live work acquires `LockKey.enrolment(base, projectId)` and verifies the enrolment in the same transaction.
+* A refused `unenrol` identifies the active work.
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, sections "Intent", "Non-goals", "Changes from the review rounds" and "Follow-ups" (item 2)
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]
