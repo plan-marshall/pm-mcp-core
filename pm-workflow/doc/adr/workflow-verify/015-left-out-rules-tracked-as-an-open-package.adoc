@@ -1,0 +1,36 @@
+= ADR 015: The Rules Left Out of the First Slice Are Tracked as an Open Work Package
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The first slice of the static verifier checks seven rules of the specification. The remaining verifier rules, the role
+and skill checks, the compiled invariants and the loader of project units were not in it. The epic constraint allowed
+the pull request to change only its own row of the work-package index `doc/plans/README.adoc`.
+
+== Decision
+
+The rules left out of the slice are tracked as the new open work package `static-verifier-remaining-rules`
+(`doc/plans/static-verifier-remaining-rules.adoc`), depending on `static-verifier-and-fuzzer`. The operator decided to
+override the epic constraint deliberately and add its row to the index, so that the excluded rules stay tracked instead
+of being lost.
+
+== Alternatives Considered
+
+* Changing only the package's own row, as the epic constraint said: overridden by the operator, because the excluded rules would not have been tracked.
+
+== Consequences
+
+* The remaining rules were implemented by the package `static-verifier-remaining-rules` (link:001-static-verifier-remaining-rules.adoc[ADR 001]).
+
+== Source
+
+* Pull request #32, `feat(workflow): add static verifier and transition fuzzer`, section "Operator decision on the work-package index"
+* Work package link:../../../../doc/plans/static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]

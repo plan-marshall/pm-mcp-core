@@ -1,0 +1,34 @@
+= ADR 003: A Unit without a `scope` Clause Is Refused
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The AST of the specification listing gives `WorkflowDefinition` a `scope` component that is not optional. A unit whose
+source has no `scope` clause has no value for it.
+
+== Decision
+
+`WorkflowParser` refuses a unit without a `scope` clause, because `WorkflowDefinition.scope` is not optional.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Every parsed `WorkflowDefinition` carries a scope (`WorkflowScope`), so no consumer handles a missing one.
+* A source without a `scope` clause is answered as `ParseResult.Refused` with its diagnostic.
+
+== Source
+
+* Pull request #27, `feat(workflow): add workflow DSL parser, printer and immutable AST`, section "Intent"
+* Work package link:../../../../doc/plans/workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model]

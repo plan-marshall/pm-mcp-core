@@ -1,0 +1,37 @@
+= ADR 014: The Released-State Baseline and the Primitive Registry Are Arguments
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The verifier checks that every referenced primitive exists and that released state names are preserved or migrated.
+Both checks need content of the product: the registered primitives and the baseline of released states. No module of
+this repository carries model-facing content in its JAR.
+
+== Decision
+
+`WorkflowValidator` takes the primitive registry (`PrimitiveRegistry`) and the released-state baseline as arguments of
+its caller, so no model-facing content ships in a module JAR.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The tests supply their own registry and baseline; the fixtures are written for the test.
+* The caller that verifies the units of the product passes the product's registry and baseline.
+* The registries the later rules need (`EntityKindRegistry`, `QuestionClassRegistry`, `SchemaRegistry`) and the `WorkflowCatalog` are constructor arguments as well.
+
+== Source
+
+* Pull request #32, `feat(workflow): add static verifier and transition fuzzer`, section "Intent"
+* Work package link:../../../../doc/plans/static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]

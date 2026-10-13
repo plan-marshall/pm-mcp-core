@@ -1,0 +1,39 @@
+= ADR 002: A Line-Oriented Lexer and Parser, and a Production Printer That Round-Trips
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The workflow engine had no way to read a workflow unit: the DSL grammar existed only as a document. Every later
+package (static verifier, multi-file merge, plan instance, engine) needs a parsed, immutable `WorkflowDefinition`. The
+work package asks that every construct of the grammar parses to its AST record and prints back.
+
+== Decision
+
+* `WorkflowLexer` (with `Token`) and `WorkflowParser` are a line-oriented lexer and parser of the grammar.
+* The parser enforces structure, reserved keywords and duplicate ids inside one file.
+* `WorkflowPrinter` is production code, not a test helper: it writes a `WorkflowDefinition` back, so that parse and print round-trip.
+
+The printer exists so that parse and print round-trip, as the work package asks.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The tests cover the lexer, the parser, the refusals and the printer round-trip, with valid and malformed DSL fixtures written for the test under `src/test/resources/dsl`, never copied from a default unit (PM-WATCH-MOD-6).
+* Identifier length bounds, the verification rules, the multi-file merge and the refusal of instance lines in project units are left to other packages.
+
+== Source
+
+* Pull request #27, `feat(workflow): add workflow DSL parser, printer and immutable AST`, sections "Changes" and "Intent"
+* Work package link:../../../../doc/plans/workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl.adoc[Workflow DSL]

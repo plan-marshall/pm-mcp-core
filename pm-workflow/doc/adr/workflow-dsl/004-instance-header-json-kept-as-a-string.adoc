@@ -1,0 +1,37 @@
+= ADR 004: The Instance Header Is Parsed with Its JSON Kept as a String
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+A plan instance file starts with an instance header line that carries JSON. The parser has to read that line into the
+AST; validating the header against its schema belongs to another package.
+
+== Decision
+
+* `InstanceHeaderReader` parses the instance header line into the AST record `InstanceHeader`, with its JSON kept as a string.
+* `jackson-core`, with its version managed by the parent POM, is the only new dependency of `pm-workflow`.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The schema validation of the instance header, and the `partVersions` and `derivedFrom` bookkeeping, are left to other packages; this package does not interpret the JSON.
+* No log message, no HTTP call and no test dependency was added with the parser.
+
+== Source
+
+* Pull request #27, `feat(workflow): add workflow DSL parser, printer and immutable AST`, sections "Changes" and "Intent"
+* Work package link:../../../../doc/plans/workflow-dsl-parser-and-ast.adoc[`workflow-dsl-parser-and-ast`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model]

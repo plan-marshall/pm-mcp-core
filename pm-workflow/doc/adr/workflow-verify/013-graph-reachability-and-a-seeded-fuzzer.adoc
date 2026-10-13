@@ -1,0 +1,38 @@
+= ADR 013: Reachability Is Plain Graph Reachability, and a Seeded Fuzzer Covers the Guards
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The work package asks for a static verifier that checks that every state is reachable and every non-terminal state has
+an exit, and for a transition fuzzer over verified units. The AST carries the configuration keys of a guard but no
+value domain to enumerate.
+
+== Decision
+
+* The reachability check of `WorkflowValidator` is plain graph reachability, because the AST carries no value domain of a guard.
+* The seeded `TransitionFuzzer` covers that gap: it walks a verified unit with random assignments of the guard atoms and reports a reachable non-terminal state none of whose exits can hold.
+* Equal seeds give equal reports.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The fuzzer finds a planted dead state in a control unit.
+* A fuzzer run is reproducible from its seed, its number of runs and its greatest number of steps (`FuzzConfiguration`).
+* The configuration reachability of Rule 3 was added later as advisories over Boolean assignments of the `depends_on_config` keys (link:004-rule-3-configuration-reachability.adoc[ADR 004]); the enumeration of enum values remains a seam (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
+
+== Source
+
+* Pull request #32, `feat(workflow): add static verifier and transition fuzzer`, sections "Summary" and "Intent"
+* Work package link:../../../../doc/plans/static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc[Workflow DSL § Loop-Back, Diagrams & Verification]

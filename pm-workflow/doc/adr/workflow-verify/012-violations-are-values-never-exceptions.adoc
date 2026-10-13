@@ -1,0 +1,41 @@
+= ADR 012: The Verifier Reports Every Violation as a Value and Never Throws for One
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The Workflow DSL had a parser and an immutable AST, but nothing refused a unit that parses and is still wrong: an
+unbound primitive, a link whose free parameters disagree with the primitive, an outcome the primitive cannot produce, a
+state nobody reaches or nobody can leave. The work package asks for one refusing fixture per verifier rule.
+
+== Decision
+
+* `WorkflowValidator` in `workflow.verify` reports every violation as a value (`Violation`) naming the rule (`VerificationRule`), the state and the source location, collected in a `VerificationResult`.
+* It never throws for a violation.
+* The first slice checks seven rules of the specification: primitive binding, parameter equivalence, outcome coverage, reachability, exits, link identifiers and released-state names.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Each check is proven by a refusing fixture that states its rule, state and line, and one passing unit uses every construct.
+* No check stops at the first violation; a unit is answered with all of its violations.
+* The result later gained a second channel for findings that are reported but do not refuse (link:008-verification-result-advisories.adoc[ADR 008]); `passed()` still reads the violations only.
+* The rules left out of the first slice were added by later packages (link:001-static-verifier-remaining-rules.adoc[ADR 001]).
+
+== Source
+
+* Pull request #32, `feat(workflow): add static verifier and transition fuzzer`, sections "Summary" and "Intent"
+* Work package link:../../../../doc/plans/static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
