@@ -1,0 +1,47 @@
+= ADR 005: The Scenario Script Is Text in the Test
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+A scenario has to be written somewhere and read into steps the runner executes. The Workflow DSL specification shows
+the scripts in a line syntax (`scenario <name>`, one directive per line, `#` comments, JSON-shaped arguments) and calls
+them `.pmscenario` scripts. The harness needs a form a test author writes and that can refuse a directive the harness
+does not run by its name (link:004-supported-directives-only-others-refused-by-name.adoc[ADR 004]).
+
+== Decision
+
+The script is text in the test, usually a Java text block, in the line syntax of the specification.
+`ScenarioScript.read` reads it into typed `ScenarioDirective` records with their lines and the worker declarations,
+checks the values against the closed sets `EngineEvent` states, and refuses every line it does not run with a
+diagnostic that names the line.
+
+== Alternatives Considered
+
+1. *A typed Java builder*: `scenario("name").start(...).assertState(...)`.
+   _Rejected_: a builder offers only the methods it has, so a directive of the specification that the harness does not
+   run cannot be written and therefore cannot be refused by name; the script would also drift from the specification's
+   syntax.
+2. *A `.pmscenario` resource file per scenario*: the script lives in `src/test/resources` and is loaded by name.
+   _Rejected_: the operator excluded a recorded-scenario file format for this package
+   (link:002-replay-twice-and-compare-status-bytes.adoc[ADR 002]), and a script beside the assertions of its test is
+   read and reviewed in one place.
+
+== Consequences
+
+* A scenario and its test are one file; the line numbers in a failure point into the text block.
+* The reader accepts exactly the specification's line syntax for the supported directives, so moving a script into a
+  `.pmscenario` file later needs no translation.
+
+== Source
+
+* Choice between alternatives, work package `scenario-replay-harness`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]

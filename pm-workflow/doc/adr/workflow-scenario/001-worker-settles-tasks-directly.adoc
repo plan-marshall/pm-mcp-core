@@ -1,0 +1,51 @@
+= ADR 001: The Scripted Worker Settles Tasks Directly
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+PM-TEST-4 asks for a scenario harness whose tasks are served by a scripted fixture worker that follows the offered
+links exclusively, and the Workflow DSL specification gives the worker the directives `worker_wait` and `worker_do`:
+a worker holds `pm_wait` on its job connection with its generation and calls links on its leased task entity.
+`pm-workflow` has none of that yet: the engine creates the queue task of a task state through `QueueTaskCreator` and
+resumes the state by `EngineEvent.TasksSettled`, but there is no link offer, no `pm_do`, no lease and no generation.
+The worker of this package had to stand in for a model without those layers.
+
+== Decision
+
+The operator decided that the scripted worker of a role settles the queued task directly: `ScriptedFixtureWorker` takes
+the queue task the engine created for its role and delivers the next task outcome the script declares for the role
+(`worker <role> <task outcome>...`), as the `TasksSettled` of the task state with the outcome of the fixture return
+evaluation. The worker follows no link, holds no lease and has no generation; those follow with the task protocol.
+
+== Alternatives Considered
+
+1. *A link-following worker now*: build a minimal link offer, `pm_do` and lease model in the test scope so the worker
+   follows links as specified.
+   _Rejected_: it would invent in test code the task protocol a later package specifies and builds, and the harness
+   would test the invention instead of the engine.
+2. *No worker*: the script delivers `TasksSettled` itself through a directive of its own.
+   _Rejected_: the specification has no such directive, and the role a task belongs to would not be checked.
+
+== Consequences
+
+* A task state is settled by the worker of the queued task's role before the next step that is not an
+  `assert_state`; `assert_task_outcome <role> <outcome>` asserts what the task ended with.
+* A task without a declared worker or without an outcome left, and a declared outcome no task took, fail the scenario
+  with the role named.
+* `worker_wait` and `worker_do` stay refused by name until the task protocol lands
+  (link:004-supported-directives-only-others-refused-by-name.adoc[ADR 004]); the worker faults follow with
+  `supervision-scenarios`.
+
+== Source
+
+* Operator decision at refine (scripted worker), work package `scenario-replay-harness`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* `doc/plans/scenario-replay-harness.adoc`

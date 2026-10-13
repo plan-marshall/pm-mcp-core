@@ -1,0 +1,47 @@
+= ADR 004: Only the Supported Directives Run; Every Other One Is Refused by Name
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The Workflow DSL specification names the directives of a scenario: the assertions `assert_state`, `assert_links`,
+`assert_skill`, `assert_rejected`, `assert_outcome`, `assert_instance_version`, `assert_task_outcome`,
+`assert_worker_state` and `assert_refused`, and the actions `do`, `worker_wait`, `worker_do`, `complete_job`,
+`answer_question`, `expire_question`, the worker faults `kill_worker`, `stall_worker`, `end_turn` and `kill_relay`,
+`restart_runtime`, `set_role_unqualified` and `operator_cli`. Most of them need layers that do not exist yet: the
+offered links and `pm_do`, the task protocol, plan instances, the supervisor, the runtime and the operator verbs.
+
+== Decision
+
+The harness runs the directives the engine supports today: `start`, `assert_state`, `assert_outcome`, `complete_job`,
+`answer_question`, `expire_question` and `assert_task_outcome`. `ScenarioScript.read` refuses every other directive of
+the specification by name when the script is read, with its line and the work package that brings it
+(`ScenarioScript.REFUSED`); a word that is no directive is refused as unknown.
+
+== Alternatives Considered
+
+1. *Ignore what is not supported*: skip an unsupported directive and run the rest.
+   _Rejected_: a script would pass without the steps it names, and the replay would claim coverage it does not have.
+2. *Treat every unknown word alike*: refuse an unsupported directive as unknown.
+   _Rejected_: the author could not tell a typing error from a directive that only arrives later, nor where it
+   arrives.
+
+== Consequences
+
+* A script that names a later directive fails before it runs, naming the line and the package; adding a directive is
+  removing it from `REFUSED` and implementing it in `ScenarioDirective`, `ScenarioScript` and the runner.
+* `ScenarioScriptTest` holds `REFUSED` to the directives of the specification, so a directive the specification adds
+  is noticed.
+
+== Source
+
+* Default of the refine pass that stood (decision log), work package `scenario-replay-harness`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]

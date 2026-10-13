@@ -1,0 +1,46 @@
+= ADR 006: The Scenario Package Has Its Own Fixtures
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The engine tests already have fixtures: `EngineFixtures` of package `workflow.engine` assembles an engine over units
+written as DSL text, with scripted primitives, a manual clock and recording doubles of the four engine ports. It is
+package-private, so the scenario package cannot use it, and its primitives return scripted outcomes a test sets per
+call, while a replay needs outcomes fixed by the script alone. The request allows no change of `src/main`, and the
+fixtures of the product's units must never be copied into a test.
+
+== Decision
+
+The scenario package carries its own fixtures, `ScenarioFixtures`, written for the scenario tests: the fixture plan
+unit `PLAN_UNIT`, primitives that each return one fixed outcome, the entity kind `change` without an entity unit, the
+deadline outcomes of the question classes the unit uses, a manual clock that moves one second per step, a job starter
+and a queue task creator that hand out ids from counters, and a question reader that reports the resolutions the runner
+sets. `EngineFixtures` stays untouched.
+
+== Alternatives Considered
+
+1. *Open `EngineFixtures`*: make it public, or move it to a shared test package, and use it from the scenario package.
+   _Rejected_: the engine tests and the scenarios would share primitives with different needs (outcomes scripted per
+   call against fixed outcomes), and a change for one would break the other.
+2. *Shared fixture module or test JAR*: put common fixtures into a test JAR of `pm-workflow`.
+   _Rejected_: no other module needs them, and it would add a build artifact for two packages of one module.
+
+== Consequences
+
+* The fixtures of the scenarios change without touching the engine tests and the other way round; some shapes, such as
+  the outcome enums of the primitives, exist in both.
+* A scenario that needs another unit or primitive extends `ScenarioFixtures` (`parse`, `registry`, `entityKinds`).
+
+== Source
+
+* Choice between alternatives, work package `scenario-replay-harness`
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
+* `doc/plans/scenario-replay-harness.adoc`
