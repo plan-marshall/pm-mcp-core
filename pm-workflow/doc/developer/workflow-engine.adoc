@@ -13,7 +13,8 @@ Package `de.planmarshall.workflow.engine` is the deterministic interpreter of th
 verified unit of the Workflow DSL together with every sub-workflow the unit calls, chains the states that need no
 outside event in one advance, and stops where the scope rests, ends, or carries a condition. Everything a run knows
 lives in the workflow state store `mcp/status.json`: the engine reads the status, returns the next one, and keeps
-nothing in memory between two advances, so a killed run resumes at the same state with the same call stack.
+nothing in memory between two advances, so a killed run resumes at the same state with the same call stack. Beside
+the interpreter, the package resolves the entity a call addresses within its scope (<<_entity_addressing>>).
 
 The store and the ports the engine depends on belong to `pm-core` and are described in
 link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports]. The AST the engine reads
@@ -279,6 +280,114 @@ Not implemented in this package:
   delivers `TimeElapsed`;
 * waits held by a model (package `waits`).
 
+[#_entity_addressing]
+== Entity Addressing
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1]_
+
+Implements the engine side of link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules]
+6 and 7, the identifier rows link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-entity-id[`entity`],
+link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-entry-id[`entry_id`],
+link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-queue-task-id[`queue_task_id`] and
+link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-no-plan[`NO_PLAN`], the bootstraps of
+link:{docs}/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
+and link:{docs}/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap-epic[§ Bootstrap of an Epic],
+and the `entity` argument of `pm_state` and `pm_do` in
+link:{docs}/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools § Core Workflow Tools].
+
+An entity is addressed together with its scope and resolved from persisted state only: the status of the scope and,
+for a bootstrap, its pending entry record. The binding of `pm_state` and `pm_do` and the bootstrap units themselves
+follow in Milestone 7; this package provides the addresses, their grammar and their resolution.
+
+[horizontal]
+`EntityAddress`:: The scope type (`PLAN`, `EPIC` or `WORKSPACE`), the plan or epic id (empty for the workspace scope)
+and the entity identifier as supplied. `fromArguments(planId, epicId, entity)` builds it from the arguments of a
+scoped tool call, where `plan_id` `NO_PLAN` names the workspace scope. A malformed address (a `null` component, the
+lesson store as scope, a scope id where none belongs or none where one does, `NO_PLAN` as a scope id) is refused with
+an exception; everything about the identifier itself is decided by the resolver.
+`EntityIdGrammar`:: The only place of the grammar checks: the entity identifier `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`,
+the `entry_id` `^ent-[0-9a-f]{8,32}$` of every entity that begins with `ent-`, the `module_id`
+`^[A-Za-z0-9][A-Za-z0-9_.-]{0,56}$` of every entity that begins with `enrich-`, and the `queue_task_id`
+`^qt-[0-9a-f]{16}$`. Identifiers are compared byte-exactly.
+`EntityAddressResolver`:: Resolves an address against the status of the addressed scope and the unit that holds its
+current state (the sub-workflow of the top frame, or the top-level unit): `resolve(address, hostStatus, hostUnit)`.
+It takes the `PendingEntryReader` port and the `EntityKindRegistry` the units were verified against, writes nothing
+and logs nothing.
+`AddressResolution`:: The sealed result: `Resolved` (the address, the entity kind, and the `queue_task_id` of a task
+entity) or `Refused` (a closed `Reason` and a detail for the caller's report). Its reasons are `invalid_arguments`,
+`scope_not_found` and `entry_unreadable`.
+`PendingEntryReader`:: The port of `core.spi` that reads one pending entry record: `Live` with its kind (`plan` or
+`epic`), `Deleted`, or `Unreadable` with the reason. The pending entry store of `pm-runtime` implements it; see
+link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports].
+
+=== The Entities of the Workspace Scope
+
+[cols="2,2,3"]
+|===
+|Entity kind |Entity identifier |Resolved from
+
+|`bootstrap-plan`, `bootstrap-epic`
+|The `entry_id` of the pending entry record, under `plan_id` `NO_PLAN`
+|The record read through `PendingEntryReader`: a live record of the kind `plan` or `epic`
+
+|`enrich-module`, one task per module
+|`enrich-<module_id>`, the entity the fan-out task works on
+|The key of `active_tasks` of the current fan-out task state (`job llm enrich-module role … each …`)
+
+|`lessons-review`, the lesson review
+|Its `queue_task_id`: the state names no scope entity
+|The `queue_task_id` of the one task in `active_tasks` of the current task state (`job llm lessons-review role lessons`)
+|===
+
+A task of a plan or an epic is resolved the same way, against the current task state of that scope. The entity kind
+of a resolved task is the registered kind of the state that hosts it; a state naming an unregistered kind is a defect
+of the caller's units and refused with an exception
+(link:../adr/workflow-engine/009-entity-id-forms-of-workspace-task-entities.adoc[ADR 009]).
+
+=== Resolution
+
+. *Grammar*: an identifier that violates its grammar is `Refused` with `invalid_arguments`, before any read.
+. *Entry*: an `entry_id` under a plan or an epic is `scope_not_found` without a read of the port. Under the workspace
+  scope the record is read once: a live record of the kind `plan` resolves to `bootstrap-plan`, of the kind `epic` to
+  `bootstrap-epic`; a deleted record (the bootstrap ended, or the sweep removed it) is `scope_not_found`; a record that
+  could not be read, or that names another kind, is `entry_unreadable`.
+. *Task*: any other identifier names a task of the addressed scope's current state. In a fan-out state (`each`,
+  `role each`) it is the key of `active_tasks`; in a state that names no scope entity it is the `queue_task_id` of the
+  task. A current state that hosts no task, or that holds no such task, is `scope_not_found`.
+
+=== Invariants
+
+* *Grammar only here*: `EntityIdGrammar` is the one place of the checks; the request of the port takes an `entry_id`
+  already checked and refuses only a blank one
+  (link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005]).
+* *An unreadable entry is never live*: an `Unreadable` read is `entry_unreadable`, never `Resolved`, so a broken store
+  is never mistaken for a bootstrap that can be addressed.
+* *Another scope's entity is `scope_not_found`*: an identifier is resolved only within the scope the address names
+  (Identifiers Rule 7); a valid identifier that names nothing there is `scope_not_found` (Rule 6). There is no
+  dedicated cross-scope reason (link:../adr/workflow-engine/007-refused-address-is-a-value.adoc[ADR 007]).
+* *A refusal is a value*: every refusal of a well-formed address is `Refused`; no refusal throws and none is logged
+  (link:../adr/workflow-engine/010-no-log-records-for-addressing.adoc[ADR 010]).
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|An identifier violates its grammar
+|`Refused` with `invalid_arguments`; the port is not read.
+
+|A valid identifier names nothing in the addressed scope: an entity of another scope, a deleted entry, a task the
+current state does not hold, or a current state that hosts no task
+|`Refused` with `scope_not_found`.
+
+|The pending entry record cannot be read, or names neither `plan` nor `epic`
+|`Refused` with `entry_unreadable`.
+
+|A malformed address, a status that is not the addressed scope's, a unit without the status's state, or a task state
+naming an unregistered entity kind
+|`NullPointerException` or `IllegalArgumentException`: a programming error of the caller.
+|===
+
 == Extending the Engine
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
 
@@ -305,8 +414,11 @@ which `AwaitedEvent` it matches and what it must name (a bound job, exactly the 
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
 
 `EngineFixtures` assembles an engine over units parsed from DSL text written in the tests, never copied from a unit of
-the product. It provides scripted primitives that count their calls, a manual clock starting at `T0`, and recording
-doubles of the four ports. Ids in fixture text follow the DSL grammar: the reserved words `call`, `job` and `inherit`
+the product. It provides scripted primitives that count their calls, a manual clock starting at `T0`, recording
+doubles of the four ports, and for the addressing the `FixedPendingEntryReader`, which answers each `entry_id` with the
+read a test set (an unknown one `Deleted`) and records every read, the entity kind `enrich-module` beside the default
+kinds, and the workspace fixture unit `WORKSPACE_UNIT`, whose task states host the enrichment fan-out and the lesson
+review. Ids in fixture text follow the DSL grammar: the reserved words `call`, `job` and `inherit`
 are not allowed as any segment of a state, unit or primitive id.
 
 [cols="1,3"]
@@ -323,6 +435,10 @@ step-out unwinding one frame, the unwind of every frame to the fallback, nesting
 killed job settled `killed` and never restarted
 |`EngineResumeTest` |A run stopped after each persisted step continues from the store with the same state, call stack
 and next step
+|`EntityAddressingTest` |Every entity kind of the workspace scope resolved in the workspace fixture unit
+(`bootstrap-plan`, `bootstrap-epic`, `enrich-<module_id>`, the lesson review of kind `lessons-review`), the grammar at
+its bounds, every address of another scope refused `scope_not_found` without a read of the port for a plan or epic
+address, a deleted entry `scope_not_found`, an unreadable entry `entry_unreadable`
 |===
 
 == Developer Pitfalls
@@ -348,3 +464,16 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
   resumed by a typed engine event.
 * link:../adr/workflow-engine/003-call-stack-in-one-transaction.adoc[ADR 003]: call, chain and return in one atomic
   advance.
+* link:../adr/workflow-engine/004-workspace-entity-kinds-addressed.adoc[ADR 004]: the workspace entity kinds addressed
+  are the bootstraps and the workspace-hosted task entities.
+* link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005]: the address types and grammar
+  checks live in `workflow.engine` only.
+* link:../adr/workflow-engine/006-entry-records-read-through-core-spi-port.adoc[ADR 006]: an `entry_id` is resolved
+  through the tri-state port `PendingEntryReader`.
+* link:../adr/workflow-engine/007-refused-address-is-a-value.adoc[ADR 007]: a refused address is a value with a closed
+  reason.
+* link:../adr/workflow-engine/008-resolver-beside-the-engine-ports.adoc[ADR 008]: the resolver is its own type beside
+  the engine ports.
+* link:../adr/workflow-engine/009-entity-id-forms-of-workspace-task-entities.adoc[ADR 009]: the entity kinds and
+  identifier forms of the workspace task entities.
+* link:../adr/workflow-engine/010-no-log-records-for-addressing.adoc[ADR 010]: addressing writes no log record.

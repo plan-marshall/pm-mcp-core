@@ -1,0 +1,51 @@
+= ADR 006: An `entry_id` Is Resolved Through the Port `PendingEntryReader`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+A bootstrap is addressed in the workspace scope by its `entry_id` and exists only as its pending entry record: no
+scope exists before the bootstrap's `create` succeeds, and the record is deleted when the bootstrap ends or swept when
+it is abandoned (State Catalogue § Bootstrap of a Plan). PM-ARCH-4 requires the entity to be resolved from the
+persisted record, never from the memory of a running engine. The pending entry store belongs to `pm-runtime`, which
+`pm-workflow` must not depend on. The question was how the engine reads the record. The operator answered it in the
+refinement of PLAN-21 (question q3).
+
+== Decision
+
+* The engine reads a pending entry record through the port `PendingEntryReader` of `core.spi`, beside
+  `QuestionRecordReader`.
+* The read is tri-state: `Live` with the kind of the bootstrap (`plan` or `epic`), `Deleted` when no record exists,
+  and `Unreadable` with the reason when the record exists and cannot be read.
+* The pending entry store of `pm-runtime` implements the port; no class of `pm-core` does. The tests of `pm-workflow`
+  use the double `FixedPendingEntryReader` of `EngineFixtures`.
+
+== Alternatives Considered
+
+1. *A two-valued read* (found or not found).
+   _Rejected_: a record that exists and cannot be read would be taken either for a deleted bootstrap, hiding a broken
+   store, or for a live one, addressing a bootstrap whose state is unknown.
+2. *Read the store directly from `pm-workflow`*.
+   _Rejected_: the dependency rules of the build allow `pm-workflow` to depend on `pm-core` alone; the store is a
+   runtime concern.
+
+== Consequences
+
+* An `Unreadable` read is refused `entry_unreadable` and never resolved
+  (link:007-refused-address-is-a-value.adoc[ADR 007]).
+* The resolver takes the port in its constructor, not through the engine's `Ports`
+  (link:008-resolver-beside-the-engine-ports.adoc[ADR 008]).
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
+* `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q3

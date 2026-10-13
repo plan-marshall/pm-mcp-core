@@ -1,0 +1,53 @@
+= ADR 005: The Address Types and Grammar Checks Live in `workflow.engine` Only
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Identifiers Rule 6 requires every identifier that arrives from the model to be checked against its grammar before it
+is looked up. An addressed entity passes through two modules: `pm-workflow`, which builds the address and resolves it,
+and `pm-core`, whose port reads the pending entry record of an `entry_id`. The existing port `QuestionRecordReader`
+checks the grammar of its `question_id` in its request record, so a second check of the same identifier in `pm-core`
+would follow the precedent. The question was where the address types and the grammar checks live. The operator
+answered it in the refinement of PLAN-21 (question q2).
+
+== Decision
+
+* `EntityAddress`, `AddressResolution`, `EntityAddressResolver` and `EntityIdGrammar` live in the package
+  `de.planmarshall.workflow.engine` of `pm-workflow`.
+* `EntityIdGrammar` is the only place of the grammar checks of the entity identifier, the `entry_id`, the `module_id`
+  of `enrich-<module_id>` and the `queue_task_id`.
+* The request record `PendingEntryReader.ReadRequest` of `pm-core` takes an `entry_id` already checked by
+  `pm-workflow` and refuses only an absent or blank identifier; no grammar check is duplicated in `pm-core`, unlike
+  `QuestionRecordReader.ReadRequest`.
+
+== Alternatives Considered
+
+1. *Check the `entry_id` grammar in the request record of the port as well*, as `QuestionRecordReader.ReadRequest`
+   does.
+   _Rejected_: two copies of one regex drift apart, and a request that refuses what the resolver already refused adds
+   an exception path that no caller can reach.
+2. *Put the address types and the grammar into `pm-core`*, beside the port.
+   _Rejected_: the address is resolved against the units and their entity kinds, which `pm-workflow` holds; `pm-core`
+   would carry types only one module uses.
+
+== Consequences
+
+* A grammar violation is answered once, as `invalid_arguments`, before any port is read
+  (link:007-refused-address-is-a-value.adoc[ADR 007]).
+* The overlap of the `module_id` pattern with the budget key pattern of `ProjectEnrolment` in `pm-core` is recorded in
+  link:009-entity-id-forms-of-workspace-task-entities.adoc[ADR 009].
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+* link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
+  Rule 6
+* `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q2

@@ -1,0 +1,51 @@
+= ADR 007: A Refused Address Is a Value With a Closed Reason
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+An address can be refused for three reasons: its identifier violates the grammar, it names nothing in the addressed
+scope, or the pending entry record it names cannot be read. Identifiers Rule 6 answers a grammar violation of a tool
+argument with `invalid_arguments` and a valid identifier that names nothing in the addressed scope with
+`scope_not_found`; Rule 7 resolves an identifier only within the scope the same call addresses. The caller of the
+resolver, the binding of `pm_state` and `pm_do`, turns a refusal into a tool result.
+
+== Decision
+
+* `EntityAddressResolver.resolve` returns `AddressResolution`: `Resolved`, or `Refused` with a closed `Reason` and a
+  detail.
+* The reasons are `invalid_arguments` (the grammar), `scope_not_found` (a valid identifier that names nothing in the
+  addressed scope: an entity of another scope, a deleted entry, a task the scope does not hold) and
+  `entry_unreadable` (the pending entry record exists and could not be read).
+* No new exception type is introduced. Only a malformed call (a `null` argument, a status that is not the addressed
+  scope's, a unit without the status's state, an unregistered entity kind) throws, as a programming error of the
+  caller.
+
+== Alternatives Considered
+
+1. *A dedicated reason for an entity of another scope*, such as `wrong_scope`.
+   _Rejected_: Rule 6 names the case `scope_not_found`, and a dedicated reason would tell the caller that the
+   identifier exists elsewhere, which Rule 7 keeps from leaking across scopes.
+2. *An exception per refusal*.
+   _Rejected_: a refusal is an expected answer to a model's argument, not a fault; an exception would force every
+   caller to catch what it must report anyway.
+
+== Consequences
+
+* `EntityAddressingTest` asserts the reason of every refusal, and that no refusal is a `Resolved`.
+* A reason added later is a member of the closed `Reason`, with its wire name.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+* link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
+  Rules 6 and 7
+* link:../../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc#protocol-errors-vs-domain-workflow-failure-states[MCP Tools § Protocol Errors]
+* `doc/plans/entity-addressing.adoc`; outline of PLAN-21

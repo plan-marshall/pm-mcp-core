@@ -1,0 +1,64 @@
+= ADR 009: The Entity Kinds and Identifier Forms of the Workspace Task Entities
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The workspace scope hosts two task entities besides its bootstraps (link:004-workspace-entity-kinds-addressed.adoc[ADR
+004]). The specification states their forms in several places: the Identifiers row of the entity identifier names
+`enrich-<module_id>` as a member and, for a task whose state names no scope entity, its `queue_task_id`; the State
+Catalogue declares the architecture enrichment as the task state `setup.enrich-architecture` with the role `enrich`,
+and the lesson review as `job llm lessons-review role lessons` in the lesson maintenance unit. The default entity kinds
+of `EntityKindRegistry.defaults()` hold no enrichment kind, and the lesson review kind was named `review` until
+link:../workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[workflow-verify ADR 012] renamed it to
+`lessons-review`.
+
+== Decision
+
+* The architecture enrichment is the entity kind `enrich-module`, one task per module, whose entity is
+  `enrich-<module_id>` and keys its task in `active_tasks`. The `module_id` follows
+  `^[A-Za-z0-9][A-Za-z0-9_.-]{0,56}$`, bounded so the entity stays within the 64 characters of the entity identifier.
+  Because `EntityKindRegistry.defaults()` holds no enrichment kind, the fixtures register it.
+* The lesson review is the default entity kind `lessons-review`. Its state names no scope entity, so its entity is
+  the `queue_task_id` of its task.
+* The bootstraps are addressed by their `entry_id` under `plan_id` `NO_PLAN`.
+* The `module_id` pattern is also the module part of the budget key pattern `ProjectEnrolment.BUDGET_KEY` of
+  `pm-core`. That pattern stays where it is: it validates a whole budget key of the enrolment store, not an addressed
+  entity, and `EntityIdGrammar` remains the only place of the addressing grammar
+  (link:005-address-grammar-in-workflow-engine-only.adoc[ADR 005]).
+
+== Alternatives Considered
+
+1. *Register an enrichment kind in `EntityKindRegistry.defaults()`*.
+   _Rejected_: the kind's entity unit and return evaluation belong to the setup unit, which is not part of this work
+   package; the defaults would name primitives no unit registers yet.
+2. *Address the lesson review by a fixed entity such as `lessons`*.
+   _Rejected_: the Identifiers row gives a task whose state names no scope entity its `queue_task_id` as entity, and
+   a fixed name would be a second form of the same rule.
+3. *Share one `module_id` constant between `ProjectEnrolment` and `EntityIdGrammar`*.
+   _Rejected_: `pm-core` would carry an addressing grammar, or `pm-workflow` would read a store constant; the two
+   patterns serve different records and may diverge with them.
+
+== Consequences
+
+* `EntityAddressingTest` resolves `enrich-<module_id>` under the kind `enrich-module` and the lesson review under the
+  kind `lessons-review` by its `queue_task_id`, and checks the `module_id` bound of 57 characters.
+* A setup unit that registers the enrichment kind replaces the fixture's registration with its own.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#id-entity-id[Identifiers § `entity`],
+  link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#id-queue-task-id[§ `queue_task_id`],
+  link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#id-entry-id[§ `entry_id`],
+  link:../../../../../plan-marshall-documentation/doc/specification/identifiers/02-registry-stores-to-web.adoc#id-module-id[§ `module_id`]
+* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project Setup],
+  link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-lessons[§ Lesson Maintenance]
+* link:../workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[workflow-verify ADR 012]
+* `doc/plans/entity-addressing.adoc`; outline of PLAN-21
