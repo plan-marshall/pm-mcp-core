@@ -267,7 +267,7 @@ class EntityAddressingTest {
                     () -> refused(Reason.SCOPE_NOT_FOUND,
                             resolver.resolve(address, enriching(CORE_ENRICHMENT), workspace)),
                     () -> assertEquals(new Resolved(EntityAddress.plan(PLAN_ID, PLAN_TASK), "change",
-                            Optional.of(PLAN_TASK)),
+                                    Optional.of(PLAN_TASK)),
                             resolver.resolve(EntityAddress.plan(PLAN_ID, PLAN_TASK), planReviewing(), planUnit())));
         }
 
