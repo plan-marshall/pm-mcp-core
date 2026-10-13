@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.core.spi.JobStarter.JobKind;
 import de.planmarshall.core.spi.JobStarter.StartRequest;
 import de.planmarshall.core.spi.JobStarter.StartResult;
+import de.planmarshall.core.spi.PendingEntryReader.EntryRead;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
 import de.planmarshall.core.spi.QuestionRecordReader.ReadRequest;
 import de.planmarshall.core.spi.QueueTaskCreator.CreateRequest;
@@ -39,9 +40,10 @@ import de.planmarshall.core.spi.QueueTaskCreator.Created;
 
 /**
  * The values of the engine ports (PM-IMPL-5, PM-ARCH-4): the identifier grammars of what a started job and a created
- * queue task return, and the tri-state read of a question record. A question record that cannot be read must stay
- * distinguishable from an open one, otherwise a broken store would be taken for a question still awaiting its answer
- * and the state would rest forever.
+ * queue task return, and the tri-state reads of a question record and of a pending entry record. A question record that
+ * cannot be read must stay distinguishable from an open one, otherwise a broken store would be taken for a question
+ * still awaiting its answer and the state would rest forever; a pending entry record that cannot be read must stay
+ * distinguishable from a live one, otherwise a broken store would be taken for a bootstrap that can be addressed.
  */
 @DisplayName("Engine ports of the core SPI")
 class EnginePortsTest {
@@ -248,6 +250,84 @@ class EnginePortsTest {
                 case QuestionRead.Open _ -> "rest";
                 case QuestionRead.Resolved resolved -> "take " + resolved.outcome();
                 case QuestionRead.Unreadable _ -> "could not read";
+            };
+        }
+    }
+
+    @Nested
+    @DisplayName("PendingEntryReader")
+    class PendingEntryReaderTest {
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"ent-0123abcd", "ent-0123456789abcdef0123456789abcdef", "ent-0123ABCD", "ent-012",
+                "x", "TASK-001"})
+        @DisplayName("any non-blank entry_id is accepted: its grammar is checked by pm-workflow, not by the port")
+        void acceptsAnyNonBlankEntryId(String entryId) {
+            var request = new PendingEntryReader.ReadRequest(entryId);
+
+            assertEquals(entryId, request.entryId());
+        }
+
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"", " ", "\t"})
+        @DisplayName("a blank entry_id is refused")
+        void refusesBlankEntryId(String entryId) {
+            var thrown = assertThrows(IllegalArgumentException.class,
+                    () -> new PendingEntryReader.ReadRequest(entryId));
+
+            assertEquals("entryId must not be blank", thrown.getMessage());
+        }
+
+        @Test
+        @DisplayName("a null entry_id is refused")
+        void refusesNullEntryId() {
+            assertThrows(NullPointerException.class, () -> new PendingEntryReader.ReadRequest(null));
+        }
+
+        @Test
+        @DisplayName("the read has three distinct results: live with its kind, deleted, unreadable")
+        void readIsTriState() {
+            var records = Map.<String, EntryRead>of(
+                    "ent-0000000a", new EntryRead.Live("plan"),
+                    "ent-0000000b", new EntryRead.Live("epic"),
+                    "ent-0000000c", new EntryRead.Deleted(),
+                    "ent-0000000d", new EntryRead.Unreadable("pending/ent-0000000d.json is not JSON"));
+            PendingEntryReader reader = request -> records.get(request.entryId());
+
+            var routes = List.of("ent-0000000a", "ent-0000000b", "ent-0000000c", "ent-0000000d").stream()
+                    .map(id -> route(reader.read(new PendingEntryReader.ReadRequest(id))))
+                    .toList();
+
+            assertEquals(List.of("live plan", "live epic", "deleted", "could not read"), routes);
+        }
+
+        @Test
+        @DisplayName("an unreadable or deleted record is never equal to a live one")
+        void unreadableAndDeletedAreNotLive() {
+            EntryRead live = new EntryRead.Live("plan");
+
+            assertAll(
+                    () -> assertNotEquals(live, new EntryRead.Unreadable("record locked")),
+                    () -> assertNotEquals(live, new EntryRead.Deleted()),
+                    () -> assertEquals(new EntryRead.Deleted(), new EntryRead.Deleted()),
+                    () -> assertEquals(live, new EntryRead.Live("plan")));
+        }
+
+        @Test
+        @DisplayName("a blank or null kind or reason is refused")
+        void blankComponentsAreRefused() {
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryRead.Live("")),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryRead.Unreadable(" ")),
+                    () -> assertThrows(NullPointerException.class, () -> new EntryRead.Live(null)),
+                    () -> assertThrows(NullPointerException.class, () -> new EntryRead.Unreadable(null)));
+        }
+
+        private static String route(EntryRead read) {
+            return switch (read) {
+                case EntryRead.Live live -> "live " + live.kind();
+                case EntryRead.Deleted _ -> "deleted";
+                case EntryRead.Unreadable _ -> "could not read";
             };
         }
     }
