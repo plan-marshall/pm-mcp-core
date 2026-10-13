@@ -35,6 +35,7 @@ The dependency chain from the primitive SPI over the DSL parser, the static veri
 | PLAN-45-project-onboarding-unit | parked | The project onboarding unit (added by #37; blocked on UC-PRJ-1 and PLAN-42) |
 | PLAN-46..PLAN-53 | parked | Blocked packages added by #39-#42 (machine onboarding, decision engine, start from clients, recipe workflows, plan/epic control, epic findings review, epic decomposition); PLAN-49 forgejo-provider in WS-08 |
 | PLAN-54-static-verifier-rule-gaps-completion | staged | Second remediation of the verifier gaps; Claude Code only (operator decision 2026-10-12) |
+| PLAN-56-static-verifier-residuals | staged | Residual verifier gaps after PLAN-54; blocks nothing |
 
 ## Sequencing and Surface Notes
 

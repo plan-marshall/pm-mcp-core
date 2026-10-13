@@ -51,7 +51,7 @@ decision or a dependency outside this repository.
   in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
   They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
 - PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
-- PLAN-44 — shipped as #38, gaps materially open. PLAN-54 is the second remediation (Claude Code only); PLAN-17 waits for it, PLAN-13 does not.
+- PLAN-44 — shipped as #38, gaps materially open; PLAN-54 completed the package (#48, minor gaps). PLAN-17 is unblocked; PLAN-56 holds the residuals and blocks nothing.
 - PLAN-55 — parked: `chat`, added by #46 (2026-10-13), blocked; PLAN-51, PLAN-52 and PLAN-53 now also depend on it.
 - PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
@@ -293,9 +293,20 @@ decision or a dependency outside this repository.
   20 routed (`pm-mcp-core-m2-m4-169.md` to `-188.md`). The stray plan-marshall lesson 2026-10-11-07-001
   in this store was routed as `-189.md` and removed; the store holds no plan-marshall lesson now.
 
+- 2026-10-13 — PLAN-54 `static-verifier-rule-gaps-completion` landed as #48 (36a0bcd), Claude Code;
+  landing record `landings/PLAN-54.md`. Extended verification with an independent audit (two key
+  residual claims re-checked by hand): **complete with minor gaps** — the Rule 6 regression is
+  reverted, the weakened tests are restored, there is a real 79-entry checklist with exact fixtures,
+  and every-construct is restored. Residuals: Rule 9 firing not per step; result guards checked on
+  calls only; the remediation budget seam is not genuine; `lost` limited to plan units; the Rule 3
+  activation was kept; the guide over-claims; the Rule 3 specification issue is not filed.
+  Orchestrator judgement: accepted as shipped, PLAN-17 unblocked, residuals staged as PLAN-56
+  (blocks nothing). Inbox drain of 14 messages: the landing reconciled, 13 lessons routed
+  (`pm-mcp-core-m2-m4-190.md` to `-202.md`). #47 widened the scope of the parked `chat` package.
+
 ## Open Defects
 
-- The static verifier does not meet the Done-When of `static-verifier-remaining-rules` or `static-verifier-rule-gaps`. Rule 6 now contradicts the specification, and the package file, ADRs and developer guide over-claim. The index says `done` for both packages. Owned by PLAN-54 — source: landings PLAN-41 and PLAN-44.
+- Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
 - The implemented Workflow DSL watch items of PLAN-41 are still open in `plan-marshall-documentation`
   (no documentation PR) — source: landing PLAN-41.
 
@@ -318,6 +329,9 @@ decision or a dependency outside this repository.
 
 
 ## Watches
+
+- The specification issue "Workflow DSL Rule 3: define how a `depends_on_config` value activates a guard" is not filed in `plan-marshall-documentation`; its text is in PR #48 and ADR 006 (operator, or PLAN-56).
+- Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
 
 - No plan records its harness (high-priority finding `pm-mcp-core-m2-m4-132.md`). The operator's rule since 2026-10-13: assume Claude Code unless stated otherwise.
 - **Non-Claude-Code runs (Antigravity, opencode) need the extended landing verification** (code-vs-package audit, build-log and
