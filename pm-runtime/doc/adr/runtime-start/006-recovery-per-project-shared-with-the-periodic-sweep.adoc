@@ -1,0 +1,41 @@
+= ADR 006: Recovery Runs per Project, and the Periodic Sweep Drives the Same Steps
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The work package asks for per-project crash recovery, run lazily per project and in a background pass after the bind,
+and for a periodic sweep. Both clean up what a stopped runtime left behind in a project's stores.
+
+== Decision
+
+* Recovery runs per project through `ProjectRecovery`, an orchestrator of `RecoveryStep` implementations.
+* The implemented steps are lease orphan marking (`LeaseRecoveryStep`), journal roll-forward (`JournalRollForwardStep`) and cross-scope reconciliation (`CrossScopeReconciliationStep`).
+* The periodic sweep (`PeriodicSweep`, with the seam `SweepStep`) drives the same steps over the enrolled projects (`EnrolledProjects`).
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A project can be recovered on its own, including lease cleanup, journal recovery and cross-scope reconciliation.
+* The periodic sweep isolates a failure, so the remaining projects are still processed.
+* Each step is tested against a killed-runtime fixture.
+* `StartupSequence` does not run per-project recovery yet; the wiring belongs to the daemon in `plan-marshall/plan-marshall-mcp`.
+
+== Source
+
+* Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, sections "Changes" and "Intent"
+* Work package link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#per-project-recovery[Runtime Model § Per-Project Recovery]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]

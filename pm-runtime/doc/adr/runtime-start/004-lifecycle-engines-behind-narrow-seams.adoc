@@ -1,0 +1,48 @@
+= ADR 004: Drain, Recovery, Sweep and the Relay Version Check Are Small Engines behind Narrow Seams
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The startup sequence of `pm-runtime` had no bounded audit-chain verification, the runtime had no drain that ends it
+within the drain timeout, and nothing recovered a project after a crash, swept the enrolled projects periodically, or
+noticed a relay whose version differs from the installed binaries. Milestone 2 needs all of these before jobs and
+workers (Milestone 4) can rely on them, and the work package leaves the seams through which jobs and workers join each
+of them later.
+
+== Decision
+
+Each concern is a small engine in `runtime.start` that talks to the parts that do not exist yet (jobs, workers, the
+audit sink) only through a narrow seam:
+
+* the drain: `RuntimeDrain` with the seam `DrainParticipant` and the drain-timeout reader `DrainTimeout`;
+* per-project recovery: `ProjectRecovery` with the seam `RecoveryStep`;
+* the periodic sweep: `PeriodicSweep` with the seam `SweepStep`;
+* the bounded verification step 4 of the startup order: `AuditChainVerification`, the audit-chain seam of `StartupSequence`;
+* the relay version check: `RelayVersionCheck`.
+
+The seams exist so that jobs and workers can join drain, recovery and sweep in Milestone 4.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Each step is proven against a killed-runtime fixture (`KilledRuntimeFixture`, `RuntimeChildProcess`, the `*KilledRuntimeIT` integration tests).
+* The engines have no caller until the daemon wiring in `plan-marshall/plan-marshall-mcp` follows.
+* Jobs and workers do not take part in drain, recovery or sweep until Milestone 4.
+
+== Source
+
+* Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, sections "Changes" and "Intent"
+* Work package link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]
+* link:../../../../../plan-marshall-documentation/doc/specification/timeouts/02-runtime-leases-operator-web.adoc#runtime-lifecycle[Timeouts § Runtime Lifecycle]

@@ -1,0 +1,43 @@
+= ADR 001: Enrolment Integrity Is an HMAC Sidecar under the Keyring Key, Kept in `pm-runtime`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The enrolment of a project decides what the runtime may run for it, and later packages (the runtime lifecycle, plan
+instances, the job runner) need values they can trust. A tampered, orphaned or unprotected enrolment must never be read
+as valid. The enrolment store lives in `pm-core`; the keyring is in `pm-runtime`.
+
+== Decision
+
+* Integrity lives in `pm-runtime`, where the keyring is, in the package `runtime.enrolment` (`EnrolmentKey`, `EnrolmentHmac`, `EnrolmentCheck`, `Enrolments`).
+* Each enrolment file has an HMAC sidecar under the keyring key.
+* The sidecar is verified in recovery and before every verify-not-resolve check.
+* The sidecar is re-baselined only by the operator.
+* A tampered enrolment, a sidecar without its file and a file without its sidecar are each refused and audited.
+
+The integrity check sits in `pm-runtime` because the keyring is there.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Stage 0 of the verify-not-resolve pipeline of `runtime.job` runs `EnrolmentCheck.verify` and maps its refusals (`enrolment_tampered`, `enrolment_insecure`, `enrolment_invalid`, `not_enrolled`).
+* `enrol`, `unenrol` and `rebaseline` do not authenticate the caller or authorize project ownership, because no caller exists yet; the package that wires the operator verbs must do so before it calls `Enrolments`.
+* The `state/` and `enrolments/` directories must be protected (owned by the runtime user, not writable by others) before production callers are connected.
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, sections "Intent", "Changes" and "Follow-ups"
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]
+* Related: link:../../../../pm-core/doc/adr/core-store/018-enrolment-sidecar-as-closed-versioned-record.adoc[`core-store` ADR 018], the sidecar record

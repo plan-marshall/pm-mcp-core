@@ -1,0 +1,37 @@
+= ADR 002: On systemd, Uninstall Disables Before It Deletes the Unit File
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+Uninstall removes the per-user service unit and drives the service manager to unload and disable it. The order of
+these steps was planned otherwise, but `systemctl --user disable` requires the unit file to exist.
+
+== Decision
+
+* On systemd, uninstall runs disable while the unit file is still present, then deletes the unit file, then unloads (stop and daemon-reload).
+* On launchd, the unload happens after the file is removed.
+
+The order follows from `systemctl --user disable` requiring the unit file. The operator accepted it as a deviation from
+the planned order of the uninstall steps.
+
+== Alternatives Considered
+
+* The order planned for the uninstall steps: not kept, because `systemctl --user disable` requires the unit file to exist.
+
+== Consequences
+
+* The uninstall order differs between systemd and launchd, and a change to either service manager step keeps its own order.
+
+== Source
+
+* Pull request #25, `feat(runtime): add per-user service unit for launchd and systemd`, section "Scope Deviation Accepted"
+* Work package link:../../../../doc/plans/service-unit.adoc[`service-unit`]
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime Model § Start Modes]
