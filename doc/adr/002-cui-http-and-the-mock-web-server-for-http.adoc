@@ -22,7 +22,7 @@ HTTP runs against `cui-test-mockwebserver-junit5`. The code did not meet the sec
 * Every HTTP call goes through `cui-http`. Because `CiHttpClient` already does so, the rule is pinned by a guard test (`sendsThroughCuiHttp` in `CiHttpClientTest`), not by a production change.
 * Every HTTP test runs against `cui-test-mockwebserver-junit5`. Each test class carries `@EnableMockWebServer` and serves its canned responses from its own dispatcher, with no shared helper class.
 * The hand-made `FakeServer` doubles are deleted. The library is a test-scope dependency of the three provider modules, its version managed by the parent chain.
-* Cross-origin tests address the one mock web server as `127.0.0.1` and as `localhost`, two origins on one machine.
+* Cross-origin tests address the one mock web server as the literal of the address it bound (`127.0.0.1` or `[::1]`) and as `localhost`, two origins on one machine.
 
 Rationale not recorded.
 

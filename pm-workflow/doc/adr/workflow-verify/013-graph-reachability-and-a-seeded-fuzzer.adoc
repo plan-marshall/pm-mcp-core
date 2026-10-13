@@ -18,7 +18,7 @@ value domain to enumerate.
 == Decision
 
 * The reachability check of `WorkflowValidator` is plain graph reachability, because the AST carries no value domain of a guard.
-* The seeded `TransitionFuzzer` covers that gap: it walks a verified unit with random assignments of the guard atoms and reports a reachable non-terminal state none of whose exits can hold.
+* The seeded `TransitionFuzzer` covers that gap: it walks a verified unit with random assignments of the guard atoms and reports a reachable non-terminal state none of whose exits holds under the assignment of that run.
 * Equal seeds give equal reports.
 
 == Alternatives Considered

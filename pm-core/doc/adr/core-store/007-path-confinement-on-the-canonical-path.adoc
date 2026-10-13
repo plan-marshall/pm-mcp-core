@@ -21,7 +21,7 @@ checks of enrolment files belong to the enrolment store and were out of this sli
 * One confinement check in `pm-core` (`PathConfinement`, with `ConfinementOutcome` and `WorkspaceRoots` in `de.planmarshall.core.store`), written with plain `java.nio` only.
 * The path is canonicalized with every symbolic link resolved, then accepted only when it lies inside the enrolled root or inside a live linked git worktree whose git common directory, read from the `.git` pointer file and `commondir`, resolves to that root. Everything else is refused with the closed outcome code `path_traversal_rejected`.
 * Case and Unicode variants are judged on the canonical path the filesystem resolves, so that a variant resolving inside the root is not an escape.
-* The enrolled root and the live worktrees are inputs of the check. `pm-runtime` holds the single entry (`WorkspaceConfinement` in `de.planmarshall.runtime.workspace`) through which the daemon's project file operations obtain a confined path; it logs a refusal.
+* The enrolled root and the live worktrees are inputs of the check. `pm-runtime` holds the entry (`WorkspaceConfinement` in `de.planmarshall.runtime.workspace`) that `VerifyNotResolvePipeline` uses to confine the working directory of a job; it logs a refusal.
 
 == Alternatives Considered
 
@@ -29,9 +29,9 @@ Alternatives not recorded.
 
 == Consequences
 
-* A project file operation of the daemon obtains its path through `WorkspaceConfinement`; a refused path carries `path_traversal_rejected`, and its warning does not log the project path.
+* The verify-not-resolve pipeline obtains the working directory of a job through `WorkspaceConfinement`; a refused path carries `path_traversal_rejected`, and its warning does not log the project path.
 * The adversarial fixtures of `PathConfinementTest`, `LinkedWorktreeConfinementTest` and `WorkspaceConfinementTest` (`..` sequences, absolute paths, symbolic links to a file, to a directory, in a chain and as a middle component, case and Unicode variants, control characters, an embedded NUL) are each paired with a positive control.
-* The check reads no enrolment file and no enrolment store, is wired into no consumer such as `pm-provider-git`, and the outcome code is not yet mapped into the error-code set of `pm-api`.
+* The check reads no enrolment file and no enrolment store, is not wired into `pm-provider-git`, and the outcome code is not yet mapped into the error-code set of `pm-api`.
 
 == Source
 

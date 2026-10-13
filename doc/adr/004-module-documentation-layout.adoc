@@ -45,6 +45,7 @@ Rationale not recorded.
 
 == Source
 
-* Plan `plan-39-module-readmes-and-adrs` (PLAN-39 of the epic `pm-mcp-core-m2-m4`, workstream WS-10), its request
-* `CLAUDE.md`, section Module Documentation
+* Pull request link:https://github.com/plan-marshall/pm-mcp-core/pull/53[#53], `docs: add module READMEs, the ADR template and backfilled ADRs`
+* Plan `plan-39-module-readmes-and-adrs` (PLAN-39 of the epic `pm-mcp-core-m2-m4`, workstream WS-10), its request; the plan has no work package file below `doc/plans/`
+* link:../../CLAUDE.md#module-documentation[`CLAUDE.md`, section Module Documentation]
 * link:../plans/README.adoc#how[Work packages, How to Work a Package]

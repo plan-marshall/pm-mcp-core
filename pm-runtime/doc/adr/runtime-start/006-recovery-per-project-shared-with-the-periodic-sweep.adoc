@@ -1,4 +1,4 @@
-= ADR 006: Recovery Runs per Project, and the Periodic Sweep Drives the Same Steps
+= ADR 006: Recovery Runs per Project, and the Periodic Sweep Runs Its Own Steps
 :nofooter:
 
 == Status
@@ -18,7 +18,7 @@ and for a periodic sweep. Both clean up what a stopped runtime left behind in a 
 
 * Recovery runs per project through `ProjectRecovery`, an orchestrator of `RecoveryStep` implementations.
 * The implemented steps are lease orphan marking (`LeaseRecoveryStep`), journal roll-forward (`JournalRollForwardStep`) and cross-scope reconciliation (`CrossScopeReconciliationStep`).
-* The periodic sweep (`PeriodicSweep`, with the seam `SweepStep`) drives the same steps over the enrolled projects (`EnrolledProjects`).
+* The periodic sweep (`PeriodicSweep`, with the seam `SweepStep`) runs its own steps (`SweepStep` implementations, not the `RecoveryStep` implementations of `ProjectRecovery`) over the enrolled projects (`EnrolledProjects`).
 
 Rationale not recorded.
 

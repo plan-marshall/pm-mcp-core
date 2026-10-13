@@ -12,7 +12,7 @@ Accepted
 == Context
 
 A plan instance file starts with an instance header line that carries JSON. The parser has to read that line into the
-AST; validating the header against its schema belongs to another package.
+AST and to check its structure; the checks of the header schema beyond that structure belong to another package.
 
 == Decision
 
@@ -27,7 +27,8 @@ Alternatives not recorded.
 
 == Consequences
 
-* The schema validation of the instance header, and the `partVersions` and `derivedFrom` bookkeeping, are left to other packages; this package does not interpret the JSON.
+* `InstanceHeaderReader` checks the structure of the line: one JSON object, the required members with their types, no member named twice at any depth and no content after the object. It refuses anything else with a `HeaderRefusal`.
+* The checks of the header schema beyond that structure (constants, enumerations, patterns, members the schema does not allow), and the `partVersions` and `derivedFrom` bookkeeping, are left to other packages; the reader keeps the JSON as read and does not interpret it further.
 * No log message, no HTTP call and no test dependency was added with the parser.
 
 == Source
