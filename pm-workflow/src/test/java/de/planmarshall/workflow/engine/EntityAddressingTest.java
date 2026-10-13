@@ -38,6 +38,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.spi.PendingEntryReader.EntryRead;
+import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -131,7 +132,7 @@ class EntityAddressingTest {
             assertAll(
                     () -> assertEquals(new Resolved(address, AddressResolution.BOOTSTRAP_PLAN, Optional.empty()),
                             resolution),
-                    () -> assertEquals(List.of(PLAN_ENTRY), fixtures.entryReader.reads()));
+                    () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReader.reads()));
         }
 
         @Test
@@ -202,13 +203,16 @@ class EntityAddressingTest {
 
         @ParameterizedTest
         @ValueSource(strings = {PLAN_ENTRY, EPIC_ENTRY})
-        @DisplayName("An entry_id of 8 and of 32 hex digits is resolved")
+        @DisplayName("An entry_id of 8 and of 32 hex digits is resolved, read as the typed EntryId")
         void acceptedEntry(String entryId) {
             fixtures.entryReader.answer(entryId, new EntryRead.Live("plan"));
 
             var resolution = inWorkspace(entryId, reviewing());
 
-            assertEquals(AddressResolution.BOOTSTRAP_PLAN, assertInstanceOf(Resolved.class, resolution).entityKind());
+            assertAll(
+                    () -> assertEquals(AddressResolution.BOOTSTRAP_PLAN,
+                            assertInstanceOf(Resolved.class, resolution).entityKind()),
+                    () -> assertEquals(List.of(new EntryId(entryId)), fixtures.entryReader.reads()));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -291,7 +295,7 @@ class EntityAddressingTest {
 
             assertAll(
                     () -> refused(Reason.SCOPE_NOT_FOUND, resolution),
-                    () -> assertEquals(List.of(PLAN_ENTRY), fixtures.entryReader.reads()));
+                    () -> assertEquals(List.of(new EntryId(PLAN_ENTRY)), fixtures.entryReader.reads()));
         }
 
         @Test

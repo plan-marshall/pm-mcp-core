@@ -14,6 +14,7 @@ import java.util.Optional;
 
 import de.planmarshall.core.spi.PendingEntryReader;
 import de.planmarshall.core.spi.PendingEntryReader.EntryRead;
+import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -32,8 +33,8 @@ import de.planmarshall.workflow.verify.EntityKindRegistry;
  * identifier is resolved only within the scope the address names, and a valid identifier that names nothing there is
  * {@link AddressResolution.Reason#SCOPE_NOT_FOUND}.
  * <ul>
- * <li>An {@code entry_id} names a pending plan or epic bootstrap, an entity of the workspace scope only. It is read
- * through the {@link PendingEntryReader}: a live record resolves to {@value AddressResolution#BOOTSTRAP_PLAN} or
+ * <li>An {@code entry_id} names a pending plan or epic bootstrap, an entity of the workspace scope only. It is parsed
+ * into the typed {@link EntryId} of {@code core.store} and read through the {@link PendingEntryReader}: a live record resolves to {@value AddressResolution#BOOTSTRAP_PLAN} or
  * {@value AddressResolution#BOOTSTRAP_EPIC} by its kind, a deleted one is {@code scope_not_found}, and one that cannot
  * be read is {@link AddressResolution.Reason#ENTRY_UNREADABLE}, never resolved. Under a plan or epic scope it is
  * {@code scope_not_found} without a read.</li>
@@ -90,14 +91,14 @@ public final class EntityAddressResolver {
         if (violation.isPresent()) {
             return new Refused(Reason.INVALID_ARGUMENTS, violation.get());
         }
-        if (EntityIdGrammar.formOf(entity) == EntityIdGrammar.Form.ENTRY) {
-            return resolveEntry(address);
+        var entryId = EntityIdGrammar.entryId(entity);
+        if (entryId.isPresent()) {
+            return resolveEntry(address, entryId.get());
         }
         return resolveTask(address, hostStatus, hostUnit);
     }
 
-    private AddressResolution resolveEntry(EntityAddress address) {
-        var entryId = address.entity();
+    private AddressResolution resolveEntry(EntityAddress address, EntryId entryId) {
         if (!address.isWorkspace()) {
             return notInScope(address, "an entry is a bootstrap of the workspace scope");
         }

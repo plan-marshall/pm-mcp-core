@@ -33,8 +33,8 @@
  * every instant it persists or compares from {@link de.planmarshall.core.spi.WorkflowClock}. Each start and each
  * creation is an explicit side effect of the state that owns it, and what it returns is bound in the status store in
  * the same transaction, so a run depends on persisted state only. Their values are records that check the identifier
- * grammars ({@code job_id}, {@code queue_task_id}, {@code question_id}); the {@code entry_id} is the exception, since
- * the addressing of {@code pm-workflow} checks it before it reaches the port. A refused start, an unreadable question
+ * grammars ({@code job_id}, {@code queue_task_id}, {@code question_id}); the {@code entry_id} arrives as the typed
+ * {@link de.planmarshall.core.store.EntryId}, which owns its grammar. A refused start, an unreadable question
  * record and an unreadable or deleted entry record are explicit results, never exceptions or a default.
  * {@code pm-runtime} implements the ports; no class of this module does.
  * <p>

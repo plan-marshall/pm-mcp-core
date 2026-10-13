@@ -32,7 +32,9 @@ link:../workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[workflo
 * The `module_id` pattern is also the module part of the budget key pattern `ProjectEnrolment.BUDGET_KEY` of
   `pm-core`. That pattern stays where it is: it validates a whole budget key of the enrolment store, not an addressed
   entity, and `EntityIdGrammar` remains the only place of the addressing grammar
-  (link:005-address-grammar-in-workflow-engine-only.adoc[ADR 005]).
+  (link:005-address-grammar-in-workflow-engine-only.adoc[ADR 005]). _Note 2026-10-13: except the `entry_id` grammar,
+  which `core.store.EntryId` owns since pm-mcp-core#51 (ADR 005, amended 2026-10-13); the `module_id` grammar is
+  unaffected._
 
 == Alternatives Considered
 

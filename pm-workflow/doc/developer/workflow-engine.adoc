@@ -304,10 +304,12 @@ and the entity identifier as supplied. `fromArguments(planId, epicId, entity)` b
 scoped tool call, where `plan_id` `NO_PLAN` names the workspace scope. A malformed address (a `null` component, the
 lesson store as scope, a scope id where none belongs or none where one does, `NO_PLAN` as a scope id) is refused with
 an exception; everything about the identifier itself is decided by the resolver.
-`EntityIdGrammar`:: The only place of the grammar checks: the entity identifier `^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`,
-the `entry_id` `^ent-[0-9a-f]{8,32}$` of every entity that begins with `ent-`, the `module_id`
-`^[A-Za-z0-9][A-Za-z0-9_.-]{0,56}$` of every entity that begins with `enrich-`, and the `queue_task_id`
-`^qt-[0-9a-f]{16}$`. Identifiers are compared byte-exactly.
+`EntityIdGrammar`:: The only place of the grammars no other type owns: the entity identifier
+`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`, the `module_id` `^[A-Za-z0-9][A-Za-z0-9_.-]{0,56}$` of every entity that begins
+with `enrich-`, and the `queue_task_id` `^qt-[0-9a-f]{16}$`. An entity that begins with `ent-` is an `entry_id` and must
+parse as `core.store.EntryId` (`ent-` and 8 to 32 lower-case hexadecimal digits), which owns that grammar;
+`EntityIdGrammar` consults `EntryId.parse` and declares no pattern of its own for it. Identifiers are compared
+byte-exactly.
 `EntityAddressResolver`:: Resolves an address against the status of the addressed scope and the unit that holds its
 current state (the sub-workflow of the top frame, or the top-level unit): `resolve(address, hostStatus, hostUnit)`.
 It takes the `PendingEntryReader` port and the `EntityKindRegistry` the units were verified against, writes nothing
@@ -315,9 +317,11 @@ and logs nothing.
 `AddressResolution`:: The sealed result: `Resolved` (the address, the entity kind, and the `queue_task_id` of a task
 entity) or `Refused` (a closed `Reason` and a detail for the caller's report). Its reasons are `invalid_arguments`,
 `scope_not_found` and `entry_unreadable`.
-`PendingEntryReader`:: The port of `core.spi` that reads one pending entry record: `Live` with its kind (`plan` or
-`epic`), `Deleted`, or `Unreadable` with the reason. No class of `pm-core` implements it; the runtime implements it
-with the pending entry store, which does not exist yet, and until then only the test double does; see
+`PendingEntryReader`:: The port of `core.spi`, the engine's read view of one pending entry record: its request
+carries the typed `core.store.EntryId`, its read is `Live` with the kind (`plan` or `epic`), `Deleted`, or `Unreadable`
+with the reason. The records are kept by `core.store.PendingEntryStore` of `pm-core`; the port is implemented over
+that store in `pm-runtime`, a `StoreRefusal` of the store mapping to `Unreadable`. No class of `pm-core` implements
+the port, no runtime adapter exists yet, and until one does only the test double implements it; see
 link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports].
 
 === The Entities of the Workspace Scope
@@ -357,9 +361,10 @@ of the caller's units and refused with an exception
 
 === Invariants
 
-* *Grammar only here*: `EntityIdGrammar` is the one place of the checks; the request of the port takes an `entry_id`
-  already checked and refuses only a blank one
-  (link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005]).
+* *Each grammar in one place*: `EntityIdGrammar` is the one place of the checks of the entity identifier, the
+  `module_id` and the `queue_task_id`; the `entry_id` grammar is the one of `core.store.EntryId`, and the request of
+  the port carries that typed id, so it never receives an unchecked string
+  (link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005], amended 2026-10-13).
 * *An unreadable entry is never live*: an `Unreadable` read is `entry_unreadable`, never `Resolved`, so a broken store
   is never mistaken for a bootstrap that can be addressed.
 * *Another scope's entity is `scope_not_found`*: an identifier is resolved only within the scope the address names
@@ -468,9 +473,11 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
 * link:../adr/workflow-engine/004-workspace-entity-kinds-addressed.adoc[ADR 004]: the workspace entity kinds addressed
   are the bootstraps and the workspace-hosted task entities.
 * link:../adr/workflow-engine/005-address-grammar-in-workflow-engine-only.adoc[ADR 005]: the address types and grammar
-  checks live in `workflow.engine` only.
+  checks live in `workflow.engine` only, except the `entry_id` grammar, owned by `core.store.EntryId` since
+  pm-mcp-core#51 (amended 2026-10-13).
 * link:../adr/workflow-engine/006-entry-records-read-through-core-spi-port.adoc[ADR 006]: an `entry_id` is resolved
-  through the tri-state port `PendingEntryReader`.
+  through the tri-state port `PendingEntryReader`, implemented over `core.store.PendingEntryStore` (amended
+  2026-10-13).
 * link:../adr/workflow-engine/007-refused-address-is-a-value.adoc[ADR 007]: a refused address is a value with a closed
   reason.
 * link:../adr/workflow-engine/008-resolver-beside-the-engine-ports.adoc[ADR 008]: the resolver is its own type beside

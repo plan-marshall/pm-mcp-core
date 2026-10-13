@@ -34,6 +34,7 @@ import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.spi.WorkflowClock;
 import de.planmarshall.core.spi.WorkflowExecutionContext;
+import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.WorkflowStatus;
@@ -746,21 +747,21 @@ final class EngineFixtures {
      */
     static final class FixedPendingEntryReader implements PendingEntryReader {
 
-        private final Map<String, EntryRead> answers = new HashMap<>();
-        private final List<String> reads = new ArrayList<>();
+        private final Map<EntryId, EntryRead> answers = new HashMap<>();
+        private final List<EntryId> reads = new ArrayList<>();
 
         /**
-         * @param entryId the entry
+         * @param entryId the entry, in the form of {@link EntryId}
          * @param read    the read of every later request for it
          * @return this reader
          */
         FixedPendingEntryReader answer(String entryId, EntryRead read) {
-            answers.put(entryId, read);
+            answers.put(new EntryId(entryId), read);
             return this;
         }
 
-        /** @return the {@code entry_id} of every read, in order */
-        List<String> reads() {
+        /** @return the typed {@code entry_id} of every read, in order */
+        List<EntryId> reads() {
             return reads;
         }
 

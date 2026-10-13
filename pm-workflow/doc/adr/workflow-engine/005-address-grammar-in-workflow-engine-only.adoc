@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted; amended 2026-10-13 (see <<amendment-2026-10-13>>)
 
 == Date
 
@@ -45,9 +45,31 @@ answered it in the refinement of PLAN-21 (question q2).
 * The overlap of the `module_id` pattern with the budget key pattern of `ProjectEnrolment` in `pm-core` is recorded in
   link:009-entity-id-forms-of-workspace-task-entities.adoc[ADR 009].
 
+[#amendment-2026-10-13]
+== Amendment (2026-10-13): The `entry_id` Grammar Is Owned by `core.store.EntryId`
+
+The decision above rested on the premise that no type of `pm-core` held the `entry_id` grammar. While PLAN-21 ran,
+the session log and generations work (pm-mcp-core#51) added the record `EntryId` to `core.store`, which owns the
+grammar `ent-[0-9a-f]{8,32}`, refuses any other value in its constructor and offers `EntryId.parse`, which returns an
+empty `Optional` for a string that is no entry id. Keeping a second copy of the pattern in `EntityIdGrammar` would
+create exactly the drift alternative 1 rejected. The decision is amended:
+
+* `EntityIdGrammar` remains the only place of the grammars no other type owns: the entity identifier, the `module_id`
+  of `enrich-<module_id>` and the `queue_task_id`.
+* The `entry_id` grammar is the one of `core.store.EntryId`. `EntityIdGrammar` classifies an entity that begins with
+  `ent-` through `EntryId.parse`; one that does not parse is still refused as a value, `invalid_arguments`
+  (link:007-refused-address-is-a-value.adoc[ADR 007]), before any port is read.
+* The request record `PendingEntryReader.ReadRequest` carries the typed `EntryId` instead of a string, so the port
+  never receives an unchecked identifier, and it checks nothing beyond non-null
+  (link:006-entry-records-read-through-core-spi-port.adoc[ADR 006]).
+
+`pm-workflow` may use `EntryId`: it depends on `pm-core`, as the dependency rules of the build allow.
+
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
 * link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
   Rule 6
 * `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q2
+* Amendment: `pm-core/src/main/java/de/planmarshall/core/store/EntryId.java`, added by pm-mcp-core#51 (commit
+  `d7b622d`); operator decision of 2026-10-13 in the finalize of PLAN-21 to rework the addressing in its pull request

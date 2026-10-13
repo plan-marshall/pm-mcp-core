@@ -37,6 +37,7 @@ import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead;
 import de.planmarshall.core.spi.QuestionRecordReader.ReadRequest;
 import de.planmarshall.core.spi.QueueTaskCreator.CreateRequest;
 import de.planmarshall.core.spi.QueueTaskCreator.Created;
+import de.planmarshall.core.store.EntryId;
 
 /**
  * The values of the engine ports (PM-IMPL-5, PM-ARCH-4): the identifier grammars of what a started job and a created
@@ -259,23 +260,23 @@ class EnginePortsTest {
     class PendingEntryReaderTest {
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"ent-0123abcd", "ent-0123456789abcdef0123456789abcdef", "ent-0123ABCD", "ent-012",
-                "x", "TASK-001"})
-        @DisplayName("any non-blank entry_id is accepted: its grammar is checked by pm-workflow, not by the port")
-        void acceptsAnyNonBlankEntryId(String entryId) {
+        @ValueSource(strings = {"ent-0123abcd", "ent-0123456789abcdef0123456789abcdef"})
+        @DisplayName("the request carries the typed entry_id, of 8 to 32 hex digits")
+        void carriesTypedEntryId(String value) {
+            var entryId = new EntryId(value);
+
             var request = new PendingEntryReader.ReadRequest(entryId);
 
             assertEquals(entryId, request.entryId());
         }
 
-        @ParameterizedTest(name = "\"{0}\"")
-        @ValueSource(strings = {"", " ", "\t"})
-        @DisplayName("a blank entry_id is refused")
-        void refusesBlankEntryId(String entryId) {
-            var thrown = assertThrows(IllegalArgumentException.class,
-                    () -> new PendingEntryReader.ReadRequest(entryId));
-
-            assertEquals("entryId must not be blank", thrown.getMessage());
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"ent-0123abc", "ent-0123456789abcdef0123456789abcdef0", "ent-0123ABCD", "TASK-001"})
+        @DisplayName("a string outside the entry_id grammar never becomes the entry of a request")
+        void noRequestForUncheckedString(String value) {
+            assertAll(
+                    () -> assertEquals(Optional.empty(), EntryId.parse(value)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new EntryId(value)));
         }
 
         @Test
@@ -292,10 +293,10 @@ class EnginePortsTest {
                     "ent-0000000b", new EntryRead.Live("epic"),
                     "ent-0000000c", new EntryRead.Deleted(),
                     "ent-0000000d", new EntryRead.Unreadable("pending/ent-0000000d.json is not JSON"));
-            PendingEntryReader reader = request -> records.get(request.entryId());
+            PendingEntryReader reader = request -> records.get(request.entryId().value());
 
             var routes = List.of("ent-0000000a", "ent-0000000b", "ent-0000000c", "ent-0000000d").stream()
-                    .map(id -> route(reader.read(new PendingEntryReader.ReadRequest(id))))
+                    .map(id -> route(reader.read(new PendingEntryReader.ReadRequest(new EntryId(id)))))
                     .toList();
 
             assertEquals(List.of("live plan", "live epic", "deleted", "could not read"), routes);
