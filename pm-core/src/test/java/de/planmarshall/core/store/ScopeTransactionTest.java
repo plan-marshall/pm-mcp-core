@@ -15,9 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,11 +36,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.service.LockTransaction;
+import de.planmarshall.core.store.ScopeTransaction.Step;
 
 /**
  * The journaled write of the stores of a scope (PM-IMPL-7): a commit writes every target, the digests of the sidecar
@@ -286,6 +291,207 @@ class ScopeTransactionTest {
                         () -> assertThrows(IllegalStateException.class, write::commit),
                         () -> assertFalse(Files.exists(scope.journalFile()), "nothing was journaled"));
             }
+        }
+    }
+
+    /** What the step hook throws to stop a commit at a boundary, as a killed process stops it. */
+    private static final class StopWrite extends RuntimeException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        StopWrite(Step step) {
+            super("stopped after " + step);
+        }
+    }
+
+    /**
+     * A delete target removes a store and drops its sidecar entry; it stages nothing, and a commit stopped after its
+     * journal is completed by the recovery to the store absent and its entry dropped.
+     */
+    @Nested
+    @DisplayName("delete")
+    class Deleting {
+
+        /** Writes the status and the work log in a commit, so the sidecar holds both digests. */
+        @BeforeEach
+        void writeStores() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(STATUS, bytes(OLD_STATUS));
+                write.append(WORK_LOG, bytes(FIRST));
+                write.commit();
+            }
+        }
+
+        private void commitDeleting(String... relativePaths) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                for (var relativePath : relativePaths) {
+                    write.delete(relativePath);
+                }
+                write.commit();
+            }
+        }
+
+        private JournalRecovery.Outcome recover() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                return JournalRecovery.recover(transaction, scope, audit);
+            }
+        }
+
+        private ScopeIntegrity.Verification verify(String relativePath) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                return ScopeIntegrity.verify(transaction, scope, relativePath, audit);
+            }
+        }
+
+        @Test
+        @DisplayName("removes the store and drops its digest; the other digests, no journal and no staged file remain")
+        void existingStore() throws Exception {
+            commitDeleting(STATUS);
+
+            assertAll(
+                    () -> assertFalse(Files.exists(store(STATUS)), "the store is removed"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(FIRST)))), sidecar()),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "a delete stages nothing"),
+                    () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS)));
+        }
+
+        @Test
+        @DisplayName("of a store that does not exist commits and leaves every other store and digest as it was")
+        void absentStore() throws Exception {
+            var before = sidecar();
+
+            commitDeleting(REFERENCES);
+
+            assertAll(
+                    () -> assertFalse(Files.exists(store(REFERENCES))),
+                    () -> assertEquals(before, sidecar()),
+                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS))),
+                    () -> assertFalse(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(), stagedFiles()));
+        }
+
+        @Test
+        @DisplayName("beside a replace and an append of other stores applies all three in one transaction")
+        void besideOtherModes() throws Exception {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(REFERENCES, bytes(NEW_REFERENCES));
+                write.delete(STATUS);
+                write.append(WORK_LOG, bytes(SECOND));
+                write.commit();
+            }
+
+            assertAll(
+                    () -> assertFalse(Files.exists(store(STATUS))),
+                    () -> assertArrayEquals(bytes(FIRST, SECOND), Files.readAllBytes(store(WORK_LOG))),
+                    () -> assertEquals(DigestSidecar.of(Map.of(
+                            REFERENCES, StoreDigest.of(bytes(NEW_REFERENCES)),
+                            WORK_LOG, StoreDigest.of(bytes(FIRST, SECOND)))), sidecar()),
+                    () -> assertEquals(List.of(), stagedFiles()));
+        }
+
+        @Test
+        @DisplayName("and a replace, an append or a second delete of the same store in one transaction are refused")
+        void sameStoreTwice() {
+            var content = bytes(NEW_STATUS);
+            var block = bytes(SECOND);
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(STATUS, bytes(NEW_STATUS));
+                write.delete(WORK_LOG);
+
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(STATUS)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete("./" + STATUS)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(WORK_LOG, content)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.append(WORK_LOG, block)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(WORK_LOG)));
+            }
+        }
+
+        @Test
+        @DisplayName("of the journal, the sidecar or a path outside the scope is refused")
+        void notAStore() {
+            var journal = scope.pathBase().relativize(scope.journalFile()).toString();
+            var sidecar = scope.pathBase().relativize(scope.sidecarFile()).toString();
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(journal)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.delete(sidecar)),
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> write.delete("../another-plan/status.json")));
+            }
+            assertTrue(Files.exists(scope.sidecarFile()), "the sidecar is untouched");
+        }
+
+        @Test
+        @DisplayName("is no further target of a committed transaction")
+        void afterCommit() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.delete(STATUS);
+                write.commit();
+
+                assertThrows(IllegalStateException.class, () -> write.delete(WORK_LOG));
+            }
+        }
+
+        @ParameterizedTest(name = "stopped after {0}")
+        @EnumSource(Step.class)
+        @DisplayName("stopped at a step boundary is left undone before its journal and completed after it")
+        void stoppedAtBoundary(Step stop) throws Exception {
+            var sidecarBefore = Files.readAllBytes(scope.sidecarFile());
+            ScopeTransaction.StepHook hook = (step, target) -> {
+                if (step == stop) {
+                    throw new StopWrite(step);
+                }
+            };
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, hook);
+                write.delete(STATUS);
+                assertThrows(StopWrite.class, write::commit);
+            }
+            var journal = StoreSnapshot.read(scope.journalFile()).content()
+                    .map(document -> TransactionJournal.read(scope.journalFile(), document));
+
+            var outcome = recover();
+
+            if (stop == Step.STAGE) {
+                assertAll(
+                        () -> assertEquals(Optional.empty(), journal, "no journal was written"),
+                        () -> assertEquals(new JournalRecovery.NothingToRecover(List.of()), outcome),
+                        () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
+                                "the store is as before the commit"),
+                        () -> assertArrayEquals(sidecarBefore, Files.readAllBytes(scope.sidecarFile())),
+                        () -> assertEquals(List.of(), audit.events()));
+                return;
+            }
+            var applied = stop == Step.JOURNAL ? List.of(STATUS) : List.<String>of();
+            assertAll(
+                    () -> assertEquals(new JournalRecovery.RolledForward(journal.orElseThrow(), applied), outcome),
+                    () -> assertFalse(Files.exists(store(STATUS)), "the store is absent"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(WORK_LOG, StoreDigest.of(bytes(FIRST)))), sidecar(),
+                            "the entry of the deleted store is dropped"),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
+                    () -> assertEquals(List.of(), stagedFiles()),
+                    () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
+                            PLAN, journal.orElseThrow().transactionId().value(), List.of(STATUS))), audit.events()),
+                    () -> assertEquals(new ScopeIntegrity.Absent(STATUS), verify(STATUS), "consistent, no Mismatch"));
         }
     }
 

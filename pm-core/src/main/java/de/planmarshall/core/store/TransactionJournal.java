@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import de.planmarshall.core.service.AuditEvent;
 
@@ -44,20 +45,22 @@ import de.planmarshall.core.service.AuditEvent;
  * The transaction journal of a scope (PM-IMPL-7, PM-IMPL-2): the document that a transaction writes and syncs before
  * it touches a store, and from which a recovery rolls an interrupted transaction forward.
  * <p>
- * The document is {@code {"format_version": 2, "transaction_id", "scope_type", "scope_id", "created_at",
- * "targets": [<target>], "owed_events": [<owed event>]}}, a target
- * {@code {"path", "mode", "staged_path", "size_before", "new_size", "new_sha256"}}, an owed event the audit record the
- * transaction hands over once its targets are applied ({@link OwedAuditEvents}). The journal is the durable intent of
- * these records: it is deleted only after the sink accepted them, and a recovery hands them over again otherwise.
- * Version 1 had no owed events and is refused as outdated. The paths are relative to
- * the path base of the scope ({@link JournalScope}). A journal lists at least one target, and an {@code append}
- * target always carries the size of its store before the append: it is the point a recovery cuts the store back to
- * before it appends the staged block again, so a torn append is never applied twice.
+ * The document is {@code {"format_version": 3, "transaction_id", "scope_type", "scope_id", "created_at",
+ * "targets": [<target>], "owed_events": [<owed event>]}}. A {@code replace} or {@code append} target is
+ * {@code {"path", "mode", "staged_path", "size_before", "new_size", "new_sha256"}}; a {@code delete} target is
+ * {@code {"path", "mode"}} alone, since it stages no file and leaves no store to record a digest for. An owed event is
+ * the audit record the transaction hands over once its targets are applied ({@link OwedAuditEvents}). The journal is
+ * the durable intent of these records: it is deleted only after the sink accepted them, and a recovery hands them over
+ * again otherwise. Version 1 had no owed events and version 2 no delete target; both are refused as outdated. The
+ * paths are relative to the path base of the scope ({@link JournalScope}). A journal lists at least one target, and an
+ * {@code append} target always carries the size of its store before the append: it is the point a recovery cuts the
+ * store back to before it appends the staged block again, so a torn append is never applied twice.
  * <p>
  * The reader accepts exactly one shape through {@link StrictJson}; every refusal is a {@link StoreRefusal} naming the
- * journal file. A target is part of that shape only with both paths relative and normalized and with the staged path
- * that {@link TransactionId#stagedName(String, Mode)} derives from its path, its mode and the transaction id, so a
- * recovery never moves another file over a store.
+ * journal file. A target is part of that shape only with its paths relative and normalized; a {@code replace} or
+ * {@code append} target only with the staged path that {@link TransactionId#stagedName(String, Mode)} derives from its
+ * path, its mode and the transaction id, so a recovery never moves another file over a store; and a {@code delete}
+ * target only without a staged path, a size before and a new digest.
  *
  * @param transactionId the transaction the journal records
  * @param scopeType     the type of the scope
@@ -71,7 +74,7 @@ public record TransactionJournal(TransactionId transactionId, JournalScopeType s
 Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
 
     /** The format version of a transaction journal that is read and written. */
-    public static final int FORMAT_VERSION = 2;
+    public static final int FORMAT_VERSION = 3;
 
     private static final String FIELD_TRANSACTION_ID = "transaction_id";
     private static final String FIELD_SCOPE_TYPE = "scope_type";
@@ -95,7 +98,9 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
         /** The store is replaced by its staged file in one atomic rename. */
         REPLACE("replace"),
         /** The staged block is appended to the JSONL store. */
-        APPEND("append");
+        APPEND("append"),
+        /** The store is removed; nothing is staged for it. */
+        DELETE("delete");
 
         private final String wireName;
 
@@ -114,24 +119,36 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
      *
      * @param path       the store, relative to the path base of the scope
      * @param mode       how the store is written
-     * @param stagedPath the staged file, relative to the path base of the scope
-     * @param sizeBefore the size of the store before the append; present for an append, optional for a replace
-     * @param newDigest  the size and SHA-256 of the store once the target is applied
+     * @param stagedPath the staged file, relative to the path base of the scope; {@code null} for a delete, which
+     *                   stages nothing
+     * @param sizeBefore the size of the store before the append; present for an append, optional for a replace, empty
+     *                   for a delete
+     * @param newDigest  the size and SHA-256 of the store once the target is applied; {@code null} for a delete, which
+     *                   leaves no store
      * @since 0.1
      */
     public record Target(String path, Mode mode, String stagedPath, OptionalLong sizeBefore, StoreDigest newDigest) {
 
         /**
-         * @throws NullPointerException     if a component is {@code null}
-         * @throws IllegalArgumentException if a path is empty, if an append target has no size before, or if a size
-         *                                  before is negative
+         * @throws NullPointerException     if the path, the mode or the size before is {@code null}, or the staged path
+         *                                  or the new digest of a replace or append
+         * @throws IllegalArgumentException if a path is empty, if an append target has no size before, if a size
+         *                                  before is negative, or if a delete target has a staged path, a size before
+         *                                  or a new digest
          */
         public Target {
             requirePath(path, FIELD_PATH);
             Objects.requireNonNull(mode, FIELD_MODE);
-            requirePath(stagedPath, FIELD_STAGED_PATH);
             Objects.requireNonNull(sizeBefore, "sizeBefore");
-            Objects.requireNonNull(newDigest, "newDigest");
+            if (mode == Mode.DELETE) {
+                if (stagedPath != null || sizeBefore.isPresent() || newDigest != null) {
+                    throw new IllegalArgumentException(
+                            "The delete target '%s' has no staged path, size before or new digest".formatted(path));
+                }
+            } else {
+                requirePath(stagedPath, FIELD_STAGED_PATH);
+                Objects.requireNonNull(newDigest, "newDigest");
+            }
             if (mode == Mode.APPEND && sizeBefore.isEmpty()) {
                 throw new IllegalArgumentException("The append target '%s' has no size before".formatted(path));
             }
@@ -139,6 +156,16 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
                 throw new IllegalArgumentException(
                         "The size before of the target '%s' is negative: %d".formatted(path, sizeBefore.getAsLong()));
             }
+        }
+
+        /**
+         * @param path the store to remove, relative to the path base of the scope
+         * @return the delete target of the store
+         * @throws NullPointerException     if the path is {@code null}
+         * @throws IllegalArgumentException if the path is empty
+         */
+        public static Target delete(String path) {
+            return new Target(path, Mode.DELETE, null, OptionalLong.empty(), null);
         }
 
         private static void requirePath(String path, String name) {
@@ -226,6 +253,10 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
         generator.writeStartObject();
         generator.writeStringField(FIELD_PATH, target.path());
         generator.writeStringField(FIELD_MODE, target.mode().wireName());
+        if (target.mode() == Mode.DELETE) {
+            generator.writeEndObject();
+            return;
+        }
         generator.writeStringField(FIELD_STAGED_PATH, target.stagedPath());
         if (target.sizeBefore().isPresent()) {
             generator.writeNumberField(FIELD_SIZE_BEFORE, target.sizeBefore().getAsLong());
@@ -275,12 +306,16 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
     /**
      * A recovery moves the staged file of a target over its store, so the staged file must be the one the
      * transaction staged for that store and nothing else: both paths in the one form of a store path, and the staged
-     * path the name {@link TransactionId#stagedName(String, Mode)} derives from the store, the mode and the id.
+     * path the name {@link TransactionId#stagedName(String, Mode)} derives from the store, the mode and the id. A
+     * delete target has no staged file; only its store path is checked.
      */
     private static void requireStagedFileOf(TransactionId transactionId, Target target) {
         if (!JournalScope.isStorePath(target.path())) {
             throw unreadable("'%s' of a target is not a normalized relative path: '%s'".formatted(FIELD_PATH,
                     target.path()));
+        }
+        if (target.mode() == Mode.DELETE) {
+            return;
         }
         if (!JournalScope.isStorePath(target.stagedPath())) {
             throw unreadable("'%s' of the target '%s' is not a normalized relative path: '%s'"
@@ -334,11 +369,25 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "target", FIELD_PATH, FIELD_MODE, FIELD_STAGED_PATH, FIELD_NEW_SIZE, FIELD_NEW_SHA256);
+        requireFields(seen, "target", FIELD_PATH, FIELD_MODE);
         try {
+            if (mode == Mode.DELETE) {
+                requireNoneOf(seen, path, FIELD_STAGED_PATH, FIELD_SIZE_BEFORE, FIELD_NEW_SIZE, FIELD_NEW_SHA256);
+                return Target.delete(path);
+            }
+            requireFields(seen, "target", FIELD_STAGED_PATH, FIELD_NEW_SIZE, FIELD_NEW_SHA256);
             return new Target(path, mode, stagedPath, sizeBefore, new StoreDigest(newSize, newSha256));
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
+        }
+    }
+
+    /** A delete target is {@code {"path", "mode"}} alone: a member of a staged write is no part of its shape. */
+    private static void requireNoneOf(Set<String> seen, String path, String... fields) {
+        for (var field : fields) {
+            if (seen.contains(field)) {
+                throw unreadable("The delete target '%s' has the member '%s'".formatted(path, field));
+            }
         }
     }
 

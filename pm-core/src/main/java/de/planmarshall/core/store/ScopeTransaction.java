@@ -38,17 +38,18 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  * One write to the stores of a scope, run through the transaction journal of the scope (PM-IMPL-7). A single-store
  * write is a transaction with one target.
  * <p>
- * The targets are collected first, at most one per store, and written by {@link #commit()} in five steps:
+ * The targets are collected first, at most one per store, each a replace, an append or a delete, and written by
+ * {@link #commit()} in five steps:
  * <ol>
  * <li><em>Stage</em>: the new content of every replaced store is written to {@code <store>.tmp.<transaction id>}, and
  * the block of every append to {@code <store>.append.<transaction id>}, each forced to disk. A torn tail of a JSONL
- * store is repaired first, so the size before the append is the repaired size.</li>
+ * store is repaired first, so the size before the append is the repaired size. A delete stages nothing.</li>
  * <li><em>Journal</em>: the journal is written by atomic rename and forced to disk with its directory. From here on a
  * stopped write is completed by {@link JournalRecovery}.</li>
- * <li><em>Apply</em>: every replaced store is renamed over by its staged file, every staged block appended, and the
- * directories of the stores are forced to disk.</li>
+ * <li><em>Apply</em>: every replaced store is renamed over by its staged file, every staged block appended, every
+ * deleted store removed, and the directories of the stores are forced to disk.</li>
  * <li><em>Digests</em>: the digest sidecar of the scope is written with the size and SHA-256 the journal records for
- * each target.</li>
+ * each replaced or appended store, and without the entry of each deleted store.</li>
  * <li><em>Close</em>: the audit records the transaction owes ({@link #owe(AuditEvent)}) are handed to the audit sink,
  * then the journal is deleted and its directory forced to disk. A refused record keeps the journal for the recovery,
  * which hands it over again.</li>
@@ -115,8 +116,8 @@ public final class ScopeTransaction {
      * A target collected before the commit.
      *
      * @param path    the store, relative to the path base in normalized form with {@code /} as separator
-     * @param mode    replace or append
-     * @param content the new content or the appended block; held, not copied
+     * @param mode    replace, append or delete
+     * @param content the new content or the appended block, held, not copied; empty for a delete
      */
     private record PendingTarget(String path, Mode mode, byte[] content) {
 
@@ -223,6 +224,19 @@ public final class ScopeTransaction {
     }
 
     /**
+     * Removes a store of the scope. Nothing is staged for it; the apply step removes the store, if it exists, and the
+     * digests step drops its entry from the sidecar. Deleting a store that does not exist is no error: the target is
+     * applied when the store is absent.
+     *
+     * @param relativePath the store, relative to the path base of the scope
+     * @throws IllegalArgumentException for a store as {@link #replace(String, byte[])} refuses it
+     * @throws IllegalStateException    if the transaction was committed
+     */
+    public void delete(String relativePath) {
+        add(relativePath, Mode.DELETE, new byte[0]);
+    }
+
+    /**
      * Writes every target in the five steps of the journal. A commit is tried once: a transaction whose commit
      * failed leaves its journal and its staged files to the recovery of the scope, and is not committed again.
      * <p>
@@ -303,6 +317,9 @@ public final class ScopeTransaction {
     }
 
     private Target stageTarget(PendingTarget target) throws IOException {
+        if (target.mode() == Mode.DELETE) {
+            return Target.delete(target.path());
+        }
         var store = scope.resolve(target.path());
         var stagedPath = transactionId.stagedName(target.path(), target.mode());
         if (target.mode() == Mode.REPLACE) {
@@ -327,12 +344,14 @@ public final class ScopeTransaction {
         var index = 0;
         for (var target : journal.targets()) {
             var store = scope.resolve(target.path());
-            var staged = scope.resolve(target.stagedPath());
-            if (target.mode() == Mode.REPLACE) {
-                Files.move(staged, store, StandardCopyOption.ATOMIC_MOVE);
-            } else {
-                SyncedFiles.append(store, Files.readAllBytes(staged));
-                Files.delete(staged);
+            switch (target.mode()) {
+                case REPLACE -> Files.move(scope.resolve(target.stagedPath()), store, StandardCopyOption.ATOMIC_MOVE);
+                case APPEND -> {
+                    var staged = scope.resolve(target.stagedPath());
+                    SyncedFiles.append(store, Files.readAllBytes(staged));
+                    Files.delete(staged);
+                }
+                case DELETE -> Files.deleteIfExists(store);
             }
             directories.add(store.getParent());
             hook.after(Step.APPLY, index++);
@@ -343,13 +362,14 @@ public final class ScopeTransaction {
     }
 
     /**
-     * Writes the sidecar of the scope with the digests the journal records for its targets; the digests of the
-     * other stores stay as they are.
+     * Writes the sidecar of the scope with the digests the journal records for its targets and without the entries of
+     * its deleted stores; the digests of the other stores stay as they are.
      */
     static void writeDigests(JournalScope scope, LockTransaction transaction, TransactionJournal journal) {
         var sidecar = DigestSidecar.load(scope.sidecarFile());
         for (var target : journal.targets()) {
-            sidecar = sidecar.with(target.path(), target.newDigest());
+            sidecar = target.mode() == Mode.DELETE ? sidecar.without(target.path())
+                    : sidecar.with(target.path(), target.newDigest());
         }
         new AtomicStoreFile(scope.sidecarFile(), scope.lockKey()).write(transaction, sidecar.write(),
                 journal.transactionId());

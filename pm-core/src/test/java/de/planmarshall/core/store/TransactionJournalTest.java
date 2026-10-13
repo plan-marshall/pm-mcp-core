@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -62,6 +64,11 @@ class TransactionJournalTest {
     private static final Target APPEND = new Target("findings.jsonl", Mode.APPEND,
             "findings.jsonl.append." + ID.value(), OptionalLong.of(4096), FINDINGS_DIGEST);
 
+    /** The document of a plan journal of the current format version with the given target objects. */
+    private static byte[] document(String targets) {
+        return document(Integer.toString(TransactionJournal.FORMAT_VERSION), targets);
+    }
+
     /** The document of a plan journal with the given target objects, as a writer of another component writes it. */
     private static byte[] document(String formatVersion, String targets) {
         return ("{\"format_version\":" + formatVersion + ",\"transaction_id\":\"" + ID.value()
@@ -73,6 +80,13 @@ class TransactionJournalTest {
     private static String replaceTarget() {
         return "{\"path\":\"mcp/status.json\",\"mode\":\"replace\",\"staged_path\":\"mcp/status.json.tmp."
                 + ID.value() + "\",\"size_before\":null,\"new_size\":42,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
+    }
+
+    /** @return each other format version with its refusal: the next one is newer, every earlier one outdated */
+    static Stream<Arguments> otherVersions() {
+        var current = TransactionJournal.FORMAT_VERSION;
+        return Stream.concat(Stream.of(Arguments.of(current + 1, Outcome.FORMAT_NEWER)),
+                IntStream.range(1, current).mapToObj(version -> Arguments.of(version, Outcome.FORMAT_OUTDATED)));
     }
 
     /** @return a name and the owed events field that replaces the empty one of a valid document */
@@ -121,7 +135,7 @@ class TransactionJournalTest {
             var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
                     List.of(REPLACE));
 
-            assertArrayEquals(document("2", replaceTarget()), journal.write());
+            assertArrayEquals(document(replaceTarget()), journal.write());
         }
 
         @Test
@@ -178,6 +192,100 @@ class TransactionJournalTest {
         }
     }
 
+    /** A delete target stages nothing and leaves no store, so it is the path and the mode alone. */
+    @Nested
+    @DisplayName("delete target")
+    class DeleteTarget {
+
+        private static final String DELETE_TARGET = "{\"path\":\"pending/ent-0a1b2c3d.json\",\"mode\":\"delete\"}";
+
+        @Test
+        @DisplayName("a journal with a delete target beside a replace is read back equal, and written again byte for"
+                + " byte")
+        void roundTrip() {
+            var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
+                    List.of(REPLACE, Target.delete("pending/ent-0a1b2c3d.json")));
+
+            var written = journal.write();
+            var read = TransactionJournal.read(FILE, written);
+
+            assertAll(
+                    () -> assertEquals(journal, read),
+                    () -> assertArrayEquals(written, read.write()));
+        }
+
+        @Test
+        @DisplayName("a delete target is written as its path and mode, without staged path, size before or digest")
+        void writtenShape() {
+            var journal = new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
+                    List.of(Target.delete("pending/ent-0a1b2c3d.json")));
+
+            assertArrayEquals(document(DELETE_TARGET), journal.write());
+        }
+
+        @Test
+        @DisplayName("a delete target has no staged path, no size before and no new digest")
+        void components() {
+            var target = Target.delete("pending/ent-0a1b2c3d.json");
+
+            assertAll(
+                    () -> assertEquals(Mode.DELETE, target.mode()),
+                    () -> assertEquals("delete", target.mode().wireName()),
+                    () -> assertNull(target.stagedPath()),
+                    () -> assertEquals(OptionalLong.empty(), target.sizeBefore()),
+                    () -> assertNull(target.newDigest()));
+        }
+
+        @ParameterizedTest(name = "with {0}")
+        @ValueSource(strings = {"\"staged_path\":\"pending/ent-0a1b2c3d.json.tmp.{id}\"", "\"size_before\":null",
+                "\"size_before\":12", "\"new_size\":42", "\"new_sha256\":\"{sha}\""})
+        @DisplayName("a delete target that carries a member of a staged write is refused when the document is read")
+        void stagedMemberRefused(String member) {
+            var target = DELETE_TARGET.replace("}", "," + member.replace("{id}", ID.value())
+                    .replace("{sha}", "a".repeat(64)) + "}");
+
+            var refusal = assertRefused(Outcome.UNREADABLE, document(target));
+
+            assertTrue(refusal.getMessage().contains("delete target"), refusal.getMessage());
+        }
+
+        @Test
+        @DisplayName("a delete target record with a staged path, a size before or a new digest is rejected")
+        void recordRejected() {
+            var staged = "mcp/status.json.tmp." + ID.value();
+            var size = OptionalLong.of(1);
+            var none = OptionalLong.empty();
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Target("mcp/status.json", Mode.DELETE, staged, none, null)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Target("mcp/status.json", Mode.DELETE, null, size, null)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> new Target("mcp/status.json", Mode.DELETE, null, none, STATUS_DIGEST)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> Target.delete("")));
+        }
+
+        @Test
+        @DisplayName("a replace or append target without a staged path or new digest is still rejected")
+        void stagedModesKeepTheirMembers() {
+            var none = OptionalLong.empty();
+            var staged = "mcp/status.json.tmp." + ID.value();
+
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new Target("mcp/status.json", Mode.REPLACE, null, none, STATUS_DIGEST)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new Target("mcp/status.json", Mode.REPLACE, staged, none, null)));
+        }
+
+        @Test
+        @DisplayName("a delete has no staged file name")
+        void noStagedName() {
+            assertThrows(IllegalArgumentException.class, () -> ID.stagedName("mcp/status.json", Mode.DELETE));
+        }
+    }
+
     /** The matched pair of PM-WATCH-STORE-49: the size before is required of an append target and of nothing else. */
     @Nested
     @DisplayName("size before")
@@ -201,7 +309,7 @@ class TransactionJournalTest {
             var target = "{\"path\":\"findings.jsonl\",\"mode\":\"append\",\"staged_path\":\"findings.jsonl.append."
                     + ID.value() + "\"," + field + "\"new_size\":4711,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
 
-            assertRefused(Outcome.UNREADABLE, document("2", target));
+            assertRefused(Outcome.UNREADABLE, document(target));
         }
 
         @Test
@@ -210,7 +318,7 @@ class TransactionJournalTest {
             var withoutField = "{\"path\":\"mcp/status.json\",\"mode\":\"replace\",\"staged_path\":\"mcp/status.json.tmp."
                     + ID.value() + "\",\"new_size\":42,\"new_sha256\":\"" + "a".repeat(64) + "\"}";
 
-            var read = TransactionJournal.read(FILE, document("2", withoutField));
+            var read = TransactionJournal.read(FILE, document(withoutField));
 
             assertAll(
                     () -> assertEquals(OptionalLong.empty(), REPLACE.sizeBefore()),
@@ -241,11 +349,11 @@ class TransactionJournalTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new TransactionJournal(ID, JournalScopeType.PLAN, "store-substrate", CREATED_AT,
                                     none)),
-                    () -> assertRefused(Outcome.UNREADABLE, document("2", "")));
+                    () -> assertRefused(Outcome.UNREADABLE, document("")));
         }
 
         @ParameterizedTest(name = "format_version {0}")
-        @CsvSource({"3, FORMAT_NEWER", "1, FORMAT_OUTDATED"})
+        @MethodSource("de.planmarshall.core.store.TransactionJournalTest#otherVersions")
         @DisplayName("a document of another format version is refused as such, with the version found and current")
         void otherVersion(int version, Outcome outcome) {
             var refusal = assertRefused(outcome, document(Integer.toString(version), replaceTarget()));
@@ -256,11 +364,21 @@ class TransactionJournalTest {
         }
 
         @Test
+        @DisplayName("a journal of version 2, which had no delete target, is refused as outdated")
+        void version2Outdated() {
+            var refusal = assertRefused(Outcome.FORMAT_OUTDATED, document("2", replaceTarget()));
+
+            assertAll(
+                    () -> assertEquals(OptionalInt.of(2), refusal.found()),
+                    () -> assertEquals(3, refusal.current()));
+        }
+
+        @Test
         @DisplayName("an undeclared field is refused")
         void undeclaredField() {
             var target = replaceTarget().replace("}", ",\"note\":\"x\"}");
 
-            assertRefused(Outcome.UNREADABLE, document("2", target));
+            assertRefused(Outcome.UNREADABLE, document(target));
         }
 
         @Test
@@ -268,13 +386,13 @@ class TransactionJournalTest {
         void duplicateField() {
             var target = replaceTarget().replace("\"mode\":\"replace\",", "\"mode\":\"replace\",\"mode\":\"replace\",");
 
-            assertRefused(Outcome.UNREADABLE, document("2", target));
+            assertRefused(Outcome.UNREADABLE, document(target));
         }
 
         @Test
         @DisplayName("an instant with an offset is refused, although it names the same moment")
         void instantWithOffset() {
-            var withOffset = new String(document("2", replaceTarget()), UTF_8)
+            var withOffset = new String(document(replaceTarget()), UTF_8)
                     .replace("2026-10-10T08:16:00.123Z", "2026-10-10T10:16:00.123+02:00").getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, withOffset);
@@ -285,7 +403,7 @@ class TransactionJournalTest {
                 "0192a3b4-c5d6-7e8f-ca0b-1c2d3e4f5a6b", "not-an-id"})
         @DisplayName("a transaction id that is not a lower-case UUID of version 7 is refused")
         void notVersion7(String transactionId) {
-            var document = new String(document("2", replaceTarget()), UTF_8).replace(ID.value(), transactionId)
+            var document = new String(document(replaceTarget()), UTF_8).replace(ID.value(), transactionId)
                     .getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, document);
@@ -303,7 +421,7 @@ class TransactionJournalTest {
                 """)
         @DisplayName("a field outside its one shape is refused")
         void fieldShape(String name, String valid, String invalid) {
-            var document = new String(document("2", replaceTarget()), UTF_8).replace(valid, invalid)
+            var document = new String(document(replaceTarget()), UTF_8).replace(valid, invalid)
                     .getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, document);
@@ -330,7 +448,7 @@ class TransactionJournalTest {
                             "\"staged_path\":\"" + stagedPath.replace("{id}", ID.value())
                                     .replace("{other}", OTHER_ID.value()) + "\"");
 
-            var refusal = assertRefused(Outcome.UNREADABLE, document("2", target));
+            var refusal = assertRefused(Outcome.UNREADABLE, document(target));
 
             assertTrue(refusal.getMessage().contains("staged") || refusal.getMessage().contains("path"),
                     "the refusal names the path: " + refusal.getMessage());
@@ -340,7 +458,7 @@ class TransactionJournalTest {
         @MethodSource("de.planmarshall.core.store.TransactionJournalTest#owedEventShapes")
         @DisplayName("owed audit records outside their one shape are refused")
         void owedEventShape(String name, String owedEvents) {
-            var document = new String(document("2", replaceTarget()), UTF_8)
+            var document = new String(document(replaceTarget()), UTF_8)
                     .replace(",\"owed_events\":[]", owedEvents).getBytes(UTF_8);
 
             assertRefused(Outcome.UNREADABLE, document);
@@ -351,7 +469,7 @@ class TransactionJournalTest {
         void missingField() {
             var target = replaceTarget().replace(",\"new_size\":42", "");
 
-            assertRefused(Outcome.UNREADABLE, document("2", target));
+            assertRefused(Outcome.UNREADABLE, document(target));
         }
 
         @Test

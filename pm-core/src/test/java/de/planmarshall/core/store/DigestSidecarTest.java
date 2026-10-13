@@ -123,6 +123,33 @@ class DigestSidecarTest {
         }
 
         @Test
+        @DisplayName("without drops exactly the entry of the named store and keeps every other digest")
+        void without() {
+            var sidecar = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS, "pending/entry-1.json",
+                    PENDING));
+
+            var dropped = sidecar.without("pending/entry-1.json");
+
+            assertAll(
+                    () -> assertEquals(DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS)), dropped),
+                    () -> assertEquals(Optional.empty(), dropped.digest("pending/entry-1.json")),
+                    () -> assertEquals(Optional.of(PENDING), sidecar.digest("pending/entry-1.json"),
+                            "the sidecar it was made from is unchanged"));
+        }
+
+        @Test
+        @DisplayName("without a store the sidecar has no entry for is an equal sidecar")
+        void withoutUnknown() {
+            var sidecar = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS));
+
+            var dropped = sidecar.without("pending/entry-1.json");
+
+            assertAll(
+                    () -> assertEquals(sidecar, dropped),
+                    () -> assertArrayEquals(sidecar.write(), dropped.write()));
+        }
+
+        @Test
         @DisplayName("the digests of a sidecar cannot be changed in place")
         void unmodifiable() {
             var stores = DigestSidecar.of(Map.of("workspace/mcp/status.json", STATUS)).stores();

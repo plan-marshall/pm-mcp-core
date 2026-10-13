@@ -46,6 +46,8 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  * recorded digest, and the store of an append, cut back to its size before, followed by the staged block, has it. An
  * appliable replace is renamed over its store; an appliable append cuts its store back to the size before the append
  * and appends the staged block once.</li>
+ * <li>A delete target is applied when its store is absent and is always appliable: a store still present is removed.
+ * Applying it again changes nothing, so a delete never makes a journal violate its invariant.</li>
  * <li>A target that is neither has lost or changed what the transaction wrote. Then nothing is applied, the journal
  * and every store stay in place, and the stores are reported for the caller to raise the integrity breach. Every
  * target is checked before the first is applied, so no store is modified when one of them fails.</li>
@@ -173,7 +175,9 @@ public class JournalRecovery {
      */
     private static void requireNoLinks(JournalScope scope, TransactionJournal journal) {
         for (var target : journal.targets()) {
-            for (var path : List.of(target.path(), target.stagedPath())) {
+            var paths = target.mode() == Mode.DELETE ? List.of(target.path())
+                    : List.of(target.path(), target.stagedPath());
+            for (var path : paths) {
                 var link = scope.linkBelowPathBase(scope.resolve(path));
                 if (link.isPresent()) {
                     throw StoreRefusal.unreadable(scope.journalFile(), TransactionJournal.FORMAT_VERSION,
@@ -188,7 +192,7 @@ public class JournalRecovery {
         var violating = new ArrayList<String>();
         for (var target : journal.targets()) {
             var store = scope.resolve(target.path());
-            if (isApplied(store, target)) {
+            if (target.mode() == Mode.DELETE || isApplied(store, target)) {
                 continue;
             }
             if (!isAppliable(store, scope.resolve(target.stagedPath()), target)) {
@@ -230,15 +234,15 @@ public class JournalRecovery {
             if (isApplied(store, target)) {
                 continue;
             }
-            var staged = scope.resolve(target.stagedPath());
-            if (target.mode() == Mode.REPLACE) {
-                Files.move(staged, store, StandardCopyOption.ATOMIC_MOVE);
-            } else {
-                var sizeBefore = target.sizeBefore().orElseThrow();
-                if (exists(store)) {
-                    SyncedFiles.truncate(store, sizeBefore);
+            switch (target.mode()) {
+                case REPLACE -> Files.move(scope.resolve(target.stagedPath()), store, StandardCopyOption.ATOMIC_MOVE);
+                case APPEND -> {
+                    if (exists(store)) {
+                        SyncedFiles.truncate(store, target.sizeBefore().orElseThrow());
+                    }
+                    SyncedFiles.append(store, Files.readAllBytes(scope.resolve(target.stagedPath())));
                 }
-                SyncedFiles.append(store, Files.readAllBytes(staged));
+                case DELETE -> Files.deleteIfExists(store);
             }
             directories.add(store.getParent());
             applied.add(target.path());
@@ -249,7 +253,11 @@ public class JournalRecovery {
         return applied;
     }
 
+    /** A replace or append is applied when its store has the new digest, a delete when its store is absent. */
     private static boolean isApplied(Path store, Target target) throws IOException {
+        if (target.mode() == Mode.DELETE) {
+            return !exists(store);
+        }
         return exists(store) && Files.size(store) == target.newDigest().size()
                 && target.newDigest().equals(StoreDigest.builder().update(store).build());
     }
