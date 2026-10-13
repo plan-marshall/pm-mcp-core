@@ -246,7 +246,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; UC-ONB agreed (no work package)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:token-usage.adoc[`token-usage`] (the usage record of the verification); UC-ONB agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:decision-engine.adoc[`decision-engine`]
@@ -315,10 +315,16 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-decomposition.adoc[`epic-decomposition`]; the change An Epic Runs by Itself and UC-CTL-2 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
-|link:operator-reports.adoc[`operator-reports`]
-|Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report
+|link:token-usage.adoc[`token-usage`]
+|Tokens, not money: every reported figure recorded raw (the cost stored, never shown), the usage pointers with `reasoning` and the not-applicable declaration, the unified token figure with its split and coverage, what a harness reports recorded by the verification, parsing fixtures per harness and version; the spend limits removed from the specification and the code
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; the change Reports to the Operator and UC-PLN-6 agreed (no work package)
+|link:profile-loader.adoc[`profile-loader`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:role-qualification.adoc[`role-qualification`]; link:entity-addressing.adoc[`entity-addressing`]; the change Tokens, Not Money agreed (no work package)
+|the client work of `pm-mcp-clients`
+
+|link:operator-reports.adoc[`operator-reports`]
+|Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report with its Tokens section
+|`blocked`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; link:token-usage.adoc[`token-usage`]; the change Reports to the Operator and UC-PLN-6 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:runtime-control.adoc[`runtime-control`]
@@ -330,7 +336,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`blocked`
-|link:runtime-lifecycle.adoc[`runtime-lifecycle`]; link:lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); link:entity-addressing.adoc[`entity-addressing`]; the operator's choice of the metrics library (no work package); the change The Runtime's Metrics and UC-SYS-2 agreed (no work package)
+|link:runtime-lifecycle.adoc[`runtime-lifecycle`]; link:lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); link:entity-addressing.adoc[`entity-addressing`]; the operator's choice of the metrics library (no work package); the change The Runtime's Metrics and UC-SYS-2 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:code-analysis-base.adoc[`code-analysis-base`]
