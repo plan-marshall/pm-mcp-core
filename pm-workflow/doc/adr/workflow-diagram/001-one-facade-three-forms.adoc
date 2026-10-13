@@ -1,0 +1,44 @@
+= ADR 001: One Public Facade, Three Package-Private Renderers
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Work package `diagram-generator` (Roadmap Milestone 3) implements the generator of PM-IMPL-5, which renders a workflow unit as a Mermaid state diagram, AsciiDoc state, link and outcome tables, and a table for terminal output.
+The three forms share the same reading of the unit (the kind of a state, the order and the labels of its transitions) but differ in layout.
+Their consumers (the drift tests and the plan instance resource in `plan-marshall-mcp`, the operator's status output) need the forms, not the way they are built.
+
+== Decision
+
+1. `WorkflowDiagramGenerator` is the only public type of `workflow.diagram`: a final class with three static methods, `renderMermaid(WorkflowDefinition, Optional<String>)`, `renderAsciiDocTables(WorkflowDefinition)` and `renderAscii(WorkflowDefinition, Optional<String>)`, each returning a `String`.
+2. Each form has one package-private renderer: `MermaidRenderer`, `AsciiDocTableRenderer`, `AsciiTableRenderer`.
+3. What the forms share lives once in two package-private types: `StateKind` (the kind vocabulary) and `StateTransitions` (the edges in declaration order and their label parts).
+4. The facade validates the arguments (a known active state, no `null`) and delegates; the renderers assume valid arguments.
+
+== Alternatives Considered
+
+1. **A public renderer per form behind an interface**:
+A `DiagramRenderer` interface with three public implementations.
+*Rejected*: no consumer chooses a renderer at runtime, and a public type per form widens the API that every change of the output would have to keep.
+
+2. **One class rendering all three forms**:
+The three layouts in one class.
+*Rejected*: the layouts share nothing but the edges and kinds, which are factored out; one class would mix three unrelated layout concerns.
+
+== Consequences
+
+* Consumers depend on three static methods only; a renderer can be reworked without touching any caller.
+* Order and wording of the edges cannot diverge between the forms, because every renderer reads them from `StateTransitions`.
+* A new form is a new package-private renderer plus one facade method (see `pm-workflow/doc/developer/workflow-diagram.adoc` § Extension).
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java`

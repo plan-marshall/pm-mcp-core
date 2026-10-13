@@ -1,0 +1,40 @@
+= ADR 008: Terminal Output Uses Unicode Box-Drawing Characters Written as UTF-8
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The specification calls the terminal form an "ASCII" table, while its example draws the box with Unicode box-drawing characters.
+Pure ASCII (`+`, `-`, `|`) renders in every terminal; box-drawing characters read better but need UTF-8.
+The operator decided, when asked during planning, for Unicode box-drawing characters.
+
+== Decision
+
+1. `AsciiTableRenderer` draws the table with `┌ ┬ ┐ ├ ┼ ┤ └ ┴ ┘ │ ─`.
+2. The text is meant to be written as UTF-8; the golden file `diagram-fixture.txt` is UTF-8 and read as UTF-8.
+3. Column widths are the largest number of code points of their cells, so a non-ASCII character in a cell does not break the right border.
+
+== Alternatives Considered
+
+1. **Pure ASCII borders**:
+*Rejected* by the operator's answer; the specification example already uses box-drawing characters.
+
+2. **A switch between both styles**:
+*Rejected*: no caller needs both; a switch would double the golden files for no consumer.
+
+== Consequences
+
+* A caller writing the table must use UTF-8; the facade's Javadoc says so.
+* The name `renderAscii` stays as the specification names it, although the output is not pure ASCII.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/AsciiTableRenderer.java`

@@ -1,0 +1,40 @@
+= ADR 009: Byte-Stable Output
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Committed documentation is compared with the units it was rendered from, byte for byte.
+Any source of variation between two renderings of one unit (iteration order, platform line endings, timestamps, locale) turns that comparison into a false drift.
+
+== Decision
+
+1. Every form follows the declaration order of the unit: states in `WorkflowDefinition.states()` order, links and transitions in source order, phase groups in the order their phase values are first declared. Nothing is sorted.
+2. Every line ends with `\n`, the last one included; no carriage return is emitted on any platform.
+3. No timestamp, path, locale-dependent text or other environment data enters the output; lower-casing uses `Locale.ROOT`.
+4. Shared ordering and wording come from `StateTransitions` and `StateKind`, so the three forms agree.
+
+== Alternatives Considered
+
+1. **Sorting states and transitions by identifier**:
+*Rejected*: sorting tears apart the order the author chose, which is the order a reader follows the process in, and declaration order is already stable because the tree keeps it.
+
+2. **Platform line separators**:
+*Rejected*: committed files would differ by the platform that rendered them.
+
+== Consequences
+
+* `WorkflowDiagramGeneratorTest` checks each form against its golden file, renders twice and compares the bytes, and checks that no carriage return occurs and the output ends with a line feed.
+* Reordering states in a unit changes its rendered documentation, by design.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/package-info.java`

@@ -1,0 +1,180 @@
+= Workflow Diagrams (`workflow.diagram`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+== Purpose
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+Package `de.planmarshall.workflow.diagram` renders the tree of a workflow unit, a `WorkflowDefinition`, as the documentation of that unit in three forms: a Mermaid state diagram, AsciiDoc state, link and outcome tables, and a table for terminal output.
+Every form is a pure function of the unit, so the same unit always renders to the same bytes, which is what lets committed documentation be compared with the units it was rendered from.
+
+The generator renders a unit; it does not decide which units are rendered or where the output is committed.
+The default units, the committed diagrams and the drift tests that compare them belong to `plan-marshall-mcp` (see link:../adr/workflow-diagram/006-drift-tests-in-plan-marshall-mcp.adoc[ADR 006]).
+
+== Types
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+[horizontal]
+`WorkflowDiagramGenerator`:: The only public type: three static methods, one per form, each delegating to its renderer. It refuses an active state the unit does not have and checks nothing else of the unit.
+`MermaidRenderer`:: Renders `stateDiagram-v2` with one composite state per phase value.
+`AsciiDocTableRenderer`:: Renders, per phase group, the state table with the columns of the State Catalogue, the link table and the outcome table.
+`AsciiTableRenderer`:: Renders the right-border-aligned table drawn with Unicode box-drawing characters.
+`StateKind`:: The kind of a state (`auto`, `job`, `composite_job`, `call`, `link`, `terminal`, `awaiting_user`), derived from the sealed `StateBehavior` by a switch without a default arm.
+`StateTransitions`:: The edges of a unit in declaration order with their label parts: the description of a state, the task label of a task state, the trigger of an engine transition, the source form of a guard, and the implicit links of a state.
+
+The renderers, `StateKind` and `StateTransitions` are package-private (see link:../adr/workflow-diagram/001-one-facade-three-forms.adoc[ADR 001]).
+
+[source]
+----
+WorkflowDefinition (verified)
+        │
+        ▼
+WorkflowDiagramGenerator ── renderMermaid ──────── MermaidRenderer ────────┐
+        │                ── renderAsciiDocTables ─ AsciiDocTableRenderer ──┼── StateTransitions
+        │                ── renderAscii ────────── AsciiTableRenderer ─────┘        │
+        ▼                                                                           ▼
+String (LF line endings)                                                       StateKind
+----
+
+== Usage
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+Render a unit that passed `WorkflowValidator`:
+
+[source,java]
+----
+String diagram = WorkflowDiagramGenerator.renderMermaid(definition, Optional.empty());
+String tables = WorkflowDiagramGenerator.renderAsciiDocTables(definition);
+String terminal = WorkflowDiagramGenerator.renderAscii(definition, Optional.of("build.judge"));
+----
+
+An empty `activeState` renders the whole unit without a highlight; a present one adds the Mermaid style `active` and the terminal mark `*` with an `(ACTIVE)` line (see link:../adr/workflow-diagram/003-empty-active-state-renders-without-highlight.adoc[ADR 003]).
+Write the terminal form as UTF-8 (see link:../adr/workflow-diagram/008-unicode-box-drawing-utf8.adoc[ADR 008]).
+
+The excerpts below are copied from the golden files of the fixture unit `diagram/diagram-fixture.pmwf` in `src/test/resources/diagram/`.
+
+=== Mermaid
+
+The states are grouped by phase value into composite states `phase_<phase>` in first-declaration order; the states of phase `inherit` stay at the top level (see link:../adr/workflow-diagram/010-mermaid-phase-composite-states.adoc[ADR 010]).
+A state is declared as `state "<id>" as <alias>`, the alias with `.` and `-` mapped to `_`, and described as `<kind> <target>`; a task state is described by its task label.
+A transition of a declared link is labelled `<rel> <link_id> [<form>] [<guard>] / <outcome>`, an engine transition `<trigger> [<guard>] / <outcome>`, the trigger being the kind, `question` for the resolution outcomes of a question, or the task label of a task state.
+A transition between two states of one phase stays inside the composite; every other transition follows at the top level after `[*] --> <start>`.
+
+[source,text]
+----
+stateDiagram-v2
+    state phase_review {
+        state "review.entry" as review_entry
+        state "review.prepare" as review_prepare
+        state "review.ask" as review_ask
+        review_entry : link
+        review_prepare : auto diagram.prepare
+        review_ask : awaiting_user clarification
+        review_entry --> review_prepare : next proceed [noop] / done
+        review_entry --> review_entry : submit choose [submit] [in_worktree or has_open_findings and not all_tasks_completed] / declined
+        review_entry --> review_ask : retry again [noop] [in_worktree and not has_open_findings or predicate:diagram.ready] / done
+        review_ask --> review_entry : question / answered
+    }
+...
+    [*] --> review_entry
+...
+    build_commit --> diagram_done : call [result.pushed] / done
+    build_commit --> review_ask : call [not result.pushed] / done
+----
+
+=== AsciiDoc tables
+
+Per phase group, in first-declaration order, come a state table, a link table and an outcome table, each titled with the phase value; a link or outcome table is omitted for a group without links or transitions.
+The state table has exactly the columns of the State Catalogue; *Defined in* is emitted empty because it is maintained by hand in the catalogue (see link:../adr/workflow-diagram/005-catalogue-columns-defined-in-empty.adoc[ADR 005]).
+The link table lists the declared links and the implicit ones a state offers without declaring them: the `step_out` of a link state of a sub-workflow (rel `abort`) and one `consult:<role>` per `consult role` clause (rel `consult`).
+A cell without content holds `-`; a `|` inside a cell is escaped.
+
+[source,asciidoc]
+----
+|`build.implement`
+|`build`
+|`job`
+|`build.compose`
+|`task implementer each diagram.list-changes`; links `consult:reviewer`; outcomes `approved`, `lost`
+|`build.judge`, `diagram.failed`
+|
+----
+
+=== Terminal table
+
+One block of lines per state in declaration order, separated by a rule; the column widths are the largest number of code points of their cells.
+A task state shows its task label and its outcome transitions, never a link of its task's entity (see link:../adr/workflow-diagram/007-model-job-row-shows-role-and-outcomes.adoc[ADR 007]).
+
+[source,text]
+----
+│ build.judge                                 │ -                │ -                                                                │ approved -> build.commit     │
+│  task reviewer                              │ -                │ -                                                                │ lost -> diagram.failed       │
+├─────────────────────────────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────────┼──────────────────────────────┤
+│ build.commit                                │ -                │ result.pushed                                                    │ done -> diagram.done         │
+│  call diagram.callee                        │ -                │ not result.pushed                                                │ done -> review.ask           │
+----
+
+== Extension
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+=== A new `StateBehavior` variant
+
+A new variant of the sealed `StateBehavior` fails to compile in `StateKind.of` and in the switches of `StateTransitions` (`links`, `engineTransitions`, `implicitLinks`, `description`, `engineTrigger`), none of which has a default arm (see link:../adr/workflow-diagram/004-kind-labels-from-sealed-state-behavior.adoc[ADR 004]).
+Give the variant its kind, its description and its edges there; the three renderers read nothing else of a behaviour.
+Then extend `diagram-fixture.pmwf` with a state of the variant, re-render the three golden files, review the diff and add a case to `StateKindTest`.
+
+=== A new render target
+
+Add a package-private renderer that reads its edges from `StateTransitions.of(definition)` and its kinds from `StateKind`, so its order and vocabulary are those of the other forms, and a public method on `WorkflowDiagramGenerator` that delegates to it.
+Pin it with a golden file of the fixture unit beside the other three (see link:../adr/workflow-diagram/002-dedicated-fixture-and-golden-files.adoc[ADR 002]).
+
+=== Changing the output
+
+Any change of the output changes the golden files.
+Render the fixture, review the new output by hand and commit it with the change; never edit a golden file to make a test pass.
+
+== Invariants
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+Every form keeps these invariants (see link:../adr/workflow-diagram/009-byte-stable-output.adoc[ADR 009]); `WorkflowDiagramGeneratorTest` guards them on the fixture unit.
+
+. *Declaration order*: states, links and transitions appear in the order the unit declares them, phase groups in the order their phase values are first declared; nothing is sorted.
+. *Line endings*: every line ends with a line feed, also the last; no carriage return.
+. *No environment*: no timestamp, path, locale or other environment data enters the output.
+. *Byte stability*: two renderings of the same unit give identical bytes.
+. *Encoding*: the terminal form contains box-drawing characters and is written as UTF-8; the golden files are read as UTF-8.
+
+== Failure Modes
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+[cols="2,3"]
+|===
+|Situation |Behaviour
+
+|`activeState` names no state of the unit
+|`renderMermaid` and `renderAscii` throw `IllegalArgumentException` naming the state and the unit.
+
+|`definition` or `activeState` is `null`
+|`NullPointerException`.
+
+|The unit did not pass the static verifier
+|Not detected. The forms check nothing else of the unit; a transition target that is no state of the unit is rendered as it is named and stays outside every phase composite.
+|===
+
+== Testing
+
+* `WorkflowDiagramGeneratorTest` compares each form of the fixture unit with its golden file byte for byte, renders twice, checks the line endings, the active state, the refusal of an unknown one, the task-state rows, the `role each` label and every parameter type of the link table.
+* `StateKindTest` maps each variant of `StateBehavior`, a plain and a composite job apart, to its kind label.
+* `DiagramFixtures` parses the fixture unit and verifies it with `WorkflowValidator` before any test renders it, with the primitives, the entity kind `change` and the called sub-workflow `diagram.callee` registered in the test package.
+
+== Specification Tracing
+
+* Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Workflow DSL § Automated Mermaid, AsciiDoc Table, and ASCII Diagram Generation]

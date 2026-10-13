@@ -1,0 +1,48 @@
+= ADR 002: One Dedicated Fixture Unit with Three Golden Files
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The output of the generator must be pinned byte for byte, and the pinned unit must exercise every variant of `StateBehavior` so that every branch of the renderers is covered.
+Three sources of units were available: the fixtures of the verifier tests under `src/test/resources/verify/`, the default units of the product, and a unit written for these tests.
+The default units do not live in this repository, and the project rules forbid copying model-facing content into a module.
+
+== Decision
+
+1. One fixture unit, `src/test/resources/diagram/diagram-fixture.pmwf`, is written for the diagram tests: a sub-workflow with states in the phases `review` and `build` and in phase `inherit`, covering links with guard and form, `auto`, `job`, `composite_job`, `job llm` with a role, an `each` clause and a `consult role`, `call` with result guards, `question` with a declared link, and `terminal`.
+2. `DiagramFixtures` parses it and verifies it with `WorkflowValidator` before any test renders it; the primitives, the entity kind `change` and the called sub-workflow `diagram.callee` it names are registered in the test package `diagram`, because the helpers of the verifier tests are package-private to `verify`.
+3. Three golden files beside it, `diagram-fixture.mmd`, `.adoc` and `.txt`, hold its Mermaid, AsciiDoc and terminal forms, rendered without an active state; `WorkflowDiagramGeneratorTest` compares each form with its golden file byte for byte, read as UTF-8.
+4. The golden files are produced by the renderers and reviewed by hand; they are never edited to make a test pass.
+
+== Alternatives Considered
+
+1. **Reusing `verify/passing/every-construct.pmwf`**:
+The verifier's unit that uses every construct.
+*Rejected*: it declares every state in phase `inherit`, so it exercises no phase composite and no phase grouping, and its primitives are registered only in the package `verify`.
+
+2. **Rendering the default units**:
+Pinning the forms of the product's units.
+*Rejected*: the default units live in `plan-marshall-mcp`; their drift tests belong there (ADR 006).
+
+3. **Assertions on fragments only**:
+Checking substrings instead of whole files.
+*Rejected*: a fragment check misses a change of order, spacing or line endings, which is exactly what byte stability is about; fragment checks complement the golden files for the active state and the task-state rows.
+
+== Consequences
+
+* Any change of the output shows as a reviewed diff of a golden file.
+* The fixture passes the static verifier, so the golden files show a unit the generator is meant for.
+* A new `StateBehavior` variant extends the fixture and the golden files together.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/test/java/de/planmarshall/workflow/diagram/DiagramFixtures.java`

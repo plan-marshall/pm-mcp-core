@@ -1,0 +1,40 @@
+= ADR 006: The Drift Tests and the Default Units Belong to `plan-marshall-mcp`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The Workflow DSL specification placed two drift tests in `pm-workflow`: `WorkflowDiagramDriftTest`, which renders every `classpath:/workflows/*.pmwf` unit and compares the output with the diagrams committed under `doc/`, and `StateCatalogueDriftTest`, which compares the rendered state tables with the State Catalogue.
+Both read the default units.
+The default units are model-facing content, which lives in `plan-marshall-mcp`, and the build of `pm-mcp-core` refuses any module that carries content below `workflows/` in a JAR.
+
+== Decision
+
+1. `pm-workflow` provides the generator and pins it on its own fixture unit (ADR 002); it contains no drift test over the default units.
+2. `WorkflowDiagramDriftTest` and `StateCatalogueDriftTest` are written in `plan-marshall-mcp`, beside the default units and the committed diagrams, by the work package `default-units-and-drift-tests` there.
+3. The specification section *Build-Time Drift Gate* is corrected to name `plan-marshall-mcp` as the home of the tests.
+
+== Alternatives Considered
+
+1. **Drift tests in `pm-workflow` over test copies of the default units**:
+*Rejected*: a copy is not the unit that runs, so it would prove nothing about drift; copying product content into this repository is also forbidden.
+
+2. **Drift tests in `pm-workflow` reading the units from a `plan-marshall-mcp` artifact**:
+*Rejected*: `pm-workflow` would depend on the assembly repository, inverting the dependency direction of the product.
+
+== Consequences
+
+* The requirement's drift clause and the catalogue's drift test stay open in `plan-marshall-documentation` until `default-units-and-drift-tests` is done.
+* The watch items anchored to the drift gate (`PM-WATCH-DSL-19`, `PM-WATCH-GEN-15`) stay in the documentation with them.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `plan-marshall-mcp/doc/plans/default-units-and-drift-tests.adoc`

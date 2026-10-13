@@ -1,0 +1,44 @@
+= ADR 010: Mermaid Groups States by Phase Value into Composite States
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The normative text of the specification requires `renderMermaid` to group states by `phase` into composite states, while its example renders an excerpt of the `finalize` phase as a flat list.
+Mermaid does not admit a transition between inner states of different composites inside a composite block.
+States of sub-workflows and entity units carry the phase value `inherit`, which names no phase of their own.
+
+== Decision
+
+1. Every phase value other than `inherit` becomes one composite state `phase_<phase>` (`.` and `-` mapped to `_`), in the order the phase values are first declared; inside it come the state declarations, the description lines and the transitions between two states of that phase.
+2. States of phase `inherit` stay at the top level.
+3. Every other transition, crossing phases or leaving an `inherit` state, follows at the top level after `[*] --> <start>`, in declaration order.
+4. The specification example is corrected to show the composite states.
+
+== Alternatives Considered
+
+1. **A flat diagram as in the example**:
+*Rejected*: the normative text requires the grouping, and the phases are the structure a reader of a plan unit navigates by.
+
+2. **All transitions inside the composites**:
+*Rejected*: a transition to a state of another phase cannot be written inside a composite block.
+
+3. **A composite for `inherit`**:
+*Rejected*: `inherit` is no phase; a box labelled with it would suggest one.
+
+== Consequences
+
+* The fixture's golden file `diagram-fixture.mmd` shows two composites (`phase_review`, `phase_build`) and two top-level terminal states of phase `inherit`.
+* A unit whose states all inherit their phase renders without composites.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/MermaidRenderer.java`

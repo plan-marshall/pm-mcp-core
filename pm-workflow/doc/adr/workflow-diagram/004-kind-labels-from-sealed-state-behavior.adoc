@@ -1,0 +1,41 @@
+= ADR 004: Kind Labels Derived from the Sealed `StateBehavior`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The *Kind* column of the state table and the first word of a Mermaid state description name the kind of a state: `auto`, `job`, `composite_job`, `call`, `link`, `terminal`, `awaiting_user`.
+The kinds correspond to the variants of the sealed `StateBehavior`, with two irregularities: a `JobStep` is `job` or `composite_job` by its flag, and a task state (`ModelJob`) is `job`.
+A closed vocabulary restated in a second place drifts from its source unnoticed.
+
+== Decision
+
+1. `StateKind` is a package-private enum of the seven kinds; its label is the lower-case constant name.
+2. `StateKind.of(StateBehavior)` derives the kind by a switch over the sealed variants without a default arm, so a new variant fails to compile until it is given a kind.
+3. The other switches of the package over `StateBehavior` (in `StateTransitions`) have no default arm either.
+
+== Alternatives Considered
+
+1. **A kind method on `StateBehavior`**:
+Each variant naming its own kind label.
+*Rejected*: the kind label is a documentation vocabulary of this package; putting it on the tree would change `workflow.ast` for a concern of `workflow.diagram`.
+
+2. **A map from variant class to label**:
+*Rejected*: a map has no compile-time exhaustiveness; a missing variant would surface only at runtime.
+
+== Consequences
+
+* The kind vocabulary has one source, derived from the tree; `StateKindTest` maps every variant (a plain and a composite job apart) to its label and checks that every kind is the label of some variant.
+* Adding a `StateBehavior` variant is a compile error in this package until it is handled.
+
+== Source
+
+* `doc/plans/diagram-generator.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/StateKind.java`
