@@ -28,7 +28,7 @@ One refusing fixture per invariant and per declaration bound; a fixture project 
 
 == Hooks Left for Later Packages
 
-The package checks what the syntax tree and the descriptors decide. The remainders are named hooks, each a code constant at its check, and stay open for the packages that own the runtime facts (ADRs `workflow-verify/015`, `workflow-finalize/003` and `workflow-unit/004` of `pm-workflow`):
+The package checks what the syntax tree and the descriptors decide. The remainders are named hooks, each a code constant at its check, and stay open for the packages that own the runtime facts (ADRs `workflow-verify/019`, `workflow-finalize/003` and `workflow-unit/004` of `pm-workflow`):
 
 * `INV-GEN-2`: only the operator API writes waiver records and every lookup logs a consumption; the primitive SPI offers no write capability.
 * `INV-GEN-4`: the removed options a primitive reads from configuration at runtime (lane, Q-Gate mode, confidence threshold, merge method, self-review scope).
