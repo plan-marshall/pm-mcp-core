@@ -1,0 +1,26 @@
+= `pm-provider-git`
+:nofooter:
+
+`pm-provider-git` holds the git contract of the engine and the variant that serves it in process on JGit. It never
+starts a process. What the module may depend on is stated in the
+https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
+
+== Package
+
+The line is the first sentence of the package's `package-info.java`.
+
+* `de.planmarshall.provider.git`: the git contract of PM-MCP and its native variant on JGit.
+
+== Build and Test
+
+Run from the root of the repository:
+
+* Tests: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-providers/pm-provider-git -am"`
+
+The commands for the whole repository are in `CLAUDE.md`.
+
+== Developer Documentation and ADRs
+
+The module has no developer documentation and no ADRs yet. A later plan writes them to
+`doc/developer/provider-git.adoc` and `doc/adr/provider-git/` of this module. The index of all ADRs of the repository
+is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].

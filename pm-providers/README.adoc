@@ -1,0 +1,17 @@
+= `pm-providers`
+:nofooter:
+
+`pm-providers` is the aggregator of the provider modules. It holds no code. Each provider module connects the engine
+to one external system: git, a CI host or a code analysis service. What a provider module may depend on is stated in
+the
+https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
+
+== Provider Modules
+
+* link:pm-provider-git/README.adoc[`pm-provider-git`]: the git contract and its native variant on JGit.
+* link:pm-provider-ci/README.adoc[`pm-provider-ci`]: the shared HTTP base of the CI contract.
+* link:pm-provider-github/README.adoc[`pm-provider-github`]: the native GitHub client.
+* link:pm-provider-gitlab/README.adoc[`pm-provider-gitlab`]: the native GitLab client and the `glab` CLI variant.
+* link:pm-provider-sonar/README.adoc[`pm-provider-sonar`]: Sonar as a code analysis provider.
+
+The aggregator has no developer documentation and no ADRs of its own.

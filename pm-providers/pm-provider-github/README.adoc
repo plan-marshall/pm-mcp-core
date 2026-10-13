@@ -1,0 +1,26 @@
+= `pm-provider-github`
+:nofooter:
+
+`pm-provider-github` is the native GitHub client of the engine. It authenticates as a GitHub App and sends its REST
+and GraphQL requests over the shared HTTP base of `pm-provider-ci`. What the module may depend on is stated in the
+https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/specification/module-structure.adoc[Module Structure Specification].
+
+== Package
+
+The line is the first sentence of the package's `package-info.java`.
+
+* `de.planmarshall.provider.github`: the native GitHub client of PM-MCP: GitHub App authentication, fixed GraphQL documents for review threads and the merge queue, and REST calls, all over the shared HTTP base of `pm-provider-ci`.
+
+== Build and Test
+
+Run from the root of the repository:
+
+* Tests: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-providers/pm-provider-github -am"`
+
+The commands for the whole repository are in `CLAUDE.md`.
+
+== Developer Documentation and ADRs
+
+The module has no developer documentation and no ADRs yet. A later plan writes them to
+`doc/developer/provider-github.adoc` and `doc/adr/provider-github/` of this module. The index of all ADRs of the
+repository is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].
