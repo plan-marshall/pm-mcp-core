@@ -17,8 +17,8 @@ The operator decided (question q2 of the work package) to place one checker clas
 
 == Decision
 
-`InvariantId` is the one list of the thirty invariants and the only source of their vocabulary; each constant carries its wire id, the unit patterns it applies to and an optional named hook.
-`GeneralInvariants`, `InitInvariants`, `RefineInvariants`, `OutlineInvariants`, `PlanInvariants`, `ExecuteInvariants`, `FinalizeInvariants`, `SubWorkflowInvariants` and `RemediationInvariants` contribute the checks; the facade `CompiledInvariants` collects them, refuses at class load an invariant with no check or two, and runs the checks that apply to a unit's id.
+`InvariantId` is the one list of the invariants and the only source of their vocabulary; each constant carries its wire id, the unit patterns it applies to and an optional named hook.
+One package-private checker class per phase or unit kind contributes the checks; the facade `CompiledInvariants` collects them, refuses at class load an invariant with no check or two, and runs the checks that apply to a unit's id.
 The default unit of the same id is the reference of every check: the shared path helpers compare the dominance and the routes around a gate in the unit with those of the default unit, so a project unit may tighten its default unit but never open a path it does not have.
 A violation is an `InvariantViolation` of its own: the invariant, the state, the source location and a message.
 
