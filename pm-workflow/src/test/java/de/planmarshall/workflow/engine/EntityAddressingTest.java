@@ -323,24 +323,31 @@ class EntityAddressingTest {
         @DisplayName("The status of another scope, a state the unit lacks, or an unregistered entity kind")
         void inconsistentArguments() {
             var unregistered = new EntityAddressResolver(fixtures.entryReader, EntityKindRegistry.defaults());
+            var lessonAddress = EntityAddress.workspace(LESSON_TASK);
+            var otherPlanAddress = EntityAddress.plan("other-plan", PLAN_TASK);
+            var coreAddress = EntityAddress.workspace(CORE_ENRICHMENT);
+            var planStatus = planReviewing();
+            var planDefinition = planUnit();
+            var missingState = workspaceStatus("workspace.missing", Map.of());
+            var coreEnriching = enriching(CORE_ENRICHMENT);
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> resolver.resolve(EntityAddress.workspace(LESSON_TASK), planReviewing(), workspace)),
+                            () -> resolver.resolve(lessonAddress, planStatus, workspace)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> resolver.resolve(EntityAddress.plan("other-plan", PLAN_TASK), planReviewing(),
-                                    planUnit())),
+                            () -> resolver.resolve(otherPlanAddress, planStatus, planDefinition)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> inWorkspace(LESSON_TASK, workspaceStatus("workspace.missing", Map.of()))),
+                            () -> inWorkspace(LESSON_TASK, missingState)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> unregistered.resolve(EntityAddress.workspace(CORE_ENRICHMENT),
-                                    enriching(CORE_ENRICHMENT), workspace)));
+                            () -> unregistered.resolve(coreAddress, coreEnriching, workspace)));
         }
 
         @Test
         @DisplayName("An address with a scope id where none belongs or none where one does")
         void malformedAddress() {
             var none = Optional.<String>empty();
+            var planId = Optional.of(PLAN_ID);
+            var epicId = Optional.of(EPIC_ID);
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
@@ -348,14 +355,13 @@ class EntityAddressingTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new EntityAddress(JournalScopeType.PLAN, none, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new EntityAddress(JournalScopeType.WORKSPACE, Optional.of(PLAN_ID), LESSON_TASK)),
+                            () -> new EntityAddress(JournalScopeType.WORKSPACE, planId, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> EntityAddress.plan(EntityAddress.NO_PLAN, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> EntityAddress.fromArguments(none, none, LESSON_TASK)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> EntityAddress.fromArguments(Optional.of(PLAN_ID), Optional.of(EPIC_ID),
-                                    LESSON_TASK)));
+                            () -> EntityAddress.fromArguments(planId, epicId, LESSON_TASK)));
         }
 
         @Test
