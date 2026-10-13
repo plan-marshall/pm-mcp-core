@@ -11,7 +11,6 @@ package de.planmarshall.core.store;
 
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -72,24 +71,14 @@ public final class ScopeSessionLog {
 
         /** @return the rows that were read, in the order of the log, without the refused lines */
         public List<ScopeSessionRow> rows() {
-            var rows = new ArrayList<ScopeSessionRow>();
-            for (var entry : entries) {
-                if (entry instanceof Accepted<ScopeSessionRow> accepted) {
-                    rows.add(accepted.value());
-                }
-            }
-            return List.copyOf(rows);
+            return entries.stream().filter(entry -> entry instanceof Accepted<ScopeSessionRow>)
+                    .map(entry -> ((Accepted<ScopeSessionRow>) entry).value()).toList();
         }
 
         /** @return the refused lines with their line numbers and refusals, in the order of the log */
         public List<Refused<ScopeSessionRow>> refused() {
-            var refused = new ArrayList<Refused<ScopeSessionRow>>();
-            for (var entry : entries) {
-                if (entry instanceof Refused<ScopeSessionRow> line) {
-                    refused.add(line);
-                }
-            }
-            return List.copyOf(refused);
+            return entries.stream().filter(entry -> entry instanceof Refused<ScopeSessionRow>)
+                    .map(entry -> (Refused<ScopeSessionRow>) entry).toList();
         }
 
         /** @return the last row that was read; empty if the log has none */

@@ -115,7 +115,7 @@ class ScopeSessionLogTest {
 
         @Test
         @DisplayName("writes one row as one line through the transaction, covered by the sidecar, owing nothing first")
-        void firstRow() throws Exception {
+        void firstRow() {
             var row = row(Client.CLAUDE, "sess-1", "1");
 
             var owed = append(row);
@@ -213,7 +213,7 @@ class ScopeSessionLogTest {
         @ParameterizedTest(name = "stopped after {0}")
         @EnumSource(Step.class)
         @DisplayName("stopped at a step boundary leaves no row before its journal, and the row and its record after")
-        void crashPoint(Step stop) throws Exception {
+        void crashPoint(Step stop) {
             var first = row(Client.CLAUDE, "sess-1", "1");
             var second = row(Client.ANTIGRAVITY, "sess-2", "2");
             append(first);

@@ -42,6 +42,10 @@ public sealed interface GenerationCheck {
         return generation.fence().byEnter() ? new Superseded(generation) : new Fenced(generation);
     }
 
+    private static void requireEntry(SessionGeneration generation) {
+        Objects.requireNonNull(generation, "generation");
+    }
+
     /**
      * The generation is the current one of its session identity.
      *
@@ -52,7 +56,7 @@ public sealed interface GenerationCheck {
 
         /** @throws NullPointerException if the entry is {@code null} */
         public Current {
-            Objects.requireNonNull(generation, "generation");
+            requireEntry(generation);
         }
     }
 
@@ -70,7 +74,7 @@ public sealed interface GenerationCheck {
 
         /** @throws NullPointerException if the entry is {@code null} */
         public Fenced {
-            Objects.requireNonNull(generation, "generation");
+            requireEntry(generation);
         }
     }
 
@@ -88,7 +92,7 @@ public sealed interface GenerationCheck {
 
         /** @throws NullPointerException if the entry is {@code null} */
         public Superseded {
-            Objects.requireNonNull(generation, "generation");
+            requireEntry(generation);
         }
     }
 

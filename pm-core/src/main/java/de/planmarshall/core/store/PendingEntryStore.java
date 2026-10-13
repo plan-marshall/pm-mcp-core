@@ -59,7 +59,7 @@ public final class PendingEntryStore {
     }
 
     /** @return the directory {@code pending/}, absolute and normalized */
-    public Path directory() {
+    public Path directoryPath() {
         return scope.resolve(DIRECTORY);
     }
 
@@ -182,14 +182,14 @@ public final class PendingEntryStore {
      */
     public SortedSet<EntryId> entryIds() {
         var ids = new TreeSet<EntryId>((left, right) -> left.value().compareTo(right.value()));
-        try (var entries = Files.list(directory())) {
+        try (var entries = Files.list(directoryPath())) {
             entries.filter(entry -> Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS))
                     .map(entry -> EntryId.ofFileName(entry.getFileName().toString()))
                     .flatMap(Optional::stream).forEach(ids::add);
         } catch (NoSuchFileException _) {
             return Collections.emptySortedSet();
         } catch (IOException e) {
-            throw new UncheckedIOException("Pending entry records cannot be listed: " + directory(), e);
+            throw new UncheckedIOException("Pending entry records cannot be listed: " + directoryPath(), e);
         }
         return Collections.unmodifiableSortedSet(ids);
     }

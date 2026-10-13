@@ -88,6 +88,8 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
     private static final String FIELD_NEW_SIZE = "new_size";
     private static final String FIELD_NEW_SHA256 = "new_sha256";
     private static final String FIELD_OWED_EVENTS = "owed_events";
+    /** What a refusal calls one element of {@code targets}. */
+    private static final String TARGET = "target";
 
     /**
      * How a target store is written.
@@ -347,7 +349,7 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {
-        requireObject(parser, "target");
+        requireObject(parser, TARGET);
         String path = null;
         Mode mode = null;
         String stagedPath = null;
@@ -369,13 +371,13 @@ Instant createdAt, List<Target> targets, List<AuditEvent> owedEvents) {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "target", FIELD_PATH, FIELD_MODE);
+        requireFields(seen, TARGET, FIELD_PATH, FIELD_MODE);
         try {
             if (mode == Mode.DELETE) {
                 requireNoneOf(seen, path, FIELD_STAGED_PATH, FIELD_SIZE_BEFORE, FIELD_NEW_SIZE, FIELD_NEW_SHA256);
                 return Target.delete(path);
             }
-            requireFields(seen, "target", FIELD_STAGED_PATH, FIELD_NEW_SIZE, FIELD_NEW_SHA256);
+            requireFields(seen, TARGET, FIELD_STAGED_PATH, FIELD_NEW_SIZE, FIELD_NEW_SHA256);
             return new Target(path, mode, stagedPath, sizeBefore, new StoreDigest(newSize, newSha256));
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);

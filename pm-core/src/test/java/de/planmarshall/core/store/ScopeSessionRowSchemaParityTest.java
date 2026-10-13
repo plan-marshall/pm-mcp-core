@@ -53,7 +53,8 @@ class ScopeSessionRowSchemaParityTest {
     private static final Set<String> FREE_STRINGS = Set.of("client_build", "model_id", "pm_mcp_version",
             "bundle_version");
 
-    private static final Pattern PATH_NAME = Pattern.compile(".*(path|dir|root|checkout|file).*");
+    /** A member name that contains one of these words is named for a path; it is searched for, not matched whole. */
+    private static final Pattern PATH_NAME = Pattern.compile("path|dir|root|checkout|file");
 
     private static Map<?, ?> schema;
     private static Map<?, ?> properties;
@@ -116,7 +117,7 @@ class ScopeSessionRowSchemaParityTest {
                 .filter(component -> Path.class.isAssignableFrom(component.getType())).toList();
 
         assertAll(
-                () -> assertEquals(List.of(), names.stream().filter(name -> PATH_NAME.matcher(name).matches())
+                () -> assertEquals(List.of(), names.stream().filter(name -> PATH_NAME.matcher(name).find())
                         .toList(), "no member is named for a path"),
                 () -> assertEquals(FREE_STRINGS, unconstrained, "every other string member is constrained"),
                 () -> assertFalse(Pattern.compile(worktreePattern).matcher("a/b").find(),

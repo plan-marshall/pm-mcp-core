@@ -227,7 +227,8 @@ class PendingEntryStoreTest {
         void otherScope() throws Exception {
             var plan = JournalScope.plan(base, PROJECT, "a-plan");
             Files.createDirectories(plan.journalFile().getParent());
-            var entry = entry(new EntryId("ent-0123456789abcdef"), "start.choose");
+            var entryId = new EntryId("ent-0123456789abcdef");
+            var entry = entry(entryId, "start.choose");
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(plan.lockKey());
                 var write = ScopeTransaction.open(transaction, plan, audit, CLOCK);
@@ -235,8 +236,7 @@ class PendingEntryStoreTest {
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, entry)),
                         () -> assertThrows(IllegalArgumentException.class, () -> store.allocate(write)),
-                        () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.remove(write, entry.entryId())));
+                        () -> assertThrows(IllegalArgumentException.class, () -> store.remove(write, entryId)));
             }
         }
 

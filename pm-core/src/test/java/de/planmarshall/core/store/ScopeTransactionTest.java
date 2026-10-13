@@ -352,7 +352,7 @@ class ScopeTransactionTest {
 
         @Test
         @DisplayName("removes the store and drops its digest; the other digests, no journal and no staged file remain")
-        void existingStore() throws Exception {
+        void existingStore() {
             commitDeleting(STATUS);
 
             assertAll(
@@ -365,7 +365,7 @@ class ScopeTransactionTest {
 
         @Test
         @DisplayName("of a store that does not exist commits and leaves every other store and digest as it was")
-        void absentStore() throws Exception {
+        void absentStore() {
             var before = sidecar();
 
             commitDeleting(REFERENCES);
@@ -380,7 +380,7 @@ class ScopeTransactionTest {
 
         @Test
         @DisplayName("beside a replace and an append of other stores applies all three in one transaction")
-        void besideOtherModes() throws Exception {
+        void besideOtherModes() {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = openUnder(transaction);

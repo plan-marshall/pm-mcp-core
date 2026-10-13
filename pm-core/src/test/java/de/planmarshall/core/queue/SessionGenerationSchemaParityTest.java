@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -133,7 +134,7 @@ class SessionGenerationSchemaParityTest {
     }
 
     private static Set<String> enumOf(Map<?, ?> property) {
-        return array(property, "enum").stream().filter(value -> value != null).map(String::valueOf)
+        return array(property, "enum").stream().filter(Objects::nonNull).map(String::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
     }
 

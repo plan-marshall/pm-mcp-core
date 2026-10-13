@@ -107,7 +107,7 @@ class PendingEntryRecordsSweepTest {
     }
 
     private Path writeFile(String name, String content) throws IOException {
-        return Files.writeString(store.directory().resolve(name), content, StandardCharsets.UTF_8);
+        return Files.writeString(store.directoryPath().resolve(name), content, StandardCharsets.UTF_8);
     }
 
     @Test

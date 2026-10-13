@@ -384,7 +384,7 @@ class JournalRecoveryTest {
 
         @Test
         @DisplayName("stopped after its journal, with the store still present, removes the store and drops its digest")
-        void storePresent() throws Exception {
+        void storePresent() {
             var journal = stopDeleteAt(Step.JOURNAL, 0);
 
             var outcome = recover();
@@ -401,7 +401,7 @@ class JournalRecoveryTest {
 
         @Test
         @DisplayName("stopped after the delete was applied, with the store absent, only drops its digest")
-        void storeAbsent() throws Exception {
+        void storeAbsent() {
             var journal = stopDeleteAt(Step.APPLY, 0);
 
             var outcome = recover();

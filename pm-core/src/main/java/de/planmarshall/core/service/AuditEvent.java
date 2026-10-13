@@ -179,6 +179,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a removed pending entry record that holds the instant the record was created. */
     public static final String DETAIL_CREATED_AT = "created_at";
 
+    /** The name of the transaction id argument, as a null check reports it. */
+    private static final String TRANSACTION_ID_ARGUMENT = "transactionId";
+
     /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
      */
@@ -272,7 +275,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         if (clientSessionId != null) {
             details.put(DETAIL_CLIENT_SESSION_ID, clientSessionId);
         }
-        details.put(DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, "transactionId"));
+        details.put(DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT));
         return new AuditEvent(ENTRY_CLIENT_CHANGED, CATEGORY_IDENTITY, OUTCOME_SUCCEEDED, details);
     }
 
@@ -295,7 +298,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                 Map.of(DETAIL_ENTRY_ID, Objects.requireNonNull(entryId, "entryId"), DETAIL_STORE,
                         Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
                         Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
-                        Objects.requireNonNull(transactionId, "transactionId")));
+                        Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
     /**
@@ -398,7 +401,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     private static AuditEvent operatorSucceeded(String event, String projectId, String transactionId) {
         return new AuditEvent(event, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_PROJECT_ID, Objects.requireNonNull(projectId, "projectId"), DETAIL_TRANSACTION_ID,
-                        Objects.requireNonNull(transactionId, "transactionId")));
+                        Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
     private static String lockPath(LockKey key) {
