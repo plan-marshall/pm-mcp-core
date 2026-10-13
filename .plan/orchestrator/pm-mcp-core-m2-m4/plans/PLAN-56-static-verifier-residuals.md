@@ -60,9 +60,13 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Claim Labels
 
 - OBSERVED: the firing ends at any other opening (`openings.contains(target) && !target.equals(opening)`), while the specification says "the next opening of the same step" — read at `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java` (580815e) and `../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc`, re-checked by the orchestrator
+  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java exists at fa58b0d (presence checked, content not re-read)
 - OBSERVED: result guards are checked only inside the handling of `call` states, while the specification refuses a result guard on any other transition — read at `pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java` (580815e), re-checked by the orchestrator
+  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java exists at fa58b0d (presence checked, content not re-read)
 - OBSERVED: deliverables 4 to 7 are findings of the independent audit of 36a0bcd, recorded in `landings/PLAN-54.md`, not each re-checked by the orchestrator — read at `pm-workflow/doc/adr/workflow-verify/010-*.adoc`
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-workflow/doc/adr/workflow-verify/010-*.adoc not addressable at fa58b0d as written
 - Verify-first clause: re-run every item against HEAD; list open PRs naming `static-verifier-residuals`; a refuted item is dropped and named.
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-first clause is executed by the plan at refine
 
 ## Expected Surface
 

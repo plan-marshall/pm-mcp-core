@@ -54,9 +54,13 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`, `enrolment-store`, and UC-PRJ-1 agreed) — read at `doc/plans/project-onboarding-unit.adoc` and `doc/plans/README.adoc` (main at 5010969)
+  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/project-onboarding-unit.adoc exists at fa58b0d (presence checked, content not re-read)
 - OBSERVED: the enrolment store, lifecycle gate and integrity shipped with PLAN-11 (#30): `core.store` (`EnrolmentStore`, `ProjectEnrolment`, `LifecycleGate`) and the new package `runtime.enrolment` — file list of 5010969
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line — confirm/refute at the trace matrix (verify-at-outline)
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-first clause is executed by the plan at refine
 
 ## Expected Surface
 
@@ -65,6 +69,14 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/enrolment/` — detection and enrolment
 - HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/workspace/` — the projects of the machine
 - OBSERVED: `doc/plans/README.adoc` — this package's own status row only
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
+- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
+- HYPOTHESIS: `pm-runtime/doc/developer/runtime-enrolment.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-enrolment/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
+- HYPOTHESIS: `pm-runtime/doc/developer/runtime-workspace.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-workspace/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 
 ## Dependencies and Sequencing
 

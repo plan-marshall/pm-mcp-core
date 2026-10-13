@@ -24,9 +24,9 @@ Harness: Claude Code (default).
 | PR | Repository | State |
 |----|------------|-------|
 | #56 | pm-mcp-core | MERGED 2026-10-13T19:53:14Z (df4b318) |
-| #57 | plan-marshall-documentation | **OPEN** — requirements, specification sections (AST node model, finalize descriptor, remediation units, dynamic re-planning, decision quorum, module structure), LogMessages 70/170/270, roadmap, DSL watch |
+| #57 | plan-marshall-documentation | MERGED 2026-10-13T20:44:58Z (fff6552) — requirements, specification sections (AST node model, finalize descriptor, remediation units, dynamic re-planning, decision quorum, module structure), LogMessages 70/170/270, roadmap, DSL watch |
 
-**Not complete until doc #57 merges.** Its content was checked against the merged code: the three
+**Complete:** doc #57 merged at 20:44:58Z, before the log-holder documentation PR. Its content was checked against the merged code: the three
 log rows match identifier, class and template of `PmMcpLogMessages` at df4b318, and rules 6
 (`work_performed`), 7 and 8 are described as named hooks, as merged. Its last commit (12:46Z)
 predates the code's last fix commits, but none of those changed a documented fact.
@@ -89,7 +89,7 @@ versions from the parent. The operator consented to both (decision.log 09:43:37Z
 - [x] row `status` → `shipped`; `pr` `#56`; `landing` `landings/PLAN-17.md`
 - [x] 11 lessons routed to plan-marshall (`pm-mcp-core-m2-m4-252.md` to `-262.md`); `-252` is a
       second occurrence of `-242`
-- [x] doc #57 recorded as an open related PR in `epic.md`
+- [x] doc #57 recorded as an open related PR in `epic.md`; MERGED at 20:44:58Z, watch relocated to `settled.md` by cleanup
 
 ## Follow-Ups
 

@@ -67,8 +67,11 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Claim Labels
 
 - OBSERVED: the package file and its index row (`blocked`; depends on `workflow-engine`, `static-verifier-and-fuzzer`, `project-units-and-invariants`, `plan-instance`, `phase-sub-workflows`, `recipe-workflows`, `machine-onboarding-unit`, `start-from-clients`, `role-sets-and-model-caller`, `audit-trail`; (the plan axes and their variants); (the short landing `git.land-removal`); (the effective role set); the change Designing a Process and UC-PLN-3 agreed (no work package)) — read at `doc/plans/process-designer.adoc` and `doc/plans/README.adoc` (main at fa58b0d)
+  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/process-designer.adoc exists at fa58b0d (presence checked, content not re-read)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: verify-first clause is executed by the plan at refine
 
 ## Expected Surface
 
@@ -76,6 +79,12 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — inferred from the `Where` line
 - HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — inferred from the `Where` line
 - OBSERVED: `doc/plans/README.adoc` — this package's own status row only
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-verify.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-verify/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
+- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
+- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
 
 ## Dependencies and Sequencing
 

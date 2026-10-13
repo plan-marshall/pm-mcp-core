@@ -387,6 +387,22 @@ decision or a dependency outside this repository.
   `blocked` packages `process-designer` and `cleanup`, staged as parked PLAN-62 (WS-03) and PLAN-63
   (WS-01). No plan is running: the drain is complete, and the log-holder session plan is next.
 
+- 2026-10-13 — Doc #57 merged (20:44:58Z, fff6552), before the log-holder plan's documentation PR:
+  PLAN-17 is complete. Cleanup while the log-holder session plan runs (main at fa58b0d):
+  - Re-grounding of the 40 open specs: 236 claims, 99 corroborated, 137 unverifiable (hypotheses
+    and verify-first clauses), none left contradicted.
+  - Four stale "greenfield" claims rewritten (PLAN-20, PLAN-27 `runtime.job` of PLAN-18; PLAN-25
+    `workflow.engine` of PLAN-13/21; PLAN-28 `core.queue` of PLAN-12); PLAN-20's `LiveWork` claim
+    updated.
+  - PLAN-40 re-scoped to the real gap: 25 packages without a developer file, seven guides still
+    in `plan-marshall-documentation`. It now runs after the log-holder plan, because `core-log.adoc`
+    describes its result.
+  - 19 parked specs (PLAN-42/43/45–53/55/57–63) gained their module-doc paths in Expected Surface;
+    their constraints already required them.
+  - Watches for doc #57, doc #20 and documentation #36 relocated to `settled.md`.
+  - Deferred to the log-holder report: every open spec's log bullet and the holder path in its
+    surface.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
@@ -433,7 +449,7 @@ decision or a dependency outside this repository.
 
 - Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
 - A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
-- Documentation PR `plan-marshall-documentation` #57 (PLAN-17) is OPEN — PLAN-17's landing completes when it is merged. Merge it before the log-holder plan's documentation PR (both edit `doc/LogMessages.adoc`; the split renumbers rows 70/170/270).
+> ↪ Relocated to `settled.md` § "Watch: doc #57 of PLAN-17" — #57 merged 2026-10-13T20:44:58Z (fff6552); PLAN-17 complete
 - plan-marshall-mcp owes, from PLAN-17: `DefaultUnitInvariantTest` over the real default units, and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal).
 
 - plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
@@ -445,8 +461,7 @@ decision or a dependency outside this repository.
 - **Non-Claude-Code runs (Antigravity, opencode) need the extended landing verification** (code-vs-package audit, build-log and
   gate check, review trail), because the plan's self-report was unreliable on its first run (seven
   high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.
-- `plan-marshall-documentation` #36 changed `workflow-dsl/02-units-jobs-decisions.adoc` during
-  PLAN-41's execute (07:25Z); PLAN-44 re-verifies against the current specification.
+> ↪ Relocated to `settled.md` § "Watch: documentation #36 during PLAN-41" — PLAN-44 shipped as #38 against the current specification
 
 
 - `FindingSchemaParityTest` of PLAN-36 and `WorkflowStatusSchemaParityTest` of PLAN-13 read the sibling checkout of `plan-marshall-documentation`
@@ -468,8 +483,7 @@ decision or a dependency outside this repository.
   touched (27 `pm-runtime` files on PLAN-01; lesson 2026-10-10-14-001). Every running plan can
   pull unrelated diffs into its PR. A parent POM change, outside this repository.
 
-- `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
-  PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
+> ↪ Relocated to `settled.md` § "Watch: doc #20 of PLAN-02" — #20 merged 2026-10-13T11:28:36Z (be27641)
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 
