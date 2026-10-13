@@ -345,6 +345,12 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:workflow-engine.adoc[`workflow-engine`]; link:static-verifier-and-fuzzer.adoc[`static-verifier-and-fuzzer`]; link:project-units-and-invariants.adoc[`project-units-and-invariants`]; link:plan-instance.adoc[`plan-instance`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-from-clients.adoc[`start-from-clients`] (the short landing `git.land-removal`); link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`] (the effective role set); link:audit-trail.adoc[`audit-trail`]; the change Designing a Process and UC-PLN-3 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
+|link:cleanup.adoc[`cleanup`]
+|One cleanup of the machine: the durations per kind of work history, the daily check with its report, the cleanup job with its summary and details, delete with its audit, remind, and the kept list; the retention of work history replaced, the technical residue left to the sweeps with its figures shown
+|`blocked`
+|link:runtime-lifecycle.adoc[`runtime-lifecycle`] (the periodic sweep); link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives, the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:audit-trail.adoc[`audit-trail`]; link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:job-runner.adoc[`job-runner`] (the job logs); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values); link:entity-addressing.adoc[`entity-addressing`]; the change One Cleanup and UC-SYS-3 agreed (no work package)
+|the client work of `pm-mcp-clients`
+
 |link:code-analysis-base.adoc[`code-analysis-base`]
 |Code analysis base: format, interface and contract
 |`done`
