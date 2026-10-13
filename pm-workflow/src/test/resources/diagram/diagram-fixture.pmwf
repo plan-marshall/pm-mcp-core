@@ -1,0 +1,80 @@
+# A sub-workflow written for the diagram generator tests, not taken from any default unit. It
+# covers every state behaviour (links with guard and form, auto, job, composite_job, job llm
+# with a role, an each clause and a consult role, call with result guards, question with a
+# declared link, terminal) in the two phases review and build and in phase inherit, and passes
+# every check of the static verifier with the primitives DiagramFixtures registers.
+workflow diagram.fixture version 1 format 1
+scope subworkflow
+start review.entry
+
+state review.entry
+    phase review
+    skill pm/diagram/entry
+    link next proceed ()
+        do diagram.proceed
+            done -> review.prepare
+    link submit choose [submit] (note: text[1..80], comment: text?)
+        guard in_worktree or has_open_findings and not all_tasks_completed
+        do diagram.choose
+            chosen -> build.compile
+            declined -> review.entry
+    link retry again [noop] ()
+        guard (in_worktree and not has_open_findings) or predicate:diagram.ready
+        do diagram.proceed
+            done -> review.ask
+
+state review.prepare
+    phase review
+    auto diagram.prepare
+        done -> build.compile
+        skipped -> build.compose
+
+state build.compile
+    phase build
+    job diagram.build
+        succeeded -> build.compose
+        failed -> diagram.failed
+        cancelled -> diagram.failed
+
+state build.compose
+    phase build
+    composite_job diagram.build
+        succeeded -> build.implement
+        failed -> diagram.failed
+        cancelled -> diagram.failed
+
+state build.implement
+    phase build
+    job llm change role implementer each diagram.list-changes
+    consult role reviewer
+        approved -> build.judge
+        lost -> diagram.failed
+
+state build.judge
+    phase build
+    job llm change role reviewer
+        approved -> build.commit
+        lost -> diagram.failed
+
+state build.commit
+    phase build
+    call diagram.callee
+        done -> diagram.done
+            guard result.pushed
+        done -> review.ask
+            guard not result.pushed
+
+state review.ask
+    phase review
+    question clarification
+        answered -> review.entry
+        assumed -> diagram.done
+    link next skip_wait ()
+        do diagram.proceed
+            done -> diagram.done
+
+state diagram.done terminal done success
+    phase inherit
+
+state diagram.failed terminal failed failure
+    phase inherit

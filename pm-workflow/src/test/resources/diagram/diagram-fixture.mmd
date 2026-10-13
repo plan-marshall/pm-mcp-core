@@ -1,0 +1,47 @@
+stateDiagram-v2
+    state phase_review {
+        state "review.entry" as review_entry
+        state "review.prepare" as review_prepare
+        state "review.ask" as review_ask
+        review_entry : link
+        review_prepare : auto diagram.prepare
+        review_ask : awaiting_user clarification
+        review_entry --> review_prepare : next proceed [noop] / done
+        review_entry --> review_entry : submit choose [submit] [in_worktree or has_open_findings and not all_tasks_completed] / declined
+        review_entry --> review_ask : retry again [noop] [in_worktree and not has_open_findings or predicate:diagram.ready] / done
+        review_ask --> review_entry : question / answered
+    }
+    state phase_build {
+        state "build.compile" as build_compile
+        state "build.compose" as build_compose
+        state "build.implement" as build_implement
+        state "build.judge" as build_judge
+        state "build.commit" as build_commit
+        build_compile : job diagram.build
+        build_compose : composite_job diagram.build
+        build_implement : task implementer each diagram.list-changes
+        build_judge : task reviewer
+        build_commit : call diagram.callee
+        build_compile --> build_compose : job / succeeded
+        build_compose --> build_implement : composite_job / succeeded
+        build_implement --> build_judge : task implementer each diagram.list-changes / approved
+        build_judge --> build_commit : task reviewer / approved
+    }
+    state "diagram.done" as diagram_done
+    state "diagram.failed" as diagram_failed
+    diagram_done : terminal done
+    diagram_failed : terminal failed
+    [*] --> review_entry
+    review_entry --> build_compile : submit choose [submit] [in_worktree or has_open_findings and not all_tasks_completed] / chosen
+    review_prepare --> build_compile : auto / done
+    review_prepare --> build_compose : auto / skipped
+    build_compile --> diagram_failed : job / failed
+    build_compile --> diagram_failed : job / cancelled
+    build_compose --> diagram_failed : composite_job / failed
+    build_compose --> diagram_failed : composite_job / cancelled
+    build_implement --> diagram_failed : task implementer each diagram.list-changes / lost
+    build_judge --> diagram_failed : task reviewer / lost
+    build_commit --> diagram_done : call [result.pushed] / done
+    build_commit --> review_ask : call [not result.pushed] / done
+    review_ask --> diagram_done : question / assumed
+    review_ask --> diagram_done : next skip_wait [noop] / done

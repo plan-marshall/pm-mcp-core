@@ -1,0 +1,274 @@
+.Phase `review`: states
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|`review.entry`
+|`review`
+|`link`
+|start, `review.entry`, `review.ask`
+|links `proceed`, `choose`, `again`, `step_out`
+|`review.prepare`, `build.compile`, `review.entry`, `review.ask`
+|
+
+|`review.prepare`
+|`review`
+|`auto`
+|`review.entry`
+|outcomes `done`, `skipped`
+|`build.compile`, `build.compose`
+|
+
+|`review.ask`
+|`review`
+|`awaiting_user`
+|`review.entry`, `build.commit`
+|links `skip_wait`; outcomes `answered`, `assumed`
+|`review.entry`, `diagram.done`
+|
+|===
+
+.Phase `review`: links
+[cols="2,1,2,1,3,2,1"]
+|===
+|State |rel |Identifier |form |Free parameters |Guard |Implicit link
+
+|`review.entry`
+|`next`
+|`proceed`
+|`noop`
+|-
+|-
+|no
+
+|`review.entry`
+|`submit`
+|`choose`
+|`submit`
+|`note: text[1..80]`, `comment: text?`
+|`in_worktree or has_open_findings and not all_tasks_completed`
+|no
+
+|`review.entry`
+|`retry`
+|`again`
+|`noop`
+|-
+|`in_worktree and not has_open_findings or predicate:diagram.ready`
+|no
+
+|`review.entry`
+|`abort`
+|`step_out`
+|`submit`
+|-
+|-
+|yes
+
+|`review.ask`
+|`next`
+|`skip_wait`
+|`noop`
+|-
+|-
+|no
+|===
+
+.Phase `review`: outcomes
+[cols="2,2,2,2"]
+|===
+|State |Outcome |Guard |Next state
+
+|`review.entry`
+|`done` via `proceed`
+|-
+|`review.prepare`
+
+|`review.entry`
+|`chosen` via `choose`
+|-
+|`build.compile`
+
+|`review.entry`
+|`declined` via `choose`
+|-
+|`review.entry`
+
+|`review.entry`
+|`done` via `again`
+|-
+|`review.ask`
+
+|`review.prepare`
+|`done`
+|-
+|`build.compile`
+
+|`review.prepare`
+|`skipped`
+|-
+|`build.compose`
+
+|`review.ask`
+|`answered`
+|-
+|`review.entry`
+
+|`review.ask`
+|`assumed`
+|-
+|`diagram.done`
+
+|`review.ask`
+|`done` via `skip_wait`
+|-
+|`diagram.done`
+|===
+
+.Phase `build`: states
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|`build.compile`
+|`build`
+|`job`
+|`review.entry`, `review.prepare`
+|outcomes `succeeded`, `failed`, `cancelled`
+|`build.compose`, `diagram.failed`
+|
+
+|`build.compose`
+|`build`
+|`composite_job`
+|`review.prepare`, `build.compile`
+|outcomes `succeeded`, `failed`, `cancelled`
+|`build.implement`, `diagram.failed`
+|
+
+|`build.implement`
+|`build`
+|`job`
+|`build.compose`
+|`task implementer each diagram.list-changes`; links `consult:reviewer`; outcomes `approved`, `lost`
+|`build.judge`, `diagram.failed`
+|
+
+|`build.judge`
+|`build`
+|`job`
+|`build.implement`
+|`task reviewer`; outcomes `approved`, `lost`
+|`build.commit`, `diagram.failed`
+|
+
+|`build.commit`
+|`build`
+|`call`
+|`build.judge`
+|outcomes `done`
+|`diagram.done`, `review.ask`
+|
+|===
+
+.Phase `build`: links
+[cols="2,1,2,1,3,2,1"]
+|===
+|State |rel |Identifier |form |Free parameters |Guard |Implicit link
+
+|`build.implement`
+|`consult`
+|`consult:reviewer`
+|`submit`
+|-
+|-
+|yes
+|===
+
+.Phase `build`: outcomes
+[cols="2,2,2,2"]
+|===
+|State |Outcome |Guard |Next state
+
+|`build.compile`
+|`succeeded`
+|-
+|`build.compose`
+
+|`build.compile`
+|`failed`
+|-
+|`diagram.failed`
+
+|`build.compile`
+|`cancelled`
+|-
+|`diagram.failed`
+
+|`build.compose`
+|`succeeded`
+|-
+|`build.implement`
+
+|`build.compose`
+|`failed`
+|-
+|`diagram.failed`
+
+|`build.compose`
+|`cancelled`
+|-
+|`diagram.failed`
+
+|`build.implement`
+|`approved`
+|-
+|`build.judge`
+
+|`build.implement`
+|`lost`
+|-
+|`diagram.failed`
+
+|`build.judge`
+|`approved`
+|-
+|`build.commit`
+
+|`build.judge`
+|`lost`
+|-
+|`diagram.failed`
+
+|`build.commit`
+|`done`
+|`result.pushed`
+|`diagram.done`
+
+|`build.commit`
+|`done`
+|`not result.pushed`
+|`review.ask`
+|===
+
+.Phase `inherit`: states
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|`diagram.done`
+|`inherit`
+|`terminal`
+|`build.commit`, `review.ask`
+|reports `done` (`success`)
+|-
+|
+
+|`diagram.failed`
+|`inherit`
+|`terminal`
+|`build.compile`, `build.compose`, `build.implement`, `build.judge`
+|reports `failed` (`failure`)
+|-
+|
+|===
