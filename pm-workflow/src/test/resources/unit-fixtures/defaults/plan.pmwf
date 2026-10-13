@@ -1,0 +1,32 @@
+# The plan phase (Phase 4) of the plan unit, written for the invariant and unit-loader tests, never copied from the
+# product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
+# plan.qgate calls the Q-Gate remediation.
+workflow plan version 1 format 1
+scope plan
+start plan.derive
+
+state plan.derive
+    phase plan
+    auto test.proceed
+        done -> plan.qgate
+
+state plan.qgate
+    phase plan
+    auto test.qgate
+        pass -> plan.compose
+        blocking -> plan.remediate
+
+state plan.remediate
+    phase plan
+    call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
+        resolved -> plan.compose
+        waived -> plan.compose
+        exhausted -> plan.return
+        fix_requested -> plan.return
+        stepped_out -> plan.return
+
+state plan.compose
+    phase plan
+    auto test.route
+        execute -> execute.worktree-init
+        land -> land.worktree-init

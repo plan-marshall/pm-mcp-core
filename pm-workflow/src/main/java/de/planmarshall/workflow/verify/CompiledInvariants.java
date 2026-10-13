@@ -1,0 +1,666 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.workflow.verify;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import de.planmarshall.core.spi.OutcomeClass;
+import de.planmarshall.core.spi.Primitive;
+import de.planmarshall.core.spi.PrimitiveRegistry;
+import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.SourceLocation;
+import de.planmarshall.workflow.ast.StateBehavior;
+import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
+import de.planmarshall.workflow.finalize.PipelineViolation;
+
+/**
+ * Checks a project-owned unit against the compiled invariants of {@link InvariantId} (PM-IMPL-5, PM-WF-16).
+ * <p>
+ * The checks that apply to a unit follow from its identifier ({@link InvariantId#appliesTo}): the general invariants
+ * for every unit, the phase invariants for the merged plan unit {@code plan}, and the unit invariants for
+ * {@code adjudicate.decisions}, {@code replan}, {@code git.commit_and_push} and the {@code remediation.*} units. The
+ * default unit of the same identifier is the reference: where an invariant says that the unit equals the default unit,
+ * or that a state lies on every path, the default unit tells what the unit must keep, and the unit may tighten it but
+ * never open a path the default unit does not have. One checker class per phase or unit kind holds the checks; this
+ * class holds the path helpers they share and runs them.
+ * <p>
+ * Two invariants take a result computed elsewhere: {@link InvariantId#INV_GEN_1} the result of the static verifier
+ * ({@link WorkflowValidator}, Rules 1-12) of the unit, and {@link InvariantId#INV_FIN_2} the result of the finalize
+ * pipeline validator over the project's roster. {@link InvariantId#INV_FIN_3} reports the Rule 9 part of the
+ * verifier's result. No configuration switches a check off, and no check stops at the first violation.
+ *
+ * @since 0.1
+ */
+public final class CompiledInvariants {
+
+    /** The identifier of the merged plan unit. */
+    static final String PLAN_UNIT = InvariantId.PLAN_UNIT;
+
+    /** The namespace of the remediation units. */
+    static final String REMEDIATION_PREFIX = "remediation.";
+
+    /** The identifier of the commit sub-workflow. */
+    static final String GIT_UNIT = "git.commit_and_push";
+
+    /** The reserved outcome of a task state that the engine routes to the phase's fallback when undeclared. */
+    static final String LOST = UnitGraph.LOST_OUTCOME;
+
+    /** The control outcome every sub-workflow returns implicitly. */
+    static final String STEPPED_OUT = "stepped_out";
+
+    /** The verdict of a Q-Gate task that calls the Q-Gate remediation. */
+    static final String BLOCKING = "blocking";
+
+    /** The remediation unit a {@code blocking} Q-Gate verdict calls. */
+    static final String QGATE_REMEDIATION = "remediation.qgate-findings";
+
+    /** The phase value of the states of Phase 4. */
+    static final String PHASE_PLAN = "plan";
+
+    /** The phase value of the states of Phase 6. */
+    static final String PHASE_FINALIZE = "finalize";
+
+    /** The phase values of the states of Phase 5, its {@code land} lane included. */
+    static final Set<String> PHASE_EXECUTE = Set.of("execute", "land");
+
+    /** The phase values of Phases 1 to 4. */
+    static final Set<String> PHASES_BEFORE_EXECUTE = Set.of("init", "refine", "outline", PHASE_PLAN);
+
+    /** The fallback state of Phases 1 to 4. */
+    static final String PLAN_RETURN = "plan.return";
+
+    /** The fallback state of Phase 5, the {@code land} lane and Phase 6 before the merge. */
+    static final String HAND_BACK = "finalize.hand-back";
+
+    /** The abort terminal of a plan, entered only by the engine. */
+    static final String PLAN_ABORTED = "plan.aborted";
+
+    /** A location for a node the tree does not locate. */
+    private static final SourceLocation NOWHERE = new SourceLocation("", 0, 0);
+
+    private static final Map<InvariantId, Check> CHECKS = collectChecks();
+
+    private final PrimitiveRegistry registry;
+
+    private final Map<String, WorkflowDefinition> defaultUnits;
+
+    private final List<FinalizeStepDescriptor> defaultRoster;
+
+    /**
+     * @param registry      the primitives the units may name; the waivable gates, awaited events and cycle measures
+     *                      of their primitives are read from it
+     * @param defaultUnits  the verified default units, the reference of the project units of the same identifier
+     * @param defaultRoster the descriptors of the default finalize steps, whose mandatory steps a finalize unit
+     *                      completes
+     * @throws NullPointerException if an argument or one of its elements is {@code null}
+     */
+    public CompiledInvariants(PrimitiveRegistry registry, Collection<WorkflowDefinition> defaultUnits,
+            List<FinalizeStepDescriptor> defaultRoster) {
+        this.registry = Objects.requireNonNull(registry, "registry");
+        var units = new LinkedHashMap<String, WorkflowDefinition>();
+        for (var unit : Objects.requireNonNull(defaultUnits, "defaultUnits")) {
+            units.put(Objects.requireNonNull(unit, "defaultUnit").id(), unit);
+        }
+        this.defaultUnits = Collections.unmodifiableMap(units);
+        this.defaultRoster = List.copyOf(Objects.requireNonNull(defaultRoster, "defaultRoster"));
+    }
+
+    /**
+     * Checks one project unit against every invariant that applies to it.
+     *
+     * @param unit     the project unit; the merged plan unit for the phase files
+     * @param rules    the result of {@link WorkflowValidator} for the unit
+     * @param pipeline the violations of the finalize pipeline validator over the project's roster; empty for every
+     *                 unit but the plan unit
+     * @return every violation, ordered by the declaration order of its state, violations of the unit as a whole after
+     *         every state, and within a state by invariant; empty when the unit satisfies every invariant
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public List<InvariantViolation> check(WorkflowDefinition unit, VerificationResult rules,
+            List<PipelineViolation> pipeline) {
+        Objects.requireNonNull(unit, "unit");
+        Objects.requireNonNull(rules, "rules");
+        Objects.requireNonNull(pipeline, "pipeline");
+        var reference = defaultUnits.get(unit.id());
+        if (reference == null) {
+            var found = new ArrayList<>(ruleViolations(unit, rules));
+            found.add(new InvariantViolation(InvariantId.INV_GEN_1, unit.id(), unit.location(),
+                    "there is no default unit '%s' to compare the unit with".formatted(unit.id())));
+            return ordered(unit, found);
+        }
+        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster);
+        for (var id : InvariantId.values()) {
+            if (id.appliesTo(unit.id())) {
+                CHECKS.get(id).run(context);
+            }
+        }
+        return ordered(unit, context.found());
+    }
+
+    /**
+     * @return every invariant that has a check; equal to all constants of {@link InvariantId}
+     */
+    public static Set<InvariantId> checkedIds() {
+        return Collections.unmodifiableSet(EnumSet.copyOf(CHECKS.keySet()));
+    }
+
+    /**
+     * Maps the violations of the static verifier to invariant violations: a Rule 9 violation of the plan unit to
+     * {@link InvariantId#INV_FIN_3}, every other one to {@link InvariantId#INV_GEN_1}.
+     *
+     * @param unit  the unit
+     * @param rules the result of the static verifier for the unit
+     * @return the mapped violations, in the order of the result
+     */
+    static List<InvariantViolation> ruleViolations(WorkflowDefinition unit, VerificationResult rules) {
+        return rules.violations().stream().map(violation -> {
+            var id = PLAN_UNIT.equals(unit.id()) && violation.rule() == VerificationRule.STEP_COMPLETION
+                    ? InvariantId.INV_FIN_3 : InvariantId.INV_GEN_1;
+            return new InvariantViolation(id, violation.stateId(), violation.location(), "Rule %d (%s): %s".formatted(
+                    violation.rule().specificationRule(), violation.rule(), violation.message()));
+        }).toList();
+    }
+
+    private static Map<InvariantId, Check> collectChecks() {
+        var checks = new EnumMap<InvariantId, Check>(InvariantId.class);
+        Stream.of(GeneralInvariants.checks(), InitInvariants.checks(), RefineInvariants.checks(),
+                OutlineInvariants.checks(), PlanInvariants.checks(), ExecuteInvariants.checks(),
+                FinalizeInvariants.checks(), SubWorkflowInvariants.checks(), RemediationInvariants.checks())
+                .forEach(group -> group.forEach((id, check) -> {
+                    if (checks.putIfAbsent(id, check) != null) {
+                        throw new IllegalStateException("the invariant %s has two checks".formatted(id));
+                    }
+                }));
+        var missing = EnumSet.complementOf(EnumSet.copyOf(checks.keySet()));
+        if (!missing.isEmpty()) {
+            throw new IllegalStateException("the invariants %s have no check".formatted(missing));
+        }
+        return Collections.unmodifiableMap(checks);
+    }
+
+    private static List<InvariantViolation> ordered(WorkflowDefinition unit, List<InvariantViolation> found) {
+        Map<String, Integer> declarationIndex = new HashMap<>();
+        for (var stateId : unit.states().keySet()) {
+            declarationIndex.put(stateId, declarationIndex.size());
+        }
+        var afterEveryState = declarationIndex.size();
+        var sorted = new ArrayList<>(found);
+        sorted.sort(Comparator
+                .comparingInt((InvariantViolation violation) -> declarationIndex.getOrDefault(violation.stateId(),
+                        afterEveryState))
+                .thenComparing(InvariantViolation::id));
+        return List.copyOf(sorted);
+    }
+
+    /**
+     * The check of one invariant over a unit and its reference.
+     */
+    @FunctionalInterface
+    interface Check {
+
+        /**
+         * Runs the check and reports every violation to the context.
+         *
+         * @param context the unit, its reference and the inputs of the checks
+         */
+        void run(Context context);
+    }
+
+    /**
+     * The unit under check, its default unit as reference, the inputs of the checks, the violations found so far, and
+     * the path helpers the checkers share. A path is a path of the transition graph from the start state; a state
+     * <em>dominates</em> another when every path from the start state to the other passes it.
+     */
+    static final class Context {
+
+        private final WorkflowDefinition unit;
+
+        private final WorkflowDefinition reference;
+
+        private final UnitGraph graph;
+
+        private final UnitGraph referenceGraph;
+
+        private final VerificationResult rules;
+
+        private final List<PipelineViolation> pipeline;
+
+        private final PrimitiveRegistry registry;
+
+        private final List<FinalizeStepDescriptor> defaultRoster;
+
+        private final List<InvariantViolation> found = new ArrayList<>();
+
+        Context(WorkflowDefinition unit, WorkflowDefinition reference, VerificationResult rules,
+                List<PipelineViolation> pipeline, PrimitiveRegistry registry,
+                List<FinalizeStepDescriptor> defaultRoster) {
+            this.unit = unit;
+            this.reference = reference;
+            this.graph = UnitGraph.of(unit);
+            this.referenceGraph = UnitGraph.of(reference);
+            this.rules = rules;
+            this.pipeline = pipeline;
+            this.registry = registry;
+            this.defaultRoster = defaultRoster;
+        }
+
+        WorkflowDefinition unit() {
+            return unit;
+        }
+
+        WorkflowDefinition reference() {
+            return reference;
+        }
+
+        UnitGraph graph() {
+            return graph;
+        }
+
+        UnitGraph referenceGraph() {
+            return referenceGraph;
+        }
+
+        VerificationResult rules() {
+            return rules;
+        }
+
+        List<PipelineViolation> pipeline() {
+            return pipeline;
+        }
+
+        List<FinalizeStepDescriptor> defaultRoster() {
+            return defaultRoster;
+        }
+
+        List<InvariantViolation> found() {
+            return found;
+        }
+
+        // ----- reporting
+
+        void report(InvariantId id, String stateId, SourceLocation location, String message) {
+            found.add(new InvariantViolation(id, stateId, location, message));
+        }
+
+        void reportState(InvariantId id, StateNode state, String message) {
+            report(id, state.id(), state.location(), message);
+        }
+
+        void reportTransition(InvariantId id, StateNode state, OutcomeTransition transition, String message) {
+            report(id, state.id(), transition.location(), message);
+        }
+
+        void reportUnit(InvariantId id, String message) {
+            report(id, unit.id(), unit.location(), message);
+        }
+
+        // ----- states
+
+        Optional<StateNode> state(String stateId) {
+            return Optional.ofNullable(unit.states().get(stateId));
+        }
+
+        Optional<StateNode> referenceState(String stateId) {
+            return Optional.ofNullable(reference.states().get(stateId));
+        }
+
+        Collection<StateNode> states() {
+            return unit.states().values();
+        }
+
+        /**
+         * @param definition a unit
+         * @param suffix     the last segment of a state identifier, for example {@code decide}
+         * @return the states whose identifier ends with a dot and the suffix, in declaration order
+         */
+        static List<StateNode> statesWithSuffix(WorkflowDefinition definition, String suffix) {
+            return definition.states().values().stream().filter(state -> state.id().endsWith("." + suffix)).toList();
+        }
+
+        Optional<StateNode> stateWithSuffix(String suffix) {
+            return statesWithSuffix(unit, suffix).stream().findFirst();
+        }
+
+        Optional<StateNode> referenceStateWithSuffix(String suffix) {
+            return statesWithSuffix(reference, suffix).stream().findFirst();
+        }
+
+        /**
+         * @param state a state
+         * @return the primitive the state runs as {@code auto}, {@code job} or {@code composite_job}, when registered
+         */
+        Optional<Primitive<?, ?>> primitive(StateNode state) {
+            return primitiveId(state).flatMap(registry::find);
+        }
+
+        /**
+         * @param state a state
+         * @return the primitive identifier of an {@code auto}, {@code job} or {@code composite_job} state
+         */
+        static Optional<String> primitiveId(StateNode state) {
+            return switch (state.behavior()) {
+                case StateBehavior.AutoStep auto -> Optional.of(auto.primitiveId());
+                case StateBehavior.JobStep job -> Optional.of(job.primitiveId());
+                case StateBehavior.InteractiveLinks _, StateBehavior.ModelJob _, StateBehavior.SubWorkflowCall _,
+                    StateBehavior.QuestionWait _, StateBehavior.TerminalState _ -> Optional.empty();
+            };
+        }
+
+        /**
+         * @param state a state
+         * @return the identifier of the sub-workflow a {@code call} state calls
+         */
+        static Optional<String> callee(StateNode state) {
+            return state.behavior() instanceof StateBehavior.SubWorkflowCall call ? Optional.of(call.subWorkflowId())
+                    : Optional.empty();
+        }
+
+        static boolean isTerminal(StateNode state) {
+            return state.behavior() instanceof StateBehavior.TerminalState;
+        }
+
+        static boolean isTerminalOfClass(StateNode state, OutcomeClass outcomeClass) {
+            return isTerminal(state) && state.terminalOutcome().map(outcome -> outcome.outcomeClass() == outcomeClass)
+                    .orElse(false);
+        }
+
+        /**
+         * @param state a state
+         * @return its transitions, those of its declared links included, in declaration order
+         */
+        static List<OutcomeTransition> transitions(StateNode state) {
+            return UnitGraph.allTransitions(state.behavior());
+        }
+
+        static List<OutcomeTransition> transitionsOn(StateNode state, String outcome) {
+            return transitions(state).stream().filter(transition -> outcome.equals(transition.outcomeName())).toList();
+        }
+
+        /**
+         * @param definition a unit
+         * @return every transition of the unit as its source state and the transition, in declaration order
+         */
+        static List<Edge> edges(WorkflowDefinition definition) {
+            var edges = new ArrayList<Edge>();
+            for (var state : definition.states().values()) {
+                for (var transition : transitions(state)) {
+                    edges.add(new Edge(state, transition));
+                }
+            }
+            return edges;
+        }
+
+        /**
+         * @param definition a unit
+         * @param source     the source state
+         * @param outcome    the outcome
+         * @param target     the target state
+         * @return {@code true} when the unit has a transition from the source on the outcome into the target
+         */
+        static boolean hasTransition(WorkflowDefinition definition, String source, String outcome, String target) {
+            var state = definition.states().get(source);
+            return state != null && transitions(state).stream()
+                    .anyMatch(transition -> outcome.equals(transition.outcomeName())
+                            && target.equals(transition.targetStateId()));
+        }
+
+        // ----- paths
+
+        /**
+         * @param graph  the graph of a unit
+         * @param start  the state to start from
+         * @param avoid  the states a path may reach but not pass
+         * @return every state reachable from the start on a path that passes none of the avoided states; an avoided
+         *         state that such a path reaches is included, but not expanded
+         */
+        static Set<String> avoiding(UnitGraph graph, String start, Set<String> avoid) {
+            var seen = new LinkedHashSet<String>();
+            seen.add(start);
+            if (avoid.contains(start)) {
+                return seen;
+            }
+            var queue = new ArrayDeque<String>();
+            queue.add(start);
+            while (!queue.isEmpty()) {
+                var current = queue.poll();
+                for (var next : graph.successors(current)) {
+                    if (seen.add(next) && !avoid.contains(next)) {
+                        queue.add(next);
+                    }
+                }
+            }
+            return seen;
+        }
+
+        /**
+         * @return {@code true} when every path of the unit from its start state to the target passes the dominator
+         */
+        boolean dominates(String dominator, String target) {
+            return dominates(graph, unit.startState(), dominator, target);
+        }
+
+        /**
+         * @return {@code true} when every path of the reference from its start state to the target passes the
+         *         dominator
+         */
+        boolean referenceDominates(String dominator, String target) {
+            return dominates(referenceGraph, reference.startState(), dominator, target);
+        }
+
+        static boolean dominates(UnitGraph graph, String start, String dominator, String target) {
+            return dominator.equals(target) || !avoiding(graph, start, Set.of(dominator)).contains(target);
+        }
+
+        /**
+         * @return {@code true} when every path of the graph from the start to one of the targets passes the dominator
+         */
+        static boolean dominatesAll(UnitGraph graph, String start, String dominator, Set<String> targets) {
+            var reached = avoiding(graph, start, Set.of(dominator));
+            return targets.stream().noneMatch(target -> !target.equals(dominator) && reached.contains(target));
+        }
+
+        /**
+         * @return the states of the unit reachable from its start state
+         */
+        Set<String> reachable() {
+            return graph.forwardClosure(Set.of(unit.startState()));
+        }
+
+        // ----- shared checks against the reference
+
+        /**
+         * Requires a state of the reference to be a state of the unit.
+         *
+         * @param id      the invariant the check belongs to
+         * @param stateId the state
+         * @return {@code true} when the state is present in the unit or absent from the reference
+         */
+        boolean requirePresent(InvariantId id, String stateId) {
+            if (reference.states().containsKey(stateId) && !unit.states().containsKey(stateId)) {
+                reportUnit(id, "the state '%s' of the default unit is missing".formatted(stateId));
+                return false;
+            }
+            return true;
+        }
+
+        /**
+         * Requires a dominance of the reference to hold in the unit: when every path of the reference into the target
+         * passes the dominator, the dominator is a state of the unit and every path of the unit into the target passes
+         * it.
+         *
+         * @param id        the invariant the check belongs to
+         * @param dominator the state that lies on every path
+         * @param target    the state the paths lead into
+         */
+        void requireDominance(InvariantId id, String dominator, String target) {
+            if (!reference.states().containsKey(dominator) || !reference.states().containsKey(target)
+                    || !referenceDominates(dominator, target)) {
+                return;
+            }
+            if (!requirePresent(id, dominator)) {
+                return;
+            }
+            state(target).filter(targetState -> !dominates(dominator, targetState.id()))
+                    .ifPresent(targetState -> reportState(id, targetState,
+                            "a path reaches '%s' without passing '%s', which every path of the default unit passes"
+                                    .formatted(target, dominator)));
+        }
+
+        /**
+         * Requires the states that dominate every target in the reference to dominate every target in the unit: each
+         * candidate of the reference that lies on every path of the reference into its targets is a state of the unit
+         * and lies on every path of the unit into its targets. A candidate the unit misses is reported at the unit
+         * header, a target reached without it at the first such target in declaration order.
+         *
+         * @param id         the invariant the check belongs to
+         * @param targets    the targets, chosen in the unit and in the reference alike
+         * @param candidates the states considered as dominators
+         * @return the dominators of the reference, in its declaration order
+         */
+        List<String> requireDominatorsOf(InvariantId id, Predicate<StateNode> targets,
+                Predicate<StateNode> candidates) {
+            var referenceReach = referenceGraph.forwardClosure(Set.of(reference.startState()));
+            var referenceTargets = idsOf(reference, state -> targets.test(state) && referenceReach.contains(state.id()));
+            if (referenceTargets.isEmpty()) {
+                return List.of();
+            }
+            var unitTargets = idsOf(unit, targets);
+            var dominators = new ArrayList<String>();
+            for (var candidate : reference.states().values()) {
+                if (candidate.id().equals(reference.startState()) || referenceTargets.contains(candidate.id())
+                        || !candidates.test(candidate) || !referenceReach.contains(candidate.id())
+                        || !dominatesAll(referenceGraph, reference.startState(), candidate.id(), referenceTargets)) {
+                    continue;
+                }
+                dominators.add(candidate.id());
+                if (!requirePresent(id, candidate.id())) {
+                    continue;
+                }
+                var reached = avoiding(graph, unit.startState(), Set.of(candidate.id()));
+                unitTargets.stream().filter(target -> !target.equals(candidate.id()) && reached.contains(target))
+                        .findFirst()
+                        .ifPresent(target -> reportState(id, unit.states().get(target),
+                                "a path reaches '%s' without passing '%s', which every path of the default unit passes"
+                                        .formatted(target, candidate.id())));
+            }
+            return dominators;
+        }
+
+        /**
+         * Requires the routes around a gate to be those of the reference: every transition of a path from the start
+         * state into the target that passes no gate state is a transition of the reference on such a path too. A
+         * unit may drop a route around the gate, never add one.
+         *
+         * @param id     the invariant the check belongs to
+         * @param gates  the gate states; a path that passes one of them is not a route around the gates
+         * @param target the state the routes lead into
+         */
+        void requireNoNewBypass(InvariantId id, Set<String> gates, String target) {
+            if (!unit.states().containsKey(target)) {
+                return;
+            }
+            var around = avoiding(graph, unit.startState(), gates);
+            if (!around.contains(target) || gates.contains(target)) {
+                return;
+            }
+            var leadsIn = backwardWithin(graph, target, around, gates);
+            var referenceAround = avoiding(referenceGraph, reference.startState(), gates);
+            for (var sourceId : leadsIn) {
+                if (sourceId.equals(target)) {
+                    continue;
+                }
+                var source = unit.states().get(sourceId);
+                if (source == null) {
+                    continue;
+                }
+                for (var transition : transitions(source)) {
+                    var next = transition.targetStateId();
+                    if (!leadsIn.contains(next)) {
+                        continue;
+                    }
+                    var known = referenceAround.contains(sourceId)
+                            && hasTransition(reference, sourceId, transition.outcomeName(), next);
+                    if (!known) {
+                        reportTransition(id, source, transition,
+                                "the transition '%s' -> '%s' opens a route into '%s' that passes none of %s; the default"
+                                        .formatted(transition.outcomeName(), next, target, sorted(gates))
+                                        + " unit has no such route");
+                    }
+                }
+            }
+        }
+
+        /**
+         * @return the states of the region from which the target is reachable inside the region, the target included;
+         *         a gate state is never part of a path
+         */
+        private static Set<String> backwardWithin(UnitGraph graph, String target, Set<String> region,
+                Set<String> gates) {
+            var seen = new LinkedHashSet<String>();
+            seen.add(target);
+            var queue = new ArrayDeque<String>();
+            queue.add(target);
+            while (!queue.isEmpty()) {
+                var current = queue.poll();
+                for (var previous : graph.predecessors(current)) {
+                    if (region.contains(previous) && !gates.contains(previous) && seen.add(previous)) {
+                        queue.add(previous);
+                    }
+                }
+            }
+            return seen;
+        }
+
+        static Set<String> idsOf(WorkflowDefinition definition, Predicate<StateNode> filter) {
+            var ids = new LinkedHashSet<String>();
+            definition.states().values().stream().filter(filter).forEach(state -> ids.add(state.id()));
+            return ids;
+        }
+
+        static List<String> sorted(Set<String> ids) {
+            return ids.stream().sorted().toList();
+        }
+
+        static SourceLocation nowhere() {
+            return NOWHERE;
+        }
+    }
+
+    /**
+     * One transition of a unit with its source state.
+     *
+     * @param source     the state the transition leaves
+     * @param transition the transition
+     */
+    record Edge(StateNode source, OutcomeTransition transition) {
+
+        String key() {
+            return source.id() + " " + transition.outcomeName() + " -> " + transition.targetStateId();
+        }
+    }
+}

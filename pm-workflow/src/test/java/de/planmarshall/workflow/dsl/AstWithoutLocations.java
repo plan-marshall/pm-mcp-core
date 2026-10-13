@@ -12,6 +12,7 @@ package de.planmarshall.workflow.dsl;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamDecl;
@@ -21,6 +22,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -44,14 +46,27 @@ final class AstWithoutLocations {
     static WorkflowDefinition strip(WorkflowDefinition definition) {
         var states = new LinkedHashMap<String, StateNode>();
         definition.states().forEach((id, state) -> states.put(id, strip(state)));
+        var declarations = new LinkedHashMap<String, ValueDeclaration>();
+        definition.declarations().forEach((name, declaration) -> declarations.put(name,
+                new ValueDeclaration(declaration.value(), NOWHERE)));
+        var decisions = new LinkedHashMap<String, DecisionDeclaration>();
+        definition.decisions().forEach((kind, decision) -> decisions.put(kind, strip(decision)));
         return new WorkflowDefinition(definition.id(), definition.version(), definition.scope(),
                 definition.params().stream().map(p -> new ParamDecl(p.name(), p.type(), NOWHERE)).toList(),
-                definition.resultSchema(), definition.instance(), definition.declarations(), definition.decisions(),
+                definition.resultSchema(), definition.instance(), declarations, decisions,
                 definition.partVersions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
                 definition.startState(),
                 definition.migrations().stream()
                         .map(m -> new StateMigration(m.oldStateId(), m.newStateId(), NOWHERE)).toList(),
                 states, NOWHERE);
+    }
+
+    private static DecisionDeclaration strip(DecisionDeclaration decision) {
+        return switch (decision) {
+            case DecisionDeclaration.Ask _ -> new DecisionDeclaration.Ask(NOWHERE);
+            case DecisionDeclaration.Quorum(var roles, var score, _) -> new DecisionDeclaration.Quorum(roles, score,
+                    NOWHERE);
+        };
     }
 
     private static StateNode strip(StateNode state) {

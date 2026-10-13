@@ -45,14 +45,15 @@ import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.StepCompletionStatus;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
  * The recursive-descent parser of the workflow language (PM-IMPL-5, PM-WF-16): it reads one unit into the immutable
- * tree of {@link de.planmarshall.workflow.ast}. The definition, a state, a state migration, a sub-workflow parameter, a
- * link, a link parameter, an outcome transition and a step completion carry the {@link SourceLocation} they were read
- * at; every other node carries none.
+ * tree of {@link de.planmarshall.workflow.ast}. The definition, a {@code declare} line, a {@code decide} line, a state,
+ * a state migration, a sub-workflow parameter, a link, a link parameter, an outcome transition and a step completion
+ * carry the {@link SourceLocation} they were read at; every other node carries none.
  * <p>
  * It reads the unit header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the
  * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} and {@code decide} lines, the
@@ -183,7 +184,7 @@ public final class WorkflowParser {
             params.addAll(parseParams());
             resultSchema = parseResult();
         }
-        var declarations = new LinkedHashMap<String, CallValue>();
+        var declarations = new LinkedHashMap<String, ValueDeclaration>();
         var decisions = new LinkedHashMap<String, DecisionDeclaration>();
         parseDeclarations(declarations, decisions);
         var start = statement("start", "the 'start <state>' line");
@@ -282,7 +283,7 @@ public final class WorkflowParser {
         return Optional.of(schemaName);
     }
 
-    private void parseDeclarations(Map<String, CallValue> declarations,
+    private void parseDeclarations(Map<String, ValueDeclaration> declarations,
             Map<String, DecisionDeclaration> decisions) {
         while (nextStatementIs(KEYWORD_DECLARE) || nextStatementIs("decide")) {
             var line = nextLine();
@@ -293,7 +294,7 @@ public final class WorkflowParser {
                     throw refuse(RefusalRule.DUPLICATE_ID, name, PARAMETER_DECLARED_TWICE, name.text());
                 }
                 line.expect("=");
-                declarations.put(name.text(), callValue(line));
+                declarations.put(name.text(), new ValueDeclaration(callValue(line), location(keyword)));
             } else {
                 var kind = line.next("a decision kind");
                 if (kind.kind() != Token.Kind.IDENT || !DECISION_KINDS.contains(kind.text())) {
@@ -304,16 +305,16 @@ public final class WorkflowParser {
                             kind.text());
                 }
                 line.expect(ARROW);
-                decisions.put(kind.text(), decision(line));
+                decisions.put(kind.text(), decision(line, location(keyword)));
             }
             line.expectEnd();
         }
     }
 
-    private DecisionDeclaration decision(LineCursor line) {
+    private DecisionDeclaration decision(LineCursor line, SourceLocation location) {
         var mode = line.next("'ask' or 'quorum'");
         if (mode.is("ask")) {
-            return new DecisionDeclaration.Ask();
+            return new DecisionDeclaration.Ask(location);
         }
         if (!mode.is("quorum")) {
             throw refuse(RefusalRule.STRUCTURE, mode, EXPECTED_BUT_FOUND, "'ask' or 'quorum'", mode.text());
@@ -328,7 +329,7 @@ public final class WorkflowParser {
         }
         var score = positiveInt(line);
         line.expect(CLOSE_PAREN);
-        return new DecisionDeclaration.Quorum(roles, score);
+        return new DecisionDeclaration.Quorum(roles, score, location);
     }
 
     private StateMigration parseMigration() {

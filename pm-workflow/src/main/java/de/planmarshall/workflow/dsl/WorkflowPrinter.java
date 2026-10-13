@@ -97,7 +97,8 @@ public final class WorkflowPrinter {
             definition.params().forEach(param -> line(0, "param %s : %s".formatted(param.name(), type(param.type()))));
             definition.resultSchema().ifPresent(schema -> line(0, "result schema[" + schema + "]"));
         }
-        definition.declarations().forEach((name, value) -> line(0, "declare %s = %s".formatted(name, value(value))));
+        definition.declarations().forEach((name, declaration) -> line(0, "declare %s = %s".formatted(name,
+                value(declaration.value()))));
         definition.decisions().forEach((kind, decision) -> line(0, "decide %s -> %s".formatted(kind,
                 decision(decision))));
         line(0, "start " + definition.startState());
@@ -240,7 +241,7 @@ public final class WorkflowPrinter {
     private static String decision(DecisionDeclaration decision) {
         return switch (decision) {
             case DecisionDeclaration.Ask _ -> "ask";
-            case DecisionDeclaration.Quorum(var roles, var score) -> "quorum(" + String.join(LIST_SEPARATOR, roles)
+            case DecisionDeclaration.Quorum(var roles, var score, _) -> "quorum(" + String.join(LIST_SEPARATOR, roles)
                     + LIST_SEPARATOR + score + ")";
         };
     }

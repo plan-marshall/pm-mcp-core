@@ -9,7 +9,6 @@
  */
 package de.planmarshall.workflow.engine;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
@@ -17,6 +16,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.store.WorkflowStatus;

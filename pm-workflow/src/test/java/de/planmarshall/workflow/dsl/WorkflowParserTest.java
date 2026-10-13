@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -56,6 +57,7 @@ import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.StepCompletionStatus;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -72,6 +74,9 @@ class WorkflowParserTest {
     private static final String SESSION_UNIT = "dsl/valid/session-unit.pmwf";
     private static final String ADJUDICATE_UNIT = "dsl/valid/adjudicate-unit.pmwf";
     private static final String INSTANCE_UNIT = "dsl/valid/instance-unit.pmwf";
+
+    /** The resource name of a unit written inline in a test. */
+    private static final String RESOURCE = "inline.pmwf";
 
     private static final String CONFIG_HASH = "a".repeat(64);
     private static final String RULES_DIGEST = "b".repeat(64);
@@ -112,12 +117,16 @@ class WorkflowParserTest {
     }
 
     private static WorkflowDefinition parse(String source) {
-        var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.DEFAULT);
+        var result = WorkflowParser.parse(RESOURCE, source, UnitOrigin.DEFAULT);
         return assertInstanceOf(ParseResult.Parsed.class, result, () -> "refused: " + result).definition();
     }
 
     private static StateBehavior startBody(String source) {
         return parse(source).states().get("demo.begin").behavior();
+    }
+
+    private static ValueDeclaration declared(CallValue value) {
+        return new ValueDeclaration(value, NOWHERE);
     }
 
     private static OutcomeTransition to(String outcome, String target, StepCompletion... completions) {
@@ -204,11 +213,11 @@ class WorkflowParserTest {
         @Test
         @DisplayName("plan unit: header, declare, migrate, auto, job, composite_job, call and terminals")
         void planUnit() {
-            var declarations = new LinkedHashMap<String, CallValue>();
-            declarations.put("max_rounds", new CallValue.IntValue(3));
-            declarations.put("mode", new CallValue.EnumValue("strict"));
-            declarations.put("channels", new CallValue.EnumList(List.of("Chat", "mail")));
-            declarations.put("floor", new CallValue.IntValue(0));
+            var declarations = new LinkedHashMap<String, ValueDeclaration>();
+            declarations.put("max_rounds", declared(new CallValue.IntValue(3)));
+            declarations.put("mode", declared(new CallValue.EnumValue("strict")));
+            declarations.put("channels", declared(new CallValue.EnumList(List.of("Chat", "mail"))));
+            declarations.put("floor", declared(new CallValue.IntValue(0)));
             var bindings = new LinkedHashMap<String, CallValue>();
             bindings.put("push", new CallValue.EnumValue("enabled"));
             bindings.put("attempts", new CallValue.IntValue(2));
@@ -335,13 +344,13 @@ class WorkflowParserTest {
         @Test
         @DisplayName("adjudication unit: decide ask and quorum between declare lines, and a role-each task state")
         void adjudicateUnit() {
-            var declarations = new LinkedHashMap<String, CallValue>();
-            declarations.put("max_rounds", new CallValue.IntValue(2));
-            declarations.put("panel", new CallValue.EnumList(List.of("Lead", "second")));
+            var declarations = new LinkedHashMap<String, ValueDeclaration>();
+            declarations.put("max_rounds", declared(new CallValue.IntValue(2)));
+            declarations.put("panel", declared(new CallValue.EnumList(List.of("Lead", "second"))));
             var decisions = new LinkedHashMap<String, DecisionDeclaration>();
-            decisions.put("interpretation", new DecisionDeclaration.Ask());
-            decisions.put("approach", new DecisionDeclaration.Quorum(List.of("architect", "reviewer"), 75));
-            decisions.put("scope", new DecisionDeclaration.Quorum(List.of("architect"), 60));
+            decisions.put("interpretation", new DecisionDeclaration.Ask(NOWHERE));
+            decisions.put("approach", new DecisionDeclaration.Quorum(List.of("architect", "reviewer"), 75, NOWHERE));
+            decisions.put("scope", new DecisionDeclaration.Quorum(List.of("architect"), 60, NOWHERE));
             var expected = new WorkflowDefinition("adjudicate.decisions", 1, WorkflowScope.ENTITY, List.of(),
                     Optional.empty(), Optional.empty(), declarations, decisions, Map.of(), 1, UnitOrigin.DEFAULT,
                     Map.of(), "adjudicate.vote", List.of(),
@@ -396,6 +405,26 @@ class WorkflowParserTest {
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 19, 9), transition.location()),
                     () -> assertEquals(new SourceLocation(PLAN_UNIT, 20, 13),
                             transition.completions().getFirst().location()));
+        }
+
+        @Test
+        @DisplayName("records the line of every declare and decide line")
+        void declareAndDecideLocations() {
+            var plan = DslFixtures.parseValid(PLAN_UNIT);
+            var adjudicate = DslFixtures.parseValid(ADJUDICATE_UNIT);
+
+            assertAll(
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 6, 1),
+                            plan.declarations().get("max_rounds").location()),
+                    () -> assertEquals(new SourceLocation(PLAN_UNIT, 9, 1), plan.declarations().get("floor").location()),
+                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 5, 1),
+                            adjudicate.declarations().get("max_rounds").location()),
+                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 6, 1),
+                            adjudicate.decisions().get("interpretation").location()),
+                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 7, 1),
+                            adjudicate.decisions().get("approach").location()),
+                    () -> assertEquals(new SourceLocation(ADJUDICATE_UNIT, 9, 1),
+                            adjudicate.declarations().get("panel").location()));
         }
 
         @Test
@@ -541,7 +570,8 @@ class WorkflowParserTest {
             var source = lines("workflow demo version 1 format 1", "scope entity", "decide " + kind + " -> ask",
                     "start demo.end", "state demo.end terminal done success", "phase inherit");
 
-            assertEquals(Map.of(kind, new DecisionDeclaration.Ask()), parse(source).decisions());
+            assertEquals(Map.of(kind, new DecisionDeclaration.Ask(new SourceLocation(RESOURCE, 3, 1))),
+                    parse(source).decisions());
         }
 
         @Test

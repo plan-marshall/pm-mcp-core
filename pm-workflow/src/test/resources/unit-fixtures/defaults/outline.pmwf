@@ -1,0 +1,42 @@
+# The outline phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
+# The deep lane passes outline.qgate before outline.gate; the light lane passes outline.light-regate, whose deep
+# outcome is the light -> deep ratchet; only outline.gate enters Phase 4.
+workflow plan version 1 format 1
+scope plan
+start outline.deep
+
+state outline.deep
+    phase outline
+    auto test.proceed
+        done -> outline.qgate
+
+state outline.qgate
+    phase outline
+    auto test.qgate
+        pass -> outline.gate
+        blocking -> outline.remediate
+
+state outline.remediate
+    phase outline
+    call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
+        resolved -> outline.gate
+        waived -> outline.gate
+        exhausted -> plan.return
+        fix_requested -> plan.return
+        stepped_out -> plan.return
+
+state outline.light
+    phase outline
+    auto test.proceed
+        done -> outline.light-regate
+
+state outline.light-regate
+    phase outline
+    auto test.gate
+        pass -> outline.gate
+        deep -> outline.deep
+
+state outline.gate
+    phase outline
+    auto test.proceed
+        done -> plan.derive

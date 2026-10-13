@@ -1,0 +1,41 @@
+# The init phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
+# Every path into init.ready passes init.classify and the main_sha stamp; the init question returns every answer to
+# init.classify; the light lane passes init.light-gate, whose deep outcome is the light -> deep ratchet.
+workflow plan version 1 format 1
+scope plan
+start init.begin
+
+state init.begin
+    phase init
+    auto test.proceed
+        done -> init.classify
+
+state init.classify
+    phase init
+    auto test.classify
+        proceed -> init.stamp
+        unclear -> init.clarify
+
+state init.clarify
+    phase init
+    question init
+        answered -> init.classify
+        assumed -> init.classify
+        returned -> init.classify
+
+state init.stamp
+    phase init
+    auto test.proceed
+        done -> init.ready
+
+state init.ready
+    phase init
+    auto test.lane
+        deep -> refine.baseline-reconcile
+        light -> init.light-gate
+
+state init.light-gate
+    phase init
+    auto test.gate
+        pass -> outline.light
+        deep -> refine.baseline-reconcile

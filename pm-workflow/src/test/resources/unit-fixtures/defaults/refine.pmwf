@@ -1,0 +1,32 @@
+# The refine phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
+# Every deep path passes refine.baseline-reconcile and refine.analyze; a lesson-derived plan passes refine.qgate,
+# whose blocking verdict calls the Q-Gate remediation.
+workflow plan version 1 format 1
+scope plan
+start refine.baseline-reconcile
+
+state refine.baseline-reconcile
+    phase refine
+    auto test.proceed
+        done -> refine.analyze
+
+state refine.analyze
+    phase refine
+    auto test.analyze
+        confident -> outline.deep
+        lesson -> refine.qgate
+
+state refine.qgate
+    phase refine
+    auto test.qgate
+        pass -> outline.deep
+        blocking -> refine.remediate
+
+state refine.remediate
+    phase refine
+    call remediation.qgate-findings(retry_budget = 2, fix_budget = 2, waiver_wait_seconds = 3600, actions = [retry, fix])
+        resolved -> outline.deep
+        waived -> outline.deep
+        exhausted -> plan.return
+        fix_requested -> plan.return
+        stepped_out -> plan.return
