@@ -58,9 +58,11 @@ import lombok.experimental.UtilityClass;
  * {@code _TOKEN}, {@code _PASSWORD}, {@code _SECRET} or {@code _KEY}, the patterns the specification lists; its list
  * ends with an ellipsis, and only the listed patterns are applied.</li>
  * </ol>
- * Not checked, because the specification does not define them concretely: the shell metacharacters of an argument
- * vector, whether the forbidden free flags apply to enrolled templates, and the unique project root
- * ({@code enrolment_root_conflict}, {@code project_store_root_mismatch}).
+ * The shell metacharacters and the forbidden free flags are not refused at enrolment: they apply to what a caller
+ * supplies to a job and are refused at job time by the argument check of {@code runtime.job}, the last stage of the
+ * verify-not-resolve pipeline; the enrolled templates are the operator's and are not filtered. Not checked, because
+ * the specification does not define it concretely: the unique project root ({@code enrolment_root_conflict},
+ * {@code project_store_root_mismatch}).
  *
  * @since 0.1
  */

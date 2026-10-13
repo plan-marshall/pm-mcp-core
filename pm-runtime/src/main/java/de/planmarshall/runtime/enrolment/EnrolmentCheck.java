@@ -32,9 +32,10 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 /**
  * The enrolment check (PM-EXEC-2, PM-SEC-4, PM-SEC-5): what the runtime runs before it trusts anything in a project's
  * enrolment file. The project's recovery runs it as its first step ({@code EnrolmentIntegrityStep},
- * {@code RecoveryStep.Name.ENROLMENT_INTEGRITY}) before the project is first served. The verify-not-resolve check of
- * the project's jobs, the {@code enter} request and the operator verbs must run it too and do not yet, because no job,
- * {@code enter} or operator-verb path exists in the runtime.
+ * {@code RecoveryStep.Name.ENROLMENT_INTEGRITY}) before the project is first served, and the verify-not-resolve check
+ * of the project's jobs runs it as its first stage ({@code VerifyNotResolvePipeline} of {@code runtime.job}). The
+ * {@code enter} request and the operator verbs must run it too and do not yet, because no {@code enter} or
+ * operator-verb path exists in the runtime.
  * <p>
  * The check runs under the project's enrolment lock, in this order, and the first failure refuses:
  * <ol>

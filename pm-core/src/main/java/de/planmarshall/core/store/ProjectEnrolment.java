@@ -44,8 +44,9 @@ import java.util.regex.Pattern;
  * enrolment is signed, a template or provider argument vector with a placeholder other than {@code {module}} or with
  * {@code {module}} outside its module-argument group, a write path that is, lies below or contains the base directory,
  * and a build environment name that is a credential variable or one of {@code DBUS_SESSION_BUS_ADDRESS},
- * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}; the shell-metacharacter and forbidden-flag rules of an
- * argument vector are not checked anywhere yet.
+ * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}. The shell-metacharacter and forbidden-flag rules apply to
+ * what a caller supplies to a job and are applied at job time by the runtime's argument check, the last stage of its
+ * verify-not-resolve pipeline.
  *
  * @param projectId         the enrolment identifier; equals the name of the file
  * @param projectRoot       the canonical absolute path of the repository main checkout
