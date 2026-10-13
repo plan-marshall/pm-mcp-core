@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +25,7 @@ import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.OutcomeClass;
+import de.planmarshall.core.spi.PendingEntryReader;
 import de.planmarshall.core.spi.Primitive;
 import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
@@ -164,6 +166,57 @@ final class EngineFixtures {
     /** The entity kind of the fixtures' task states: no entity unit, return evaluation {@code test.evaluate-change}. */
     static final String CHANGE_KIND = "change";
 
+    /**
+     * The entity kind of an architecture enrichment task, one task per module: no entity unit, return evaluation
+     * {@code test.evaluate-change}. It is not among {@link EntityKindRegistry#defaults()} (ADR 009), so the fixtures
+     * register it as they register {@link #CHANGE_KIND}.
+     */
+    static final String ENRICH_KIND = "enrich-module";
+
+    /** The phase of the status store of the workspace scope. */
+    static final String WORKSPACE_PHASE = "workspace";
+
+    /** The state of the workspace fixture unit that hosts no task. */
+    static final String WORKSPACE_IDLE = "workspace.idle";
+
+    /** The task state of the workspace fixture unit that fans the {@link #ENRICH_KIND} tasks out, one per module. */
+    static final String WORKSPACE_ENRICH = "workspace.enrich";
+
+    /** The task state of the workspace fixture unit that hosts the one lesson review task. */
+    static final String WORKSPACE_REVIEW = "workspace.review";
+
+    /**
+     * A workspace unit whose task states host the entities a workspace scope addresses besides its bootstraps: the
+     * fan-out of {@link #ENRICH_KIND} tasks, keyed in {@code active_tasks} by their entity {@code enrich-<module_id>},
+     * and the lesson review ({@code job llm lessons-review role lessons}, the default kind {@code lessons-review}),
+     * which names no scope entity and is addressed by its {@code queue_task_id}. Its states inherit the phase of the
+     * workspace scope, as the units the workspace scope hosts do.
+     */
+    static final String WORKSPACE_UNIT = """
+            workflow workspace version 1 format 1
+            scope workspace
+            start workspace.idle
+
+            state workspace.idle
+                phase inherit
+                auto test.step
+                    done -> workspace.enrich
+                    failed -> workspace.review
+
+            state workspace.enrich
+                phase inherit
+                job llm enrich-module role architect each test.list-modules
+                    approved -> workspace.idle
+                    lost -> workspace.idle
+
+            state workspace.review
+                phase inherit
+                job llm lessons-review role lessons
+                    reviewed -> workspace.idle
+                    infeasible -> workspace.idle
+                    lost -> workspace.idle
+            """;
+
     /** An {@code auto} primitive: {@code done}, {@code failed}. */
     final Scripted<StepOutcome> step = new Scripted<>("test.step", StepOutcome.class, AwaitedEvent.NONE);
 
@@ -207,9 +260,17 @@ final class EngineFixtures {
     /** The question port of the engine. */
     final FixedQuestionRecordReader questionReader = new FixedQuestionRecordReader();
 
+    /** The pending entry port of the address resolver. */
+    final FixedPendingEntryReader entryReader = new FixedPendingEntryReader();
+
     /** @return the ports of the engine: the recording doubles and the manual clock of this fixture */
     WorkflowEngine.Ports ports() {
         return new WorkflowEngine.Ports(jobStarter, taskCreator, questionReader, clock);
+    }
+
+    /** @return the address resolver over this fixture's pending entry port and {@link #entityKinds()} */
+    EntityAddressResolver resolver() {
+        return new EntityAddressResolver(entryReader, entityKinds());
     }
 
     /** @return the registry of every primitive of this fixture */
@@ -279,15 +340,16 @@ final class EngineFixtures {
     }
 
     /**
-     * The default entity kinds carry no test identifier, so the fixtures register their own kind, as the verifier
-     * tests do. {@link #CHANGE_KIND} has no entity unit: no fixture state asks, and the engine runs no entity unit, so
-     * the catalog of the fixtures need not hold one.
+     * The default entity kinds carry no test identifier, so the fixtures register their own kinds, as the verifier
+     * tests do. {@link #CHANGE_KIND} and {@link #ENRICH_KIND} have no entity unit: no fixture state asks, and the
+     * engine runs no entity unit, so the catalog of the fixtures need not hold one.
      *
-     * @return the default entity kinds plus {@link #CHANGE_KIND}
+     * @return the default entity kinds plus {@link #CHANGE_KIND} and {@link #ENRICH_KIND}
      */
     static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
-                .with(new EntityKind(CHANGE_KIND, Optional.empty(), "test.evaluate-change"));
+                .with(new EntityKind(CHANGE_KIND, Optional.empty(), "test.evaluate-change"))
+                .with(new EntityKind(ENRICH_KIND, Optional.empty(), "test.evaluate-change"));
     }
 
     /**
@@ -323,6 +385,35 @@ final class EngineFixtures {
                 .updatedAt(T0)
                 .retained(Map.of())
                 .build();
+    }
+
+    /** @return the tree of {@link #WORKSPACE_UNIT} */
+    static WorkflowDefinition workspaceUnit() {
+        return parse("workspace.pmwf", WORKSPACE_UNIT);
+    }
+
+    /**
+     * A status of the workspace scope at a state of {@link #WORKSPACE_UNIT}, with no frame.
+     *
+     * @param state the current state
+     * @param tasks the active tasks of the state by the key {@code active_tasks} holds them under
+     * @return the status
+     */
+    static WorkflowStatus workspaceStatus(String state, Map<String, WorkflowStatus.TaskEntry> tasks) {
+        return planStatus(WORKSPACE_PHASE, state).toBuilder()
+                .scopeType(JournalScopeType.WORKSPACE)
+                .scopeId(null)
+                .activeTasks(tasks)
+                .build();
+    }
+
+    /**
+     * @param queueTaskId the queue task
+     * @param role        the role of the task
+     * @return the entry of a queued task, not yet leased
+     */
+    static WorkflowStatus.TaskEntry queuedTask(String queueTaskId, String role) {
+        return new WorkflowStatus.TaskEntry(queueTaskId, role, "queued", null, null);
     }
 
     /** The empty parameter record of every fixture primitive. */
@@ -646,6 +737,37 @@ final class EngineFixtures {
         @Override
         public QuestionRead read(ReadRequest request) {
             return answer;
+        }
+    }
+
+    /**
+     * A pending entry reader that answers each {@code entry_id} with the read a test set for it, and every other one
+     * {@link PendingEntryReader.EntryRead.Deleted}, as a store without that record does; it records every read.
+     */
+    static final class FixedPendingEntryReader implements PendingEntryReader {
+
+        private final Map<String, EntryRead> answers = new HashMap<>();
+        private final List<String> reads = new ArrayList<>();
+
+        /**
+         * @param entryId the entry
+         * @param read    the read of every later request for it
+         * @return this reader
+         */
+        FixedPendingEntryReader answer(String entryId, EntryRead read) {
+            answers.put(entryId, read);
+            return this;
+        }
+
+        /** @return the {@code entry_id} of every read, in order */
+        List<String> reads() {
+            return reads;
+        }
+
+        @Override
+        public EntryRead read(ReadRequest request) {
+            reads.add(request.entryId());
+            return answers.getOrDefault(request.entryId(), new EntryRead.Deleted());
         }
     }
 }
