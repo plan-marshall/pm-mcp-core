@@ -15,7 +15,7 @@ workstream: WS-03
 
 Implement the work package `phase-sub-workflows` of `doc/plans/phase-sub-workflows.adoc` (added to the index by #36 on 2026-10-12): the plan unit as a workflow of phases, each phase a sub-workflow it calls, and an append-only history per plan. It serves UC-PLN-1 and the plan drill-down of both clients, no roadmap milestone yet, and lands in pm-workflow (units, composition, engine, static verifier, diagram) and pm-core (the plan's history). It writes its specification changes into `plan-marshall-documentation` itself, first.
 
-**Parked:** the index gives the package the status `blocked` — it waits on use cases to be agreed in `plan-marshall-documentation`, not on code. Re-ground this spec against the agreed use cases and the specification before emitting it.
+**Parked:** Index changed since staging (#52, #55 on 2026-10-13) — re-read the package file and its index row before emitting. the index gives the package the status `blocked` — it waits on use cases to be agreed in `plan-marshall-documentation`, not on code. Re-ground this spec against the agreed use cases and the specification before emitting it.
 
 ## Deliverables
 

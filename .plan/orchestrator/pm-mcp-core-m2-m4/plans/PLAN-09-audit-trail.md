@@ -46,6 +46,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **One file is shared by every plan.** In `doc/plans/README.adoc` change only this package's own row.
 - **Log messages: the identifier block of WS-01.** New records in `PmMcpLogMessages` take the lowest free identifier of INFO 050-059, WARN 141-149 (WARN 150-159 is full since #29; overflow range allocated by the orchestrator on 2026-10-11, free on main at e163bf8), ERROR 250-259 and stand under one block comment for the workstream, as the existing blocks do. Renumber nothing. The block is shared with the other plans of WS-01: after a rebase, run `PmMcpLogMessagesTest`, which refuses an identifier used twice, and move to the next free one. A plan that needs more than the block holds stops and reports it through its inbox message. The same identifiers go into `doc/LogMessages.adoc` in the documentation pull request.
 
+- **Carried from PLAN-12 (#51) and PLAN-11 (#30).** The pending-entry removal events of one sweep run share one `transaction_id`; an audit reader that deduplicates by `transaction_id` (PLAN-11's open follow-up) would drop events. Settle the deduplication key in this package and say so.
+
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/audit-trail.adoc` § What, Trace, Done When (origin/main at 7d99648)

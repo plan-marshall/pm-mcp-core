@@ -23,8 +23,9 @@ The bullets of `doc/plans/recipe-workflows.adoc` § What, in its words.
 
 1. Specification first*: the package writes the change A Recipe Is a Workflow into `plan-marshall-documentation` as part of its own work, once UC-STA-5 is agreed.
 2. A recipe declares a workflow of phase sub-workflows, its own where it differs and the plan's shared ones elsewhere, its parameters, and whether it takes sources; starting it creates a plan whose process is that workflow; the recipe states of Phases 1 and 3 go.
+3. Through `start.ready`*: a recipe's start passes `start.ready` of `start-from-clients` like a plan's (the recipe and its parameters, the title and id proposed from the recipe and the time, both changeable); `recipe.create` re-checks what creation needs and returns to `start.ready` with the cause where the recipe, the id, or a gate changed meanwhile, creating nothing. A parameter without an option is shown with its reason and the recipe cannot run; a request-scoped recipe gathers its sources as a plan does, without a chat; leaving keeps the entry with the recipe and its parameters.
 
-**Done when** (the package's own acceptance): The specification is merged in `plan-marshall-documentation`; a recipe runs as its own workflow from its parameters to its landing, an empty harvest ends it without a pull request, and no recipe state is left in the plan's phases.
+**Done when** (the package's own acceptance): The specification is merged in `plan-marshall-documentation`; a recipe runs as its own workflow from its parameters to its landing, an empty harvest ends it without a pull request, and no recipe state is left in the plan's phases; a recipe's start passes `start.ready`, and a change found at `recipe.create` returns there with its cause.
 
 **Trace starting set** (documents live in `../plan-marshall-documentation`):
 
@@ -48,7 +49,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the package file and its index row (`blocked`; depends on `phase-sub-workflows`; UC-STA-5 agreed (no work package)) — read at `doc/plans/recipe-workflows.adoc` and `doc/plans/README.adoc` (main at 7503bc2)
+- OBSERVED: the package file and its index row (`blocked`; depends on `phase-sub-workflows`, `start-from-clients`; UC-STA-5 agreed (no work package)) — read at `doc/plans/recipe-workflows.adoc` and `doc/plans/README.adoc` (main at bed24eb)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
 
@@ -60,7 +61,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-43 (`phase-sub-workflows`); UC-STA-5 agreed (no work package)
+- Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-48 (`start-from-clients`); UC-STA-5 agreed (no work package)
 
 ## Hand-Off Command
 

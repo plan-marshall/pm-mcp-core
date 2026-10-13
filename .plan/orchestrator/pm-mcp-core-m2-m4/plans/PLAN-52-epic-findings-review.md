@@ -22,10 +22,13 @@ Implement the work package `epic-findings-review` of `doc/plans/epic-findings-re
 The bullets of `doc/plans/epic-findings-review.adoc` § What, in its words.
 
 1. Specification first*: the package writes the changes An Epic's Findings and Watches and The Review into `plan-marshall-documentation` as part of its own work, once UC-CTL-3 is agreed.
-2. The registers of findings and watches in the epic's ledger; `epic.analyze-landing` and `coordinate` adding items; a watch's trigger re-checked; new findings as a `needs_operator` kind.
-3. The sub-workflow `epic.review`: the planning role's proposal per item; keep, drop, promote (the drafted plan staged under the surface checks), edit (instruct, rewrite, read-back), talk; the remaining proposals accepted at once; the dispositions written and landed in one ledger write.
+2. The registers of findings (a problem no plan owns yet, to be fixed; never called a defect) and watches (an observation to check again, with its trigger) in the epic's ledger; each item's state `open` (not decided yet), `kept`, `dropped`, or `promoted` with its row; `epic.analyze-landing` and `coordinate` adding items; a watch's trigger re-checked, the watch becoming a finding or closed; new findings as a `needs_operator` kind. Only an `open` finding holds the epic's archive; kept findings and watches are carried into it (the check is `plan-and-epic-control`'s).
+3. The sub-workflow `epic.review`: `review.open` with the planning role's proposal per item; at `review.item` keep (`review.keep`: kept as a finding, or moved to the watches where the kind changes), drop (`review.drop`, with the reason), promote, edit, chat (the sub-workflow `chat` with one item or the whole register as its scope); the remaining proposals accepted at once after one confirmation; `review.commit` writes the dispositions and lands them in one ledger write.
+4. Promote*: `review.draft-plan` by the planning role, then `review.confirm-plan` with stage (a staged row under the surface checks), back, and edit: `review.instruct-plan` (the operator's words for the drafted plan), `review.redraft-plan` (the role drafts the plan again), `review.read-back-plan` (old against new: accept back to `review.confirm-plan` with the new draft, instruct again, or discard back to `review.confirm-plan` with the draft before).
+5. Edit*: `review.instruct`, the role's rewrite, `review.read-back` (accept: applied, back to `review.item`; instruct again; discard: back to `review.item`, the item unchanged).
+6. The operator's words* in edit and chat are not interpreted: the role works from them, and only what it proposes (a rewrite, a redrafted plan, a change in a chat) passes a read-back; the role reads the items as data, a finding from outside the machine still marked untrusted.
 
-**Done when** (the package's own acceptance): The specification of both changes is merged in `plan-marshall-documentation`; a landing and an inbox finding each add an item; a review takes every disposition and lands them in one ledger write; no model's change reaches a register without the operator's read-back; a promoted item is a staged row that passed the surface check.
+**Done when** (the package's own acceptance): The specification of both changes is merged in `plan-marshall-documentation`; a landing and an inbox finding each add an item; a review takes every disposition, also keeping a finding as a watch and the reverse, and lands them in one ledger write; no model's change reaches a register or a drafted plan without the operator's read-back, and each branch of `review.read-back` and `review.read-back-plan` is tested; a promoted item is a staged row that passed the surface check.
 
 **Trace starting set** (documents live in `../plan-marshall-documentation`):
 
@@ -49,7 +52,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the package file and its index row (`blocked`; since #46 also on `chat`; depends on `plan-and-epic-control`; UC-CTL-3 agreed (no work package)) — read at `doc/plans/epic-findings-review.adoc` and `doc/plans/README.adoc` (main at 7503bc2)
+- OBSERVED: the package file and its index row (`blocked`; depends on `plan-and-epic-control`, `chat`; UC-CTL-3 agreed (no work package)) — read at `doc/plans/epic-findings-review.adoc` and `doc/plans/README.adoc` (main at bed24eb)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
 
@@ -61,7 +64,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-51 (`plan-and-epic-control`); UC-CTL-3 agreed (no work package); PLAN-55 (`chat`) — added to the index row by #46
+- Depends on: PLAN-51 (`plan-and-epic-control`); PLAN-55 (`chat`); UC-CTL-3 agreed (no work package)
 
 ## Hand-Off Command
 

@@ -2,9 +2,9 @@
   "id": "PLAN-12",
   "slug": "session-log-and-generations",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "session-log-and-generations",
-  "pr": "",
-  "landing": "",
+  "pr": "#51",
+  "landing": "landings/PLAN-12.md",
   "seq": 12
 }

@@ -23,10 +23,14 @@ The bullets of `doc/plans/decision-engine.adoc` § What, in its words.
 
 1. Specification first*: the package writes the engine side of The Decision Structure, Own Words, and Answers from the Terminal Client into `plan-marshall-documentation` as part of its own work, once UC-PLN-2 is agreed; `decision-contract` of `pm-mcp-clients` writes the client side beside it.
 2. The decision as a structure with its id (`<scope_id>/<question_id>`) and revisions; what it blocks and how reversible it is; the support per option derived by the runtime from the quorum's votes.
-3. The interpreting role `interpret` (`read_only`, its corpus topic `own_words`), the read-back and the clarification; the outcome _none fits_.
-4. The open decisions across scopes with since when each waits; the channel `cli` beside `web`; the refusal of an answer to an older revision.
+3. The interpreting role `interpret` (`read_only`, its corpus topic `own_words`), the read-back and the clarification.
+4. None fits and later*: _none fits_ goes to `decision.withdraw`, which closes the decision withdrawn with the operator's note, and the asking role thinks again and asks anew through `decision.open`, a new decision; _later_ answers nothing, the decision stays open and announced (`decision.announce`), the client leaves it, and its subject (the plan, the epic, or the setup) waits.
+5. A waiver request* is announced like a decision and answered by `waive` or `decline` (the outcome `declined`, the remediation unit going on; the wait is `operator-wait-and-machine-scope`'s), both operator overrides: no preselection, no interpretation, no chat.
+6. A project's setup asks*: a decision of a project's workspace scope (a question of its setup) is delivered, announced with its project, and answered like a plan's, through the same states and record; it holds the setup only, never a plan; Chat over it is offered as for a plan's, disabled with its reason where the setup's workflow raised the question and no planning role exists (the routing is `chat`'s).
+7. The open decisions across scopes, the workspace scope of a project included, with since when each waits; the channel `cli`, the second channel of content answers beside `web`; the refusal of an answer to an older revision.
+8. Chat before answering*: `decision.answer` and the decision record leave room for the choice Chat that `chat` adds on top of this package (the record saying that an answer followed a chat, the transcript kept with the decision, a decision closed as withdrawn with its reason); the chat itself, its routing, and its rules are that package's.
 
-**Done when** (the package's own acceptance): The specification is merged in `plan-marshall-documentation`; every scenario of `decision-contract` replays against the runtime; an answer in own words reaches the decision only after its read-back; the first valid answer of either channel wins.
+**Done when** (the package's own acceptance): The specification is merged in `plan-marshall-documentation`; every scenario of `decision-contract` replays against the runtime; an answer in own words reaches the decision only after its read-back; _none fits_ closes the decision withdrawn and a new one is asked, _later_ leaves it open; the first valid answer of either channel wins; a decision of a project's setup is announced, answered, and recorded like a plan's, holds no plan, and offers its chat disabled where the setup's workflow raised it.
 
 **Trace starting set** (documents live in `../plan-marshall-documentation`):
 
@@ -50,7 +54,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`; UC-PLN-2 agreed (no work package)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` (main at 7503bc2)
+- OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`; UC-PLN-2 agreed (no work package)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` (main at bed24eb)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
 

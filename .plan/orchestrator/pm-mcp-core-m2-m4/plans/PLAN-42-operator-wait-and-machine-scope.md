@@ -15,7 +15,7 @@ workstream: WS-03
 
 Implement the work package `operator-wait-and-machine-scope` of `doc/plans/operator-wait-and-machine-scope.adoc` (added to the index by #35 on 2026-10-12): the operator wait as one mechanism of the workflow language, and the machine scope as the fourth top-level scope. It serves no roadmap milestone yet and lands in pm-workflow (language, static verifier, engine) and pm-core (the machine scope's store). It writes its specification changes into `plan-marshall-documentation` itself, first.
 
-**Parked:** the index gives the package the status `blocked` — it waits on use cases to be agreed in `plan-marshall-documentation`, not on code. Re-ground this spec against the agreed use cases and the specification before emitting it.
+**Parked:** Index changed since staging (#52, #55 on 2026-10-13) — re-read the package file and its index row before emitting. the index gives the package the status `blocked` — it waits on use cases to be agreed in `plan-marshall-documentation`, not on code. Re-ground this spec against the agreed use cases and the specification before emitting it.
 
 ## Deliverables
 

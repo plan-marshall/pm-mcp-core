@@ -331,6 +331,18 @@ decision or a dependency outside this repository.
   PLAN-44 and PLAN-54 opened no documentation PR, so PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 stay open on
   documentation main although the verifier implements them.
 
+- 2026-10-13 — PLAN-12 `session-log-and-generations` landed as #51 (d7b622d), Claude Code; landing
+  record `landings/PLAN-12.md`. Code clean (pre-commit on the final head, `/review` after both rounds,
+  no override, docs plus 9 ADRs in three modules); it also wrote `runtime.start` sweeps and
+  `core.service`. **Not complete under the related-PR rule:** documentation PR #59 is OPEN, and the
+  `pm-mcp-server` sweep registration in plan-marshall-mcp is owed (the SNAPSHOT breaks the assembly
+  until then). Inbox drain of 12 messages: the landing reconciled; 3 lessons promoted
+  (2026-10-13-13-001 to -003), 8 routed (`pm-mcp-core-m2-m4-226.md` to `-233.md`).
+- 2026-10-13 — Operator instruction: no new emits; the queue drains (running PLAN-17, PLAN-21,
+  PLAN-39 finish first). #52 and #55 changed only parked packages; PLAN-46 to PLAN-53 and PLAN-55
+  were regenerated from their package files, and PLAN-42, PLAN-43 and PLAN-45 were marked for
+  re-reading before any emit.
+
 ## Open Defects
 
 - Documentation behind the code: (a) the Job Runtime specification lacks PLAN-18's mandatory
@@ -360,6 +372,9 @@ decision or a dependency outside this repository.
 
 
 ## Watches
+
+- Documentation PR `plan-marshall-documentation` #59 (PLAN-12) is OPEN — PLAN-12's landing completes when it is merged.
+- plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
 
 - The specification issue "Workflow DSL Rule 3: define how a `depends_on_config` value activates a guard" is not filed in `plan-marshall-documentation`; its text is in PR #48 and ADR 006 (operator, or PLAN-56).
 - Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.

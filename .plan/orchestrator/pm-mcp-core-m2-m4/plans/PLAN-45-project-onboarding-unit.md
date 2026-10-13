@@ -15,7 +15,7 @@ workstream: WS-03
 
 Implement the work package `project-onboarding-unit` of `doc/plans/project-onboarding-unit.adoc` (added to the index by #37 on 2026-10-12): onboarding a project as one process, the project's values over the machine's, and the projects of the machine. It serves UC-PRJ-1 and UC-PRJ-2 and the project onboarding of both clients, no roadmap milestone yet, and lands in pm-workflow (the unit of the machine scope, the setup's choices as operator waits), pm-core (detection, enrolment writes, project values over machine values) and pm-runtime (favourites, recent, most used). It writes its specification changes into `plan-marshall-documentation` itself, first.
 
-**Parked:** the index gives the package the status `blocked` — it waits on use cases to be agreed in `plan-marshall-documentation`, not on code. Re-ground this spec against the agreed use cases and the specification before emitting it.
+**Parked:** Index changed since staging (#52, #55 on 2026-10-13) — re-read the package file and its index row before emitting. the index gives the package the status `blocked` — it waits on use cases to be agreed in `plan-marshall-documentation`, not on code. Re-ground this spec against the agreed use cases and the specification before emitting it.
 
 ## Deliverables
 
