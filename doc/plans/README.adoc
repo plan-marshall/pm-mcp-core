@@ -270,7 +270,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:start-from-clients.adoc[`start-from-clients`]
 |Starting work from the clients: sources as a list, the source directory, screened once stored and failing closed, options asked when needed, a claimed lesson ending with the landing
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; UC-STA-1 to UC-STA-4 and UC-STA-7 to UC-STA-9 agreed (no work package)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; UC-STA-1 to UC-STA-4 and UC-STA-7 to UC-STA-9 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:forgejo-provider.adoc[`forgejo-provider`]
