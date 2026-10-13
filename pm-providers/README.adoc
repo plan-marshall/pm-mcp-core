@@ -19,7 +19,7 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 Run from the root of the repository:
 
 * Build: `python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "compile"`
-* Tests: the aggregator has no tests of its own. Each provider module documents its test command in its README, linked above.
+* Tests: the aggregator has no tests of its own. Each provider module documents its test command in its README, linked above. The `modules` section of `pm-providers/pom.xml` is the authoritative list of the provider modules; a module added there gets its link in the list above in the same change.
 
 The commands for the whole repository are in `CLAUDE.md`.
 
