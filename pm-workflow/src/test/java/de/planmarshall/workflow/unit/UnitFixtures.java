@@ -80,6 +80,14 @@ final class UnitFixtures {
     static final Mutation UNPARSABLE = new Mutation("an unparsable unit", InvariantFixtures.REPLAN_FILE,
             REPLAN_HEADER, "workflow replan revision 1 format 1");
 
+    /** The re-planning file declares the identifier of the adjudication unit, which an earlier file declares. */
+    static final Mutation DUPLICATE_UNIT_ID = new Mutation("a sub-unit file declares the id of another",
+            InvariantFixtures.REPLAN_FILE, REPLAN_HEADER, "workflow adjudicate.decisions version 1 format 1");
+
+    /** The re-planning file declares the identifier of the merged plan unit. */
+    static final Mutation PLAN_UNIT_ID = new Mutation("a sub-unit file declares the id plan",
+            InvariantFixtures.REPLAN_FILE, REPLAN_HEADER, PLAN_HEADER);
+
     /** The state that completes {@code default:create-pr} completes the project step as well. */
     static final Mutation COMPLETES_PROJECT_STEP = new Mutation("the create-pr state completes the project step",
             FINALIZE_FILE, "            completes default:create-pr as done",

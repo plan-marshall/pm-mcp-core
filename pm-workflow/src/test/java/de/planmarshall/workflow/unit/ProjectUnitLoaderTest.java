@@ -201,6 +201,43 @@ class ProjectUnitLoaderTest {
     }
 
     @Nested
+    @DisplayName("Duplicate unit identifiers")
+    class DuplicateUnitIds {
+
+        @Test
+        @DisplayName("a file declaring the id of an earlier unit is refused at its header and replaces nothing")
+        void twoFilesOneId() {
+            var mutation = UnitFixtures.DUPLICATE_UNIT_ID;
+
+            var result = load(mutation);
+
+            var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID,
+                    configPath(mutation.file()), mutation.lineOf("workflow adjudicate.decisions"));
+            assertAll(
+                    () -> assertTrue(finding.message().contains("adjudicate.decisions"), finding::message),
+                    () -> assertTrue(finding.message().contains(configPath(InvariantFixtures.ADJUDICATION_FILE)),
+                            finding::message),
+                    () -> assertTrue(finding.message().contains(configPath(mutation.file())), finding::message));
+        }
+
+        @Test
+        @DisplayName("a file declaring the id plan is refused at its header and never stands in for the plan unit")
+        void planId() {
+            var mutation = UnitFixtures.PLAN_UNIT_ID;
+
+            var result = load(mutation);
+
+            var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID,
+                    configPath(mutation.file()), mutation.lineOf(UnitFixtures.PLAN_HEADER));
+            assertAll(
+                    () -> assertTrue(finding.message().contains("'" + PlanUnitMerger.PLAN_UNIT + "'"),
+                            finding::message),
+                    () -> assertTrue(finding.message().contains(configPath("init.pmwf")), finding::message),
+                    () -> assertTrue(finding.message().contains(configPath(mutation.file())), finding::message));
+        }
+    }
+
+    @Nested
     @DisplayName("Format refusals")
     class FormatRefusals {
 

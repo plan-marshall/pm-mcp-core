@@ -58,7 +58,9 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * ({@link PathConfinement}), a refused path is a {@link UnitFinding.Kind#CONFINEMENT} finding and a missing file a
  * {@link UnitFinding.Kind#MISSING} finding.</li>
  * <li>Parse as a {@link UnitOrigin#PROJECT} unit and refuse a DSL format other than {@value #COMPILED_FORMAT_VERSION}
- * with {@value UnitFinding#FORMAT_OUTDATED} or {@value UnitFinding#FORMAT_NEWER}.</li>
+ * with {@value UnitFinding#FORMAT_OUTDATED} or {@value UnitFinding#FORMAT_NEWER}; a file that declares the identifier
+ * of an earlier file, or {@value PlanUnitMerger#PLAN_UNIT}, is a {@value UnitFinding#DUPLICATE_UNIT_ID} finding and
+ * never replaces the earlier unit.</li>
  * <li>Merge the phase files into the plan unit ({@link PlanUnitMerger}) and verify every unit with Rules 1-12, Rule 5
  * excluded: a project unit has no released baseline.</li>
  * <li>Check the declarations against their compiled bounds ({@link DeclarationBounds}).</li>
@@ -169,13 +171,14 @@ public final class ProjectUnitLoader {
     private Map<String, WorkflowDefinition> parseUnits(WorkspaceRoots roots, List<UnitFinding> findings) {
         var parts = new LinkedHashMap<String, WorkflowDefinition>();
         var subUnits = new LinkedHashMap<String, WorkflowDefinition>();
+        var planFile = CONFIG_DIRECTORY + PlanUnitMerger.PHASE_FILES.getFirst();
         for (var file : unitFiles) {
             var path = CONFIG_DIRECTORY + file;
             read(roots, path, findings).flatMap(source -> parse(path, source, findings)).ifPresent(unit -> {
                 if (PlanUnitMerger.PHASE_FILES.contains(file)) {
                     parts.put(file, unit);
                 } else {
-                    subUnits.put(unit.id(), unit);
+                    UnitFinding.putUnique(subUnits, unit, planFile, findings);
                 }
             });
         }

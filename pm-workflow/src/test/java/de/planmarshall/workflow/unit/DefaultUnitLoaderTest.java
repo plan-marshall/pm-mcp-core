@@ -43,8 +43,9 @@ import de.planmarshall.workflow.verify.VerificationRule;
 /**
  * The loader of the default units (PM-IMPL-5): it reads the project-ownable unit files from the classpath root it is
  * given, never from a fixed one, so the tests read {@code unit-fixtures/defaults/}, units written for them, and the
- * root {@code workflows/} of the product is not read at all. A default unit that is missing, refused by the parser or
- * refused by a rule is a finding with its resource and line, logged as ERROR {@code DEFAULT_UNIT_REFUSED}.
+ * root {@code workflows/} of the product is not read at all. A default unit that is missing, refused by the parser,
+ * refused by a rule or declaring an identifier already taken is a finding with its resource and line, logged as ERROR
+ * {@code DEFAULT_UNIT_REFUSED}.
  */
 @EnableTestLogger
 @DisplayName("DefaultUnitLoader")
@@ -186,6 +187,44 @@ class DefaultUnitLoaderTest {
                     () -> assertTrue(result.findings().stream().anyMatch(
                                     finding -> resource.equals(finding.file()) && finding.line() == line),
                             result.findings()::toString),
+                    () -> assertRefusalLogged(resource));
+        }
+
+        @Test
+        @DisplayName("refuses a default file declaring the id of an earlier unit at its header, replacing nothing")
+        void twoFilesOneId() throws Exception {
+            var mutation = UnitFixtures.DUPLICATE_UNIT_ID;
+            var resource = TEMP_ROOT + mutation.file();
+
+            var result = loadWritten(UnitFixtures.UNIT_FILES, mutation);
+
+            var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID);
+            assertAll(
+                    () -> assertTrue(finding.isPresent(), result.findings()::toString),
+                    () -> assertEquals(resource, finding.orElseThrow().file()),
+                    () -> assertEquals(mutation.lineOf("workflow adjudicate.decisions"), finding.orElseThrow().line()),
+                    () -> assertTrue(finding.orElseThrow().message()
+                            .contains(TEMP_ROOT + InvariantFixtures.ADJUDICATION_FILE), finding.orElseThrow()::message),
+                    () -> assertEquals(Map.of(), result.units()),
+                    () -> assertRefusalLogged(resource));
+        }
+
+        @Test
+        @DisplayName("refuses a default file declaring the id plan at its header, never in place of the plan unit")
+        void planId() throws Exception {
+            var mutation = UnitFixtures.PLAN_UNIT_ID;
+            var resource = TEMP_ROOT + mutation.file();
+
+            var result = loadWritten(UnitFixtures.UNIT_FILES, mutation);
+
+            var finding = UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE, UnitFinding.DUPLICATE_UNIT_ID);
+            assertAll(
+                    () -> assertTrue(finding.isPresent(), result.findings()::toString),
+                    () -> assertEquals(resource, finding.orElseThrow().file()),
+                    () -> assertEquals(mutation.lineOf(UnitFixtures.PLAN_HEADER), finding.orElseThrow().line()),
+                    () -> assertTrue(finding.orElseThrow().message().contains(TEMP_ROOT + "init.pmwf"),
+                            finding.orElseThrow()::message),
+                    () -> assertEquals(Map.of(), result.units()),
                     () -> assertRefusalLogged(resource));
         }
 

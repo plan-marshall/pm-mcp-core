@@ -57,6 +57,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 `DefaultUnitLoader.load()` reads `<root><file>` for every name of its file list.
 A name of `PlanUnitMerger.PHASE_FILES` is a part of the plan unit; every other name is a unit of its own, keyed by the identifier it declares.
+A file that declares the identifier of an earlier file, or the identifier `plan` of the merged plan unit, is a `duplicate_unit_id` finding at its header that names the identifier and both files; it never replaces the earlier unit or the plan unit.
 The plan unit is merged only when every phase file of the list was read and parsed; a missing or refused phase file leaves the plan unit out, and no part is verified on its own.
 Every loaded unit is then verified by a `WorkflowValidator` whose catalog holds the compiled units of the context and the loaded sub-workflows, with the released state names of the unit's identifier as the Rule 5 baseline.
 
@@ -69,6 +70,7 @@ The findings of a default load are:
 |`MISSING` |`unit_unreadable` |the resource cannot be read; line `0`
 |`PARSE` |the name of the parser's `RefusalRule` |the parser refuses the file, at the line of its diagnostic
 |`RULE` |the name of the `VerificationRule`, or a merge code |a static verification rule or a rule of the merge is violated
+|`RULE` |`duplicate_unit_id` |a file declares the identifier of an earlier file or `plan`, at its header
 |`FORMAT` |`mixed_formats` |two phase files declare different DSL formats
 |===
 
@@ -89,6 +91,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 Every part must declare scope `plan` (otherwise `not_a_plan_part`); its header names the part, for example `workflow finalize`, and identifies the file only, so the merged unit is `plan` whatever its parts are named.
 Every part must declare the format of the first part (`mixed_formats`, kind `FORMAT`) and the origin of the first part (`mixed_origins`): a project never mixes a default file into its own plan unit.
 A state declared in two parts is a `STATE_ID_UNIQUE` finding at the second declaration.
+A part carries no `declare` line, no `decide` line and no `instance` line: the merged unit has none of them, so such a line would have no effect, and each is a `declaration_in_plan_part` finding instead of being dropped. A `declare` or `decide` finding is located at its line; an `instance` finding at the header line of the part, which the instance line directly follows, since the instance header carries no location of its own.
 Every finding is reported, and a merge with a finding yields no unit.
 
 == Loading the Project Units
@@ -102,7 +105,7 @@ Reading `workflow.json` and the enrolment to produce the last two is left to the
 A load runs these stages and collects every finding before it decides:
 
 . *Read.* Every file is read from `.marshall/config/<file>` (`CONFIG_DIRECTORY`). The path is confined to the workspace by `PathConfinement.confine` of `pm-core`; a refused path, such as a symbolic link to a file outside the project, is a `CONFINEMENT` finding `path_traversal_rejected` at line `0`. A file that does not exist is `MISSING` `unit_missing`, one that cannot be read `MISSING` `unit_unreadable`.
-. *Parse and format.* Every file is parsed as a project unit. A refused file is a `PARSE` finding at the line of the diagnostic. A unit whose DSL format is not the compiled one (`COMPILED_FORMAT_VERSION`, `1`) is a `FORMAT` finding at its header: `format_newer` for a later format, `format_outdated` for an earlier one. The grammar admits no format below `1`, so while the compiled format is `1` an earlier format is refused by the parser instead, and `format_outdated` is first reached when a release compiles format `2`.
+. *Parse and format.* Every file is parsed as a project unit. A refused file is a `PARSE` finding at the line of the diagnostic. A unit whose DSL format is not the compiled one (`COMPILED_FORMAT_VERSION`, `1`) is a `FORMAT` finding at its header: `format_newer` for a later format, `format_outdated` for an earlier one. The grammar admits no format below `1`, so while the compiled format is `1` an earlier format is refused by the parser instead, and `format_outdated` is first reached when a release compiles format `2`. A file that declares the identifier of an earlier file, or `plan`, is a `RULE` finding `duplicate_unit_id` at its header and replaces nothing, as in the default load.
 . *Merge and Rules 1-12.* The phase files are merged as above, and every unit is verified with Rules 1-12. Rule 5 is left out: a project unit has no released baseline. The catalog holds the compiled units of the context and the project's own sub-workflows, so a sub-workflow that was refused in stage 1 or 2 also leaves its callers with a Rule 6 finding.
 . *Declarations.* `DeclarationBounds.check` checks the `declare` and `decide` lines; each finding is `DECLARATION` `declaration_invalid` at the offending line, or at the unit header for a missing declaration.
 . *Finalize pipeline.* For the plan unit, the project roster is built from the default descriptors of the steps the unit completes, in the order of the default roster, followed by the declared project steps; `FinalizePipelineValidator.validate` checks it. A `PIPELINE` finding carries the name of the `PipelineRule` and is located at the first state, in declaration order, with a transition that completes the step, or at the unit header when no state does (link:../adr/workflow-finalize/002-project-roster-and-violation-location.adoc[ADR 002 of `workflow.finalize`]).
@@ -131,7 +134,7 @@ A project step is a finalize step whose id starts with `project:`. The plan unit
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 `UnitFinding.Kind` is the closed set `PARSE`, `FORMAT`, `MISSING`, `RULE`, `INVARIANT`, `DECLARATION`, `PIPELINE`, `PROJECT_STEP_UNBOUND` and `CONFINEMENT`.
-The code of a finding is the name of the parser refusal or verification rule, the wire id of the invariant, `format_outdated` or `format_newer`, `declaration_invalid`, the name of the pipeline rule, `project_step_unbound`, `unit_missing`, `unit_unreadable` or `path_traversal_rejected`, or one of the merge codes `not_a_plan_part`, `mixed_formats` and `mixed_origins`.
+The code of a finding is the name of the parser refusal or verification rule, the wire id of the invariant, `format_outdated` or `format_newer`, `declaration_invalid`, the name of the pipeline rule, `project_step_unbound`, `unit_missing`, `unit_unreadable`, `duplicate_unit_id` or `path_traversal_rejected`, or one of the merge codes `not_a_plan_part`, `mixed_formats`, `mixed_origins` and `declaration_in_plan_part`.
 
 `UnitLoadResult` holds either units or findings: its constructor refuses a result with both, `verified(units)` builds the one and `refused(findings)` the other, and a refused result needs at least one finding.
 `refusal()` is empty for a verified result and otherwise the `Refusal` `config_invalid` naming the file, line and message of the first finding.

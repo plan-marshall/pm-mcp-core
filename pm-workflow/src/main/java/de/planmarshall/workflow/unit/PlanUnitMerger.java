@@ -33,8 +33,11 @@ import de.planmarshall.workflow.verify.VerificationRule;
  * Every part must declare scope {@code plan}; its header names the part, for example {@code workflow finalize}, and
  * identifies the file only, so the merged unit takes the identifier {@value #PLAN_UNIT} whatever its parts are named.
  * The parts must declare one DSL format and one origin, so a project never mixes a default file into its own plan
- * unit; and a state is declared in one part only. Every violation is a {@link UnitFinding} with file and line, and a
- * merge with findings yields no unit.
+ * unit; and a state is declared in one part only. A part carries no {@code declare} line, no {@code decide} line and no
+ * {@code instance} line: the merged unit has none of them, so such a line would have no effect and is refused
+ * ({@value #DECLARATION_IN_PLAN_PART}) instead of being dropped; the finding of an {@code instance} line names the
+ * header line it directly follows, since the instance header carries no location of its own. Every violation is a {@link UnitFinding} with file and
+ * line, and a merge with findings yields no unit.
  *
  * @since 0.1
  */
@@ -55,6 +58,12 @@ public final class PlanUnitMerger {
 
     /** The code of a part whose origin differs from that of the first part. */
     public static final String MIXED_ORIGINS = "mixed_origins";
+
+    /**
+     * The code of a {@code declare}, {@code decide} or {@code instance} line in a part: the merged plan unit carries
+     * none of them, so the line would have no effect.
+     */
+    public static final String DECLARATION_IN_PLAN_PART = "declaration_in_plan_part";
 
     private PlanUnitMerger() {
     }
@@ -120,6 +129,18 @@ public final class PlanUnitMerger {
                     "'%s' is a %s file, '%s' a %s file; a plan unit never mixes them".formatted(file, part.origin(),
                             first.location().resourceName(), first.origin())));
         }
+        part.declarations().forEach((name, declaration) -> findings.add(UnitFinding.at(UnitFinding.Kind.RULE,
+                DECLARATION_IN_PLAN_PART, declaration.location(),
+                "'%s' declares '%s'; a part of the unit '%s' carries no declare line".formatted(file, name,
+                        PLAN_UNIT))));
+        part.decisions().forEach((kind, decision) -> findings.add(UnitFinding.at(UnitFinding.Kind.RULE,
+                DECLARATION_IN_PLAN_PART, decision.location(),
+                "'%s' decides '%s'; a part of the unit '%s' carries no decide line".formatted(file, kind,
+                        PLAN_UNIT))));
+        // the instance header carries no location of its own; the finding names the header line it directly follows
+        part.instance().ifPresent(_ -> findings.add(UnitFinding.at(UnitFinding.Kind.RULE, DECLARATION_IN_PLAN_PART,
+                part.location(), "'%s' carries an instance line after its header; a part of the unit '%s' carries none"
+                .formatted(file, PLAN_UNIT))));
     }
 
     /**

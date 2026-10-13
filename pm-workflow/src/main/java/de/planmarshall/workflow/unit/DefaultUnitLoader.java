@@ -33,7 +33,9 @@ import de.planmarshall.workflow.dsl.WorkflowParser;
  * test places a fixture where the product's units live. This module carries no unit. The loader reads every named
  * file through the given class loader, parses it as a {@link UnitOrigin#DEFAULT} unit, merges the phase files of
  * {@link PlanUnitMerger#PHASE_FILES} into the plan unit and verifies every unit with Rules 1-12, Rule 5 against the
- * released state names included. A default unit that is missing, refused by the parser or by a rule is a
+ * released state names included. A file that declares the identifier of an earlier file, or
+ * {@value PlanUnitMerger#PLAN_UNIT}, never replaces the earlier unit. A default unit that is missing, refused by the
+ * parser or by a rule, or whose identifier is taken, is a
  * {@link UnitFinding}, logged as ERROR {@code DEFAULT_UNIT_REFUSED}: a default unit that does not verify is a defect
  * of the build.
  *
@@ -81,12 +83,13 @@ public final class DefaultUnitLoader {
         var findings = new ArrayList<UnitFinding>();
         var parts = new LinkedHashMap<String, WorkflowDefinition>();
         var units = new LinkedHashMap<String, WorkflowDefinition>();
+        var planFile = root + PlanUnitMerger.PHASE_FILES.getFirst();
         for (var file : unitFiles) {
             read(file, findings).flatMap(source -> parse(file, source, findings)).ifPresent(unit -> {
                 if (PlanUnitMerger.PHASE_FILES.contains(file)) {
                     parts.put(file, unit);
                 } else {
-                    units.put(unit.id(), unit);
+                    UnitFinding.putUnique(units, unit, planFile, findings);
                 }
             });
         }

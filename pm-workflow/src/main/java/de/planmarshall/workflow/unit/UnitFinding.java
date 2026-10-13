@@ -9,9 +9,12 @@
  */
 package de.planmarshall.workflow.unit;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import de.planmarshall.workflow.ast.SourceLocation;
+import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
  * One finding that refuses a unit (PM-IMPL-5): what kind of check refused it, the code of the rule, invariant or
@@ -20,8 +23,9 @@ import de.planmarshall.workflow.ast.SourceLocation;
  * @param kind    the kind of check that reports the finding
  * @param code    the code: the name of the parser refusal or verification rule, the wire id of the invariant,
  *                {@value #FORMAT_OUTDATED} or {@value #FORMAT_NEWER}, {@code declaration_invalid}, the name of the
- *                pipeline rule, {@value #PROJECT_STEP_UNBOUND}, {@value #UNIT_MISSING}, {@value #UNIT_UNREADABLE}
- *                or {@code path_traversal_rejected}
+ *                pipeline rule, {@value #PROJECT_STEP_UNBOUND}, {@value #UNIT_MISSING}, {@value #UNIT_UNREADABLE},
+ *                {@value #DUPLICATE_UNIT_ID}, {@code path_traversal_rejected} or a merge code of
+ *                {@link PlanUnitMerger}
  * @param file    the file the finding is located in, as the loader names it
  * @param line    the line, counted from 1; {@code 0} for a file that could not be read
  * @param message what is wrong
@@ -43,6 +47,14 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
 
     /** The code of a unit file that exists but cannot be read. */
     public static final String UNIT_UNREADABLE = "unit_unreadable";
+
+    /**
+     * The code of a unit whose identifier an earlier file of the load already declares, or that declares the identifier
+     * {@value PlanUnitMerger#PLAN_UNIT} of the merged plan unit; the later unit never replaces the earlier one.
+     */
+    public static final String DUPLICATE_UNIT_ID = "duplicate_unit_id";
+
+    private static final String DUPLICATE_MESSAGE = "the unit '%s' is declared by '%s' and again by '%s'";
 
     /**
      * Refuses a missing component.
@@ -70,6 +82,31 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
      */
     static UnitFinding at(Kind kind, String code, SourceLocation location, String message) {
         return new UnitFinding(kind, code, location.resourceName(), location.line(), message);
+    }
+
+    /**
+     * Adds a parsed unit that is no part of the plan unit to the units of a load, keyed by its identifier, unless the
+     * identifier is taken: a unit that declares the identifier of an earlier unit, or {@value PlanUnitMerger#PLAN_UNIT},
+     * is a {@value #DUPLICATE_UNIT_ID} finding at its header and is left out.
+     *
+     * @param units    the units of the load by identifier
+     * @param unit     the parsed unit
+     * @param planFile the file the merged plan unit is located in, its first phase file as the loader names it
+     * @param findings the findings of the load
+     */
+    static void putUnique(Map<String, WorkflowDefinition> units, WorkflowDefinition unit, String planFile,
+            List<UnitFinding> findings) {
+        var file = unit.location().resourceName();
+        if (PlanUnitMerger.PLAN_UNIT.equals(unit.id())) {
+            findings.add(at(Kind.RULE, DUPLICATE_UNIT_ID, unit.location(), DUPLICATE_MESSAGE.formatted(unit.id(),
+                    planFile, file)));
+            return;
+        }
+        var earlier = units.putIfAbsent(unit.id(), unit);
+        if (earlier != null) {
+            findings.add(at(Kind.RULE, DUPLICATE_UNIT_ID, unit.location(), DUPLICATE_MESSAGE.formatted(unit.id(),
+                    earlier.location().resourceName(), file)));
+        }
     }
 
     /** The closed set of the kinds of check that refuse a unit. */
