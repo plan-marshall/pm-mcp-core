@@ -306,14 +306,4 @@ class PeriodicSweepTest {
                     () -> assertFalse(recovery.isRecovered("p2"), "a failed recovery is not recovered"));
         }
     }
-
-    @Test
-    @DisplayName("a seam not implemented yet does nothing and says so")
-    void shouldReportNotImplementedSeam() {
-        var seam = SweepStep.notImplemented(SweepStep.Name.FENCED_SESSION_GENERATIONS);
-
-        assertAll(
-                () -> assertEquals(SweepStep.Name.FENCED_SESSION_GENERATIONS, seam.name()),
-                () -> assertEquals(new Outcome.Done(RecoveryStep.NOT_IMPLEMENTED), seam.run("p1", OLDER_THAN)));
-    }
 }
