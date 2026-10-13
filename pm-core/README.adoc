@@ -20,7 +20,7 @@ All packages lie below `de.planmarshall.core`. Each line is the first sentence o
 * `id`: the identifier types and their validation.
 * `log`: the one registry of log messages every module logs through, so that the identifiers are numbered once.
 * `profile`: the client profiles: the loader of the profile documents of `pm-api`, their validation, the placeholders and the vocabulary translation.
-* `queue`: the task queue store: the queue task records, the task leases and the session generation record.
+* `queue`: the task queue store of a project below `projects/<project_id>/queue/`.
 * `recipe`: the recipes and the extension points a domain contributes to.
 * `role`: the role sets: the schema of a role artifact, the shipped, machine and project sets with their override and validation against the client profiles, and the qualification records.
 * `service`: the service interfaces the foundation declares and `pm-runtime` implements: the job runner, the secret source and plan locking.
@@ -41,12 +41,14 @@ projects below `src/guard-controls`. The commands for the whole repository are i
 
 == Developer Documentation
 
-* link:doc/developer/core-store.adoc[Workflow State Store and Engine Ports (`core.store`, `core.spi`)]
+* link:doc/developer/core-queue.adoc[Session Generations (`core.queue`)]
+* link:doc/developer/core-store.adoc[Scope Stores and Engine Ports (`core.store`, `core.spi`)]
 
 == ADRs
 
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
+* link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue store and the session generations.
 * link:doc/adr/core-spi/[`doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:doc/adr/core-store/[`doc/adr/core-store/`]: the state stores and the engine ports.
 

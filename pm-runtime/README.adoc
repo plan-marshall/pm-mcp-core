@@ -44,6 +44,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 == Developer Documentation
 
 * link:doc/developer/runtime-job.adoc[Job Verification (`runtime.job`)]
+* link:doc/developer/runtime-start.adoc[Sweep Steps of the Periodic Sweep (`runtime.start`)]
 
 == ADRs
 
