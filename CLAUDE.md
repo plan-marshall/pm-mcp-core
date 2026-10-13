@@ -14,11 +14,26 @@ The only listing of the repositories, the modules, their responsibilities and al
 Structure Specification of the product (`doc/specification/module-structure.adoc` in
 `plan-marshall/plan-marshall-mcp`, later in `plan-marshall/plan-marshall-documentation`); name modules from there and
 never repeat the listing here. The requirements, specifications, implementation watch, roadmap, concept, developer
-and user documentation live in the documentation repository `plan-marshall/plan-marshall-documentation`. The code
-documentation (Javadoc and `package-info.java`) and the work package files with their index below `doc/plans/` live
-here. A plan that changes what a specification or requirement states updates the documents concerned there directly,
+and user documentation live in the documentation repository `plan-marshall/plan-marshall-documentation`, except the
+developer documentation of a package and the architectural decision records (ADRs), which live in the module (section
+"Module Documentation"). The code documentation (Javadoc and `package-info.java`) and the work package files with
+their index below `doc/plans/` live here as well. A plan that changes what a specification or requirement states updates the documents concerned there directly,
 as part of its own work. Every concrete implementation follows the project skill `traced-implementation`, which
 lives there with `doc-review`; the skills of the same names here only point to them.
+
+## Module Documentation
+
+The documentation that belongs to the code lives beside it, in four places:
+
+- `{module}/README.adoc`: the module's purpose, its packages, its build and test commands, and links to its
+  developer documentation and ADRs.
+- `{module}/doc/developer/{package}.adoc`: the developer documentation of one package.
+- `{module}/doc/adr/{package}/NNN-{slug}.adoc`: one ADR per design decision of the package, numbered per directory.
+- `doc/adr/NNN-{slug}.adoc`: one ADR per design decision that concerns the whole repository; the template is
+  `doc/adr/template.adoc`, the index `doc/adr/README.adoc`.
+
+A plan writes the developer documentation of the packages it changes and one ADR per design decision it takes, in
+its own pull request.
 
 ## Build
 
