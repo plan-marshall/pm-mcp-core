@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -112,7 +113,7 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
                     () -> assertEquals(List.of(PlanUnitMerger.PLAN_UNIT, "adjudicate.decisions", "replan",
-                            "git.commit_and_push", "remediation.qgate-findings"),
+                                    "git.commit_and_push", "remediation.qgate-findings"),
                             List.copyOf(result.units().keySet())),
                     () -> assertEquals(Optional.empty(), result.refusal()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -159,7 +160,7 @@ class ProjectUnitLoaderTest {
             var result = load(mutation);
 
             assertTrue(result.findings().stream().anyMatch(finding -> finding.kind() == UnitFinding.Kind.RULE
-                    && configPath(mutation.file()).equals(finding.file()) && finding.line() == line),
+                            && configPath(mutation.file()).equals(finding.file()) && finding.line() == line),
                     result.findings()::toString);
             assertFalse(result.isVerified());
         }
@@ -176,9 +177,9 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertTrue(finding.message().contains("vote_wait_seconds"), finding::message),
                     () -> assertTrue(result.findings().stream().noneMatch(
-                            other -> other.kind() == UnitFinding.Kind.INVARIANT
-                                    && configPath(mutation.file()).equals(other.file())
-                                    && other.line() == finding.line()),
+                                    other -> other.kind() == UnitFinding.Kind.INVARIANT
+                                            && configPath(mutation.file()).equals(other.file())
+                                            && other.line() == finding.line()),
                             "the invariant check does not report the declaration finding again"));
         }
 
@@ -252,7 +253,7 @@ class ProjectUnitLoaderTest {
 
         @Test
         @DisplayName("a missing unit is refused and never replaced by the default unit")
-        void missingUnit() throws IOException {
+        void missingUnit() throws Exception {
             UnitFixtures.writeProject(project);
             Files.delete(project.resolve(configPath(InvariantFixtures.REPLAN_FILE)));
 
@@ -277,7 +278,7 @@ class ProjectUnitLoaderTest {
         @Test
         @DisabledOnOs(value = OS.WINDOWS, disabledReason = "creating a symbolic link needs a privilege there")
         @DisplayName("a unit linked to a file outside the project is refused with path_traversal_rejected")
-        void symlinkOutsideRoot() throws IOException {
+        void symlinkOutsideRoot() throws Exception {
             UnitFixtures.writeProject(project);
             var outside = Files.createDirectories(temp.toRealPath().resolve("outside"));
             var target = Files.writeString(outside.resolve(InvariantFixtures.REPLAN_FILE),

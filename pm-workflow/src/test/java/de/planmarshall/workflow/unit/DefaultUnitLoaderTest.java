@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -68,7 +69,7 @@ class DefaultUnitLoaderTest {
      * Loads the units of the temporary directory through a class loader that sees only that directory.
      */
     private UnitLoadResult loadTemp(List<String> unitFiles) throws IOException {
-        try (var classLoader = new URLClassLoader(new URL[] {temp.toUri().toURL()}, null)) {
+        try (var classLoader = new URLClassLoader(new URL[]{temp.toUri().toURL()}, null)) {
             return new DefaultUnitLoader(classLoader, TEMP_ROOT, unitFiles, UnitFixtures.context(), Map.of()).load();
         }
     }
@@ -92,7 +93,7 @@ class DefaultUnitLoaderTest {
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
                     () -> assertEquals(List.of(PlanUnitMerger.PLAN_UNIT, "adjudicate.decisions", "replan",
-                            "git.commit_and_push", "remediation.qgate-findings"),
+                                    "git.commit_and_push", "remediation.qgate-findings"),
                             List.copyOf(result.units().keySet())),
                     () -> assertEquals(Optional.empty(), result.refusal()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR, DefaultUnitLoader.class));
@@ -147,7 +148,7 @@ class DefaultUnitLoaderTest {
 
             assertAll(
                     () -> assertEquals(List.of(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING,
-                            resource, 0, "the default unit '%s' is not on the classpath".formatted(resource))),
+                                    resource, 0, "the default unit '%s' is not on the classpath".formatted(resource))),
                             result.findings()),
                     () -> assertEquals(Map.of(), result.units()),
                     () -> assertRefusalLogged(resource));
@@ -155,7 +156,7 @@ class DefaultUnitLoaderTest {
 
         @Test
         @DisplayName("refuses a default unit the parser refuses with its resource and line")
-        void unparsableDefault() throws IOException {
+        void unparsableDefault() throws Exception {
             var resource = TEMP_ROOT + InvariantFixtures.REPLAN_FILE;
 
             var result = loadWritten(UnitFixtures.UNIT_FILES, UnitFixtures.UNPARSABLE);
@@ -172,7 +173,7 @@ class DefaultUnitLoaderTest {
 
         @Test
         @DisplayName("refuses a default unit that violates a rule with the file and line of the offending node")
-        void ruleViolation() throws IOException {
+        void ruleViolation() throws Exception {
             var resource = TEMP_ROOT + UnitFixtures.FINALIZE_FILE;
             var line = UnitFixtures.RULE_VIOLATION.lineOf("merged -> finalize.nowhere");
 
@@ -183,7 +184,7 @@ class DefaultUnitLoaderTest {
                     () -> assertTrue(result.findings().stream().allMatch(
                             finding -> finding.kind() == UnitFinding.Kind.RULE), result.findings()::toString),
                     () -> assertTrue(result.findings().stream().anyMatch(
-                            finding -> resource.equals(finding.file()) && finding.line() == line),
+                                    finding -> resource.equals(finding.file()) && finding.line() == line),
                             result.findings()::toString),
                     () -> assertRefusalLogged(resource));
         }
@@ -206,7 +207,7 @@ class DefaultUnitLoaderTest {
 
         @Test
         @DisplayName("merges no plan unit when a phase file is missing, and verifies no part on its own")
-        void missingPhaseFile() throws IOException {
+        void missingPhaseFile() throws Exception {
             UnitFixtures.writeUnits(temp.resolve(TEMP_ROOT));
             Files.delete(temp.resolve(TEMP_ROOT).resolve("refine.pmwf"));
 

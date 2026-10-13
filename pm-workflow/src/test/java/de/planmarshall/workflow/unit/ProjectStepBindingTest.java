@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -120,7 +121,7 @@ class ProjectStepBindingTest {
         var result = UnitFixtures.load("binding", project, List.of(), Set.of());
 
         assertEquals(1, result.findings().stream()
-                .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).count(),
+                        .filter(finding -> finding.kind() == UnitFinding.Kind.PROJECT_STEP_UNBOUND).count(),
                 result.findings()::toString);
     }
 }
