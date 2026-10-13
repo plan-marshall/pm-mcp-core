@@ -28,13 +28,9 @@ One refusing fixture per invariant and per declaration bound; a fixture project 
 
 == Hooks Left for Later Packages
 
-The package checks what the syntax tree and the descriptors decide. The remainders are named hooks, each a code constant at its check, and stay open for the packages that own the runtime facts (ADRs `workflow-verify/019`, `workflow-finalize/003` and `workflow-unit/004` of `pm-workflow`):
+Each remainder below is a named hook at its check; the ADR linked with it states what stays open.
 
-* `INV-GEN-2`: only the operator API writes waiver records and every lookup logs a consumption; the primitive SPI offers no write capability.
-* `INV-GEN-4`: the removed options a primitive reads from configuration at runtime (lane, Q-Gate mode, confidence threshold, merge method, self-review scope).
-* `INV-REM-6`: the remediation counters are kept per plan and class and never reset.
-* Validator rule 6: the `work_performed` clause, decided over the outcomes of a step.
-* Validator rule 7: no refusal after the merge, decided over the outcomes of a step.
-* Validator rule 8: the refusal of a finding whose source the filing step does not declare, at the write of the findings store.
-* `project_step_unbound`: reading the project's `workflow.json` and the enrolment; the loader takes the declared steps and the bound step ids as inputs.
-* `DefaultUnitInvariantTest` over the shipped default units, in `plan-marshall-mcp`.
+* `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6`: the runtime parts (link:../../pm-workflow/doc/adr/workflow-verify/019-tree-checkable-invariants-and-named-hooks.adoc[ADR `workflow-verify/019`]).
+* Validator rule 6 (the `work_performed` part), rule 7, and rule 8 (the refusal when a finding is written) (link:../../pm-workflow/doc/adr/workflow-finalize/003-validator-rules-6-and-7-as-hooks.adoc[ADR `workflow-finalize/003`]).
+* `project_step_unbound`: reading the project's `workflow.json` and the enrolment (link:../../pm-workflow/doc/adr/workflow-unit/004-project-step-unbound-as-a-hook.adoc[ADR `workflow-unit/004`]).
+* `DefaultUnitInvariantTest` over the shipped default units, in `plan-marshall-mcp` (link:../../pm-workflow/doc/adr/workflow-verify/018-invariants-over-test-written-units.adoc[ADR `workflow-verify/018`]).

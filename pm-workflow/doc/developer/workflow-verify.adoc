@@ -144,7 +144,7 @@ The invariants are specified in link:../../../../plan-marshall-documentation/doc
 === Types
 
 [horizontal]
-`InvariantId`:: The closed list of the 30 invariants, the only source of their vocabulary: `INV-GEN-1` to `5`, `INV-INIT-1` and `2`, `INV-REFINE-1`, `INV-OUTLINE-1` and `2`, `INV-PLAN-1`, `INV-EXEC-1` to `3`, `INV-FIN-1` to `6`, `INV-ADJ-1`, `INV-REPLAN-1`, `INV-GIT-1` and `INV-REM-1` to `7`. Each constant carries its wire id, the patterns of the units it applies to (a unit id, `*` for every unit, or a namespace such as `remediation.*`) and an optional named hook; `ofWireId` finds a constant by its wire id.
+`InvariantId`:: The closed list of the invariants and the only source of their vocabulary; the enum is the list, and this guide does not repeat it; `CompiledInvariants.checkedIds()` returns the set that is checked. Each constant carries its wire id, the patterns of the units it applies to (a unit id, `*` for every unit, or a namespace such as `remediation.*`) and an optional named hook; `ofWireId` finds a constant by its wire id.
 `CompiledInvariants`:: The facade. Built from the `PrimitiveRegistry`, the verified default units and the default finalize roster, it checks one project unit, `check(unit, rules, pipeline)`, against every invariant whose pattern matches the unit's id.
 `InvariantViolation`:: One violation: the `InvariantId`, the state it concerns, its `SourceLocation` and a message; a value, never an exception. It is a record of its own rather than a widened `Violation` (link:../adr/workflow-verify/017-one-checker-per-phase-behind-one-id-list.adoc[ADR 017]).
 `GeneralInvariants`, `InitInvariants`, `RefineInvariants`, `OutlineInvariants`, `PlanInvariants`, `ExecuteInvariants`, `FinalizeInvariants`, `SubWorkflowInvariants`, `RemediationInvariants`:: One checker class per phase or unit kind, package-private, each contributing the checks of its invariants. `CompiledInvariants` collects them at class load and fails when an invariant has no check or two; `checkedIds()` returns the checked set.
@@ -169,18 +169,9 @@ No configuration switches a check off, and no check stops at the first violation
 
 === Named Hooks
 
-The part of an invariant that the syntax tree cannot decide is a named hook: the reason, as a code constant on the `InvariantId` (`namedHook()`), that the part is checked elsewhere.
-The checker checks the tree part of these invariants (link:../adr/workflow-verify/019-tree-checkable-invariants-and-named-hooks.adoc[ADR 019]):
-
-[cols="1,2,2",options="header"]
-|===
-|Invariant |Tree part checked |Named hook
-|`INV-GEN-2` |a waived path ends only in the `waived` terminal of a remediation unit; only a primitive that declares waivable gates admits a failure as waived |only the operator API writes waiver records and every lookup logs a consumption; the primitive SPI offers no write capability, a runtime property
-|`INV-GEN-4` |every state that lies on every path of the default unit to its success terminals lies on every such path of the unit |the removed options a primitive reads from configuration at runtime (lane, Q-Gate mode, confidence threshold, merge method, self-review scope)
-|`INV-REM-6` |no unit but a remediation unit runs a remediation primitive, and a remediation unit runs none its default unit does not run |the counters kept per plan and class and never reset, runtime accounting
-|===
-
-These three are the only exemptions; the test `CompiledInvariantsTest` enumerates them.
+The part of an invariant that the syntax tree cannot decide is a named hook: the reason, as a code constant on the `InvariantId` (`namedHook()`), that the part is deferred to a runtime owner.
+The checker of such an invariant checks the part the tree expresses, and the hook names the rest (link:../adr/workflow-verify/019-tree-checkable-invariants-and-named-hooks.adoc[ADR 019]).
+The invariants with a hook are exactly the `InvariantId` constants whose `namedHook()` is present; `CompiledInvariantsTest` enumerates that set, and this guide does not list it.
 
 === Declaration Bounds
 

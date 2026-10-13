@@ -25,7 +25,8 @@ An exemption that lives far from the check is easily lost or widened.
 * `INV-GEN-4`: every state that lies on every path of the default unit to its success terminals lies on every such path of the unit;
 * `INV-REM-6`: no unit but a remediation unit runs a remediation primitive, and a remediation unit runs none its default unit does not run.
 
-The remainder of each is a named hook: the reason it is checked elsewhere, as a code constant on its `InvariantId`. These three are the only exemptions, and a test enumerates them.
+The remainder of each is a named hook: the reason, as a code constant on its `InvariantId` (`namedHook()`), that the part is deferred to a runtime owner.
+The invariants with a hook are the `InvariantId` constants whose `namedHook()` is present, and a test enumerates that set.
 
 == Alternatives Considered
 
