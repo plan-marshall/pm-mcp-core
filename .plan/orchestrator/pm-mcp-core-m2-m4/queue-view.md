@@ -4,12 +4,13 @@
 
 ## START HERE
 
-**Resume anchor**: Running: PLAN-12 session-log-and-generations (#51), PLAN-17 project-units-and-invariants, PLAN-21 entity-addressing. Emitted, awaiting operator-confirmed launch: PLAN-39 module-readmes-and-adrs (operator-approved overlap; renumber ADRs on rebase). Shipped: PLAN-01..08, 10, 11, 13, 16, 18, 22, 36, 38, 41, 44, 54. After PLAN-17: PLAN-24, PLAN-56; after PLAN-12: PLAN-20, PLAN-23, PLAN-40, then PLAN-09/14/15. Parked: PLAN-19, 37, 42, 43, 45-53, 55. Harness: Claude Code unless stated. Next action: record running on confirmation; analyze landings; land the ledger. Open for the operator: file the Rule 3 spec issue; doc PRs #53, #52/#34 overlap, #46 behind, others there; doc PR for PLAN-41's watch items; one-review merge rule; unowned remainder of PLAN-02's roadmap item; parity tests in CI; PLAN-11's seven follow-ups without owner.
+**Resume anchor**: Running (scope 4 full): PLAN-12 session-log-and-generations (#51), PLAN-17 project-units-and-invariants, PLAN-21 entity-addressing, PLAN-39 module-readmes-and-adrs. Shipped: PLAN-01..08, 10, 11, 13, 16, 18, 22, 36, 38, 41, 44, 54. After PLAN-17: PLAN-24, PLAN-56; after PLAN-12: PLAN-20, PLAN-23, PLAN-40, then PLAN-09/14/15. Parked: PLAN-19, 37, 42, 43, 45-53, 55. Harness: Claude Code unless stated. Next action: analyze landings; land the ledger. Open for the operator: file the Rule 3 spec issue; doc PRs #53, #52/#34 overlap, #46 behind, others there; doc PR for PLAN-41's watch items; one-review merge rule; unowned remainder of PLAN-02's roadmap item; parity tests in CI; PLAN-11's seven follow-ups without owner.
 **Phase**: orchestrating
 **Running**:
 - PLAN-12 (WS-02) — plan=session-log-and-generations
 - PLAN-17 (WS-03) — plan=plan-17-project-units-and-invariants
 - PLAN-21 (WS-03) — plan=plan-21-entity-addressing
+- PLAN-39 (WS-10) — plan=plan-39-module-readmes-and-adrs
 **Parked**:
 - PLAN-19 (WS-05)
 - PLAN-37 (WS-06)
@@ -43,9 +44,8 @@
 15. PLAN-33 (WS-05)
 16. PLAN-34 (WS-05)
 17. PLAN-35 (WS-06)
-18. PLAN-39 (WS-10)
-19. PLAN-40 (WS-10)
-20. PLAN-56 (WS-03)
+18. PLAN-40 (WS-10)
+19. PLAN-56 (WS-03)
 - PLAN-01 (WS-01) — plan=lock-manager-and-leases — PR #20 — landing=landings/PLAN-01.md — status: shipped
 - PLAN-02 (WS-03) — plan=primitive-spi-and-validators — PR #18 — landing=landings/PLAN-02.md — status: shipped
 - PLAN-03 (WS-01) — plan=workspace-confinement — PR #19 — landing=landings/PLAN-03.md — status: shipped
@@ -92,7 +92,7 @@
 | 20 | PLAN-34 | WS-05 | staged | doc/plans/README.adoc; pm-core/doc/adr/core-role/; pm-core/doc/developer/core-role.adoc; pm-core/src/main/java/de/planmarshall/core/role/; pm-core/src/test/java/de/planmarshall/core/role/; pm-workflow/doc/adr/workflow-model/; pm-workflow/doc/developer/workflow-model.adoc; pm-workflow/src/main/java/de/planmarshall/workflow/model/; pm-workflow/src/test/java/de/planmarshall/workflow/model/ |
 | 21 | PLAN-35 | WS-06 | staged | doc/plans/README.adoc; pm-workflow/doc/adr/workflow-scenario/; pm-workflow/doc/developer/workflow-scenario.adoc; pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ |
 | 22 | PLAN-37 | WS-06 | parked | doc/plans/README.adoc; pm-core/doc/adr/core-differential/; pm-core/doc/developer/core-differential.adoc; pm-core/src/test/java/de/planmarshall/core/differential/ |
-| 23 | PLAN-39 | WS-10 | staged | CLAUDE.md; README.md; doc/adr/; doc/plans/README.adoc; pm-core/README.adoc; pm-core/doc/adr/; pm-providers/README.adoc; pm-providers/pm-provider-ci/README.adoc; pm-providers/pm-provider-git/README.adoc; pm-providers/pm-provider-github/README.adoc; pm-providers/pm-provider-gitlab/README.adoc; pm-providers/pm-provider-sonar/README.adoc; pm-runtime/README.adoc; pm-runtime/doc/adr/; pm-workflow/README.adoc; pm-workflow/doc/adr/ |
+| 23 | PLAN-39 | WS-10 | running | CLAUDE.md; README.md; doc/adr/; doc/plans/README.adoc; pm-core/README.adoc; pm-core/doc/adr/; pm-providers/README.adoc; pm-providers/pm-provider-ci/README.adoc; pm-providers/pm-provider-git/README.adoc; pm-providers/pm-provider-github/README.adoc; pm-providers/pm-provider-gitlab/README.adoc; pm-providers/pm-provider-sonar/README.adoc; pm-runtime/README.adoc; pm-runtime/doc/adr/; pm-workflow/README.adoc; pm-workflow/doc/adr/ |
 | 24 | PLAN-40 | WS-10 | staged | pm-core/doc/developer/; pm-providers/pm-provider-ci/doc/developer/; pm-providers/pm-provider-git/doc/developer/; pm-providers/pm-provider-github/doc/developer/; pm-providers/pm-provider-gitlab/doc/developer/; pm-providers/pm-provider-sonar/doc/developer/; pm-runtime/doc/developer/; pm-workflow/doc/developer/ |
 | 25 | PLAN-42 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/dsl/; pm-workflow/src/main/java/de/planmarshall/workflow/engine/; pm-workflow/src/main/java/de/planmarshall/workflow/verify/ |
 | 26 | PLAN-43 | WS-03 | parked | doc/plans/README.adoc; pm-core/src/main/java/de/planmarshall/core/store/; pm-workflow/src/main/java/de/planmarshall/workflow/diagram/; pm-workflow/src/main/java/de/planmarshall/workflow/engine/; pm-workflow/src/main/java/de/planmarshall/workflow/plan/; pm-workflow/src/main/java/de/planmarshall/workflow/unit/; pm-workflow/src/main/java/de/planmarshall/workflow/verify/ |
