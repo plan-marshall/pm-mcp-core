@@ -14,6 +14,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * The decision as a structure with its id (`<scope_id>/<question_id>`) and revisions; what it blocks and how reversible it is; the support per option derived by the runtime from the quorum's votes.
 * The interpreting role `interpret` (`read_only`, its corpus topic `own_words`), the read-back and the clarification; the outcome _none fits_.
 * The open decisions across scopes with since when each waits; the channel `cli` beside `web`; the refusal of an answer to an older revision.
+* *Chat before answering*: `decision.answer` and the decision record leave room for the choice Chat that link:chat.adoc[`chat`] adds on top of this package (the record saying that an answer followed a chat, the transcript kept with the decision, a decision closed as withdrawn with its reason); the chat itself, its routing, and its rules are that package's.
 
 == Trace
 
