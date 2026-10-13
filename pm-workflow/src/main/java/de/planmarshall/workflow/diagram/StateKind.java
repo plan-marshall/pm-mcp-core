@@ -52,7 +52,7 @@ enum StateKind {
         return switch (behavior) {
             case StateBehavior.InteractiveLinks _ -> LINK;
             case StateBehavior.AutoStep _ -> AUTO;
-            case StateBehavior.JobStep(var _, var composite, var _) -> composite ? COMPOSITE_JOB : JOB;
+            case StateBehavior.JobStep(_, var composite, _) -> composite ? COMPOSITE_JOB : JOB;
             case StateBehavior.ModelJob _ -> JOB;
             case StateBehavior.SubWorkflowCall _ -> CALL;
             case StateBehavior.QuestionWait _ -> AWAITING_USER;
