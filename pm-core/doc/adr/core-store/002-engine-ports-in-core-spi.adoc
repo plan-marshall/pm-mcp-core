@@ -1,0 +1,46 @@
+= ADR 002: The Engine Ports Are Interfaces in `core.spi`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+The workflow engine in `pm-workflow` must start the job of a job state, create the queue task of a task state, read
+the question record a question state waits on, and read the time it writes into the store. The implementations belong
+to the runtime (`pm-runtime`: the job runner, the task queue, the question store, the system clock), which
+`pm-workflow` must not depend on: `pm-workflow` depends on `pm-core` alone among the modules of the product, and
+`pm-runtime` on `pm-core` and `pm-api`.
+
+== Decision
+
+The four ports `JobStarter`, `QueueTaskCreator`, `QuestionRecordReader` and `WorkflowClock` are public interfaces in
+`de.planmarshall.core.spi`, beside the primitive SPI. Their requests and results are nested value records that check
+the identifier grammars (`job_id`, `queue_task_id`, `question_id`); a refused start and an unreadable record are
+values, never exceptions. No class of `pm-core` implements them; `pm-runtime` does, and the tests of `pm-workflow` use
+recording doubles.
+
+== Alternatives Considered
+
+1. *Ports in `pm-workflow`*: the engine declares the interfaces it needs.
+   _Rejected_: `pm-runtime` would have to depend on `pm-workflow` to implement them, an edge the module structure does
+   not allow.
+2. *A new module for the ports*: a small API module both sides depend on.
+   _Rejected_: a new module and two new edges for four interfaces, while `core.spi` is already the place where the
+   engine's extension contracts live and both sides already depend on `pm-core`.
+
+== Consequences
+
+* No new module and no new module edge.
+* The engine depends on the ports only; tests drive jobs, tasks, questions and time deterministically.
+* `pm-runtime` implements the ports in the packages that run jobs, queue tasks and question records.
+
+== Source
+
+* `doc/plans/workflow-engine.adoc`, deliverable 1
+* Operator decision 3 of the work package `workflow-engine`

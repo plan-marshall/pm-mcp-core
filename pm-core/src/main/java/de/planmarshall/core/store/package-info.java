@@ -41,6 +41,14 @@
  * ({@link de.planmarshall.core.store.PairRecovery}), and the lifecycle gate compiled into the release
  * ({@link de.planmarshall.core.store.LifecycleGate}). The key and the HMAC belong to the runtime, not to this
  * package.</li>
+ * <li><em>The workflow state store</em> (PM-ARCH-6, PM-WF-16): the status document {@code mcp/status.json} of a
+ * plan, epic or workspace scope ({@link de.planmarshall.core.store.WorkflowStatus}), read and written by
+ * {@link de.planmarshall.core.store.WorkflowStatusCodec}: the members the engine owns are typed (position, call
+ * stack, loop-back accounting, bindings, condition overlay), every other member of the closed schema is kept as raw
+ * JSON and written back unchanged. The retry counts of the server-rule retries are typed as
+ * {@link de.planmarshall.core.store.RetryCounters} and never reset by a restart (PM-WF-7).
+ * {@link de.planmarshall.core.store.WorkflowStatusStore} reads the store without a lock and writes it only as a
+ * target of the caller's {@link de.planmarshall.core.store.ScopeTransaction}.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is
@@ -51,6 +59,7 @@
  * Specification:
  * <ul>
  * <li>{@code doc/specification/store-schemas/01-format-and-session-log.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/02-workflow-state-store.adoc}</li>
  * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc}</li>
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>
  * </ul>

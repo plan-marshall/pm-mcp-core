@@ -1,0 +1,48 @@
+= ADR 004: Retry Counts Are Persisted in `retry_counters`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+Several server rules retry a failed operation within a compiled budget: the sync of the merge path, the merge barrier
+when the findings store cannot be evaluated, the re-entry of the merge gate after a refusal or an ejection from the
+merge queue, a push failure other than a rejection, the provider call that opens the pull request, the conservative
+retry once of a remediation unit, and compiled condition budgets counted outside a condition. The implementation watch
+item PM-WATCH-STORE-57 found that the status schema had no member for these counts, so a runtime restart or a drain
+would reset them and grant every budget again.
+
+== Decision
+
+The operator decided `persist_now`: the counts are persisted as the typed member `retry_counters`, placed directly
+after `counters` in the schema. Each key is a retry rule; each value `{state_id, attempts}` is bound to the state whose
+primitive counts the retry. `RetryCounters` counts an attempt in the transaction of the retry it records and is never
+reset by a restart, a drain or a re-read of the store. The specification schema was corrected first to declare the
+member, and the code follows the corrected schema.
+
+== Alternatives Considered
+
+1. *Derive the counts from audit and step records*: count past retries by reading the records of the scope.
+   _Rejected_: every retrying primitive would reconstruct its count from records of different shape and retention, and a
+   purged or unreadable record would silently lower a count.
+2. *Accept bounded extra retries per restart*: document that a restart grants each budget again.
+   _Rejected_: a budget that a crash loop can renew is no bound; it contradicts PM-WF-7, by which a budget is persisted
+   and never reset.
+
+== Consequences
+
+* The store schema gains the member `retry_counters` with a closed key enum (ADR 006).
+* The retrying primitives of later packages count through `RetryCounters`; who clears a count is fixed by ADR 005.
+* PM-WATCH-STORE-57 is settled and is removed from the implementation watch with the documentation of this package.
+
+== Source
+
+* `doc/plans/workflow-engine.adoc`, deliverables 2 and 3
+* Operator decision on PM-WATCH-STORE-57 (`persist_now`)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]

@@ -1,0 +1,59 @@
+= ADR 006: The Closed Key List of `retry_counters`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+`retry_counters` is a member of a closed schema; its keys are a closed enum. The plan's first list (`sync_failed`,
+`merge_barrier_indeterminate`, `re_enter`, `push_failed`, `retry_once`, `condition_budget`) was drawn from the sources
+of PM-WATCH-STORE-57 before the state catalogue was surveyed. A single `re_enter` key cannot keep apart the two
+re-entry rules of `finalize.merge-refused` and `finalize.merge-queue-exit`, and the first list named no key for the
+server-rule retry of the provider call in `finalize.open-pr`.
+
+== Decision
+
+The operator decided the key list as corrected in the specification and implemented by `RetryCounters.RetryRule`:
+
+[cols="2,4"]
+|===
+|Key |Retry it counts
+
+|`sync_failed` |a failed fetch or push of `finalize.merge-sync`
+|`merge_barrier_indeterminate` |`finalize.merge-barrier` when the findings store could not be evaluated
+|`merge_refused_re_enter` |a refusal `finalize.merge-refused` enters the merge gate again for
+|`merge_queue_re_enter` |an ejected pull request at `finalize.merge-queue-exit`
+|`push_failed` |a push failure other than a rejection, counted at `git.push-retry-wait`
+|`open_pr` |the provider call of `finalize.open-pr`
+|`retry_once` |the conservative retry once per unit instance of a remediation unit
+|`condition_budget` |a compiled condition budget counted outside a condition: `finalize.adopt-blocked`,
+`finalize.merge-lease-interrupted`, `finalize.archive-plan`
+|===
+
+== Alternatives Considered
+
+1. *Keep the first list*: one `re_enter` key for both merge rules, no `open_pr`.
+   _Rejected_: both `re_enter` rules can be in flight for the same plan and would share one count; the `open_pr` retry
+   would have no persisted count and be reset by a restart.
+2. *An open key set*: any rule name as a key.
+   _Rejected_: the schema is closed; an open set would let a misspelled rule start a fresh budget.
+
+== Consequences
+
+* `RetryCounters.RetryRule` and the schema's `propertyNames` enum list the same eight keys; `WorkflowStatusCodecTest`
+  refuses a key outside them.
+* A rule a later package needs is a schema addition without a format change, like every other member.
+* Budgets the catalogue counts per wait-region firing in another member (for example the watch restart budget,
+  `watch_restarts`) need no key here.
+
+== Source
+
+* Operator decision on the retry key list, work package `workflow-engine`
+* `doc/plans/workflow-engine.adoc`, deliverable 2 (survey of the state catalogue)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]

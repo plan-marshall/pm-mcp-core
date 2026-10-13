@@ -1,0 +1,51 @@
+= ADR 005: Who Clears a Retry Count, and When
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+`retry_counters` binds each count to the state whose primitive counts the retry (ADR 004). A count must not outlive
+the retry it bounds, or a later retry of the same rule would start with a spent budget; it must not be lowered while the
+retry is still in progress, or the budget is no bound. The plan first proposed that the engine drops the counts of a
+state on every transition that leaves it. A server-rule retry, however, leaves its counting state and re-enters it on
+every round, for example through a backoff wait (`git.push-retry-wait` → `git.check-branch-parity` → the push), so
+clearing on every exit would reset the budget each round.
+
+== Decision
+
+The operator decided the clearing rule:
+
+* The state that counts a retry clears its own count when the retry ends: the retried operation succeeded, or the
+  budget's spent outcome was taken. Its primitive calls `RetryCounters.clearedFor` in that transaction.
+* The workflow engine clears the counts of every state of a sub-workflow in the transaction that pops or unwinds that
+  sub-workflow's call frame: a return from a terminal, a step-out, or the unwind of a spent condition budget.
+* Nothing else lowers a count. Entering and leaving states within a frame keeps the counts, and a restart reads them
+  from the store.
+
+== Alternatives Considered
+
+1. *Clear on every exit of the counting state*: the engine drops a state's counts on every transition that leaves it.
+   _Rejected_: a retry loop leaves and re-enters its counting state every round, so the budget would be reset on each
+   round and never spent.
+2. *Never clear*: a count lives as long as the scope.
+   _Rejected_: a second, unrelated call of the same sub-workflow would inherit a spent budget from the first.
+
+== Consequences
+
+* `WorkflowEngine` clears the counts of a sub-workflow's states on every frame pop and unwind and on nothing else;
+  `WorkflowEngineTest` and `SubWorkflowExecutionTest` prove it with a control that counts survive re-entering and
+  leaving states within the frame.
+* The retrying primitives of later packages clear their own count when their retry ends.
+* The schema description of `retry_counters` states the same rule.
+
+== Source
+
+* Operator decision on the retry-count clearing rule, work package `workflow-engine`
+* `doc/plans/workflow-engine.adoc`, deliverables 2, 3 and 4

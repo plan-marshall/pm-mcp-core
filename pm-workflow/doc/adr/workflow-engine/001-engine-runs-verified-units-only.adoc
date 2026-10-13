@@ -1,0 +1,51 @@
+= ADR 001: The Engine Runs Verified Units Only
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+A state routes the outcomes of its primitive by transitions. An outcome without a transition at run time would leave
+the engine without a next state: it would have to stop the scope in a state the unit does not declare, or pick a
+target the unit never named. PM-WF-1 requires that only verified units run, and the static verifier of
+`workflow.verify` already proves for a unit that every outcome of every primitive it names has a transition (Rule 2)
+and that the routes of one outcome at a call site are partitioned by result guards (Rule 6).
+
+== Decision
+
+`WorkflowEngine` is built only for a unit that `WorkflowValidator` passes, together with every sub-workflow the unit
+calls, directly or through another sub-workflow. A unit or sub-workflow with a violation, and a called sub-workflow the
+catalog does not hold, is refused with `UnverifiedUnitException` in the constructor. At run time the engine selects
+exactly one transition per outcome; a primitive that returns an outcome outside its declared type, or an outcome that
+matches no transition or two, is the internal fault `undeclared_outcome`.
+
+== Alternatives Considered
+
+1. *A runtime fallback on a missing transition*: the engine routes an unrouted outcome to a fallback state of the
+   phase, or rests the scope where it is.
+   _Rejected_: the fallback hides a defect of the unit behind a plausible route, the verifier would no longer be the
+   authority on what a unit does, and a plan would take a path no diagram shows.
+2. *Verify lazily on the first entry of a sub-workflow*: the engine verifies a sub-workflow when a call first reaches
+   it.
+   _Rejected_: a scope could rest inside a unit that turns out to be invalid; verifying every callee up front refuses
+   the whole call graph before any status is written.
+
+== Consequences
+
+* No engine exists for an unverified unit; `WorkflowEngineTest` refuses a unit with a violation, one whose callee has
+  a violation, and one whose callee the catalog does not hold, with the corrected unit as matched control.
+* An outcome without its one transition is an internal fault, never a route; `WorkflowEngineTest` proves that every
+  outcome of every fixture unit takes the one transition the unit declares for it.
+* `InternalFaultException` gains the engine's reasons `undeclared_outcome`, `unresolved_name` and `unbounded_chain`.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1] (only verified units run)
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
+* `doc/plans/workflow-engine.adoc`, deliverable 4

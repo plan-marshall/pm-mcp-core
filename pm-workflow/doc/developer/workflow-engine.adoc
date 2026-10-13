@@ -1,0 +1,350 @@
+= Workflow Engine (`workflow.engine`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:dsl: {docs}/specification/workflow-dsl
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requirements.adoc#PM-WF-2[PM-WF-2], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+Package `de.planmarshall.workflow.engine` is the deterministic interpreter of the workflow state machine. It runs one
+verified unit of the Workflow DSL together with every sub-workflow the unit calls, chains the states that need no
+outside event in one advance, and stops where the scope rests, ends, or carries a condition. Everything a run knows
+lives in the workflow state store `mcp/status.json`: the engine reads the status, returns the next one, and keeps
+nothing in memory between two advances, so a killed run resumes at the same state with the same call stack.
+
+The store and the ports the engine depends on belong to `pm-core` and are described in
+link:../../../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports]. The AST the engine reads
+and the verifier it relies on are described in link:workflow-verify.adoc[Workflow Verification].
+
+== Main Types
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+[horizontal]
+`WorkflowEngine`:: The interpreter of one top-level unit. The constructor takes the unit, the `WorkflowCatalog` of
+callable sub-workflows, the `WorkflowValidator`, the `PrimitiveRegistry`, a `ParameterBinder` that binds the
+parameter record of a primitive from the status, and the `Ports` record (`JobStarter`, `QueueTaskCreator`,
+`QuestionRecordReader`, `WorkflowClock`). Its operations are `start`, `advance` (with and without an event, each also
+in a form that writes the new status into a `ScopeTransaction`), `restingWait`, `stepOut`, `raise` and
+`unwindToFallback`.
+`EngineStep`:: The sealed result of one operation: `Resting` (the resting state and the `AwaitedEvent` it waits for),
+`Ended` (the outcome and outcome class of the top-level unit's terminal; the call stack is empty), and
+`ConditionRaised` (the condition kind and its facts; state, phase and call stack unchanged). Every variant carries the
+new `WorkflowStatus`.
+`CallStack`:: The immutable call stack, bottom to top, of at most `MAX_DEPTH` (4) frames, the depth the store admits.
+`push` adds the frame of a call, `pop` removes exactly one frame, `unwound` lists every frame top to bottom for an
+unwind; `fromStore` and `toStore` convert between the AST frame `ast.CallFrame` and the store frame
+`WorkflowStatus.CallFrame`.
+`GuardEvaluator`:: The three-valued evaluation of guard expressions (`Held`, `NotHeld`, `CouldNotEvaluate` of
+`ast.GuardResult`), the raise of the condition `guard_indeterminate` for the first guarded link whose guard could not be
+evaluated (`raiseUndecided`), and the two-valued decision of a result guard over a frame's result record (`holds`).
+`LoopBackBudget`:: The accounting of loop-backs and remediation budgets of a plan: `outlineLoopBack`,
+`policyLoopBack` and `policyRetry` return `Charge.Granted` with the count raised, or `Charge.Exhausted` with the
+outcome `exhausted` and the status unchanged.
+`EngineEvent`:: The sealed event that resumes a resting state: `JobSettled(jobId, fate)`,
+`TasksSettled(taskOutcomes, evaluatedOutcome)`, `QuestionResolved(questionId, outcome)` and `TimeElapsed(at)`.
+`RestingWait`:: What a resting state waits for, derived from the status alone: the `AwaitedEvent` kind, the jobs bound
+to the state (`active_job`, `active_jobs`) and the entities of its queue tasks (`active_tasks`). `accepts(event)`
+decides whether an event is the one the state waits for.
+
+[source]
+----
+                    advance(status[, event])
+caller ───────────────────────────────────────► WorkflowEngine ──► EngineStep (Resting | Ended | ConditionRaised)
+  │                                                │   │   │              │
+  │                                  CallStack ◄───┘   │   └──► ports: JobStarter, QueueTaskCreator,
+  │                         GuardEvaluator.holds ◄─────┘            QuestionRecordReader, WorkflowClock
+  │                                                                       │
+  └── WorkflowStatusStore.write(transaction, step.status()) ◄─────────────┘
+----
+
+== Interpreter
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requirements.adoc#PM-WF-6[PM-WF-6]_
+
+=== Only Verified Units Run
+
+The constructor runs the `WorkflowValidator` over the unit and, through every `call` state, over every sub-workflow it
+calls, directly or through another sub-workflow. A unit with a violation, a sub-workflow with a violation, or a called
+sub-workflow the catalog does not hold is refused with `WorkflowEngine.UnverifiedUnitException` (an
+`IllegalArgumentException` naming the unit and carrying the `VerificationResult`). No engine exists for such a unit
+(link:../adr/workflow-engine/001-engine-runs-verified-units-only.adoc[ADR 001]).
+
+=== One Advance
+
+`start(scopeType, scopeId)` builds the first status of a scope at the unit's start state. A start state that declares
+`phase inherit` is admitted for the workspace scope only, whose phase is then `workspace`; every other DSL phase is
+mapped to the value of the status store (`execute` to `phase-5-execute`, `epic` to `epic`, and so on).
+
+`advance(status)` continues from the current state. From there the engine chains, state after state, in one advance:
+
+* entering a state makes it current: its phase applies (`phase inherit` keeps the phase the scope has), and the job
+  and task bindings of the state left are cleared;
+* an `auto` state binds the parameters of its primitive through the `ParameterBinder`, runs it, and takes the
+  transition of the returned outcome;
+* a `call` state pushes a frame and enters the sub-workflow's start state (see <<_call_stack_and_exit_contracts>>);
+* a terminal state of a sub-workflow pops one frame and takes the calling state's transition of the returned outcome;
+* a terminal state of the top-level unit ends the run with `Ended`;
+* a link, job, composite job, task or question state rests with `Resting`, parked as described in
+  <<_wait_events_and_resumption>>.
+
+An advance of a scope that carries a condition returns `ConditionRaised` with the status unchanged. An advance of a
+scope that already rests (a link or question state, or a job, composite job or task state whose binding is in the
+store) returns `Resting` with the status unchanged; it never starts the bound job again.
+
+The engine returns the new status with `updated_at` from the `WorkflowClock`. The forms
+`advance(status, store, transaction)` and `advance(status, event, store, transaction)` add it as one replace target to
+the caller's `ScopeTransaction`, so the state change and the other writes of the transaction are one journaled write;
+a status the advance did not change is not written again.
+
+=== Selecting a Transition
+
+Of the transitions of a state that route the returned outcome, the engine takes the one without a result guard or
+whose result guard holds. Exactly one must match; none or two is the internal fault `undeclared_outcome`, never a
+fallback. A verified unit routes every outcome of every primitive it names (Rule 2) and partitions the routes of one
+outcome by result guards (Rule 6), so the fault is reachable only through a defect.
+
+=== Invariants
+
+* *Only verified units*: every unit the engine can enter passed the verifier when the engine was built.
+* *One transaction per advance*: an advance computes one new status from one old one; the caller writes it in one
+  `ScopeTransaction`. The calls, returns and `auto` states an advance chains are not persisted one by one.
+* *One frame per return*: a terminal of a sub-workflow and a step-out pop exactly one frame; only the fallback of a
+  spent condition budget unwinds every frame.
+* *No state outside the store*: the engine holds no field that changes between advances. The current state, phase,
+  call stack, bindings, counters and condition are read from the status passed in; `RestingWait` is derived from it.
+* *Retry counts*: the engine counts no retry. It drops the `retry_counters` entries of every state of a sub-workflow
+  when it pops or unwinds that sub-workflow's frame, in the same status write, and changes them nowhere else: entering
+  and leaving states within a frame keeps them (link:../../../pm-core/doc/adr/core-store/005-retry-count-clearing-rule.adoc[ADR core-store 005]).
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|The unit or a called sub-workflow violates a verifier rule, or a called sub-workflow is not in the catalog
+|The constructor throws `UnverifiedUnitException`; no engine is built.
+
+|A primitive returns an outcome outside its declared outcome type, or a state has no or two matching transitions for
+an outcome; this includes the `refused` outcome of a job start the `JobStarter` declined, in a job state that has no
+`refused` transition
+|`InternalFaultException` with the reason `undeclared_outcome`. The Workflow DSL specification gives every `job`
+primitive the closed job outcome set, `refused` included, and the verifier requires a route for every outcome the
+primitive declares; a primitive that declares fewer outcomes leaves the refusal without a route.
+
+|The status names a state, sub-workflow, phase or primitive the verified units do not hold, or a frame's calling
+state is no `call` state
+|`InternalFaultException` with the reason `unresolved_name`.
+
+|One advance chains more than `MAX_CHAIN` (1000) transitions
+|`InternalFaultException` with the reason `unbounded_chain`.
+
+|A guard could not be evaluated
+|`GuardEvaluator.raiseUndecided` raises the condition `guard_indeterminate` naming the guard, the link and the
+reason; the guard is never folded into held or not held.
+
+|A question record of a resolution cannot be read
+|The condition `precondition_unmet` is raised with the `question_id` and the reason; state and call stack stay.
+
+|An event is not the one the resting state waits for, or the question record is still open or resolved with another
+outcome
+|`IllegalArgumentException`; the status stays as it is.
+
+|A call would exceed the depth 4
+|`CallStack.push` throws `IllegalStateException`.
+
+|The `ParameterBinder` binds a record of another type than the primitive takes
+|`IllegalStateException`.
+|===
+
+The internal fault reasons `undeclared_outcome`, `unresolved_name` and `unbounded_chain` are the engine's members of
+`InternalFaultException.Reason` in `pm-core`.
+
+[#_call_stack_and_exit_contracts]
+== Call Stack and Exit Contracts
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1]_
+
+Implements link:{dsl}/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
+items 1 to 4 and link:{dsl}/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Result Guards & Sub-Workflow Exit Contract].
+
+* *Call*: a `call` state pushes the frame `(callerWorkflowId, callerStateId, callerPhase, subWorkflowId, boundArgs,
+  pushedAt)`, the bound arguments of the call site and `pushed_at` from the clock, and enters the sub-workflow's start
+  state. A sub-workflow state that declares `phase inherit` keeps the caller's phase.
+* *Resting inside a sub-workflow*: the status is written with the active call stack and the sub-workflow's state; the
+  engine resolves the current state against the unit of the top frame, so the wait survives a restart.
+* *Return*: a terminal of the sub-workflow pops exactly one frame, restores the caller's phase, drops the retry counts
+  of every state of the left sub-workflow, and takes the calling state's transition of the terminal's outcome. Of an
+  outcome routed twice, the transition whose result guard holds over the frame's result record wins; the result record
+  is the facts the sub-workflow's primitives returned (`PrimitiveResult.updatedFacts`) in the same advance.
+* *Step-out*: `stepOut(status)` is the implicit `step_out` of a resting link state of a session-driven sub-workflow.
+  It pops exactly one frame and the calling state routes the outcome `stepped_out` once; a caller that is itself a
+  sub-workflow routes it to a state of its own. A terminal of class `stepped_out` returns the same way. A scope in no
+  sub-workflow, a scope with a condition, or a state that is no link state is refused with `IllegalStateException`.
+* *Spent condition budget*: `unwindToFallback(status, fallbackStateId)` clears the condition, unwinds every frame,
+  drops the retry counts of every unwound sub-workflow, and enters the fallback state of the top-level unit, all in one
+  advance. No caller's `stepped_out` transition is taken, so no unit's own recovery state catches it.
+
+The push, the chained states, the pop and the caller's routing are one advance and therefore one write
+(link:../adr/workflow-engine/003-call-stack-in-one-transaction.adoc[ADR 003]).
+
+== Guards
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+Implements link:{dsl}/04-ast-node-model.adoc#guard-results[Workflow DSL § Three-Valued Guard Results] and the
+engine side of link:{dsl}/04-ast-node-model.adoc#condition-overlays[Workflow DSL § Condition Overlays].
+
+`GuardEvaluator.evaluate(expr, facts)` reads every atom through `GuardFacts` (`in_worktree`, `has_open_findings`,
+`all_tasks_completed`, `predicate:<primitive>`), each itself three-valued. `and`, `or` and `not` propagate
+`CouldNotEvaluate` unless the other operand decides: `NotHeld and anything` is `NotHeld`, `Held or anything` is
+`Held`. `raiseUndecided(status, links, facts)` evaluates the guards of a state's links in declaration order and raises
+`guard_indeterminate` for the first that could not be evaluated, with the facts `guard` (rendered in DSL form), `link`
+and `reason`.
+
+A result guard always decides: `holds(guard, result)` holds for a boolean field that is `true` and for any other field
+that is present, inverted by `not`. `WorkflowEngine` uses `holds` to select among the routes of a returned outcome.
+The offering of links is not part of this package; `evaluate` and `raiseUndecided` are its building blocks.
+
+A condition overlay stops the scope where it is: `raise(status, kind, facts)` sets `pending_condition` with
+`raised_at` from the clock and keeps state, phase and call stack. It refuses `integrity_breach`, which names the
+breached store, and a status that carries a condition already.
+
+== Budgets
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7]_
+
+`LoopBackBudget` keeps three counts of a plan's status, each only ever raised:
+
+* `loop_back_iteration`, raised by every loop-back begun (an outline loop-back and a policy's `fix`); it bounds
+  nothing;
+* `outline_loop_backs`, bounded by the compiled `OUTLINE_LOOP_BACK_BUDGET` (1) or a raised budget of the plan
+  instance;
+* `policy_counters`, per remediation policy class `fix_used` and `retry_used`, bounded by the budgets the plan instance
+  binds. A retry is no loop-back and leaves `loop_back_iteration` as it is.
+
+A spent budget returns `Charge.Exhausted` with the outcome `exhausted`, and nothing is counted. The accounting refuses
+a status of an epic or the workspace, a class outside the remediation policy classes, and a negative budget. Re-entering
+a policy's unit reads the same counter, because the counter is in the status.
+
+[#_wait_events_and_resumption]
+== Wait Events and Resumption
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-2[PM-WF-2], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+Implements item 2 of link:{dsl}/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
+and the bindings `active_job`, `active_jobs` and `active_tasks` of
+link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store].
+
+Entering a resting state parks it in the same status write:
+
+[cols="1,3,1"]
+|===
+|State |Parking |Resumed by
+
+|`job`
+|Binds the job a job-starting outcome just reported (`PrimitiveResult.spawnedJobId`), or starts the job through
+`JobStarter` and binds that: `active_job` names the state and the job, `active_jobs` holds the job's entry (status
+`queued`, `started_at` from the clock). A refused start takes the state's `refused` transition.
+|`JobSettled` of a bound job; the state routes the fate.
+
+|`composite_job`
+|Binds the state to itself in `active_job`.
+|The event its primitive awaits (for example `TimeElapsed` for `TIME`); the primitive runs again and the state routes
+its outcome.
+
+|`job llm` (task state)
+|Creates one queue task of the role for the state's entity kind through `QueueTaskCreator` and writes it to
+`active_tasks` (state `queued`).
+|`TasksSettled` naming exactly the state's task entities; the state routes the evaluated outcome.
+
+|`question`
+|Nothing is bound.
+|`QuestionResolved`; the engine reads the record through `QuestionRecordReader` and routes the outcome only when the
+record is resolved with the same outcome.
+
+|`link`
+|Nothing is bound.
+|No engine event; a model's link, or the step-out.
+|===
+
+`restingWait(status)` and `advance(status, event)` derive the wait from the status through `RestingWait`; an event the
+wait does not accept is refused with the status unchanged. The transition that leaves a state clears its bindings.
+After a restart the same status yields the same wait, and an advance of a parked state only waits
+(link:../adr/workflow-engine/002-every-wait-is-an-engine-event.adoc[ADR 002]).
+
+Not implemented in this package:
+
+* fan-out task states (`each`, `role each`), whose entity list the package that computes it parks; parking one is
+  refused with `IllegalStateException`;
+* a persisted deadline of a composite job state that waits for time: the wait is derived as `TIME`, and the caller
+  delivers `TimeElapsed`;
+* waits held by a model (package `waits`).
+
+== Extending the Engine
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+=== A New Resting Kind
+
+A resting kind is a new `StateBehavior` of the AST, which the verifier has to know first. In the engine:
+
+. map it to its `AwaitedEvent` in `awaitedEventOf` and list it in `restingWait`;
+. park it in `Run.chain`: bind what it waits for in the status, through a port of `core.spi` if something outside the
+  store has to be started, and clear the binding in `Run.enter`, which every leaving transition passes;
+. route it in `advance(status, event)` and decide in `advance(status)` when a stored binding means it is parked;
+. extend `EngineEventTest` and `EngineResumeTest` with a fixture state of the new kind.
+
+The `switch` statements over `StateBehavior` are exhaustive, so the compiler names every place a new kind must be
+handled.
+
+=== A New Event
+
+Add a record to the sealed `EngineEvent` with its checks in the compact constructor, decide in `RestingWait.accepts`
+which `AwaitedEvent` it matches and what it must name (a bound job, exactly the bound task entities), and route it in
+`advance(status, event)`. An event must name what settled; it never carries a state to go to.
+
+== Test Fixtures
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+`EngineFixtures` assembles an engine over units parsed from DSL text written in the tests, never copied from a unit of
+the product. It provides scripted primitives that count their calls, a manual clock starting at `T0`, and recording
+doubles of the four ports. Ids in fixture text follow the DSL grammar: the reserved words `call`, `job` and `inherit`
+are not allowed as any segment of a state, unit or primitive id.
+
+[cols="1,3"]
+|===
+|Test |Guards
+
+|`WorkflowEngineTest` |Every kind of end, auto-chaining in one advance, refusal of an unverified unit, internal faults,
+retry counts dropped on a frame pop and kept within the frame, exactly one transition per outcome of every fixture unit
+|`SubWorkflowExecutionTest` |Frame push with bound arguments and `pushed_at`, `phase inherit`, result guards, a
+step-out unwinding one frame, the unwind of every frame to the fallback, nesting depth 4
+|`GuardEvaluatorTest` |The three guard values, their propagation, and `guard_indeterminate` with a matched control
+|`LoopBackBudgetTest` |Counts raised and never reset, the outline budget 1, policy counters per class
+|`EngineEventTest` |Parking and resuming of every resting kind by its own event only, refusal of a mismatched event, a
+killed job settled `killed` and never restarted
+|`EngineResumeTest` |A run stopped after each persisted step continues from the store with the same state, call stack
+and next step
+|===
+
+== Developer Pitfalls
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+* *Never fold an undecided guard.* A `CouldNotEvaluate` that is read as `NotHeld` hides a link, one read as `Held`
+  offers a wrong one. Handle `GuardResult` exhaustively and raise `guard_indeterminate`.
+* *A step-out is one frame.* Never unwind more than the frame of the unit that steps out: a commit that steps out
+  inside a remediation unit returns to the remediation unit, which can still remedy. Only `unwindToFallback`, the
+  fallback of a spent condition budget, unwinds every frame, and it takes no caller's `stepped_out` route.
+* *A step-out is offered on resting link states only.* `stepOut` refuses every other state, so a model cannot leave a
+  bounded wait of an `auto`, job or task state.
+* *Persist in the transaction of the advance.* A caller that writes the new status in a later transaction than its
+  other writes splits one state change into two.
+* *Result records live for one advance.* The engine collects a frame's result record from the facts its primitives
+  return in the advance that returns from it; result guards read nothing else.
+
+== Decisions
+
+* link:../adr/workflow-engine/001-engine-runs-verified-units-only.adoc[ADR 001]: the engine runs only units the
+  verifier passes.
+* link:../adr/workflow-engine/002-every-wait-is-an-engine-event.adoc[ADR 002]: every resting state is parked and
+  resumed by a typed engine event.
+* link:../adr/workflow-engine/003-call-stack-in-one-transaction.adoc[ADR 003]: call, chain and return in one atomic
+  advance.
