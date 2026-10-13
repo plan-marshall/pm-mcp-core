@@ -16,7 +16,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 * *A restart*: a paused plan stays paused, a pausing one holds at its point.
 * *The epic as a resource* (UC-PLN-5): `GET /api/v1/epics/{epic_id}` with its rows, sources, landings, registers' counts, the draft while one is open, the archive check, its history; the operator's acts as its endpoints.
 * *Holds and their acts* (UC-CTL-4): each hold a record with its kind, cause, attempts, and the acts that resolve it, each an operator endpoint of both clients; `facts.operator_command` goes.
-* *Chat*: offered among the actions of a plan and of an epic in every state that has not ended; the conversation itself is the sub-workflow of link:chat.adoc[`chat`].
+* *Chat*: offered among the actions of a plan and of an epic in every state that has not ended, and read-only on an ended plan or epic beside its view, over its archive entry; the conversation itself, also its follow-up plan from ended work, is the sub-workflow of link:chat.adoc[`chat`].
 * *An epic*: next plan (start the next launchable row, creating its plan, the reasons when none is, the offer to raise the scope); the archive check before `epic.archive`; cancel with the choice for its plans.
 
 == Trace
