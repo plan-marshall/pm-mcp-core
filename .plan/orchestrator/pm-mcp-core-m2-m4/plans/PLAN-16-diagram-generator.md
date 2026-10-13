@@ -68,7 +68,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/` — production code
 - HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/diagram/` — tests; new directory
-- HYPOTHESIS: `pm-workflow/src/test/resources/` — golden files; the directory does not exist yet
+- HYPOTHESIS: `pm-workflow/src/test/resources/diagram/` — golden files in their own subdirectory, beside the existing `dsl/` and `verify/` fixtures (narrowed by the orchestrator on 2026-10-13 so it does not overlap PLAN-54's `verify/`)
 - OBSERVED: `doc/plans/README.adoc` — this package's own status row only
 - HYPOTHESIS: `pm-workflow/doc/developer/workflow-diagram.adoc` — developer documentation of the package; created or extended
 - HYPOTHESIS: `pm-workflow/doc/adr/workflow-diagram/` — ADRs of the package's design decisions; new directory if absent
