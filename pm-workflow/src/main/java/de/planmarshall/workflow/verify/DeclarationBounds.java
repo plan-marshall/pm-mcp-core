@@ -29,7 +29,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * schemas exist for {@value #ADJUDICATION_UNIT} and {@value #REPLAN_UNIT}; a unit declares every name of its schema
  * exactly once, and a unit without a schema declares nothing. The bounds admit the shipped value and stricter values
  * only. The unit {@value #ADJUDICATION_UNIT} alone also carries the {@code decide} lines: each of the closed decision
- * kinds at most once, {@code ask} or a quorum of {@value #MIN_QUORUM_ROLES} to {@value #MAX_QUORUM_ROLES} distinct
+ * kinds ({@link DecisionDeclaration#DECISION_KINDS}, the one set the parser reads as well) at most once, {@code ask} or a quorum of {@value #MIN_QUORUM_ROLES} to {@value #MAX_QUORUM_ROLES} distinct
  * roles with a score of {@value #MIN_QUORUM_SCORE} to {@value #MAX_QUORUM_SCORE}.
  * <p>
  * A missing, unknown or ill-typed declaration, a value outside its bounds, a declaration in a unit without a schema,
@@ -64,10 +64,6 @@ public final class DeclarationBounds {
 
     /** The highest score of a quorum. */
     public static final int MAX_QUORUM_SCORE = 100;
-
-    /** The closed set of the decision kinds, in the order of their table. */
-    public static final List<String> DECISION_KINDS = List.of("interpretation", "approach", "granularity",
-            "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact");
 
     private static final String QUORUM_BOUND = "quorum of %d to %d distinct roles with a score of %d to %d"
             .formatted(MIN_QUORUM_ROLES, MAX_QUORUM_ROLES, MIN_QUORUM_SCORE, MAX_QUORUM_SCORE);
@@ -153,8 +149,8 @@ public final class DeclarationBounds {
                         "the unit '%s' carries the decision declaration '%s'".formatted(unit.id(), entry.getKey())));
                 continue;
             }
-            if (!DECISION_KINDS.contains(entry.getKey())) {
-                findings.add(new Finding(name, location, "a decision kind of " + DECISION_KINDS,
+            if (!DecisionDeclaration.DECISION_KINDS.contains(entry.getKey())) {
+                findings.add(new Finding(name, location, "a decision kind of " + DecisionDeclaration.DECISION_KINDS,
                         "'%s' is not a decision kind".formatted(entry.getKey())));
             }
             if (entry.getValue() instanceof DecisionDeclaration.Quorum quorum) {
@@ -225,18 +221,19 @@ public final class DeclarationBounds {
     }
 
     /**
-     * One of the closed decision kinds ({@link #DECISION_KINDS}).
+     * One of the closed decision kinds ({@link DecisionDeclaration#DECISION_KINDS}), the set the parser admits on a
+     * {@code decide} line.
      */
     public record DecisionKind() implements Bound {
 
         @Override
         public boolean admits(CallValue value) {
-            return value instanceof CallValue.EnumValue(var kind) && DECISION_KINDS.contains(kind);
+            return value instanceof CallValue.EnumValue(var kind) && DecisionDeclaration.DECISION_KINDS.contains(kind);
         }
 
         @Override
         public String describe() {
-            return "enum[%s]".formatted(String.join("|", DECISION_KINDS));
+            return "enum[%s]".formatted(String.join("|", DecisionDeclaration.DECISION_KINDS));
         }
     }
 

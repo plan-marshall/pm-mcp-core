@@ -69,7 +69,8 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * <p>
  * The keywords of a scope, a link relation, a link form, a step completion and an outcome class are the lower-case
  * names of the constants of {@link WorkflowScope}, {@link LinkRelation}, {@link LinkForm},
- * {@link StepCompletionStatus} and {@link OutcomeClass}, read off the enumerations as the printer writes them.
+ * {@link StepCompletionStatus} and {@link OutcomeClass}, read off the enumerations as the printer writes them. The
+ * decision kinds a {@code decide} line admits are {@link DecisionDeclaration#DECISION_KINDS}.
  * <p>
  * The {@code derived_from <n>} clause of the header is recorded in {@link WorkflowDefinition#derivedFrom()} as
  * {@code {<unit id> -> n}}. It is admitted only in a {@link UnitOrigin#PROJECT} unit: a default unit derives from
@@ -120,8 +121,7 @@ public final class WorkflowParser {
             "completes", "as", "and", "or", KEYWORD_NOT, "in_worktree", "has_open_findings", "all_tasks_completed",
             "predicate", "text", KEYWORD_INT, KEYWORD_ENUM, KEYWORD_SCHEMA, KEYWORD_LIST);
 
-    private static final Set<String> DECISION_KINDS = Set.of("interpretation", "approach", "granularity", "placement",
-            "test_strategy", KEYWORD_SCOPE, "product_behaviour", "assurance", "external_fact");
+    private static final Set<String> DECISION_KINDS = Set.copyOf(DecisionDeclaration.DECISION_KINDS);
 
     private static final Set<String> QUESTION_CLASSES = Set.of("init", "clarification", "review", "task", "setup",
             "ask");

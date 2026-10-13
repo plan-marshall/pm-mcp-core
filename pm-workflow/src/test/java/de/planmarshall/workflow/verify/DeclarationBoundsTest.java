@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -33,6 +34,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.workflow.ast.CallValue;
+import de.planmarshall.workflow.ast.DecisionDeclaration;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.RefusalRule;
@@ -152,6 +154,64 @@ class DeclarationBoundsTest {
                     found.stream().map(violation -> new Located(violation.id().wireId(),
                             violation.location().resourceName(), violation.location().line())).toList());
         }
+    }
+
+    /**
+     * The parser and the bound of a decision-kind declaration read the one closed set
+     * {@link DecisionDeclaration#DECISION_KINDS}, so a kind added to it is admitted by both, and neither admits a
+     * kind outside it.
+     */
+    @Nested
+    @DisplayName("Shared decision kinds")
+    class SharedDecisionKinds {
+
+        private static ParseResult parseDecide(String kind) {
+            var source = """
+                    workflow adjudicate.decisions version 1 format 1
+                    scope subworkflow
+                    decide %s -> ask
+                    start demo.end
+
+                    state demo.end terminal done success
+                        phase inherit
+                    """.formatted(kind);
+            return WorkflowParser.parse("kinds.pmwf", source, UnitOrigin.PROJECT);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.DeclarationBoundsTest#decisionKinds")
+        @DisplayName("every kind of the shared set is admitted by the parser and by the decision-kind bound")
+        void sharedKindAdmittedByBoth(String kind) {
+            var result = parseDecide(kind);
+
+            var parsed = assertInstanceOf(ParseResult.Parsed.class, result, result::toString);
+            assertAll(
+                    () -> assertEquals(List.of(kind), List.copyOf(parsed.definition().decisions().keySet())),
+                    () -> assertTrue(new DeclarationBounds.DecisionKind().admits(new CallValue.EnumValue(kind))));
+        }
+
+        @Test
+        @DisplayName("a kind outside the shared set is refused by the parser and by the decision-kind bound")
+        void otherKindRefusedByBoth() {
+            var kind = "not_" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+
+            var result = parseDecide(kind);
+
+            assertAll(kind,
+                    () -> assertInstanceOf(ParseResult.Refused.class, result),
+                    () -> assertFalse(new DeclarationBounds.DecisionKind().admits(new CallValue.EnumValue(kind))));
+        }
+
+        @Test
+        @DisplayName("the decision-kind bound names exactly the shared set, in its order")
+        void boundNamesSharedSet() {
+            assertEquals("enum[%s]".formatted(String.join("|", DecisionDeclaration.DECISION_KINDS)),
+                    new DeclarationBounds.DecisionKind().describe());
+        }
+    }
+
+    static List<String> decisionKinds() {
+        return DecisionDeclaration.DECISION_KINDS;
     }
 
     @Nested

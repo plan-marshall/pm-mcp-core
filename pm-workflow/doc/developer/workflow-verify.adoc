@@ -191,6 +191,7 @@ The bounds admit the shipped value and stricter ones.
 `check(unit)` reports a missing, unknown or ill-typed declaration, a value outside its bound, a declaration in a unit without a schema, a `decide` line outside `adjudicate.decisions`, a decision kind outside the nine closed kinds, and a quorum outside 1 to 3 distinct roles with a score of 50 to 100.
 Every finding has the code `declaration_invalid`, the bound, and the location of the offending `declare` or `decide` line, which the syntax tree records (`ValueDeclaration` and the decision declarations carry their location); a missing declaration is located at the unit header.
 The parser refuses a name or decision kind declared twice before the check runs.
+The nine decision kinds are defined once, as `DecisionDeclaration.DECISION_KINDS` in `workflow.ast`: the parser admits exactly these on a `decide` line, and the bound of a decision-kind declaration admits exactly these values, so the two cannot drift apart; `DeclarationBoundsTest` asserts both against the shared set.
 The class lives in `workflow.verify` because the invariants use it and the loader in `workflow.unit` calls it; in `workflow.unit` it would close a package cycle (link:../adr/workflow-verify/015-declaration-bounds-in-workflow-verify.adoc[ADR 015]).
 
 === Adding an Invariant
