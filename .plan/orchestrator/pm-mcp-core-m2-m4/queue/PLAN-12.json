@@ -2,8 +2,8 @@
   "id": "PLAN-12",
   "slug": "session-log-and-generations",
   "workstream": "WS-02",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
+  "status": "running",
+  "plan_marshall_plan_id": "session-log-and-generations",
   "pr": "",
   "landing": "",
   "seq": 12
