@@ -19,6 +19,7 @@ A load runs several checks (reading, parsing, the format, Rules 1-12, the declar
 
 Every check reports `UnitFinding` values with kind, code, file and line, and no check stops at the first one.
 `UnitLoadResult` holds either the verified units or every finding and never both; `refusal()` yields `config_invalid` naming the first finding.
+The loader returns this refusal and refuses nothing itself: the assembly (`pm-mcp-server` in plan-marshall-mcp) applies it to the plan lifecycle at plan start and at resume, and no code of this repository calls the loader on a lifecycle path.
 No code path substitutes a default unit for a refused or missing project unit.
 The path of every unit file is confined through `PathConfinement`; a refused path becomes the finding `path_traversal_rejected`.
 A unit of another DSL format than the compiled one, `COMPILED_FORMAT_VERSION` = 1, is refused with `format_newer` or `format_outdated` before it is merged or verified.

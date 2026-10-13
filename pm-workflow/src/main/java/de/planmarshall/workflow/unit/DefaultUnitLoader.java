@@ -134,9 +134,8 @@ public final class DefaultUnitLoader {
     private Optional<WorkflowDefinition> parse(String file, String source, List<UnitFinding> findings) {
         var resource = root + file;
         return switch (WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT)) {
-            case ParseResult.Parsed parsed -> Optional.of(parsed.definition());
-            case ParseResult.Refused refused -> {
-                var diagnostic = refused.diagnostic();
+            case ParseResult.Parsed(var definition) -> Optional.of(definition);
+            case ParseResult.Refused(var diagnostic) -> {
                 findings.add(new UnitFinding(UnitFinding.Kind.PARSE, diagnostic.rule().name(), resource,
                         diagnostic.line(), diagnostic.message()));
                 yield Optional.empty();

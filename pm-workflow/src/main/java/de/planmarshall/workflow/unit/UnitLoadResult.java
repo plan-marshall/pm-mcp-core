@@ -21,7 +21,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 /**
  * The result of loading a set of units (PM-IMPL-5): the verified units by identifier when there is no finding,
  * otherwise every finding and no unit. A result with findings never carries a unit, so no default unit stands in
- * for a refused one.
+ * for a refused one; it returns the {@code config_invalid} refusal ({@link #refusal()}) that the assembly
+ * ({@code pm-mcp-server} in plan-marshall-mcp) applies to the plan lifecycle at plan start and at resume.
  *
  * @param units    the verified units by identifier, in load order; empty when there is a finding
  * @param findings every finding, in the order the checks report them; empty when every unit verified
@@ -76,8 +77,11 @@ public record UnitLoadResult(Map<String, WorkflowDefinition> units, List<UnitFin
     }
 
     /**
-     * @return the refusal {@value #CONFIG_INVALID} of the plan lifecycle naming the file and line of the first
-     *         finding; empty when every unit verified
+     * Returns the refusal the assembly applies to the plan lifecycle at plan start and at resume; this record only
+     * carries it.
+     *
+     * @return the refusal {@value #CONFIG_INVALID} naming the file and line of the first finding; empty when every
+     *         unit verified
      */
     public Optional<Refusal> refusal() {
         return findings.stream().findFirst()

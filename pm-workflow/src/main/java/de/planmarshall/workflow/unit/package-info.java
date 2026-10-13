@@ -20,9 +20,10 @@
  * with the part versions and the per-file {@code derived_from} revisions.
  * <p>
  * Every check reports a {@link de.planmarshall.workflow.unit.UnitFinding} with file and line, never an exception. A
- * {@link de.planmarshall.workflow.unit.UnitLoadResult} carries either every verified unit or every finding; a finding
- * refuses the plan lifecycle with {@code config_invalid}, and no default unit ever stands in for a refused project
- * unit.
+ * {@link de.planmarshall.workflow.unit.UnitLoadResult} carries either every verified unit or every finding; a result
+ * with findings returns the {@code config_invalid} refusal that the assembly ({@code pm-mcp-server} in
+ * plan-marshall-mcp) applies at plan start and at resume, and no default unit ever stands in for a refused project
+ * unit. Nothing in this module calls the loader on a lifecycle path.
  * <p>
  * Specification: {@code doc/specification/workflow-dsl/02-units-jobs-decisions.adoc} (Workflow Definition Units) and
  * {@code doc/specification/workflow-dsl/04-ast-node-model.adoc} (Project-owned units).

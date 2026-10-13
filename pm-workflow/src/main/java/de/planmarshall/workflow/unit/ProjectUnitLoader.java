@@ -46,8 +46,9 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
 /**
  * Loads the units a project owns from {@code .marshall/config/} and verifies them before any plan of the project runs
  * (PM-IMPL-5). The load returns either every verified project unit or every finding, each with its file and line;
- * a finding refuses the plan lifecycle with {@code config_invalid}, and no default unit ever stands in for a refused
- * project unit.
+ * a load with findings returns the {@code config_invalid} refusal ({@link UnitLoadResult#refusal()}) that the assembly
+ * ({@code pm-mcp-server} in plan-marshall-mcp) applies at plan start and at resume, and no default unit ever stands in
+ * for a refused project unit. Nothing in this module calls the loader on a lifecycle path.
  * <p>
  * The loader is built once per assembly with the inputs of the static verifier, the verified default units (the
  * reference of the invariants), the default finalize descriptors and the names of the project-ownable files; each
@@ -115,7 +116,8 @@ public final class ProjectUnitLoader {
     }
 
     /**
-     * Loads and verifies the units of one project.
+     * Loads and verifies the units of one project. The result carries the refusal the assembly applies at plan start
+     * and at resume when it holds a finding; the load itself refuses no lifecycle.
      *
      * @param projectId    the project, named in the log
      * @param roots        the enrolled root of the project and its live linked worktrees
@@ -201,9 +203,9 @@ public final class ProjectUnitLoader {
                         "the unit file '%s' lies outside the workspace (%s)".formatted(path, rejected.reason())));
                 yield Optional.empty();
             }
-            case ConfinementOutcome.Confined confined -> {
+            case ConfinementOutcome.Confined(var confinedPath) -> {
                 try {
-                    yield Optional.of(Files.readString(confined.path()));
+                    yield Optional.of(Files.readString(confinedPath));
                 } catch (NoSuchFileException _) {
                     findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING, path, 0,
                             "the project unit '%s' does not exist".formatted(path)));
@@ -219,14 +221,12 @@ public final class ProjectUnitLoader {
 
     private static Optional<WorkflowDefinition> parse(String path, String source, List<UnitFinding> findings) {
         return switch (WorkflowParser.parse(path, source, UnitOrigin.PROJECT)) {
-            case ParseResult.Refused refused -> {
-                var diagnostic = refused.diagnostic();
+            case ParseResult.Refused(var diagnostic) -> {
                 findings.add(new UnitFinding(UnitFinding.Kind.PARSE, diagnostic.rule().name(), path,
                         diagnostic.line(), diagnostic.message()));
                 yield Optional.empty();
             }
-            case ParseResult.Parsed parsed -> {
-                var unit = parsed.definition();
+            case ParseResult.Parsed(var unit) -> {
                 if (unit.formatVersion() == COMPILED_FORMAT_VERSION) {
                     yield Optional.of(unit);
                 }
@@ -280,8 +280,8 @@ public final class ProjectUnitLoader {
                 transitions.addAll(question.transitions());
                 question.links().forEach(link -> transitions.addAll(link.transitions()));
             }
-            case StateBehavior.InteractiveLinks links ->
-                links.links().forEach(link -> transitions.addAll(link.transitions()));
+            case StateBehavior.InteractiveLinks(var links) ->
+                links.forEach(link -> transitions.addAll(link.transitions()));
             case StateBehavior.TerminalState _ -> {
                 // a terminal state has no transition
             }
