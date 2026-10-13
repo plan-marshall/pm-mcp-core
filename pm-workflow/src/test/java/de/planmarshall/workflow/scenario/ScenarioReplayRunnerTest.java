@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -149,7 +148,7 @@ class ScenarioReplayRunnerTest {
 
         @Test
         @DisplayName("Should replay every directive kind against the real engine to the unit's terminal")
-        void shouldReplayToTerminal() throws IOException {
+        void shouldReplayToTerminal() throws Exception {
             var runner = runner();
 
             runner.run(ScenarioScript.read(EVERY_DIRECTIVE));
