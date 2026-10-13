@@ -10,6 +10,7 @@
 package de.planmarshall.core.store;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -172,6 +173,25 @@ class PendingEntryStoreTest {
                         () -> assertThrows(IllegalArgumentException.class, () -> store.replace(write, absent)),
                         () -> assertThrows(IllegalArgumentException.class, () -> store.create(write, next)));
             }
+        }
+
+        @Test
+        @DisplayName("that states another entry_id than its file name is refused as unreadable and left as it is")
+        void entryIdDiffersFromFileName() throws Exception {
+            var named = new EntryId("ent-0123456789abcdef");
+            var stated = new EntryId("ent-fedcba9876543210");
+            var document = PendingEntryCodec.write(entry(stated, "start.choose"));
+            Files.write(store.store(named), document);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> store.read(named));
+
+            assertAll(
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(store.store(named), refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains(stated.value()), refusal::getMessage),
+                    () -> assertTrue(refusal.getMessage().contains(named.value()), refusal::getMessage),
+                    () -> assertEquals(Optional.empty(), store.read(stated)),
+                    () -> assertArrayEquals(document, Files.readAllBytes(store.store(named))));
         }
 
         @Test

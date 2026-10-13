@@ -38,6 +38,7 @@ import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.core.store.PendingEntryCodec;
 import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
@@ -201,6 +202,33 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(reason.contains(broken.value() + " (unreadable)"), reason),
                 () -> assertEquals(Optional.empty(), store.read(OLD_ENTRY)),
                 () -> assertTrue(Files.exists(store.store(broken)), "the unreadable record is kept"));
+    }
+
+    @Test
+    @DisplayName("an old record that states another entry_id than its file name is kept and reported as unreadable, "
+            + "and the other old records are still removed")
+    void mismatchingEntryIdKeptAsFailure() throws Exception {
+        var secondOld = new EntryId("ent-00000000000000f6");
+        create(entry(OLD_ENTRY, OLD), entry(secondOld, OLD));
+        var named = new EntryId("ent-00000000000000f7");
+        var stated = new EntryId("ent-00000000000000f8");
+        var mismatching = Files.write(store.store(named), PendingEntryCodec.write(entry(stated, OLD)));
+        var before = auditSink.events().size();
+
+        var outcome = sweep.run(PROJECT_A, OLDER_THAN);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome).reason();
+        var removals = auditSink.events().subList(before, auditSink.events().size());
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 2 pending entry records; kept unreadable records"),
+                        reason),
+                () -> assertTrue(reason.contains(named.value() + " (unreadable)"), reason),
+                () -> assertFalse(reason.contains(stated.value()), reason),
+                () -> assertEquals(Optional.empty(), store.read(OLD_ENTRY)),
+                () -> assertEquals(Optional.empty(), store.read(secondOld)),
+                () -> assertTrue(Files.exists(mismatching), "the mismatching record is kept"),
+                () -> assertEquals(List.of(OLD_ENTRY.value(), secondOld.value()),
+                        removals.stream().map(removal -> removal.details().get("entry_id")).toList()));
     }
 
     @Test

@@ -161,16 +161,27 @@ public final class PendingEntryStore {
     }
 
     /**
-     * Reads a record without a lock.
+     * Reads a record without a lock. A record is readable only if the {@code entry_id} it states is the id its file
+     * name carries: a record that states another id is refused as unreadable, so no caller judges or removes it under
+     * an identity it does not state.
      *
      * @param entryId the entry
      * @return the record; empty if it does not exist
-     * @throws StoreRefusal         if the record is in another format version or unreadable
+     * @throws StoreRefusal         if the record is in another format version, unreadable, or states another
+     *                              {@code entry_id} than the one of its file name
      * @throws UncheckedIOException if the record exists and cannot be read
      */
     public Optional<PendingEntryRecord> read(EntryId entryId) {
         var file = store(entryId);
-        return StoreSnapshot.read(file).content().map(document -> PendingEntryCodec.read(file, document));
+        return StoreSnapshot.read(file).content().map(document -> {
+            var entry = PendingEntryCodec.read(file, document);
+            if (!entry.entryId().equals(entryId)) {
+                throw StoreRefusal.unreadable(file, PendingEntryRecord.FORMAT_VERSION,
+                        "'entry_id' is '%s', not the '%s' of the file name".formatted(entry.entryId(), entryId),
+                        null);
+            }
+            return entry;
+        });
     }
 
     /**
