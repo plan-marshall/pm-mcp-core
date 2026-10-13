@@ -106,6 +106,29 @@ class AuditEventTest {
         }
     }
 
+    @Test
+    @DisplayName("a removed pending entry record names the entry, its store, its creation instant and the transaction")
+    void pendingEntryRemoved() {
+        var event = AuditEvent.pendingEntryRemoved("ent-0123abcd", "pending/ent-0123abcd.json",
+                "2026-10-13T08:00:00Z", TRANSACTION_ID);
+
+        assertAll(
+                () -> assertEquals("pending_entry_removed", event.event()),
+                () -> assertEquals(AuditEvent.PENDING_ENTRY_REMOVED, event.event()),
+                () -> assertEquals("store", event.category()),
+                () -> assertEquals("succeeded", event.outcome()),
+                () -> assertEquals(Map.of("entry_id", "ent-0123abcd", "store", "pending/ent-0123abcd.json",
+                        "created_at", "2026-10-13T08:00:00Z", "transaction_id", TRANSACTION_ID), event.details()),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved(null, "s", "c", TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved("e", null, "c", TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved("e", "s", null, TRANSACTION_ID)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.pendingEntryRemoved("e", "s", "c", null)));
+    }
+
     @Nested
     @DisplayName("client change of a session log")
     class EntryClientChanged {

@@ -168,6 +168,18 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String DETAIL_CLIENT_SESSION_ID = "client_session_id";
 
     /**
+     * The name of the event that records a pending entry record removed by the pending-record sweep because it is
+     * older than the pending entry record maximum age.
+     */
+    public static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
+
+    /** The detail of a removed pending entry record that names the entry by its id. */
+    public static final String DETAIL_ENTRY_ID = "entry_id";
+
+    /** The detail of a removed pending entry record that holds the instant the record was created. */
+    public static final String DETAIL_CREATED_AT = "created_at";
+
+    /**
      * @throws NullPointerException if a component, a detail key or a detail value is {@code null}
      */
     public AuditEvent {
@@ -262,6 +274,28 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         }
         details.put(DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, "transactionId"));
         return new AuditEvent(ENTRY_CLIENT_CHANGED, CATEGORY_IDENTITY, OUTCOME_SUCCEEDED, details);
+    }
+
+    /**
+     * The record a pending-record sweep owes for every pending entry record it removes, as the evidence of its
+     * removal: the entry, the creation instant the age was measured from, and the store path. It is owed by the
+     * workspace transaction that removes the record.
+     *
+     * @param entryId       the id of the removed entry
+     * @param store         the record, relative to the path base of the workspace scope
+     * @param createdAt     the creation instant of the record, in its one wire shape
+     * @param transactionId the transaction that removes the record, by which a record handed over again is
+     *                      recognised as the same
+     * @return the record of the removal
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public static AuditEvent pendingEntryRemoved(String entryId, String store, String createdAt,
+            String transactionId) {
+        return new AuditEvent(PENDING_ENTRY_REMOVED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
+                Map.of(DETAIL_ENTRY_ID, Objects.requireNonNull(entryId, "entryId"), DETAIL_STORE,
+                        Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
+                        Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
+                        Objects.requireNonNull(transactionId, "transactionId")));
     }
 
     /**

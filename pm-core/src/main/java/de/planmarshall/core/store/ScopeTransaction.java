@@ -159,6 +159,14 @@ public final class ScopeTransaction {
     }
 
     /**
+     * @param store a store of the scope, absolute and normalized
+     * @return whether the store is a target of this transaction already
+     */
+    boolean isTarget(Path store) {
+        return targets.containsKey(Objects.requireNonNull(store, "store"));
+    }
+
+    /**
      * Owes an audit record that the transaction hands over once its targets are applied, such as the
      * {@code cross_scope_reconciled} record of a derived write. The record is written into the journal before the
      * first store is touched, and the journal is deleted only after the sink accepted it; if the sink refuses it, or

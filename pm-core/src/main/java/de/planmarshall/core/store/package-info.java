@@ -56,6 +56,14 @@
  * {@link de.planmarshall.core.store.ScopeSessionRowCodec}), appended through the caller's
  * {@link de.planmarshall.core.store.ScopeTransaction}, which owes the {@code entry_client_changed} record when the
  * declared client changes. A row holds no path of a checkout.</li>
+ * <li><em>The pending entry record</em> (PM-CLIENT-1): {@code pending/<entry_id>.json} of the workspace scope
+ * ({@link de.planmarshall.core.store.PendingEntryRecord}, read and written by
+ * {@link de.planmarshall.core.store.PendingEntryCodec}), the state store of the bootstrap of an entry on a scope that
+ * does not exist yet, named by its {@link de.planmarshall.core.store.EntryId}: the envelope, the entry row and the
+ * members the engine owns are typed, {@code facts}, {@code source} and {@code options} kept as raw JSON.
+ * {@link de.planmarshall.core.store.PendingEntryStore} allocates a fresh id and creates, replaces and removes a record
+ * as a target of the caller's workspace {@link de.planmarshall.core.store.ScopeTransaction}, and lists only the names
+ * that parse as entry ids.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is
