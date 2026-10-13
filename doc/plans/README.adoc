@@ -143,7 +143,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 
 |link:session-log-and-generations.adoc[`session-log-and-generations`]
 |Scope session log and session generations
-|`open`
+|`done`
 |link:store-substrate.adoc[`store-substrate`]
 |Milestone 3
 

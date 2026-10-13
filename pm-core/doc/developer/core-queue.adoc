@@ -1,0 +1,185 @@
+= Session Generations (`core.queue`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5], link:{docs}/Requirements.adoc#PM-WORK-2[PM-WORK-2]_
+
+Package `de.planmarshall.core.queue` of `pm-core` holds the task queue store of a project below
+`projects/<project_id>/queue/`. The work package `session-log-and-generations` added its first record, the session
+generation record `queue/session-generations.json`: the generations of the project's interactive sessions. A
+generation is what a session's calls carry; a newer generation of the same session identity fences the older ones, and
+a call of a fenced generation is refused. The queue task records come with the task queue package.
+
+The record is no store of a scope: it has no transaction journal and no digest sidecar, and it is written under the
+queue lock by one atomic write-and-rename
+(link:../adr/core-queue/001-generation-record-replaced-under-the-queue-lock.adoc[ADR 001]). The schema is
+link:{docs}/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session Generation
+Record].
+
+== Core Types
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
+
+[horizontal]
+`GenerationId`:: `sg-` and 16 lower-case hexadecimal digits, the key of an entry; a new id is drawn at random. A worker
+generation is its `job_id` (`l-` form) and is no value of this type.
+`GenerationCause`:: What issued a generation, the member `issued_by`: `enter` (`pm-mcp enter`), `relay_start` (the
+first binding of a session relay that found no current generation), `new_session` (the relay observed a new host
+session).
+`SessionGeneration`:: One entry, closed: the id, the `session_key` (SHA-256 of the session identity), the client and
+client session id, the cause, the issue instant, `session_tasks`, the scope and working directory the session entered
+(both absent until it enters one, and no working directory without a scope), the delivered skills, `offers_suspended`,
+and the `Fence` of a fenced generation. `issued(...)` builds a new generation with the defaults of its issue: no scope,
+no working directory, no delivered skill, offers not suspended, not fenced.
+`SessionGeneration.Fence`:: The instant of the issue that fenced the generation (`fenced_at`) and whether that issue
+was a `pm-mcp enter`. A generation fenced once keeps its first fence.
+`GenerationCheck`:: What the record says about the generation a call carries, a sealed result: `Current`, `Fenced`
+(code `generation_fenced`), `Superseded` (fenced by an `enter`, code `generation_superseded`) or `Unknown` (never issued
+in the project, or removed).
+`SessionGenerationCodec`:: Reads and writes `{"format_version": 1, "generations": {<generation_id>: <entry>}}` over the
+`StrictJson` helpers of `core.store`; every refusal is a `StoreRefusal` naming the file.
+`SessionGenerationStore`:: The record of one project, every write one read-modify-write under the queue lock
+`locks/queue.lock`, every read lock-free through `StoreSnapshot`.
+
+== Using the Store
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5], link:{docs}/Requirements.adoc#PM-WORK-2[PM-WORK-2]_
+
+[cols="2,4"]
+|===
+|Method |What it does
+
+|`issue(request, cause)`
+|Issues a new generation for the session identity and fences every earlier generation of its `session_key`, in one
+write.
+
+|`enter(request)`
+|`issue` with cause `enter`; the generations it fences are superseded by it.
+
+|`newSession(request)`
+|`issue` with cause `new_session`.
+
+|`relayStart(request)`
+|The current generation of the session key when there is one, so a relay its host restarted continues in its session's
+generation; otherwise a new generation issued with cause `relay_start`.
+
+|`assignScope(id, scope, workdir)`
+|Gives a current generation the scope its session entered and the working directory it entered from, as the
+`start.create-scope` commit of a bootstrap does. A generation that is not current is answered with its check and
+nothing is written. A variant takes the caller's `LockTransaction`: the queue lock comes after every scope lock in the
+lock order and is held until the caller closes the transaction.
+
+|`check(id)`
+|The `GenerationCheck` of a generation, without a lock.
+
+|`removeFencedOlderThan(instant)`
+|Removes every generation fenced before the instant in one write; a current generation and one fenced at or after the
+instant stay. The record is written only if an entry is removed.
+
+|`snapshot()`
+|The entries as they are at the moment of the read, without a lock; nothing a write depends on is decided on it.
+|===
+
+The caller states the session in a `SessionGenerationStore.Request`: the session key, the declared client, the client
+session id and whether the client profile marks the host eligible for session tasks. The store takes the clock of the
+issue instants in its constructor, so tests drive time.
+
+[source]
+----
+enter(request)        pm-mcp enter                 ─┐
+relayStart(request)   first binding of a relay      ├─ under the queue lock: read the record, draw an sg- id
+newSession(request)   relay saw a new host session ─┘  (again on a collision), take an issue instant strictly
+                                                       after the key's latest issue, fence every earlier
+                                                       generation of the key at that instant, write the
+                                                       record once (atomic write-and-rename)
+
+call carrying sg-… ──► check(id) ──► Current | Fenced (generation_fenced) | Superseded (generation_superseded) | Unknown
+----
+
+== Fenced and Superseded
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
+
+A generation superseded by a `pm-mcp enter` is fenced as well; it is told apart because a request carrying it is
+answered at the transport with `generation_superseded` and the relay then binds again, while every other call of a
+fenced generation reaches its handler and is refused `generation_fenced`.
+
+The record holds only `fenced_at`, the instant a generation was fenced, not what fenced it. What fenced it is derived
+when the record is read (link:../adr/core-queue/003-superseded-generation-distinguished-from-fenced.adoc[ADR 003]):
+
+* an issue fences every earlier generation of its session key in the same write, at the instant of the issue;
+* the issue instants of one session key strictly increase: an issue whose clock reads an instant not after the latest
+  issue of its key takes the next nanosecond after it;
+* so exactly one generation of the key was issued at a fenced generation's `fenced_at`, and the generation is
+  superseded when that one was issued by `enter`.
+
+The writer drops the flag and the reader derives it again, so a record the store wrote reads back equal.
+
+== Invariants
+
+* *One lock, one write*: issuing a generation fences the earlier ones and checks the drawn id for a collision; both are
+  a read-modify-write of the one document, made under the queue lock in one `AtomicStoreFile` write. No reader ever sees
+  two current generations of one session key, nor a fenced generation without the generation that fenced it.
+* *A fence is final*: a generation is never unfenced, so a generation a lock-free read found fenced stays fenced.
+* *Removal keeps the record consistent*: a generation fenced by a removed one was fenced no later than it, so it is
+  removed with it, and every fenced entry that stays still has the generation that fenced it.
+* *Strict reading*: exactly the current `format_version`, only the declared members, each at most once, every required
+  member, and an entry key that is a generation id. Anything else is unreadable, never an empty record.
+* *The directory comes with the first write*: `queue/` of the project is created by the first write; a project without a
+  record reads as no generation.
+
+== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|The record is unreadable or of another format version
+|Every method throws a `StoreRefusal` naming the file; nothing is written.
+
+|The record does not exist
+|`snapshot()` is empty, `check` answers `Unknown`, and the first issue creates it.
+
+|A value of a request breaks its form
+|`IllegalArgumentException`; nothing was written.
+
+|The queue lock must not be acquired after the locks the caller's transaction holds
+|`InternalFaultException`, as for every lock-order violation.
+
+|The record cannot be read or written
+|`UncheckedIOException`; the atomic write leaves the previous document in place.
+|===
+
+== Testing
+_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
+
+[horizontal]
+`SessionGenerationCodecTest`:: The round trip, the refusals of the strict reader, and the derivation of what fenced a
+generation.
+`SessionGenerationStoreTest`:: The acceptance of the work package: a second entry fences the first generation, and a
+fenced generation checks `Fenced`; one replaced by an `enter` checks `Superseded`; `relayStart` returns the current
+generation; a colliding id is drawn again; the removal of fenced entries older than an instant keeps the younger and
+the unfenced ones; a lock-free read.
+`SessionGenerationSchemaParityTest`:: The members, required members and enums of the codec against the schema of the
+specification, read from the documentation checkout named by `pm.documentation.root` (see the
+link:core-store.adoc[`core.store` guide], Testing).
+
+The store takes a `RandomGenerator` in a package-private constructor, so a test forces a collision.
+
+== Specification Tracing
+
+* Specification: link:{docs}/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas §
+  Session Generation Record], link:{docs}/specification/model-work/02-task-protocol.adoc#leases-fencing[Model Work §
+  Leases, Generations & Fencing], link:{docs}/specification/runtime-model/03-relay.adoc[Runtime Model § Relay]
+* Removal by the periodic sweep: link:../../../pm-runtime/doc/developer/runtime-start.adoc[Sweep Steps
+  (`runtime.start`)]
+
+== Decisions
+
+* link:../adr/core-queue/001-generation-record-replaced-under-the-queue-lock.adoc[ADR 001]: the record is one document
+  replaced by `AtomicStoreFile` under the queue lock, not a journal scope.
+* link:../adr/core-queue/002-substrate-codec-helpers-shared-with-core-queue.adoc[ADR 002]: `StrictJson` and
+  `LockKey.projectStore` are public API of `core.store`, so the codec and the store use them directly.
+* link:../adr/core-queue/003-superseded-generation-distinguished-from-fenced.adoc[ADR 003]: a generation superseded by
+  an `enter` is told from a fenced one by the generation issued at its `fenced_at`.

@@ -1,0 +1,57 @@
+= ADR 002: The Sweep Seam Factory `SweepStep.notImplemented` Is Removed
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The work package `runtime-lifecycle` built the periodic sweep with its two steps as named seams: the static factory
+`SweepStep.notImplemented(Name)` answered a step that reports a failure saying it is not implemented, and the assembly
+`pm-mcp-server` of `plan-marshall-mcp` registers the two seams through it. The work package
+`session-log-and-generations` adds the real steps, `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`.
+Once they exist, the factory has no step left to stand for. In this repository its one caller was the test
+`PeriodicSweepTest.shouldReportNotImplementedSeam`; outside it, the assembly still calls it.
+
+The default was to keep the factory until the assembly registers the real steps. The project is before 1.0: no
+deprecation cycles and no compatibility shims.
+
+== Decision
+
+The operator decided to remove the factory in this pull request (outline, question q-outline-2):
+
+* `SweepStep.notImplemented(Name)` is removed outright, with its now unused import; the Javadoc of `SweepStep.Name` and
+  of `PeriodicSweep` names the two real steps instead of seams.
+* The test `PeriodicSweepTest.shouldReportNotImplementedSeam` is deleted; the tests with recording steps stay.
+* `RecoveryStep.notImplemented` and `RecoveryStep.NOT_IMPLEMENTED` stay: the per-project recovery still has steps that
+  are named seams.
+
+== Alternatives Considered
+
+1. *Keep `SweepStep.notImplemented` until the assembly registers the real steps*.
+   _Rejected_ by the operator: it would keep a factory for a state that no longer exists in this repository and a
+   transitional seam that a later pull request must remember to remove; pre-1.0, the break is preferred to the shim.
+2. *Mark the factory deprecated*.
+   _Rejected_: the project keeps no deprecation cycles before 1.0.
+
+== Consequences
+
+* `pm-mcp-server` in `plan-marshall-mcp` no longer compiles against the `SNAPSHOT` deployed from this pull request
+  until its registration pull request replaces its two `SweepStep.notImplemented` calls by `PendingEntryRecordsSweep`
+  and `FencedSessionGenerationsSweep` (see the link:../../developer/runtime-start.adoc[`runtime.start` guide],
+  Registering the Steps). That pull request is a known follow-up in `plan-marshall-mcp`; it is named in the
+  description of this package's pull request and is not work of this package.
+* No source or test of this repository references `SweepStep.notImplemented`.
+* The periodic sweep runs real steps as soon as the assembly registers them; until then the assembly cannot be built
+  against the new `SNAPSHOT`, rather than running seams that report themselves not implemented.
+
+== Source
+
+* Operator decision q-outline-2 of the work package `session-log-and-generations` (outline)
+* `doc/plans/runtime-lifecycle.adoc`, which introduced the named seams
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]

@@ -1,0 +1,55 @@
+= ADR 009: `entry_client_changed` Is Owed by the Transaction That Appends the Row
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+A row of the scope session log `sessions.jsonl` whose declared `client` differs from the previous row's additionally
+records an `identity` audit record `entry_client_changed`, with the previous and the new client and client session id.
+The specification states the record, not where it is produced. Two places were possible: the session log's append,
+which reads the latest row anyway, or the caller of the append, the runtime's `pm-mcp enter`, which does not exist yet.
+
+The audit record of a store change is delivered at least once and never lost: a transaction that owes a record writes
+it into its journal before the targets are applied and hands it over at the close, and a recovery hands it over again
+(`ScopeTransaction.owe`).
+
+== Decision
+
+The operator decided that the log append writes it (refine, question q3):
+
+* `ScopeSessionLog.append(transaction, row)` reads the latest row while the caller's transaction holds the scope lock;
+  when the row declares another client, the same transaction owes `entry_client_changed`, built by the new factory
+  `AuditEvent.entryClientChanged` (category `identity`, details `previous_client`, `client`,
+  `previous_client_session_id` and `client_session_id` where present, and the `transaction_id`).
+* The append returns the owed record, so the caller sees it without reading the journal.
+* The first row of a log and a row of the same client owe none.
+
+== Alternatives Considered
+
+1. *The caller of the append compares the clients and writes the record*.
+   _Rejected_: every caller would have to repeat the comparison under the right lock, and a caller that writes the
+   record outside the row's transaction can lose it in a crash between the two.
+2. *Append the record to the audit log directly, after the commit*.
+   _Rejected_: a crash between the commit and the audit write loses the record; the owed record of the journal is the
+   one mechanism that delivers it at least once.
+
+== Consequences
+
+* A row and its `entry_client_changed` record are one transaction: the record is handed over once the row is applied,
+  or by the next recovery of the scope, and carries the transaction id by which a duplicate is recognised.
+* `ScopeSessionLogTest` asserts exactly one owed record for a client change and none for the same client;
+  `AuditEventTest` covers the factory.
+* The `identity` record of the entry itself, written by `pm-mcp enter`, is no part of this package.
+
+== Source
+
+* Operator decision q3 of the work package `session-log-and-generations` (refine)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session Log], Identity Changes
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal], Audit delivery

@@ -1,0 +1,60 @@
+= ADR 008: Of the Pending Entry Record, the Envelope and the Engine-Owned Members Are Typed
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The pending entry record `pending/<entry_id>.json` has a closed schema. Part of it is the envelope the runtime writes
+at `pm-mcp enter` (`entry_id`, `kind`, `requested_id`, `hint`, `from_epic`, the instants, the entry row `session`);
+part is the state of the entry's bootstrap. Of that state the workflow engine owns the position (`state`,
+`call_stack`), the condition overlay (`pending_condition`) and the reason of the last refused re-check
+(`last_refusal`); the source units and the bootstrap's states own `facts`, `source` and `options`, whose shapes come
+with the packages that build them.
+
+The status document `mcp/status.json` faced the same split and keeps the members the engine does not own verbatim
+(link:001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]).
+
+== Decision
+
+The operator decided to type the engine-owned parts (refine, question q2):
+
+* `PendingEntryRecord` types the envelope and embeds the entry row as a `ScopeSessionRow`.
+* `PendingEntryRecord.Bootstrap` types `state`, `call_stack` (the `CallFrame` records of the workflow state store,
+  at most four), `pending_condition` (its `PendingCondition`) and `last_refusal`.
+* `facts`, `source` and `options` are kept as the raw JSON text they were read with and written back byte for byte;
+  the record checks only that each is a JSON object (`source` may be `null`).
+* `PendingEntryCodec` reuses the call-frame, condition and raw-member helpers of `WorkflowStatusCodec`, which became
+  package-private for it, so the two stores read those shapes with one implementation.
+
+== Alternatives Considered
+
+1. *Type the whole record*, `facts`, `source` and `options` included.
+   _Rejected_: it would fix shapes whose owners (the source units, `start.ready`) do not exist yet, and every later
+   change to them would pass through this package.
+2. *Keep the whole bootstrap state as raw JSON*.
+   _Rejected_: the engine-owned members would lose their checks; a call stack deeper than the schema admits or an
+   unknown condition kind would reach the store.
+3. *A second implementation of the call-frame and condition readers in the pending codec*.
+   _Rejected_: two readers of one shape drift apart; widening the existing helpers to the package costs nothing outside
+   it.
+
+== Consequences
+
+* A later package types one of the raw members by moving it into `Bootstrap`, without a format change, as for the
+  status document.
+* `PendingEntryCodecTest` asserts that the raw members round-trip byte-identical; `PendingEntrySchemaParityTest`
+  compares the codec with the schema of the specification.
+* The helpers of `WorkflowStatusCodec` are shared inside `core.store` only; they are no public API.
+
+== Source
+
+* Operator decision q2 of the work package `session-log-and-generations` (refine)
+* link:001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

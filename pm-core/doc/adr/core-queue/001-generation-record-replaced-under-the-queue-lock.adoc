@@ -1,0 +1,64 @@
+= ADR 001: The Session Generation Record Is One Document Replaced under the Queue Lock
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The session generation record `queue/session-generations.json` lies in the task queue directory of a project, not in
+a plan, epic or workspace scope. Issuing a generation is a read-modify-write: the new generation fences every earlier
+generation of its session key, and its randomly drawn `sg-` id must not collide with an id in the record. A reader of
+the record (the check of the generation a call carries) must never see two current generations of one session key, nor
+a fenced generation without the one that fenced it.
+
+The store substrate offers two ways to write a store: as a target of the transaction journal of a scope
+(`ScopeTransaction`), with a digest sidecar, or as one atomic write-and-rename of a single file under its lock
+(`AtomicStoreFile`). The specification puts every queue write under the queue lock `locks/queue.lock` as an atomic
+write-and-rename of the one record it changes, outside any scope's journal and without a digest sidecar, like the job
+records.
+
+== Decision
+
+`SessionGenerationStore` writes the record with `AtomicStoreFile` under `LockKey.queue`. Every writing method (`issue`,
+`relayStart`, `newSession`, `enter`, `assignScope`, `removeFencedOlderThan`) is one read-modify-write in one lock
+transaction: read the record, change it in memory, write it once. The fence of the earlier generations and the issue of
+the new one are therefore one write. Reads (`check`, `snapshot`) take no lock and read through `StoreSnapshot`, which
+sees the record before or after a write and never a part of one.
+
+`assignScope` has a variant in the caller's `LockTransaction`, for the `start.create-scope` commit that holds a scope
+lock already: the queue lock comes after every scope lock in the lock order.
+
+== Alternatives Considered
+
+1. *A journal scope for the queue*: the record as a target of a `ScopeTransaction` of a new scope type.
+   _Rejected_: the specification keeps the queue out of every scope's journal and digest sidecar; a scope type of its
+   own would add a journal, a sidecar and a recovery for a single document whose atomic replace already gives the
+   guarantee needed.
+2. *One file per generation*.
+   _Rejected_: the fence of all earlier generations of a key would change several files, which no single atomic rename
+   covers; a reader could see two current generations.
+3. *An in-memory registry of generations*.
+   _Rejected_: a session reconnecting after a runtime restart continues in its generation, so the record must survive
+   the runtime.
+
+== Consequences
+
+* No reader sees a half-issued generation; since a fence is never undone, a generation a lock-free read found fenced
+  stays fenced.
+* The record has no digest sidecar: an edit outside the runtime is not detected as `store_tampered`; a document that
+  breaks the schema is refused as unreadable.
+* A writer of the record holds the queue lock for one read and one write; the per-project queue lock serializes all
+  generation writes of a project.
+* `SessionGenerationStoreTest` covers the fence in the issue, the collision redraw and the lock-free read.
+
+== Source
+
+* `doc/plans/session-log-and-generations.adoc`
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc#task-queue[Store Schemas § Task Queue], Lock and Write
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session Generation Record]

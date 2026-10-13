@@ -1,0 +1,66 @@
+= ADR 001: The Pending-Record Step Removes through One Workspace Delete Transaction, One Audit Record per Record
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The periodic sweep removes the pending entry records `pending/<entry_id>.json` of a project that are older than the
+pending entry record maximum age, each with an audit record, under the sweep rule: only positive evidence of
+abandonment selects a candidate, and a name that does not parse as an identifier never does. The records are stores
+of the workspace scope, written under the workspace lock and covered by its digest sidecar. A removal must therefore
+not leave a sidecar entry without its file, and an audit record must not be lost when the runtime stops in the middle
+of the removal.
+
+With the delete mode of the journal (link:../../../../pm-core/doc/adr/core-store/007-delete-mode-of-the-transaction-journal.adoc[ADR
+core-store/007]) a store of a scope can be removed as a target of a `ScopeTransaction`.
+
+== Decision
+
+`PendingEntryRecordsSweep` removes the old records of a run in one `ScopeTransaction` of the workspace scope:
+
+1. The candidates are the names `PendingEntryStore.entryIds()` lists without a lock: only files whose name parses as
+   an entry id.
+2. One lock transaction acquires the workspace lock and opens the workspace's `ScopeTransaction`. Each candidate is
+   read under that lock; a record created before the instant is added as a delete target
+   (`PendingEntryStore.remove`), and the transaction owes one `pending_entry_removed` record for it
+   (`AuditEvent.pendingEntryRemoved`: category `store`, details `entry_id`, `store`, `created_at`, `transaction_id`).
+3. The transaction is committed only if a record is removed; the owed records are handed over at its close.
+4. A record that cannot be read states no age: it is kept, and the step reports a failure naming it, after the
+   readable old records were removed.
+
+== Alternatives Considered
+
+1. *One transaction per removed record*.
+   _Rejected_: a run with many old records would take the workspace lock once per record and write a journal per
+   record, for no gain in safety; one journal already removes all or completes all after a crash.
+2. *Remove the files directly and append the audit records afterwards*.
+   _Rejected_: the sidecar entries would outlive their files and be reported as `store_tampered`, and a crash between
+   the removal and the audit write would lose the records.
+3. *Select by the file's modification time*.
+   _Rejected_: the age the specification compares is the creation instant the record states; a modification time is
+   no evidence the record controls.
+
+== Consequences
+
+* A stopped removal is completed by the recovery of the workspace, which removes what is left and hands the owed
+  records over again; a crash never leaves a removed record without its audit record.
+* An age decision is taken under the workspace lock, so a record created or replaced meanwhile is judged as it is now.
+* A workspace whose journal still waits for its recovery fails the step; nothing is removed in that run.
+* `pending_entry_removed` is named by this package; the specification update of its documentation pull request states
+  it with its details.
+* `PendingEntryRecordsSweepTest` covers the removal with its audit record, the young and the borderline record, the
+  names that are no entry id, the unreadable record and the journal still to recover.
+
+== Source
+
+* Operator decision q1 of the work package `session-log-and-generations` (refine): the sweep steps are wired in
+  `pm-runtime`
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

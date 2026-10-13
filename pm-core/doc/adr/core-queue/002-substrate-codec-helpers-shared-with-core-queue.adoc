@@ -1,0 +1,55 @@
+= ADR 002: `StrictJson` and `LockKey.projectStore` Are Public API of `core.store`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The codec of the session generation record lives in `core.queue`. Every store of the runtime is read with one
+strictness (exactly the current `format_version`, only declared members, each once, every required member, one wire
+shape per instant) and refused with a `StoreRefusal` naming the file. That strictness is implemented once, in
+`StrictJson` of `core.store`, which was package-private. The store also needs the directory `projects/<project_id>/`
+of the project, whose path grammar `LockKey.projectStore` implements, package-private as well.
+
+== Decision
+
+The operator decided to make both public API of `core.store` (outline, question q-outline-1):
+
+* `StrictJson` becomes a public utility class. Its reading entry `read(file, document, current, reader)`, the
+  interfaces `DocumentReader` and `ValueReader`, the field helpers (`nextField`, `requireObject`, `requireArray`,
+  `requireFields`, `string`, `nullableString`, `integer`, `bool`, `stringList`, `array`, `map`, `instant`,
+  `nullableInstant`), the writer `writeInstant`, the refusals `unreadable` and `undeclared` with their type `Malformed`,
+  the constant `FIELD_FORMAT_VERSION` and the shared `factory()` are public. Its Javadoc names the cross-package use. A
+  `Malformed` thrown by a helper is caught by `read` and becomes the refusal naming the file; it never leaves `read`.
+* `LockKey.projectStore(base, projectId)` becomes public, so `core.queue` resolves `queue/` with the one path grammar of
+  the locks.
+
+== Alternatives Considered
+
+1. *Put the session generation store into `core.store`*.
+   _Rejected_: the task queue is its own package by the module structure; its records would be scattered over the
+   package of the scope stores.
+2. *A second strict reader in `core.queue`*.
+   _Rejected_: two implementations of one strictness drift apart, and a refusal of the queue would differ in shape
+   from every other store's.
+3. *A narrower facade over `StrictJson` for other packages*.
+   _Rejected_: it would forward every helper one to one and add a type without adding a rule.
+
+== Consequences
+
+* The public surface of `core.store` grows by `StrictJson` and one method of `LockKey`; a change to a helper is a change
+  of public API of `pm-core` for every module that depends on it.
+* Every store codec of `pm-core`, in any package, reads with the same strictness and refuses in the same shape.
+* The helpers of `WorkflowStatusCodec` that the pending entry record shares stay package-private
+  (link:../core-store/008-pending-entry-record-engine-owned-members-typed.adoc[ADR core-store/008]).
+
+== Source
+
+* Operator decision q-outline-1 of the work package `session-log-and-generations` (outline)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]
