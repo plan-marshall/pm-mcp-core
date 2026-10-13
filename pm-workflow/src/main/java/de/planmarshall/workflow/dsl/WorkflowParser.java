@@ -45,14 +45,15 @@ import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.StepCompletionStatus;
 import de.planmarshall.workflow.ast.TerminalOutcome;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
  * The recursive-descent parser of the workflow language (PM-IMPL-5, PM-WF-16): it reads one unit into the immutable
- * tree of {@link de.planmarshall.workflow.ast}. The definition, a state, a state migration, a sub-workflow parameter, a
- * link, a link parameter, an outcome transition and a step completion carry the {@link SourceLocation} they were read
- * at; every other node carries none.
+ * tree of {@link de.planmarshall.workflow.ast}. The definition, a {@code declare} line, a {@code decide} line, a state,
+ * a state migration, a sub-workflow parameter, a link, a link parameter, an outcome transition and a step completion
+ * carry the {@link SourceLocation} they were read at; every other node carries none.
  * <p>
  * It reads the unit header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the
  * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} and {@code decide} lines, the
@@ -68,12 +69,16 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * <p>
  * The keywords of a scope, a link relation, a link form, a step completion and an outcome class are the lower-case
  * names of the constants of {@link WorkflowScope}, {@link LinkRelation}, {@link LinkForm},
- * {@link StepCompletionStatus} and {@link OutcomeClass}, read off the enumerations as the printer writes them.
+ * {@link StepCompletionStatus} and {@link OutcomeClass}, read off the enumerations as the printer writes them. The
+ * decision kinds a {@code decide} line admits are {@link DecisionDeclaration#DECISION_KINDS}.
+ * <p>
+ * The {@code derived_from <n>} clause of the header is recorded in {@link WorkflowDefinition#derivedFrom()} as
+ * {@code {<unit id> -> n}}. It is admitted only in a {@link UnitOrigin#PROJECT} unit: a default unit derives from
+ * nothing, so the clause is refused there, and a revision of zero is refused for every origin.
  * <p>
  * The parser checks the grammar alone. The static verification rules of a unit (identifier length bounds, the
  * reachability, call-site and link-form rules), the merge of a multi-file unit (part versions, the derived-from
- * revision of every file) and the project-unit refusal of an {@code instance} line are the work of later stages; the
- * {@code derived_from} value of the header is read and checked, but not recorded.
+ * revisions of its files) and the project-unit refusal of an {@code instance} line are the work of later stages.
  *
  * @since 0.1
  */
@@ -116,8 +121,7 @@ public final class WorkflowParser {
             "completes", "as", "and", "or", KEYWORD_NOT, "in_worktree", "has_open_findings", "all_tasks_completed",
             "predicate", "text", KEYWORD_INT, KEYWORD_ENUM, KEYWORD_SCHEMA, KEYWORD_LIST);
 
-    private static final Set<String> DECISION_KINDS = Set.of("interpretation", "approach", "granularity", "placement",
-            "test_strategy", KEYWORD_SCOPE, "product_behaviour", "assurance", "external_fact");
+    private static final Set<String> DECISION_KINDS = Set.copyOf(DecisionDeclaration.DECISION_KINDS);
 
     private static final Set<String> QUESTION_CLASSES = Set.of("init", "clarification", "review", "task", "setup",
             "ask");
@@ -170,9 +174,7 @@ public final class WorkflowParser {
         var version = positiveInt(header);
         header.expect("format");
         var formatVersion = positiveInt(header);
-        if (header.consumeIf("derived_from")) {
-            positiveInt(header);
-        }
+        var derivedFrom = parseDerivedFrom(header, id, origin);
         header.expectEnd();
         var instance = parseInstance();
         var scope = parseScope();
@@ -182,7 +184,7 @@ public final class WorkflowParser {
             params.addAll(parseParams());
             resultSchema = parseResult();
         }
-        var declarations = new LinkedHashMap<String, CallValue>();
+        var declarations = new LinkedHashMap<String, ValueDeclaration>();
         var decisions = new LinkedHashMap<String, DecisionDeclaration>();
         parseDeclarations(declarations, decisions);
         var start = statement("start", "the 'start <state>' line");
@@ -197,7 +199,25 @@ public final class WorkflowParser {
             parseState(states);
         } while (hasLine());
         return new WorkflowDefinition(id, version, scope, params, resultSchema, instance, declarations, decisions,
-                Map.of(), formatVersion, origin, Map.of(), startState, migrations, states, location);
+                Map.of(), formatVersion, origin, derivedFrom, startState, migrations, states, location);
+    }
+
+    /**
+     * Reads the optional {@code derived_from <n>} clause of the header into the map {@code {<unit id> -> n}}. The
+     * revision must be positive for every origin; the clause is refused on a {@link UnitOrigin#DEFAULT} unit, which
+     * derives from nothing.
+     */
+    private Map<String, Integer> parseDerivedFrom(LineCursor header, String id, UnitOrigin origin) {
+        if (!header.hasNext() || !header.peek().is("derived_from")) {
+            return Map.of();
+        }
+        var keyword = header.next("the keyword 'derived_from'");
+        var revision = positiveInt(header);
+        if (origin == UnitOrigin.DEFAULT) {
+            throw refuse(RefusalRule.STRUCTURE, keyword,
+                    "'derived_from' is admitted only in a project unit, but '%s' is parsed as a default unit", id);
+        }
+        return Map.of(id, revision);
     }
 
     private Optional<InstanceHeader> parseInstance() {
@@ -263,7 +283,7 @@ public final class WorkflowParser {
         return Optional.of(schemaName);
     }
 
-    private void parseDeclarations(Map<String, CallValue> declarations,
+    private void parseDeclarations(Map<String, ValueDeclaration> declarations,
             Map<String, DecisionDeclaration> decisions) {
         while (nextStatementIs(KEYWORD_DECLARE) || nextStatementIs("decide")) {
             var line = nextLine();
@@ -274,7 +294,7 @@ public final class WorkflowParser {
                     throw refuse(RefusalRule.DUPLICATE_ID, name, PARAMETER_DECLARED_TWICE, name.text());
                 }
                 line.expect("=");
-                declarations.put(name.text(), callValue(line));
+                declarations.put(name.text(), new ValueDeclaration(callValue(line), location(keyword)));
             } else {
                 var kind = line.next("a decision kind");
                 if (kind.kind() != Token.Kind.IDENT || !DECISION_KINDS.contains(kind.text())) {
@@ -285,16 +305,16 @@ public final class WorkflowParser {
                             kind.text());
                 }
                 line.expect(ARROW);
-                decisions.put(kind.text(), decision(line));
+                decisions.put(kind.text(), decision(line, location(keyword)));
             }
             line.expectEnd();
         }
     }
 
-    private DecisionDeclaration decision(LineCursor line) {
+    private DecisionDeclaration decision(LineCursor line, SourceLocation location) {
         var mode = line.next("'ask' or 'quorum'");
         if (mode.is("ask")) {
-            return new DecisionDeclaration.Ask();
+            return new DecisionDeclaration.Ask(location);
         }
         if (!mode.is("quorum")) {
             throw refuse(RefusalRule.STRUCTURE, mode, EXPECTED_BUT_FOUND, "'ask' or 'quorum'", mode.text());
@@ -309,7 +329,7 @@ public final class WorkflowParser {
         }
         var score = positiveInt(line);
         line.expect(CLOSE_PAREN);
-        return new DecisionDeclaration.Quorum(roles, score);
+        return new DecisionDeclaration.Quorum(roles, score, location);
     }
 
     private StateMigration parseMigration() {

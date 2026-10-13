@@ -1,0 +1,52 @@
+# The commit sub-workflow, written for the invariant and unit-loader tests, never copied from the product.
+# Six stages lie on every path into the done terminal, in order; an unknown push state steps out; the lease push is
+# entered only from the push.
+workflow git.commit_and_push version 1 format 1
+scope subworkflow
+param push_mode : enum[push|no_push]
+start git.collect
+
+state git.collect
+    phase inherit
+    auto test.proceed
+        done -> git.check
+
+state git.check
+    phase inherit
+    auto test.proceed
+        done -> git.message
+
+state git.message
+    phase inherit
+    auto test.proceed
+        done -> git.commit
+
+state git.commit
+    phase inherit
+    auto git.stage-and-commit
+        committed -> git.push
+
+state git.push
+    phase inherit
+    auto git.execute-push
+        pushed -> git.verify
+        skipped -> git.verify
+        rejected -> git.lease-push
+        push_state_unknown -> git.stepped-out
+
+state git.lease-push
+    phase inherit
+    auto git.push-with-lease
+        pushed -> git.verify
+        push_state_unknown -> git.stepped-out
+
+state git.verify
+    phase inherit
+    auto test.proceed
+        done -> git.done
+
+state git.done terminal done success
+    phase inherit
+
+state git.stepped-out terminal stepped_out stepped_out
+    phase inherit

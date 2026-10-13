@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,15 @@ class WorkflowParserRefusalTest {
             "\"plan_id\": \"p\", \"version\": 1, \"event\": \"plan\", \"inputs\": " + INPUTS;
 
     private static Diagnostic refuse(String resource, String source) {
-        var result = WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT);
+        return refuse(resource, source, UnitOrigin.DEFAULT);
+    }
+
+    private static Diagnostic refuseProject(String resource, String source) {
+        return refuse(resource, source, UnitOrigin.PROJECT);
+    }
+
+    private static Diagnostic refuse(String resource, String source, UnitOrigin origin) {
+        var result = WorkflowParser.parse(resource, source, origin);
         return assertInstanceOf(ParseResult.Refused.class, result, () -> resource + " was parsed").diagnostic();
     }
 
@@ -153,7 +162,6 @@ class WorkflowParserRefusalTest {
                     refusal("version is a word", RefusalRule.STRUCTURE, 1, lines("workflow demo version one format 1")),
                     refusal("version out of range", RefusalRule.STRUCTURE, 1,
                             lines("workflow demo version 99999999999 format 1")),
-                    refusal("derived_from zero", RefusalRule.STRUCTURE, 1, lines(HEADER + " derived_from 0")),
                     refusal("token after the header", RefusalRule.STRUCTURE, 1, lines(HEADER + " extra")),
                     refusal("bare instance keyword", RefusalRule.INSTANCE_HEADER, 2, withInstance("instance")),
                     refusal("instance without JSON", RefusalRule.INSTANCE_HEADER, 2, withInstance("instance plan")),
@@ -215,6 +223,29 @@ class WorkflowParserRefusalTest {
                     refusal("unknown scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope team")),
                     refusal("bare scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope")),
                     refusal("token after the scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope plan extra")));
+        }
+
+        @Test
+        @DisplayName("refuses derived_from zero on a project unit with the zero check")
+        void derivedFromZero() {
+            var diagnostic = refuseProject("zero.pmwf", lines(HEADER + " derived_from 0"));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
+                    () -> assertEquals(1, diagnostic.line()),
+                    () -> assertEquals("expected a positive integer but found '0'", diagnostic.message()));
+        }
+
+        @Test
+        @DisplayName("refuses derived_from on a default unit, which derives from nothing")
+        void derivedFromOnDefaultUnit() {
+            var diagnostic = refuse("default.pmwf", lines(HEADER + " derived_from 2"));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
+                    () -> assertEquals(1, diagnostic.line()),
+                    () -> assertEquals("'derived_from' is admitted only in a project unit, but 'demo' is parsed as "
+                            + "a default unit", diagnostic.message()));
         }
 
         static Stream<Arguments> declarationRefusals() {

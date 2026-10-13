@@ -1,0 +1,66 @@
+# The finalize phase (Phase 6) of the plan unit, written for the invariant and unit-loader tests, never copied from
+# the product. The push barrier is the only push before the pull request; finalize.merge-gate precedes the merge,
+# which completes the branch cleanup; the landing is completed; finalize.archive-plan alone enters the delivery
+# terminals. The completes clauses name the mandatory steps of the test roster.
+workflow plan version 1 format 1
+scope plan
+start finalize.push-barrier
+
+state finalize.push-barrier
+    phase finalize
+    call git.commit_and_push(push_mode = push)
+        done -> finalize.create-pr
+        stepped_out -> finalize.hand-back
+
+state finalize.create-pr
+    phase finalize
+    auto test.proceed
+        done -> finalize.merge-gate
+            completes default:create-pr as done
+
+state finalize.merge-gate
+    phase finalize
+    auto test.proceed
+        done -> finalize.merge
+
+state finalize.merge
+    phase finalize
+    auto test.merge
+        merged -> finalize.land
+            completes default:branch-cleanup as done
+        not_merged -> finalize.hand-back
+
+state finalize.land
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+            completes default:emit-landing as done
+
+state finalize.hand-back
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+
+state plan.return
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+
+state finalize.archive-plan
+    phase finalize
+    auto test.deliver
+        completed -> completed
+            completes default:archive-plan as done
+        handed_back -> handed_back
+            completes default:archive-plan as done
+        returned -> returned
+            completes default:archive-plan as done
+
+state completed terminal completed success
+    phase finalize
+
+state handed_back terminal handed_back failure
+    phase finalize
+
+state returned terminal returned failure
+    phase finalize

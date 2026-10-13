@@ -1,0 +1,44 @@
+= ADR 002: The Plan-Unit Merge Lives in `workflow.unit`, the Parser Records `derived_from`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The plan workflow is written as seven phase files that form the one unit `plan`: the states are the union, the start state is that of the init file, and the version is the sum of the part versions, each recorded as a part version.
+A project unit names in its header, with `derived_from <n>`, the revision of the default unit it was copied from. Until this package the parser read and checked the clause but did not record it.
+Both the default and the project loader need the merge, and the merged unit must carry, per file, the revision every project file derives from.
+
+== Decision
+
+`PlanUnitMerger` in `workflow.unit` merges the parsed phase files; both loaders call it.
+The parser records `derived_from` in `WorkflowDefinition.derivedFrom` as `{<unit id> -> n}` for a project unit and refuses the clause on a default unit; the printer prints it back.
+The merger records the revision of every project file under the file's resource name in the merged unit's `derivedFrom`, and the part versions in `partVersions`.
+Every part must declare scope `plan`, with the format and origin of the first part; its header names the part and identifies the file only, so the merged unit is `plan` whatever its parts are named. A state declared in two parts is refused. Each violation is a finding with file and line, and a merge with a finding yields no unit.
+
+== Alternatives Considered
+
+1. **Re-reading the headers in the loader**:
+The parser keeps discarding `derived_from`, and the loader reads the header lines of the files again to find it.
+*Rejected*: the header would be parsed twice by two different readers, and the tree would not carry what the printer needs to round-trip a project unit.
+
+2. **The merge in the parser or the AST**:
+*Rejected*: the merge is a rule of the units a loader assembles, not of the language; a single file stays a complete unit of the grammar.
+
+== Consequences
+
+* A project's plan unit records per file which default revision it derives from; a default plan unit records none.
+* A project never mixes a default file into its own plan unit (`mixed_origins`).
+* The invariant tests in `workflow.verify` keep a merge of their own for the fixtures, so they do not depend on `workflow.unit`.
+
+== Source
+
+* Workflow DSL specification, § Workflow Definition Units and § AST Node Model (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`

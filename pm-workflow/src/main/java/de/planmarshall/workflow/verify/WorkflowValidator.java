@@ -811,7 +811,15 @@ public final class WorkflowValidator {
                 .formatted(formatCombinations(reaching), formatCombinations(notReaching)));
     }
 
-    private static boolean isReservedTarget(String target) {
+    /**
+     * Tells whether an identifier names a condition kind or a reserved state identifier
+     * ({@code <phase>.blocked}, {@code <phase>.footprint-violation}, {@code <phase>.config-drift}); Rule 3 and the
+     * compiled invariant {@link InvariantId#INV_GEN_3} share this one vocabulary.
+     *
+     * @param target a state identifier or a transition target
+     * @return {@code true} when no unit may declare or target it
+     */
+    static boolean isReservedTarget(String target) {
         if (CONDITION_KINDS.contains(target)) {
             return true;
         }

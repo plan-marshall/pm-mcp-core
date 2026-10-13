@@ -1,0 +1,42 @@
+= ADR 004: `project_step_unbound` over Declared Steps and Bound Ids Passed In
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+A project step of the finalize pipeline binds only to an enrolled project script: the unit that runs it, the project's declaration of the step and the binding to an enrolled script must agree, and a disagreement is `project_step_unbound`.
+The declarations live in the project's `workflow.json`, and the bindings in the enrolment the runtime keeps. Neither is read by `pm-workflow`, and the packages that read them come later.
+The operator decided (question q4 of the work package) that this package checks the agreement over inputs and leaves the reading to those packages.
+
+== Decision
+
+`ProjectUnitLoader.load` takes the declared project step descriptors and the ids of the bound steps as arguments.
+The plan unit uses a project step, an id starting with `project:`, when one of its transitions carries a `completes project:<name>` clause.
+The loader reports `project_step_unbound` with file and line for each disagreement: a step the unit completes that is not declared (at the `completes` clause, once per step), a declared step bound to no enrolled script (at the first state completing it, or the unit header), and a declared step the unit completes nowhere (at the header of the plan unit).
+The declared steps also join the project roster the finalize pipeline validator checks.
+
+== Alternatives Considered
+
+1. **Reading `workflow.json` and the enrolment in the loader**:
+*Rejected*: `pm-workflow` depends on `pm-core` alone and holds no enrolment; reading them here would anticipate the packages that own those files.
+
+2. **Leaving the check to the later packages**:
+*Rejected*: the agreement is decidable from the unit and two sets, and checking it now keeps the refusal with the other unit findings.
+
+== Consequences
+
+* The check is complete over its inputs; whether the inputs are the project's real declarations and bindings is the caller's responsibility, a named hook for the packages that read `workflow.json` and the enrolment.
+* A `completes project:<name>` clause is the only use of a project step the loader recognizes.
+
+== Source
+
+* Workflow DSL specification, § Project-Owned Workflow Units & Compiled Invariants, item 3 (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`, operator decision q4

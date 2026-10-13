@@ -1,0 +1,88 @@
+# The Q-Gate remediation unit with the full template, written for the invariant and unit-loader tests, never copied
+# from the product. The gather, the budget check, the decision and the remedies; the waived terminal only on
+# all_waived of the gather or waived of the waiver wait; a nested commit routes a commit-less exit to the budget check.
+workflow remediation.qgate-findings version 1 format 1
+scope subworkflow
+param retry_budget : int[0..5]
+param fix_budget : int[0..5]
+param waiver_wait_seconds : int[0..86400]
+param actions : list<enum[retry|fix|loop_back]>
+start remediation-qgate.gather
+
+state remediation-qgate.gather
+    phase inherit
+    composite_job test.gather
+        findings -> remediation-qgate.budget-check
+        all_waived -> remediation-qgate.waived
+        clean -> remediation-qgate.resolved
+
+state remediation-qgate.budget-check
+    phase inherit
+    auto test.budget
+        within -> remediation-qgate.decide
+        exhausted_wait -> remediation-qgate.waiver-wait
+        exhausted -> remediation-qgate.exhausted
+
+state remediation-qgate.decide
+    phase inherit
+    auto remediation.offer-actions
+        choice -> remediation-qgate.choose
+        none -> remediation-qgate.exhausted
+
+state remediation-qgate.choose
+    phase inherit
+    job llm remediation-decision role decider
+        retry -> remediation-qgate.rerun
+        fix -> remediation-qgate.apply-fix
+        loop_back -> remediation-qgate.fix-requested
+        request_waiver -> remediation-qgate.waiver-wait
+        infeasible -> remediation-qgate.conservative
+        lost -> remediation-qgate.conservative
+
+state remediation-qgate.rerun
+    phase inherit
+    job test.build
+        succeeded -> remediation-qgate.resolved
+        failed -> remediation-qgate.budget-check
+        cancelled -> remediation-qgate.budget-check
+
+state remediation-qgate.apply-fix
+    phase inherit
+    job llm change role fixer
+        approved -> remediation-qgate.commit
+        lost -> remediation-qgate.conservative
+
+state remediation-qgate.commit
+    phase inherit
+    call git.commit_and_push(push_mode = no_push)
+        done -> remediation-qgate.budget-check
+        stepped_out -> remediation-qgate.budget-check
+
+state remediation-qgate.fix-requested
+    phase inherit
+    auto test.proceed
+        done -> remediation-qgate.handed-to-fix
+
+state remediation-qgate.conservative
+    phase inherit
+    auto test.conservative
+        retry -> remediation-qgate.rerun
+        give_up -> remediation-qgate.exhausted
+
+state remediation-qgate.waiver-wait
+    phase inherit
+    composite_job test.waiver-wait
+        waived -> remediation-qgate.waived
+        expired -> remediation-qgate.exhausted
+
+state remediation-qgate.resolved terminal resolved success
+    phase inherit
+
+state remediation-qgate.waived terminal waived success
+    phase inherit
+
+state remediation-qgate.exhausted terminal exhausted failure
+    phase inherit
+
+state remediation-qgate.handed-to-fix terminal fix_requested unsettled
+    phase inherit

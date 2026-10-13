@@ -1,0 +1,39 @@
+= ADR 001: Default Units from a Classpath Root Given as a Parameter
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The default units, the project-ownable units compiled into the release, are model-facing content. They ship with the assembly in `plan-marshall-mcp` below the classpath root `workflows/`; no module of `pm-mcp-core` carries such content, and the build refuses a JAR with anything below `workflows/` (the dependency rules of the root POM).
+The loader of the default units lives in `pm-workflow`, and its tests need units to load. Fixtures placed below `workflows/` in the test resources would sit where the product's units live and could be mistaken for them, or leak into a test JAR.
+
+== Decision
+
+`DefaultUnitLoader` takes the classpath root, the class loader and the names of the unit files as constructor parameters.
+The assembly passes `workflows/`; the tests pass `unit-fixtures/defaults/`, units written for them, or a temporary directory read through a class loader of its own.
+A test asserts that no resource lies below `workflows/` on the test classpath.
+
+== Alternatives Considered
+
+1. **A fixed root `workflows/`**:
+The loader reads the product's root, and the tests place their fixtures there.
+*Rejected*: the fixtures would occupy the root of the product's content in the test classpath, and nothing would keep a test from reading or shipping them as product units.
+
+== Consequences
+
+* The module carries no unit, and no test reads `workflows/`.
+* The loader can be pointed at broken units for its own tests without touching the content of the product.
+* The assembly is responsible for passing the root and the list of project-ownable files.
+
+== Source
+
+* Workflow DSL specification, § Project-Owned Workflow Units & Compiled Invariants (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`

@@ -9,10 +9,6 @@
  */
 package de.planmarshall.workflow.dsl;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
 import java.io.Serial;
 import java.util.ArrayList;
@@ -22,6 +18,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
 

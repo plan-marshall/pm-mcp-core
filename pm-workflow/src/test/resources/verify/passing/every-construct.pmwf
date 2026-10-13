@@ -1,5 +1,5 @@
 # A sub-workflow written for the verifier tests, not taken from any default unit. It uses
-# every construct of the grammar: the header with derived_from, param and result
+# every construct of the grammar: param and result
 # declarations of every type, declare, start and migrate, every state form (links,
 # auto, job, composite_job, job llm with each, role each, ask, consult and lost, call,
 # question, terminal), links with bounded, unbounded and optional text parameters and
@@ -12,7 +12,7 @@
 # abort_landed of epic.next-work into epic.aborted. It is named adjudicate.decisions
 # because Rule 1 admits the form 'role each' in that unit only. It passes every check of
 # the static verifier.
-workflow adjudicate.decisions version 2 format 1 derived_from 1
+workflow adjudicate.decisions version 2 format 1
 scope subworkflow
 param mode : enum[strict|lenient]
 param rounds : int[1..5]

@@ -1,0 +1,32 @@
+# The adjudication unit, written for the invariant and unit-loader tests, never copied from the product.
+# It declares the shipped values of its compiled schema and one decide line per declaration form; the lost outcome of
+# the vote ends in adjudicate.escalated.
+workflow adjudicate.decisions version 1 format 1
+scope subworkflow
+declare vote_wait_seconds = 900
+declare max_false_auto_percent = 5
+declare kind_recipe_candidate = approach
+declare kind_sibling_collision = scope
+declare kind_domain_choice = placement
+declare kind_outline_review = scope
+decide interpretation -> ask
+decide approach -> quorum(architect, reviewer, 75)
+start adjudicate.collect
+
+state adjudicate.collect
+    phase inherit
+    auto test.proceed
+        done -> adjudicate.vote
+
+state adjudicate.vote
+    phase inherit
+    job llm vote role voter
+        approved -> adjudicate.decided
+        rejected -> adjudicate.escalated
+        lost -> adjudicate.escalated
+
+state adjudicate.decided terminal decided success
+    phase inherit
+
+state adjudicate.escalated terminal escalated success
+    phase inherit

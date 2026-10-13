@@ -43,10 +43,11 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * before {@code or}, both operators left-associative) needs; a negated operand that is no single guard is always
  * parenthesised, because the grammar admits no {@code not not}.
  * <p>
- * What the parser of one file does not record is not printed: the part versions and derived-from revisions of a
- * merged unit, and with them any {@code derived_from} of the header. A range of a {@code text} or {@code int} type is
- * printed when both of its bounds are present, as the grammar writes one only with both. The printer checks nothing:
- * it prints the tree it is given.
+ * The header carries {@code derived_from <n>} when {@link WorkflowDefinition#derivedFrom()} holds a revision for the
+ * unit's own id, the entry the parser records for a single-file project unit. What the parser of one file does not
+ * record is not printed: the part versions of a merged unit and the derived-from revisions of its part files. A range
+ * of a {@code text} or {@code int} type is printed when both of its bounds are present, as the grammar writes one only
+ * with both. The printer checks nothing: it prints the tree it is given.
  *
  * @since 0.1
  */
@@ -83,15 +84,21 @@ public final class WorkflowPrinter {
     }
 
     private void printUnit(WorkflowDefinition definition) {
-        line(0, "workflow %s version %d format %d".formatted(definition.id(), definition.version(),
-                definition.formatVersion()));
+        var unitHeader = new StringBuilder("workflow %s version %d format %d".formatted(definition.id(),
+                definition.version(), definition.formatVersion()));
+        var derivedFrom = definition.derivedFrom().get(definition.id());
+        if (derivedFrom != null) {
+            unitHeader.append(" derived_from ").append(derivedFrom);
+        }
+        line(0, unitHeader.toString());
         definition.instance().ifPresent(header -> line(0, "instance " + header.json()));
         line(0, "scope " + lower(definition.scope()));
         if (definition.scope() == WorkflowScope.SUBWORKFLOW) {
             definition.params().forEach(param -> line(0, "param %s : %s".formatted(param.name(), type(param.type()))));
             definition.resultSchema().ifPresent(schema -> line(0, "result schema[" + schema + "]"));
         }
-        definition.declarations().forEach((name, value) -> line(0, "declare %s = %s".formatted(name, value(value))));
+        definition.declarations().forEach((name, declaration) -> line(0, "declare %s = %s".formatted(name,
+                value(declaration.value()))));
         definition.decisions().forEach((kind, decision) -> line(0, "decide %s -> %s".formatted(kind,
                 decision(decision))));
         line(0, "start " + definition.startState());
@@ -234,7 +241,7 @@ public final class WorkflowPrinter {
     private static String decision(DecisionDeclaration decision) {
         return switch (decision) {
             case DecisionDeclaration.Ask _ -> "ask";
-            case DecisionDeclaration.Quorum(var roles, var score) -> "quorum(" + String.join(LIST_SEPARATOR, roles)
+            case DecisionDeclaration.Quorum(var roles, var score, _) -> "quorum(" + String.join(LIST_SEPARATOR, roles)
                     + LIST_SEPARATOR + score + ")";
         };
     }

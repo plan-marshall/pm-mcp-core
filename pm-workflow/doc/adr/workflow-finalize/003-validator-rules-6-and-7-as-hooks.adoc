@@ -1,0 +1,41 @@
+= ADR 003: Validator Rules 6 and 7 as Named Hooks Where a Descriptor Cannot Decide
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Rule 6 of the validator requires a head-dependent step to declare its input scope, and a step whose `done` outcome is reachable through both a no-op and a work-performing branch to record `work_performed`.
+Rule 7 forbids a step after the merge gate to declare an outcome that refuses on its inputs.
+Rule 8 derives the finding-filing steps from the roster and refuses a finding whose source the filing step does not declare.
+A descriptor holds neither the outcomes of a step nor the branches that reach them, and the refusal of rule 8 happens when a finding is written.
+The operator decided that these parts are named hooks.
+
+== Decision
+
+The validator checks the input-scope part of rule 6 and derives the finding sources of rule 8 (`findingSources`).
+The `work_performed` part of rule 6, rule 7 and the write-time refusal of rule 8 are named hooks: each `PipelineRule` constant carries the reason as a code constant, and the test of the validator enumerates the hooks and fails for a rule with neither a refusing case nor a hook.
+
+== Alternatives Considered
+
+1. **Adding the outcomes of a step to the descriptor**:
+*Rejected*: the descriptor would restate the step's behaviour, which the step's own unit already defines, and the two could disagree.
+
+2. **Leaving the undecidable parts unmentioned**:
+*Rejected*: the exemption belongs at the check, where a test can enumerate it.
+
+== Consequences
+
+* The hooks are open for the packages that know the outcomes of a step and that write findings; the work package names them.
+
+== Source
+
+* Phase Workflows specification, part 05, § FinalizePipelineValidator, rules 6 to 8 (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`

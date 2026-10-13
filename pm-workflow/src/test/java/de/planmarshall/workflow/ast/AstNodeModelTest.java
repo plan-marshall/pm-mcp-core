@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -69,7 +70,7 @@ class AstNodeModelTest {
             var params = new ArrayList<ParamSpec>();
 
             var enumList = new CallValue.EnumList(strings);
-            var quorum = new DecisionDeclaration.Quorum(strings, 60);
+            var quorum = new DecisionDeclaration.Quorum(strings, 60, LOCATION);
             var guard = new GuardSpec(new GuardExpr.InWorktree(), strings);
             var interactive = new StateBehavior.InteractiveLinks(links);
             var auto = new StateBehavior.AutoStep("p", transitions);
@@ -309,12 +310,25 @@ class AstNodeModelTest {
         @Test
         @DisplayName("a switch over every decision declaration needs no default")
         void decisionDeclarationIsClosed() {
-            List<DecisionDeclaration> declarations = List.of(new DecisionDeclaration.Ask(),
-                    new DecisionDeclaration.Quorum(List.of("reviewer", "auditor"), 75));
+            List<DecisionDeclaration> declarations = List.of(new DecisionDeclaration.Ask(LOCATION),
+                    new DecisionDeclaration.Quorum(List.of("reviewer", "auditor"), 75, LOCATION));
 
             var rendered = declarations.stream().map(AstNodeModelTest::render).toList();
 
-            assertEquals(List.of("ask", "quorum(reviewer, auditor, 75)"), rendered);
+            assertAll(
+                    () -> assertEquals(List.of("ask", "quorum(reviewer, auditor, 75)"), rendered),
+                    () -> assertEquals(List.of(LOCATION, LOCATION),
+                            declarations.stream().map(DecisionDeclaration::location).toList()));
+        }
+
+        @Test
+        @DisplayName("a declaration carries its value and the line it was read at")
+        void valueDeclarationCarriesLocation() {
+            var declaration = new ValueDeclaration(new CallValue.IntValue(900), LOCATION);
+
+            assertAll(
+                    () -> assertEquals(new CallValue.IntValue(900), declaration.value()),
+                    () -> assertEquals(LOCATION, declaration.location()));
         }
 
         @Test

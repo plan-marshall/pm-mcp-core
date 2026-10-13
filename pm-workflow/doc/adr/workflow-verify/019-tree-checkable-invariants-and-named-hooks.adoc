@@ -1,0 +1,48 @@
+= ADR 019: Tree-Checkable Parts of the Invariants and Named Hooks
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Three invariants state properties that the syntax tree of a unit cannot express in full.
+`INV-GEN-2` requires that only the operator API writes waiver records; that is a property of the primitive SPI at runtime.
+`INV-GEN-4` forbids realizing a removed option; some of these options are read by primitives from configuration at runtime.
+`INV-REM-6` requires the remediation counters to be kept per plan and class and never reset; that is runtime accounting.
+An exemption that lives far from the check is easily lost or widened.
+
+== Decision
+
+`CompiledInvariants` checks the part of each of the three that the tree expresses:
+
+* `INV-GEN-2`: a waived path ends only in the `waived` terminal of a remediation unit, and only a primitive that declares waivable gates admits a failure as waived;
+* `INV-GEN-4`: every state that lies on every path of the default unit to its success terminals lies on every such path of the unit;
+* `INV-REM-6`: no unit but a remediation unit runs a remediation primitive, and a remediation unit runs none its default unit does not run.
+
+The remainder of each is a named hook: the reason, as a code constant on its `InvariantId` (`namedHook()`), that the part is deferred to a runtime owner.
+The invariants with a hook are the `InvariantId` constants whose `namedHook()` is present, and a test enumerates that set.
+
+== Alternatives Considered
+
+1. **Leaving the three invariants out**:
+*Rejected*: their tree parts are decidable and guard real defects.
+
+2. **Documenting the gaps only in prose**:
+*Rejected*: the exemption belongs at the check, where a test can enumerate it.
+
+== Consequences
+
+* The runtime remainders are open for the runtime packages; the work package names them.
+* A new exemption needs a hook constant and changes the enumerating test.
+
+== Source
+
+* Workflow DSL specification, § Project-Owned Workflow Units & Compiled Invariants and § Compiled Invariants of Remediation Units (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`

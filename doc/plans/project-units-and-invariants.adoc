@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `project-units-and-invariant
 
 [horizontal]
 Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
-Where:: pm-workflow packages `workflow.unit`, `workflow.verify`
+Where:: pm-workflow packages `workflow.unit`, `workflow.verify`, `workflow.finalize`
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == What
@@ -25,3 +25,12 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 == Done When
 
 One refusing fixture per invariant and per declaration bound; a fixture project unit that violates an invariant refuses the lifecycle and names file and line.
+
+== Hooks Left for Later Packages
+
+Each remainder below is a named hook at its check; the ADR linked with it states what stays open.
+
+* `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6`: the runtime parts (link:../../pm-workflow/doc/adr/workflow-verify/019-tree-checkable-invariants-and-named-hooks.adoc[ADR `workflow-verify/019`]).
+* Validator rule 6 (the `work_performed` part), rule 7, and rule 8 (the refusal when a finding is written) (link:../../pm-workflow/doc/adr/workflow-finalize/003-validator-rules-6-and-7-as-hooks.adoc[ADR `workflow-finalize/003`]).
+* `project_step_unbound`: reading the project's `workflow.json` and the enrolment (link:../../pm-workflow/doc/adr/workflow-unit/004-project-step-unbound-as-a-hook.adoc[ADR `workflow-unit/004`]).
+* `DefaultUnitInvariantTest` over the shipped default units, in `plan-marshall-mcp` (link:../../pm-workflow/doc/adr/workflow-verify/018-invariants-over-test-written-units.adoc[ADR `workflow-verify/018`]).

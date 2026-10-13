@@ -1,0 +1,22 @@
+# The land lane of Phase 5 of the plan unit, written for the invariant and unit-loader tests, never copied from the
+# product. The worktree initialization precedes the verify sweep, which precedes the exit barrier into Phase 6.
+workflow plan version 1 format 1
+scope plan
+start land.worktree-init
+
+state land.worktree-init
+    phase land
+    auto test.proceed
+        done -> land.verify-sweep
+
+state land.verify-sweep
+    phase land
+    job test.build
+        succeeded -> land.exit-barrier
+        failed -> finalize.hand-back
+        cancelled -> finalize.hand-back
+
+state land.exit-barrier
+    phase land
+    auto test.proceed
+        done -> finalize.push-barrier

@@ -28,7 +28,7 @@ import java.util.Optional;
  * @param params        the parameter declarations; non-empty only for a {@link WorkflowScope#SUBWORKFLOW} unit
  * @param resultSchema  the named schema of the result record a sub-workflow returns with {@code done}
  * @param instance      the parsed {@code instance} header line of a plan instance version
- * @param declarations  the {@code declare} lines by name
+ * @param declarations  the {@code declare} lines by name, each with its value and the line it was read at
  * @param decisions     the {@code decide} lines by decision kind; only in the unit {@code adjudicate.decisions}
  * @param partVersions  the version of every part file of the merged plan unit; empty otherwise
  * @param formatVersion the DSL format every file of the unit declares
@@ -47,7 +47,7 @@ WorkflowScope scope,
 List<ParamDecl> params,
 Optional<String> resultSchema,
 Optional<InstanceHeader> instance,
-Map<String, CallValue> declarations,
+Map<String, ValueDeclaration> declarations,
 Map<String, DecisionDeclaration> decisions,
 Map<String, Integer> partVersions,
 int formatVersion,
@@ -67,7 +67,7 @@ SourceLocation location) {
      * @param params        the parameter declarations
      * @param resultSchema  the named schema of the result record
      * @param instance      the parsed instance header line
-     * @param declarations  the {@code declare} lines by name
+     * @param declarations  the {@code declare} lines by name, each with its value and line
      * @param decisions     the {@code decide} lines by decision kind
      * @param partVersions  the version of every part file
      * @param formatVersion the DSL format

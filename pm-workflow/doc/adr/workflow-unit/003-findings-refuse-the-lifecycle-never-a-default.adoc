@@ -1,0 +1,50 @@
+= ADR 003: Findings Refuse the Lifecycle, Never a Default Unit
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Every load of a project's units validates them, and a project unit that fails refuses the plan lifecycle with its file and line; it is never silently replaced by the default unit.
+A load runs several checks (reading, parsing, the format, Rules 1-12, the declaration bounds, the finalize pipeline, the compiled invariants and the project step binding), and an operator who fixes one defect should not discover the next one only on the following load.
+`pm-core` already confines a project path to the workspace and returns a refused path as a value (`ConfinementOutcome.Rejected`), not as an exception.
+
+== Decision
+
+Every check reports `UnitFinding` values with kind, code, file and line, and no check stops at the first one.
+`UnitLoadResult` holds either the verified units or every finding and never both; `refusal()` yields `config_invalid` naming the first finding.
+The loader returns this refusal and refuses nothing itself: the assembly (`pm-mcp-server` in plan-marshall-mcp) applies it to the plan lifecycle at plan start and at resume, and no code of this repository calls the loader on a lifecycle path.
+No code path substitutes a default unit for a refused or missing project unit.
+The path of every unit file is confined through `PathConfinement`; a refused path becomes the finding `path_traversal_rejected`.
+A unit of another DSL format than the compiled one, `COMPILED_FORMAT_VERSION` = 1, is refused with `format_newer` or `format_outdated` before it is merged or verified.
+A violation of a compiled invariant that only repeats a finding of the verifier, the pipeline validator or the declaration bounds (`CompiledInvariants.reReports`) is not listed again.
+The loader is built once per assembly from the verifier inputs (`VerificationContext`), the default units and roster, and the file names; each load takes the project's roots and its declared and bound project steps.
+
+== Alternatives Considered
+
+1. **An exception per finding**:
+The first defect throws and ends the load.
+*Rejected*: the operator would see one defect per load, and a refused path, which `pm-core` already returns as a value, would have to be turned into an exception and back.
+
+2. **Falling back to the default unit**:
+A refused project unit is replaced by its default unit so that the plan can run.
+*Rejected*: the project would run a workflow it did not configure, without being told; the specification forbids it.
+
+== Consequences
+
+* A refused load names every defect at once, and the lifecycle refusal names the first.
+* The findings are listed once even where an invariant restates a rule.
+* While the compiled format is 1, a unit of format 0 is refused by the parser, since the grammar admits no format below 1; `format_outdated` is reached once a release compiles format 2.
+* A refused sub-workflow also leaves its callers with a Rule 6 finding, since it is absent from the catalog.
+
+== Source
+
+* Workflow DSL specification, § Project-Owned Workflow Units & Compiled Invariants (`plan-marshall-documentation`)
+* PM-IMPL-5, PM-SEC-2
+* `doc/plans/project-units-and-invariants.adoc`

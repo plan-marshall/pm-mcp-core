@@ -1,0 +1,41 @@
+= ADR 020: The Declaration Bounds Live in `workflow.verify`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+The units `adjudicate.decisions` and `replan` declare values a project may change only within compiled bounds, and the adjudication unit carries the `decide` lines of the decision kinds.
+The invariants `INV-ADJ-1` and `INV-REPLAN-1` in `workflow.verify` require the declarations to lie within their bounds, and the project-unit loader in `workflow.unit` checks the bounds as a stage of its own.
+`workflow.unit` already depends on `workflow.verify` for the verifier and the invariants.
+
+== Decision
+
+`DeclarationBounds` lives in `workflow.verify`. It holds the schemas, names with type, bound and shipped value, and checks a unit's `declare` and `decide` lines, reporting every finding as `declaration_invalid` with the bound and the location of the offending line, or of the unit header for a missing declaration.
+To name the line, the syntax tree records the location of every `declare` line (`ValueDeclaration`) and of every decision declaration (`ask` and the quorum).
+The invariants map the findings to `INV-ADJ-1` and `INV-REPLAN-1`; the loader lists the findings once, as `DECLARATION` findings.
+
+== Alternatives Considered
+
+1. **`DeclarationBounds` in `workflow.unit`**:
+*Rejected*: the invariants in `workflow.verify` would then depend on `workflow.unit`, which depends on `workflow.verify`: a package cycle.
+
+2. **Locating a finding at the unit header**:
+*Rejected*: the operator decided that a finding names the exact `declare` or `decide` line, so the tree records their locations.
+
+== Consequences
+
+* `workflow.unit` depends on `workflow.verify`, never the reverse.
+* A declaration finding points at the line the operator has to change.
+
+== Source
+
+* Workflow DSL specification, § Unit Declarations (`plan-marshall-documentation`); Model Work specification, § Decision Declarations; Phase Workflows specification, § Declared Thresholds
+* PM-IMPL-5, PM-WF-17, PM-WF-18
+* `doc/plans/project-units-and-invariants.adoc`

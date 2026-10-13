@@ -1,0 +1,41 @@
+= ADR 002: The Project Roster and Where a Pipeline Violation Is Located
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+On every load of a project's finalize unit the validator checks the project's roster: the default descriptors of the steps the unit contains plus the project's step descriptors.
+A finalize unit does not list its steps; it completes them, with `completes <step> as <status>` clauses on its transitions.
+A violation names a step, but the operator fixes the unit, so the refusal of the load needs a file and a line in it.
+
+== Decision
+
+A step is contained when a transition of the plan unit carries a `completes <step>` clause for it.
+The project roster is the default descriptors of the contained steps, in the order of the default roster, followed by the declared project steps.
+A pipeline violation is located at the first state, in declaration order, with a transition that completes the step, or at the header of the plan unit when no state completes it.
+
+== Alternatives Considered
+
+1. **The whole default roster as the project roster**:
+*Rejected*: a project may leave out a prunable step, and the roster must be the one the unit actually runs.
+
+2. **Locating every pipeline violation at the unit header**:
+*Rejected*: the completing state is the place the operator changes.
+
+== Consequences
+
+* A project step that no state completes still joins the roster; the missing completion is reported as `project_step_unbound`.
+* The compiled invariant `INV-FIN-2` restates the pipeline result, and the loader lists it once.
+
+== Source
+
+* Phase Workflows specification, part 05, § FinalizePipelineValidator (`plan-marshall-documentation`)
+* PM-IMPL-5
+* `doc/plans/project-units-and-invariants.adoc`
