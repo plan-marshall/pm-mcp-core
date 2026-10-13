@@ -348,6 +348,15 @@ decision or a dependency outside this repository.
   clean up at the end of this epic. Added as a Standing Constraint to every staged and parked spec;
   the running PLAN-17, PLAN-21 and PLAN-39 were told through their mailboxes.
 
+- 2026-10-13 — Operator decision: split `PmMcpLogMessages` into one holder per Maven module
+  (`CoreLogMessages`/`PM_CORE`, `RuntimeLogMessages`/`PM_RUNTIME`, and more only where records exist),
+  renumbered per holder from the start of each level range; pre-1.0, so the break is intended. It is a
+  plain Claude Code session plan outside this queue, `.plan/temp/log-messages-per-module-plan.md` of
+  pm-mcp-core, following the git workflow and the quality profile. It runs after the running PLAN-17,
+  PLAN-21 and PLAN-39 have landed, because they may still add records. When it lands, the
+  per-workstream identifier blocks go away and the staged specs' log bullet is rewritten from its
+  report.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
