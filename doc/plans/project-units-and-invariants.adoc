@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `project-units-and-invariant
 
 [horizontal]
 Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
-Where:: pm-workflow packages `workflow.unit`, `workflow.verify`
+Where:: pm-workflow packages `workflow.unit`, `workflow.verify`, `workflow.finalize`
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == What
@@ -25,3 +25,16 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 == Done When
 
 One refusing fixture per invariant and per declaration bound; a fixture project unit that violates an invariant refuses the lifecycle and names file and line.
+
+== Hooks Left for Later Packages
+
+The package checks what the syntax tree and the descriptors decide. The remainders are named hooks, each a code constant at its check, and stay open for the packages that own the runtime facts (ADRs `workflow-verify/014`, `workflow-finalize/003` and `workflow-unit/004` of `pm-workflow`):
+
+* `INV-GEN-2`: only the operator API writes waiver records and every lookup logs a consumption; the primitive SPI offers no write capability.
+* `INV-GEN-4`: the removed options a primitive reads from configuration at runtime (lane, Q-Gate mode, confidence threshold, merge method, self-review scope).
+* `INV-REM-6`: the remediation counters are kept per plan and class and never reset.
+* Validator rule 6: the `work_performed` clause, decided over the outcomes of a step.
+* Validator rule 7: no refusal after the merge, decided over the outcomes of a step.
+* Validator rule 8: the refusal of a finding whose source the filing step does not declare, at the write of the findings store.
+* `project_step_unbound`: reading the project's `workflow.json` and the enrolment; the loader takes the declared steps and the bound step ids as inputs.
+* `DefaultUnitInvariantTest` over the shipped default units, in `plan-marshall-mcp`.
