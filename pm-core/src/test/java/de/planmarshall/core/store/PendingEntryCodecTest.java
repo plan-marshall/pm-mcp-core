@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
 import de.planmarshall.core.store.PendingEntryRecord.Kind;
@@ -210,7 +211,7 @@ class PendingEntryCodecTest {
         }
 
         @ParameterizedTest(name = "bootstrap without {0}")
-        @CsvSource({"state", "call_stack", "facts", "source", "options", "pending_condition", "last_refusal"})
+        @ValueSource(strings = {"state", "call_stack", "facts", "source", "options", "pending_condition", "last_refusal"})
         @DisplayName("a bootstrap without a required member is refused naming it")
         void missingBootstrapMember(String member) {
             var inner = bootstrapMembers();
