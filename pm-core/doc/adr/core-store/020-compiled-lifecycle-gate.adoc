@@ -1,4 +1,4 @@
-= ADR 017: The Lifecycle Gate Is Compiled
+= ADR 020: The Lifecycle Gate Is Compiled
 :nofooter:
 
 == Status

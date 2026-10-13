@@ -1,4 +1,4 @@
-= ADR 018: The Enrolment Sidecar Is a Closed, Versioned Record
+= ADR 021: The Enrolment Sidecar Is a Closed, Versioned Record
 :nofooter:
 
 == Status

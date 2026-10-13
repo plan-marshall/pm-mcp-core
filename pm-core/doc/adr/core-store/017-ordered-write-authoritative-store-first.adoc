@@ -1,4 +1,4 @@
-= ADR 014: The Ordered Write Writes the Authoritative Store First
+= ADR 017: The Ordered Write Writes the Authoritative Store First
 :nofooter:
 
 == Status
@@ -11,7 +11,7 @@ Accepted
 
 == Context
 
-The work package asks, beside the per-scope journal (ADR 011), for a fixed write order of a transaction that writes
+The work package asks, beside the per-scope journal (ADR 014), for a fixed write order of a transaction that writes
 outside its scope.
 
 == Decision

@@ -1,4 +1,4 @@
-= ADR 013: One Shared `StoreRefusal` for Every Store
+= ADR 016: One Shared `StoreRefusal` for Every Store
 :nofooter:
 
 == Status
@@ -30,7 +30,7 @@ Alternatives not recorded.
 == Consequences
 
 * A document of another `format_version` is refused with its file named.
-* Later stores refuse through the same type: the workflow status store (ADR 001) and the enrolment store (ADR 016)
+* Later stores refuse through the same type: the workflow status store (ADR 001) and the enrolment store (ADR 019)
   report a schema violation as a `StoreRefusal`.
 
 == Source

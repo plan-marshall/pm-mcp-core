@@ -41,4 +41,4 @@ Alternatives not recorded.
 * Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, deliverable 5
 * Work packages link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`] and link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
 * link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease Stores]
-* Related: link:../../../../pm-core/doc/adr/core-store/010-leases-are-records-never-os-locks.adoc[`core-store` ADR 010], leases as records
+* Related: link:../../../../pm-core/doc/adr/core-store/013-leases-are-records-never-os-locks.adoc[`core-store` ADR 013], leases as records

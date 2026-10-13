@@ -1,4 +1,4 @@
-= ADR 015: JSONL Appends Under the Store's Lock, Only a Torn Last Line Is Repaired
+= ADR 018: JSONL Appends Under the Store's Lock, Only a Torn Last Line Is Repaired
 :nofooter:
 
 == Status

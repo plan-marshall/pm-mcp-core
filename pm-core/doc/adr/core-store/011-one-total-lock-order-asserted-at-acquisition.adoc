@@ -1,4 +1,4 @@
-= ADR 008: One Total Lock Order, Asserted on Every Acquisition
+= ADR 011: One Total Lock Order, Asserted on Every Acquisition
 :nofooter:
 
 == Status

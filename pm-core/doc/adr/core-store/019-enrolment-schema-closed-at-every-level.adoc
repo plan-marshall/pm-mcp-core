@@ -1,4 +1,4 @@
-= ADR 016: The Enrolment Store Has a Schema Closed at Every Level
+= ADR 019: The Enrolment Store Has a Schema Closed at Every Level
 :nofooter:
 
 == Status
@@ -29,7 +29,7 @@ The pull request states that the approach follows the settled confinement design
 == Consequences
 
 * An unknown field anywhere in an enrolment file is refused.
-* The enrolment store shares the atomic write, the digest sidecar and the refusals of the other stores (ADR 009, ADR 012, ADR 013).
+* The enrolment store shares the atomic write, the digest sidecar and the refusals of the other stores (ADR 012, ADR 015, ADR 016).
 * `ProjectEnrolment.Provider` names its constants `GH` and `GLAB` (wire values `github` and `gitlab` unchanged) so that the provider-neutrality guard holds (link:../core-findings/002-provider-neutrality-guard-with-one-exemption.adoc[`core-findings` ADR 002]).
 
 == Source

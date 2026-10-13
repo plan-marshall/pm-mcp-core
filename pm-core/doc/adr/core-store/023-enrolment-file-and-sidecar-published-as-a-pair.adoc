@@ -1,4 +1,4 @@
-= ADR 020: The Enrolment File and Its Sidecar Are Published as a Pair
+= ADR 023: The Enrolment File and Its Sidecar Are Published as a Pair
 :nofooter:
 
 == Status

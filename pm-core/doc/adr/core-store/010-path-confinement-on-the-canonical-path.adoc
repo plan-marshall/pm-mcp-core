@@ -1,4 +1,4 @@
-= ADR 007: A Project Path Is Confined on Its Canonical Path
+= ADR 010: A Project Path Is Confined on Its Canonical Path
 :nofooter:
 
 == Status

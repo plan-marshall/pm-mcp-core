@@ -1,4 +1,4 @@
-= ADR 012: Store Digests Are Verified Only Under the Store's Lock
+= ADR 015: Store Digests Are Verified Only Under the Store's Lock
 :nofooter:
 
 == Status

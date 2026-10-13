@@ -29,7 +29,7 @@ Alternatives not recorded.
 == Consequences
 
 * A class of `pm-core` that names a provider fails the build.
-* Other constants that carry a provider's wire value use a neutral name: `ProjectEnrolment.Provider` names its constants `GH` and `GLAB` (wire values `github` and `gitlab`) so that the guard holds (link:../core-store/016-enrolment-schema-closed-at-every-level.adoc[`core-store` ADR 016]).
+* Other constants that carry a provider's wire value use a neutral name: `ProjectEnrolment.Provider` names its constants `GH` and `GLAB` (wire values `github` and `gitlab`) so that the guard holds (link:../core-store/019-enrolment-schema-closed-at-every-level.adoc[`core-store` ADR 019]).
 * `com.tngtech.archunit:archunit-junit5` is a test-scope dependency of `pm-core`, added with the operator's consent.
 
 == Source

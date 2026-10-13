@@ -40,4 +40,4 @@ Rationale not recorded.
 * Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`, sections "Changes" and "For reviewers"
 * Work package link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]
 * link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]
-* Related: link:../../../../pm-core/doc/adr/core-store/008-one-total-lock-order-asserted-at-acquisition.adoc[`core-store` ADR 008], the lock order this manager asserts
+* Related: link:../../../../pm-core/doc/adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[`core-store` ADR 011], the lock order this manager asserts

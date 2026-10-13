@@ -1,4 +1,4 @@
-= ADR 009: A Store Is Replaced by Atomic Rename, Guarded by a Sibling Lock File
+= ADR 012: A Store Is Replaced by Atomic Rename, Guarded by a Sibling Lock File
 :nofooter:
 
 == Status
