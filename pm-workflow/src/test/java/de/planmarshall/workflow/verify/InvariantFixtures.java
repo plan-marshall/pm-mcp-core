@@ -49,30 +49,34 @@ import de.planmarshall.workflow.finalize.FinalizeStepDescriptor.LaneClass;
  * The units name the primitives of {@link #registry()} and the entity kinds of {@link #entityKinds()}, which are
  * written for the tests as well. A refusing unit is the passing source with one named {@link Mutation}: a text that
  * occurs exactly once in one file, replaced by another.
+ * <p>
+ * The tests of the unit loaders in {@code workflow.unit} read the same units and registries, so the members they use
+ * are public.
  */
-final class InvariantFixtures {
+public final class InvariantFixtures {
 
     /** The classpath directory of the passing units. */
-    static final String ROOT = "unit-fixtures/defaults/";
+    public static final String ROOT = "unit-fixtures/defaults/";
 
     /** The phase files of the plan unit, in merge order. */
-    static final List<String> PLAN_FILES = List.of("init.pmwf", "refine.pmwf", "outline.pmwf", "plan.pmwf",
+    public static final List<String> PLAN_FILES = List.of("init.pmwf", "refine.pmwf", "outline.pmwf", "plan.pmwf",
             "execute.pmwf", "land.pmwf", "finalize.pmwf");
 
     /** The file of the adjudication unit. */
-    static final String ADJUDICATION_FILE = "adjudicate-decisions.pmwf";
+    public static final String ADJUDICATION_FILE = "adjudicate-decisions.pmwf";
 
     /** The file of the re-planning unit. */
-    static final String REPLAN_FILE = "replan.pmwf";
+    public static final String REPLAN_FILE = "replan.pmwf";
 
     /** The file of the commit sub-workflow. */
-    static final String GIT_FILE = "git-commit-and-push.pmwf";
+    public static final String GIT_FILE = "git-commit-and-push.pmwf";
 
     /** The file of the Q-Gate remediation unit. */
-    static final String REMEDIATION_FILE = "remediation-qgate-findings.pmwf";
+    public static final String REMEDIATION_FILE = "remediation-qgate-findings.pmwf";
 
     /** The files of the project-ownable sub-workflows. */
-    static final List<String> SUB_UNIT_FILES = List.of(ADJUDICATION_FILE, REPLAN_FILE, GIT_FILE, REMEDIATION_FILE);
+    public static final List<String> SUB_UNIT_FILES = List.of(ADJUDICATION_FILE, REPLAN_FILE, GIT_FILE,
+            REMEDIATION_FILE);
 
     /** The identifier of the merged plan unit. */
     static final String PLAN_UNIT = "plan";
@@ -84,7 +88,7 @@ final class InvariantFixtures {
      * @param file the name of a fixture file, for example {@code init.pmwf}
      * @return the text of the passing fixture
      */
-    static String read(String file) {
+    public static String read(String file) {
         try (var in = InvariantFixtures.class.getClassLoader().getResourceAsStream(ROOT + file)) {
             Objects.requireNonNull(in, () -> "missing fixture " + ROOT + file);
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -196,7 +200,7 @@ final class InvariantFixtures {
      * @param anchor a text that occurs exactly once in it
      * @return the line, counted from 1, on which the anchor begins
      */
-    static int lineOf(String text, String anchor) {
+    public static int lineOf(String text, String anchor) {
         var index = uniqueIndex(text, anchor);
         return (int) text.substring(0, index).chars().filter(character -> character == '\n').count() + 1;
     }
@@ -213,7 +217,7 @@ final class InvariantFixtures {
      * @return the primitives the fixture units name: those of {@link TestPrimitives} they use and the ones written
      *         for these tests
      */
-    static PrimitiveRegistry registry() {
+    public static PrimitiveRegistry registry() {
         return new PrimitiveRegistry(List.of(
                 new TestPrimitives.Fixed<>(TestPrimitives.PROCEED, TestPrimitives.NoParams.class,
                         TestPrimitives.DoneOutcome.class),
@@ -248,7 +252,7 @@ final class InvariantFixtures {
      * @return the default entity kinds plus {@code change}, {@code vote} and {@code remediation-decision}, written for
      *         these tests
      */
-    static EntityKindRegistry entityKinds() {
+    public static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
                 .with(new EntityKind(TestPrimitives.CHANGE_KIND, "entity", TestPrimitives.EVALUATE_CHANGE))
                 .with(new EntityKind("vote", Optional.empty(), TestPrimitives.EVALUATE_JUDGEMENT))
@@ -260,7 +264,17 @@ final class InvariantFixtures {
      * @return a catalog of the units and of the entity unit {@code entity}
      */
     static WorkflowCatalog catalog(Collection<WorkflowDefinition> units) {
-        var entity = parse("entity.pmwf", """
+        var definitions = new ArrayList<>(units);
+        definitions.add(entityUnit());
+        return new WorkflowCatalog(definitions);
+    }
+
+    /**
+     * @return the entity unit {@code entity}, which no project owns and the {@code job llm} states of the fixtures
+     *         name
+     */
+    public static WorkflowDefinition entityUnit() {
+        return parse("entity.pmwf", """
                 workflow entity version 1 format 1
                 scope entity
                 start entity.completed
@@ -268,9 +282,6 @@ final class InvariantFixtures {
                 state entity.completed terminal submitted success
                     phase inherit
                 """, UnitOrigin.DEFAULT);
-        var definitions = new ArrayList<>(units);
-        definitions.add(entity);
-        return new WorkflowCatalog(definitions);
     }
 
     /**
@@ -297,7 +308,7 @@ final class InvariantFixtures {
      *
      * @return the roster; it passes the finalize pipeline validator
      */
-    static List<FinalizeStepDescriptor> defaultRoster() {
+    public static List<FinalizeStepDescriptor> defaultRoster() {
         return List.of(
                 step("default:create-pr", 20, LaneClass.CORE, false, List.of(), List.of()),
                 step("default:sonar-roundtrip", 40, LaneClass.PRUNABLE, false, List.of(), List.of()),
@@ -317,7 +328,7 @@ final class InvariantFixtures {
      * @param destroys      the artifacts it destroys
      * @return a descriptor that declares nothing else
      */
-    static FinalizeStepDescriptor step(String name, int order, LaneClass laneClass, boolean postRunReview,
+    public static FinalizeStepDescriptor step(String name, int order, LaneClass laneClass, boolean postRunReview,
             List<String> reads, List<String> destroys) {
         return new FinalizeStepDescriptor(name, order, true, Set.of(), "a step written for the test", false, false,
                 Optional.empty(), List.of(), false, postRunReview, reads, destroys, List.of(),

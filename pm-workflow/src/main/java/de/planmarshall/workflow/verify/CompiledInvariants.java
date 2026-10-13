@@ -186,6 +186,47 @@ public final class CompiledInvariants {
         }).toList();
     }
 
+    /**
+     * Tells whether a violation only re-reports a finding of another check: a violation of the static verifier
+     * ({@link InvariantId#INV_GEN_1}, {@link InvariantId#INV_FIN_3}), of the finalize pipeline validator
+     * ({@link InvariantId#INV_FIN_2}) or of the declaration bounds ({@link InvariantId#INV_ADJ_1},
+     * {@link InvariantId#INV_REPLAN_1}). A caller that lists the findings of those checks itself drops these
+     * violations, so no finding is listed twice.
+     *
+     * @param violation a violation {@link #check} returned for the unit
+     * @param unit      the unit
+     * @param rules     the result of the static verifier the check was given
+     * @return {@code true} when the violation repeats a finding of the verifier, the pipeline validator or the
+     *         declaration bounds
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public static boolean reReports(InvariantViolation violation, WorkflowDefinition unit, VerificationResult rules) {
+        Objects.requireNonNull(violation, "violation");
+        Objects.requireNonNull(unit, "unit");
+        Objects.requireNonNull(rules, "rules");
+        return violation.id() == InvariantId.INV_FIN_2 || ruleViolations(unit, rules).contains(violation)
+                || declarationViolations(violation.id(), unit).contains(violation);
+    }
+
+    /**
+     * Maps the findings of {@link DeclarationBounds} to violations of {@link InvariantId#INV_ADJ_1} or
+     * {@link InvariantId#INV_REPLAN_1}, each at the line of its declaration.
+     *
+     * @param id   the invariant the findings are reported under
+     * @param unit the unit
+     * @return the mapped findings in the order of the check; empty for any other invariant
+     */
+    static List<InvariantViolation> declarationViolations(InvariantId id, WorkflowDefinition unit) {
+        if (id != InvariantId.INV_ADJ_1 && id != InvariantId.INV_REPLAN_1) {
+            return List.of();
+        }
+        return DeclarationBounds.check(unit).stream()
+                .map(finding -> new InvariantViolation(id, unit.id(), finding.location(),
+                        "%s '%s' (bound %s): %s".formatted(finding.code(), finding.name(), finding.bound(),
+                                finding.message())))
+                .toList();
+    }
+
     private static Map<InvariantId, Check> collectChecks() {
         var checks = new EnumMap<InvariantId, Check>(InvariantId.class);
         Stream.of(GeneralInvariants.checks(), InitInvariants.checks(), RefineInvariants.checks(),

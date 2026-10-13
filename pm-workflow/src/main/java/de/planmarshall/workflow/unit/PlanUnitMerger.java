@@ -1,0 +1,142 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.workflow.unit;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+import de.planmarshall.workflow.ast.StateMigration;
+import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.ast.WorkflowScope;
+import de.planmarshall.workflow.verify.VerificationRule;
+
+/**
+ * Merges the seven phase files of the plan workflow into the one unit {@value #PLAN_UNIT} (PM-IMPL-5).
+ * <p>
+ * The states and migrations of the merged unit are the union of those of its parts; its start state, header location,
+ * scope, format and origin are those of the first part, the init file; its version is the sum of the part versions,
+ * each recorded in {@link WorkflowDefinition#partVersions()} under the file it was read from; and
+ * {@link WorkflowDefinition#derivedFrom()} holds the default revision every project file derives from, by file.
+ * <p>
+ * Every part must be a unit {@value #PLAN_UNIT} of scope {@code plan}; the parts must declare one DSL format and
+ * one origin, so a project never mixes a default file into its own plan unit; and a state is declared in one part
+ * only. Every violation is a {@link UnitFinding} with file and line, and a merge with findings yields no unit.
+ *
+ * @since 0.1
+ */
+public final class PlanUnitMerger {
+
+    /** The identifier of the merged plan unit. */
+    public static final String PLAN_UNIT = "plan";
+
+    /** The phase files of the plan unit, in merge order. */
+    public static final List<String> PHASE_FILES = List.of("init.pmwf", "refine.pmwf", "outline.pmwf", "plan.pmwf",
+            "execute.pmwf", "land.pmwf", "finalize.pmwf");
+
+    /** The code of a part that is no part of the plan unit: another identifier or another scope. */
+    public static final String NOT_A_PLAN_PART = "not_a_plan_part";
+
+    /** The code of a part whose DSL format differs from that of the first part. */
+    public static final String MIXED_FORMATS = "mixed_formats";
+
+    /** The code of a part whose origin differs from that of the first part. */
+    public static final String MIXED_ORIGINS = "mixed_origins";
+
+    private PlanUnitMerger() {
+    }
+
+    /**
+     * Merges the parsed phase files.
+     *
+     * @param parts the parsed phase files, in merge order; the first is the init file
+     * @return the merged unit, or every finding
+     * @throws IllegalArgumentException if there is no part
+     * @throws NullPointerException     if the list or an element is {@code null}
+     */
+    public static Merge merge(List<WorkflowDefinition> parts) {
+        Objects.requireNonNull(parts, "parts");
+        if (parts.isEmpty()) {
+            throw new IllegalArgumentException("the plan unit has at least one part");
+        }
+        var first = Objects.requireNonNull(parts.getFirst(), "part");
+        var findings = new ArrayList<UnitFinding>();
+        var states = new LinkedHashMap<String, StateNode>();
+        var migrations = new ArrayList<StateMigration>();
+        var partVersions = new LinkedHashMap<String, Integer>();
+        var derivedFrom = new LinkedHashMap<String, Integer>();
+        var version = 0;
+        for (var part : parts) {
+            Objects.requireNonNull(part, "part");
+            checkPart(first, part, findings);
+            var file = part.location().resourceName();
+            for (var state : part.states().values()) {
+                if (states.putIfAbsent(state.id(), state) != null) {
+                    findings.add(UnitFinding.at(UnitFinding.Kind.RULE, VerificationRule.STATE_ID_UNIQUE.name(),
+                            state.location(), "the state '%s' is declared in two phase files, last in '%s'"
+                            .formatted(state.id(), file)));
+                }
+            }
+            migrations.addAll(part.migrations());
+            partVersions.put(file, part.version());
+            part.derivedFrom().values().forEach(revision -> derivedFrom.put(file, revision));
+            version += part.version();
+        }
+        if (!findings.isEmpty()) {
+            return new Merge(Optional.empty(), findings);
+        }
+        return new Merge(Optional.of(new WorkflowDefinition(PLAN_UNIT, version, WorkflowScope.PLAN, List.of(),
+                Optional.empty(), Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(),
+                first.origin(), derivedFrom, first.startState(), migrations, states, first.location())), List.of());
+    }
+
+    private static void checkPart(WorkflowDefinition first, WorkflowDefinition part, List<UnitFinding> findings) {
+        var file = part.location().resourceName();
+        if (!PLAN_UNIT.equals(part.id()) || part.scope() != WorkflowScope.PLAN) {
+            findings.add(UnitFinding.at(UnitFinding.Kind.RULE, NOT_A_PLAN_PART, part.location(),
+                    "'%s' declares the unit '%s' of scope %s, not the unit '%s' of scope PLAN".formatted(file,
+                            part.id(), part.scope(), PLAN_UNIT)));
+        }
+        if (part.formatVersion() != first.formatVersion()) {
+            findings.add(UnitFinding.at(UnitFinding.Kind.FORMAT, MIXED_FORMATS, part.location(),
+                    "'%s' declares format %d, '%s' format %d".formatted(file, part.formatVersion(),
+                            first.location().resourceName(), first.formatVersion())));
+        }
+        if (part.origin() != first.origin()) {
+            findings.add(UnitFinding.at(UnitFinding.Kind.RULE, MIXED_ORIGINS, part.location(),
+                    "'%s' is a %s file, '%s' a %s file; a plan unit never mixes them".formatted(file, part.origin(),
+                            first.location().resourceName(), first.origin())));
+        }
+    }
+
+    /**
+     * The result of a merge.
+     *
+     * @param unit     the merged plan unit; empty when there is a finding
+     * @param findings every finding; empty when the parts merged
+     */
+    public record Merge(Optional<WorkflowDefinition> unit, List<UnitFinding> findings) {
+
+        /**
+         * Copies the findings.
+         *
+         * @param unit     the merged plan unit
+         * @param findings every finding
+         */
+        public Merge {
+            Objects.requireNonNull(unit, "unit");
+            findings = List.copyOf(findings);
+        }
+    }
+}

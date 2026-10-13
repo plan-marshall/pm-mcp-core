@@ -95,10 +95,7 @@ final class SubWorkflowInvariants {
     }
 
     private static void reportDeclarations(Context context, InvariantId id) {
-        for (var finding : DeclarationBounds.check(context.unit())) {
-            context.report(id, context.unit().id(), finding.location(), "%s '%s' (bound %s): %s".formatted(
-                    finding.code(), finding.name(), finding.bound(), finding.message()));
-        }
+        context.found().addAll(CompiledInvariants.declarationViolations(id, context.unit()));
     }
 
     /**
