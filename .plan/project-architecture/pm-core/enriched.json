@@ -13,7 +13,7 @@
   "key_dependencies_reasoning": "pm-api is the only product module pm-core may depend on; cui-java-tools supplies CuiLogger",
   "key_packages": {
     "pm-core/src/main/java/de/planmarshall/core/log": {
-      "description": "PmMcpLogMessages, the registry of every INFO, WARN and ERROR LogRecord with the prefix PM_MCP."
+      "description": "CoreLogMessages, the INFO, WARN and ERROR LogRecords of pm-core with the prefix PM_CORE; every other module that logs has its own holder in its own log package."
     },
     "pm-core/src/main/java/de/planmarshall/core/spi": {
       "description": "The service provider interfaces the provider and runtime modules implement."
@@ -27,7 +27,7 @@
   },
   "purpose": "library",
   "purpose_reasoning": "packaging=jar, no framework or runtime entry point",
-  "responsibility": "Plain-Java foundation every other module builds on: the service interfaces (SPIs), the stores, the TOON encoder, the findings and status models, and the log message registry PmMcpLogMessages. Depends on pm-api alone among the modules of the product.",
+  "responsibility": "Plain-Java foundation every other module builds on: the service interfaces (SPIs), the stores, the TOON encoder, the findings and status models, and the log messages of pm-core, CoreLogMessages. Depends on pm-api alone among the modules of the product.",
   "responsibility_reasoning": "pm-core/pom.xml description, README.md, CLAUDE.md",
   "skills_by_profile": {
     "implementation": {

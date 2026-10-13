@@ -18,7 +18,7 @@ All packages lie below `de.planmarshall.core`. Each line is the first sentence o
 * `domain`: the domain extensions: the four axes of a domain and the descriptors that declare them.
 * `findings`: the provider-neutral findings contract, implemented by the provider modules.
 * `id`: the identifier types and their validation.
-* `log`: the one registry of log messages every module logs through, so that the identifiers are numbered once.
+* `log`: the log messages of the module, `CoreLogMessages` with the prefix `PM_CORE`; the one holder of another module that a module may log through.
 * `profile`: the client profiles: the loader of the profile documents of `pm-api`, their validation, the placeholders and the vocabulary translation.
 * `queue`: the task queue store of a project below `projects/<project_id>/queue/`.
 * `recipe`: the recipes and the extension points a domain contributes to.

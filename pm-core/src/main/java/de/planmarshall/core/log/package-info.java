@@ -8,8 +8,10 @@
  * the root of this repository.
  */
 /**
- * The one registry of log messages every module logs through ({@link de.planmarshall.core.log.PmMcpLogMessages}),
- * so that the identifiers are numbered once (PM-IMPL-1).
+ * The log messages of {@code pm-core} ({@link de.planmarshall.core.log.CoreLogMessages}, prefix {@code PM_CORE}).
+ * Every module that logs has its own holder in its own {@code log} package with its own prefix, so that each
+ * identifier is numbered once per prefix (PM-IMPL-1); a module never logs through another module's holder except
+ * this one.
  * <p>
  * Specification: {@code doc/specification/module-structure.adoc} (Modules, {@code pm-core}).
  */

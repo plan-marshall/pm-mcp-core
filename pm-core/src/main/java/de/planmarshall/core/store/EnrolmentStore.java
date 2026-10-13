@@ -27,8 +27,8 @@ import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.log.CoreLogMessages.INFO;
+import de.planmarshall.core.log.CoreLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -507,7 +507,7 @@ public final class EnrolmentStore {
      * and matches the current enrolment file ({@link PairRecovery.Completed}); otherwise it is deleted
      * ({@link PairRecovery.Discarded}) and the file is left as it is, which the integrity check then refuses.</li>
      * </ol>
-     * A completed write is logged as INFO {@code PM_MCP-64}, a discarded one as WARN {@code PM_MCP-166}. Only the
+     * A completed write is logged as INFO {@code PM_CORE-1}, a discarded one as WARN {@code PM_CORE-101}. Only the
      * staged names of this project are touched: {@code <project_id>.json.tmp.<transaction id>} and
      * {@code <project_id>.json.hmac.tmp.<transaction id>}.
      *

@@ -40,8 +40,7 @@ import java.util.TreeMap;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.log.CoreLogMessages;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LiveWork.Item;
@@ -60,6 +59,8 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.credentials.SecretStoreException.Reason;
 import de.planmarshall.runtime.enrolment.Enrolments.ScopeActiveException;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -888,7 +889,7 @@ class EnrolmentsTest {
                     () -> assertValidTransactionIds(owed),
                     () -> assertTrue(events.isEmpty()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                            WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
+                            CoreLogMessages.WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             "'" + event + "' of transaction '" + transactionIdOf(owed.getFirst()) + "'"));
         }

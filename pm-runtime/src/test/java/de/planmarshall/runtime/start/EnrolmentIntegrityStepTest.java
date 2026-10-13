@@ -33,9 +33,8 @@ import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.log.CoreLogMessages;
+import de.planmarshall.core.log.CoreLogMessages.INFO;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.EnrolmentCodec;
 import de.planmarshall.core.store.EnrolmentStore;
@@ -46,6 +45,8 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.enrolment.EnrolmentCheck;
 import de.planmarshall.runtime.enrolment.EnrolmentFileCheck;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
+import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.RecoveryStep.Name;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import org.junit.jupiter.api.BeforeEach;
@@ -163,7 +164,7 @@ class EnrolmentIntegrityStepTest {
 
             assertSettled(step.run(PROJECT), oldFile);
             LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                    WARN.ENROLMENT_PAIR_DISCARDED.resolveIdentifierString());
+                    CoreLogMessages.WARN.ENROLMENT_PAIR_DISCARDED.resolveIdentifierString());
         }
 
         @Test
@@ -197,7 +198,7 @@ class EnrolmentIntegrityStepTest {
 
             assertSettled(step.run(PROJECT), oldFile);
             LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                    WARN.ENROLMENT_PAIR_DISCARDED.resolveIdentifierString());
+                    CoreLogMessages.WARN.ENROLMENT_PAIR_DISCARDED.resolveIdentifierString());
         }
 
         @Test

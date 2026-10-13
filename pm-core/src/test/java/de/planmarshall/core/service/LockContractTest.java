@@ -31,7 +31,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.log.PmMcpLogMessages;
 import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.store.LockKey;
 
@@ -186,30 +185,6 @@ class LockContractTest {
                     () -> assertEquals(fault.getMessage(), restored.getMessage()),
                     () -> assertTrue(restored.details().isEmpty()),
                     () -> assertFalse(fault.details().isEmpty()));
-        }
-    }
-
-    @Nested
-    @DisplayName("log messages")
-    class LogMessages {
-
-        @Test
-        @DisplayName("the messages of locks and leases carry the identifiers 50, 151 and 250")
-        void identifiers() {
-            assertAll(
-                    () -> assertEquals(50, PmMcpLogMessages.INFO.STALE_LEASE_SWEEP_FINISHED.getIdentifier()),
-                    () -> assertEquals(151, PmMcpLogMessages.WARN.LEASE_ORPHANED.getIdentifier()),
-                    () -> assertEquals(250, PmMcpLogMessages.ERROR.LOCK_ORDER_VIOLATION.getIdentifier()));
-        }
-
-        @Test
-        @DisplayName("the lock order violation message names the requested and the held lock paths")
-        void lockOrderViolation() {
-            var message = PmMcpLogMessages.ERROR.LOCK_ORDER_VIOLATION.format(PLAN_LOCK, List.of(QUEUE_LOCK));
-
-            assertAll(
-                    () -> assertTrue(message.contains(PLAN_LOCK), message),
-                    () -> assertTrue(message.contains(QUEUE_LOCK), message));
         }
     }
 }

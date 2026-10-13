@@ -50,8 +50,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.log.CoreLogMessages.INFO;
+import de.planmarshall.core.log.CoreLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;

@@ -78,7 +78,7 @@ The findings of a default load are:
 |`FORMAT` |`mixed_formats` |two phase files declare different DSL formats
 |===
 
-Every finding is logged as ERROR `DEFAULT_UNIT_REFUSED` (identifier 270 of `PmMcpLogMessages`) with resource, line and code: a default unit that does not verify is a defect of the build.
+Every finding is logged as ERROR `DEFAULT_UNIT_REFUSED` (`PM_WORKFLOW-200` of `WorkflowLogMessages`) with resource, line and code: a default unit that does not verify is a defect of the build.
 The loaded units keep the resource name they were read from, for example `workflows/init.pmwf`, in their source locations.
 
 == Merging the Plan Unit

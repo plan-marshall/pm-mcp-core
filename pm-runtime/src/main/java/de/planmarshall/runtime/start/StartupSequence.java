@@ -18,10 +18,10 @@ import java.util.Map;
 
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * Steps 1 to 5 of the runtime's startup sequence, run before the HTTP server binds the socket

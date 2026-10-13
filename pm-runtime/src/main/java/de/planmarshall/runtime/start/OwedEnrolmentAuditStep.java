@@ -14,9 +14,9 @@ import java.util.Objects;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.enrolment.Enrolments;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * Step 2 of the per-project recovery, {@link RecoveryStep.Name#OWED_ENROLMENT_AUDIT}
@@ -31,7 +31,7 @@ import de.planmarshall.runtime.enrolment.Enrolments;
  * {@link #unenrolledPass()} is the background pass of the specification for an intent whose project is no longer
  * enrolled: it hands over what every project without its enrolment file owes and removes the orphan sidecar an
  * interrupted {@code unenrol} left ({@link Enrolments#replayOwedAuditOfUnenrolledProjects()}); the per-project recovery
- * lists enrolment files only and never sees such a project. A failure is logged ({@code PM_MCP-167}) and leaves the
+ * lists enrolment files only and never sees such a project. A failure is logged ({@code PM_RUNTIME-121}) and leaves the
  * intent, and the sidecar, in place; one project's failure does not block the others.
  *
  * @since 0.1

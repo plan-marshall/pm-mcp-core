@@ -20,6 +20,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `job`: the verify-not-resolve pipeline of a job: the deterministic check that turns a job request into a verified job or a refusal.
 * `launch`: the launch composition of a worker: the harness templates, the job token and generation, the launch prompt and the model slots.
 * `lock`: the lock manager of the runtime and the stale lease sweep: the implementation of the locking interface of `pm-core`.
+* `log`: the log messages of the module, `RuntimeLogMessages` with the prefix `PM_RUNTIME`, and the messages of the assembly `pm-mcp-server` until it takes them over.
 * `lsp`: the product LSP client of the warm language-server pool.
 * `security`: what the authentication of the daemon resolves a presented credential through.
 * `start`: the start sequence of the runtime up to the socket bind.

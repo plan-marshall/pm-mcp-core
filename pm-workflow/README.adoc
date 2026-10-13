@@ -22,6 +22,7 @@ All packages lie below `de.planmarshall.workflow`. Each line is the first senten
 * `epic`: the coordination of the plans of an epic.
 * `finalize`: the finalize steps: the descriptor of a step, the checks over the pipeline of steps, and the currency of a recorded verdict.
 * `hypermedia`: the hypermedia state engine: the representation of the current state, its link forms and link grammar, and the composite wait.
+* `log`: the log messages of the module, `WorkflowLogMessages` with the prefix `PM_WORKFLOW`.
 * `model`: the one model caller: it reads the artifact of the role a model state names and turns the step into queue tasks.
 * `plan`: the composition of a plan instance from the workflow units and the configuration of its project.
 * `primitive`: the plan-domain primitives, which implement the SPI of `pm-core`.

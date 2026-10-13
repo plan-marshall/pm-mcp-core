@@ -11,16 +11,16 @@ Accepted
 
 == Context
 
-INFO, WARN and ERROR messages of the product are `LogRecord` constants of `PmMcpLogMessages` in `pm-core`, each
-documented in `doc/LogMessages.adoc` of the documentation, and the identifier block WS-03 of that class is reserved
-for identifier messages. A refused address is an expected answer to a model's argument, which the caller of the
+INFO, WARN and ERROR messages of the product are `LogRecord` constants of the log-message holder of the module that
+logs them, here `WorkflowLogMessages` of `pm-workflow`, each documented in `doc/LogMessages.adoc` of the documentation
+(link:../../../../doc/adr/005-one-log-message-holder-per-module.adoc[ADR 005]). A refused address is an expected answer to a model's argument, which the caller of the
 resolver reports in its tool result (link:007-refused-address-is-a-value.adoc[ADR 007]).
 
 == Decision
 
 * The addressing writes no log record: `EntityAddressResolver` and `EntityIdGrammar` hold no logger, and a refusal is
   a value its caller reports.
-* The WS-03 identifier block of `PmMcpLogMessages` stays untouched, and `doc/LogMessages.adoc` gets no entry.
+* `WorkflowLogMessages` gets no record for the addressing, and `doc/LogMessages.adoc` gets no entry.
 
 == Alternatives Considered
 

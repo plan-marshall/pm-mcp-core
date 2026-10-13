@@ -21,7 +21,6 @@ import java.util.Set;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.ConfinementOutcome.Confined;
@@ -33,6 +32,7 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.enrolment.EnrolmentCheck;
 import de.planmarshall.runtime.job.JobRefusal.Reason;
 import de.planmarshall.runtime.job.JobRequest.ProjectScriptCall;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /**
@@ -67,8 +67,8 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * evaluated, so the time stage 3 holds the lock is bounded by the enrolment. A caller closes its transaction as soon as
  * this method returns: it must not keep the enrolment lock while it launches or waits for the verified job.
  * <p>
- * A refusal is a value. Each refusal is logged once at WARN ({@code PM_MCP-180}); a refusal of the enrolment that the
- * enrolment check has logged and audited itself is not logged again. A fault is no refusal and passes through:
+ * A refusal is a value. Each refusal is logged once at WARN ({@code PM_RUNTIME-122}); a refusal of the enrolment that
+ * the enrolment check has logged and audited itself is not logged again. A fault is no refusal and passes through:
  * {@link SecretStoreException} when the integrity key cannot be read, {@link InternalFaultException} when the
  * enrolment lock must not be acquired after the locks the transaction holds, {@link UncheckedIOException} when a file
  * cannot be read.

@@ -32,7 +32,7 @@ Alternatives not recorded.
 * Each rule of the lock order has a unit test; the refusal and its audit record are asserted.
 * The audit record goes through the `AuditSink` seam and is tested with a recording fake, because the audit trail is a later package.
 * The order is asserted per transaction only.
-* The violation is logged as ERROR 250 `LOCK_ORDER_VIOLATION` of `PmMcpLogMessages`.
+* The violation is logged as ERROR `LOCK_ORDER_VIOLATION` of `RuntimeLogMessages` (`PM_RUNTIME-202`).
 
 == Source
 

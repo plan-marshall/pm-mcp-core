@@ -113,7 +113,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
 The closed set of reasons, their codes and the stage that raises each are declared in link:{src}/JobRefusal.java[`JobRefusal.Reason`]; this guide does not repeat the table.
 Two reasons name an operator command: `build_config_changed` (`pm-operator enrol <project_id>`) and `enrolment_tampered` (`pm-operator accept-edit enrolment <project_id>`).
 Only `build_config_changed` names changed paths.
-Each refusal is logged once at WARN as `PM_MCP-180` (`JOB_REFUSED`); a refusal of the enrolment that `EnrolmentCheck` has logged and audited itself (tampered, insecure, unreadable, outdated or newer format) is not logged again, so of stage 0 the pipeline logs only `not_enrolled` and an `enrolment_invalid` raised by a violated enrolment rule.
+Each refusal is logged once at WARN as `PM_RUNTIME-122` (`JOB_REFUSED`); a refusal of the enrolment that `EnrolmentCheck` has logged and audited itself (tampered, insecure, unreadable, outdated or newer format) is not logged again, so of stage 0 the pipeline logs only `not_enrolled` and an `enrolment_invalid` raised by a violated enrolment rule.
 
 == What the Caller Supplies
 

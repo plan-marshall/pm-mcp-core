@@ -25,8 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The drain of the runtime, which the assembly calls on {@code SIGTERM}/{@code SIGINT} and on the stop endpoint

@@ -9,7 +9,7 @@
  */
 package de.planmarshall.runtime.workspace;
 
-import static de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import static de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 import java.util.Objects;
 

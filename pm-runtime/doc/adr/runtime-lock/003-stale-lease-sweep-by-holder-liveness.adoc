@@ -33,7 +33,7 @@ Alternatives not recorded.
 
 * A test proves that the sweep removes a lease of a dead holder and keeps a live one.
 * Lease cleanup can target a single project and leaves the leases of other projects unchanged.
-* The sweep finishing is logged as INFO 050 `STALE_LEASE_SWEEP_FINISHED`, an orphaned lease as WARN 151 `LEASE_ORPHANED` of `PmMcpLogMessages`.
+* The sweep finishing is logged as INFO `STALE_LEASE_SWEEP_FINISHED` (`PM_RUNTIME-11`), an orphaned lease as WARN `LEASE_ORPHANED` (`PM_RUNTIME-107`) of `RuntimeLogMessages`.
 
 == Source
 

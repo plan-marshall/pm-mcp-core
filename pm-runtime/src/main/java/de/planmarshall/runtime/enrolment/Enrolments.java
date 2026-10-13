@@ -21,8 +21,6 @@ import javax.crypto.SecretKey;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LiveWork;
@@ -36,6 +34,8 @@ import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.credentials.SecretStoreException;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The operator writes of the enrolment store (PM-EXEC-2, PM-MIG-1, PM-IMPL-7): {@code enrol}, {@code unenrol} and the
@@ -54,10 +54,10 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
  * record ({@link AuditEvent#notConfirmed()}, outcome {@code failed}, reason {@code not_confirmed}); the mutation of an
  * operator write is not redone by a recovery, so the record claims the success, outcome {@code succeeded}, only once
  * the mutation completed, when {@link EnrolmentStore#confirmAudit} replaces the unconfirmed record by it. A sink that
- * refuses the record does not fail the write: the substrate logs {@code PM_MCP-160} and the record stays owed. A
- * mutation that fails, or a stop before the confirmation, keeps the unconfirmed record owed ({@code PM_MCP-164} when
- * it is handed over), so an attempted operator write is audited as what is known of it, never as a success that did
- * not happen. The next write of the project and the recovery hand an owed record over: the project's recovery calls
+ * refuses the record does not fail the write: the substrate logs {@code PM_CORE-100} and the record stays owed. A
+ * mutation that fails, or a stop before the confirmation, keeps the unconfirmed record owed
+ * ({@code PM_RUNTIME-119} when it is handed over), so an attempted operator write is audited as what is known of it,
+ * never as a success that did not happen. The next write of the project and the recovery hand an owed record over: the project's recovery calls
  * {@link #replayOwedAudit(String)} as step {@code OWED_ENROLMENT_AUDIT} ({@code OwedEnrolmentAuditStep}), and its
  * background pass calls {@link #replayOwedAuditOfUnenrolledProjects()} for the projects no longer enrolled: a project
  * without its enrolment file, with or without the orphan sidecar of an interrupted {@code unenrol}, whose sidecar it
@@ -139,8 +139,8 @@ public final class Enrolments {
      * @param pilot     whether the project is enrolled as a pilot of the lifecycle gate ({@code --pilot})
      * @return the enrolment as written
      * @throws StoreRefusal         as {@code enrolment_invalid} if the enrolment violates the enrolment policy, logged
-     *                              ({@code PM_MCP-165}) and audited, no key created; as {@code enrolment_tampered} if
-     *                              the integrity key is absent while enrolment files exist, naming the first enrolled
+     *                              ({@code PM_RUNTIME-120}) and audited, no key created; as
+     *                              {@code enrolment_tampered} if the integrity key is absent while enrolment files exist, naming the first enrolled
      *                              project and its {@code accept-edit} command; nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
      * @throws UncheckedIOException if a file or the intent file cannot be written or the enrolment directory cannot be
@@ -242,7 +242,7 @@ public final class Enrolments {
      * discarded), so the file it signs is the settled one and the values it reports describe it. The file must pass
      * the per-use checks and read strictly as
      * an enrolment of the project; nothing else of it is changed. The checks, the strict read and the signature cover
-     * one no-follow snapshot of the file; a file that fails a check is refused, logged ({@code PM_MCP-162}) and
+     * one no-follow snapshot of the file; a file that fails a check is refused, logged ({@code PM_RUNTIME-117}) and
      * audited ({@code enrolment_insecure}) without owing or writing anything. The decoded enrolment is checked against
      * the enrolment policy before the key is read, so a re-baseline never signs a file that violates it. The
      * credentials lock is acquired before the project's lock, as in {@link #enrol(ProjectEnrolment, boolean)}.
@@ -259,7 +259,7 @@ public final class Enrolments {
      *                              fails a per-use check (a symbolic link is refused, never followed) or changed
      *                              while it was read, as {@code unreadable}, {@code format_outdated} or
      *                              {@code format_newer} if it does not read strictly, as {@code enrolment_invalid} if
-     *                              it violates the enrolment policy (logged {@code PM_MCP-165} and audited, before
+     *                              it violates the enrolment policy (logged {@code PM_RUNTIME-120} and audited, before
      *                              the key is read or anything is owed); nothing was written then
      * @throws SecretStoreException if the integrity key cannot be read or created; nothing was written then
      * @throws UncheckedIOException if a staged file of a stopped write cannot be listed, read, moved or deleted
@@ -345,7 +345,7 @@ public final class Enrolments {
      * cannot be read, rewritten or removed): the file is kept, the replay goes on, and after the last project the first
      * failure in the order of the project ids is thrown as its own type, with every later failure of either type added
      * to it as a suppressed exception. The records of the other projects are handed over by then; the count of a
-     * replay that threw is not returned, the handed-over records are logged ({@code PM_MCP-63}). Any other failure,
+     * replay that threw is not returned, the handed-over records are logged ({@code PM_RUNTIME-22}). Any other failure,
      * such as a stop, ends the replay at once.
      *
      * @return the number of records handed over; a record the sink refuses again stays owed and is not counted
@@ -401,7 +401,7 @@ public final class Enrolments {
 
     /**
      * Refuses an enrolment that violates the enrolment policy, before anything is signed, owed or written and before
-     * the key is resolved: logged ({@code PM_MCP-165}) and audited as {@code enrolment_invalid}.
+     * the key is resolved: logged ({@code PM_RUNTIME-120}) and audited as {@code enrolment_invalid}.
      */
     private void requireCompliant(ProjectEnrolment enrolment) {
         var violations = EnrolmentPolicy.violations(enrolment, store.base());

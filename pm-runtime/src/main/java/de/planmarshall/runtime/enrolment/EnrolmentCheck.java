@@ -19,7 +19,6 @@ import java.util.function.Supplier;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -28,6 +27,7 @@ import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.credentials.SecretStoreException;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The enrolment check (PM-EXEC-2, PM-SEC-4, PM-SEC-5): what the runtime runs before it trusts anything in a project's
@@ -106,7 +106,7 @@ public final class EnrolmentCheck {
     /**
      * Checks the project's enrolment and reads it. The project's enrolment lock is acquired in the transaction if it
      * does not hold it yet. A refusal of the strict read of the sidecar or the file ({@code unreadable},
-     * {@code format_outdated}, {@code format_newer}) is logged ({@code PM_MCP-165}) and audited as
+     * {@code format_outdated}, {@code format_newer}) is logged ({@code PM_RUNTIME-120}) and audited as
      * {@code enrolment_invalid} with the reason {@code <outcome code> in <file name>}, and thrown as it is.
      *
      * @param transaction the transaction of the caller

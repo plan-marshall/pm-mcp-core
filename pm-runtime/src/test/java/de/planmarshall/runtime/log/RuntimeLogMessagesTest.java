@@ -7,21 +7,26 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.core.log;
+package de.planmarshall.runtime.log;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import de.cuioss.tools.logging.LogRecord;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
+
+
+import de.cuioss.tools.logging.LogRecord;
+import de.planmarshall.core.log.CoreLogMessages;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -29,11 +34,14 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * The registry numbers every message once (PM-IMPL-1): two messages with one identifier cannot be told apart in a
- * log, and an identifier outside the range of its level reads as another level.
+ * The holder numbers every message of {@code pm-runtime} once (PM-IMPL-1): two messages with one identifier cannot be
+ * told apart in a log, and an identifier outside the range of its level reads as another level.
  */
-@DisplayName("PmMcpLogMessages")
-class PmMcpLogMessagesTest {
+@DisplayName("RuntimeLogMessages")
+class RuntimeLogMessagesTest {
+
+    private static final String QUEUE_LOCK = "/pm-base/projects/sample-project/locks/queue.lock";
+    private static final String PLAN_LOCK = "/pm-base/projects/sample-project/locks/plan-plan-one.lock";
 
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
     @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
@@ -43,7 +51,7 @@ class PmMcpLogMessagesTest {
 
         assertFalse(records.isEmpty(), level);
         for (LogRecord logRecord : records) {
-            assertEquals(PmMcpLogMessages.PREFIX, logRecord.getPrefix());
+            assertEquals(RuntimeLogMessages.PREFIX, logRecord.getPrefix());
             assertTrue(logRecord.getIdentifier() >= first && logRecord.getIdentifier() <= last,
                     logRecord.resolveIdentifierString());
         }
@@ -63,23 +71,24 @@ class PmMcpLogMessagesTest {
         }
     }
 
-    static Stream<Arguments> enrolmentPairAndPolicyRecords() {
+    @Test
+    @DisplayName("the prefix is not the prefix of the holder of pm-core")
+    void prefixOwn() {
+        assertNotEquals(CoreLogMessages.PREFIX, RuntimeLogMessages.PREFIX);
+    }
+
+    static Stream<Arguments> enrolmentPolicyRecords() {
         return Stream.of(
-                Arguments.of(PmMcpLogMessages.INFO.ENROLMENT_PAIR_COMPLETED, "PM_MCP-64",
-                        "Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'"),
-                Arguments.of(PmMcpLogMessages.WARN.ENROLMENT_INVALID, "PM_MCP-165",
+                Arguments.of(RuntimeLogMessages.WARN.ENROLMENT_INVALID, "PM_RUNTIME-120",
                         "Enrolment of project '%s' refused with outcome 'enrolment_invalid': %s"),
-                Arguments.of(PmMcpLogMessages.WARN.ENROLMENT_PAIR_DISCARDED, "PM_MCP-166",
-                        "Incomplete staged write of the enrolment of project '%s' discarded, "
-                                + "the enrolment is as it was before the write: %s"),
-                Arguments.of(PmMcpLogMessages.WARN.ENROLMENT_AUDIT_REPLAY_FAILED, "PM_MCP-167",
+                Arguments.of(RuntimeLogMessages.WARN.ENROLMENT_AUDIT_REPLAY_FAILED, "PM_RUNTIME-121",
                         "Replay of the owed audit records of unenrolled projects failed: %s"));
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("enrolmentPairAndPolicyRecords")
-    @DisplayName("the records of the enrolment pair, the enrolment policy and the owed-audit replay")
-    void enrolmentPairAndPolicy(LogRecord logRecord, String identifier, String template) {
+    @MethodSource("enrolmentPolicyRecords")
+    @DisplayName("the records of the enrolment policy and the owed-audit replay")
+    void enrolmentPolicy(LogRecord logRecord, String identifier, String template) {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
                 () -> assertEquals(template, logRecord.getTemplate()));
@@ -87,7 +96,7 @@ class PmMcpLogMessagesTest {
 
     static Stream<Arguments> verifyNotResolveRecords() {
         return Stream.of(
-                Arguments.of(PmMcpLogMessages.WARN.JOB_REFUSED, "PM_MCP-180",
+                Arguments.of(RuntimeLogMessages.WARN.JOB_REFUSED, "PM_RUNTIME-122",
                         "Job of project '%s' refused with reason '%s': %s"));
     }
 
@@ -102,9 +111,9 @@ class PmMcpLogMessagesTest {
 
     static Stream<Arguments> sessionLogAndGenerationsRecords() {
         return Stream.of(
-                Arguments.of(PmMcpLogMessages.INFO.PENDING_ENTRY_RECORDS_SWEPT, "PM_MCP-65",
+                Arguments.of(RuntimeLogMessages.INFO.PENDING_ENTRY_RECORDS_SWEPT, "PM_RUNTIME-23",
                         "Periodic sweep removed %s pending entry records of project '%s'"),
-                Arguments.of(PmMcpLogMessages.INFO.FENCED_SESSION_GENERATIONS_SWEPT, "PM_MCP-66",
+                Arguments.of(RuntimeLogMessages.INFO.FENCED_SESSION_GENERATIONS_SWEPT, "PM_RUNTIME-24",
                         "Periodic sweep removed %s fenced session generations of project '%s'"));
     }
 
@@ -117,8 +126,32 @@ class PmMcpLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    @Nested
+    @DisplayName("locks and leases")
+    class LocksAndLeases {
+
+        @Test
+        @DisplayName("the messages of locks and leases carry the identifiers 11, 107 and 202")
+        void identifiers() {
+            assertAll(
+                    () -> assertEquals(11, RuntimeLogMessages.INFO.STALE_LEASE_SWEEP_FINISHED.getIdentifier()),
+                    () -> assertEquals(107, RuntimeLogMessages.WARN.LEASE_ORPHANED.getIdentifier()),
+                    () -> assertEquals(202, RuntimeLogMessages.ERROR.LOCK_ORDER_VIOLATION.getIdentifier()));
+        }
+
+        @Test
+        @DisplayName("the lock order violation message names the requested and the held lock paths")
+        void lockOrderViolation() {
+            var message = RuntimeLogMessages.ERROR.LOCK_ORDER_VIOLATION.format(PLAN_LOCK, List.of(QUEUE_LOCK));
+
+            assertAll(
+                    () -> assertTrue(message.contains(PLAN_LOCK), message),
+                    () -> assertTrue(message.contains(QUEUE_LOCK), message));
+        }
+    }
+
     private static List<LogRecord> records(String level) throws ReflectiveOperationException {
-        var holder = Class.forName(PmMcpLogMessages.class.getName() + "$" + level);
+        var holder = Class.forName(RuntimeLogMessages.class.getName() + "$" + level);
         var records = new ArrayList<LogRecord>();
         for (Field field : holder.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers()) && LogRecord.class.isAssignableFrom(field.getType())) {

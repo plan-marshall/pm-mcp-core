@@ -32,7 +32,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 import lombok.experimental.UtilityClass;
 
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.core.log.CoreLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 

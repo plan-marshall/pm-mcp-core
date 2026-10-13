@@ -13,8 +13,8 @@ import java.util.Objects;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.ERROR;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 
 /**
  * Installs and uninstalls the per-user service of the service-managed start mode (PM-ARCH-7), the work behind

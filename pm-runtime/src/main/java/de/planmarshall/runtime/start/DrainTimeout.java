@@ -20,7 +20,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import lombok.experimental.UtilityClass;
 
 /**

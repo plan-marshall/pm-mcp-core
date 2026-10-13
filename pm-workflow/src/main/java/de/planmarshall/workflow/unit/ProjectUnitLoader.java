@@ -9,8 +9,8 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import static de.planmarshall.core.log.PmMcpLogMessages.WARN;
+import static de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
+import static de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 
 import java.io.IOException;
 import java.nio.file.Files;
