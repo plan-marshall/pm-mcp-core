@@ -70,10 +70,13 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * names of the constants of {@link WorkflowScope}, {@link LinkRelation}, {@link LinkForm},
  * {@link StepCompletionStatus} and {@link OutcomeClass}, read off the enumerations as the printer writes them.
  * <p>
+ * The {@code derived_from <n>} clause of the header is recorded in {@link WorkflowDefinition#derivedFrom()} as
+ * {@code {<unit id> -> n}}. It is admitted only in a {@link UnitOrigin#PROJECT} unit: a default unit derives from
+ * nothing, so the clause is refused there, and a revision of zero is refused for every origin.
+ * <p>
  * The parser checks the grammar alone. The static verification rules of a unit (identifier length bounds, the
  * reachability, call-site and link-form rules), the merge of a multi-file unit (part versions, the derived-from
- * revision of every file) and the project-unit refusal of an {@code instance} line are the work of later stages; the
- * {@code derived_from} value of the header is read and checked, but not recorded.
+ * revisions of its files) and the project-unit refusal of an {@code instance} line are the work of later stages.
  *
  * @since 0.1
  */
@@ -170,9 +173,7 @@ public final class WorkflowParser {
         var version = positiveInt(header);
         header.expect("format");
         var formatVersion = positiveInt(header);
-        if (header.consumeIf("derived_from")) {
-            positiveInt(header);
-        }
+        var derivedFrom = parseDerivedFrom(header, id, origin);
         header.expectEnd();
         var instance = parseInstance();
         var scope = parseScope();
@@ -197,7 +198,25 @@ public final class WorkflowParser {
             parseState(states);
         } while (hasLine());
         return new WorkflowDefinition(id, version, scope, params, resultSchema, instance, declarations, decisions,
-                Map.of(), formatVersion, origin, Map.of(), startState, migrations, states, location);
+                Map.of(), formatVersion, origin, derivedFrom, startState, migrations, states, location);
+    }
+
+    /**
+     * Reads the optional {@code derived_from <n>} clause of the header into the map {@code {<unit id> -> n}}. The
+     * revision must be positive for every origin; the clause is refused on a {@link UnitOrigin#DEFAULT} unit, which
+     * derives from nothing.
+     */
+    private Map<String, Integer> parseDerivedFrom(LineCursor header, String id, UnitOrigin origin) {
+        if (!header.hasNext() || !header.peek().is("derived_from")) {
+            return Map.of();
+        }
+        var keyword = header.next("the keyword 'derived_from'");
+        var revision = positiveInt(header);
+        if (origin == UnitOrigin.DEFAULT) {
+            throw refuse(RefusalRule.STRUCTURE, keyword,
+                    "'derived_from' is admitted only in a project unit, but '%s' is parsed as a default unit", id);
+        }
+        return Map.of(id, revision);
     }
 
     private Optional<InstanceHeader> parseInstance() {

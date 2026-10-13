@@ -26,7 +26,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 /**
  * Reads the DSL fixtures of the tests from the test classpath: {@code dsl/valid/*.pmwf}, units that follow the grammar,
  * and {@code dsl/malformed/*.pmwf}, units the parser refuses. Every fixture is written for the tests, never copied
- * from a unit of the product.
+ * from a unit of the product. A valid fixture is parsed as a default unit unless a test parses it as a project unit.
  */
 final class DslFixtures {
 
@@ -76,13 +76,24 @@ final class DslFixtures {
     }
 
     /**
-     * Parses a fixture that must follow the grammar.
+     * Parses a fixture that must follow the grammar as a default unit.
      *
      * @param resource the classpath resource of the fixture
      * @return the tree of the fixture
      */
     static WorkflowDefinition parseValid(String resource) {
-        var result = WorkflowParser.parse(resource, read(resource), UnitOrigin.DEFAULT);
+        return parseValid(resource, UnitOrigin.DEFAULT);
+    }
+
+    /**
+     * Parses a fixture that must follow the grammar with the given origin.
+     *
+     * @param resource the classpath resource of the fixture
+     * @param origin   the origin the fixture is parsed with
+     * @return the tree of the fixture
+     */
+    static WorkflowDefinition parseValid(String resource, UnitOrigin origin) {
+        var result = WorkflowParser.parse(resource, read(resource), origin);
         return assertInstanceOf(ParseResult.Parsed.class, result, () -> resource + " was refused: " + result)
                 .definition();
     }

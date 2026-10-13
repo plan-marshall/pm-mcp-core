@@ -1,7 +1,7 @@
 # A plan unit written for the parser tests, not taken from any default unit.
-# It covers the header with derived_from, declare lines, migrate lines and the
+# It covers the header, declare lines, migrate lines and the
 # primitive-driven state bodies of a plan: auto, job, composite_job and call.
-workflow plan version 3 format 1 derived_from 2
+workflow plan version 3 format 1
 scope plan
 declare max_rounds = 3
 declare mode = strict

@@ -127,7 +127,15 @@ class WorkflowPrinterTest {
             """;
 
     private static WorkflowDefinition parse(String resource, String source) {
-        var result = WorkflowParser.parse(resource, source, UnitOrigin.DEFAULT);
+        return parse(resource, source, UnitOrigin.DEFAULT);
+    }
+
+    private static WorkflowDefinition parseProject(String resource, String source) {
+        return parse(resource, source, UnitOrigin.PROJECT);
+    }
+
+    private static WorkflowDefinition parse(String resource, String source, UnitOrigin origin) {
+        var result = WorkflowParser.parse(resource, source, origin);
         return assertInstanceOf(ParseResult.Parsed.class, result, () -> resource + " was refused: " + result)
                 .definition();
     }
@@ -302,6 +310,28 @@ class WorkflowPrinterTest {
             assertAll(
                     () -> assertEquals("workflow plan version 3 format 1", printed.lines().findFirst().orElseThrow()),
                     () -> assertTrue(printed.contains("    call git.no_args\n"), printed));
+        }
+
+        @Test
+        @DisplayName("round-trips the derived_from revision of a project unit")
+        void derivedFromRoundTrip() {
+            var source = """
+                    workflow demo version 4 format 1 derived_from 3
+                    scope plan
+                    start demo.end
+
+                    state demo.end terminal done success
+                        phase setup
+                    """;
+            var definition = parseProject("derived.pmwf", source);
+
+            var printed = WorkflowPrinter.print(definition);
+
+            assertAll(
+                    () -> assertEquals("workflow demo version 4 format 1 derived_from 3",
+                            printed.lines().findFirst().orElseThrow()),
+                    () -> assertEquals(source, printed),
+                    () -> assertEquals(strip(definition), strip(parseProject("printed.pmwf", printed))));
         }
 
         @Test

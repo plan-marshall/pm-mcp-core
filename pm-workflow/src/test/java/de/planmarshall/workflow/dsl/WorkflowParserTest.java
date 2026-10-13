@@ -187,7 +187,8 @@ class WorkflowParserTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("validFixtures")
-        @DisplayName("parses every valid fixture with the format of its header and nothing the merge would record")
+        @DisplayName("parses every valid fixture with the format of its header, no part versions "
+                + "and no derivedFrom for a default unit")
         void parses(String resource) {
             var definition = DslFixtures.parseValid(resource);
 
@@ -551,6 +552,29 @@ class WorkflowParserTest {
             var result = WorkflowParser.parse(PLAN_UNIT, source, UnitOrigin.PROJECT);
 
             assertEquals(UnitOrigin.PROJECT, assertInstanceOf(ParseResult.Parsed.class, result).definition().origin());
+        }
+
+        @Test
+        @DisplayName("records the derived_from revision of a project unit under the unit's id")
+        void derivedFromOfProjectUnit() {
+            var source = lines("workflow demo version 4 format 1 derived_from 3", "scope plan", "start demo.end",
+                    "state demo.end terminal done success", "phase setup");
+
+            var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
+
+            assertEquals(Map.of("demo", 3),
+                    assertInstanceOf(ParseResult.Parsed.class, result).definition().derivedFrom());
+        }
+
+        @Test
+        @DisplayName("records no derived_from for a project unit without the clause")
+        void noDerivedFromOfProjectUnit() {
+            var source = lines("workflow demo version 4 format 1", "scope plan", "start demo.end",
+                    "state demo.end terminal done success", "phase setup");
+
+            var result = WorkflowParser.parse("inline.pmwf", source, UnitOrigin.PROJECT);
+
+            assertEquals(Map.of(), assertInstanceOf(ParseResult.Parsed.class, result).definition().derivedFrom());
         }
 
         @Test
