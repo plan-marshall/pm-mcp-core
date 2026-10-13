@@ -22,7 +22,7 @@ The rules themselves are defined by the specification, link:../../../../plan-mar
 `UnitGraph`:: The transition graph of one unit: successors and predecessors, forward and backward closures, simple cycles, the reachability without a producer, and the configuration substrate of Rule 3.
 `TransitionFuzzer`:: A seeded explorer that draws Boolean assignments for the guard atoms of a unit and reports the states in which no exit holds (`FuzzConfiguration`: seed, runs, greatest number of steps).
 `WorkflowCatalog`:: The registered units a `call` may name and an entity kind's entity unit must name.
-`EntityKindRegistry`:: The entity kinds with their optional entity unit and return-evaluation primitive. The defaults carry no test identifier: `screen` has no entity unit, `task` runs `worker-task`, `decision`, `triage` and `simplify` run `entity`, `review` runs `entity-multi`.
+`EntityKindRegistry`:: The entity kinds with their optional entity unit and return-evaluation primitive. The defaults carry no test identifier: `screen` has no entity unit, `task` runs `worker-task`, `decision`, `triage` and `simplify` run `entity`, and the multi-submit lesson review `lessons-review` (return evaluation `lessons-review.evaluate`) runs `entity-multi`, named as the State Catalogue's `job llm lessons-review role lessons` (link:../adr/workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[ADR 012]). The entity kind is not the question class `review` below.
 `QuestionClassRegistry`:: The question classes and their closed resolution outcomes: `init`, `clarification`, `review`, `task`, `setup` and `ask` (`answered`, `assumed`).
 `SchemaRegistry`:: The names of the registered parameter schemas.
 
@@ -179,4 +179,4 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
 * Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
-* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 011
+* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 012
