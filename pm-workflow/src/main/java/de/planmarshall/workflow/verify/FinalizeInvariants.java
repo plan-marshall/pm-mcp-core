@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -156,40 +157,66 @@ final class FinalizeInvariants {
 
     private static void pushBarrier(Context context) {
         var id = InvariantId.INV_FIN_4;
+        reportSelfPushes(context);
+        var prePullRequestModes = prePullRequestModes(context);
         for (var state : context.states()) {
-            if (Context.primitiveId(state).filter(PUSH_PRIMITIVES::contains).isPresent()) {
-                context.reportState(id, state, "the state '%s' pushes itself instead of calling '%s'"
-                        .formatted(state.id(), CompiledInvariants.GIT_UNIT));
-            }
-        }
-        var prePullRequestModes = new LinkedHashSet<Optional<CallValue>>();
-        for (var state : context.reference().states().values()) {
-            if (isCommitCall(state) && !PUSH_BARRIER.equals(state.id())
-                    && !context.referenceDominates(CREATE_PR, state.id())) {
-                prePullRequestModes.add(pushMode(state));
-            }
-        }
-        for (var state : context.states()) {
-            if (!isCommitCall(state) || PUSH_BARRIER.equals(state.id())) {
-                continue;
-            }
-            var counterpart = context.referenceState(state.id()).filter(FinalizeInvariants::isCommitCall);
-            if (counterpart.isPresent()) {
-                if (!pushMode(counterpart.get()).equals(pushMode(state))) {
-                    context.reportState(id, state, "the call of '%s' in '%s' binds %s %s, the default unit %s"
-                            .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(pushMode(state)),
-                                    describe(pushMode(counterpart.get()))));
-                }
-                continue;
-            }
-            var afterPullRequest = context.state(CREATE_PR).isPresent() && context.dominates(CREATE_PR, state.id());
-            if (!afterPullRequest && !prePullRequestModes.contains(pushMode(state))) {
-                context.reportState(id, state, "the new call of '%s' in '%s' may push before the pull request (%s %s)"
-                        .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(pushMode(state))));
+            if (isCommitCall(state) && !PUSH_BARRIER.equals(state.id())) {
+                checkCommitCall(context, state, prePullRequestModes);
             }
         }
         context.requirePresent(id, CREATE_PR);
         context.requireDominance(id, CREATE_PR, MERGE_GATE);
+    }
+
+    /**
+     * Reports every state of the unit that runs a push primitive itself instead of calling the git unit.
+     */
+    private static void reportSelfPushes(Context context) {
+        for (var state : context.states()) {
+            if (Context.primitiveId(state).filter(PUSH_PRIMITIVES::contains).isPresent()) {
+                context.reportState(InvariantId.INV_FIN_4, state,
+                        "the state '%s' pushes itself instead of calling '%s'".formatted(state.id(),
+                                CompiledInvariants.GIT_UNIT));
+            }
+        }
+    }
+
+    /**
+     * @return the push modes the calls of the git unit in the default unit bind before the pull request, the push
+     *         barrier excluded, in declaration order
+     */
+    private static Set<Optional<CallValue>> prePullRequestModes(Context context) {
+        return context.reference().states().values().stream()
+                .filter(state -> isCommitCall(state) && !PUSH_BARRIER.equals(state.id())
+                        && !context.referenceDominates(CREATE_PR, state.id()))
+                .map(FinalizeInvariants::pushMode)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Checks one call of the git unit: a call the default unit has at the same state binds its push mode; a new
+     * call lies after the pull request or binds a push mode the default unit binds before it.
+     */
+    private static void checkCommitCall(Context context, StateNode state,
+            Set<Optional<CallValue>> prePullRequestModes) {
+        var id = InvariantId.INV_FIN_4;
+        var mode = pushMode(state);
+        var counterpart = context.referenceState(state.id()).filter(FinalizeInvariants::isCommitCall);
+        if (counterpart.isPresent()) {
+            var defaultMode = pushMode(counterpart.get());
+            if (!defaultMode.equals(mode)) {
+                context.reportState(id, state, "the call of '%s' in '%s' binds %s %s, the default unit %s"
+                        .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(mode),
+                                describe(defaultMode)));
+            }
+        } else if (!afterPullRequest(context, state) && !prePullRequestModes.contains(mode)) {
+            context.reportState(id, state, "the new call of '%s' in '%s' may push before the pull request (%s %s)"
+                    .formatted(CompiledInvariants.GIT_UNIT, state.id(), PUSH_MODE, describe(mode)));
+        }
+    }
+
+    private static boolean afterPullRequest(Context context, StateNode state) {
+        return context.state(CREATE_PR).isPresent() && context.dominates(CREATE_PR, state.id());
     }
 
     private static boolean isCommitCall(StateNode state) {
@@ -203,9 +230,9 @@ final class FinalizeInvariants {
 
     private static String describe(Optional<CallValue> value) {
         return value.map(bound -> switch (bound) {
-            case CallValue.EnumValue enumValue -> enumValue.value();
-            case CallValue.IntValue intValue -> Integer.toString(intValue.value());
-            case CallValue.EnumList list -> list.values().toString();
+            case CallValue.EnumValue(var text) -> text;
+            case CallValue.IntValue(var number) -> Integer.toString(number);
+            case CallValue.EnumList(var values) -> values.toString();
         }).orElse("unbound");
     }
 

@@ -15,12 +15,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.OutcomeTransition;
+import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
@@ -150,52 +153,87 @@ final class RemediationInvariants {
     // ----- INV-REM-1
 
     private static void contract(Context context) {
-        var id = InvariantId.INV_REM_1;
         var unit = context.unit();
+        var expected = expectedParams(unit);
+        for (var param : unit.params()) {
+            checkParam(context, expected, param);
+        }
+        reportMissingParams(context, expected.keySet());
+        var reachable = context.reachable();
+        for (var state : context.states()) {
+            if (Context.isTerminal(state)) {
+                checkTerminal(context, state, reachable);
+            }
+        }
+    }
+
+    /**
+     * @return the parameters of the contract but {@code actions}, by name, with their declared types
+     */
+    private static Map<String, ParamType> expectedParams(WorkflowDefinition unit) {
         var expected = new LinkedHashMap<String, ParamType>();
         expected.put(WAIVER_WAIT, WAIT_TYPE);
         if (!SPEND_UNIT.equals(unit.id())) {
             expected.put(RETRY_BUDGET, BUDGET_TYPE);
             expected.put(FIX_BUDGET, BUDGET_TYPE);
         }
-        for (var param : unit.params()) {
-            if (ACTIONS.equals(param.name()) && !SPEND_UNIT.equals(unit.id())) {
-                checkActions(context, param.type(), param.location());
-                continue;
-            }
-            var type = expected.get(param.name());
-            if (type == null) {
-                context.report(id, unit.id(), param.location(), "the parameter '%s' is not part of the contract"
-                        .formatted(param.name()));
-            } else if (!type.equals(param.type())) {
-                context.report(id, unit.id(), param.location(), "the parameter '%s' is not declared as %s"
-                        .formatted(param.name(), describe(type)));
-            }
+        return expected;
+    }
+
+    /**
+     * Checks one declared parameter against the contract: {@code actions} against the action set, every other one
+     * against its expected type.
+     */
+    private static void checkParam(Context context, Map<String, ParamType> expected, ParamDecl param) {
+        var id = InvariantId.INV_REM_1;
+        var unitId = context.unit().id();
+        if (ACTIONS.equals(param.name()) && !SPEND_UNIT.equals(unitId)) {
+            checkActions(context, param.type(), param.location());
+            return;
         }
+        var type = expected.get(param.name());
+        if (type == null) {
+            context.report(id, unitId, param.location(), "the parameter '%s' is not part of the contract"
+                    .formatted(param.name()));
+        } else if (!type.equals(param.type())) {
+            context.report(id, unitId, param.location(), "the parameter '%s' is not declared as %s"
+                    .formatted(param.name(), describe(type)));
+        }
+    }
+
+    /**
+     * Reports every parameter of the contract the unit does not declare, {@code actions} last.
+     */
+    private static void reportMissingParams(Context context, Set<String> expectedNames) {
+        var id = InvariantId.INV_REM_1;
+        var unit = context.unit();
         var declared = new LinkedHashSet<String>();
         unit.params().forEach(param -> declared.add(param.name()));
-        expected.keySet().stream().filter(name -> !declared.contains(name)).forEach(name -> context.reportUnit(id,
+        expectedNames.stream().filter(name -> !declared.contains(name)).forEach(name -> context.reportUnit(id,
                 "the unit does not declare the parameter '%s'".formatted(name)));
         if (!SPEND_UNIT.equals(unit.id()) && !declared.contains(ACTIONS)) {
             context.reportUnit(id, "the unit does not declare the parameter '%s'".formatted(ACTIONS));
         }
-        var reachable = context.reachable();
-        for (var state : context.states()) {
-            if (!Context.isTerminal(state)) {
-                continue;
-            }
-            var outcome = state.terminalOutcome();
-            var expectedClass = outcome.map(terminal -> TERMINALS.get(terminal.id()));
-            if (expectedClass.isEmpty() || expectedClass.get() != outcome.get().outcomeClass()) {
-                context.reportState(id, state, "the terminal '%s' is none of resolved, waived, exhausted and"
-                        .formatted(state.id()) + " fix_requested with its class");
-            } else if (GeneralInvariants.WAIVED.equals(outcome.get().id()) && !WAIVABLE_UNITS.contains(unit.id())) {
-                context.reportState(id, state, "the class of '%s' has no waivable gate, so it ends nothing waived"
-                        .formatted(unit.id()));
-            }
-            if (!reachable.contains(state.id())) {
-                context.reportState(id, state, "the terminal '%s' is not reachable".formatted(state.id()));
-            }
+    }
+
+    /**
+     * Checks one terminal: its outcome is one of the contract's with its class, {@code waived} only for a class with
+     * a waivable gate, and it is reachable.
+     */
+    private static void checkTerminal(Context context, StateNode state, Set<String> reachable) {
+        var id = InvariantId.INV_REM_1;
+        var unitId = context.unit().id();
+        var outcome = state.terminalOutcome();
+        var expectedClass = outcome.map(terminal -> TERMINALS.get(terminal.id()));
+        if (expectedClass.isEmpty() || expectedClass.get() != outcome.get().outcomeClass()) {
+            context.reportState(id, state, "the terminal '%s' is none of resolved, waived, exhausted and"
+                    .formatted(state.id()) + " fix_requested with its class");
+        } else if (GeneralInvariants.WAIVED.equals(outcome.get().id()) && !WAIVABLE_UNITS.contains(unitId)) {
+            context.reportState(id, state, "the class of '%s' has no waivable gate, so it ends nothing waived"
+                    .formatted(unitId));
+        }
+        if (!reachable.contains(state.id())) {
+            context.reportState(id, state, "the terminal '%s' is not reachable".formatted(state.id()));
         }
     }
 
@@ -297,40 +335,61 @@ final class RemediationInvariants {
     // ----- INV-REM-3
 
     private static void waivedPath(Context context) {
-        var id = InvariantId.INV_REM_3;
         for (var edge : Context.edges(context.unit())) {
-            var source = edge.source();
-            var transition = edge.transition();
-            var entersWaived = context.state(transition.targetStateId())
-                    .flatMap(StateNode::terminalOutcome)
-                    .filter(outcome -> GeneralInvariants.WAIVED.equals(outcome.id())).isPresent();
-            var admitted = hasSuffix(source.id(), GATHER) && GeneralInvariants.ALL_WAIVED.equals(transition.outcomeName())
-                    || hasSuffix(source.id(), WAIVER_WAIT_STATE)
-                    && GeneralInvariants.WAIVED.equals(transition.outcomeName());
-            if (entersWaived && !admitted) {
-                context.reportTransition(id, source, transition, "'%s' enters the waived terminal on '%s'"
-                        .formatted(source.id(), transition.outcomeName()));
-            }
-            var entersWait = hasSuffix(transition.targetStateId(), WAIVER_WAIT_STATE);
-            var admittedEntry = hasSuffix(source.id(), WAIVER_WAIT_STATE)
-                    || hasSuffix(source.id(), BUDGET_CHECK) && "exhausted_wait".equals(transition.outcomeName())
-                    || hasSuffix(source.id(), CHOOSE) && "request_waiver".equals(transition.outcomeName());
-            if (entersWait && !admittedEntry) {
-                context.reportTransition(id, source, transition, "'%s' enters the waiver wait on '%s'"
-                        .formatted(source.id(), transition.outcomeName()));
-            }
+            checkWaivedEntry(context, edge.source(), edge.transition());
+            checkWaiverWaitEntry(context, edge.source(), edge.transition());
         }
         for (var state : context.states()) {
-            var awaitsWaiver = context.primitive(state)
-                    .filter(primitive -> primitive.awaitedEvent() == AwaitedEvent.OPERATOR_WAIVER).isPresent();
-            var isWait = hasSuffix(state.id(), WAIVER_WAIT_STATE);
-            if (awaitsWaiver && !isWait) {
-                context.reportState(id, state, "'%s' awaits an operator waiver but is not the waiver wait"
-                        .formatted(state.id()));
-            }
-            if (isWait && !(state.behavior() instanceof StateBehavior.JobStep job && job.composite())) {
-                context.reportState(id, state, "the waiver wait '%s' is not a composite_job".formatted(state.id()));
-            }
+            checkWaiverWait(context, state);
+        }
+    }
+
+    /**
+     * A transition enters the {@code waived} terminal only on {@code all_waived} of {@code gather} or on
+     * {@code waived} of {@code waiver-wait}.
+     */
+    private static void checkWaivedEntry(Context context, StateNode source, OutcomeTransition transition) {
+        var entersWaived = context.state(transition.targetStateId())
+                .flatMap(StateNode::terminalOutcome)
+                .filter(outcome -> GeneralInvariants.WAIVED.equals(outcome.id())).isPresent();
+        var admitted = hasSuffix(source.id(), GATHER) && GeneralInvariants.ALL_WAIVED.equals(transition.outcomeName())
+                || hasSuffix(source.id(), WAIVER_WAIT_STATE)
+                && GeneralInvariants.WAIVED.equals(transition.outcomeName());
+        if (entersWaived && !admitted) {
+            context.reportTransition(InvariantId.INV_REM_3, source, transition,
+                    "'%s' enters the waived terminal on '%s'".formatted(source.id(), transition.outcomeName()));
+        }
+    }
+
+    /**
+     * A transition enters {@code waiver-wait} only from itself, on {@code exhausted_wait} of {@code budget-check} or
+     * on {@code request_waiver} of {@code choose}.
+     */
+    private static void checkWaiverWaitEntry(Context context, StateNode source, OutcomeTransition transition) {
+        var entersWait = hasSuffix(transition.targetStateId(), WAIVER_WAIT_STATE);
+        var admittedEntry = hasSuffix(source.id(), WAIVER_WAIT_STATE)
+                || hasSuffix(source.id(), BUDGET_CHECK) && "exhausted_wait".equals(transition.outcomeName())
+                || hasSuffix(source.id(), CHOOSE) && "request_waiver".equals(transition.outcomeName());
+        if (entersWait && !admittedEntry) {
+            context.reportTransition(InvariantId.INV_REM_3, source, transition,
+                    "'%s' enters the waiver wait on '%s'".formatted(source.id(), transition.outcomeName()));
+        }
+    }
+
+    /**
+     * Only {@code waiver-wait} awaits an operator waiver, and it is a {@code composite_job}.
+     */
+    private static void checkWaiverWait(Context context, StateNode state) {
+        var id = InvariantId.INV_REM_3;
+        var awaitsWaiver = context.primitive(state)
+                .filter(primitive -> primitive.awaitedEvent() == AwaitedEvent.OPERATOR_WAIVER).isPresent();
+        var isWait = hasSuffix(state.id(), WAIVER_WAIT_STATE);
+        if (awaitsWaiver && !isWait) {
+            context.reportState(id, state, "'%s' awaits an operator waiver but is not the waiver wait"
+                    .formatted(state.id()));
+        }
+        if (isWait && !(state.behavior() instanceof StateBehavior.JobStep job && job.composite())) {
+            context.reportState(id, state, "the waiver wait '%s' is not a composite_job".formatted(state.id()));
         }
     }
 
@@ -345,7 +404,7 @@ final class RemediationInvariants {
             for (var transition : Context.transitions(state)) {
                 var commitLess = CompiledInvariants.STEPPED_OUT.equals(transition.outcomeName())
                         || SubWorkflowInvariants.DONE.equals(transition.outcomeName())
-                        && transition.resultGuard().map(guard -> guard.negated()).orElse(true);
+                        && transition.resultGuard().map(ResultGuard::negated).orElse(true);
                 if (commitLess && !hasSuffix(transition.targetStateId(), BUDGET_CHECK)) {
                     context.reportTransition(id, state, transition,
                             "the nested commit '%s' routes '%s' without a commit to '%s', not to '%s'".formatted(
@@ -358,55 +417,91 @@ final class RemediationInvariants {
     // ----- INV-REM-5
 
     private static void callers(Context context) {
-        var id = InvariantId.INV_REM_5;
         var afterMerge = afterMerge(context);
         for (var state : context.states()) {
-            if (!(state.behavior() instanceof StateBehavior.SubWorkflowCall call)
-                    || !call.subWorkflowId().startsWith(CompiledInvariants.REMEDIATION_PREFIX)) {
-                continue;
+            if (state.behavior() instanceof StateBehavior.SubWorkflowCall call
+                    && call.subWorkflowId().startsWith(CompiledInvariants.REMEDIATION_PREFIX)) {
+                checkRemediationCall(context, state, call, afterMerge);
             }
-            var early = CompiledInvariants.PHASES_BEFORE_EXECUTE.contains(state.phase());
-            var fallback = early ? CompiledInvariants.PLAN_RETURN : CompiledInvariants.HAND_BACK;
-            var replanAdmitted = !SPEND_UNIT.equals(call.subWorkflowId()) && (
-                    CompiledInvariants.PHASE_EXECUTE.contains(state.phase()) && !state.id().startsWith("land.")
-                            || CompiledInvariants.PHASE_FINALIZE.equals(state.phase())
-                            && !afterMerge.contains(state.id()));
-            for (var transition : Context.transitions(state)) {
-                var target = transition.targetStateId();
-                switch (transition.outcomeName()) {
-                    case CompiledInvariants.STEPPED_OUT -> {
-                        if (!fallback.equals(target)) {
-                            context.reportTransition(id, state, transition, "'%s' routes 'stepped_out' to '%s', not"
-                                    .formatted(state.id(), target) + " to the fallback '%s'".formatted(fallback));
-                        }
-                    }
-                    case EXHAUSTED -> {
-                        var toReplan = replanAdmitted && context.state(target).flatMap(Context::callee)
-                                .filter(REPLAN_UNIT::equals).isPresent();
-                        if (!fallback.equals(target) && !toReplan) {
-                            context.reportTransition(id, state, transition, "'%s' routes 'exhausted' to '%s', not to"
-                                    .formatted(state.id(), target) + " the fallback '%s'%s".formatted(fallback,
+        }
+    }
+
+    /**
+     * Checks one call of a remediation unit: the routing of each of its outcomes and the bound budgets.
+     */
+    private static void checkRemediationCall(Context context, StateNode state, StateBehavior.SubWorkflowCall call,
+            Set<String> afterMerge) {
+        var early = CompiledInvariants.PHASES_BEFORE_EXECUTE.contains(state.phase());
+        var fallback = early ? CompiledInvariants.PLAN_RETURN : CompiledInvariants.HAND_BACK;
+        var replanAdmitted = replanAdmitted(state, call, afterMerge);
+        for (var transition : Context.transitions(state)) {
+            checkCallerRoute(context, state, transition, fallback, replanAdmitted);
+        }
+        checkBudgetBindings(context, InvariantId.INV_REM_5, state, call);
+    }
+
+    /**
+     * @return {@code true} when the call may route {@code exhausted} to the re-planning unit: from Phase 5 outside
+     *         the {@code land} lane and from Phase 6 before the merge, for every unit but {@code remediation.spend}
+     */
+    private static boolean replanAdmitted(StateNode state, StateBehavior.SubWorkflowCall call,
+            Set<String> afterMerge) {
+        return !SPEND_UNIT.equals(call.subWorkflowId()) && (
+                CompiledInvariants.PHASE_EXECUTE.contains(state.phase()) && !state.id().startsWith("land.")
+                        || CompiledInvariants.PHASE_FINALIZE.equals(state.phase())
+                        && !afterMerge.contains(state.id()));
+    }
+
+    /**
+     * Checks the route of one outcome of a remediation call; {@code resolved} continues the caller's flow.
+     */
+    private static void checkCallerRoute(Context context, StateNode state, OutcomeTransition transition,
+            String fallback, boolean replanAdmitted) {
+        switch (transition.outcomeName()) {
+            case CompiledInvariants.STEPPED_OUT -> requireFallback(context, state, transition, fallback);
+            case EXHAUSTED -> requireFallbackOrReplan(context, state, transition, fallback, replanAdmitted);
+            case GeneralInvariants.WAIVED, FIX_REQUESTED_OUTCOME -> requireReferenceRoute(context,
+                    InvariantId.INV_REM_5, state, transition);
+            default -> {
+                // resolved continues the caller's flow
+            }
+        }
+    }
+
+    /**
+     * {@code stepped_out} routes to the phase's fallback.
+     */
+    private static void requireFallback(Context context, StateNode state, OutcomeTransition transition,
+            String fallback) {
+        var target = transition.targetStateId();
+        if (!fallback.equals(target)) {
+            context.reportTransition(InvariantId.INV_REM_5, state, transition,
+                    "'%s' routes 'stepped_out' to '%s', not".formatted(state.id(), target)
+                            + " to the fallback '%s'".formatted(fallback));
+        }
+    }
+
+    /**
+     * {@code exhausted} routes to the phase's fallback or, where admitted, to a call of the re-planning unit.
+     */
+    private static void requireFallbackOrReplan(Context context, StateNode state, OutcomeTransition transition,
+            String fallback, boolean replanAdmitted) {
+        var target = transition.targetStateId();
+        var toReplan = replanAdmitted && context.state(target).flatMap(Context::callee)
+                .filter(REPLAN_UNIT::equals).isPresent();
+        if (!fallback.equals(target) && !toReplan) {
+            context.reportTransition(InvariantId.INV_REM_5, state, transition,
+                    "'%s' routes 'exhausted' to '%s', not to".formatted(state.id(), target)
+                            + " the fallback '%s'%s".formatted(fallback,
                                     replanAdmitted ? " or a re-planning call" : ""));
-                        }
-                    }
-                    case GeneralInvariants.WAIVED, FIX_REQUESTED_OUTCOME -> requireReferenceRoute(context, id, state,
-                            transition);
-                    default -> {
-                        // resolved continues the caller's flow
-                    }
-                }
-            }
-            checkBudgetBindings(context, id, state, call);
         }
     }
 
     private static Set<String> afterMerge(Context context) {
-        var mergeTargets = new LinkedHashSet<String>();
-        for (var edge : Context.edges(context.unit())) {
-            if (FinalizeInvariants.MERGED.equals(edge.transition().outcomeName())) {
-                mergeTargets.add(edge.transition().targetStateId());
-            }
-        }
+        var mergeTargets = Context.edges(context.unit()).stream()
+                .filter(edge -> FinalizeInvariants.MERGED.equals(edge.transition().outcomeName()))
+                .map(edge -> edge.transition().targetStateId())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         return context.graph().forwardClosure(mergeTargets);
     }
 

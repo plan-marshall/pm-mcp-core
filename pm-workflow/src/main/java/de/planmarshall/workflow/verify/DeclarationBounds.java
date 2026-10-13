@@ -178,9 +178,9 @@ public final class DeclarationBounds {
 
     private static String describe(CallValue value) {
         return switch (value) {
-            case CallValue.IntValue intValue -> Integer.toString(intValue.value());
-            case CallValue.EnumValue enumValue -> "'%s'".formatted(enumValue.value());
-            case CallValue.EnumList list -> list.values().toString();
+            case CallValue.IntValue(var number) -> Integer.toString(number);
+            case CallValue.EnumValue(var text) -> "'%s'".formatted(text);
+            case CallValue.EnumList(var values) -> values.toString();
         };
     }
 

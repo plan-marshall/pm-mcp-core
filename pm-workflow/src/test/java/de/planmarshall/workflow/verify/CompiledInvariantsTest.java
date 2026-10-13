@@ -406,12 +406,14 @@ class CompiledInvariantsTest {
         var invariants = InvariantFixtures.invariants();
         var unit = InvariantFixtures.defaultUnits().get(PLAN_UNIT);
         var rules = InvariantFixtures.validator().verify(unit);
+        var registry = InvariantFixtures.registry();
+        var noUnits = Set.<WorkflowDefinition>of();
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> invariants.check(null, rules, List.of())),
                 () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, null, List.of())),
                 () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, rules, null)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new CompiledInvariants(InvariantFixtures.registry(), Set.of(), null)));
+                        () -> new CompiledInvariants(registry, noUnits, null)));
     }
 }

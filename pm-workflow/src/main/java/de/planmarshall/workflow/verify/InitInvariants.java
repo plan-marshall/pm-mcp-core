@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 
 import de.planmarshall.workflow.ast.StateBehavior;
+import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 
@@ -96,7 +97,7 @@ final class InitInvariants {
                     .filter(transition -> !Context.hasTransition(context.unit(), gate, transition.outcomeName(),
                             transition.targetStateId()))
                     .forEach(transition -> context.report(id, gate, context.state(gate)
-                                    .map(state -> state.location()).orElse(context.unit().location()),
+                                    .map(StateNode::location).orElse(context.unit().location()),
                             "the ratchet transition '%s' -> '%s' of '%s' is missing".formatted(
                                     transition.outcomeName(), transition.targetStateId(), gate))));
         }

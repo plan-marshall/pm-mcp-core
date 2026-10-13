@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 import de.planmarshall.workflow.ast.StateNode;
@@ -116,6 +117,22 @@ final class RefineInvariants {
      */
     private static List<Edge> exitsAvoiding(WorkflowDefinition definition, UnitGraph graph, String required) {
         var states = definition.states();
+        var reached = reachedRefineStates(states, refineEntries(definition), graph, required);
+        return reached.values().stream()
+                .flatMap(source -> Context.transitions(source).stream().map(transition -> new Edge(source, transition)))
+                .filter(edge -> {
+                    var target = states.get(edge.transition().targetStateId());
+                    return target != null && !isRefine(target) && !FALLBACKS.contains(target.id());
+                })
+                .toList();
+    }
+
+    /**
+     * @return the refine states a path enters the phase at: the start state when it is a refine state, then every
+     *         refine state a transition from outside the phase targets, in declaration order
+     */
+    private static Set<String> refineEntries(WorkflowDefinition definition) {
+        var states = definition.states();
         var entries = new LinkedHashSet<String>();
         if (isRefine(states.get(definition.startState()))) {
             entries.add(definition.startState());
@@ -126,28 +143,39 @@ final class RefineInvariants {
                 entries.add(target.id());
             }
         }
+        return entries;
+    }
+
+    /**
+     * Walks the refine phase breadth-first from its entries without passing the required state.
+     *
+     * @return the refine states reached, in the order they were reached
+     */
+    private static Map<String, StateNode> reachedRefineStates(Map<String, StateNode> states, Set<String> entries,
+            UnitGraph graph, String required) {
         var reached = new LinkedHashMap<String, StateNode>();
         var queue = new ArrayDeque<String>();
-        for (var entry : entries) {
-            if (!entry.equals(required) && reached.putIfAbsent(entry, states.get(entry)) == null) {
-                queue.add(entry);
-            }
-        }
+        entries.stream()
+                .filter(entry -> !entry.equals(required))
+                .forEach(entry -> visit(reached, queue, entry, states.get(entry)));
         while (!queue.isEmpty()) {
             for (var next : graph.successors(queue.poll())) {
                 var nextState = states.get(next);
-                if (isRefine(nextState) && !next.equals(required) && reached.putIfAbsent(next, nextState) == null) {
-                    queue.add(next);
+                if (isRefine(nextState) && !next.equals(required)) {
+                    visit(reached, queue, next, nextState);
                 }
             }
         }
-        return reached.values().stream()
-                .flatMap(source -> Context.transitions(source).stream().map(transition -> new Edge(source, transition)))
-                .filter(edge -> {
-                    var target = states.get(edge.transition().targetStateId());
-                    return target != null && !isRefine(target) && !FALLBACKS.contains(target.id());
-                })
-                .toList();
+        return reached;
+    }
+
+    /**
+     * Records a reached state and queues it for the walk unless it was reached before.
+     */
+    private static void visit(Map<String, StateNode> reached, Queue<String> queue, String id, StateNode state) {
+        if (reached.putIfAbsent(id, state) == null) {
+            queue.add(id);
+        }
     }
 
     private static boolean isRefine(StateNode state) {

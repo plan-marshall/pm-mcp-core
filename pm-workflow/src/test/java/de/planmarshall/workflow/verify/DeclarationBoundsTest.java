@@ -277,12 +277,13 @@ class DeclarationBoundsTest {
     void nullArguments() {
         var location = InvariantFixtures.parse(REPLAN_FILE, InvariantFixtures.read(REPLAN_FILE), UnitOrigin.DEFAULT)
                 .location();
+        var kind = new DeclarationBounds.DecisionKind();
+        var scope = new CallValue.EnumValue("scope");
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> DeclarationBounds.check(null)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new DeclarationBounds.Declaration(null, new DeclarationBounds.DecisionKind(),
-                                new CallValue.EnumValue("scope"))),
+                        () -> new DeclarationBounds.Declaration(null, kind, scope)),
                 () -> assertThrows(NullPointerException.class,
                         () -> new DeclarationBounds.Finding("name", location, null, "message")));
     }

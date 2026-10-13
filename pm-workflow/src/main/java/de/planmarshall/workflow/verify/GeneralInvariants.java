@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 import de.planmarshall.core.spi.OutcomeClass;
+import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
@@ -183,30 +184,39 @@ final class GeneralInvariants {
     }
 
     private static void conservativeLost(Context context, StateNode state) {
-        var id = InvariantId.INV_GEN_5;
         for (var transition : Context.transitionsOn(state, CompiledInvariants.LOST)) {
-            var target = transition.targetStateId();
-            if (ADJUDICATE_VOTE.equals(state.id())) {
-                if (!ADJUDICATE_ESCALATED.equals(target)) {
-                    context.reportTransition(id, state, transition, "the outcome 'lost' of '%s' routes to '%s', not to '%s'"
-                            .formatted(state.id(), target, ADJUDICATE_ESCALATED));
-                }
-                continue;
-            }
-            var successTerminal = context.state(target)
-                    .filter(targetState -> Context.isTerminalOfClass(targetState, OutcomeClass.SUCCESS)).isPresent();
-            if (successTerminal) {
-                context.reportTransition(id, state, transition,
-                        "the outcome 'lost' of '%s' ends in the success terminal '%s'".formatted(state.id(), target));
-                continue;
-            }
-            context.referenceState(state.id())
-                    .flatMap(counterpart -> Context.transitionsOn(counterpart, CompiledInvariants.LOST).stream()
-                            .findFirst())
-                    .filter(conservative -> !conservative.targetStateId().equals(target))
-                    .ifPresent(conservative -> context.reportTransition(id, state, transition,
-                            "the outcome 'lost' of '%s' routes to '%s', the default unit's conservative route to '%s'"
-                                    .formatted(state.id(), target, conservative.targetStateId())));
+            checkLostTransition(context, state, transition);
         }
+    }
+
+    /**
+     * Checks one {@code lost} transition of a model-job state: the vote of the adjudication routes it to the
+     * escalation, no other state ends it in a success terminal, and every other state routes it as the default unit
+     * does.
+     */
+    private static void checkLostTransition(Context context, StateNode state, OutcomeTransition transition) {
+        var id = InvariantId.INV_GEN_5;
+        var target = transition.targetStateId();
+        if (ADJUDICATE_VOTE.equals(state.id())) {
+            if (!ADJUDICATE_ESCALATED.equals(target)) {
+                context.reportTransition(id, state, transition, "the outcome 'lost' of '%s' routes to '%s', not to '%s'"
+                        .formatted(state.id(), target, ADJUDICATE_ESCALATED));
+            }
+            return;
+        }
+        var successTerminal = context.state(target)
+                .filter(targetState -> Context.isTerminalOfClass(targetState, OutcomeClass.SUCCESS)).isPresent();
+        if (successTerminal) {
+            context.reportTransition(id, state, transition,
+                    "the outcome 'lost' of '%s' ends in the success terminal '%s'".formatted(state.id(), target));
+            return;
+        }
+        context.referenceState(state.id())
+                .flatMap(counterpart -> Context.transitionsOn(counterpart, CompiledInvariants.LOST).stream()
+                        .findFirst())
+                .filter(conservative -> !conservative.targetStateId().equals(target))
+                .ifPresent(conservative -> context.reportTransition(id, state, transition,
+                        "the outcome 'lost' of '%s' routes to '%s', the default unit's conservative route to '%s'"
+                                .formatted(state.id(), target, conservative.targetStateId())));
     }
 }
