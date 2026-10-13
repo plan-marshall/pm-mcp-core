@@ -116,12 +116,12 @@ public interface PendingEntryReader {
                 requireNonBlank(reason, "reason");
             }
         }
-    }
 
-    private static void requireNonBlank(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+        private static void requireNonBlank(String value, String name) {
+            Objects.requireNonNull(value, name);
+            if (value.isBlank()) {
+                throw new IllegalArgumentException(name + " must not be blank");
+            }
         }
     }
 }
