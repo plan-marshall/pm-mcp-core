@@ -71,19 +71,26 @@ class FinalizeStepDescriptorTest {
         @DisplayName("hands out collections that refuse a change")
         void unmodifiable() {
             var descriptor = FinalizeFixtures.full();
+            var presets = descriptor.presets();
+            var verdictInputs = descriptor.verdictInputs();
+            var reads = descriptor.reads();
+            var destroys = descriptor.destroys();
+            var recordsFacts = descriptor.recordsFacts();
+            var requires = descriptor.requires();
+            var configurable = descriptor.configurable();
+            var requiresPromptFields = descriptor.requiresPromptFields();
+            var filesFindings = descriptor.filesFindings();
 
             assertAll(
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.presets().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.verdictInputs().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.reads().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.destroys().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.recordsFacts().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.requires().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class, () -> descriptor.configurable().clear()),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> descriptor.requiresPromptFields().add("x")),
-                    () -> assertThrows(UnsupportedOperationException.class,
-                            () -> descriptor.filesFindings().add("x")));
+                    () -> assertThrows(UnsupportedOperationException.class, () -> presets.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> verdictInputs.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> reads.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> destroys.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> recordsFacts.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> requires.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, configurable::clear),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> requiresPromptFields.add("x")),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> filesFindings.add("x")));
         }
 
         @Test

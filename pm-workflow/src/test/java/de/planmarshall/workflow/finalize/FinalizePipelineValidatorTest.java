@@ -73,7 +73,7 @@ class FinalizePipelineValidatorTest {
                 refusal("a read after the destroy", PipelineRule.READS_BEFORE_DESTROYS, "default:late-reader",
                         withAdded(step("default:late-reader", 80).reads("worktree").build())),
                 refusal("a metrics consumer before 998 without the snapshot", PipelineRule.READS_BEFORE_DESTROYS,
-                        RETROSPECTIVE, withStep(RETROSPECTIVE, step -> step.recordsFacts())),
+                        RETROSPECTIVE, withStep(RETROSPECTIVE, FinalizeFixtures.Step::recordsFacts)),
                 refusal("a head-dependent step without an input scope", PipelineRule.ANCHOR_AND_FACT_CONTRACT,
                         PRE_PUSH, withStep(PRE_PUSH, FinalizeFixtures.Step::headDependentWithoutScope)),
                 refusal("the scope declared with empty verdict inputs", PipelineRule.ANCHOR_AND_FACT_CONTRACT, SONAR,
@@ -113,7 +113,7 @@ class FinalizePipelineValidatorTest {
         @Test
         @DisplayName("passes a metrics consumer ordered after record-metrics without the snapshot label")
         void consumerAfterRecordMetrics() {
-            var roster = withStep(BREAKDOWN, step -> step.recordsFacts());
+            var roster = withStep(BREAKDOWN, FinalizeFixtures.Step::recordsFacts);
 
             assertEquals(List.of(), FinalizePipelineValidator.validate(roster));
         }
