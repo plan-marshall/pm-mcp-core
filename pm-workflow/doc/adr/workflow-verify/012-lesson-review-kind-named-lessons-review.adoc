@@ -1,0 +1,42 @@
+= ADR 012: The Lesson Review Entity Kind Is Named `lessons-review`
+:nofooter:
+
+== Status
+
+Accepted. Amends decision 2 of link:005-rule-6-stepped-out-and-registries.adoc[ADR 005] in the name of its multi-submit kind.
+
+== Date
+
+2026-10-13
+
+== Context
+
+`EntityKindRegistry.defaults()` registered the multi-submit lesson review under the entity kind `review`, with the return-evaluation primitive `review.evaluate` (ADR 005, decision 2). The State Catalogue declares the same work as `job llm lessons-review role lessons` in the lesson maintenance unit (`lessons.review`): its entity runs the multi-submit entity unit `entity-multi`. The drift was found by work package `entity-addressing` (PLAN-21), whose workspace fixture unit hosts the lesson review and addresses its task entity: a unit written as the specification states it names a kind the defaults did not register.
+
+The name `review` is also the question class `review` (`approve`, `revise`, `returned`) of `QuestionClassRegistry`, a separate vocabulary.
+
+== Decision
+
+Operator decision at the outline of PLAN-21 (answer `rename-to-lessons-review`): the default entity kind of the multi-submit lesson review is named `lessons-review`, as in the State Catalogue, with the return-evaluation primitive `lessons-review.evaluate` in the `<kind>.evaluate` form of the other defaults; its entity unit stays `entity-multi`. No kind named `review` remains among the defaults, and no alias is registered. The question class `review` keeps its name.
+
+== Alternatives Considered
+
+1. **Keep `review` and record a watch item**:
+The defaults stay as PLAN-44 shipped them, and the mismatch is listed in the implementation watch.
+*Rejected*: the code would contradict the specification, and every unit written from the State Catalogue would have to register the kind again.
+
+2. **Register `lessons-review` beside `review`**:
+Both names resolve to the same kind.
+*Rejected*: two names for one kind; the registry would accept units that name a kind the specification does not have.
+
+== Consequences
+
+* `EntityKindRegistry.defaults()` registers `lessons-review` on `entity-multi` with `lessons-review.evaluate`; `RegistriesAndRecordsTest` asserts the new name and that `review` is no default entity kind.
+* ADR 005 keeps its decision text as the record of what PLAN-44 shipped; its status names this amendment.
+* No watch item is recorded: the drift is resolved in the code.
+
+== Source
+
+* State Catalogue, § Lesson Maintenance, `lessons.review` (`plan-marshall-documentation`)
+* `doc/plans/entity-addressing.adoc`
+* link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]

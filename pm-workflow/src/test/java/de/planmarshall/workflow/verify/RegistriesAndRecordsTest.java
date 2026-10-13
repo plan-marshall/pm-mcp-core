@@ -64,7 +64,9 @@ class RegistriesAndRecordsTest {
                 () -> assertTrue(defaults.find("decision").isPresent()),
                 () -> assertTrue(defaults.find("triage").isPresent()),
                 () -> assertTrue(defaults.find("simplify").isPresent()),
-                () -> assertTrue(defaults.find("review").isPresent()),
+                () -> assertTrue(defaults.find("lessons-review").isPresent()),
+                () -> assertFalse(defaults.find("review").isPresent(),
+                        "the lesson review kind is named lessons-review, review is no entity kind"),
                 () -> assertFalse(defaults.find("nonexistent").isPresent())
         );
 
@@ -74,10 +76,13 @@ class RegistriesAndRecordsTest {
                 () -> assertEquals(Optional.of("entity"), defaults.find("decision").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("entity"), defaults.find("triage").orElseThrow().entityUnit()),
                 () -> assertEquals(Optional.of("entity"), defaults.find("simplify").orElseThrow().entityUnit()),
-                () -> assertEquals(Optional.of("entity-multi"), defaults.find("review").orElseThrow().entityUnit())
+                () -> assertEquals(Optional.of("entity-multi"),
+                        defaults.find("lessons-review").orElseThrow().entityUnit()),
+                () -> assertEquals("lessons-review.evaluate",
+                        defaults.find("lessons-review").orElseThrow().returnEvaluationPrimitiveId())
         );
 
-        var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "review").stream()
+        var defaultIdentifiers = Set.of("screen", "task", "decision", "triage", "simplify", "lessons-review").stream()
                 .map(name -> defaults.find(name).orElseThrow())
                 .flatMap(kind -> Stream.concat(Stream.of(kind.name(), kind.returnEvaluationPrimitiveId()),
                         kind.entityUnit().stream()))

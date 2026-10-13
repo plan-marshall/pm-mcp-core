@@ -1,0 +1,42 @@
+= ADR 010: Addressing Writes No Log Record
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+INFO, WARN and ERROR messages of the product are `LogRecord` constants of `PmMcpLogMessages` in `pm-core`, each
+documented in `doc/LogMessages.adoc` of the documentation, and the identifier block WS-03 of that class is reserved
+for identifier messages. A refused address is an expected answer to a model's argument, which the caller of the
+resolver reports in its tool result (link:007-refused-address-is-a-value.adoc[ADR 007]).
+
+== Decision
+
+* The addressing writes no log record: `EntityAddressResolver` and `EntityIdGrammar` hold no logger, and a refusal is
+  a value its caller reports.
+* The WS-03 identifier block of `PmMcpLogMessages` stays untouched, and `doc/LogMessages.adoc` gets no entry.
+
+== Alternatives Considered
+
+1. *Log every refusal at WARN*.
+   _Rejected_: a model that names a wrong entity is not a fault of the server; one warning per refused call would
+   flood the log with the model's mistakes and repeat what the tool result already says.
+2. *Log an `entry_unreadable` refusal*, the one that points at a broken store.
+   _Rejected_: the store that cannot read its record is the place that knows why and logs it; the resolver only
+   carries the reason on.
+
+== Consequences
+
+* No log assertion exists for the addressing; `EntityAddressingTest` asserts the refusals as values.
+* When the binding of `pm_state` and `pm_do` needs a log record, it adds one in its own work package.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+* `doc/plans/entity-addressing.adoc`; outline of PLAN-21

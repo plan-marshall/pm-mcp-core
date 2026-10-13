@@ -4,7 +4,7 @@
 == Status
 
 Decision 1 (conditional `stepped_out`): Superseded by link:009-rule-6-implicit-stepped-out.adoc[ADR 009].
-Decisions 2 to 4: Accepted.
+Decisions 2 to 4: Accepted; the multi-submit lesson review kind `review` of decision 2 is renamed `lessons-review` by link:012-lesson-review-kind-named-lessons-review.adoc[ADR 012].
 
 == Date
 

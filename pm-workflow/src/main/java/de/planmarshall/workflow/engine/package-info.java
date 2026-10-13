@@ -34,5 +34,17 @@
  * The engine counts no retry itself: a retrying primitive counts through
  * {@link de.planmarshall.core.store.RetryCounters}, and the engine drops the counts of every state of a sub-workflow
  * when it pops or unwinds that sub-workflow's frame.
+ * <p>
+ * Entity addressing (PM-ARCH-4, PM-WF-1): an {@link de.planmarshall.workflow.engine.EntityAddress} names an entity
+ * within a plan, an epic, or the project's workspace scope, which a tool call names with {@code plan_id: NO_PLAN} and
+ * which carries no scope id. {@link de.planmarshall.workflow.engine.EntityAddressResolver} checks the entity
+ * identifier and {@code enrich-<module_id>} against their grammars (held by {@code EntityIdGrammar}, their only place)
+ * and the {@code entry_id} against the grammar of {@link de.planmarshall.core.store.EntryId}, which owns it, and
+ * resolves the identifier only within the addressed scope: a pending plan or epic bootstrap by its typed
+ * {@code entry_id} through the port
+ * {@link de.planmarshall.core.spi.PendingEntryReader}, a task entity from the {@code active_tasks} of the scope's own
+ * status. The result, an {@link de.planmarshall.workflow.engine.AddressResolution}, is the entity with its kind or a
+ * refusal with a closed reason; a refusal is a value, never an exception. The resolver is no member of
+ * {@link de.planmarshall.workflow.engine.WorkflowEngine.Ports}.
  */
 package de.planmarshall.workflow.engine;

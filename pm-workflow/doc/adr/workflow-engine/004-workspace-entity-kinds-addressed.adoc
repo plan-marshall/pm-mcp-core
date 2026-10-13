@@ -1,0 +1,54 @@
+= ADR 004: The Workspace Entity Kinds Addressed Are the Bootstraps and the Workspace-Hosted Tasks
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+PM-ARCH-4 requires every stateful call to carry its scope and, for an entity, the entity identifier, and to resolve the
+entity from persisted state only. The workspace scope of a project, addressed with `plan_id` `NO_PLAN`, hosts more
+than one kind of entity: the plan and epic bootstraps, one instance per pending entry record and addressed by its
+`entry_id` (State Catalogue § Bootstrap of a Plan, § Bootstrap of an Epic), and the tasks of its own task states, such
+as the architecture enrichment of the setup and the lesson review of the lesson maintenance. Work package
+`entity-addressing` names the bootstrap units in its title, and the question was whether the addressing covers the
+bootstraps alone or every entity kind the workspace scope hosts. The operator answered it in the refinement of PLAN-21
+(question q1).
+
+== Decision
+
+* The entity kinds of the workspace scope that are addressed and resolved are the bootstrap entries `bootstrap-plan`
+  and `bootstrap-epic`, by their `entry_id`, and the workspace-hosted task entities: the architecture enrichment
+  `enrich-<module_id>` and the lesson review.
+* `EntityAddressingTest` addresses and resolves each of them in a workspace fixture unit, and refuses an address of
+  another scope.
+
+== Alternatives Considered
+
+1. *The bootstraps only*, as the title of the work package reads.
+   _Rejected_: the workspace scope hosts task entities as well, and an addressing that knows only the bootstraps would
+   leave the task entities of the same scope without a resolution, to be added by a later package in a second form.
+2. *Every entity kind of every scope at once*, plan and epic entities included.
+   _Rejected_: the plan and epic entities come with their own units in later work packages; the resolver resolves a
+   task of any scope the same way, so nothing is lost by proving it on the workspace scope first.
+
+== Consequences
+
+* The resolver knows two forms of a workspace entity: an `entry_id`, read through the pending entry port
+  (link:006-entry-records-read-through-core-spi-port.adoc[ADR 006]), and a task entity of the current task state, with
+  the identifier forms of link:009-entity-id-forms-of-workspace-task-entities.adoc[ADR 009].
+* The binding of `pm_state` and `pm_do` and the bootstrap units follow in Milestone 7 and use this resolution.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4],
+  link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1]
+* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan],
+  link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap-epic[§ Bootstrap of an Epic],
+  link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-lessons[§ Lesson Maintenance]
+* `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q1

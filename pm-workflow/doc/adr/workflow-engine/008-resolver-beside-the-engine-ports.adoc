@@ -1,0 +1,50 @@
+= ADR 008: The Resolver Is Its Own Type Beside the Engine Ports
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+`WorkflowEngine` takes its ports in one record `Ports` (`JobStarter`, `QueueTaskCreator`, `QuestionRecordReader`,
+`WorkflowClock`) and interprets one top-level unit. Resolving an address needs the pending entry port, the entity kinds
+the units were verified against, the status of the addressed scope and the unit that holds its current state; it runs
+no state and changes no status. The call sites of the resolution, `pm_state` and `pm_do`, are bound in Milestone 7.
+
+== Decision
+
+* `EntityAddressResolver` is its own type in `workflow.engine`. Its constructor takes the `PendingEntryReader` and the
+  `EntityKindRegistry`; it is not a fifth member of `WorkflowEngine.Ports`.
+* Its operation is `resolve(EntityAddress address, WorkflowStatus hostStatus, WorkflowDefinition hostUnit)`: the
+  status of the addressed scope as the store holds it, and the unit that holds the current state of that status (the
+  sub-workflow of the top call frame, or the top-level unit). The unit supplies the entity kind of a task state,
+  because a task entry of the status carries no kind.
+* The wiring into the engine and into `pm_state` and `pm_do` follows with their binding in Milestone 7.
+
+== Alternatives Considered
+
+1. *A fifth member of `WorkflowEngine.Ports` and a method of `WorkflowEngine`*.
+   _Rejected_: every engine and every engine test would have to supply a port the interpreter never uses, and the
+   resolution would be tied to one top-level unit although an address may be resolved in a sub-workflow's state.
+2. *Resolve from the status alone*, without the unit.
+   _Rejected_: the status holds the queue tasks of the current state but not the entity kind of the state, nor whether
+   the state fans out; both come from the unit.
+
+== Consequences
+
+* The resolver can be built and tested without an engine; `EngineFixtures.resolver()` builds it over the fixture's
+  port double and entity kinds.
+* The caller looks up the unit of the current state before it resolves; a unit without that state is refused with an
+  exception.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4],
+  link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
+* link:../../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools § Core Workflow Tools]
+* `doc/plans/entity-addressing.adoc`; outline of PLAN-21

@@ -1,0 +1,76 @@
+= ADR 006: An `entry_id` Is Resolved Through the Port `PendingEntryReader`
+:nofooter:
+
+== Status
+
+Accepted; amended 2026-10-13 (see <<amendment-2026-10-13>>)
+
+== Date
+
+2026-10-13
+
+== Context
+
+A bootstrap is addressed in the workspace scope by its `entry_id` and exists only as its pending entry record: no
+scope exists before the bootstrap's `create` succeeds, and the record is deleted when the bootstrap ends or swept when
+it is abandoned (State Catalogue § Bootstrap of a Plan). PM-ARCH-4 requires the entity to be resolved from the
+persisted record, never from the memory of a running engine. The pending entry store belongs to `pm-runtime`, which
+`pm-workflow` must not depend on. The question was how the engine reads the record. The operator answered it in the
+refinement of PLAN-21 (question q3).
+
+== Decision
+
+* The engine reads a pending entry record through the port `PendingEntryReader` of `core.spi`, beside
+  `QuestionRecordReader`.
+* The read is tri-state: `Live` with the kind of the bootstrap (`plan` or `epic`), `Deleted` when no record exists,
+  and `Unreadable` with the reason when the record exists and cannot be read.
+* The pending entry store of `pm-runtime` implements the port; no class of `pm-core` does. The tests of `pm-workflow`
+  use the double `FixedPendingEntryReader` of `EngineFixtures`.
+
+== Alternatives Considered
+
+1. *A two-valued read* (found or not found).
+   _Rejected_: a record that exists and cannot be read would be taken either for a deleted bootstrap, hiding a broken
+   store, or for a live one, addressing a bootstrap whose state is unknown.
+2. *Read the store directly from `pm-workflow`*.
+   _Rejected_: the dependency rules of the build allow `pm-workflow` to depend on `pm-core` alone; the store is a
+   runtime concern.
+
+== Consequences
+
+* An `Unreadable` read is refused `entry_unreadable` and never resolved
+  (link:007-refused-address-is-a-value.adoc[ADR 007]).
+* The resolver takes the port in its constructor, not through the engine's `Ports`
+  (link:008-resolver-beside-the-engine-ports.adoc[ADR 008]).
+
+[#amendment-2026-10-13]
+== Amendment (2026-10-13): The Port Is Implemented Over `core.store.PendingEntryStore`
+
+The context above states that the pending entry store belongs to `pm-runtime`, and the decision that the store of
+`pm-runtime` implements the port. Both are refuted: the session log and generations work (pm-mcp-core#51) added the
+store to `pm-core` as `core.store.PendingEntryStore`, with the record `PendingEntryRecord` and the typed id `EntryId`.
+`PendingEntryStore.read(EntryId)` returns an `Optional<PendingEntryRecord>` and throws `StoreRefusal` for a record in
+another format version, an unreadable record, or one that states another `entry_id` than its file name. The decision
+is amended:
+
+* The port stays where it is, in `core.spi` beside `QuestionRecordReader`: it is the engine's read view of a pending
+  entry record, and `pm-workflow` still reads no store directly.
+* `PendingEntryReader.ReadRequest` carries the typed `core.store.EntryId`, not a string
+  (link:005-address-grammar-in-workflow-engine-only.adoc[ADR 005]).
+* The tri-state read is unchanged and maps the store as follows: a record read is `Live` with the wire name of its
+  kind (`plan` or `epic`); an empty read is `Deleted`; a `StoreRefusal`, or an `UncheckedIOException` of a record that
+  exists and cannot be read, is `Unreadable` with the reason of the failure.
+* The port is implemented over `PendingEntryStore` in `pm-runtime`, which implements the engine ports and holds the
+  store of each project's workspace scope; no class of `pm-core` implements an engine port (PM-IMPL-5). This pull
+  request adds no implementation: no caller of the resolver exists before the binding of `pm_state` and `pm_do` in
+  Milestone 7, and until the runtime wires the adapter only the test doubles implement the port.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
+* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
+* `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q3
+* Amendment: `pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java` and `EntryId.java`, added by
+  pm-mcp-core#51 (commit `d7b622d`); operator decision of 2026-10-13 in the finalize of PLAN-21 to rework the
+  addressing in its pull request
