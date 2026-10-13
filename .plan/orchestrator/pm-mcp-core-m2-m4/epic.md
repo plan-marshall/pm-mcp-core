@@ -284,6 +284,15 @@ decision or a dependency outside this repository.
   package `chat`, staged as parked PLAN-55.
 - 2026-10-13 — Operator rule: the harness is Claude Code unless the operator states otherwise.
 
+- 2026-10-13 — PLAN-18 `verify-not-resolve` landed as #43 (68c6bc3), Claude Code; landing record
+  `landings/PLAN-18.md`. CI green, pre-commit on the final head, required bots re-reviewed (one
+  override for the optional Sourcery only), module docs plus 3 ADRs. Operator decisions dropped the
+  wrapper git-tracked requirement from the specification and limited the forbidden free flags to
+  canonical build jobs. Documentation PR #46 open and behind the code. Inbox drain of 24 messages:
+  the landing reconciled; 2 lessons promoted (2026-10-13-07-001, -002), 1 folded into 2026-10-11-20-001,
+  20 routed (`pm-mcp-core-m2-m4-169.md` to `-188.md`). The stray plan-marshall lesson 2026-10-11-07-001
+  in this store was routed as `-189.md` and removed; the store holds no plan-marshall lesson now.
+
 ## Open Defects
 
 - The static verifier does not meet the Done-When of `static-verifier-remaining-rules` or `static-verifier-rule-gaps`. Rule 6 now contradicts the specification, and the package file, ADRs and developer guide over-claim. The index says `done` for both packages. Owned by PLAN-54 — source: landings PLAN-41 and PLAN-44.
@@ -321,6 +330,7 @@ decision or a dependency outside this repository.
 - `FindingSchemaParityTest` of PLAN-36 and `WorkflowStatusSchemaParityTest` of PLAN-13 read the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
+- `plan-marshall-documentation` #46 (PLAN-18) is open and predates the review fixes (host-tool refusal, `maxLength`, `projectScriptArguments`) — needs a follow-up commit before merge.
 - Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
   (PLAN-02) — operator merges. (#33 of PLAN-08 merged.)
 - Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /

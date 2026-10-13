@@ -45,6 +45,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **One file is shared by every plan.** In `doc/plans/README.adoc` change only this package's own row.
 - **Log messages: the identifier block of WS-04.** New records in `PmMcpLogMessages` take the lowest free identifier of INFO 080-089, WARN 180-189, ERROR 280-289 and stand under one block comment for the workstream, as the existing blocks do. Renumber nothing. The block is shared with the other plans of WS-04: after a rebase, run `PmMcpLogMessagesTest`, which refuses an identifier used twice, and move to the next free one. A plan that needs more than the block holds stops and reports it through its inbox message. The same identifiers go into `doc/LogMessages.adoc` in the documentation pull request.
 
+- **Carried from PLAN-18 (#43, 2026-10-13).** (a) The caller closes its `LockTransaction` as soon as `VerifyNotResolvePipeline.verify` returns, never while the job launches or runs (`pm-runtime/doc/developer/runtime-job.adoc`). (b) Open review concern recorded in ADR runtime-job/001: `maxLength` bounds the input but not the regex matching time under the caller's enrolment lock; a per-match time budget (no new dependency) or a non-backtracking engine (new dependency — ask first) would close it. Decide at refine whether this package takes it or leaves it to `job-confinement-and-environment`, and say so.
+
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/job-runner.adoc` § What, Trace, Done When (origin/main at 7d99648)
