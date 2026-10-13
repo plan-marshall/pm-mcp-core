@@ -20,7 +20,7 @@ WS-10: `{module}/doc/developer/{package}.adoc`, the package name with dots repla
 
 ## Deliverables
 
-1. **`pm-core/doc/developer/`**:
+1. **`pm-core/doc/developer/`** (PLAN-13 created `core-store.adoc` there on 2026-10-13 — extend it, do not overwrite):
    - `core-store.adoc`, which takes over `doc/developer/store-substrate.adoc` and the store part of
      `locks-and-leases.adoc` from `plan-marshall-documentation`, and covers the confinement
      (`PathConfinement`, `WorkspaceRoots`, `ConfinementOutcome`) and the enrolment store if PLAN-11

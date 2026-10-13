@@ -49,7 +49,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the package file and its index row (`blocked`; depends on `plan-and-epic-control`; UC-CTL-3 agreed (no work package)) — read at `doc/plans/epic-findings-review.adoc` and `doc/plans/README.adoc` (main at 7503bc2)
+- OBSERVED: the package file and its index row (`blocked`; since #46 also on `chat`; depends on `plan-and-epic-control`; UC-CTL-3 agreed (no work package)) — read at `doc/plans/epic-findings-review.adoc` and `doc/plans/README.adoc` (main at 7503bc2)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
 
@@ -61,7 +61,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-51 (`plan-and-epic-control`); UC-CTL-3 agreed (no work package)
+- Depends on: PLAN-51 (`plan-and-epic-control`); UC-CTL-3 agreed (no work package); PLAN-55 (`chat`) — added to the index row by #46
 
 ## Hand-Off Command
 

@@ -52,6 +52,7 @@ decision or a dependency outside this repository.
   They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
 - PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
 - PLAN-44 — shipped as #38, gaps materially open. PLAN-54 is the second remediation (Claude Code only); PLAN-17 waits for it, PLAN-13 does not.
+- PLAN-55 — parked: `chat`, added by #46 (2026-10-13), blocked; PLAN-51, PLAN-52 and PLAN-53 now also depend on it.
 - PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
@@ -274,6 +275,15 @@ decision or a dependency outside this repository.
 - 2026-10-12 — #39 to #42 added eight `blocked` packages; staged as parked PLAN-46 to PLAN-53 from
   their package files. PLAN-45's dependency widened to UC-PRJ-1 to UC-PRJ-3.
 
+- 2026-10-13 — PLAN-13 `workflow-engine` landed as #45 (5a5db68), Claude Code; landing record
+  `landings/PLAN-13.md`. Clean: CI green, `/review` after every round with no override, pre-commit
+  on the final head, documentation PR #49 merged, and the first plan to follow the WS-10 module
+  documentation rule (developer guides plus 9 ADRs). Inbox drain of 19 messages: the landing
+  reconciled; 1 lesson promoted (2026-10-13-06-001, specification drift during a run), 1 folded into
+  2026-10-10-14-001, 16 routed as `pm-mcp-core-m2-m4-153.md` to `-168.md`. #46 added the `blocked`
+  package `chat`, staged as parked PLAN-55.
+- 2026-10-13 — Operator rule: the harness is Claude Code unless the operator states otherwise.
+
 ## Open Defects
 
 - The static verifier does not meet the Done-When of `static-verifier-remaining-rules` or `static-verifier-rule-gaps`. Rule 6 now contradicts the specification, and the package file, ADRs and developer guide over-claim. The index says `done` for both packages. Owned by PLAN-54 — source: landings PLAN-41 and PLAN-44.
@@ -300,10 +310,7 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- No plan records its harness: no archived plan has the `client.toon` pre-flight artifact
-  (`runtime-info` → `harness:`), so Antigravity vs Claude Code is told apart only by indirect traces
-  (`antigravity_runtime` calls, `unmeasured` metrics). Ask the operator which harness ran a plan
-  until plan-marshall stamps it (high-priority finding `pm-mcp-core-m2-m4-132.md`).
+- No plan records its harness (high-priority finding `pm-mcp-core-m2-m4-132.md`). The operator's rule since 2026-10-13: assume Claude Code unless stated otherwise.
 - **Non-Claude-Code runs (Antigravity, opencode) need the extended landing verification** (code-vs-package audit, build-log and
   gate check, review trail), because the plan's self-report was unreliable on its first run (seven
   high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.
@@ -311,7 +318,7 @@ decision or a dependency outside this repository.
   PLAN-41's execute (07:25Z); PLAN-44 re-verifies against the current specification.
 
 
-- `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
+- `FindingSchemaParityTest` of PLAN-36 and `WorkflowStatusSchemaParityTest` of PLAN-13 read the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
 - Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
