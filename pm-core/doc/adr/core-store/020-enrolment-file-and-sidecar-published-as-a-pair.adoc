@@ -1,0 +1,39 @@
+= ADR 020: The Enrolment File and Its Sidecar Are Published as a Pair
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-12
+
+== Context
+
+An enrolment consists of two files, the enrolment file and its integrity sidecar. A sidecar without its file and a
+file without its sidecar must each be refused and audited. The rule for writing the two was settled in the review
+rounds of the pull request.
+
+== Decision
+
+* The enrolment file and its sidecar are staged completely and then published as a pair.
+* `recoverPair` rolls a stopped write forward or discards it.
+* The re-baseline settles a stopped write first, and `unenrol` also cancels a staged-only enrolment.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A stopped write never leaves a file without its sidecar or a sidecar without its file once recovery has run.
+* The pair recovery is part of the enrolment integrity step that runs first in recovery (`ENROLMENT_INTEGRITY`, step 1, built by `ProjectRecovery.withEnrolment(...)` in `pm-runtime`).
+
+== Source
+
+* Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, section "Changes from the review rounds"
+* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/11-enrolment-store.adoc[Store Schemas § Enrolment Store]

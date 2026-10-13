@@ -1,0 +1,37 @@
+= ADR 011: A Multi-File Write of One Scope Rolls Forward Through a Per-Scope Journal
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The lock manager and the leases had landed without the rest of the store substrate: a multi-file write in one scope
+had no crash-safe protocol.
+
+== Decision
+
+* Each scope has a transaction journal (`TransactionJournal`, `JournalScope`, `JournalScopeType`, `TransactionId`; the journal document is `mcp/transaction-journal.json`).
+* `ScopeTransaction` commits a multi-file write in five steps: stage, journal, apply, record digests, close.
+* `JournalRecovery` completes an interrupted commit by rolling it forward, removes orphan staged files, and reports an invariant violation for a target that has neither the new digest nor its staged file.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A kill between any two writes of a transaction is completed by recovery; crash-point tests prove it.
+* Later stores write through `ScopeTransaction`; the workflow status store adds its document to the caller's transaction (ADR 003).
+* The runtime-start wiring of recovery belongs to a later package.
+
+== Source
+
+* Pull request #26, `feat(core): add versioned store substrate with journal and digests`
+* Work package link:../../../../doc/plans/store-substrate.adoc[`store-substrate`] (PLAN-06)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]

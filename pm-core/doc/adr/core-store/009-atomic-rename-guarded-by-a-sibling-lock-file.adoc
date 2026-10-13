@@ -1,0 +1,41 @@
+= ADR 009: A Store Is Replaced by Atomic Rename, Guarded by a Sibling Lock File
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+The work package asks for sibling lock files for every store replaced by atomic rename, lock paths outside the
+directories they protect, and lock-free snapshot reads of the stores. The specification prescribed a temp file, a
+force and an atomic move for the write.
+
+== Decision
+
+* `AtomicStoreFile` (a record) replaces a store by atomic rename. The write is guarded by the store's sibling lock file, outside the directories the locks protect, and never by a lock on the store file.
+* After the atomic move, `AtomicStoreFile.write` forces the parent directory to disk. This goes beyond the written specification, whose amendment was handed to `plan-marshall-documentation`; rationale not recorded.
+* `StoreSnapshot` reads without taking any lock and reports `digest_unverified` rather than a breach.
+
+Guarding by a sibling lock file keeps readers lock-free: a snapshot read never sees a half-written store and reports an
+unverified digest instead of a breach.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A test proves that a store replaced by atomic rename is guarded by its sibling lock file and never by a lock on the store file, and that a snapshot read takes no lock.
+* No test can observe the force of the parent directory; the test shows only that the directory is opened after the rename.
+* `AtomicStoreFile` assumes POSIX and does not create `state/`.
+
+== Source
+
+* Pull request #20, `feat(runtime): add lock manager, lease records and stale lease sweep`, section "Decisions beyond the written specification"
+* Work package link:../../../../doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]

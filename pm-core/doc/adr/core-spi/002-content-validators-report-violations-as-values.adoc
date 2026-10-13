@@ -1,0 +1,40 @@
+= ADR 002: Content Validators Report Each Violation as a Value
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+There was no in-process validator for the text payloads a `submit` transition carries: commit messages, AsciiDoc and
+solution outlines. A primitive runs such validators over what a model or an operator submits.
+
+== Decision
+
+The content validators of `de.planmarshall.core.spi.validation` sit behind one `ContentValidator` contract:
+`ConventionalCommitValidator`, `AsciiDocValidator` and `OutlineValidator`. Each reports every violation as a
+`ContentViolation` value carrying the rule key, the line and the offending content.
+
+A rejection can thereby name its cause.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Each validator has its own test class.
+* Everything the validators need lies inside `pm-core`.
+* `OutlineValidator` rules that need the working tree, task derivation or build extensions are not implemented; the dependency coordinate forms it accepts (Maven, npm, PEP 508) are an implementer judgment, not taken from a specification.
+* No rule checks a `deliverable_id`, because no document states the form of a deliverable heading in an outline.
+
+== Source
+
+* Pull request #18, `feat(core): primitive SPI, registry and content validators`
+* Work package link:../../../../doc/plans/primitive-spi-and-validators.adoc[`primitive-spi-and-validators`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/05-primitives.adoc[Workflow DSL § Primitives]

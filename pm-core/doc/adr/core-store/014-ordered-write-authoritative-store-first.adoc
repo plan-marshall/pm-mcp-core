@@ -1,0 +1,39 @@
+= ADR 014: The Ordered Write Writes the Authoritative Store First
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+The work package asks, beside the per-scope journal (ADR 011), for a fixed write order of a transaction that writes
+outside its scope.
+
+== Decision
+
+`OrderedWrite` is a generic executor that writes the authoritative store first; each further write is a transaction of
+its own store. The writes after the first are handed to the reconciler seam `CrossScopeReconciler` for startup
+recovery, with one audit record per reconciliation. The executor knows no concrete flow.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Crash-point tests prove the order and the reconciliation.
+* `AuditEvent` of `core.service` gains the reconciliation events.
+* No concrete flow uses the ordered write yet, and the runtime-start wiring of recovery belongs to a later package.
+
+== Source
+
+* Pull request #26, `feat(core): add versioned store substrate with journal and digests`
+* Work package link:../../../../doc/plans/store-substrate.adoc[`store-substrate`] (PLAN-06)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]

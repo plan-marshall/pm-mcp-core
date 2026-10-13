@@ -1,0 +1,40 @@
+= ADR 013: One Shared `StoreRefusal` for Every Store
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+Format-version refusals existed only as nested types of the lease codec (`LeaseCodec.Refusal`, `FormatException`).
+The work package requires `format_version` on every document and record: exactly the current version is accepted, any
+other refused as `format_outdated` or `format_newer`.
+
+== Decision
+
+One shared `StoreRefusal` (outcomes absent, unreadable, `format_outdated`, `format_newer`) and `StrictJson` replace the
+nested `LeaseCodec.Refusal` and `FormatException`. `LeaseCodec`, `LeaseStore` and `StaleLeaseSweep` of `pm-runtime`
+move onto them.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A document of another `format_version` is refused with its file named.
+* Later stores refuse through the same type: the workflow status store (ADR 001) and the enrolment store (ADR 016)
+  report a schema violation as a `StoreRefusal`.
+
+== Source
+
+* Pull request #26, `feat(core): add versioned store substrate with journal and digests`
+* Work package link:../../../../doc/plans/store-substrate.adoc[`store-substrate`] (PLAN-06)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]

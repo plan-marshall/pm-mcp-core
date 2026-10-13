@@ -1,0 +1,38 @@
+= ADR 012: Store Digests Are Verified Only Under the Store's Lock
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-11
+
+== Context
+
+Store digests had no sidecar and no verifier. The work package asks for store digest verification through the
+journal, with the sidecar outside the protected stores, and a mismatch decided only under the store's lock.
+
+== Decision
+
+* `StoreDigest` and `DigestSidecar` (`mcp/digests.json`) record the size and SHA-256 of each store. The sidecar is written only through the journal.
+* `ScopeIntegrity` verifies a digest only for a reader that holds the store's lock after recovery. A lock-free reader reports `digest_unverified`.
+* A re-baseline re-records one store's digest through the journal, then re-verifies the scope.
+
+This way a lock-free reader can report `digest_unverified` but never a breach.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* An out-of-band edit is detected on the next locked read and reported unverified by a lock-free reader.
+* `integrity_breach` itself, and the operator verb that binds the re-baseline, belong to later packages.
+
+== Source
+
+* Pull request #26, `feat(core): add versioned store substrate with journal and digests`
+* Work package link:../../../../doc/plans/store-substrate.adoc[`store-substrate`] (PLAN-06)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Store Schemas § Store Digest Verification]

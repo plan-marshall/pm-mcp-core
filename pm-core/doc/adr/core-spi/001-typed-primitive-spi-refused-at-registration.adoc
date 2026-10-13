@@ -1,0 +1,41 @@
+= ADR 001: A Typed Primitive SPI, Refused at Registration Where Statically Decidable
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-10
+
+== Context
+
+`pm-core` declared only the vocabulary of a workflow primitive (`OutcomeClass`, `AwaitedEvent`). There was no contract
+a primitive implements and no registry that stops a malformed primitive before the workflow engine meets it.
+
+== Decision
+
+* A primitive implements the typed SPI `Primitive<P, R>` in `de.planmarshall.core.spi`: canonical name, parameter record, a closed outcome enumeration, declared store and job side effects, awaited events. The contract types are `Primitive`, `PrimitiveOutcome`, `PrimitiveResult`, `CycleMeasure`, `FreeParam` and a minimal `WorkflowExecutionContext` (scope identifier only, no store behaviour).
+* `PrimitiveRegistry` is explicit and fed through its constructor; it uses no `ServiceLoader`.
+* The registry refuses at registration, with `PrimitiveRegistrationException`, what is statically decidable: a duplicate id; an outcome type that is not a closed enum or has no constants; duplicate or ill-formed wire names; an `enqueuesJob()` primitive without a job-starting outcome, and the converse; an `ATTEMPT_CAP` measure without an exhaustion outcome of class `FAILURE`; a null awaited event.
+
+The registry stops a malformed primitive before the engine meets it. Why the registry is constructor-fed rather than
+discovered through `ServiceLoader` is not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* One test primitive of each `OutcomeClass` runs through the SPI (`PrimitiveContractTest`); `PrimitiveRegistryTest` covers each registration refusal.
+* The assembly fills the registry; nothing is discovered from the class path.
+* Registry checks that need the closed gate list or the keyword list are not implemented; they are handed to the packages that own them.
+* `PrimitiveRegistrationException.Reason` carries a tenth constant, `RESERVED_WIRE_NAME`, beyond the outline of the package.
+
+== Source
+
+* Pull request #18, `feat(core): primitive SPI, registry and content validators`
+* Work package link:../../../../doc/plans/primitive-spi-and-validators.adoc[`primitive-spi-and-validators`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/05-primitives.adoc[Workflow DSL § Primitives]
