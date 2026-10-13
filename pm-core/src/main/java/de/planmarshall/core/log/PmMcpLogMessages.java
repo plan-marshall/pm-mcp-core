@@ -228,6 +228,18 @@ public final class PmMcpLogMessages {
                 .identifier(66)
                 .template("Periodic sweep removed %s fenced session generations of project '%s'")
                 .build();
+
+        // WS-03, project units and invariants: identifiers 70-79
+
+        /**
+         * Logged when every unit of a project has been loaded and verified (PM-IMPL-5), with the project id and the
+         * number of verified units.
+         */
+        public static final LogRecord PROJECT_UNITS_VERIFIED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(70)
+                .template("Units of project '%s' verified: %s units")
+                .build();
     }
 
     /** WARN level messages. */
@@ -434,6 +446,19 @@ public final class PmMcpLogMessages {
                 .template("Replay of the owed audit records of unenrolled projects failed: %s")
                 .build();
 
+        // WS-03, project units and invariants: identifiers 170-179
+
+        /**
+         * Logged for every finding that refuses a unit of a project (PM-IMPL-5), with the unit file, the line and the
+         * rule or invariant id; the plan lifecycle is refused with {@code config_invalid}, and no default unit stands
+         * in for the refused one.
+         */
+        public static final LogRecord PROJECT_UNIT_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(170)
+                .template("Project unit '%s' refused at line %s by '%s', the plan lifecycle is refused with 'config_invalid'")
+                .build();
+
         // WS-04, verify-not-resolve: identifiers from 180
 
         /**
@@ -512,6 +537,18 @@ public final class PmMcpLogMessages {
                 .prefix(PREFIX)
                 .identifier(260)
                 .template("Enrolment integrity key unavailable from '%s': %s")
+                .build();
+
+        // WS-03, project units and invariants: identifiers 270-279
+
+        /**
+         * Logged when a default unit read from the classpath fails to parse or verify (PM-IMPL-5), with the resource,
+         * the line and the rule; a default unit that does not verify is a defect of the build.
+         */
+        public static final LogRecord DEFAULT_UNIT_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(270)
+                .template("Default unit '%s' refused at line %s by '%s'")
                 .build();
     }
 }
