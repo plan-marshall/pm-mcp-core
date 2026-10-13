@@ -12,6 +12,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * *Specification first*: the package writes the change A Recipe Is a Workflow into `plan-marshall-documentation` as part of its own work, once UC-STA-5 is agreed.
 * A recipe declares a workflow of phase sub-workflows, its own where it differs and the plan's shared ones elsewhere, its parameters, and whether it takes sources; starting it creates a plan whose process is that workflow; the recipe states of Phases 1 and 3 go.
+* *Through `start.ready`*: a recipe's start passes `start.ready` of link:start-from-clients.adoc[`start-from-clients`] like a plan's (the recipe and its parameters, the title and id proposed from the recipe and the time, both changeable); `recipe.create` re-checks what creation needs and returns to `start.ready` with the cause where the recipe, the id, or a gate changed meanwhile, creating nothing. A parameter without an option is shown with its reason and the recipe cannot run; a request-scoped recipe gathers its sources as a plan does, without a chat; leaving keeps the entry with the recipe and its parameters.
 
 == Trace
 
@@ -20,4 +21,4 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Done When
 
-The specification is merged in `plan-marshall-documentation`; a recipe runs as its own workflow from its parameters to its landing, an empty harvest ends it without a pull request, and no recipe state is left in the plan's phases.
+The specification is merged in `plan-marshall-documentation`; a recipe runs as its own workflow from its parameters to its landing, an empty harvest ends it without a pull request, and no recipe state is left in the plan's phases; a recipe's start passes `start.ready`, and a change found at `recipe.create` returns there with its cause.

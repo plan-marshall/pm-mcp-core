@@ -11,7 +11,9 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * *Specification first*: the package writes the change The Decomposition Is Reviewed into `plan-marshall-documentation` as part of its own work, once UC-STA-6 is agreed (link:../../../plan-marshall-documentation/doc/discussions/client-specification-changes.adoc#slicing[Specification Changes for the Clients, Packages]).
-* The draft of the role `decompose` held apart from the ledger; the server's checks over it (disjoint surfaces of plans that may run together, no dependency cycle, a workstream per plan); the operator wait `decomposition.review` with keep, edit, drop, add, chat (the sub-workflow link:chat.adoc[`chat`] with the draft as its scope), and draft again, every model change through read-back; the commit only after the operator agrees and every check passes.
+* The draft of the role `decompose` held apart from the ledger; the server's checks over it (disjoint surfaces of plans that may run together, no dependency cycle, a workstream per plan); the operator wait `decomposition.review` with keep, edit, drop, add, chat (the sub-workflow link:chat.adoc[`chat`] with the draft as its scope), and draft again with an instruction; the commit only after the operator agrees and every check passes.
+* *Edit and add*: `decomposition.instruct` (the operator's words for the plan), `decomposition.rewrite` (the role drafts or rewrites the plan), `decomposition.read-back` (old against new: accept to `decomposition.check`, instruct again to `decomposition.instruct`, discard back to `decomposition.review`); every model change through that read-back or the chat's.
+* *How many plans run at once* is no part of the decomposition: it is the project's `epic.parallelization_scope` (machine default 1), never asked at the start; the operator raises it through _Next plan_ (`epic.raise-scope`, link:plan-and-epic-control.adoc[`plan-and-epic-control`]) or the project's settings.
 * A later run (decompose again, stale rows) over staged rows only, each change against the row it replaces; no plan of a new epic starts before its first decomposition is committed.
 * Where `epic.decompose` and `epic.commit-decomposition` have already been implemented without the review, this package restructures them.
 
@@ -22,4 +24,4 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Done When
 
-The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing; each operator act of the review and its read-back is tested; a later run changes only staged rows and reports each change.
+The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing; each operator act of the review and each branch of `decomposition.read-back` is tested; no state of the start or the decomposition asks `parallelization_scope`; a later run changes only staged rows and reports each change.

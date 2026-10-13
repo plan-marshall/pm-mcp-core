@@ -11,8 +11,11 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * *Specification first*: the package writes the changes An Epic's Findings and Watches and The Review into `plan-marshall-documentation` as part of its own work, once UC-CTL-3 is agreed.
-* The registers of findings and watches in the epic's ledger; `epic.analyze-landing` and `coordinate` adding items; a watch's trigger re-checked; new findings as a `needs_operator` kind.
-* The sub-workflow `epic.review`: the planning role's proposal per item; keep, drop, promote (the drafted plan staged under the surface checks), edit (instruct, rewrite, read-back), chat (the sub-workflow link:chat.adoc[`chat`] with one item or the whole register as its scope); the remaining proposals accepted at once; the dispositions written and landed in one ledger write.
+* The registers of findings (a problem no plan owns yet, to be fixed; never called a defect) and watches (an observation to check again, with its trigger) in the epic's ledger; each item's state `open` (not decided yet), `kept`, `dropped`, or `promoted` with its row; `epic.analyze-landing` and `coordinate` adding items; a watch's trigger re-checked, the watch becoming a finding or closed; new findings as a `needs_operator` kind. Only an `open` finding holds the epic's archive; kept findings and watches are carried into it (the check is link:plan-and-epic-control.adoc[`plan-and-epic-control`]'s).
+* The sub-workflow `epic.review`: `review.open` with the planning role's proposal per item; at `review.item` keep (`review.keep`: kept as a finding, or moved to the watches where the kind changes), drop (`review.drop`, with the reason), promote, edit, chat (the sub-workflow link:chat.adoc[`chat`] with one item or the whole register as its scope); the remaining proposals accepted at once after one confirmation; `review.commit` writes the dispositions and lands them in one ledger write.
+* *Promote*: `review.draft-plan` by the planning role, then `review.confirm-plan` with stage (a staged row under the surface checks), back, and edit: `review.instruct-plan` (the operator's words for the drafted plan), `review.redraft-plan` (the role drafts the plan again), `review.read-back-plan` (old against new: accept back to `review.confirm-plan` with the new draft, instruct again, or discard back to `review.confirm-plan` with the draft before).
+* *Edit*: `review.instruct`, the role's rewrite, `review.read-back` (accept: applied, back to `review.item`; instruct again; discard: back to `review.item`, the item unchanged).
+* *The operator's words* in edit and chat are not interpreted: the role works from them, and only what it proposes (a rewrite, a redrafted plan, a change in a chat) passes a read-back; the role reads the items as data, a finding from outside the machine still marked untrusted.
 
 == Trace
 
@@ -21,4 +24,4 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Done When
 
-The specification of both changes is merged in `plan-marshall-documentation`; a landing and an inbox finding each add an item; a review takes every disposition and lands them in one ledger write; no model's change reaches a register without the operator's read-back; a promoted item is a staged row that passed the surface check.
+The specification of both changes is merged in `plan-marshall-documentation`; a landing and an inbox finding each add an item; a review takes every disposition, also keeping a finding as a watch and the reverse, and lands them in one ledger write; no model's change reaches a register or a drafted plan without the operator's read-back, and each branch of `review.read-back` and `review.read-back-plan` is tested; a promoted item is a staged row that passed the surface check.

@@ -244,7 +244,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |the client work of `pm-mcp-clients`
 
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
-|The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes and overrides
+|The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`blocked`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; UC-ONB agreed (no work package)
 |the client work of `pm-mcp-clients`
@@ -256,7 +256,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |the client work of `pm-mcp-clients`
 
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
-|Phases as sub-workflows of the plan unit, and the plan's history
+|The six phases as sub-workflows of the plan unit (the land lane's `land.*` states within `execute`), and the plan's history
 |`blocked`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; UC-PLN-1 agreed (no work package)
 |the client work of `pm-mcp-clients`
@@ -264,13 +264,13 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:project-onboarding-unit.adoc[`project-onboarding-unit`]
 |The onboarding of a project as one process, the project's values over the machine's, and the projects of the machine
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:enrolment-store.adoc[`enrolment-store`]; UC-PRJ-1 to UC-PRJ-3 agreed (no work package)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:enrolment-store.adoc[`enrolment-store`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; UC-PRJ-1 and UC-PRJ-2 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:start-from-clients.adoc[`start-from-clients`]
-|Starting work from the clients: sources as a list, the source directory, screened once stored, options asked when needed
+|Starting work from the clients: sources as a list, the source directory, screened once stored and failing closed, options asked when needed, a claimed lesson ending with the landing
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; UC-STA-1 to UC-STA-4 and UC-STA-7 to UC-STA-9 agreed (no work package)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; UC-STA-1 to UC-STA-4 and UC-STA-7 to UC-STA-9 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:forgejo-provider.adoc[`forgejo-provider`]
@@ -282,19 +282,19 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:recipe-workflows.adoc[`recipe-workflows`]
 |A recipe is a workflow
 |`blocked`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; UC-STA-5 agreed (no work package)
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:start-from-clients.adoc[`start-from-clients`]; UC-STA-5 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; the re-planning of a running plan, its unit `replan` and its guards (no work package); the change Ended Work, the listing of ended plans and epics read from the archive (no work package); the change Chatting with the Planning Role agreed (no work package)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; the re-planning of a running plan, its unit `replan` and its guards (no work package); the change Ended Work, the listing of ended plans and epics read from the archive (no work package); the change Chatting with the Planning Role agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
-|Controlling plans and epics: pause, start, cancel, abandon; the epic told; next plan, archive check, cancel
+|Controlling plans and epics: pause, start, cancel, abandon, a plan's settings; the epic told; next plan, archive check, cancel; holds; the release of a project
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; UC-CTL-1, UC-CTL-2, UC-CTL-4, and UC-PLN-5 agreed (no work package)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; UC-CTL-1, UC-CTL-2, UC-CTL-4, UC-CTL-5, UC-PLN-5, and UC-PRJ-3 agreed (no work package)
 |the client work of `pm-mcp-clients`
 
 |link:epic-findings-review.adoc[`epic-findings-review`]
