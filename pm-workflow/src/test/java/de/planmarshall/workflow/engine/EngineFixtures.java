@@ -39,6 +39,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.verify.EntityKind;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
 import de.planmarshall.workflow.verify.SchemaRegistry;
@@ -144,6 +145,25 @@ final class EngineFixtures {
                 phase completed
             """;
 
+    /**
+     * The fallback state of a fixture plan unit that calls a sub-workflow. Rule 6 admits only the phase's fallback
+     * state, {@code plan.return} or {@code finalize.hand-back}, as the target of a plan's {@code stepped_out} route, so
+     * every calling fixture plan routes its step-out here, and the fallback hands the plan back: whatever
+     * {@code test.step} returns, it enters {@code handed_back}, the terminal the step-out entered before the rule was
+     * enforced. It is not part of {@link #PLAN_TERMINALS}, because a plan that calls nothing would not reach it.
+     */
+    static final String PLAN_RETURN = """
+
+            state plan.return
+                phase execute
+                auto test.step
+                    done -> handed_back
+                    failed -> handed_back
+            """;
+
+    /** The entity kind of the fixtures' task states: no entity unit, return evaluation {@code test.evaluate-change}. */
+    static final String CHANGE_KIND = "change";
+
     /** An {@code auto} primitive: {@code done}, {@code failed}. */
     final Scripted<StepOutcome> step = new Scripted<>("test.step", StepOutcome.class, AwaitedEvent.NONE);
 
@@ -228,6 +248,18 @@ final class EngineFixtures {
     }
 
     /**
+     * Parses a plan unit that calls a sub-workflow: {@link #plan(String, String)} with the fallback state
+     * {@link #PLAN_RETURN} its {@code stepped_out} routes enter.
+     *
+     * @param start  the start state
+     * @param states the states before the fallback and the terminals
+     * @return the tree of the unit
+     */
+    static WorkflowDefinition callingPlan(String start, String states) {
+        return plan(start, states + PLAN_RETURN);
+    }
+
+    /**
      * @param callerWorkflowId the calling unit
      * @param callerStateId    the calling state
      * @param subworkflowId    the called sub-workflow
@@ -242,8 +274,20 @@ final class EngineFixtures {
      * @return the verifier over this fixture's primitives and the callees
      */
     WorkflowValidator validator(WorkflowDefinition... callees) {
-        return new WorkflowValidator(registry(), List.of(), EntityKindRegistry.defaults(),
-                QuestionClassRegistry.defaults(), SchemaRegistry.defaults(), WorkflowCatalog.of(callees));
+        return new WorkflowValidator(registry(), List.of(), entityKinds(), QuestionClassRegistry.defaults(),
+                SchemaRegistry.defaults(), WorkflowCatalog.of(callees));
+    }
+
+    /**
+     * The default entity kinds carry no test identifier, so the fixtures register their own kind, as the verifier
+     * tests do. {@link #CHANGE_KIND} has no entity unit: no fixture state asks, and the engine runs no entity unit, so
+     * the catalog of the fixtures need not hold one.
+     *
+     * @return the default entity kinds plus {@link #CHANGE_KIND}
+     */
+    static EntityKindRegistry entityKinds() {
+        return EntityKindRegistry.defaults()
+                .with(new EntityKind(CHANGE_KIND, Optional.empty(), "test.evaluate-change"));
     }
 
     /**

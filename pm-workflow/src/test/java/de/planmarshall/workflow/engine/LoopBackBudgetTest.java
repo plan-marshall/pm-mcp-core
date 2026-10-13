@@ -11,8 +11,8 @@ package de.planmarshall.workflow.engine;
 
 import static de.planmarshall.workflow.engine.EngineFixtures.EXECUTE;
 import static de.planmarshall.workflow.engine.EngineFixtures.SUB_COMMIT;
+import static de.planmarshall.workflow.engine.EngineFixtures.callingPlan;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
-import static de.planmarshall.workflow.engine.EngineFixtures.plan;
 import static de.planmarshall.workflow.engine.EngineFixtures.planStatus;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -123,18 +123,18 @@ class LoopBackBudgetTest {
         @DisplayName("Should keep the counters when the engine re-enters a unit")
         void shouldSurviveUnitReEntry() {
             var fixtures = new EngineFixtures();
-            var engine = fixtures.engine(plan("execute.commit", """
+            var engine = fixtures.engine(callingPlan("execute.commit", """
                     state execute.commit
                         phase execute
                         call sub.commit
                             done -> execute.commit-again
-                            stepped_out -> handed_back
+                            stepped_out -> plan.return
 
                     state execute.commit-again
                         phase execute
                         call sub.commit
                             done -> completed
-                            stepped_out -> handed_back
+                            stepped_out -> plan.return
                     """), parse("sub.pmwf", SUB_COMMIT));
             var charged = granted(LoopBackBudget.policyLoopBack(planStatus(EXECUTE, "execute.commit"),
                     "review-findings", 3));

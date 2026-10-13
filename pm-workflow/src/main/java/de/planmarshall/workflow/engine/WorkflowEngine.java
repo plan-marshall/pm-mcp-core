@@ -532,7 +532,7 @@ public final class WorkflowEngine {
         for (var state : definition.states().values()) {
             if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
                 var callee = catalog.find(call.subWorkflowId()).orElseThrow(() -> new UnverifiedUnitException(
-                        call.subWorkflowId(), new VerificationResult(List.of())));
+                        call.subWorkflowId(), new VerificationResult(List.of(), List.of())));
                 verifyWithCallees(callee, catalog, validator, verified);
             }
         }
@@ -814,7 +814,7 @@ public final class WorkflowEngine {
 
         /** @return what the verifier found; empty after deserialization or for a unit the catalog does not hold */
         public VerificationResult verification() {
-            return verification == null ? new VerificationResult(List.of()) : verification;
+            return verification == null ? new VerificationResult(List.of(), List.of()) : verification;
         }
     }
 }

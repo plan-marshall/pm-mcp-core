@@ -13,9 +13,9 @@ import static de.planmarshall.workflow.engine.EngineFixtures.EXECUTE;
 import static de.planmarshall.workflow.engine.EngineFixtures.PLAN_ID;
 import static de.planmarshall.workflow.engine.EngineFixtures.SUB_COMMIT;
 import static de.planmarshall.workflow.engine.EngineFixtures.T0;
+import static de.planmarshall.workflow.engine.EngineFixtures.callingPlan;
 import static de.planmarshall.workflow.engine.EngineFixtures.frame;
 import static de.planmarshall.workflow.engine.EngineFixtures.parse;
-import static de.planmarshall.workflow.engine.EngineFixtures.plan;
 import static de.planmarshall.workflow.engine.EngineFixtures.planStatus;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,6 +100,12 @@ class SubWorkflowExecutionTest {
                 phase inherit
             """;
 
+    /**
+     * Routes the step-out of {@code sub.inner} to a state of its own, {@code outer.recover}, which the step-out tests
+     * observe. Rule 6 admits as that target in a sub-workflow only a terminal of class {@code stepped_out} or
+     * {@code failure}, which would unwind the frame of {@code sub.outer} too, or a link state, whose own step-out
+     * continues the unwinding; so {@code outer.recover} is a link state, and the frame of {@code sub.outer} stays.
+     */
     private static final String SUB_OUTER = """
             workflow sub.outer version 1 format 1
             scope subworkflow
@@ -113,10 +119,11 @@ class SubWorkflowExecutionTest {
 
             state outer.recover
                 phase inherit
-                job test.build
-                    succeeded -> outer.done
-                    failed -> outer.stepped-out
-                    cancelled -> outer.stepped-out
+                skill pm/test/recover
+                link next proceed ()
+                    do test.proceed
+                        done -> outer.done
+                        failed -> outer.stepped-out
 
             state outer.done terminal done success
                 phase inherit
@@ -147,7 +154,20 @@ class SubWorkflowExecutionTest {
                 phase execute
             """;
 
+    /** A plan state that calls {@code sub.args} with every kind of bound argument. */
+    private static final String CALL_ARGS = """
+            state execute.invoke
+                phase execute
+                call sub.args(mode = strict, rounds = 2, targets = [origin, mirror])
+                    done -> completed
+                    stepped_out -> plan.return
+            """;
+
     private final EngineFixtures fixtures = new EngineFixtures();
+
+    private WorkflowEngine argsEngine() {
+        return fixtures.engine(callingPlan("execute.invoke", CALL_ARGS), parse("sub.pmwf", SUB_ARGS));
+    }
 
     private WorkflowEngine nestedEngine() {
         return fixtures.engine(parse("ent.pmwf", ENTITY_TOP), parse("outer.pmwf", SUB_OUTER),
@@ -196,13 +216,7 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should push a frame with the bound arguments and pushed_at, and keep the caller's phase")
         void shouldPushFrame() {
             var pushedAt = fixtures.clock.tick(Duration.ofSeconds(5));
-            var engine = fixtures.engine(plan("execute.invoke", """
-                    state execute.invoke
-                        phase execute
-                        call sub.args(mode = strict, rounds = 2, targets = [origin, mirror])
-                            done -> completed
-                            stepped_out -> handed_back
-                    """), parse("sub.pmwf", SUB_ARGS));
+            var engine = argsEngine();
 
             var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
 
@@ -220,12 +234,12 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should nest calls four deep, each frame naming its caller")
         void shouldNestFourDeep() {
-            var engine = fixtures.engine(plan("execute.invoke", """
+            var engine = fixtures.engine(callingPlan("execute.invoke", """
                     state execute.invoke
                         phase execute
                         call sub.d1
                             done -> completed
-                            stepped_out -> handed_back
+                            stepped_out -> plan.return
                     """), depthUnit(1), depthUnit(2), depthUnit(3), depthUnit(4));
 
             var resting = engine.start(JournalScopeType.PLAN, PLAN_ID);
@@ -258,7 +272,7 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should route a returned done by the one result guard that holds over the result record")
         void shouldRouteDoneByResultGuard(Map<String, Object> result, String expectedState) {
             fixtures.mark.then(StepOutcome.DONE, result);
-            var engine = fixtures.engine(plan("execute.commit", """
+            var engine = fixtures.engine(callingPlan("execute.commit", """
                     state execute.commit
                         phase execute
                         call sub.commit
@@ -266,7 +280,7 @@ class SubWorkflowExecutionTest {
                                 guard result.pushed
                             done -> execute.local
                                 guard not result.pushed
-                            stepped_out -> handed_back
+                            stepped_out -> plan.return
 
                     state execute.local
                         phase execute
@@ -290,13 +304,12 @@ class SubWorkflowExecutionTest {
         @DisplayName("Should pop exactly one frame on a server step-out, which the calling sub-workflow routes")
         void shouldPopOneFrameOnServerStepOut() {
             fixtures.mark.then(StepOutcome.FAILED);
-            var engine = fixtures.engine(plan("execute.invoke", """
-                    state execute.invoke
-                        phase execute
-                        call sub.mid
-                            done -> completed
-                            stepped_out -> handed_back
-                    """), parse("mid.pmwf", """
+            // Rule 6 admits as the step-out target of a sub-workflow a link state, whose own step-out continues the
+            // unwinding, or a terminal of class stepped_out or failure, which would pop the frame of sub.mid too; so
+            // mid.hold, where the popped frame must leave the scope, is a link state. Rule 10 refuses a plan or epic
+            // unit that reaches a link state through a call, so the top-level unit is an entity unit.
+            var engine = fixtures.engine(parse("ent.pmwf", ENTITY_TOP.replace("call sub.outer", "call sub.mid")),
+                    parse("mid.pmwf", """
                     workflow sub.mid version 1 format 1
                     scope subworkflow
                     start mid.invoke
@@ -309,10 +322,11 @@ class SubWorkflowExecutionTest {
 
                     state mid.hold
                         phase inherit
-                        job test.build
-                            succeeded -> mid.done
-                            failed -> mid.stepped-out
-                            cancelled -> mid.stepped-out
+                        skill pm/test/hold
+                        link next proceed ()
+                            do test.proceed
+                                done -> mid.done
+                                failed -> mid.stepped-out
 
                     state mid.done terminal done success
                         phase inherit
@@ -351,14 +365,18 @@ class SubWorkflowExecutionTest {
         void shouldRefuseInvalidStepOut() {
             var engine = nestedEngine();
             var choosing = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
-            var recovering = engine.stepOut(choosing).status();
             var raised = engine.raise(choosing, "job_incomplete", Map.of()).status();
             var outsideSubWorkflow = planStatus(EXECUTE, "ent.fallback");
+            // The state a step-out enters inside a sub-workflow is a link state (Rule 6), so the state that rests
+            // inside a sub-workflow on no link is the job state sub.wait of sub.args.
+            var argsEngine = argsEngine();
+            var waiting = argsEngine.start(JournalScopeType.PLAN, PLAN_ID).status();
 
             assertAll(
                     () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(outsideSubWorkflow)),
                     () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(raised)),
-                    () -> assertThrows(IllegalStateException.class, () -> engine.stepOut(recovering)));
+                    () -> assertEquals("sub.wait", waiting.state()),
+                    () -> assertThrows(IllegalStateException.class, () -> argsEngine.stepOut(waiting)));
         }
     }
 
