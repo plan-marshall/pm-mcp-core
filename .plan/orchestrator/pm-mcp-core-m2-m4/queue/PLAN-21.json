@@ -2,9 +2,9 @@
   "id": "PLAN-21",
   "slug": "entity-addressing",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "plan-21-entity-addressing",
-  "pr": "",
-  "landing": "",
+  "pr": "#54",
+  "landing": "landings/PLAN-21.md",
   "seq": 21
 }

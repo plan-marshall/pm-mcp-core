@@ -357,6 +357,16 @@ decision or a dependency outside this repository.
   per-workstream identifier blocks go away and the staged specs' log bullet is rewritten from its
   report.
 
+- 2026-10-13 — PLAN-21 `entity-addressing` landed as #54 (b25d115), Claude Code; landing record
+  `landings/PLAN-21.md`. Code clean (pre-commit on the final head, `/review` x3, override only for the
+  optional Sourcery). Reworked in-PR after PLAN-12's `EntryId` landed. It also touched `core.spi` and
+  `workflow.verify` (the `lessons-review` rename). **Not complete under the related-PR rule:** doc #56
+  is OPEN. PLAN-12's doc #59 is now MERGED, so PLAN-12 is complete. Inbox drain of 9 messages: the
+  landing reconciled, 8 lessons routed (`pm-mcp-core-m2-m4-234.md` to `-241.md`). #58 and #59 added
+  four `blocked` packages (epic-auto, operator-reports, runtime-control, runtime-metrics), staged as
+  parked PLAN-57 to PLAN-60; PLAN-51 and PLAN-53 were regenerated. Practice from now on: re-check a
+  spec's premises against the landings since staging, right before emitting it.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
@@ -401,7 +411,9 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- Documentation PR `plan-marshall-documentation` #59 (PLAN-12) is OPEN — PLAN-12's landing completes when it is merged.
+- Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
+- A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
+
 - plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
 
 - The specification issue "Workflow DSL Rule 3: define how a `depends_on_config` value activates a guard" is not filed in `plan-marshall-documentation`; its text is in PR #48 and ADR 006 (operator, or PLAN-56).

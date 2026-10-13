@@ -56,7 +56,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`; UC-PLN-2 agreed (no work package)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` (main at bed24eb)
+- OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`; UC-PLN-2 agreed (no work package)) — read at `doc/plans/decision-engine.adoc` and `doc/plans/README.adoc` (main at 557ee81)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
 

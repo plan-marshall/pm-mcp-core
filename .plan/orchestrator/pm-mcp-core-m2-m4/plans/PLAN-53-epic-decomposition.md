@@ -25,10 +25,10 @@ The bullets of `doc/plans/epic-decomposition.adoc` § What, in its words.
 2. The draft of the role `decompose` held apart from the ledger; the server's checks over it (disjoint surfaces of plans that may run together, no dependency cycle, a workstream per plan); the operator wait `decomposition.review` with keep, edit, drop, add, chat (the sub-workflow `chat` with the draft as its scope), and draft again with an instruction; the commit only after the operator agrees and every check passes.
 3. Edit and add*: `decomposition.instruct` (the operator's words for the plan), `decomposition.rewrite` (the role drafts or rewrites the plan), `decomposition.read-back` (old against new: accept to `decomposition.check`, instruct again to `decomposition.instruct`, discard back to `decomposition.review`); every model change through that read-back or the chat's.
 4. How many plans run at once* is no part of the decomposition: it is the project's `epic.parallelization_scope` (machine default 1), never asked at the start; the operator raises it through _Next plan_ (`epic.raise-scope`, `plan-and-epic-control`) or the project's settings.
-5. A later run (decompose again, stale rows) over staged rows only, each change against the row it replaces; no plan of a new epic starts before its first decomposition is committed.
+5. A later run (decompose again, stale rows) over staged rows only, each change against the row it replaces; no plan of a new epic starts before its first decomposition is committed. A recut after a landing that only re-orders rows or amends a staged row's surface or prerequisites is applied without the review once the checks pass (`epic-auto`); one that adds, drops, or re-scopes a plan comes to `decomposition.review`.
 6. Where `epic.decompose` and `epic.commit-decomposition` have already been implemented without the review, this package restructures them.
 
-**Done when** (the package's own acceptance): The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing; each operator act of the review and each branch of `decomposition.read-back` is tested; no state of the start or the decomposition asks `parallelization_scope`; a later run changes only staged rows and reports each change.
+**Done when** (the package's own acceptance): The specification is merged in `plan-marshall-documentation`; a decomposition reaches the ledger only through the operator's agreement with every check passing, the first one and every later run that adds, drops, or re-scopes a plan; only a recut after a landing that re-orders staged rows or amends a staged row's surface or prerequisites is applied without it, once the checks pass (`epic-auto`); each operator act of the review and each branch of `decomposition.read-back` is tested; no state of the start or the decomposition asks `parallelization_scope`; a later run changes only staged rows and reports each change.
 
 **Trace starting set** (documents live in `../plan-marshall-documentation`):
 
@@ -54,7 +54,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`, `chat`; UC-STA-6 agreed (no work package)) — read at `doc/plans/epic-decomposition.adoc` and `doc/plans/README.adoc` (main at bed24eb)
+- OBSERVED: the package file and its index row (`blocked`; depends on `operator-wait-and-machine-scope`, `chat`; UC-STA-6 agreed (no work package)) — read at `doc/plans/epic-decomposition.adoc` and `doc/plans/README.adoc` (main at 557ee81)
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
 

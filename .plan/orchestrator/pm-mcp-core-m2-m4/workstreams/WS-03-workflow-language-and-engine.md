@@ -36,6 +36,8 @@ The dependency chain from the primitive SPI over the DSL parser, the static veri
 | PLAN-46..PLAN-53 | parked | Blocked packages added by #39-#42 (machine onboarding, decision engine, start from clients, recipe workflows, plan/epic control, epic findings review, epic decomposition); PLAN-49 forgejo-provider in WS-08 |
 | PLAN-54-static-verifier-rule-gaps-completion | staged | Second remediation of the verifier gaps; Claude Code only (operator decision 2026-10-12) |
 | PLAN-56-static-verifier-residuals | staged | Residual verifier gaps after PLAN-54; blocks nothing |
+| PLAN-57-epic-auto | parked | An epic runs by itself (added by #58) |
+| PLAN-58-operator-reports | parked | Reports to the operator (added by #58) |
 
 ## Sequencing and Surface Notes
 
