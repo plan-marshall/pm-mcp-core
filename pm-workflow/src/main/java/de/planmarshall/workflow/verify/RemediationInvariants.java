@@ -493,7 +493,7 @@ final class RemediationInvariants {
             context.reportTransition(InvariantId.INV_REM_5, state, transition,
                     "'%s' routes 'exhausted' to '%s', not to".formatted(state.id(), target)
                             + " the fallback '%s'%s".formatted(fallback,
-                                    replanAdmitted ? " or a re-planning call" : ""));
+                            replanAdmitted ? " or a re-planning call" : ""));
         }
     }
 
