@@ -58,6 +58,15 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * job as {@link VerifiedJob#projectScriptArguments()}, not in its argument vector.</li>
  * </ol>
  * <p>
+ * The lock scope belongs to the caller. Stage 0 acquires the project's enrolment lock in the caller's
+ * {@link LockTransaction}, and a transaction releases its locks only all together, when the caller closes it; this
+ * pipeline cannot release the enrolment lock between stage 0 and stage 3 without closing the caller's transaction.
+ * Stages 1 to 3 therefore run under the enrolment lock whenever the caller's transaction is still open. Stage 3 matches
+ * an enrolled {@code pattern} only against a string that the {@code maxLength} of the same schema has bounded, and
+ * refuses a {@code pattern} without {@code maxLength} as {@code argument_rejected} before any regular expression is
+ * evaluated, so the time stage 3 holds the lock is bounded by the enrolment. A caller closes its transaction as soon as
+ * this method returns: it must not keep the enrolment lock while it launches or waits for the verified job.
+ * <p>
  * A refusal is a value. Each refusal is logged once at WARN ({@code PM_MCP-180}); a refusal of the enrolment that the
  * enrolment check has logged and audited itself is not logged again. A fault is no refusal and passes through:
  * {@link SecretStoreException} when the integrity key cannot be read, {@link InternalFaultException} when the

@@ -11,9 +11,12 @@ package de.planmarshall.runtime.job;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -47,6 +50,12 @@ import org.junit.jupiter.params.provider.CsvSource;
 class ArgumentSchemaValidatorTest {
 
     private static final Optional<String> CONFORMS = Optional.empty();
+
+    /**
+     * Far longer than the validator needs without matching, far shorter than {@code ^(a+)+$} needs to backtrack over
+     * 64 {@code a} and a {@code !}: a validator that matched would fail the assertion instead of hanging the build.
+     */
+    private static final Duration BACKTRACKING_BUDGET = Duration.ofSeconds(5);
 
     private static ArgumentSchema schema(SchemaType type) {
         return new ArgumentSchema(type, null, null, false, null, null, null, null, null);
@@ -149,16 +158,60 @@ class ArgumentSchemaValidatorTest {
                 () -> assertEquals(CONFORMS, validate(schema, new Bool(true))));
     }
 
+    /** A string schema with this pattern and this maxLength. */
+    private static ArgumentSchema pattern(String pattern, Long maxLength) {
+        return new ArgumentSchema(SchemaType.STRING, null, null, false, null, pattern, null, null, maxLength);
+    }
+
     @Test
     @DisplayName("pattern: a string the pattern does not find is refused; a pattern that does not compile admits none")
     void pattern() {
-        var schema = new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z]+$", null, null, null);
-        var broken = new ArgumentSchema(SchemaType.STRING, null, null, false, null, "[a-", null, null, null);
+        var schema = pattern("^[a-z]+$", 16L);
+        var broken = pattern("[a-", 16L);
 
         assertAll(
                 () -> assertEquals(Optional.of("pattern at $"), validate(schema, new Text("Upper"))),
                 () -> assertEquals(Optional.of("pattern at $"), validate(broken, new Text("a"))),
                 () -> assertEquals(CONFORMS, validate(schema, new Text("lower"))));
+    }
+
+    @Test
+    @DisplayName("pattern without maxLength: refused with the path, whatever the string, before any regex runs")
+    void patternWithoutMaxLength() {
+        var unbounded = pattern("^[a-z]+$", null);
+        var catastrophic = pattern("^(a+)+$", null);
+        var broken = pattern("[a-", null);
+        var lower = new Text(Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT));
+        var hostile = new Text("a".repeat(64) + "!");
+
+        assertAll(
+                () -> assertEquals(Optional.of("pattern without maxLength at $"), validate(unbounded, lower)),
+                () -> assertEquals(Optional.of("pattern without maxLength at $"), validate(broken, lower)),
+                () -> assertEquals(Optional.of("pattern without maxLength at $.name"),
+                        validate(object(unbounded, null, false), Fields.of(Map.of("name", lower)))),
+                () -> assertEquals(Optional.of("pattern without maxLength at $"),
+                        assertTimeoutPreemptively(BACKTRACKING_BUDGET, () -> validate(catastrophic, hostile))));
+    }
+
+    @Test
+    @DisplayName("pattern with maxLength: a conforming string within the bound conforms")
+    void patternWithMaxLength() {
+        var lower = new Text(Generators.letterStrings(1, 16).next().toLowerCase(Locale.ROOT));
+
+        assertEquals(CONFORMS, validate(pattern("^[a-z]+$", 16L), lower));
+    }
+
+    @Test
+    @DisplayName("pattern with maxLength: a longer string is refused by maxLength, the pattern is never evaluated")
+    void maxLengthBeforePattern() {
+        var catastrophic = pattern("^(a+)+$", 16L);
+        var broken = pattern("[a-", 16L);
+        var hostile = new Text("a".repeat(64) + "!");
+
+        assertAll(
+                () -> assertEquals(Optional.of("maxLength at $"), validate(broken, hostile)),
+                () -> assertEquals(Optional.of("maxLength at $"),
+                        assertTimeoutPreemptively(BACKTRACKING_BUDGET, () -> validate(catastrophic, hostile))));
     }
 
     @Test

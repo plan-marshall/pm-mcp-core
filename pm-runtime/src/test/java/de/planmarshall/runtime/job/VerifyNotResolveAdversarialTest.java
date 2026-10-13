@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -209,6 +210,9 @@ class VerifyNotResolveAdversarialTest {
             var properties = new TreeMap<String, ArgumentSchema>();
             properties.put("goal", new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^[a-z-]+$", null,
                     null, 32L));
+            // An optional property whose pattern has no maxLength: never matched, so any string for it is refused.
+            properties.put("label", new ArgumentSchema(SchemaType.STRING, null, null, false, null, "^(a+)+$", null,
+                    null, null));
             fixture.enrol(JobEnrolmentFixture.withScriptSchema(fixture.enrolment(), new ArgumentSchema(
                     SchemaType.OBJECT, properties, List.of("goal"), true, null, null, null, null, null)));
         }
@@ -246,6 +250,30 @@ class VerifyNotResolveAdversarialTest {
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
                     () -> assertEquals("the arguments violate the argument schema: pattern at $.goal",
                             refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("unbounded pattern constraint: a string for a pattern without maxLength, refused before matching")
+        void unboundedPatternConstraint() {
+            var hostile = "a".repeat(64) + "!";
+
+            var refusal = refused(verify(script(Fields.of(Map.of("goal", new Text("module-tests"), "label",
+                    new Text(hostile))))));
+
+            assertAll(
+                    () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason()),
+                    () -> assertEquals("the arguments violate the argument schema: pattern without maxLength at $.label",
+                            refusal.detail()));
+        }
+
+        @Test
+        @DisplayName("positive control: the same schema verifies arguments that leave the unbounded property out")
+        void unboundedPatternPropertyAbsent() {
+            var goal = Generators.letterStrings(1, 32).next().toLowerCase(Locale.ROOT);
+
+            assertEquals(List.of(fixture.tools.get(HostToolName.PYTHON3).toString(),
+                            fixture.root.resolve(SCRIPT_PATH).toString()),
+                    verified(verify(script(Fields.of(Map.of("goal", new Text(goal)))))).argv());
         }
 
         @Test

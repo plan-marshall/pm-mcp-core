@@ -39,7 +39,14 @@ import lombok.experimental.UtilityClass;
  * <p>
  * As in JSON Schema, a keyword that constrains one type applies only to a value of that type, so {@code type} is what
  * makes a schema demand one; {@code pattern} matches anywhere in the string, and a pattern that does not compile
- * admits no value. The subset has no keyword for the elements of an array, so they are not constrained. The answer is
+ * admits no value.
+ * <p>
+ * A {@code pattern} is a Java regular expression the operator enrolled, matched by a backtracking engine with no time
+ * budget, so its cost grows with the length of the string it is matched against. It is therefore matched only against
+ * a string whose length {@code maxLength} has already bounded: {@code maxLength} is checked first, and a string
+ * constrained by a {@code pattern} on a schema without {@code maxLength} is refused as
+ * {@code pattern without maxLength at <path>} before any regular expression is compiled or evaluated. The subset has
+ * no keyword for the elements of an array, so they are not constrained. The answer is
  * the first violated keyword and the path of the value in the arguments ({@code $} for the arguments themselves,
  * {@code $.name} for a property), never the value, so it can be logged and returned.
  *
@@ -50,6 +57,9 @@ class ArgumentSchemaValidator {
 
     /** The path of the arguments themselves. */
     static final String ROOT = "$";
+
+    /** The violation of a {@code pattern} on a schema without {@code maxLength}, which is never matched. */
+    static final String UNBOUNDED_PATTERN = "pattern without maxLength";
 
     /**
      * @param schema    the enrolled argument schema
@@ -78,6 +88,9 @@ class ArgumentSchemaValidator {
     private static Optional<String> text(ArgumentSchema schema, String text, String path) {
         if (schema.maxLength() != null && text.codePointCount(0, text.length()) > schema.maxLength()) {
             return violation("maxLength", path);
+        }
+        if (schema.pattern() != null && schema.maxLength() == null) {
+            return violation(UNBOUNDED_PATTERN, path);
         }
         if (schema.pattern() != null && !matches(schema.pattern(), text)) {
             return violation("pattern", path);

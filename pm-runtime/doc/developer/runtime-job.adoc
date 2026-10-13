@@ -96,6 +96,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06
 * A host tool call that names an enrolled interpreter is refused as `argument_rejected`, with or without arguments: a host tool that the enrolment records as the interpreter of a wrapper (`python3` of `pw`), of a script host tool (`ruby` of `asciidoctor`) or of a project script (`python3`). The set is derived from the enrolment, not from a list of names, and the refusal names the host tool, never its arguments (see link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001], decision 6).
 * Any other host tool call passes its arguments on after they are checked.
 * A project script's arguments are a typed JSON value. They must validate against the script's enrolled argument schema (`argument_rejected` otherwise, naming the keyword and the path, never the value), and they are not appended to the argument vector: the script receives them as a value, not as command-line words. The verified job carries exactly the validated value as `VerifiedJob.projectScriptArguments`, so the launch step hands the script what stage 3 checked and nothing else.
+* An enrolled `pattern` is matched only against a string whose length `maxLength` has bounded. `maxLength` is checked first; a string for a schema that carries a `pattern` but no `maxLength` is refused as `argument_rejected` (`pattern without maxLength at <path>`) before any regular expression is compiled or evaluated, so the backtracking cost of a pattern is bounded by the enrolment (see link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001], decision 7).
 
 Two rules apply to what the caller supplies, with different scopes (see link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001]):
 
@@ -130,13 +131,17 @@ The caller supplies:
 DefaultTemplates defaults = (buildSystem, verb) -> ...;            // the caller's compiled defaults
 var pipeline = new VerifyNotResolvePipeline(enrolmentCheck, defaults);
 
+JobVerification verification;
 try (var transaction = locks.openTransaction()) {
-    switch (pipeline.verify(transaction, request)) {
-        case JobVerification.Verified verified -> launch(verified.job());
-        case JobVerification.Refused refused -> answer(refused.refusal());
-    }
+    verification = pipeline.verify(transaction, request);   // stages 0 to 3 under the enrolment lock
+}                                                          // released before the job is launched
+switch (verification) {
+    case JobVerification.Verified verified -> launch(verified.job());
+    case JobVerification.Refused refused -> answer(refused.refusal());
 }
 ----
+
+The enrolment lock the transaction acquires in stage 0 is held until the caller closes the transaction; the pipeline cannot release it before stage 3 (see Pitfall 7).
 
 == Testing
 
@@ -149,7 +154,7 @@ link:{test}/VerifyNotResolvePipelineTest.java[`VerifyNotResolvePipelineTest`]:: 
 link:{test}/ExecutableCheckTest.java[`ExecutableCheckTest`]:: Stage 2 for host tools, script host tools, project scripts and wrapper jobs, including a host tool shadowed on `PATH` that is never started.
 link:{test}/WrapperVerificationTest.java[`WrapperVerificationTest`]:: Every way a wrapper or a pinned file can change, and a matching wrapper not tracked by git that passes.
 link:{test}/ArgumentCheckTest.java[`ArgumentCheckTest`]:: Stage 3: the forbidden flags in build jobs, the metacharacters in every job kind, the refused interpreter host tool calls, templates and their sources, the module rules, project script arguments, and the stage order.
-link:{test}/ArgumentSchemaValidatorTest.java[`ArgumentSchemaValidatorTest`]:: One test per schema keyword, violating and conforming.
+link:{test}/ArgumentSchemaValidatorTest.java[`ArgumentSchemaValidatorTest`]:: One test per schema keyword, violating and conforming; a `pattern` without `maxLength` refused before any regex runs, and a string over `maxLength` refused by `maxLength` without the pattern being evaluated.
 link:{test}/VerifyNotResolveAdversarialTest.java[`VerifyNotResolveAdversarialTest`]:: The adversarial confinement suite over the whole pipeline: one group per pipeline fixture of PM-TEST-5 (tampered wrapper, un-enrolled host tool, unapproved arguments, out-of-tree working directory) plus a tampered enrolment file.
 
 Every refused case has its matched positive control in the same configuration: the same enrolment and tree verify the job once the one thing that was wrong is right.
@@ -164,6 +169,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06
 4. **Refusals are values**: a refusal is a `JobVerification.Refused`, never an exception. A fault (the integrity key cannot be read, a lock order violation, a file that cannot be read) is no refusal and passes through as `SecretStoreException`, `InternalFaultException` or `UncheckedIOException`.
 5. **Verify-then-run window**: a wrapper or pinned file can change between the check and the launch. The job runner launches right after verification; closing the window belongs to the job confinement, not to this package.
 6. **No direct interpreter call**: an enrolled interpreter never runs as a host tool call of its own, so no caller-supplied code (`python3 -c ...`, `ruby -e ...`) reaches it. It runs only through what it interprets: a project script bound by its binding and argument schema, a script host tool or a wrapper, each started by stage 2 with the verified interpreter first. Do not admit an interpreter call "with safe arguments"; restrict what it runs through the enrolment instead.
+7. **No unbounded pattern, and the enrolment lock is the caller's**: stage 0 acquires the project's enrolment lock in the caller's `LockTransaction`, and a transaction releases its locks only all together when it is closed, so stages 1 to 3 run under that lock and the pipeline cannot release it in between. The time stage 3 spends in an enrolled `pattern` is bounded only because a `pattern` is matched against a string `maxLength` has bounded; do not match a `pattern` without `maxLength`, and do not add a regex check that runs before `maxLength`. The caller closes its transaction as soon as `verify` returns, never keeping the enrolment lock while it launches or waits for the job.
 
 == Specification Tracing
 
