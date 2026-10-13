@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 
 import de.cuioss.tools.logging.CuiLogger;
@@ -26,6 +27,7 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.StoreRefusal;
@@ -120,17 +122,13 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
             var removed = 0;
             for (var entryId : candidates) {
-                try {
-                    var entry = store.read(entryId);
-                    if (entry.isPresent() && entry.get().createdBefore(olderThan)) {
-                        store.remove(transaction, entryId);
-                        transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
-                                PendingEntryStore.storePath(entryId), entry.get().createdAt().toString(),
-                                transaction.transactionId().value()));
-                        removed++;
-                    }
-                } catch (StoreRefusal e) {
-                    unreadable.add(entryId.value() + " (" + e.outcome().code() + ")");
+                var entry = readCandidate(store, entryId, unreadable);
+                if (entry.isPresent() && entry.get().createdBefore(olderThan)) {
+                    store.remove(transaction, entryId);
+                    transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
+                            PendingEntryStore.storePath(entryId), entry.get().createdAt().toString(),
+                            transaction.transactionId().value()));
+                    removed++;
                 }
             }
             if (removed > 0) {
@@ -138,5 +136,24 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             }
             return removed;
         }
+    }
+
+    /**
+     * Reads one candidate. A record that is refused, or that cannot be read at all, for example because it was removed
+     * or made unreadable after the listing, states no age: it is kept and named in the unreadable list, and the sweep
+     * goes on with the next candidate.
+     *
+     * @return the record; empty if it does not exist or could not be read
+     */
+    private static Optional<PendingEntryRecord> readCandidate(PendingEntryStore store, EntryId entryId,
+            List<String> unreadable) {
+        try {
+            return store.read(entryId);
+        } catch (StoreRefusal e) {
+            unreadable.add(entryId.value() + " (" + e.outcome().code() + ")");
+        } catch (UncheckedIOException e) {
+            unreadable.add(entryId.value() + " (io: " + e.getMessage() + ")");
+        }
+        return Optional.empty();
     }
 }

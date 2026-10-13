@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 
@@ -45,6 +47,8 @@ import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
@@ -197,6 +201,27 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(reason.contains(broken.value() + " (unreadable)"), reason),
                 () -> assertEquals(Optional.empty(), store.read(OLD_ENTRY)),
                 () -> assertTrue(Files.exists(store.store(broken)), "the unreadable record is kept"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a record that cannot be read at all is kept and reported, and the readable old ones are still removed")
+    void ioFailureKeptAsFailure() throws Exception {
+        create(entry(OLD_ENTRY, OLD));
+        var locked = new EntryId("ent-00000000000000e5");
+        var file = writeFile(locked.fileName(), "{}");
+        Files.setPosixFilePermissions(file, Set.of());
+        assumeFalse(Files.isReadable(file), "a file without permissions is readable for this user");
+
+        var outcome = sweep.run(PROJECT_A, OLDER_THAN);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome).reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 1 pending entry records; kept unreadable records"),
+                        reason),
+                () -> assertTrue(reason.contains(locked.value() + " (io: "), reason),
+                () -> assertEquals(Optional.empty(), store.read(OLD_ENTRY)),
+                () -> assertTrue(Files.exists(file), "the record that cannot be read is kept"));
     }
 
     @Test
