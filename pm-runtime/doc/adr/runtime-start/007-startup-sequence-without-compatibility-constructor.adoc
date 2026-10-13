@@ -1,4 +1,4 @@
-= ADR 005: `StartupSequence` Gains Two Components without a Compatibility Constructor
+= ADR 007: `StartupSequence` Gains Two Components without a Compatibility Constructor
 :nofooter:
 
 == Status

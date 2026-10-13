@@ -1,4 +1,4 @@
-= ADR 002: On systemd, Uninstall Disables Before It Deletes the Unit File
+= ADR 004: On systemd, Uninstall Disables Before It Deletes the Unit File
 :nofooter:
 
 == Status

@@ -1,4 +1,4 @@
-= ADR 008: The Enrolment Check and the Owed-Audit Replay Are Recovery Steps 1 and 2
+= ADR 010: The Enrolment Check and the Owed-Audit Replay Are Recovery Steps 1 and 2
 :nofooter:
 
 == Status

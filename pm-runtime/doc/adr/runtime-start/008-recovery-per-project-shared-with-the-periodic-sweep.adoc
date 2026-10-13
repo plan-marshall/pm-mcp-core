@@ -1,4 +1,4 @@
-= ADR 006: Recovery Runs per Project, and the Periodic Sweep Runs Its Own Steps
+= ADR 008: Recovery Runs per Project, and the Periodic Sweep Runs Its Own Steps
 :nofooter:
 
 == Status

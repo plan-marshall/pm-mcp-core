@@ -1,4 +1,4 @@
-= ADR 007: The Cold-Start Guard Forces the Seeded Base before Timing and Compares Lower Quartiles
+= ADR 009: The Cold-Start Guard Forces the Seeded Base before Timing and Compares Lower Quartiles
 :nofooter:
 
 == Status

@@ -1,4 +1,4 @@
-= ADR 004: Drain, Recovery, Sweep and the Relay Version Check Are Small Engines behind Narrow Seams
+= ADR 006: Drain, Recovery, Sweep and the Relay Version Check Are Small Engines behind Narrow Seams
 :nofooter:
 
 == Status
