@@ -1,0 +1,25 @@
+# expect: STEP_COMPLETION state verify.entry line 12
+# Step s is completed on a loop-back into its own opening, which its firing passes: the opening
+# still begins s, so the path that leaves it with the outcome skipped and no completion is refused.
+workflow verify.step-completion-loop-back-opening version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.prepare
+        done -> verify.work
+        skipped -> verify.done
+
+state verify.work
+    phase verify
+    job test.build
+        succeeded -> verify.done
+            completes step:s as done
+        failed -> verify.entry
+            completes step:s as failed
+        cancelled -> verify.done
+            completes step:s as failed
+
+state verify.done terminal done success
+    phase verify

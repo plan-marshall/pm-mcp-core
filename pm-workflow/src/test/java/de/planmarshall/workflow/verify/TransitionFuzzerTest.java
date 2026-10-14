@@ -89,7 +89,7 @@ class TransitionFuzzerTest {
             var result = validator.verify(VerifyFixtures.parse(resource));
 
             assertAll(() -> assertTrue(result.passed(), result::toString),
-                    () -> assertEquals(List.of(), result.advisories(), result::toString));
+                    () -> assertEquals(List.of(), result.violations(), result::toString));
         }
 
         @Test

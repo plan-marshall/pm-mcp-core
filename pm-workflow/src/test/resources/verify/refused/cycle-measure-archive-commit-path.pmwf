@@ -1,0 +1,21 @@
+# expect: STEP_COMPLETION state verify.entry line 7
+# The archive state of an epic unit lands and reaches its terminal, but no cycle through it commits.
+workflow verify.cycle-measure-archive-commit-path version 1 format 1
+scope epic
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.next-work
+        archive_uncommitted -> verify.land
+        archived -> verify.done
+
+state verify.land
+    phase verify
+    job test.build
+        succeeded -> verify.entry
+        failed -> verify.entry
+        cancelled -> verify.entry
+
+state verify.done terminal done success
+    phase verify

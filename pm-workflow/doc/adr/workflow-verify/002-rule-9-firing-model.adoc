@@ -5,6 +5,8 @@
 
 Accepted. The decision text was corrected by PLAN-54 to what `WorkflowValidator` checks; the PLAN-44 text described a pairwise path check with the barriers `finalize.next-step` and the start state, a `SUCCESS` class for every question resolution outcome, and cycle measures tied to state ids, none of which is the specification's rule.
 
+Refined in part. Three statements of this record are superseded and no longer describe the code: that a path ends at the next opening of any step (decision 1) is replaced by the firing judged per step of link:021-rule-9-firing-per-step.adoc[ADR 021], which ends a firing only at the next opening of the same step; that `ARCHIVE_STEPS` is checked only for the epic scope and a path to a terminal state (decision 4) and the named limit that the archive path committing and landing is not checked (Consequences) are replaced by link:022-rule-9-cycle-measures-as-specified.adoc[ADR 022], which also refuses an archive path that does not commit and land and a `STEP_LIST` pass that does not settle exactly one step. The class admission and the remaining parts of the firing model stand.
+
 == Date
 
 2026-10-12

@@ -1,27 +1,25 @@
-= ADR 006: Rule 3 Value Activation Gap
+= ADR 006: Rule 3 Configuration Reachability Is a Seam
 :nofooter:
 
 == Status
 
-Accepted. Names a seam; it closes when the specification states how a configuration value activates a guard.
+Accepted. Rewritten by the work package `static-verifier-residuals`: the Boolean enumeration with all-keys-true activation that this record kept in PLAN-54 is removed (link:004-rule-3-configuration-reachability.adoc[ADR 004]), so Rule 3 configuration reachability as a whole is the seam. It closes when the specification states how a configuration value activates a guard.
 
 == Date
 
-2026-10-12
+2026-10-14
 
 == Context
 
 The specification (Workflow DSL, § Static AST Verification Rules, Rule 3) checks reachability for every combination of the values of the configuration keys the unit's guards declare in `depends_on_config`: every enum value, `true` and `false` for a boolean. A state or outcome transition that no combination reaches fails validation; one that some combinations do not reach is reported with those combinations.
 
-The specification gives each key its domain (enum or boolean) but no rule by which a value makes a guard true, and the grammar's `depends_on_config` clause names keys only, never a value a link needs. Without that rule the verifier cannot tell, for an enum key, under which values a link is active: a unit with a link that needs `mode=strict` followed by a link that needs `mode=lenient` (the case in which no combination reaches the second link's transition) cannot even be written.
-
-Under the activation the verifier has, a link is active when every key its guard names is `true`. The all-true assignment then activates every link, so every state and transition the unconditional graph reaches is reached under at least that assignment: the refusal of Rule 3 cannot be met, and the check yields advisories only (link:004-rule-3-configuration-reachability.adoc[ADR 004]).
+The specification gives each key its domain (enum or boolean) but no rule by which a value makes a guard true, and the grammar's `depends_on_config` clause names keys only, never a value a link needs. Without that rule the verifier cannot tell under which values a link is active: a unit with a link that needs `mode=strict` followed by a link that needs `mode=lenient` (the case in which no combination reaches the second link's transition) cannot even be written. The all-keys-true activation the verifier used instead could refuse nothing, and it was removed (link:004-rule-3-configuration-reachability.adoc[ADR 004]).
 
 == Decision
 
-1. The verifier keeps the Boolean enumeration with all-keys-true activation (`UnitGraph.configCombinations`, `UnitGraph.isLinkActive`): every key, an enum key included, is enumerated as `true` and `false`.
-2. The following are a named seam, not checked and not claimed: the enumeration of the values of an enum key, the rule by which a value activates a guard, and the refusal of a state or transition no combination reaches, with its refusing fixture (a link needing `mode=strict` followed by a link needing `mode=lenient`).
-3. The gap is raised with the specification in the repository `plan-marshall-documentation`. The issue verb of the project's CI provider files an issue in the repository of the working tree only and cannot target another repository, so the issue text is recorded in the pull request body of PLAN-54 and the operator files it there; its number is added to § Source when it is filed.
+1. Rule 3 configuration reachability is a named seam, not checked and not claimed: the enumeration of the values of a `depends_on_config` key, the rule by which a value activates a guard, the report of a state or transition that some combinations do not reach, and the refusal of a state or transition no combination reaches, with its refusing fixture (a link needing `mode=strict` followed by a link needing `mode=lenient`).
+2. The gap is raised with the specification as the issue https://github.com/plan-marshall/plan-marshall-documentation/issues/71["define how a `depends_on_config` value activates a guard"] in the repository `plan-marshall-documentation` (§ Source).
+3. The check is written when the specification answers the issue, against the rule it states.
 
 == Alternatives Considered
 
@@ -31,17 +29,20 @@ The enumeration of enum values could be written today.
 
 2. **Extending the grammar with a value per key** (`depends_on_config mode=strict`):
 The value a link needs would be in the unit.
-*Rejected*: a grammar change is a specification change; it belongs in `plan-marshall-documentation` first.
+*Rejected*: a grammar change is a specification change; it belongs in `plan-marshall-documentation` first, and the filed issue asks for it.
+
+3. **Keeping the Boolean enumeration until the issue is answered (PLAN-54)**:
+*Rejected*: under all-keys-true activation the check refuses nothing and its advisories rest on the invented activation (link:004-rule-3-configuration-reachability.adoc[ADR 004]).
 
 == Consequences
 
-* `CONFIG_REACHABILITY` reports partial reachability as advisories and refuses nothing until the seam closes.
-* `UnitGraph`'s Javadoc names the Boolean-only enumeration and the all-keys-true activation and points here.
-* The package file `doc/plans/static-verifier-rule-gaps.adoc` names this seam; the developer guide names it with this ADR.
+* `VerificationRule` has no configuration-reachability constant, and `UnitGraph` no configuration substrate.
+* The checklist of `WorkflowValidatorTest` lists configuration reachability as a seam with this ADR.
+* The package files `doc/plans/static-verifier-rule-gaps.adoc` and `doc/plans/static-verifier-residuals.adoc` name this seam; the developer guide names it with this ADR.
 
 == Source
 
 * Workflow DSL specification, § Static AST Verification Rules, Rule 3, and § Formal EBNF Grammar, `depends_on_config` (`plan-marshall-documentation`)
-* `doc/plans/static-verifier-rule-gaps.adoc`
+* `doc/plans/static-verifier-rule-gaps.adoc`, `doc/plans/static-verifier-residuals.adoc`
 * link:004-rule-3-configuration-reachability.adoc[ADR 004]
-* Specification issue in `plan-marshall-documentation`: filed by the operator from the text in the PR body of PLAN-54 (number added when filed)
+* Specification issue in `plan-marshall-documentation`: https://github.com/plan-marshall/plan-marshall-documentation/issues/71[#71, "define how a `depends_on_config` value activates a guard"]

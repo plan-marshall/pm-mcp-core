@@ -1,40 +1,37 @@
-= ADR 008: Advisories on the Verification Result
+= ADR 008: Advisories on the Verification Result, Withdrawn
 :nofooter:
 
 == Status
 
-Accepted
+Withdrawn by the work package `static-verifier-residuals`. The advisories channel this record added in PLAN-54 is removed together with the only check that used it, the Rule 3 configuration-reachability check (link:004-rule-3-configuration-reachability.adoc[ADR 004]). `VerificationResult` carries violations only.
 
 == Date
 
-2026-10-12
+2026-10-14
 
 == Context
 
-The specification (Workflow DSL, § Static AST Verification Rules, Rule 3) asks the verifier to report a state or outcome transition that some configuration combinations do not reach, without failing validation. Until PLAN-54 the verifier had a single channel: every finding was a `Violation` in `VerificationResult.violations()`, and `passed()` is "no violation". A finding that is reported but does not fail the unit needs a channel of its own.
+PLAN-54 added a second component, `advisories`, to `VerificationResult` to report a state or outcome transition that some configuration combinations do not reach, which the specification (Workflow DSL, § Static AST Verification Rules, Rule 3) reports without failing validation. The only producer of advisories was the configuration-reachability check, and that check judged reachability under an activation rule the specification does not state. With the check removed (ADR 004), no finding of the verifier is reported without refusing the unit.
 
 == Decision
 
-`VerificationResult` carries a second component, `advisories`, a `List<Violation>` next to `violations`. Both are copied immutably in the compact constructor and refuse `null`. `WorkflowValidator.verify` orders the advisories like the violations: by the declaration order of their state, released names after every state, and within a state by rule. `passed()` reads `violations` only. An advisory names its `VerificationRule` (so far only `CONFIG_REACHABILITY`), its state and the source location like a violation does.
+`VerificationResult` is the record of `violations` alone, copied immutably and refusing `null`; `passed()` is "no violation". `WorkflowValidator.verify` returns no second list, and `WorkflowEngine` constructs the empty result as `new VerificationResult(List.of())`. There is no shim (pre-1.0, compatibility `breaking`); `plan-marshall-mcp` has no Java reader of the advisories.
 
 == Alternatives Considered
 
-1. **A severity on `Violation`**:
-One list, each entry marked as refusing or reporting.
-*Rejected*: every consumer of `violations()` would have to filter by severity to decide whether a unit passes, and a consumer that forgets the filter refuses conforming units; the name `Violation` would no longer mean a violation.
+1. **Keeping the channel empty for a future reported-not-refused finding**:
+*Rejected*: an always-empty component is an API without a producer; when the specification's Rule 3 report is implemented against a stated activation rule, the channel is designed with it.
 
-2. **A separate report type returned by its own method**:
-`WorkflowValidator` returns the advisories from a second call.
-*Rejected*: the enumeration of configuration combinations would run twice, or the validator would keep state between calls; one verification, one result.
+2. **A severity on `Violation`**:
+*Rejected*, as in PLAN-54: every consumer would have to filter by severity to decide whether a unit passes, and the name `Violation` would no longer mean a violation.
 
 == Consequences
 
-* The canonical constructor of `VerificationResult` takes two lists; a consumer outside this repository (the `SNAPSHOT` consumers in `plan-marshall-mcp`) passes both. The project is pre-1.0, so there is no shim.
-* A consumer that only decides pass or fail reads `passed()` and is unaffected by advisories.
-* A future reported-not-refused finding of the specification uses the same channel.
+* The canonical constructor of `VerificationResult` takes one list; the tests of the advisories are removed.
+* The report of partial configuration reachability is part of the Rule 3 seam (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
 
 == Source
 
 * Workflow DSL specification, § Static AST Verification Rules, Rule 3 (`plan-marshall-documentation`)
-* `doc/plans/static-verifier-rule-gaps.adoc`
-* link:004-rule-3-configuration-reachability.adoc[ADR 004]
+* `doc/plans/static-verifier-rule-gaps.adoc`, `doc/plans/static-verifier-residuals.adoc`
+* link:004-rule-3-configuration-reachability.adoc[ADR 004], link:006-rule-3-value-activation-gap.adoc[ADR 006]

@@ -1,0 +1,13 @@
+# expect: MODEL_JOB_OUTCOMES state verify.entry line 7
+# The test catalog's plan unit test.plan-caller and epic unit test.epic-caller both call this sub-workflow.
+workflow verify.model-job-lost-mixed-callers version 1 format 1
+scope subworkflow
+start verify.entry
+
+state verify.entry
+    phase inherit
+    job llm change role reviewer
+        approved -> verify.done
+
+state verify.done terminal done success
+    phase inherit

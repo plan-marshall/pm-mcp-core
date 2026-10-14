@@ -1,0 +1,48 @@
+= ADR 025: Rule 2 Admits an Undeclared Lost in Sub-Workflows Only Plan Units Call
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification (Workflow DSL, 02-units-jobs-decisions, Model Job States item 4) routes the reserved outcome `lost` of a task state that declares no `lost` transition to the phase's fallback: the engine unwinds every call frame with the server step-out `stepped_out {by: server, cause: lost, reason}` and enters `plan.return` or `finalize.hand-back`. That default exists only under a plan: "A state of an epic, workspace, or bootstrap unit, and of a sub-workflow such a unit calls, declares its `lost` transition (Rule 2)."
+
+Until the work package `static-verifier-residuals`, `WorkflowValidator` admitted an undeclared `lost` (`MODEL_JOB_OUTCOMES`) in a plan unit only, and refused it in every sub-workflow, although a sub-workflow that only plan units call unwinds to the same fallback. The `EXIT_PATH` check, on the other hand, counted the default `lost` route of every task state as an exit, whatever the unit.
+
+== Decision
+
+1. The engine routes an undeclared `lost` by default in a plan unit and in a `subworkflow` unit every caller chain of which through the catalog ends in plan units. `WorkflowCatalog.calledOnlyFromPlanUnits` walks the callers of the unit transitively: the unit has a caller, every caller is a plan unit or a sub-workflow whose callers satisfy the same, and the walk reaches a plan unit. A caller of another scope (epic, workspace, entity), directly or through other sub-workflows, or a unit on the walk with no caller, ends a chain outside the plan units. Each unit is walked once, so a call cycle, which Rule 7 refuses, does not loop.
+2. `MODEL_JOB_OUTCOMES` refuses a task state without a `lost` transition wherever that default does not exist.
+3. `EXIT_PATH` follows the same predicate: the default `lost` route of a task state is an implicit exit only where the engine takes it (`UnitGraph.hasImplicitExit` with the predicate's verdict).
+
+The caller lookup lives in `WorkflowCatalog`, which holds every unit a call may name; the Rule 7 and Rule 10 walks over the callees read the same catalog.
+
+== Alternatives Considered
+
+1. **Only the direct callers**:
+A sub-workflow called by another sub-workflow would have no plan caller of its own and would have to route `lost`.
+*Rejected*: the engine unwinds every call frame, so a chain of sub-workflows under a plan takes the plan's fallback as a direct callee does.
+
+2. **Admitting the omission in every sub-workflow and leaving the routing to the caller**:
+*Rejected*: under an epic, workspace or bootstrap unit there is no phase fallback to unwind to; the specification has such a sub-workflow declare its `lost` transition.
+
+3. **Admitting it in a sub-workflow without any caller**:
+*Rejected*: no caller chain ends in a plan unit, so the specification's condition does not hold, and a unit no one calls yet must not pass on an assumption about its later callers.
+
+== Consequences
+
+* The refusing fixture `model-job-lost-mixed-callers.pmwf` pins a sub-workflow that a non-plan unit calls and that omits `lost`; a matched control reaches a sub-workflow only from plan units through another sub-workflow and passes.
+* The checklist entry of the omission reads "lost stays undeclared only in a plan unit or a sub-workflow every caller chain of which ends in plan units".
+* Whether a sub-workflow passes depends on the catalog it is verified against: a unit that passes as a callee of plan units is refused once an epic, workspace or entity unit of the catalog calls it.
+
+== Source
+
+* Workflow DSL specification, 02-units-jobs-decisions, Model Job States item 4 (`plan-marshall-documentation`)
+* Workflow DSL specification, § Static AST Verification Rules, Rules 2 and 3 (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-residuals.adoc`

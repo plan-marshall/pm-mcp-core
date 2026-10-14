@@ -1,0 +1,31 @@
+# expect: STEP_COMPLETION state verify.after line 28
+# Step a is completed on the way into the opening of step b and completed again after it, in
+# one firing of a: the firing of a passes the opening of b and ends only at a's own opening.
+workflow verify.step-completion-firing-per-step version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.prepare
+        done -> finalize.review-cap-check
+            completes step:a as done
+        skipped -> verify.done
+            completes step:a as skipped
+
+state finalize.review-cap-check
+    phase verify
+    auto test.prepare
+        done -> verify.after
+            completes step:b as done
+        skipped -> verify.after
+            completes step:b as skipped
+
+state verify.after
+    phase verify
+    auto test.proceed
+        done -> verify.done
+            completes step:a as done
+
+state verify.done terminal done success
+    phase verify

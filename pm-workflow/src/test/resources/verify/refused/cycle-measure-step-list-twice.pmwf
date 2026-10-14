@@ -1,0 +1,33 @@
+# expect: STEP_COMPLETION state verify.entry line 11
+# The pass of the dispatch hub through verify.one completes step:x twice, once on the way out and once on the way
+# back; both completions sit on transitions into openings, so no opening begins step:x and no firing judges it.
+workflow verify.cycle-measure-step-list-twice version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.next-step
+        first -> verify.one
+            completes step:x as failed
+        second -> verify.two
+        settled -> verify.done
+
+state verify.one
+    phase verify
+    auto test.prepare
+        done -> verify.entry
+            completes step:x as failed
+        skipped -> verify.entry
+            completes step:x as failed
+
+state verify.two
+    phase verify
+    auto test.prepare
+        done -> verify.entry
+            completes step:two as done
+        skipped -> verify.entry
+            completes step:two as skipped
+
+state verify.done terminal done success
+    phase verify

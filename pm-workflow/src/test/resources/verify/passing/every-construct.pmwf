@@ -4,9 +4,11 @@
 # auto, job, composite_job, job llm with each, role each, ask, consult and lost, call,
 # question, terminal), links with bounded, unbounded and optional text parameters and
 # explicit forms, the escalate link request_waiver, guards with every atom, combinator and
-# depends_on_config, facts, skill and result guards. It holds every construct the rules
-# reach: a STEP_LIST dispatch hub whose targets open the firings of the steps, completions
-# on every firing path, a step completed as waived on the waived outcome of a remediation
+# depends_on_config, facts, skill, and result guards as the complementary pair on the
+# done of a call whose callee declares a result schema. It holds every construct the rules
+# reach: a STEP_LIST dispatch hub whose targets open the firings of the steps and every pass
+# of which settles one step, completions on every firing path, a step completed as waived on
+# the waived outcome of a remediation
 # call, the review loop rejected -> verify.review, an enqueuing primitive whose job-starting
 # outcome enters a job state, an artifact producer before its consumer, and the route
 # abort_landed of epic.next-work into epic.aborted. It is named adjudicate.decisions
@@ -34,7 +36,7 @@ state verify.entry
         guard in_worktree or has_open_findings and not all_tasks_completed
         depends_on_config [project.review.mode]
         do test.choose
-            chosen -> verify.build
+            chosen -> verify.next-step
             declined -> verify.entry
     link retry again [noop] ()
         guard (in_worktree and not has_open_findings) or predicate:test.ready
@@ -55,7 +57,7 @@ state verify.next-step
 state verify.prepare
     phase inherit
     auto test.prepare
-        done -> verify.build
+        done -> verify.compose
             completes verify:prepare as done
         skipped -> verify.compose
             completes verify:prepare as skipped

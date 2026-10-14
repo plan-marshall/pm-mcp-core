@@ -10,7 +10,6 @@
 package de.planmarshall.workflow.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -277,6 +276,79 @@ class AdditionalRulesTest {
                         + " 'test.evaluate-change' does not have",
                 "the state 'verify.entry' does not route the reserved outcome 'lost'"),
                 found(def));
+    }
+
+    /** A unit of the given scope whose one state calls {@code callee}; it is read only as a caller, never verified. */
+    private static WorkflowDefinition caller(String id, String scope, String callee) {
+        return VerifyFixtures.parseSource(id + ".pmwf", """
+                workflow %s version 1 format 1
+                scope %s
+                start caller.invoke
+
+                state caller.invoke
+                    phase verify
+                    call %s()
+                        done -> caller.done
+                        stepped_out -> caller.done
+
+                state caller.done terminal done success
+                    phase verify
+                """.formatted(id, scope, callee));
+    }
+
+    /**
+     * The sub-workflow {@code verify.reviewed}: its task state routes {@code approved} back to itself and leaves
+     * {@code lost} undeclared, so the default {@code lost} route is its only exit.
+     */
+    private static final WorkflowDefinition REVIEWED = VerifyFixtures.parseSource("reviewed.pmwf", """
+            workflow verify.reviewed version 1 format 1
+            scope subworkflow
+            start verify.entry
+
+            state verify.entry
+                phase inherit
+                job llm change role reviewer
+                    approved -> verify.entry
+            """);
+
+    /** Verifies {@link #REVIEWED} against a catalog of the callers and the entity unit of its task state. */
+    private static List<RuleStateMessage> foundWithCallers(WorkflowDefinition... callers) {
+        var units = new ArrayList<>(List.of(callers));
+        units.add(TestPrimitives.catalog().find("entity").orElseThrow());
+        var verifier = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
+                TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+                new WorkflowCatalog(units));
+        return found(verifier, REVIEWED);
+    }
+
+    private static final List<RuleStateMessage> LOST_ROUTED_ITSELF = List.of(
+            new RuleStateMessage(VerificationRule.MODEL_JOB_OUTCOMES, "verify.entry",
+                    "the state 'verify.entry' does not route the reserved outcome 'lost'"),
+            new RuleStateMessage(VerificationRule.EXIT_PATH, "verify.entry",
+                    "the state 'verify.entry' has no path to a terminal state"));
+
+    @Test
+    @DisplayName("MODEL_JOB_OUTCOMES and EXIT_PATH: a sub-workflow reached only from plan units takes the default lost route (ADR 025)")
+    void lostOmittedUnderPlanUnitsOnly() {
+        assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed")));
+        assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.middle"),
+                caller("verify.plan-b", "plan", "verify.reviewed"),
+                caller("verify.middle", "subworkflow", "verify.reviewed")));
+    }
+
+    @Test
+    @DisplayName("MODEL_JOB_OUTCOMES and EXIT_PATH: a sub-workflow with a caller chain outside the plan units routes lost (ADR 025)")
+    void lostOmittedOutsidePlanUnitsOnly() {
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(), "no caller");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed"),
+                caller("verify.epic-a", "epic", "verify.reviewed")), "a direct epic caller");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.plan-a", "plan", "verify.middle"),
+                caller("verify.middle", "subworkflow", "verify.reviewed"),
+                caller("verify.workspace-a", "workspace", "verify.middle")), "a workspace caller through a sub-workflow");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.middle", "subworkflow", "verify.reviewed")),
+                "a sub-workflow caller without a caller of its own");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.entity-a", "entity", "verify.reviewed")),
+                "an entity caller");
     }
 
     @Test
@@ -919,14 +991,223 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("Cycle measure ARCHIVE_STEPS: admitted in an epic unit on the archive path")
+    @DisplayName("Cycle measure ARCHIVE_STEPS: admitted in an epic unit on the archive path that commits and lands (ADR 022)")
     void archiveStepsInEpicUnit() {
+        var def = unit("epic", """
+                state verify.entry
+                    phase verify
+                    auto test.next-work
+                        archive_uncommitted -> verify.commit
+                        archived -> verify.done
+
+                state verify.commit
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.land
+                        stepped_out -> verify.land
+
+                state verify.land
+                    phase verify
+                    job test.build
+                        succeeded -> verify.entry
+                        failed -> verify.entry
+                        cancelled -> verify.entry
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ARCHIVE_STEPS: refused on an archive path that neither commits nor lands (ADR 022)")
+    void archiveStepsWithoutCommitAndLanding() {
         var def = unit("epic", """
                 state verify.entry
                     phase verify
                     auto test.next-work
                         archive_uncommitted -> verify.done
                         archived -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that commits, but no cycle through it passes a call of 'git.commit_and_push'",
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that lands, but no cycle through it passes a job state"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ARCHIVE_STEPS: a commit call off every cycle through the state does not count (ADR 022)")
+    void archiveStepsWithCommitOffTheCycle() {
+        var def = unit("epic", """
+                state verify.entry
+                    phase verify
+                    auto test.next-work
+                        archive_uncommitted -> verify.land
+                        archived -> verify.commit
+
+                state verify.land
+                    phase verify
+                    job test.build
+                        succeeded -> verify.entry
+                        failed -> verify.entry
+                        cancelled -> verify.entry
+
+                state verify.commit
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.done
+                        stepped_out -> verify.wait
+
+                state verify.wait
+                    phase verify
+                    job test.build
+                        succeeded -> verify.done
+                        failed -> verify.done
+                        cancelled -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that commits, but no cycle through it passes a call of 'git.commit_and_push'"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a pass that settles two steps is refused at the hub's outcome (ADR 022)")
+    void stepListPassSettlingTwoSteps() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:one as done
+                            completes step:other as done
+                        skipped -> verify.entry
+                            completes step:one as skipped
+                            completes step:other as skipped
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step, but a pass that leaves it with the outcome 'first' settles more than one"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a step completed twice on a pass is refused beside the firing that completes it twice")
+    void stepListPassSettlingOneStepTwice() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.again
+                            completes step:x as done
+                        skipped -> verify.entry
+                            completes step:x as skipped
+
+                state verify.again
+                    phase verify
+                    auto test.proceed
+                        done -> verify.entry
+                            completes step:x as done
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        var expected = new ArrayList<RuleStateMessage>();
+        expected.addAll(stepCompletion("verify.entry",
+                "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step once, but a pass that leaves it with the outcome 'first' completes the step 'step:x' twice"));
+        expected.addAll(stepCompletion("verify.again",
+                "the step 'step:x' is completed twice in one firing from 'verify.one'"));
+        assertEquals(expected, found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a step completed twice on a pass is refused where no opening begins it")
+    void stepListPassCompletingOneStepTwiceWithoutOpening() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                            completes step:x as failed
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:x as failed
+                        skipped -> verify.entry
+                            completes step:x as failed
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step once, but a pass that leaves it with the outcome 'first' completes the step 'step:x' twice"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a path that hands its step back or leaves the step list is no pass")
+    void stepListPathsThatAreNoPass() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.fix
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:one as done
+                        skipped -> plan.return
+
+                state verify.fix
+                    phase verify
+                    auto test.fix
+                        fixed -> verify.entry
+                            completes step:fix as done
+                        fix_requested -> verify.entry
+
+                state plan.return terminal returned failure
+                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(), violations(def));
@@ -976,104 +1257,6 @@ class AdditionalRulesTest {
         assertEquals(stepCompletion("verify.entry",
                 "the exhaustion transition 'exhausted' of the attempt cap of the state 'verify.entry' does not leave the cycle"),
                 found(def));
-    }
-
-    /** A workspace unit whose state {@code verify.conditional} only the link needing {@code feature.flag} enters. */
-    private static final String CONDITIONAL_STATES = """
-            state verify.entry
-                phase verify
-                link next choose [submit] (note: text[1..80], comment: text)
-                    guard in_worktree
-                    depends_on_config [feature.flag]
-                    do test.choose
-                        chosen -> verify.conditional
-                        declined -> verify.done
-                link next fallback ()
-                    do test.proceed
-                        done -> verify.done
-
-            state verify.conditional
-                phase verify
-                auto test.prepare
-                    done -> verify.done
-                    skipped -> verify.entry
-            """;
-
-    private static final String ONLY_WITH_FLAG = "only under configuration [feature.flag=true], not under [feature.flag=false]";
-
-    private static List<RuleStateMessage> configAdvisories(String... stateAndMessage) {
-        var advisories = new ArrayList<RuleStateMessage>();
-        for (int i = 0; i < stateAndMessage.length; i += 2) {
-            advisories.add(new RuleStateMessage(VerificationRule.CONFIG_REACHABILITY, stateAndMessage[i],
-                    stateAndMessage[i + 1]));
-        }
-        return advisories;
-    }
-
-    @Test
-    @DisplayName("CONFIG_REACHABILITY: a state and transitions some combinations do not reach are advisories, not violations")
-    void configReachabilityPartialIsAdvisory() {
-        var def = unit("workspace", CONDITIONAL_STATES + DONE_TERMINAL);
-
-        var result = validator.verify(def);
-
-        assertEquals(List.of(), result.violations());
-        assertTrue(result.passed());
-        assertEquals(configAdvisories(
-                "verify.entry", "the transition 'chosen' of the state 'verify.entry' into 'verify.conditional' is reached "
-                + ONLY_WITH_FLAG,
-                "verify.entry", "the transition 'declined' of the state 'verify.entry' into 'verify.done' is reached "
-                + ONLY_WITH_FLAG,
-                "verify.conditional", "the state 'verify.conditional' is reached from the start state 'verify.entry' "
-                + ONLY_WITH_FLAG,
-                "verify.conditional", "the transition 'done' of the state 'verify.conditional' into 'verify.done' is reached "
-                + ONLY_WITH_FLAG,
-                "verify.conditional", "the transition 'skipped' of the state 'verify.conditional' into 'verify.entry' is reached "
-                + ONLY_WITH_FLAG),
-                result.advisories().stream().map(RuleStateMessage::of).toList());
-        assertEquals(List.of(11, 12, 17, 20, 21),
-                result.advisories().stream().map(advisory -> advisory.location().line()).toList());
-    }
-
-    @Test
-    @DisplayName("CONFIG_REACHABILITY: a unit without depends_on_config keys has no advisory")
-    void configReachabilityWithoutKeys() {
-        var def = unit("workspace", """
-                state verify.entry
-                    phase verify
-                    link next fallback ()
-                        do test.proceed
-                            done -> verify.done
-                """ + DONE_TERMINAL);
-
-        var result = validator.verify(def);
-
-        assertEquals(List.of(), result.violations());
-        assertEquals(List.of(), result.advisories());
-    }
-
-    @Test
-    @DisplayName("CONFIG_REACHABILITY: a state no combination reaches is refused by REACHABILITY, not as CONFIG_REACHABILITY (ADR 006)")
-    void configReachabilityNoCombination() {
-        var def = unit("workspace", CONDITIONAL_STATES + """
-
-                state verify.orphan
-                    phase verify
-                    auto test.prepare
-                        done -> verify.done
-                        skipped -> verify.entry
-                """ + DONE_TERMINAL);
-
-        var result = validator.verify(def);
-
-        assertEquals(List.of(new RuleStateMessage(VerificationRule.REACHABILITY, "verify.orphan",
-                        "the state 'verify.orphan' is not reachable from the start state 'verify.entry'")),
-                result.violations().stream().map(RuleStateMessage::of).toList());
-        assertEquals(List.of(23), result.violations().stream().map(violation -> violation.location().line()).toList());
-        assertEquals(List.of("verify.entry", "verify.entry", "verify.conditional", "verify.conditional",
-                        "verify.conditional"),
-                result.advisories().stream().map(Violation::stateId).toList(),
-                "the unreachable state and its transitions are no advisories");
     }
 
     private static List<RuleStateMessage> callContract(String stateId, String... messages) {
@@ -1201,11 +1384,21 @@ class AdditionalRulesTest {
                 found(chained));
     }
 
-    @Test
-    @DisplayName("Rule 6 stepped_out target: a remediation unit may route it to a state the language does not mark (ADR 010)")
-    void steppedOutInRemediationUnit() {
-        var def = VerifyFixtures.parseSource("remediation.pmwf", """
-                workflow remediation.inline version 1 format 1
+    /**
+     * A remediation unit whose call routes {@code stepped_out} to {@code target}, a state with the given id that runs
+     * the given {@code auto} primitive, routing every outcome of it onwards.
+     */
+    private static WorkflowDefinition remediationUnit(String unitId, String target, String auto) {
+        var outcomes = TestPrimitives.CHECK_BUDGETS.equals(auto) ? """
+                        budget_left -> verify.done
+                        exhausted_wait -> verify.stepped-out
+                        exhausted -> verify.stepped-out
+                """ : """
+                        done -> verify.done
+                        skipped -> verify.stepped-out
+                """;
+        return VerifyFixtures.parseSource("remediation.pmwf", """
+                workflow %1$s version 1 format 1
                 scope subworkflow
                 start verify.entry
 
@@ -1213,16 +1406,56 @@ class AdditionalRulesTest {
                     phase inherit
                     call test.depth5()
                         done -> verify.done
-                        stepped_out -> verify.recheck
+                        stepped_out -> %2$s
 
-                state verify.recheck
+                state %2$s
                     phase inherit
-                    auto test.prepare
-                        done -> verify.done
-                        skipped -> verify.stepped-out
-                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+                    auto %3$s
+                """.formatted(unitId, target, auto) + outcomes + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+    }
 
-        assertEquals(List.of(), violations(def));
+    private static final String NOT_THE_BUDGET_RE_CHECK = "which is neither a terminal of class STEPPED_OUT or"
+            + " FAILURE, nor a link state that continues the step-out, nor the budget re-check"
+            + " 'remediation-<class>.budget-check' running 'remediation.check-budgets'";
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: a remediation unit may route it to its budget re-check (ADR 024)")
+    void steppedOutInRemediationUnit() {
+        var budgetCheck = remediationUnit("remediation.inline", "remediation-inline.budget-check",
+                TestPrimitives.CHECK_BUDGETS);
+        assertEquals(List.of(), violations(budgetCheck));
+
+        var unmarked = remediationUnit("remediation.inline", "verify.recheck", TestPrimitives.PREPARE);
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'verify.recheck', " + NOT_THE_BUDGET_RE_CHECK),
+                found(unmarked));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: the budget re-check is told by its state id and its primitive together")
+    void steppedOutToBudgetCheckByIdAndPrimitive() {
+        var wrongPrimitive = remediationUnit("remediation.inline", "remediation-inline.budget-check",
+                TestPrimitives.PREPARE);
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'remediation-inline.budget-check', " + NOT_THE_BUDGET_RE_CHECK),
+                found(wrongPrimitive));
+
+        var wrongId = remediationUnit("remediation.inline", "remediation-inline.recheck",
+                TestPrimitives.CHECK_BUDGETS);
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'remediation-inline.recheck', " + NOT_THE_BUDGET_RE_CHECK),
+                found(wrongId));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: the budget re-check is admitted only inside a remediation unit")
+    void steppedOutToBudgetCheckOutsideRemediationUnit() {
+        var def = remediationUnit("verify.inline", "remediation-inline.budget-check", TestPrimitives.CHECK_BUDGETS);
+
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'remediation-inline.budget-check', which is neither a terminal of"
+                        + " class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
+                found(def));
     }
 
     @Test
@@ -1258,6 +1491,42 @@ class AdditionalRulesTest {
 
         assertEquals(callContract("verify.entry",
                 "the call routes the exit outcome 'done' of 'git.commit_and_push' once under a result guard; a guarded 'done' is admitted only as the complementary pair"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Rule 6: a result guard on a link of a state that is no call is refused")
+    void resultGuardOnLink() {
+        var def = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.done
+                                guard not result.pushed
+                """ + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.entry",
+                "a result guard is admitted only on the outcome 'done' of a call, but found on the outcome 'done' of the state 'verify.entry', which is no call"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Rule 6: a guarded done on a callee without a result schema is refused once per call")
+    void resultGuardOnCalleeWithoutSchema() {
+        var def = unit("subworkflow", """
+                state verify.entry
+                    phase inherit
+                    call test.depth5()
+                        done -> verify.done
+                            guard result.pushed
+                        done -> verify.done
+                            guard not result.pushed
+                        stepped_out -> verify.stepped-out
+                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.entry",
+                "the call guards the outcome 'done' on the result of 'test.depth5', which declares no result schema"),
                 found(def));
     }
 

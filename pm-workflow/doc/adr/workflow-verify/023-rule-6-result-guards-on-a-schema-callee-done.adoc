@@ -1,0 +1,46 @@
+= ADR 023: Rule 6 Result Guards Only on the Done of a Call to a Callee with a Result Schema
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 6) admits a result guard (`guard result.<field>` or `guard not result.<field>`) on the `done` transition of a call, as the complementary pair of the two, and requires the guarded field to be a boolean or optional field of the callee's result schema. A result guard reads the result a called sub-workflow returns, so it has no meaning on any other transition.
+
+The parser reads a result guard on every outcome transition, whatever its state does. Until the work package `static-verifier-residuals`, `WorkflowValidator` inspected result guards only on the transitions of a call: a guard on the transition of an `auto`, `job`, `job llm` or question state, or of a declared link, passed unchecked, and so did a guarded `done` pair on a call to a sub-workflow that declares no `result` schema, whose result has no field to read.
+
+== Decision
+
+`WorkflowValidator` refuses, as `SUBWORKFLOW_CALL_CONTRACT`:
+
+1. a result guard on the transition of any state that is no call, its declared links included, at the transition's line (`checkResultGuardOutsideCall`);
+2. a result guard on a call whose callee, resolved through `WorkflowCatalog`, declares no `result` schema, once per call at the line of its first guarded transition.
+
+The refusal of a result guard on a call's outcome other than `done` and the admission of a guarded `done` only as the complementary pair stay as they were. Whether the guarded field is a boolean or optional field of the callee's result schema stays a seam: `SchemaRegistry` registers schema names only (link:010-primitive-spi-each-seam.adoc[ADR 010]).
+
+== Alternatives Considered
+
+1. **Refusing a guard outside a call in the parser**:
+The parser would refuse the clause where it reads it.
+*Rejected*: the grammar admits the clause on every transition, and whether a transition belongs to a call is a check over the syntax tree; the verifier owns the Rule 6 contract.
+
+2. **One violation per guarded transition of a call to a callee without a result schema**:
+*Rejected*: the defect is the callee's missing schema, which the call reads once; a complementary pair would report it twice.
+
+== Consequences
+
+* The refusing fixtures `result-guard-outside-call.pmwf` and `result-guard-callee-without-schema.pmwf` pin the two refusals; the existing `result-guard-not-done.pmwf` keeps pinning the guard on a call's non-`done` outcome.
+* A test catalog that calls a sub-workflow under a result guard declares a result schema on it: the test catalog's `git.commit_and_push` declares `result schema[commit-result]`.
+* The field-type check is written when `SchemaRegistry` carries the fields of a schema.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 6 (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-residuals.adoc`
+* link:010-primitive-spi-each-seam.adoc[ADR 010]

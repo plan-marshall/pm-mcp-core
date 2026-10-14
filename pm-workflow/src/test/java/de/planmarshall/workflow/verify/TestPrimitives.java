@@ -61,6 +61,12 @@ final class TestPrimitives {
      */
     static final String EVALUATE_JUDGEMENT = "test.evaluate-judgement";
 
+    /**
+     * A return-evaluation primitive for the entity kind {@link #REPAIR_KIND}: {@code repaired} ({@code SUCCESS}),
+     * {@code infeasible} ({@code FAILURE}), the task outcome Rule 9 admits {@code skipped} on by its name.
+     */
+    static final String EVALUATE_REPAIR = "test.evaluate-repair";
+
     /** A list primitive for each clause: {@code done}. */
     static final String LIST_CHANGES = "test.list-changes";
 
@@ -104,6 +110,14 @@ final class TestPrimitives {
      * ({@code UNSETTLED}). */
     static final String FIX = "test.fix";
 
+    /**
+     * The primitive of the budget re-check {@code remediation-<class>.budget-check} of a remediation unit, with the
+     * outcomes of the Unit Template (Workflow DSL, 08-remediation-units): {@code budget_left} ({@code SUCCESS}),
+     * {@code exhausted_wait} ({@code SUCCESS}), {@code exhausted} ({@code FAILURE}). The specification names the
+     * outcomes, not their classes.
+     */
+    static final String CHECK_BUDGETS = "remediation.check-budgets";
+
     /** The remediation unit of the test catalog: exit contract {@code done}, {@code waived}, {@code stepped_out}. */
     static final String REMEDIATION = "remediation.test-waiver";
 
@@ -125,6 +139,9 @@ final class TestPrimitives {
     /** The entity kind of the tests whose evaluation can reject: entity unit {@code entity}, {@link #EVALUATE_JUDGEMENT}. */
     static final String JUDGEMENT_KIND = "judgement";
 
+    /** The entity kind of the tests whose task can end infeasible: entity unit {@code entity}, {@link #EVALUATE_REPAIR}. */
+    static final String REPAIR_KIND = "repair";
+
     /** A workspace unit of the test catalog, which no call may name. */
     static final String WORKSPACE_UNIT = "test.workspace-unit";
 
@@ -134,19 +151,41 @@ final class TestPrimitives {
     /** A session-driven sub-workflow with a resting link state. */
     static final String LINKS_INNER = "test.links-inner";
 
+    /** A plan unit of the test catalog that calls {@link #PLAN_ONLY_OUTER} and {@link #MIXED_CALLERS}. */
+    static final String PLAN_CALLER = "test.plan-caller";
+
+    /** An epic unit of the test catalog that calls {@link #MIXED_CALLERS}. */
+    static final String EPIC_CALLER = "test.epic-caller";
+
+    /** A sub-workflow only {@link #PLAN_CALLER} calls; it calls {@link #PLAN_ONLY_INNER}. */
+    static final String PLAN_ONLY_OUTER = "test.plan-only-outer";
+
+    /**
+     * A sub-workflow reached only from the plan unit {@link #PLAN_CALLER}, through {@link #PLAN_ONLY_OUTER}; its task
+     * state leaves {@code lost} undeclared (Rule 2, ADR 025).
+     */
+    static final String PLAN_ONLY_INNER = "test.plan-only-inner";
+
+    /**
+     * The sub-workflow of the refusing fixture {@code model-job-lost-mixed-callers.pmwf}, called by the plan unit
+     * {@link #PLAN_CALLER} and by the epic unit {@link #EPIC_CALLER}; the catalog does not register it.
+     */
+    static final String MIXED_CALLERS = "verify.model-job-lost-mixed-callers";
+
     private TestPrimitives() {
     }
 
     /**
-     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND} and {@link #JUDGEMENT_KIND},
-     *         whose entity unit the test catalog holds, {@link #UNRESOLVED_KIND}, whose entity unit it does not hold,
-     *         {@link #UNEVALUATED_KIND}, whose return-evaluation primitive is not registered, and
-     *         {@link #UNIT_LESS_KIND}, which has no entity unit
+     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND}, {@link #JUDGEMENT_KIND} and
+     *         {@link #REPAIR_KIND}, whose entity unit the test catalog holds, {@link #UNRESOLVED_KIND}, whose entity
+     *         unit it does not hold, {@link #UNEVALUATED_KIND}, whose return-evaluation primitive is not registered,
+     *         and {@link #UNIT_LESS_KIND}, which has no entity unit
      */
     static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
                 .with(new EntityKind(CHANGE_KIND, "entity", EVALUATE_CHANGE))
                 .with(new EntityKind(JUDGEMENT_KIND, "entity", EVALUATE_JUDGEMENT))
+                .with(new EntityKind(REPAIR_KIND, "entity", EVALUATE_REPAIR))
                 .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE))
                 .with(new EntityKind(UNEVALUATED_KIND, "entity", MISSING))
                 .with(new EntityKind(UNIT_LESS_KIND, Optional.empty(), EVALUATE_CHANGE));
@@ -165,9 +204,11 @@ final class TestPrimitives {
                 new Fixed<>(READY, NoParams.class, PredicateOutcome.class),
                 new Fixed<>(EVALUATE_CHANGE, NoParams.class, EvaluateChangeOutcome.class),
                 new Fixed<>(EVALUATE_JUDGEMENT, NoParams.class, JudgementOutcome.class),
+                new Fixed<>(EVALUATE_REPAIR, NoParams.class, RepairOutcome.class),
                 new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
                 new Fixed<>(LIST_ROLES, NoParams.class, DoneOutcome.class),
                 new Fixed<>(LAND_WORK, NoParams.class, LandOutcome.class),
+                new Fixed<>(CHECK_BUDGETS, NoParams.class, BudgetOutcome.class),
                 new EnqueuePrimitive(),
                 new ArtifactConsumer(),
                 new ArtifactProducer(),
@@ -178,10 +219,14 @@ final class TestPrimitives {
     }
 
     /**
-     * @return a catalog of the units the tests call: {@code git.commit_and_push}, the link-free call chain
+     * @return a catalog of the units the tests call: {@code git.commit_and_push} with the result schema
+     *         {@code commit-result} (registered by {@link SchemaRegistry#defaults()}), the link-free call chain
      *         {@code test.depth1} to {@code test.depth5}, the self-calling {@code verify.call-cycle}, the remediation
      *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND},
-     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, and the workspace unit {@link #WORKSPACE_UNIT}
+     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, the workspace unit {@link #WORKSPACE_UNIT}, and the
+     *         caller chains of Rule 2's {@code lost} omission: the plan unit {@link #PLAN_CALLER} calling
+     *         {@link #PLAN_ONLY_OUTER}, which calls {@link #PLAN_ONLY_INNER}, and {@link #MIXED_CALLERS}, which
+     *         {@link #EPIC_CALLER} calls as well
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
@@ -190,6 +235,7 @@ final class TestPrimitives {
                 param push : enum[enabled|disabled]
                 param attempts : int[1..5]
                 param targets : list<enum[origin|mirror]>
+                result schema[commit-result]
                 start git.push
 
                 state git.push
@@ -299,7 +345,98 @@ final class TestPrimitives {
                     phase setup
                 """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
-                remediation, entity, linksInner, linksOuter, workspaceUnit));
+                remediation, entity, linksInner, linksOuter, workspaceUnit, planCaller(), epicCaller(),
+                planOnlyOuter(), planOnlyInner()));
+    }
+
+    /** The plan unit {@link #PLAN_CALLER}: it calls {@link #PLAN_ONLY_OUTER}, then {@link #MIXED_CALLERS}. */
+    private static WorkflowDefinition planCaller() {
+        return VerifyFixtures.parseSource("test.plan-caller.pmwf", """
+                workflow test.plan-caller version 1 format 1
+                scope plan
+                start plan-caller.outer
+
+                state plan-caller.outer
+                    phase verify
+                    call test.plan-only-outer()
+                        done -> plan-caller.mixed
+                        stepped_out -> plan.return
+
+                state plan-caller.mixed
+                    phase verify
+                    call verify.model-job-lost-mixed-callers()
+                        done -> plan-caller.done
+                        stepped_out -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
+
+                state plan-caller.done terminal done success
+                    phase verify
+                """);
+    }
+
+    /** The epic unit {@link #EPIC_CALLER}: it calls {@link #MIXED_CALLERS} and rests on a job afterwards. */
+    private static WorkflowDefinition epicCaller() {
+        return VerifyFixtures.parseSource("test.epic-caller.pmwf", """
+                workflow test.epic-caller version 1 format 1
+                scope epic
+                start epic-caller.mixed
+
+                state epic-caller.mixed
+                    phase verify
+                    call verify.model-job-lost-mixed-callers()
+                        done -> epic-caller.done
+                        stepped_out -> epic-caller.rest
+
+                state epic-caller.rest
+                    phase verify
+                    job test.build
+                        succeeded -> epic-caller.done
+                        failed -> epic-caller.done
+                        cancelled -> epic-caller.done
+
+                state epic-caller.done terminal done success
+                    phase verify
+                """);
+    }
+
+    /** The sub-workflow {@link #PLAN_ONLY_OUTER}: it calls {@link #PLAN_ONLY_INNER}. */
+    private static WorkflowDefinition planOnlyOuter() {
+        return VerifyFixtures.parseSource("test.plan-only-outer.pmwf", """
+                workflow test.plan-only-outer version 1 format 1
+                scope subworkflow
+                start plan-only-outer.inner
+
+                state plan-only-outer.inner
+                    phase inherit
+                    call test.plan-only-inner()
+                        done -> plan-only-outer.done
+                        stepped_out -> plan-only-outer.stepped-out
+
+                state plan-only-outer.done terminal done success
+                    phase inherit
+
+                state plan-only-outer.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """);
+    }
+
+    /** The sub-workflow {@link #PLAN_ONLY_INNER}: one task state that leaves {@code lost} undeclared. */
+    private static WorkflowDefinition planOnlyInner() {
+        return VerifyFixtures.parseSource("test.plan-only-inner.pmwf", """
+                workflow test.plan-only-inner version 1 format 1
+                scope subworkflow
+                start plan-only-inner.review
+
+                state plan-only-inner.review
+                    phase inherit
+                    job llm change role reviewer
+                        approved -> plan-only-inner.done
+
+                state plan-only-inner.done terminal done success
+                    phase inherit
+                """);
     }
 
     /** A link-free sub-workflow {@code test.depth<n>} whose one state calls {@code callee}. */
@@ -646,6 +783,29 @@ final class TestPrimitives {
         }
     }
 
+    /** The outcomes of {@link #EVALUATE_REPAIR}. */
+    enum RepairOutcome implements PrimitiveOutcome {
+        REPAIRED("repaired", OutcomeClass.SUCCESS), INFEASIBLE("infeasible", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        RepairOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
     enum LandOutcome implements PrimitiveOutcome {
         LANDED("landed", OutcomeClass.SUCCESS), ABORT_LANDED("abort_landed", OutcomeClass.FAILURE);
 
@@ -653,6 +813,30 @@ final class TestPrimitives {
         private final OutcomeClass outcomeClass;
 
         LandOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    /** The outcomes of {@link #CHECK_BUDGETS}. */
+    enum BudgetOutcome implements PrimitiveOutcome {
+        BUDGET_LEFT("budget_left", OutcomeClass.SUCCESS), EXHAUSTED_WAIT("exhausted_wait", OutcomeClass.SUCCESS),
+        EXHAUSTED("exhausted", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        BudgetOutcome(String wireName, OutcomeClass outcomeClass) {
             this.wireName = wireName;
             this.outcomeClass = outcomeClass;
         }

@@ -1,0 +1,55 @@
+= ADR 022: Rule 9 Checks the Cycle Measures STEP_LIST and ARCHIVE_STEPS as Specified
+:nofooter:
+
+== Status
+
+Accepted. Refines decision 4 of link:002-rule-9-firing-model.adoc[ADR 002] and closes its named limit on `ARCHIVE_STEPS`.
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 9 "Cycle measures", and Rule 11a "Progress measure") states:
+
+* "a `STEP_LIST` measure is admitted only on the dispatch hub of a unit with a step list, which every pass settles one step of"; the hub "fires exactly one step and settles it per pass, measured by the unsettled steps of the instance's step list".
+* "an `ARCHIVE_STEPS` measure only on the next-work primitive of an epic unit whose archive path commits, lands, and ends in the terminal"; it "is measured, while the epic archives, by the remaining archive steps (commit, land, archived)".
+
+Until the work package `static-verifier-residuals`, `WorkflowValidator` checked `STEP_LIST` only for a unit with a step list, and `ARCHIVE_STEPS` only for the epic scope and a path to a terminal state; ADR 002 named the commit and the landing of the archive path as not checked.
+
+== Decision
+
+1. *`STEP_LIST`*: besides the unit with a step list, every pass of the hub settles exactly one step. A pass is a path that leaves the hub on one of its outcomes and returns to it; it settles the steps completed on its transitions. A path that enters a terminal state, `finalize.merge-gate` or an implicit-failed state leaves the step list instead, and a path that ends early on an `UNSETTLED` or `STEPPED_OUT` outcome hands its step back; neither is a pass. A pass is measured by the distinct steps it completes and by the steps it completes more than once: each outcome of the hub with a pass that settles no step, or more than one distinct step, is refused at the hub's transition as `STEP_COMPLETION`, and so is a pass of it that completes a step more than once: the first step a path of the pass completes a second time is named as completed twice. A pass that repeats two steps names the first only; it is also refused as settling more than one distinct step. The repeated completion is refused by this check whether or not the firing check also refuses it: when no opening begins the step (both completions sit on transitions into openings), no firing judges it and this check is the only one that refuses the pass. Where a firing does judge it, the two violations stand side by side, at different places (the hub's transition, the second completion) and with descriptions that agree (the step is completed twice); the check does not ask the firing check whether it already refused the step, so neither check depends on the other's result.
+2. *`ARCHIVE_STEPS`*: besides the epic scope and a path to a terminal state, the archive path commits and lands. A cycle through the state passes a call of the commit sub-workflow `git.commit_and_push`, the commit, and a cycle through it passes a `job` or `composite_job` state, the landing. Each part that is missing is refused at the state as `STEP_COMPLETION`. The commit sub-workflow is named by its unit identifier, as the compiled invariants name it; no state identifier is named, as ADR 007 decided.
+3. *No seam option*. Both checks always run: the specification states both measures completely for the syntax tree, so no part of them is left as a seam, and no configuration switches them off.
+
+== Alternatives Considered
+
+1. **Keeping the coarser checks and naming the rest as seams**:
+*Rejected*: the specification's statements are decidable on the syntax tree; a seam would leave a hub that fires two steps per pass, or an archive state that never commits or lands, passing.
+
+2. **Recognising the landing by a primitive identifier**:
+*Rejected*: the primitive SPI declares no landing, and a primitive identifier in the verifier would be a rule the specification does not state; the landing is the job state the archive path waits on.
+
+3. **Requiring a separate outcome of the archive state for each archive step**:
+*Rejected*: the specification names the steps, not the outcomes that reach them; a commit and a landing on the cycles through the state are what the measure counts.
+
+4. **Counting only the distinct steps of a pass and leaving a repeated completion to the firing check**:
+*Rejected*: the firing check judges a step only from an opening that begins it; a step completed twice on a pass whose completions both sit on transitions into openings is begun nowhere, so the pass would go unrefused.
+
+5. **Suppressing the `STEP_LIST` violation of a repeated step where the firing check already refuses it**:
+*Rejected*: it couples the two checks on the exact transition the firing check refuses, for no gain in correctness; the two violations already agree in what they state.
+
+== Consequences
+
+* A pass that completes one step twice is reported as completed twice, never as settling more than one step; where a firing also completes the step twice, the report lists both violations, the firing's at the second completion and the measure's at the hub's transition.
+* The refusing fixtures `cycle-measure-step-list-settle.pmwf` (a pass that settles no step), `cycle-measure-step-list-twice.pmwf` (a pass that completes a step twice on transitions into openings, which no firing judges) and `cycle-measure-archive-commit-path.pmwf` (an archive state whose cycles pass no commit) pin the two checks; matched controls pin a hub that settles one step per pass and an archive state on the commit and land path. The fixtures `cycle-measure-step-list.pmwf` and `cycle-measure-archive-path.pmwf` keep pinning the coarser checks.
+* The passing fixture `every-construct.pmwf` returns to its hub before it fires the next step.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 9 "Cycle measures" and Rule 11a (`plan-marshall-documentation`)
+* Model Work specification, Epic Coordination, the epic unit excerpt (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-residuals.adoc`
+* link:002-rule-9-firing-model.adoc[ADR 002], link:007-rule-9-derived-firing-openings.adoc[ADR 007]

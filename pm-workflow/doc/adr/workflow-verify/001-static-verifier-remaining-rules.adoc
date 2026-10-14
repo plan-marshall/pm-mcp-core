@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted. Decisions 1 to 3 are corrected or partly superseded by ADRs 003, 005, 009, 010 and 011, as the notes below them say; § Consequences names what each later ADR corrects.
+Accepted. Decisions 1 to 3 are corrected or partly superseded by ADRs 003, 005, 009, 010 and 011, as the notes below them say; § Consequences names what each later ADR corrects, up to ADR 025, and the seams this record names itself.
 
 == Date
 
@@ -69,19 +69,30 @@ Assuming links do not await events unless they have a `SUBMIT` form.
 
 == Consequences
 
-* `WorkflowValidator` reports its checks of Rules 1 through 12 under 27 `VerificationRule` constants. PLAN-41 shipped several rule slices with gaps; what each check does today, and what it leaves as a seam, is stated by the later ADRs and the developer guide `pm-workflow/doc/developer/workflow-verify.adoc`, not by this record:
+* `WorkflowValidator` reports its checks of Rules 1 through 12 under 26 `VerificationRule` constants. PLAN-41 shipped several rule slices with gaps; what each check does today, and what it leaves as a seam, is stated by the later ADRs and the developer guide `pm-workflow/doc/developer/workflow-verify.adoc`, not by this record:
 ** link:002-rule-9-firing-model.adoc[ADR 002]: Rule 9 models the firing, admits a completion by the class of its outcome without a `SUCCESS` fallback, and derives the cycle measures instead of naming state ids; seam: the conservative route of an optional step.
 ** link:003-rule-11b-per-link-awaited-event.adoc[ADR 003]: Rule 11b is decided per traversed link, question-state links included.
-** link:004-rule-3-configuration-reachability.adoc[ADR 004]: Rule 3 reports partial configuration reachability as an advisory and refuses nothing under the Boolean enumeration.
+** link:004-rule-3-configuration-reachability.adoc[ADR 004]: Rule 3 configuration reachability is not implemented; the check `CONFIG_REACHABILITY`, which PLAN-44 added and PLAN-54 turned into advisories under an all-keys-true activation, is removed, because it could refuse nothing.
 ** link:005-rule-6-stepped-out-and-registries.adoc[ADR 005]: the specified entity units and the `ask` question class; its conditional `stepped_out` decision is superseded by ADR 009.
-** link:006-rule-3-value-activation-gap.adoc[ADR 006]: seam: the activation of enum values of `depends_on_config` keys.
+** link:006-rule-3-value-activation-gap.adoc[ADR 006]: seam: Rule 3 configuration reachability as a whole, since the specification states no rule by which a `depends_on_config` value activates a guard.
 ** link:007-rule-9-derived-firing-openings.adoc[ADR 007]: the openings of a firing, derived from the `STEP_LIST` hub.
-** link:008-verification-result-advisories.adoc[ADR 008]: the advisories channel of `VerificationResult`.
+** link:008-verification-result-advisories.adoc[ADR 008]: the advisories channel PLAN-54 added to `VerificationResult` is removed with the check that used it; the result carries violations only.
 ** link:009-rule-6-implicit-stepped-out.adoc[ADR 009]: `stepped_out` is implicit in every sub-workflow's exit contract.
-** link:010-primitive-spi-each-seam.adoc[ADR 010]: seams: `each` and `role each` over primitives the SPI cannot describe, the type of a guarded result field, the budget re-check of a remediation unit.
+** link:010-primitive-spi-each-seam.adoc[ADR 010]: seams: `each` and `role each` over primitives the SPI cannot describe, and the type of a guarded result field.
 ** link:011-rule-10-transitive-callees.adoc[ADR 011]: Rule 10 walks the callees transitively.
+** link:021-rule-9-firing-per-step.adoc[ADR 021]: Rule 9 judges a firing per step; it ends at the next opening of the same step, not at another step's opening.
+** link:022-rule-9-cycle-measures-as-specified.adoc[ADR 022]: every pass of a `STEP_LIST` hub settles one step, and an `ARCHIVE_STEPS` state lies on an archive path that commits and lands.
+** link:023-rule-6-result-guards-on-a-schema-callee-done.adoc[ADR 023]: a result guard sits only on the `done` of a call whose callee declares a `result` schema.
+** link:024-remediation-budget-check-state.adoc[ADR 024]: inside a remediation unit `stepped_out` may lead to the budget re-check and to no other target the sub-workflow scope does not admit; it closes the budget re-check seam of ADR 010.
+** link:025-rule-2-lost-in-plan-only-sub-workflows.adoc[ADR 025]: an undeclared `lost` is admitted in a plan unit and in a sub-workflow every caller chain of which ends in plan units.
+* Named seams of this record, which no later ADR closes; the developer guide and the checklist of `WorkflowValidatorTest` name them with this ADR:
+** Rule 4, worker callees: the leaf-task constraint holds for every unit a worker acts in, the sub-workflows a worker unit calls included; the verifier checks the worker unit's own states and does not walk its callees.
+** Rule 4, consultation units: a consultation unit is recognised by its identifier (an identifier containing `consult`), which is a heuristic; the language marks no unit as a consultation.
+** Rule 6, the phase's fallback: in a plan unit `stepped_out` targets `plan.return` or `finalize.hand-back`; which of the two belongs to the phase of the calling state is not checked.
+** Rule 11, the measure inside a callee: a `call` state on a cycle counts as engine-chained and as awaiting no event, and the callee is not entered; a measure declared, or an event awaited, by a state inside the callee does not count for the cycle through the call.
+** Rule 12, the escalate link: the specification admits as an `escalate` link a `submit` link whose primitive files a waiver request and never waits for an answer; the primitive SPI declares no waiver request, so the verifier tells the link by its identifier `request_waiver`.
 * Pure static analysis: no runtime side-effects or network dependencies.
-* Negative testing: each atomic check has one refusing fixture asserting its exact rule, state, and source line, counted against the enumerated checklist of `WorkflowValidatorTest`; the checks no fixture can plant and the seams are listed there by name.
+* Negative testing: `WorkflowValidatorTest` holds an enumerated checklist of atomic checks; every checklist entry names exactly one refusing fixture asserting its exact rule, state, and source line, and the fixtures on disk are exactly the named ones. The checks no fixture can plant (the question-class binding, which the grammar closes, and the two primitive declarations `PrimitiveRegistry` refuses at registration) and the seams are listed there by name, and the three lists together account for every `VerificationRule` constant.
 * Clear integration seam for `project-units-and-invariants` (Milestone 3) and `workflow-engine` (Milestone 4).
 
 == Source

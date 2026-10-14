@@ -1,0 +1,54 @@
+= ADR 024: Rule 6 Stepped-Out Routes of a Remediation Unit Lead to Its Budget Re-Check
+:nofooter:
+
+== Status
+
+Accepted. Closes the remediation budget re-check seam of link:010-primitive-spi-each-seam.adoc[ADR 010].
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 6) admits, as the target of a call's `stepped_out` route in a sub-workflow, a state that continues the unwinding or handles the failure. Inside a remediation unit it also admits the unit's budget re-check: `INV-REM-4` (§ Remediation Policy Units) routes `stepped_out` of a nested `git.commit_and_push` back to `budget-check`, and the Unit Template defines that state as `remediation-<class>.budget-check`, an `auto remediation.check-budgets` state.
+
+Until the work package `static-verifier-residuals`, `WorkflowValidator` admitted every `stepped_out` target in a `remediation.*` unit but a terminal of class `SUCCESS`, because ADR 010 held that the language does not mark the budget re-check. A remediation unit could thus route `stepped_out` to `decide`, `choose` or a remedy state and pass the verifier, although the specification admits none of them.
+
+The language does not mark the state with a keyword, but the Unit Template names it and fixes its primitive, and `RemediationInvariants` already finds the template states by their last segment (`INV-REM-2`, `INV-REM-3`, `INV-REM-4`).
+
+== Decision
+
+`WorkflowValidator` (`checkSteppedOutTarget`, `SUBWORKFLOW_CALL_CONTRACT`) tells the budget re-check by its state id and its primitive together: a state whose id ends in `.budget-check`, the suffix convention of `RemediationInvariants`, and which is `auto remediation.check-budgets`.
+
+Inside a remediation unit a call may route `stepped_out` to:
+
+1. a target the sub-workflow scope admits: a terminal of class `STEPPED_OUT` or `FAILURE`, or a link state whose own `step_out` continues the unwinding;
+2. the budget re-check.
+
+Every other target is refused at the line of the transition, a terminal of class `SUCCESS` as before, and the message names the budget re-check among the admitted targets.
+
+== Alternatives Considered
+
+1. **Telling the budget re-check by its state id alone**:
+*Rejected*: a state named `budget-check` that runs another primitive is no budget re-check; it would let the route skip the budget the specification has it re-check.
+
+2. **Telling it by its primitive alone**:
+*Rejected*: the remediation invariants find the template states by their id, and a second convention for the same state would let the two checks disagree on which state it is.
+
+3. **A language keyword that marks the budget re-check**:
+*Rejected*: the specification defines none, and the Unit Template already fixes the state's name and primitive.
+
+== Consequences
+
+* The refusing fixture `stepped-out-remediation-budget-check.pmwf` pins the refusal; a matched control routes `stepped_out` to the unit's `remediation-<class>.budget-check` and passes.
+* The test registry registers `remediation.check-budgets` with the outcomes of the Unit Template (`budget_left`, `exhausted_wait`, `exhausted`).
+* `remediation.spend`, whose `budget-check` runs `remediation.check-spend-budget`, has no nested commit, so no call in it routes `stepped_out` to that state.
+* ADR 010 no longer names the budget re-check as a seam.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 6 (`plan-marshall-documentation`)
+* Workflow DSL specification, § Remediation Policy Units, Unit Template and `INV-REM-4` (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-residuals.adoc`
+* link:010-primitive-spi-each-seam.adoc[ADR 010]

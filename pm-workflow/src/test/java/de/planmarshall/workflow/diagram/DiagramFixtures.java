@@ -47,7 +47,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * The fixture is parsed and checked by the static verifier before a test renders it, so the golden files show a unit
  * the generator is meant for. The primitives, the entity kind {@code change} and the called sub-workflow
  * {@code diagram.callee} it names are registered here, because the helpers of the verifier tests are package-private
- * to their package. The kind {@code change} names no entity unit: no state of the fixture asks, and the verifier
+ * to their package. The callee declares the result schema {@code commit-result}, because the fixture guards the
+ * {@code done} of its call on the result. The kind {@code change} names no entity unit: no state of the fixture asks, and the verifier
  * refuses a named entity unit the catalog does not hold.
  */
 final class DiagramFixtures {
@@ -121,6 +122,7 @@ final class DiagramFixtures {
         var callee = parse("diagram.callee.pmwf", """
                 workflow diagram.callee version 1 format 1
                 scope subworkflow
+                result schema[commit-result]
                 start callee.done
 
                 state callee.done terminal done success

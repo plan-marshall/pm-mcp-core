@@ -111,8 +111,10 @@ class WorkflowValidatorTest {
                     VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-unknown.pmwf"),
             new Check("Rule 2: a job llm state routes each outcome once",
                     VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-twice.pmwf"),
-            new Check("Rule 2: lost stays undeclared only in a plan unit",
-                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-undeclared.pmwf"),
+            new Check("Rule 2: lost stays undeclared only in a plan unit or a sub-workflow every caller chain of which"
+                    + " ends in plan units", VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-undeclared.pmwf"),
+            new Check("Rule 2: a sub-workflow with a non-plan caller routes lost",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-mixed-callers.pmwf"),
             new Check("Rule 2: asked is engine-made and refused when declared",
                     VerificationRule.MODEL_JOB_OUTCOMES, "model-job-asked-declared.pmwf"),
             new Check("Rule 2: a question clause routes every resolution outcome of its class",
@@ -165,6 +167,10 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-exit-twice.pmwf"),
             new Check("Rule 6: a result guard sits only on the outcome done",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-not-done.pmwf"),
+            new Check("Rule 6: a result guard sits only on a call's done, on no other transition",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-outside-call.pmwf"),
+            new Check("Rule 6: a result guard requires a callee that declares a result schema",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-callee-without-schema.pmwf"),
             new Check("Rule 6: a guarded done is admitted only as the complementary pair",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-single-done.pmwf"),
             new Check("Rule 6: the parameter bindings of a call match the callee's parameters",
@@ -175,6 +181,8 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-link-without-skill.pmwf"),
             new Check("Rule 6: stepped_out never targets a success terminal and fits the scope's target rule",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-target.pmwf"),
+            new Check("Rule 6: inside a remediation unit stepped_out targets the budget re-check",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-remediation-budget-check.pmwf"),
             new Check("Rule 6: stepped_out is declared only by a terminal of class stepped_out",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
             new Check("Rule 7: the call graph is acyclic",
@@ -187,6 +195,10 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "step-completion-same-transition.pmwf"),
             new Check("Rule 9: a firing completes a step at most once on every path",
                     VerificationRule.STEP_COMPLETION, "step-completion-firing.pmwf"),
+            new Check("Rule 9: a firing of a step ends at the next opening of the same step, not at another step's"
+                    + " opening", VerificationRule.STEP_COMPLETION, "step-completion-firing-per-step.pmwf"),
+            new Check("Rule 9: a step completed on a loop-back into its own opening stays begun there",
+                    VerificationRule.STEP_COMPLETION, "step-completion-loop-back-opening.pmwf"),
             new Check("Rule 9: a firing completes each of its steps on every path",
                     VerificationRule.STEP_COMPLETION, "step-completion-no-completion.pmwf"),
             new Check("Rule 9: entering an implicit-failed state completes the open step, no transition into it does",
@@ -203,10 +215,16 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "step-completion-waived-guard.pmwf"),
             new Check("Rule 9: STEP_LIST sits on the hub of a unit with a step list",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-step-list.pmwf"),
+            new Check("Rule 9: every pass of the STEP_LIST hub settles one step",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-step-list-settle.pmwf"),
+            new Check("Rule 9: a pass of the STEP_LIST hub that completes one step twice is refused, whatever its"
+                    + " openings", VerificationRule.STEP_COMPLETION, "cycle-measure-step-list-twice.pmwf"),
             new Check("Rule 9: ARCHIVE_STEPS sits in an epic unit",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-archive-steps.pmwf"),
-            new Check("Rule 9: ARCHIVE_STEPS sits on the archive path",
+            new Check("Rule 9: ARCHIVE_STEPS sits on an archive path that ends in a terminal state",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-archive-path.pmwf"),
+            new Check("Rule 9: ARCHIVE_STEPS sits on an archive path that commits and lands",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-archive-commit-path.pmwf"),
             new Check("Rule 9: the exhaustion transition of an ATTEMPT_CAP leaves every cycle through its state",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-attempt-cap.pmwf"),
             new Check("Rule 10: a plan or epic unit holds no resting link state",
@@ -247,22 +265,38 @@ class WorkflowValidatorTest {
 
     /** What the specification asks and the verifier does not check: the seams, each named by its ADR. */
     private static final List<Unpinned> SEAMS = List.of(
-            new Unpinned("Rule 3: a state or transition no combination of the depends_on_config values reaches",
-                    VerificationRule.CONFIG_REACHABILITY,
-                    "ADR 006: no activation rule for enum values; under the Boolean all-keys-true activation the"
-                            + " all-true combination reaches everything, so partial reachability is an advisory"),
+            new Unpinned("Rule 3: configuration reachability over the depends_on_config values (no activation rule;"
+                    + " removed)", VerificationRule.REACHABILITY,
+                    "ADR 006: the specification defines no rule by which a depends_on_config value activates a"
+                            + " guard, so the check and its advisories are removed (ADR 004)"),
             new Unpinned("Rule 1: each runs over a read-only list primitive, role each over one returning role names",
                     VerificationRule.ENTITY_KIND_BINDING,
                     "ADR 010: the primitive SPI cannot express either; only the registration is checked"),
+            new Unpinned("Rule 4: the sub-workflows a worker unit calls hold no job llm state and no link into one",
+                    VerificationRule.LEAF_TASK_CONSTRAINT,
+                    "ADR 001: the callees of a worker unit are not walked; only its own states are checked"),
+            new Unpinned("Rule 4: a consultation unit is recognised as one",
+                    VerificationRule.LEAF_TASK_CONSTRAINT,
+                    "ADR 001: the language marks no consultation unit; the identifier is a heuristic"),
+            new Unpinned("Rule 4: a consult role clause names no zero_tool role",
+                    VerificationRule.LEAF_TASK_CONSTRAINT,
+                    "ADR 016: checked with the role's existence by Rule 13, which is not part of the verifier"),
             new Unpinned("Rule 6: the guarded field is a boolean or optional field of the callee's result schema",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
                     "ADR 010: SchemaRegistry registers schema names only"),
-            new Unpinned("Rule 6: inside a remediation unit stepped_out targets the budget re-check",
+            new Unpinned("Rule 6: in a plan unit stepped_out targets the fallback state of the calling phase",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
-                    "ADR 010: the language does not mark the budget re-check; only a SUCCESS target is refused"),
+                    "ADR 001: plan.return and finalize.hand-back are both admitted, whatever the calling phase"),
             new Unpinned("Rule 9: skipped on lost or infeasible only on the declared conservative route of an optional"
                     + " step", VerificationRule.STEP_COMPLETION,
-                    "ADR 002: the AST declares no optional step and no conservative route"));
+                    "ADR 002: the AST declares no optional step and no conservative route"),
+            new Unpinned("Rule 11: a cycle through a call counts the measure or awaited event of a state in the callee",
+                    VerificationRule.CYCLE_AWAITED_EVENT,
+                    "ADR 001: the callee is not entered; a call counts as engine-chained and awaiting no event"),
+            new Unpinned("Rule 12: an escalate link is one whose primitive files a waiver request and never waits",
+                    VerificationRule.LINK_COMPATIBILITY,
+                    "ADR 001: the primitive SPI declares no waiver request; the link is told by its identifier"
+                            + " request_waiver"));
 
     private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), RELEASED,
             TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
@@ -332,7 +366,8 @@ class WorkflowValidatorTest {
             var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
                     SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
 
-            assertEquals(Set.of(VerificationRule.values()), accounted);
+            assertAll(() -> assertEquals(26, VerificationRule.values().length),
+                    () -> assertEquals(Set.of(VerificationRule.values()), accounted));
         }
 
         @Test
@@ -341,11 +376,7 @@ class WorkflowValidatorTest {
             var result = validator.verify(VerifyFixtures.parse(VerifyFixtures.PASSING + "/every-construct.pmwf"));
 
             assertAll(() -> assertTrue(result.passed(), result::toString),
-                    () -> assertEquals(List.of(), result.violations(), result::toString),
-                    () -> assertEquals(List.of("verify.entry CONFIG_REACHABILITY", "verify.entry CONFIG_REACHABILITY"),
-                            result.advisories().stream()
-                                    .map(advisory -> advisory.stateId() + " " + advisory.rule()).toList(),
-                            "only the transitions of the link that depends on configuration are partial"));
+                    () -> assertEquals(List.of(), result.violations(), result::toString));
         }
     }
 
@@ -434,6 +465,164 @@ class WorkflowValidatorTest {
                                 job llm change role reviewer
                                     approved -> verify.done
                             """ + DONE_TERMINAL),
+                    Arguments.of("the default lost route of a sub-workflow reached only from a plan unit through"
+                            + " another sub-workflow, matched with model-job-lost-mixed-callers.pmwf",
+                            TestPrimitives.PLAN_ONLY_INNER, "subworkflow", """
+                            state verify.entry
+                                phase inherit
+                                job llm change role reviewer
+                                    approved -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a guarded complementary done pair on a call to a callee with a result schema,"
+                            + " matched with result-guard-callee-without-schema.pmwf", "verify.inline", "subworkflow", """
+                            state verify.entry
+                                phase inherit
+                                call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                                    done -> verify.done
+                                        guard result.pushed
+                                    done -> verify.done
+                                        guard not result.pushed
+                                    stepped_out -> verify.stepped-out
+
+                            state verify.stepped-out terminal stepped_out stepped_out
+                                phase inherit
+                            """ + DONE_TERMINAL),
+                    Arguments.of("stepped_out of a call in a remediation unit routed to its budget re-check, matched"
+                            + " with stepped-out-remediation-budget-check.pmwf", "remediation.inline", "subworkflow", """
+                            state verify.entry
+                                phase inherit
+                                call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                                    done -> verify.done
+                                    stepped_out -> remediation-inline.budget-check
+
+                            state remediation-inline.budget-check
+                                phase inherit
+                                auto remediation.check-budgets
+                                    budget_left -> verify.done
+                                    exhausted_wait -> verify.exhausted
+                                    exhausted -> verify.exhausted
+
+                            state verify.exhausted terminal exhausted failure
+                                phase inherit
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a firing that passes another step's opening before it completes its step, matched"
+                            + " with step-completion-firing-per-step.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> finalize.review-cap-check
+                                    skipped -> verify.done
+                                        completes step:a as skipped
+
+                            state finalize.review-cap-check
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.after
+                                        completes step:b as done
+                                    skipped -> verify.after
+                                        completes step:b as skipped
+
+                            state verify.after
+                                phase verify
+                                auto test.proceed
+                                    done -> verify.done
+                                        completes step:a as done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a re-entry into the opening that continues the open firing, matched with"
+                            + " step-completion-firing-per-step.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.work
+                                    skipped -> verify.done
+                                        completes step:s as skipped
+
+                            state verify.work
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.done
+                                        completes step:s as done
+                                    failed -> verify.entry
+                                    cancelled -> verify.done
+                                        completes step:s as failed
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a completion on the loop-back into the opening and on every other path of its"
+                            + " firing, matched with step-completion-loop-back-opening.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.work
+                                    skipped -> verify.done
+                                        completes step:s as skipped
+
+                            state verify.work
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.done
+                                        completes step:s as done
+                                    failed -> verify.entry
+                                        completes step:s as failed
+                                    cancelled -> verify.done
+                                        completes step:s as failed
+                            """ + DONE_TERMINAL),
+                    Arguments.of("skipped on a task's infeasible and on lost, matched with"
+                            + " step-completion-skipped-route.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                job llm repair role implementer
+                                    repaired -> verify.done
+                                        completes step:s as done
+                                    infeasible -> verify.done
+                                        completes step:s as skipped
+                                    lost -> verify.done
+                                        completes step:s as skipped
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a dispatch hub every pass of which settles one step, matched with"
+                            + " cycle-measure-step-list-settle.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.next-step
+                                    first -> verify.one
+                                    second -> verify.two
+                                    settled -> verify.done
+
+                            state verify.one
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.entry
+                                        completes step:one as done
+                                    skipped -> verify.entry
+                                        completes step:one as skipped
+
+                            state verify.two
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.entry
+                                        completes step:two as done
+                                    skipped -> verify.entry
+                                        completes step:two as skipped
+                            """ + DONE_TERMINAL),
+                    Arguments.of("ARCHIVE_STEPS on an archive path that commits and lands, matched with"
+                            + " cycle-measure-archive-commit-path.pmwf", "verify.inline", "epic", """
+                            state verify.entry
+                                phase verify
+                                auto test.next-work
+                                    archive_uncommitted -> verify.commit
+                                    archived -> verify.done
+
+                            state verify.commit
+                                phase verify
+                                call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                                    done -> verify.land
+                                    stepped_out -> verify.land
+
+                            state verify.land
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.entry
+                                    failed -> verify.entry
+                                    cancelled -> verify.entry
+                            """ + DONE_TERMINAL),
                     Arguments.of("the engine-made asked of an ask state, matched with model-job-asked-declared.pmwf",
                             "verify.inline", "plan", """
                             state verify.entry
@@ -450,8 +639,7 @@ class WorkflowValidatorTest {
         void shouldPassTheMatchedControl(String exemption, String id, String scope, String states) {
             var result = validator.verify(unit(id, scope, states));
 
-            assertAll(exemption, () -> assertEquals(List.of(), result.violations()),
-                    () -> assertEquals(List.of(), result.advisories()));
+            assertEquals(List.of(), result.violations(), exemption);
         }
     }
 
