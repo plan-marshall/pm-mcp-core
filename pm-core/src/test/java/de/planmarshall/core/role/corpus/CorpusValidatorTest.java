@@ -1,0 +1,452 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.core.role.corpus;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.role.corpus.CorpusViolation.Rule;
+import de.planmarshall.core.role.corpus.ImportedItem.Grading;
+import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
+import de.planmarshall.core.role.corpus.ImportedItem.Review;
+import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
+import de.planmarshall.core.role.corpus.ImportedItem.Target;
+import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
+import de.planmarshall.core.role.corpus.SourceOverlay.Row;
+
+/**
+ * The corpus validator (PM-WORK-6) over a corpus the test writes into a temporary directory, never copied from the
+ * product's content: a valid corpus with two items, a context file and one source reports nothing, and each rule has
+ * a fixture that breaks it alone and reports exactly its violation.
+ */
+@DisplayName("Corpus validator")
+class CorpusValidatorTest {
+
+    private static final String ITEM_A = "screening/topic/item-a";
+    private static final String ITEM_B = "review/topic/item-b";
+    private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
+    private static final String SOURCE_FILE = "data/test.csv";
+    private static final byte[] CSV = "question_id,question\nq-1,Is the sky blue?\n".getBytes(UTF_8);
+    private static final String MANIFEST = "sources/alpha/manifest.json";
+    private static final String OVERLAY = "sources/alpha/overlay.json";
+
+    /** The item schema of the fixture corpus: a closed schema of the keyword subset, written for this test. */
+    private static final String ITEM_SCHEMA = """
+            {"type":"object","additionalProperties":false,
+             "required":["schema_version","id","topic","role","title","input","target","grading","provenance",
+                         "review","canary"],
+             "properties":{
+              "schema_version":{"const":1},
+              "id":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$"},
+              "topic":{"type":"string","pattern":"^[a-z0-9-]+(/[a-z0-9-]+)*$"},
+              "role":{"type":"string"},
+              "title":{"type":"string","maxLength":120},
+              "tags":{"type":"array","items":{"type":"string"}},
+              "input":{"type":"object","additionalProperties":false,"required":["question","facts"],"properties":{
+               "question":{"type":"string"},"facts":{"type":"string"},
+               "choices":{"type":["array","null"],"items":{"type":"string"},"minItems":2},
+               "context":{"type":"array","items":{"type":"string","pattern":"^context/"}}}},
+              "target":{"type":"object","additionalProperties":false,"required":["rationale"],"properties":{
+               "answer":{},"rationale":{"type":"string"},"alternatives":{"type":"array","items":{"type":"string"}},
+               "items":{"type":"array","items":{"type":"object","additionalProperties":false,
+                "required":["id","description"],"properties":{"id":{"type":"string"},"description":{"type":"string"}}}},
+               "expected_empty":{"type":"boolean"}}},
+              "grading":{"type":"object","additionalProperties":false,"required":["method"],"properties":{
+               "method":{"enum":["exact_choice","label","rubric_items","rubric_properties"]},
+               "judge":{"type":"string"},"pass_threshold":{"type":"number","minimum":0,"maximum":1}}},
+              "provenance":{"type":"object","additionalProperties":false,"required":["kind","created","history"],
+               "properties":{"kind":{"enum":["hand-made","fetched","written"]},"created":{"type":"string"},
+                "origin":{"type":"object","additionalProperties":false,"required":["repository"],"properties":{
+                 "repository":{"type":"string"},"commit":{"type":"string"},"path":{"type":"string"},
+                 "line":{"type":"integer"}}},
+                "history":{"type":"array","items":{"type":"string"},"minItems":1}}},
+              "review":{"type":"object","additionalProperties":false,"required":["status"],"properties":{
+               "status":{"enum":["draft","confirmed"]},"by":{"type":"string"},"date":{"type":"string"},
+               "notes":{"type":"string"}}},
+              "canary":{"type":"string"}}}
+            """;
+
+    @TempDir
+    Path base;
+
+    private Fixture fixture;
+
+    /** The corpus root and the cache root of one test, with the writers of their files. */
+    record Fixture(Path corpus, Path cache) {
+
+        void write(String relative, byte[] content) throws IOException {
+            var file = corpus.resolve(relative);
+            Files.createDirectories(file.getParent());
+            Files.write(file, content);
+        }
+
+        void write(String relative, String content) throws IOException {
+            write(relative, content.getBytes(UTF_8));
+        }
+
+        void item(Map<String, Object> item) throws IOException {
+            write(item.get("id") + ".json", json(item));
+        }
+
+        void generated(Map<String, Object> item) throws IOException {
+            var file = cache.resolve(CorpusImport.ITEMS).resolve(item.get("id") + ".json");
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, json(item));
+        }
+
+        void delete(String relative) throws IOException {
+            Files.delete(corpus.resolve(relative));
+        }
+
+        void manifest(SourceManifest manifest) throws IOException {
+            write(MANIFEST, SourceManifestCodec.write(manifest));
+        }
+
+        void overlay(SourceOverlay overlay) throws IOException {
+            write(OVERLAY, SourceOverlayCodec.write(overlay));
+        }
+    }
+
+    /** Changes the valid fixture so that it breaks one rule. */
+    @FunctionalInterface
+    interface Mutation {
+        void apply(Fixture fixture) throws IOException;
+    }
+
+    @BeforeEach
+    void validCorpus() throws IOException {
+        fixture = new Fixture(base.resolve("corpus"), base.resolve("cache"));
+        fixture.write(CorpusValidator.ITEM_SCHEMA, ITEM_SCHEMA);
+        fixture.write("context/rules.md", "# Rules\n\nAnswer with yes or no.\n");
+        fixture.item(closedItem());
+        fixture.item(rubricItem());
+        fixture.manifest(manifest("alpha", SOURCE_FILE));
+        fixture.overlay(overlay("alpha", SOURCE_FILE));
+        fixture.write(CorpusValidator.ATTRIBUTION, "# Attribution\n\n## alpha\n\nMIT, the example authors.\n");
+    }
+
+    private List<CorpusViolation> validate() {
+        return new CorpusValidator(fixture.corpus()).validate(fixture.cache());
+    }
+
+    private static String report(List<CorpusViolation> violations) {
+        return violations.stream().map(CorpusViolation::toString).collect(Collectors.joining("\n"));
+    }
+
+    static Map<String, Object> closedItem() {
+        var item = itemFrame(ITEM_A, "screening");
+        item.put("tags", List.of("closed"));
+        item.put("input", map("question", "Is the sky blue?", "facts", "The sky at noon.", "choices",
+                List.of("yes", "no"), "context", List.of("context/rules.md")));
+        item.put("target", map("answer", "yes", "rationale", "the sky is blue at noon"));
+        item.put("grading", map("method", "exact_choice"));
+        return reorder(item);
+    }
+
+    static Map<String, Object> rubricItem() {
+        var item = itemFrame(ITEM_B, "review");
+        item.put("input", map("question", "Review the change.", "facts", "A diff."));
+        item.put("target", map("rationale", "one defect", "items",
+                List.of(map("id", "d1", "description", "the missing null check"))));
+        item.put("grading", map("method", "rubric_items", "pass_threshold", 0.5));
+        return reorder(item);
+    }
+
+    /** An item in the imported format, as an import writes it below a cache root. */
+    static Map<String, Object> importedItem(String id) {
+        var item = itemFrame(id, "screening");
+        item.put("tags", List.of("imported"));
+        item.put("input", map("question", "Is water dry?", "facts", "", "choices", List.of("no", "yes")));
+        item.put("target", map("answer", "no", "rationale", "water is wet"));
+        item.put("grading", map("method", "label"));
+        item.put("provenance", map("kind", "fetched", "created", "2026-10-14", "origin",
+                map("repository", "https://github.com/example/alpha", "commit", COMMIT, "path", SOURCE_FILE, "line", 2),
+                "history", List.of("2026-10-14: generated from line 2 of the source alpha.")));
+        return reorder(item);
+    }
+
+    private static Map<String, Object> itemFrame(String id, String role) {
+        var item = new LinkedHashMap<String, Object>();
+        item.put("schema_version", 1);
+        item.put("id", id);
+        item.put("topic", id.substring(0, id.lastIndexOf('/')));
+        item.put("role", role);
+        item.put("title", "item " + id);
+        item.put("provenance", map("kind", "written", "created", "2026-10-14", "history",
+                List.of("2026-10-14: written for the corpus.")));
+        item.put("review", map("status", "confirmed", "by", "operator", "date", "2026-10-14"));
+        item.put("canary", ItemGenerator.CANARY);
+        return item;
+    }
+
+    /** Puts the members in the order of the item format. */
+    private static Map<String, Object> reorder(Map<String, Object> item) {
+        var ordered = new LinkedHashMap<String, Object>();
+        for (var key : List.of("schema_version", "id", "topic", "role", "title", "tags", "input", "target",
+                "grading", "provenance", "review", "canary")) {
+            if (item.containsKey(key)) {
+                ordered.put(key, item.get(key));
+            }
+        }
+        return ordered;
+    }
+
+    private static Map<String, Object> map(Object... members) {
+        var map = new LinkedHashMap<String, Object>();
+        for (var index = 0; index < members.length; index += 2) {
+            map.put((String) members[index], members[index + 1]);
+        }
+        return map;
+    }
+
+    /** @return the item with the member at the dotted path set; {@code null} removes it */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> with(Map<String, Object> item, String path, Object value) {
+        var names = path.split("\\.");
+        var parent = item;
+        for (var index = 0; index < names.length - 1; index++) {
+            parent = (Map<String, Object>) parent.get(names[index]);
+        }
+        if (value == null) {
+            parent.remove(names[names.length - 1]);
+        } else {
+            parent.put(names[names.length - 1], value);
+        }
+        return item;
+    }
+
+    static String json(Object value) {
+        return switch (value) {
+            case null -> "null";
+            case Map<?, ?> map -> map.entrySet().stream()
+                    .map(member -> json(member.getKey()) + ":" + json(member.getValue()))
+                    .collect(Collectors.joining(",", "{", "}"));
+            case List<?> list -> list.stream().map(CorpusValidatorTest::json).collect(Collectors.joining(",", "[", "]"));
+            case String string -> "\"" + string.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"";
+            default -> value.toString();
+        };
+    }
+
+    private static SourceManifest manifest(String name, String file) {
+        return new SourceManifest(name, URI.create("https://github.com/example/alpha"), COMMIT, "MIT",
+                List.of(new SourceFile(file, Sha256.hex(CSV), false)));
+    }
+
+    private static SourceOverlay overlay(String source, String file) {
+        var row = new Row("q-1", "q-1", "screening/alpha", "screening", "sky question", List.of("imported"),
+                "{question}", "", List.of("yes", "no"), new Target("yes", "the sky is blue", List.of(), List.of(), false),
+                new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
+        return new SourceOverlay(source, file, "question_id", LocalDate.of(2026, 10, 14), List.of(row));
+    }
+
+    @Nested
+    @DisplayName("a valid corpus")
+    class Valid {
+
+        @Test
+        @DisplayName("reports no violation")
+        void valid() {
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("reports no violation without the cache root either")
+        void validWithoutCache() {
+            var violations = new CorpusValidator(fixture.corpus()).validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("an item an import generated below the cache root is accepted")
+        void generatedItemAccepted() throws IOException {
+            var overlay = CorpusSchemaResourcesTest.overlay("question_id", "q-1", "q-2");
+            var generated = ItemGenerator.generate(CorpusSchemaResourcesTest.manifest(), overlay,
+                    overlay.rows().getFirst(), new SourceRow(3, Map.of("question", "Is the sky blue?", "subject",
+                            "weather", "option_a", "yes", "option_b", "no")));
+            var file = fixture.cache().resolve(CorpusImport.ITEMS).resolve(generated.id() + ".json");
+            Files.createDirectories(file.getParent());
+            Files.write(file, ImportedItemCodec.write(generated));
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("the files below schema/, context/ and sources/ are no items")
+        void noItemDirectories() throws IOException {
+            fixture.write("context/notes.json", "not JSON");
+            fixture.write("schema/other.json", "{\"id\":\"elsewhere\"}");
+            fixture.write("sources/alpha/extra.json", "[]");
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("an item of the corpus's own part fetched from a review comment, naming no row, is accepted")
+        void fetchedOwnItem() throws IOException {
+            fixture.item(with(closedItem(), "provenance", map("kind", "fetched", "created", "2026-10-14", "origin",
+                    map("repository", "https://github.com/example/alpha", "path", "src/Main.java"), "history",
+                    List.of("2026-10-14: fetched from a review comment of the repository."))));
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("a control without rubric items is accepted")
+        void control() throws IOException {
+            var item = with(rubricItem(), "target.items", null);
+            fixture.item(with(item, "target.expected_empty", true));
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+    }
+
+    static Stream<Arguments> brokenRules() {
+        return Stream.of(
+                Arguments.of("the item schema is missing", CorpusValidator.ITEM_SCHEMA, Rule.ITEM_SCHEMA,
+                        (Mutation) f -> f.delete(CorpusValidator.ITEM_SCHEMA)),
+                Arguments.of("an item is no JSON", "screening/topic/broken", Rule.NOT_JSON,
+                        (Mutation) f -> f.write("screening/topic/broken.json", "{")),
+                Arguments.of("an item has an undeclared member", ITEM_A, Rule.SCHEMA,
+                        (Mutation) f -> f.item(with(closedItem(), "extra", 1))),
+                Arguments.of("an id differs from the path", "screening/topic/item-c", Rule.ID_PATH,
+                        (Mutation) f -> f.write("screening/topic/item-c.json",
+                                json(with(closedItem(), "id", "screening/topic/other")))),
+                Arguments.of("a topic differs from the directory", ITEM_A, Rule.TOPIC_DIRECTORY,
+                        (Mutation) f -> f.item(with(closedItem(), "topic", "screening/else"))),
+                Arguments.of("a generated item has the id of a corpus item", ITEM_A, Rule.DUPLICATE_ID,
+                        (Mutation) f -> f.generated(with(importedItem(ITEM_A), "topic", "screening/topic"))),
+                Arguments.of("the canary is wrong", ITEM_A, Rule.CANARY,
+                        (Mutation) f -> f.item(with(closedItem(), "canary", "another canary"))),
+                Arguments.of("a closed answer is no choice", ITEM_A, Rule.CLOSED_ANSWER,
+                        (Mutation) f -> f.item(with(closedItem(), "target.answer", "maybe"))),
+                Arguments.of("a closed answer without choices", ITEM_A, Rule.CLOSED_ANSWER,
+                        (Mutation) f -> f.item(with(closedItem(), "input.choices", null))),
+                Arguments.of("a rubric has no items and is no control", ITEM_B, Rule.RUBRIC_ITEMS,
+                        (Mutation) f -> f.item(with(rubricItem(), "target.items", List.of()))),
+                Arguments.of("a context file is missing", ITEM_A, Rule.CONTEXT_FILE,
+                        (Mutation) f -> f.item(with(closedItem(), "input.context", List.of("context/missing.md")))),
+                Arguments.of("the provenance names a stage", ITEM_A, Rule.TRANSIENT_NAME,
+                        (Mutation) f -> f.item(with(closedItem(), "provenance.history",
+                                List.of("2026-10-14: written in Stage 2.")))),
+                Arguments.of("the tags name a local plan path", ITEM_B, Rule.TRANSIENT_NAME,
+                        (Mutation) f -> f.item(with(rubricItem(), "tags", List.of(".plan/local")))),
+                Arguments.of("an imported item is stored below the corpus", ITEM_A, Rule.THIRD_PARTY_TEXT,
+                        (Mutation) f -> f.item(with(importedItem(ITEM_A), "topic", "screening/topic"))),
+                Arguments.of("a source file is stored below the corpus", "context/rows.csv", Rule.THIRD_PARTY_TEXT,
+                        (Mutation) f -> f.write("context/rows.csv", CSV)),
+                Arguments.of("a generated item is outside the imported format", "screening/imported/q-1",
+                        Rule.IMPORTED_ITEM,
+                        (Mutation) f -> f.generated(with(importedItem("screening/imported/q-1"), "tags", List.of()))),
+                Arguments.of("the manifest is missing", MANIFEST, Rule.MANIFEST, (Mutation) f -> f.delete(MANIFEST)),
+                Arguments.of("the manifest has an undeclared member", MANIFEST, Rule.MANIFEST,
+                        (Mutation) f -> f.write(MANIFEST, new String(SourceManifestCodec.write(manifest("alpha",
+                                SOURCE_FILE)), UTF_8).replace("\"licence\"", "\"homepage\" : \"x\", \"licence\""))),
+                Arguments.of("the manifest names another source", MANIFEST, Rule.MANIFEST,
+                        (Mutation) f -> f.manifest(manifest("beta", SOURCE_FILE))),
+                Arguments.of("the manifest is no JSON", MANIFEST, Rule.MANIFEST, (Mutation) f -> f.write(MANIFEST, "[")),
+                Arguments.of("the overlay is missing", OVERLAY, Rule.OVERLAY, (Mutation) f -> f.delete(OVERLAY)),
+                Arguments.of("the overlay names another source", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.overlay(overlay("beta", SOURCE_FILE))),
+                Arguments.of("the overlay reads a file the manifest does not name", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.overlay(overlay("alpha", "data/other.csv"))),
+                Arguments.of("ATTRIBUTION.md is missing", CorpusValidator.ATTRIBUTION, Rule.ATTRIBUTION,
+                        (Mutation) f -> f.delete(CorpusValidator.ATTRIBUTION)),
+                Arguments.of("ATTRIBUTION.md lacks the section of the source", CorpusValidator.ATTRIBUTION,
+                        Rule.ATTRIBUTION, (Mutation) f -> f.write(CorpusValidator.ATTRIBUTION, "# Attribution\n")),
+                Arguments.of("ATTRIBUTION.md has the section twice", CorpusValidator.ATTRIBUTION, Rule.ATTRIBUTION,
+                        (Mutation) f -> f.write(CorpusValidator.ATTRIBUTION, "## alpha\n\none\n\n## alpha\n\ntwo\n")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("brokenRules")
+    @DisplayName("a fixture that breaks one rule reports exactly its violation")
+    void brokenRule(String name, String subject, Rule rule, Mutation mutation) throws IOException {
+        mutation.apply(fixture);
+
+        var violations = validate();
+
+        assertAll(
+                () -> assertEquals(1, violations.size(), () -> report(violations)),
+                () -> assertEquals(subject, violations.getFirst().subject(), () -> report(violations)),
+                () -> assertEquals(rule, violations.getFirst().rule(), () -> report(violations)));
+    }
+
+    @Test
+    @DisplayName("a corpus root that is no directory is reported, not thrown")
+    void rootIsNoDirectory() throws IOException {
+        var file = Files.writeString(base.resolve("file"), "no corpus");
+
+        var violations = new CorpusValidator(file).validate();
+
+        assertAll(
+                () -> assertEquals(1, violations.size(), () -> report(violations)),
+                () -> assertEquals(Rule.UNREADABLE, violations.getFirst().rule()));
+    }
+
+    @Test
+    @DisplayName("a transient name is named in the detail, once per occurrence")
+    void transientDetail() throws IOException {
+        fixture.item(with(closedItem(), "provenance.history", List.of("2026-10-14: pulled by pull.py, see E12.")));
+
+        var violations = validate();
+
+        assertEquals(List.of("names a transient tool or stage: 'pull.py'",
+                "names a transient tool or stage: 'E12'"),
+                violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations));
+    }
+
+    @Test
+    @DisplayName("an item breaking the schema reports each violation with its path")
+    void schemaDetail() throws IOException {
+        fixture.item(with(with(closedItem(), "title", "t".repeat(121)), "grading.method", "vote"));
+
+        var violations = validate();
+
+        assertAll(
+                () -> assertTrue(violations.stream().allMatch(violation -> violation.rule() == Rule.SCHEMA),
+                        () -> report(violations)),
+                () -> assertEquals(List.of("$.title: longer than 120",
+                        "$.grading.method: \"vote\" not in [\"exact_choice\", \"label\", \"rubric_items\", "
+                                + "\"rubric_properties\"]"),
+                        violations.stream().map(CorpusViolation::detail).toList()));
+    }
+}
