@@ -39,9 +39,12 @@ import de.planmarshall.core.store.ScopeTransaction;
  * in the transaction of the first version naming the digest and never rewritten.</li>
  * </ul>
  * The digest sidecar of the plan covers every file through the commit of the transaction. A refused composition writes
- * only its log line. The plan lock makes the transaction the only writer of the scope; the store refuses a version
- * file that exists already rather than replacing it, so the allocation of a version number is checked again where it
- * is written.
+ * only its log line. The store never replaces a version file, and it refuses one twice: {@link #recordComposed} refuses
+ * a version whose file exists when it is called, before anything is recorded, and the version file is collected with
+ * {@link ScopeTransaction#create(String, byte[])}, so the commit refuses the whole transaction, under the plan lock
+ * and before anything is written, when another transaction created the file in between, such as a second transaction
+ * of the same lock transaction that recorded the same version. The texts of the sub-units are plain replaces: they are
+ * content-addressed, so a second writer of a digest writes the same bytes.
  *
  * @since 0.1
  */
@@ -97,7 +100,10 @@ public final class PlanInstanceStore {
      *                                  result, version, event, trigger and input digests are those of the version), a
      *                                  text does not match its digest, or a sub-unit the header names has no text;
      *                                  nothing was recorded
-     * @throws IllegalStateException    if the version file exists already; nothing was recorded
+     * @throws IllegalStateException    if the version file exists already; nothing was recorded. A version file that
+     *                                  another transaction creates after this call is refused by the commit of
+     *                                  {@code transaction} instead, which then throws this exception and writes
+     *                                  nothing
      * @throws UncheckedIOException     if a directory of the plan cannot be created
      */
     public void recordComposed(ScopeTransaction transaction, PlanInstance instance, List<SubUnitText> texts,
@@ -131,7 +137,7 @@ public final class PlanInstanceStore {
         }
         createDirectory(INSTANCE_DIRECTORY);
         createDirectory(UNITS_DIRECTORY);
-        transaction.replace(versionPath, instance.text().getBytes(StandardCharsets.UTF_8));
+        transaction.create(versionPath, instance.text().getBytes(StandardCharsets.UTF_8));
         named.stream().map(UnitReference::digest).distinct().filter(digest -> !exists(subUnitPath(digest)))
                 .forEach(digest -> transaction.replace(subUnitPath(digest), byDigest.get(digest).bytes()));
         transaction.append(COMPOSITION_LOG, line(compositionRecord));

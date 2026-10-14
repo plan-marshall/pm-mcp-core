@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -178,6 +179,44 @@ class PlanInstanceStoreTest {
                         compositionRecord));
             }
             assertEquals(Optional.of(instance.text()), store.readVersion(1));
+        }
+
+        /**
+         * The interleaved case: two transactions of one lock transaction both pass the early check of the same
+         * version, because neither has committed when the other records; the commit of the second is refused.
+         */
+        @Test
+        @DisplayName("two transactions of one lock that record the same version: the second commit is refused")
+        void interleavedTransactions() {
+            var first = version1();
+            var otherFacts = facts().configuration("derived.push_remote", "upstream").build();
+            var otherResult = composer().compose(PlanFixtures.start(otherFacts));
+            var second = assertInstanceOf(CompositionResult.Composed.class, otherResult, otherResult::toString)
+                    .instance();
+            assertAll("the two compositions are version 1 with different texts",
+                    () -> assertEquals(1, second.version()),
+                    () -> assertNotEquals(first.text(), second.text()));
+            var texts = texts();
+
+            try (var lock = new HoldingEverything()) {
+                var firstTransaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var secondTransaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                store.recordComposed(firstTransaction, first, texts, CompositionRecord.composed(first, COMPOSED_AT));
+                store.recordComposed(secondTransaction, second, texts,
+                        CompositionRecord.composed(second, COMPOSED_AT));
+
+                firstTransaction.commit();
+
+                assertThrows(IllegalStateException.class, secondTransaction::commit);
+            }
+            assertAll(
+                    () -> assertEquals(Optional.of(first.text()), store.readVersion(1),
+                            "the text of the first transaction is still the version"),
+                    () -> assertEquals(1, logLines().size(), "the refused commit wrote no log line"));
         }
 
         @Test
