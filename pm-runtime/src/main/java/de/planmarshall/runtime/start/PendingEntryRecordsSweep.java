@@ -43,9 +43,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * <p>
  * All the old records of a run are removed in one transaction of the workspace scope, each as a delete target, and
  * the transaction owes one {@code pending_entry_removed} record per removed record, carrying its entry id, its store
- * path, its creation instant and the transaction id. A stopped removal is therefore completed by the recovery of the
- * workspace, which hands the owed records over again. The step reports how many records it removed; a record it
- * could not read is reported as a failure of the step, after the readable old records were removed.
+ * path, its creation instant and a {@code transaction_id} of its own ({@link ScopeTransaction#recordId()}), never the
+ * id of the transaction: two records removed in one run carry two ids, and the id is the key by which the reader of
+ * the audit log drops a record handed over again. A stopped removal is therefore completed by the recovery of the
+ * workspace, which hands the owed records over again under the same ids. The step reports how many records it
+ * removed; a record it could not read is reported as a failure of the step, after the readable old records were
+ * removed.
  *
  * @since 0.1
  */
@@ -127,7 +130,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     store.remove(transaction, entryId);
                     transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
                             PendingEntryStore.storePath(entryId), entry.get().createdAt().toString(),
-                            transaction.transactionId().value()));
+                            transaction.recordId().value()));
                     removed++;
                 }
             }

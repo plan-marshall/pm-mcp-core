@@ -891,7 +891,7 @@ class EnrolmentsTest {
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             CoreLogMessages.WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                            "'" + event + "' of transaction '" + transactionIdOf(owed.getFirst()) + "'"));
+                            "'" + event + "' with transaction id '" + transactionIdOf(owed.getFirst()) + "'"));
         }
 
         @Nested

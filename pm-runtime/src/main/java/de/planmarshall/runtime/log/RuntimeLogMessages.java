@@ -325,11 +325,14 @@ public final class RuntimeLogMessages {
                 .template("Lease '%s' in '%s' orphaned: its holder (pid %s) is no longer alive")
                 .build();
 
-        /** Logged when the bounded verification finds the audit chain broken; the start goes on. */
+        /**
+         * Logged when the bounded verification finds the audit chain broken, with the reason by its wire name and the
+         * first broken line, {@code none} for every reason other than {@code link_broken}; the start goes on.
+         */
         public static final LogRecord AUDIT_CHAIN_BROKEN = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(108)
-                .template("Audit chain broken, the start goes on: %s")
+                .template("Audit chain broken (reason '%s', first broken line %s), the start goes on")
                 .build();
 
         /** Logged when the drain timeout expires and the runtime terminates what still runs. */
