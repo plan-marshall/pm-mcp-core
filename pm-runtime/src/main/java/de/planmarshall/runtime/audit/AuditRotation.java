@@ -451,8 +451,8 @@ public final class AuditRotation {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof Edges that && size == that.size && Arrays.equals(first, that.first)
-                    && Arrays.equals(last, that.last);
+            return other instanceof Edges(byte[] otherFirst, byte[] otherLast, long otherSize) && size == otherSize
+                    && Arrays.equals(first, otherFirst) && Arrays.equals(last, otherLast);
         }
 
         @Override
