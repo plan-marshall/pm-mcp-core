@@ -5,21 +5,19 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `session-as-worker`
 
 [horizontal]
 Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
-Where:: pm-workflow package `workflow.task`
+Where:: this index only (no code)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == What
 
-* A session of an eligible host takes tasks of `read_only` roles that set `session_first`; otherwise the supervisor serves them.
+The specification has no interactive session as a worker: a harness is a worker only as a job the runtime launches (link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL § All Interaction in the Operator's Clients]). Nothing of this package is built, and no code of it exists.
+
+* *The retirement*: on the operator's decision to drop the package, this file and its row in the link:README.adoc#packages[index] are removed, with every link to them.
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
-
-* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/02-task-protocol.adoc#session-worker[Model Work § The Session as Optional Worker]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL § All Interaction in the Operator's Clients]
 
 == Done When
 
-A session of a profile with `session_tasks: false` is never offered a task; a fenced session loses its lease.
+This file and its row in the index are gone, and no document of this repository links to them.

@@ -11,7 +11,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * The per-project machine store below `<PM_MCP_BASE>/projects/<project_id>/` and the state-free repository directory `.marshall/local/`.
-* The project resolution rule that `pm-mcp enter` and every request rest on.
+* The project resolution rule every request of a client that names a checkout path rests on.
 
 == Trace
 
