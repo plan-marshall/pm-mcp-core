@@ -873,9 +873,9 @@ public final class WorkflowValidator {
                 if (callee.resultSchema().isEmpty()) {
                     call.transitions().stream().filter(transition -> transition.resultGuard().isPresent())
                             .findFirst().ifPresent(transition -> violations.add(new Violation(
-                                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
-                                    "the call guards the outcome '%s' on the result of '%s', which declares no result schema"
-                                            .formatted(transition.outcomeName(), call.subWorkflowId()))));
+                            VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
+                            "the call guards the outcome '%s' on the result of '%s', which declares no result schema"
+                                    .formatted(transition.outcomeName(), call.subWorkflowId()))));
                 }
 
                 var outcomeCounts = new HashMap<String, Integer>();
@@ -1028,7 +1028,7 @@ public final class WorkflowValidator {
         }
         return isBudgetCheck(target) ? null
                 : "neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
-                        .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS);
+                .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS);
     }
 
     /**
