@@ -49,3 +49,21 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
 ## Watch: doc #56 of PLAN-21
 
 - Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
+
+<!-- moved by analyze on 2026-10-14: plan-marshall-mcp #76 merged (e34961b) -->
+
+## Watch: pm-mcp-server against the log-holder SNAPSHOT
+
+- plan-marshall-mcp `pm-mcp-server` imports `PmMcpLogMessages` and breaks against the SNAPSHOT of #64 until it switches to `RuntimeLogMessages` (all of its 16 records) or takes over its own records.
+
+## Watch: pm-mcp-server and SweepStep.notImplemented
+
+- plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
+- Refuted by #76: the assembly never used `SweepStep` or `PeriodicSweep` (no use site at e34961b^1). The sweep wiring is owed as new behaviour, not as a follow-up — see the plan-marshall-mcp watch in `epic.md`.
+
+## Watch: breaking changes for plan-marshall-mcp
+
+- Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
+  `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
+  `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).
+- Settled by #76: `StartupSequence` followed (`AuditChainVerification.NONE` plus a refusing sink in `PmMcpd`); `FindingSource`, `FindingResponder`, `ProjectRecovery`, `AuditEvent`, `CrossScopeReconciler`, the journal format and the enrolment store types have no use site in the assembly. All gates and CI green on 28bd5fe.

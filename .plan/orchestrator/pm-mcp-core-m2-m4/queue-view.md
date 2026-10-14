@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: READY TO EMIT (main 6bc8b71, ledger landed #65). No plan running; no open doc PR. Candidates: PLAN-20, 23, 24, 40, 56, one of 09/14/15 — re-ground each against landings since staging, then the disjointness gate, before emitting. Running outside the queue: plan-marshall-mcp session (.plan/temp/follow-pm-mcp-core-snapshot-plan.md there) — analyze its report when pasted.
+**Resume anchor**: READY TO EMIT (main 6bc8b71, ledger landed #65). No plan running; no open doc PR. plan-marshall-mcp #76 (follow the SNAPSHOT) merged e34961b and absorbed — assembly is green against pm-mcp-core main. Candidates: PLAN-20, 23, 24, 40, 56, one of 09/14/15 — re-ground each against landings since staging, then the disjointness gate, before emitting. PLAN-09 re-grounding: include the production AuditSink / startup audit-chain verification (watch of 2026-10-14).
 **Phase**: orchestrating
 **Parked**:
 - PLAN-19 (WS-05)
