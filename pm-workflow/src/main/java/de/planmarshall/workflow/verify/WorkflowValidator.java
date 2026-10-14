@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -1568,73 +1569,97 @@ public final class WorkflowValidator {
     }
 
     /**
-     * A position of a pass of a dispatch hub: the state reached and the distinct steps settled on the way, at most
-     * two.
+     * A position of a pass of a dispatch hub: the state reached, the distinct steps settled on the way (at most two)
+     * and the first of them completed a second time on the way ({@code null} while none is).
      */
-    private record PassPosition(String stateId, Set<String> settled) {
+    private record PassPosition(String stateId, Set<String> settled, String repeated) {
     }
 
     /**
-     * Rule 9, {@code STEP_LIST}: every pass of the dispatch hub fires and settles exactly one step. A pass is a path
-     * that leaves the hub on one of its outcomes and returns to it; a path that enters a terminal state,
-     * {@link #MERGE_GATE} or an implicit-failed state leaves the step list instead, and one that ends early on an
-     * {@code UNSETTLED} or {@code STEPPED_OUT} outcome hands its step back. Each outcome of the hub with a pass that
-     * settles no step, or more than one, is refused at its transition.
+     * What the passes that leave a dispatch hub with one transition settle: the number of distinct steps of each pass
+     * (at most two) and the steps that some pass completes more than once.
+     */
+    private record PassSettlements(Set<Integer> distinctCounts, Set<String> repeatedSteps) {
+    }
+
+    /**
+     * Rule 9, {@code STEP_LIST}: every pass of the dispatch hub fires and settles exactly one completion of one step.
+     * A pass is a path that leaves the hub on one of its outcomes and returns to it; a path that enters a terminal
+     * state, {@link #MERGE_GATE} or an implicit-failed state leaves the step list instead, and one that ends early on
+     * an {@code UNSETTLED} or {@code STEPPED_OUT} outcome hands its step back. Each outcome of the hub with a pass that
+     * settles no step, or more than one distinct step, is refused at its transition, and so is each step that a pass
+     * of it completes more than once, named as completed twice whether or not the firing check also refuses the
+     * second completion (ADR 022).
      */
     private static void checkStepListPasses(WorkflowDefinition definition, StateNode hub,
             Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, List<Violation> violations) {
         for (var start : UnitGraph.allTransitions(hub.behavior())) {
-            var settledCounts = passSettledCounts(definition, hub.id(), start, outcomeClasses);
-            if (settledCounts.contains(0)) {
+            var settlements = passSettlements(definition, hub.id(), start, outcomeClasses);
+            if (settlements.distinctCounts().contains(0)) {
                 violations.add(new Violation(VerificationRule.STEP_COMPLETION, hub.id(), start.location(),
                         "the cycle measure STEP_LIST of the state '%s' requires every pass to settle one step, but a pass that leaves it with the outcome '%s' settles none"
                                 .formatted(hub.id(), start.outcomeName())));
             }
-            if (settledCounts.contains(2)) {
+            if (settlements.distinctCounts().contains(2)) {
                 violations.add(new Violation(VerificationRule.STEP_COMPLETION, hub.id(), start.location(),
                         "the cycle measure STEP_LIST of the state '%s' requires every pass to settle one step, but a pass that leaves it with the outcome '%s' settles more than one"
                                 .formatted(hub.id(), start.outcomeName())));
+            }
+            for (var stepId : settlements.repeatedSteps()) {
+                violations.add(new Violation(VerificationRule.STEP_COMPLETION, hub.id(), start.location(),
+                        "the cycle measure STEP_LIST of the state '%s' requires every pass to settle one step once, but a pass that leaves it with the outcome '%s' completes the step '%s' twice"
+                                .formatted(hub.id(), start.outcomeName(), stepId)));
             }
         }
     }
 
     /**
      * @return the number of distinct steps settled, at most two, on each pass that leaves the hub with the transition
-     *         and returns to it; empty when no path of it returns. A step settled twice on one pass counts once: the
-     *         firing check refuses the second completion.
+     *         and returns to it, and the steps completed more than once on such a pass, in name order; both empty when
+     *         no path of it returns
      */
-    private static Set<Integer> passSettledCounts(WorkflowDefinition definition, String hubId,
+    private static PassSettlements passSettlements(WorkflowDefinition definition, String hubId,
             OutcomeTransition start, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
-        var counts = new HashSet<Integer>();
+        var settlements = new PassSettlements(new HashSet<>(), new TreeSet<>());
         var seen = new HashSet<PassPosition>();
         var stack = new ArrayDeque<PassPosition>();
-        advancePass(definition, hubId, start, Set.of(), outcomeClasses, counts, seen, stack);
+        advancePass(definition, hubId, start, new PassPosition(hubId, Set.of(), null), outcomeClasses, settlements,
+                seen, stack);
         while (!stack.isEmpty()) {
             var position = stack.pop();
             var state = definition.states().get(position.stateId());
             for (var transition : UnitGraph.allTransitions(state.behavior())) {
-                advancePass(definition, hubId, transition, position.settled(), outcomeClasses, counts, seen, stack);
+                advancePass(definition, hubId, transition, position, outcomeClasses, settlements, seen, stack);
             }
         }
-        return counts;
+        return settlements;
     }
 
     private static void advancePass(WorkflowDefinition definition, String hubId, OutcomeTransition transition,
-            Set<String> settledBefore, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses,
-            Set<Integer> counts, Set<PassPosition> seen, ArrayDeque<PassPosition> stack) {
+            PassPosition before, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses,
+            PassSettlements settlements, Set<PassPosition> seen, ArrayDeque<PassPosition> stack) {
         if (endsEarly(transition, outcomeClasses)) {
             return;
         }
-        var settledSteps = new LinkedHashSet<>(settledBefore);
+        var settledSteps = new LinkedHashSet<>(before.settled());
+        var repeated = before.repeated();
         for (var completion : transition.completions()) {
-            if (settledSteps.size() < 2) {
-                settledSteps.add(completion.stepId());
+            var stepId = completion.stepId();
+            if (settledSteps.contains(stepId)) {
+                if (repeated == null) {
+                    repeated = stepId;
+                }
+            } else if (settledSteps.size() < 2) {
+                settledSteps.add(stepId);
             }
         }
         var settled = Set.copyOf(settledSteps);
         var target = transition.targetStateId();
         if (hubId.equals(target)) {
-            counts.add(settled.size());
+            settlements.distinctCounts().add(settled.size());
+            if (repeated != null) {
+                settlements.repeatedSteps().add(repeated);
+            }
             return;
         }
         var targetState = definition.states().get(target);
@@ -1642,7 +1667,7 @@ public final class WorkflowValidator {
                 || IMPLICIT_FAILED_STATES.contains(target)) {
             return;
         }
-        var next = new PassPosition(target, settled);
+        var next = new PassPosition(target, settled, repeated);
         if (seen.add(next)) {
             stack.push(next);
         }

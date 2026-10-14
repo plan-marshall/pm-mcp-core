@@ -217,6 +217,8 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "cycle-measure-step-list.pmwf"),
             new Check("Rule 9: every pass of the STEP_LIST hub settles one step",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-step-list-settle.pmwf"),
+            new Check("Rule 9: a pass of the STEP_LIST hub that completes one step twice is refused, whatever its"
+                    + " openings", VerificationRule.STEP_COMPLETION, "cycle-measure-step-list-twice.pmwf"),
             new Check("Rule 9: ARCHIVE_STEPS sits in an epic unit",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-archive-steps.pmwf"),
             new Check("Rule 9: ARCHIVE_STEPS sits on an archive path that ends in a terminal state",

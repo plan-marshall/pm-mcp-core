@@ -1106,7 +1106,7 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("Cycle measure STEP_LIST: a pass that settles one step twice counts it once, only the firing refuses it")
+    @DisplayName("Cycle measure STEP_LIST: a step completed twice on a pass is refused beside the firing that completes it twice")
     void stepListPassSettlingOneStepTwice() {
         var def = unit("plan", """
                 state verify.entry
@@ -1139,8 +1139,45 @@ class AdditionalRulesTest {
                             completes step:two as skipped
                 """ + DONE_TERMINAL);
 
-        assertEquals(stepCompletion("verify.again",
-                "the step 'step:x' is completed twice in one firing from 'verify.one'"),
+        var expected = new ArrayList<RuleStateMessage>();
+        expected.addAll(stepCompletion("verify.entry",
+                "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step once, but a pass that leaves it with the outcome 'first' completes the step 'step:x' twice"));
+        expected.addAll(stepCompletion("verify.again",
+                "the step 'step:x' is completed twice in one firing from 'verify.one'"));
+        assertEquals(expected, found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a step completed twice on a pass is refused where no opening begins it")
+    void stepListPassCompletingOneStepTwiceWithoutOpening() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                            completes step:x as failed
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:x as failed
+                        skipped -> verify.entry
+                            completes step:x as failed
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step once, but a pass that leaves it with the outcome 'first' completes the step 'step:x' twice"),
                 found(def));
     }
 
