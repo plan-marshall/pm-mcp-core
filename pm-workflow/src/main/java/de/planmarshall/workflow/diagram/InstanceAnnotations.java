@@ -45,7 +45,7 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
     /** The value shown for a header value that is not set. */
     static final String NONE = "-";
 
-    private static final Pattern LINE_BREAKS_AND_CONTROLS = Pattern.compile("\\R|\\p{Cntrl}");
+    private static final Pattern LINE_BREAKS_AND_CONTROLS = Pattern.compile("\\R|\\p{Cc}");
 
     /**
      * Copies the lists into unmodifiable lists that keep their order.
@@ -94,11 +94,13 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
 
     /**
      * Puts free text of the header on one line, as every form needs it: each line break (a line feed, a carriage
-     * return, both together, or any other Unicode line terminator) and every other control character becomes one
-     * space. A line break would end a Mermaid declaration, end an AsciiDoc table or break the box of a terminal table.
+     * return, both together, or any other Unicode line terminator) and every other Unicode control character (general
+     * category Cc: the C0 controls, DEL and the C1 controls U+0080 to U+009F) becomes one space. A line break would
+     * end a Mermaid declaration, end an AsciiDoc table or break the box of a terminal table, and a C1 control such as
+     * U+009B (CSI) would be interpreted by a terminal that prints the table.
      *
      * @param text a text of the header
-     * @return the text without a line break or control character
+     * @return the text without a line break or Unicode control character
      */
     static String singleLine(String text) {
         return LINE_BREAKS_AND_CONTROLS.matcher(text).replaceAll(" ");

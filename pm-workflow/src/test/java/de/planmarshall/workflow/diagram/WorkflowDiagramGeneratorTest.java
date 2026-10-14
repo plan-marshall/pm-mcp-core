@@ -522,6 +522,30 @@ class WorkflowDiagramGeneratorTest {
                     () -> assertFalse(rendered.contains("\r"), rendered));
         }
 
+        @Test
+        @DisplayName("Should replace a C1 control character in a text of the header in every form")
+        void shouldReplaceC1ControlCharacters() {
+            var header = instance.header();
+            var hostile = new PlanInstanceHeader(header.planId(), header.version(), header.event(),
+                    header.composedAt(), header.inputs(), header.lane(), header.posture(), header.steps(),
+                    List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:x", PruneReason.LOCAL_ONLY,
+                            "fact\u009B[31m\u0080end")),
+                    List.of(), List.of());
+            var c1Instance = new PlanInstance(instance.version(), hostile, instance.unit(), instance.text());
+
+            var terminal = WorkflowDiagramGenerator.renderInstanceAscii(c1Instance, Optional.empty());
+            var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(c1Instance, Optional.empty());
+            var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(c1Instance, Optional.empty());
+
+            assertAll(
+                    () -> assertTrue(terminal.contains("│ fact [31m end │"), terminal),
+                    () -> assertTrue(asciiDoc.contains("|`fact [31m end`\n"), asciiDoc),
+                    () -> assertTrue(mermaid.contains("(fact [31m end)"), mermaid),
+                    () -> assertTrue(Stream.of(terminal, asciiDoc, mermaid)
+                            .noneMatch(form -> form.chars().anyMatch(character -> character >= 0x80
+                                    && character <= 0x9F)), "no C1 control character may remain"));
+        }
+
         private PlanInstance hostileInstance() {
             var header = instance.header();
             var hostile = new PlanInstanceHeader(header.planId(), header.version(), header.event(),
