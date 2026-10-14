@@ -64,6 +64,21 @@ class WorkflowLogMessagesTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "PLAN_INSTANCE_VERSION_RECORDED|INFO|2|Plan instance version %s of plan '%s' recorded for the event '%s'",
+            "PLAN_INSTANCE_COMPOSITION_REFUSED|WARN|101|Composition '%s' of plan '%s' refused with '%s', the version "
+                    + "in force is kept"})
+    @DisplayName("the plan instance messages carry their identifier and template")
+    void planInstanceMessages(String name, String level, int identifier, String template) throws Exception {
+        var holder = Class.forName(WorkflowLogMessages.class.getName() + "$" + level);
+        var logRecord = (LogRecord) holder.getField(name).get(null);
+
+        assertEquals(WorkflowLogMessages.PREFIX, logRecord.getPrefix());
+        assertEquals(identifier, logRecord.getIdentifier());
+        assertEquals(template, logRecord.getTemplate());
+    }
+
     @Test
     @DisplayName("the prefix is not the prefix of the holder of pm-core")
     void prefixOwn() {

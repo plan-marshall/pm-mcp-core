@@ -41,6 +41,16 @@ public final class WorkflowLogMessages {
                 .template("Units of project '%s' verified: %s units")
                 .build();
 
+        /**
+         * Logged when a composed plan instance version is recorded in a transaction of its plan (PM-IMPL-5), with the
+         * version, the plan id and the composition event; the version is written when the transaction commits.
+         */
+        public static final LogRecord PLAN_INSTANCE_VERSION_RECORDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(2)
+                .template("Plan instance version %s of plan '%s' recorded for the event '%s'")
+                .build();
+
         private INFO() {
         }
     }
@@ -57,6 +67,16 @@ public final class WorkflowLogMessages {
                 .prefix(PREFIX)
                 .identifier(100)
                 .template("Project unit '%s' refused at line %s by '%s', the plan lifecycle is refused with 'config_invalid'")
+                .build();
+
+        /**
+         * Logged when a refused composition of a plan instance is recorded in the composition log (PM-IMPL-5), with
+         * the composition event, the plan id and the refusal; no version is written and the version in force stays.
+         */
+        public static final LogRecord PLAN_INSTANCE_COMPOSITION_REFUSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(101)
+                .template("Composition '%s' of plan '%s' refused with '%s', the version in force is kept")
                 .build();
 
         private WARN() {
