@@ -148,9 +148,24 @@ public final class ScopeTransaction {
         this.transactionId = TransactionId.generate(clock);
     }
 
-    /** @return the id of the transaction, which its journal, its staged files and the records it owes carry */
+    /**
+     * @return the id of the transaction, which its journal, its staged files and its {@code transaction_rolled_forward}
+     *         record carry; never the id of a record it owes
+     */
     public TransactionId transactionId() {
         return transactionId;
+    }
+
+    /**
+     * Issues the {@code transaction_id} of one record the transaction owes. The id names that one record: it is
+     * distinct from {@link #transactionId()} and from the id of every other record the transaction owes, and it is the
+     * key by which the reader of the audit log drops a record handed over again. It travels with the owed record into
+     * the journal, so a record the recovery hands over again keeps it.
+     *
+     * @return a fresh id, of the same form as a transaction id
+     */
+    public TransactionId recordId() {
+        return TransactionId.generate(clock);
     }
 
     /** @return the scope whose stores the transaction writes; a store of this package checks it is its own */
@@ -172,7 +187,8 @@ public final class ScopeTransaction {
      * first store is touched, and the journal is deleted only after the sink accepted it; if the sink refuses it, or
      * the commit stops, the next recovery of the scope hands it over again.
      *
-     * @param event the record, carrying {@link #transactionId()} so that a record handed over again is recognised
+     * @param event the record, carrying its own {@link #recordId()} as {@code transaction_id}, so that a record handed
+     *              over again is recognised
      * @throws IllegalArgumentException if a detail of the record is not a string, an integer or a list of strings
      * @throws IllegalStateException    if the transaction was committed
      */

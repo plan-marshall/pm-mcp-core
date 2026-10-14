@@ -111,6 +111,77 @@ class ScopeTransactionTest {
         }
     }
 
+    /** One {@code transaction_id} per owed record, the deduplication key of the audit log reader. */
+    @Nested
+    @DisplayName("owed records")
+    class OwedRecords {
+
+        private static final String RULE = "rule";
+
+        private static Object idOf(AuditEvent event) {
+            return event.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
+        }
+
+        @Test
+        @DisplayName("two records owed by one transaction carry two ids, both distinct from the transaction's own")
+        void distinctIds() {
+            String transactionId;
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(STATUS, bytes(NEW_STATUS));
+                write.owe(AuditEvent.crossScopeReconciled(RULE, STATUS, write.recordId().value()));
+                write.owe(AuditEvent.crossScopeReconciled(RULE, REFERENCES, write.recordId().value()));
+                transactionId = write.transactionId().value();
+                write.commit();
+            }
+
+            var ids = audit.events().stream().map(OwedRecords::idOf).toList();
+            assertAll(
+                    () -> assertEquals(2, ids.size()),
+                    () -> assertEquals(2, ids.stream().distinct().count(), "each record has its own id"),
+                    () -> assertFalse(ids.contains(transactionId), "no record carries the transaction's id"));
+        }
+
+        @Test
+        @DisplayName("a crash after the journal re-delivers each owed record with its own id")
+        void crashAfterJournal() {
+            List<String> owedIds;
+            String transactionId;
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                ScopeTransaction.StepHook stop = (step, target) -> {
+                    if (step == Step.JOURNAL) {
+                        throw new FailingAuditSink.ProcessStopped();
+                    }
+                };
+                var write = ScopeTransaction.open(transaction, scope, audit, CLOCK, stop);
+                write.replace(STATUS, bytes(NEW_STATUS));
+                owedIds = List.of(write.recordId().value(), write.recordId().value());
+                write.owe(AuditEvent.crossScopeReconciled(RULE, STATUS, owedIds.get(0)));
+                write.owe(AuditEvent.crossScopeReconciled(RULE, REFERENCES, owedIds.get(1)));
+                transactionId = write.transactionId().value();
+                assertThrows(FailingAuditSink.ProcessStopped.class, write::commit);
+            }
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                JournalRecovery.recover(transaction, scope, audit);
+            }
+
+            var reconciled = audit.events().stream()
+                    .filter(event -> AuditEvent.CROSS_SCOPE_RECONCILED.equals(event.event())).map(OwedRecords::idOf)
+                    .toList();
+            var rolledForward = audit.events().stream()
+                    .filter(event -> AuditEvent.TRANSACTION_ROLLED_FORWARD.equals(event.event()))
+                    .map(OwedRecords::idOf).toList();
+            assertAll(
+                    () -> assertEquals(owedIds, reconciled, "each record re-delivered with the id it was owed with"),
+                    () -> assertEquals(List.of(transactionId), rolledForward,
+                            "the roll-forward record carries the transaction's id"));
+        }
+    }
+
     @Nested
     @DisplayName("commit")
     class Committing {

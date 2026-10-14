@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -755,15 +756,18 @@ class JournalRecoveryTest {
         }
 
         @Test
-        @DisplayName("a record a transaction owes is delivered with it, or by the recovery when the sink refused it")
+        @DisplayName("a record a transaction owes is delivered with it, or by the recovery when the sink refused it, "
+                + "keeping its own id")
         void owedByTransaction() throws Exception {
             var refusing = FailingAuditSink.refusing(1);
             TransactionJournal journal;
+            String recordId;
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var write = ScopeTransaction.open(transaction, scope, refusing, CLOCK);
                 write.replace(STATUS, bytes(NEW_STATUS));
-                write.owe(AuditEvent.crossScopeReconciled("rule", STATUS, write.transactionId().value()));
+                recordId = write.recordId().value();
+                write.owe(AuditEvent.crossScopeReconciled("rule", STATUS, recordId));
                 write.commit();
                 journal = TransactionJournal.read(scope.journalFile(), Files.readAllBytes(scope.journalFile()));
             }
@@ -781,8 +785,11 @@ class JournalRecoveryTest {
                     () -> assertEquals(new RolledForward(journal, List.of()), outcome),
                     () -> assertEquals(List.of(AuditEvent.transactionRolledForward(JournalScopeType.PLAN.wireName(),
                             PLAN, journal.transactionId().value(), List.of(STATUS)), owed), audit.events()),
-                    () -> assertEquals(journal.transactionId().value(),
-                            owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID)),
+                    () -> assertEquals(recordId, owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID),
+                            "the re-delivered record keeps the id it was owed with"),
+                    () -> assertNotEquals(journal.transactionId().value(),
+                            owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID),
+                            "the roll-forward record and the owed record carry different ids"),
                     () -> assertFalse(Files.exists(scope.journalFile())));
         }
 

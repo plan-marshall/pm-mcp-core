@@ -50,12 +50,13 @@ public final class CoreLogMessages {
          * Logged when the audit sink refused the record of a completed store mutation; the record stays owed in its
          * durable intent and is handed over again by the next recovery or repair. It covers an enrolment write as well,
          * whose record stays owed in the intent {@code <project_id>.json.audit-intent} and is handed over by the next
-         * enrolment operation of the project or the recovery sweep.
+         * enrolment operation of the project or the recovery sweep. The transaction id names the one record, the
+         * deduplication key of the audit log, not the transaction that owes it.
          */
         public static final LogRecord AUDIT_RECORD_DEFERRED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(100)
-                .template("Audit record '%s' of transaction '%s' not handed over, kept owed in '%s': %s")
+                .template("Audit record '%s' with transaction id '%s' not handed over, kept owed in '%s': %s")
                 .build();
 
         /**

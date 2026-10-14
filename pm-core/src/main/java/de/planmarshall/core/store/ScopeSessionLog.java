@@ -139,8 +139,8 @@ public final class ScopeSessionLog {
     /**
      * Adds one row as an append target to a transaction of the scope; it is written when the caller commits the
      * transaction. When the row declares another client than the latest row of the log, the transaction owes the
-     * {@code entry_client_changed} record with the previous and the new client and client session id; the first row
-     * of a log and a row of the same client owe none.
+     * {@code entry_client_changed} record with the previous and the new client and client session id, under an id of
+     * its own ({@link ScopeTransaction#recordId()}); the first row of a log and a row of the same client owe none.
      *
      * @param transaction an open transaction of this log's scope, opened by the caller's lock transaction
      * @param row         the entry row
@@ -164,7 +164,7 @@ public final class ScopeSessionLog {
         transaction.append(storePath, block);
         var owed = latest().filter(row::clientDiffersFrom)
                 .map(previous -> AuditEvent.entryClientChanged(previous.client().wireName(), row.client().wireName(),
-                        previous.clientSessionId(), row.clientSessionId(), transaction.transactionId().value()));
+                        previous.clientSessionId(), row.clientSessionId(), transaction.recordId().value()));
         owed.ifPresent(transaction::owe);
         return owed;
     }

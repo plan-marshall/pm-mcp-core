@@ -142,7 +142,9 @@ public final class OrderedWrite {
 
     /**
      * Owes the {@code cross_scope_reconciled} record of a derived write on the scope transaction that applies it, as a
-     * {@link CrossScopeReconciler} does before it commits the write.
+     * {@link CrossScopeReconciler} does before it commits the write. The record carries an id of its own
+     * ({@link ScopeTransaction#recordId()}), never the id of the write, which the {@code transaction_rolled_forward}
+     * record of the same journal carries.
      *
      * @param write          the open transaction of the derived write
      * @param reconciliation the reconciliation rule that applies and the store it writes
@@ -151,6 +153,6 @@ public final class OrderedWrite {
         Objects.requireNonNull(write, "write");
         Objects.requireNonNull(reconciliation, "reconciliation");
         write.owe(AuditEvent.crossScopeReconciled(reconciliation.name(), reconciliation.store(),
-                write.transactionId().value()));
+                write.recordId().value()));
     }
 }
