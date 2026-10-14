@@ -24,7 +24,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * each only when the header lists one, a table of the pruned elements (<em>Element</em>, <em>Id</em>,
  * <em>Reason</em>, <em>Source fact</em>) and a table of the waived gates (<em>Gate</em>, <em>Waiver id</em>), in header
  * order. The width of a column is the largest number of code points of its cells; the text is meant to be written as
- * UTF-8.
+ * UTF-8. The text of a cell comes from the header: a line break or control character in it becomes a space
+ * ({@link InstanceAnnotations#singleLine(String)}), so that every cell stays on its line and the right border aligned.
  *
  * @since 0.1
  */
@@ -62,7 +63,9 @@ final class InstanceAsciiTableRenderer {
         return out.toString();
     }
 
-    private static void table(StringBuilder out, List<String> header, List<List<String>> rows) {
+    private static void table(StringBuilder out, List<String> header, List<List<String>> unsafeRows) {
+        var rows = unsafeRows.stream().map(cells -> cells.stream().map(InstanceAnnotations::singleLine).toList())
+                .toList();
         var all = new ArrayList<List<String>>();
         all.add(header);
         all.addAll(rows);

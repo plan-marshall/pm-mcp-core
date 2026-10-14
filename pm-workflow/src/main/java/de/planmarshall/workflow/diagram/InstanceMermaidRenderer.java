@@ -83,10 +83,11 @@ final class InstanceMermaidRenderer {
     /**
      * Makes free text safe inside the double quotes of a {@code state "..."} label: {@code #} becomes the entity
      * {@code #35;} (so text that looks like an entity stays text), a double quote the entity {@code #quot;}, and each
-     * line break, which would end the declaration, a single space.
+     * line break or control character, which would end the declaration, a single space
+     * ({@link InstanceAnnotations#singleLine(String)}).
      */
     private static String label(String text) {
-        return text.replace("#", "#35;").replace("\"", "#quot;").replaceAll("\\R", " ");
+        return InstanceAnnotations.singleLine(text.replace("#", "#35;").replace("\"", "#quot;"));
     }
 
     private static String preferred(String name) {

@@ -491,6 +491,47 @@ class WorkflowDiagramGeneratorTest {
                             rendered));
         }
 
+        @Test
+        @DisplayName("Should keep the AsciiDoc tables well-formed for a cell with a pipe, a line feed or a CRLF")
+        void shouldEscapeAsciiDocCellText() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(hostileInstance(),
+                    Optional.empty());
+            var expectedDelimiters = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, Optional.empty())
+                    .lines().filter("|==="::equals).count();
+
+            assertAll(
+                    () -> assertEquals(expectedDelimiters, rendered.lines().filter("|==="::equals).count(), rendered),
+                    () -> assertTrue(rendered.contains("|`default:a\\|b c`\n|`local_only`\n|`fact \\| next line`\n"),
+                            rendered),
+                    () -> assertTrue(rendered.contains("|`x \\|===`\n|`W\\|1`\n"), rendered),
+                    () -> assertFalse(rendered.contains("\r"), rendered));
+        }
+
+        @Test
+        @DisplayName("Should keep the box of the terminal tables for a cell with a pipe, a line feed or a CRLF")
+        void shouldKeepTerminalBoxForCellText() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceAscii(hostileInstance(), Optional.empty());
+
+            var misaligned = Stream.of(rendered.split("\n\n")).filter(block -> block.lines()
+                    .mapToInt(line -> line.codePointCount(0, line.length())).distinct().count() != 1).toList();
+
+            assertAll(() -> assertEquals(List.of(), misaligned, rendered),
+                    () -> assertTrue(rendered.contains("│ step    │ default:a|b c │ local_only │ fact | next line │\n"),
+                            rendered),
+                    () -> assertTrue(rendered.contains("│ x |=== │ W|1       │\n"), rendered),
+                    () -> assertFalse(rendered.contains("\r"), rendered));
+        }
+
+        private PlanInstance hostileInstance() {
+            var header = instance.header();
+            var hostile = new PlanInstanceHeader(header.planId(), header.version(), header.event(),
+                    header.composedAt(), header.inputs(), header.lane(), header.posture(), header.steps(),
+                    List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:a|b\nc", PruneReason.LOCAL_ONLY,
+                            "fact |\r\nnext\u2028line")),
+                    List.of(), List.of(new WaivedGate("x\n|===", "W|1")));
+            return new PlanInstance(instance.version(), hostile, instance.unit(), instance.text());
+        }
+
         private static PlanInstance bareInstance() {
             var fixture = DiagramFixtures.instance();
             var header = fixture.header();

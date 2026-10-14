@@ -56,7 +56,8 @@ public final class HeaderSchemaCheck {
     static final String NOT_INTEGER = "must be an integer";
     static final String NOT_FORMAT_VERSION = "must be " + PlanInstanceHeader.FORMAT_VERSION;
     static final String BELOW_ONE = "must be at least 1";
-    static final String NOT_DATE_TIME = "must be an RFC 3339 date-time";
+    static final String NOT_DATE_TIME = "must be an RFC 3339 date-time the header reader can parse "
+            + "(an offset within +-18:00, no leap second)";
 
     /** The remediation policy units a policy call may name. */
     static final List<String> POLICY_UNITS = List.of("remediation.ci-failure", "remediation.review-findings",

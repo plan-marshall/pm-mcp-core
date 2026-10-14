@@ -156,6 +156,14 @@ An active state that is no state of the instance, a pruned state included, is re
 |A property table (instance, lane, posture, active state) before the unit table with the active state marked; after it the tables of the pruned elements and of the waived gates, each only when the header lists one.
 |===
 
+The text of a label or cell, a plan id, a pruned element, a source fact, a gate or a waiver id, comes from the header and may hold any character, so every form makes it safe for the place that holds it, and a line break (a line feed, a carriage return or both, any other Unicode line terminator, and any other control character) becomes one space in all three:
+
+* Mermaid: in the label of a state a `#` becomes the entity `+#35;+` (so text that looks like an entity stays text) and a double quote the entity `+#quot;+`.
+* AsciiDoc tables: a `|` is escaped as `\|` so that it never starts the next cell, and the line break that would end the table early becomes a space.
+* Terminal tables: only the line break is replaced, so that no cell leaves its line and the right border stays aligned.
+
+The replacement is one function, `InstanceAnnotations.singleLine`, which the three forms share, and it applies to the title of the instance as well.
+
 The excerpt below is copied from the golden file `instance-fixture.mmd` of the fixture instance that `DiagramFixtures` builds from the unit `diagram/instance-fixture.pmwf` and a header written for the test:
 
 [source,text]

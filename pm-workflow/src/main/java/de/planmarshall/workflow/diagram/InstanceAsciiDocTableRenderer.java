@@ -27,7 +27,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * <li><b>Waived gates</b>: one row per waived gate with its waiver id, in header order; emitted only when the header
  * lists one.</li>
  * </ul>
- * The tables are separated by one empty line; every value is written as code, a {@code |} inside a cell is escaped.
+ * The tables are separated by one empty line; every value is written as code, a {@code |} inside a cell is escaped
+ * and a line break becomes a space ({@link InstanceAnnotations#singleLine(String)}).
  *
  * @since 0.1
  */
@@ -89,7 +90,7 @@ final class InstanceAsciiDocTableRenderer {
     private void row(String... cells) {
         out.append('\n');
         for (var cell : cells) {
-            out.append('|').append(cell.replace("|", "\\|")).append('\n');
+            out.append('|').append(cell).append('\n');
         }
     }
 
@@ -97,7 +98,12 @@ final class InstanceAsciiDocTableRenderer {
         return InstanceAnnotations.NONE.equals(value) ? value : code(value);
     }
 
+    /**
+     * Writes a value as code. The text comes from the header, so it is made safe for the cell that holds it: a
+     * {@code |}, which would start the next cell, is escaped, and a line break, which could end the table, becomes a
+     * space.
+     */
     private static String code(String text) {
-        return "`" + text + "`";
+        return "`" + InstanceAnnotations.singleLine(text).replace("|", "\\|") + "`";
     }
 }

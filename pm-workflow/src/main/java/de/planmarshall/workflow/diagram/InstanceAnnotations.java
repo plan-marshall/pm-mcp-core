@@ -12,6 +12,7 @@ package de.planmarshall.workflow.diagram;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
@@ -43,6 +44,8 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
 
     /** The value shown for a header value that is not set. */
     static final String NONE = "-";
+
+    private static final Pattern LINE_BREAKS_AND_CONTROLS = Pattern.compile("\\R|\\p{Cntrl}");
 
     /**
      * Copies the lists into unmodifiable lists that keep their order.
@@ -86,7 +89,19 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
      * @return the title every form gives the instance: {@code plan <plan_id> v<N> (<event>)}
      */
     String title() {
-        return "plan %s v%d (%s)".formatted(planId, version, event);
+        return "plan %s v%d (%s)".formatted(singleLine(planId), version, event);
+    }
+
+    /**
+     * Puts free text of the header on one line, as every form needs it: each line break (a line feed, a carriage
+     * return, both together, or any other Unicode line terminator) and every other control character becomes one
+     * space. A line break would end a Mermaid declaration, end an AsciiDoc table or break the box of a terminal table.
+     *
+     * @param text a text of the header
+     * @return the text without a line break or control character
+     */
+    static String singleLine(String text) {
+        return LINE_BREAKS_AND_CONTROLS.matcher(text).replaceAll(" ");
     }
 
     /**
