@@ -61,6 +61,12 @@ final class TestPrimitives {
      */
     static final String EVALUATE_JUDGEMENT = "test.evaluate-judgement";
 
+    /**
+     * A return-evaluation primitive for the entity kind {@link #REPAIR_KIND}: {@code repaired} ({@code SUCCESS}),
+     * {@code infeasible} ({@code FAILURE}), the task outcome Rule 9 admits {@code skipped} on by its name.
+     */
+    static final String EVALUATE_REPAIR = "test.evaluate-repair";
+
     /** A list primitive for each clause: {@code done}. */
     static final String LIST_CHANGES = "test.list-changes";
 
@@ -133,6 +139,9 @@ final class TestPrimitives {
     /** The entity kind of the tests whose evaluation can reject: entity unit {@code entity}, {@link #EVALUATE_JUDGEMENT}. */
     static final String JUDGEMENT_KIND = "judgement";
 
+    /** The entity kind of the tests whose task can end infeasible: entity unit {@code entity}, {@link #EVALUATE_REPAIR}. */
+    static final String REPAIR_KIND = "repair";
+
     /** A workspace unit of the test catalog, which no call may name. */
     static final String WORKSPACE_UNIT = "test.workspace-unit";
 
@@ -167,15 +176,16 @@ final class TestPrimitives {
     }
 
     /**
-     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND} and {@link #JUDGEMENT_KIND},
-     *         whose entity unit the test catalog holds, {@link #UNRESOLVED_KIND}, whose entity unit it does not hold,
-     *         {@link #UNEVALUATED_KIND}, whose return-evaluation primitive is not registered, and
-     *         {@link #UNIT_LESS_KIND}, which has no entity unit
+     * @return the default entity kinds plus the kinds of the tests: {@link #CHANGE_KIND}, {@link #JUDGEMENT_KIND} and
+     *         {@link #REPAIR_KIND}, whose entity unit the test catalog holds, {@link #UNRESOLVED_KIND}, whose entity
+     *         unit it does not hold, {@link #UNEVALUATED_KIND}, whose return-evaluation primitive is not registered,
+     *         and {@link #UNIT_LESS_KIND}, which has no entity unit
      */
     static EntityKindRegistry entityKinds() {
         return EntityKindRegistry.defaults()
                 .with(new EntityKind(CHANGE_KIND, "entity", EVALUATE_CHANGE))
                 .with(new EntityKind(JUDGEMENT_KIND, "entity", EVALUATE_JUDGEMENT))
+                .with(new EntityKind(REPAIR_KIND, "entity", EVALUATE_REPAIR))
                 .with(new EntityKind(UNRESOLVED_KIND, "test.no-such-unit", EVALUATE_CHANGE))
                 .with(new EntityKind(UNEVALUATED_KIND, "entity", MISSING))
                 .with(new EntityKind(UNIT_LESS_KIND, Optional.empty(), EVALUATE_CHANGE));
@@ -194,6 +204,7 @@ final class TestPrimitives {
                 new Fixed<>(READY, NoParams.class, PredicateOutcome.class),
                 new Fixed<>(EVALUATE_CHANGE, NoParams.class, EvaluateChangeOutcome.class),
                 new Fixed<>(EVALUATE_JUDGEMENT, NoParams.class, JudgementOutcome.class),
+                new Fixed<>(EVALUATE_REPAIR, NoParams.class, RepairOutcome.class),
                 new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
                 new Fixed<>(LIST_ROLES, NoParams.class, DoneOutcome.class),
                 new Fixed<>(LAND_WORK, NoParams.class, LandOutcome.class),
@@ -757,6 +768,29 @@ final class TestPrimitives {
         private final OutcomeClass outcomeClass;
 
         JudgementOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    /** The outcomes of {@link #EVALUATE_REPAIR}. */
+    enum RepairOutcome implements PrimitiveOutcome {
+        REPAIRED("repaired", OutcomeClass.SUCCESS), INFEASIBLE("infeasible", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        RepairOutcome(String wireName, OutcomeClass outcomeClass) {
             this.wireName = wireName;
             this.outcomeClass = outcomeClass;
         }

@@ -1,0 +1,46 @@
+= ADR 021: Rule 9 Judges a Firing per Step
+:nofooter:
+
+== Status
+
+Accepted. Refines link:002-rule-9-firing-model.adoc[ADR 002] (firing model) and link:007-rule-9-derived-firing-openings.adoc[ADR 007] (derived openings), whose openings, early ends and implicit-failed states stay.
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification (Workflow DSL, § Static AST Verification Rules, Rule 9 "Once per firing") opens a firing of a step on entry into the step's beginning state and requires exactly one completion of that step on "every path from an opening to the next opening of the same step, to the state of order `70` (`finalize.merge-gate`), or to a terminal state".
+
+Until the work package `static-verifier-residuals`, `WorkflowValidator` ended a firing path at the next opening of any step. That had two effects the specification does not have:
+
+* *A missed duplicate*: a path that completes step `a`, enters the opening of step `b`, and completes `a` again ended at `b`'s opening, so the second completion of `a` was judged in no firing of `a`.
+* *An over-refusal*: a path from the opening of `a` that passes the opening of `b` before it completes `a` ended at `b`'s opening without a completion of `a` and was refused, although the firing of `a` is still open there.
+
+== Decision
+
+1. *Firing per step*. A firing is judged per step. It ends at the next opening of the same step once the step is completed, at `finalize.merge-gate`, or at a terminal state; it passes the opening of another step without ending. A re-entry into an opening of the step while the step is open continues the firing, as before.
+2. *Which steps an opening begins*. An opening begins the steps completed on a path from it before another opening is reached, less every step completed on a transition into it: a step completed on the way into an opening is one the opening follows, not one it begins. The openings themselves are those of ADR 007: the start state, the named region entry states, and the link targets of the `STEP_LIST` hub.
+3. *What stays*. The early end on an outcome of class `UNSETTLED` or `STEPPED_OUT`, the end at `finalize.merge-gate`, the implicit `failed` on entry into `plan.aborted`, `plan.return` or `finalize.hand-back`, and the refusal of a step completed twice on one transition are unchanged.
+
+Every path of a firing of a step that completes it twice is refused at the second completion as `STEP_COMPLETION`; every path that ends without a completion is refused at its last transition.
+
+== Alternatives Considered
+
+1. **Ending a firing at the opening of any step (the PLAN-54 model)**:
+*Rejected*: it is not the specification's rule, it misses the duplicate across another step's opening and refuses the path that passes another step's opening before it completes.
+
+2. **Assigning every step completed on a path from an opening to that opening, with no exception for a step completed on the way into it**:
+*Rejected*: the opening of `b`, entered on the transition that completes `a`, would then also begin `a`, so the duplicate "complete `a`, enter `b`'s opening, complete `a`" would be judged as two firings of `a` and pass.
+
+== Consequences
+
+* The refusing fixture `step-completion-firing-per-step.pmwf` pins the duplicate across another step's opening; matched controls pin the path that passes another step's opening before it completes (the former over-refusal) and the re-entry that continues an open firing.
+* A unit that completes a step on paths across the openings of other steps is judged by the step's own openings; units that relied on another step's opening to end a firing without a completion are refused now.
+
+== Source
+
+* Workflow DSL specification, § Static AST Verification Rules, Rule 9 "Once per firing" (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-residuals.adoc`
+* link:002-rule-9-firing-model.adoc[ADR 002], link:007-rule-9-derived-firing-openings.adoc[ADR 007]

@@ -991,14 +991,147 @@ class AdditionalRulesTest {
     }
 
     @Test
-    @DisplayName("Cycle measure ARCHIVE_STEPS: admitted in an epic unit on the archive path")
+    @DisplayName("Cycle measure ARCHIVE_STEPS: admitted in an epic unit on the archive path that commits and lands (ADR 022)")
     void archiveStepsInEpicUnit() {
+        var def = unit("epic", """
+                state verify.entry
+                    phase verify
+                    auto test.next-work
+                        archive_uncommitted -> verify.commit
+                        archived -> verify.done
+
+                state verify.commit
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.land
+                        stepped_out -> verify.land
+
+                state verify.land
+                    phase verify
+                    job test.build
+                        succeeded -> verify.entry
+                        failed -> verify.entry
+                        cancelled -> verify.entry
+                """ + DONE_TERMINAL);
+
+        assertEquals(List.of(), violations(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ARCHIVE_STEPS: refused on an archive path that neither commits nor lands (ADR 022)")
+    void archiveStepsWithoutCommitAndLanding() {
         var def = unit("epic", """
                 state verify.entry
                     phase verify
                     auto test.next-work
                         archive_uncommitted -> verify.done
                         archived -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that commits, but no cycle through it passes a call of 'git.commit_and_push'",
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that lands, but no cycle through it passes a job state"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure ARCHIVE_STEPS: a commit call off every cycle through the state does not count (ADR 022)")
+    void archiveStepsWithCommitOffTheCycle() {
+        var def = unit("epic", """
+                state verify.entry
+                    phase verify
+                    auto test.next-work
+                        archive_uncommitted -> verify.land
+                        archived -> verify.commit
+
+                state verify.land
+                    phase verify
+                    job test.build
+                        succeeded -> verify.entry
+                        failed -> verify.entry
+                        cancelled -> verify.entry
+
+                state verify.commit
+                    phase verify
+                    call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                        done -> verify.done
+                        stepped_out -> verify.wait
+
+                state verify.wait
+                    phase verify
+                    job test.build
+                        succeeded -> verify.done
+                        failed -> verify.done
+                        cancelled -> verify.done
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure ARCHIVE_STEPS of the state 'verify.entry' is admitted only on an archive path that commits, but no cycle through it passes a call of 'git.commit_and_push'"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a pass that settles two steps is refused at the hub's outcome (ADR 022)")
+    void stepListPassSettlingTwoSteps() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:one as done
+                            completes step:other as done
+                        skipped -> verify.entry
+                            completes step:one as skipped
+                            completes step:other as skipped
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.entry",
+                "the cycle measure STEP_LIST of the state 'verify.entry' requires every pass to settle one step, but a pass that leaves it with the outcome 'first' settles more than one"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Cycle measure STEP_LIST: a path that hands its step back or leaves the step list is no pass")
+    void stepListPathsThatAreNoPass() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.fix
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:one as done
+                        skipped -> plan.return
+
+                state verify.fix
+                    phase verify
+                    auto test.fix
+                        fixed -> verify.entry
+                            completes step:fix as done
+                        fix_requested -> verify.entry
+
+                state plan.return terminal returned failure
+                    phase verify
                 """ + DONE_TERMINAL);
 
         assertEquals(List.of(), violations(def));

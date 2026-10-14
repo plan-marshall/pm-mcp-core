@@ -195,6 +195,8 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "step-completion-same-transition.pmwf"),
             new Check("Rule 9: a firing completes a step at most once on every path",
                     VerificationRule.STEP_COMPLETION, "step-completion-firing.pmwf"),
+            new Check("Rule 9: a firing of a step ends at the next opening of the same step, not at another step's"
+                    + " opening", VerificationRule.STEP_COMPLETION, "step-completion-firing-per-step.pmwf"),
             new Check("Rule 9: a firing completes each of its steps on every path",
                     VerificationRule.STEP_COMPLETION, "step-completion-no-completion.pmwf"),
             new Check("Rule 9: entering an implicit-failed state completes the open step, no transition into it does",
@@ -211,10 +213,14 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "step-completion-waived-guard.pmwf"),
             new Check("Rule 9: STEP_LIST sits on the hub of a unit with a step list",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-step-list.pmwf"),
+            new Check("Rule 9: every pass of the STEP_LIST hub settles one step",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-step-list-settle.pmwf"),
             new Check("Rule 9: ARCHIVE_STEPS sits in an epic unit",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-archive-steps.pmwf"),
-            new Check("Rule 9: ARCHIVE_STEPS sits on the archive path",
+            new Check("Rule 9: ARCHIVE_STEPS sits on an archive path that ends in a terminal state",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-archive-path.pmwf"),
+            new Check("Rule 9: ARCHIVE_STEPS sits on an archive path that commits and lands",
+                    VerificationRule.STEP_COMPLETION, "cycle-measure-archive-commit-path.pmwf"),
             new Check("Rule 9: the exhaustion transition of an ATTEMPT_CAP leaves every cycle through its state",
                     VerificationRule.STEP_COMPLETION, "cycle-measure-attempt-cap.pmwf"),
             new Check("Rule 10: a plan or epic unit holds no resting link state",
@@ -475,6 +481,105 @@ class WorkflowValidatorTest {
 
                             state verify.exhausted terminal exhausted failure
                                 phase inherit
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a firing that passes another step's opening before it completes its step, matched"
+                            + " with step-completion-firing-per-step.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> finalize.review-cap-check
+                                    skipped -> verify.done
+                                        completes step:a as skipped
+
+                            state finalize.review-cap-check
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.after
+                                        completes step:b as done
+                                    skipped -> verify.after
+                                        completes step:b as skipped
+
+                            state verify.after
+                                phase verify
+                                auto test.proceed
+                                    done -> verify.done
+                                        completes step:a as done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a re-entry into the opening that continues the open firing, matched with"
+                            + " step-completion-firing-per-step.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.work
+                                    skipped -> verify.done
+                                        completes step:s as skipped
+
+                            state verify.work
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.done
+                                        completes step:s as done
+                                    failed -> verify.entry
+                                    cancelled -> verify.done
+                                        completes step:s as failed
+                            """ + DONE_TERMINAL),
+                    Arguments.of("skipped on a task's infeasible and on lost, matched with"
+                            + " step-completion-skipped-route.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                job llm repair role implementer
+                                    repaired -> verify.done
+                                        completes step:s as done
+                                    infeasible -> verify.done
+                                        completes step:s as skipped
+                                    lost -> verify.done
+                                        completes step:s as skipped
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a dispatch hub every pass of which settles one step, matched with"
+                            + " cycle-measure-step-list-settle.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.next-step
+                                    first -> verify.one
+                                    second -> verify.two
+                                    settled -> verify.done
+
+                            state verify.one
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.entry
+                                        completes step:one as done
+                                    skipped -> verify.entry
+                                        completes step:one as skipped
+
+                            state verify.two
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.entry
+                                        completes step:two as done
+                                    skipped -> verify.entry
+                                        completes step:two as skipped
+                            """ + DONE_TERMINAL),
+                    Arguments.of("ARCHIVE_STEPS on an archive path that commits and lands, matched with"
+                            + " cycle-measure-archive-commit-path.pmwf", "verify.inline", "epic", """
+                            state verify.entry
+                                phase verify
+                                auto test.next-work
+                                    archive_uncommitted -> verify.commit
+                                    archived -> verify.done
+
+                            state verify.commit
+                                phase verify
+                                call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                                    done -> verify.land
+                                    stepped_out -> verify.land
+
+                            state verify.land
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.entry
+                                    failed -> verify.entry
+                                    cancelled -> verify.entry
                             """ + DONE_TERMINAL),
                     Arguments.of("the engine-made asked of an ask state, matched with model-job-asked-declared.pmwf",
                             "verify.inline", "plan", """

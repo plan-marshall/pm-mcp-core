@@ -59,6 +59,11 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * lists all of them, ordered by the declaration order of their state and then by rule.
  * <p>
  * Reachability is graph reachability over every transition.
+ * <p>
+ * Rule 9 judges the firings of a unit one step at a time: a firing of a step ends at the next opening of the same
+ * step, at {@code finalize.merge-gate} or at a terminal state, and passes the opening of another step without ending,
+ * so a step completed again after another step's opening is completed twice in one firing (ADR 021). The cycle
+ * measures {@code STEP_LIST} and {@code ARCHIVE_STEPS} are checked as the specification states them (ADR 022).
  *
  * @since 0.1
  */
@@ -1246,9 +1251,11 @@ public final class WorkflowValidator {
                     checkCompletionAdmission(state, transition, completion, outcomeClass, violations);
                 }
             }
-            checkStateCycleMeasures(definition, graph, state, violations);
         }
-        checkFirings(definition, outcomeClasses, violations);
+        for (var state : definition.states().values()) {
+            checkStateCycleMeasures(definition, graph, state, outcomeClasses, violations);
+        }
+        checkFirings(definition, graph, outcomeClasses, violations);
     }
 
     /**
@@ -1294,27 +1301,57 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Checks every firing of the unit (Rule 9, "Once per firing"). A firing opens at an opening: the start state, a
-     * named region entry state, or a link target of a {@link CycleMeasure#STEP_LIST} hub. Its steps are the steps
-     * completed on a path from the opening before the firing ends, and every such path completes each of them
-     * exactly once. A path ends at the next opening (a re-entry into its own opening continues the firing while the
-     * step is open), at {@link #MERGE_GATE}, or at a terminal state; it ends early, without judgement, on an outcome
-     * of class {@code UNSETTLED} or {@code STEPPED_OUT}; entering one of {@link #IMPLICIT_FAILED_STATES} completes
-     * the open step as {@code failed}.
+     * Checks every firing of the unit (Rule 9, "Once per firing"), one step at a time. A firing opens at an opening:
+     * the start state, a named region entry state, or a link target of a {@link CycleMeasure#STEP_LIST} hub. An
+     * opening begins the steps completed on a path from it before another opening is reached, but for a step
+     * completed on a transition into it, which the opening follows rather than begins. A firing of a step ends at the
+     * next opening of the same step once the step is completed (a re-entry into one of its openings while it is open
+     * continues the firing), at {@link #MERGE_GATE}, or at a terminal state; it passes the opening of another step
+     * without ending. Every such path completes the step exactly once. A path ends early, without judgement, on an
+     * outcome of class {@code UNSETTLED} or {@code STEPPED_OUT}; entering one of {@link #IMPLICIT_FAILED_STATES}
+     * completes the open step as {@code failed} (ADR 021).
      */
-    private void checkFirings(WorkflowDefinition definition,
+    private void checkFirings(WorkflowDefinition definition, UnitGraph graph,
             Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, List<Violation> violations) {
         var openings = openingsOf(definition);
-        var reported = new HashSet<Violation>();
+        var stepsByOpening = new LinkedHashMap<String, Set<String>>();
         for (var opening : openings) {
-            for (var stepId : stepsOfFiring(definition, openings, opening, outcomeClasses)) {
-                walkFiring(definition, openings, opening, stepId, outcomeClasses, reported);
-            }
+            stepsByOpening.put(opening, stepsBegunAt(definition, graph, openings, opening, outcomeClasses));
         }
+        var reported = new HashSet<Violation>();
+        stepsByOpening.forEach((opening, steps) -> steps.forEach(stepId -> {
+            var openingsOfStep = new HashSet<String>();
+            stepsByOpening.forEach((candidate, begun) -> {
+                if (begun.contains(stepId)) {
+                    openingsOfStep.add(candidate);
+                }
+            });
+            walkFiring(definition, openingsOfStep, opening, stepId, outcomeClasses, reported);
+        }));
         reported.stream()
                 .sorted(Comparator.comparing((Violation violation) -> violation.location().line())
                         .thenComparing(Violation::message))
                 .forEach(violations::add);
+    }
+
+    /**
+     * @return the steps an opening begins: those completed on a path from it before another opening is reached, less
+     *         every step completed on a transition into it
+     */
+    private Set<String> stepsBegunAt(WorkflowDefinition definition, UnitGraph graph, Set<String> openings,
+            String opening, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
+        var steps = stepsOfFiring(definition, openings, opening, outcomeClasses);
+        for (var source : graph.predecessors(opening)) {
+            var sourceState = definition.states().get(source);
+            if (sourceState == null) {
+                continue;
+            }
+            UnitGraph.allTransitions(sourceState.behavior()).stream()
+                    .filter(transition -> opening.equals(transition.targetStateId()))
+                    .flatMap(transition -> transition.completions().stream())
+                    .forEach(completion -> steps.remove(completion.stepId()));
+        }
+        return steps;
     }
 
     private Set<String> openingsOf(WorkflowDefinition definition) {
@@ -1364,7 +1401,13 @@ public final class WorkflowValidator {
     private record FiringPosition(String stateId, boolean completed) {
     }
 
-    private void walkFiring(WorkflowDefinition definition, Set<String> openings, String opening, String stepId,
+    /**
+     * Walks every path of a firing of one step from its opening and reports a second completion, a path that ends
+     * without one, and a completion on the transition into an implicit-failed state.
+     *
+     * @param openingsOfStep the openings that begin the step; entering one ends the path once the step is completed
+     */
+    private void walkFiring(WorkflowDefinition definition, Set<String> openingsOfStep, String opening, String stepId,
             Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, Set<Violation> reported) {
         var start = new FiringPosition(opening, false);
         var seen = new HashSet<>(Set.of(start));
@@ -1399,8 +1442,10 @@ public final class WorkflowValidator {
                     continue;
                 }
                 var targetState = definition.states().get(target);
+                // The next opening of the same step ends the firing once the step is completed; entering it while
+                // the step is open continues the firing, and the opening of another step does not end it.
                 boolean ends = MERGE_GATE.equals(target) || (targetState != null && isTerminal(targetState))
-                        || (openings.contains(target) && (completed || !target.equals(opening)));
+                        || (completed && openingsOfStep.contains(target));
                 if (ends) {
                     if (!completed) {
                         reported.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), transition.location(),
@@ -1440,13 +1485,14 @@ public final class WorkflowValidator {
 
     /**
      * Checks where a primitive's cycle measure may sit (Rule 9, "Cycle measures"), naming no state id: a
-     * {@code STEP_LIST} hub belongs to a unit with a step list (a unit that completes steps); an
-     * {@code ARCHIVE_STEPS} state to an epic unit, with an archive path from it to a terminal state; the transition of
-     * the exhaustion outcome of an {@code ATTEMPT_CAP} primitive leaves every cycle through the state (that the
-     * outcome exists and has the class {@code FAILURE} is refused at registration by {@code PrimitiveRegistry}).
+     * {@code STEP_LIST} hub belongs to a unit with a step list (a unit that completes steps), and every pass of it
+     * settles exactly one step; an {@code ARCHIVE_STEPS} state belongs to an epic unit, with an archive path from it
+     * to a terminal state that commits and lands (ADR 022); the transition of the exhaustion outcome of an
+     * {@code ATTEMPT_CAP} primitive leaves every cycle through the state (that the outcome exists and has the class
+     * {@code FAILURE} is refused at registration by {@code PrimitiveRegistry}).
      */
     private void checkStateCycleMeasures(WorkflowDefinition definition, UnitGraph graph, StateNode state,
-            List<Violation> violations) {
+            Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, List<Violation> violations) {
         var primitiveOpt = primitiveOfState(state);
         if (primitiveOpt.isEmpty()) {
             return;
@@ -1458,6 +1504,8 @@ public final class WorkflowValidator {
                     violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
                             "the cycle measure STEP_LIST of the state '%s' is admitted only on the dispatch hub of a unit with a step list, but the unit '%s' completes no step"
                                     .formatted(state.id(), definition.id())));
+                } else {
+                    checkStepListPasses(definition, state, outcomeClasses, violations);
                 }
             }
             case ARCHIVE_STEPS -> {
@@ -1469,6 +1517,8 @@ public final class WorkflowValidator {
                     violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
                             "the cycle measure ARCHIVE_STEPS of the state '%s' is admitted only on the archive path, but no path leads from it to a terminal state"
                                     .formatted(state.id())));
+                } else {
+                    checkArchiveCommitAndLand(definition, graph, state, violations);
                 }
             }
             case ATTEMPT_CAP -> checkAttemptCap(graph, state, primitive, violations);
@@ -1498,6 +1548,104 @@ public final class WorkflowValidator {
                         "the exhaustion transition '%s' of the attempt cap of the state '%s' does not leave the cycle"
                                 .formatted(exhaustion, state.id())));
             }
+        }
+    }
+
+    /** A position of a pass of a dispatch hub: the state reached and the steps settled on the way, at most two. */
+    private record PassPosition(String stateId, int settled) {
+    }
+
+    /**
+     * Rule 9, {@code STEP_LIST}: every pass of the dispatch hub fires and settles exactly one step. A pass is a path
+     * that leaves the hub on one of its outcomes and returns to it; a path that enters a terminal state,
+     * {@link #MERGE_GATE} or an implicit-failed state leaves the step list instead, and one that ends early on an
+     * {@code UNSETTLED} or {@code STEPPED_OUT} outcome hands its step back. Each outcome of the hub with a pass that
+     * settles no step, or more than one, is refused at its transition.
+     */
+    private static void checkStepListPasses(WorkflowDefinition definition, StateNode hub,
+            Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, List<Violation> violations) {
+        for (var start : UnitGraph.allTransitions(hub.behavior())) {
+            var settledCounts = passSettledCounts(definition, hub.id(), start, outcomeClasses);
+            if (settledCounts.contains(0)) {
+                violations.add(new Violation(VerificationRule.STEP_COMPLETION, hub.id(), start.location(),
+                        "the cycle measure STEP_LIST of the state '%s' requires every pass to settle one step, but a pass that leaves it with the outcome '%s' settles none"
+                                .formatted(hub.id(), start.outcomeName())));
+            }
+            if (settledCounts.contains(2)) {
+                violations.add(new Violation(VerificationRule.STEP_COMPLETION, hub.id(), start.location(),
+                        "the cycle measure STEP_LIST of the state '%s' requires every pass to settle one step, but a pass that leaves it with the outcome '%s' settles more than one"
+                                .formatted(hub.id(), start.outcomeName())));
+            }
+        }
+    }
+
+    /**
+     * @return the number of steps settled, at most two, on each pass that leaves the hub with the transition and
+     *         returns to it; empty when no path of it returns
+     */
+    private static Set<Integer> passSettledCounts(WorkflowDefinition definition, String hubId,
+            OutcomeTransition start, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
+        var counts = new HashSet<Integer>();
+        var seen = new HashSet<PassPosition>();
+        var stack = new ArrayDeque<PassPosition>();
+        advancePass(definition, hubId, start, 0, outcomeClasses, counts, seen, stack);
+        while (!stack.isEmpty()) {
+            var position = stack.pop();
+            var state = definition.states().get(position.stateId());
+            for (var transition : UnitGraph.allTransitions(state.behavior())) {
+                advancePass(definition, hubId, transition, position.settled(), outcomeClasses, counts, seen, stack);
+            }
+        }
+        return counts;
+    }
+
+    private static void advancePass(WorkflowDefinition definition, String hubId, OutcomeTransition transition,
+            int settledBefore, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, Set<Integer> counts,
+            Set<PassPosition> seen, ArrayDeque<PassPosition> stack) {
+        if (endsEarly(transition, outcomeClasses)) {
+            return;
+        }
+        var settledHere = transition.completions().stream().map(StepCompletion::stepId).distinct().count();
+        var settled = (int) Math.min(2, settledBefore + settledHere);
+        var target = transition.targetStateId();
+        if (hubId.equals(target)) {
+            counts.add(settled);
+            return;
+        }
+        var targetState = definition.states().get(target);
+        if (targetState == null || isTerminal(targetState) || MERGE_GATE.equals(target)
+                || IMPLICIT_FAILED_STATES.contains(target)) {
+            return;
+        }
+        var next = new PassPosition(target, settled);
+        if (seen.add(next)) {
+            stack.push(next);
+        }
+    }
+
+    /**
+     * Rule 9, {@code ARCHIVE_STEPS}: the archive path of the state commits and lands before it ends in the terminal
+     * (the remaining archive steps commit, land, archived). A cycle through the state passes a call of the commit
+     * sub-workflow {@code git.commit_and_push}, and a cycle through it passes a {@code job} or {@code composite_job}
+     * state, the landing; each part that is missing is refused at the state (ADR 022).
+     */
+    private static void checkArchiveCommitAndLand(WorkflowDefinition definition, UnitGraph graph, StateNode state,
+            List<Violation> violations) {
+        var onCycle = new LinkedHashSet<>(graph.forwardClosure(graph.successors(state.id())));
+        onCycle.retainAll(graph.backwardClosure(Set.of(state.id())));
+        var cycleStates = onCycle.stream().map(definition.states()::get).filter(Objects::nonNull).toList();
+        var commits = cycleStates.stream().anyMatch(candidate -> candidate.behavior()
+                instanceof StateBehavior.SubWorkflowCall call && CompiledInvariants.GIT_UNIT.equals(call.subWorkflowId()));
+        var lands = cycleStates.stream().anyMatch(candidate -> candidate.behavior() instanceof StateBehavior.JobStep);
+        if (!commits) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                    "the cycle measure ARCHIVE_STEPS of the state '%s' is admitted only on an archive path that commits, but no cycle through it passes a call of '%s'"
+                            .formatted(state.id(), CompiledInvariants.GIT_UNIT)));
+        }
+        if (!lands) {
+            violations.add(new Violation(VerificationRule.STEP_COMPLETION, state.id(), state.location(),
+                    "the cycle measure ARCHIVE_STEPS of the state '%s' is admitted only on an archive path that lands, but no cycle through it passes a job state"
+                            .formatted(state.id())));
         }
     }
 
