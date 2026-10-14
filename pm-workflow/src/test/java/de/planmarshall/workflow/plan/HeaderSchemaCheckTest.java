@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.plan;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -283,6 +284,44 @@ class HeaderSchemaCheckTest {
                     () -> assertEquals("", invalid.getFirst().pointer()),
                     () -> assertTrue(invalid.getFirst().reason().startsWith("the header is not valid JSON"),
                             invalid.getFirst().reason()));
+        }
+    }
+
+    @Nested
+    @DisplayName("Numbers written with an exponent")
+    class ExponentNumbers {
+
+        private static final String HUGE = "1000e2147483647";
+
+        @Test
+        @DisplayName("a format_version whose exponent overflows the integral strip is one violation, never an exception")
+        void hugeFormatVersionReported() {
+            var json = VALID.replace("\"format_version\": 1", "\"format_version\": " + HUGE);
+
+            var violations = assertDoesNotThrow(() -> HeaderSchemaCheck.check(json));
+
+            assertEquals(List.of(new HeaderViolation("/format_version", HeaderSchemaCheck.NOT_FORMAT_VERSION)),
+                    violations);
+        }
+
+        @Test
+        @DisplayName("a version whose exponent overflows the integral strip is checked as the integer it is, never "
+                + "an exception")
+        void hugeVersionChecked() {
+            var json = VALID.replace("\"version\": 3", "\"version\": " + HUGE);
+
+            var violations = assertDoesNotThrow(() -> HeaderSchemaCheck.check(json));
+
+            assertEquals(List.of(), violations);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"100", "1.0E+2", "1.00e2", "100.000", "1e2"})
+        @DisplayName("an integral version with trailing zeros or an exponent still satisfies the schema")
+        void integralVersionAccepted(String version) {
+            var json = VALID.replace("\"version\": 3", "\"version\": " + version);
+
+            assertEquals(List.of(), HeaderSchemaCheck.check(json));
         }
     }
 

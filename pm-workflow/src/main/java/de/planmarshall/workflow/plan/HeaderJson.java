@@ -191,10 +191,14 @@ final class HeaderJson {
         }
 
         /**
+         * A number whose scale is not positive is an integer already; only a positive scale needs its trailing zeros
+         * stripped, and that strip lowers the scale, so it can never leave the range of an {@code int}. Stripping a
+         * number such as {@code 1000e2147483647} would need the scale -2147483650 and throw.
+         *
          * @return whether the number has no fractional part, so it is an integer in the sense of JSON Schema
          */
         boolean integral() {
-            return value.signum() == 0 || value.stripTrailingZeros().scale() <= 0;
+            return value.signum() == 0 || value.scale() <= 0 || value.stripTrailingZeros().scale() <= 0;
         }
     }
 

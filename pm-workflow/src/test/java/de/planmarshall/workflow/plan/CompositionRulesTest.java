@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.CompositionRules.Refusal;
@@ -210,6 +211,17 @@ class CompositionRulesTest {
                             List.of(), List.of())), rules);
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"100", "1.0E+2", "1.00e2"})
+        @DisplayName("an integral binding value with trailing zeros or an exponent still loads")
+        void integralValueWithTrailingZerosLoads(String value) {
+            var rules = loaded(file("""
+                    {"id": "r", "when": {"fact": "lane", "equals": "land"}, "then": {
+                       "bind": [{"call_site": "*", "argument": "level", "value": %s}]}}""".formatted(value))).rules();
+
+            assertEquals(new CallValue.IntValue(100), rules.getFirst().bindings().getFirst().value());
+        }
+
         @Test
         @DisplayName("the digest is the SHA-256 of the exact bytes, so a changed byte changes it")
         void digestOfBytes() {
@@ -333,6 +345,9 @@ class CompositionRulesTest {
                 refusal("an undeclared prune reason", rule("""
                         "then": {"prune": [{"element": "step", "id": "x", "reason": "because"}]}"""),
                         Refusal.MALFORMED, "prune entry"),
+                refusal("a binding value whose exponent is too large to strip", rule("""
+                        "then": {"bind": [{"call_site": "*", "argument": "actions", "value": 1000e2147483647}]}"""),
+                        Refusal.MALFORMED, "value"),
                 refusal("a binding value that is no literal", rule("""
                         "then": {"bind": [{"call_site": "*", "argument": "actions", "value": {"a": 1}}]}"""),
                         Refusal.MALFORMED, "value"));

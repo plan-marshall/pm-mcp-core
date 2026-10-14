@@ -281,6 +281,45 @@ class PlanInstanceHeaderTest {
                     refused.getMessage());
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"1000e2147483647", "-1000e2147483647", "1000E+2147483647"})
+        @DisplayName("a version whose exponent is too large to strip is refused as out of range, not by an overflow")
+        void exponentOverflowingVersionRefused(String version) {
+            var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("\"version\":1",
+                    "\"version\":" + version);
+
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+
+            assertTrue(refused.getMessage().startsWith("Instance header refused: "), refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("an integral policy argument whose exponent is too large to strip is refused as out of range")
+        void exponentOverflowingArgumentRefused() {
+            var json = HeaderJson.write(fullHeader("plan-24", 1, "lane")).replace("\"value\":4",
+                    "\"value\":1000e2147483647");
+
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+
+            assertTrue(refused.getMessage().startsWith("Instance header refused: 'fix_budget' is out of range: "),
+                    refused.getMessage());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"100", "1.0E+2", "1.00e2", "100.000"})
+        @DisplayName("an integral version and argument with trailing zeros or an exponent still read")
+        void integralWithTrailingZerosReads(String number) {
+            var json = HeaderJson.write(fullHeader("plan-24", 1, "lane")).replace("\"version\":1",
+                    "\"version\":" + number).replace("\"value\":4", "\"value\":" + number);
+
+            var header = HeaderJson.read(json);
+
+            assertAll(
+                    () -> assertEquals(100, header.version()),
+                    () -> assertEquals(new CallValue.IntValue(100),
+                            header.policyCalls().getFirst().args().get("fix_budget").value()));
+        }
+
         @Test
         @DisplayName("an integral policy argument whose magnitude no int reaches is refused fast")
         void hugeArgumentRefusedFast() {

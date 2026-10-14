@@ -14,9 +14,13 @@ import java.util.Objects;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
- * One composed and verified version of a plan instance (PM-IMPL-5): its number, its header, its tree and its text,
- * the content of {@code instance/plan.v<N>.pmwf}. The text is the printed tree: the {@code workflow plan version <N>}
- * header, the {@code instance} line with the canonical header JSON, and the composed states.
+ * One version of a plan instance (PM-IMPL-5): its number, its header, its tree and its text, the content of
+ * {@code instance/plan.v<N>.pmwf}. The text is the printed tree: the {@code workflow plan version <N>} header, the
+ * {@code instance} line with the canonical header JSON, and the composed states.
+ * <p>
+ * The composer returns only verified versions. The public constructor checks that the version, the header and the unit
+ * agree on the version number, and nothing more, so it can build a value that was never composed or verified; a caller
+ * hands the store the results of the composer alone.
  *
  * @param version the instance version, from {@code 1}
  * @param header  the instance header
