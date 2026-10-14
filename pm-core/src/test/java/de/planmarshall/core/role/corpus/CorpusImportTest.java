@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -286,7 +287,7 @@ class CorpusImportTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"without sources directory", "with an empty sources directory"})
         @DisplayName("an existing corpus root without sources imports nothing and is COMPLETE")
-        void noSources(String variant) throws IOException {
+        void noSources(String variant) throws Exception {
             var empty = Files.createDirectories(base.resolve("empty"));
             if (variant.startsWith("with")) {
                 Files.createDirectories(empty.resolve(CorpusImport.SOURCES));
@@ -329,27 +330,27 @@ class CorpusImportTest {
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains("does not exist"), refusal::getMessage),
-                    () -> assertTrue(refusal.getCause() instanceof NoSuchFileException, refusal::toString),
+                    () -> assertInstanceOf(NoSuchFileException.class, refusal.getCause(), refusal::toString),
                     () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"),
                     () -> assertEquals(Set.of(), repository.cacheRoots, "no source is fetched"));
         }
 
         @Test
         @DisplayName("a corpus root that is a file is refused")
-        void rootIsFile() throws IOException {
+        void rootIsFile() throws Exception {
             var file = Files.writeString(base.resolve("corpus.txt"), "no corpus");
             var corpusImport = new CorpusImport(repository, lfs);
 
             var refusal = assertThrows(UncheckedIOException.class, () -> corpusImport.run(file, cacheRoot));
 
             assertAll(
-                    () -> assertTrue(refusal.getCause() instanceof NotDirectoryException, refusal::toString),
+                    () -> assertInstanceOf(NotDirectoryException.class, refusal.getCause(), refusal::toString),
                     () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"));
         }
 
         @Test
         @DisplayName("a sources entry that is a file is refused")
-        void sourcesIsFile() throws IOException {
+        void sourcesIsFile() throws Exception {
             var root = Files.createDirectories(base.resolve("flat"));
             Files.writeString(root.resolve(CorpusImport.SOURCES), "no directory");
             var corpusImport = new CorpusImport(repository, lfs);
@@ -357,14 +358,14 @@ class CorpusImportTest {
             var refusal = assertThrows(UncheckedIOException.class, () -> corpusImport.run(root, cacheRoot));
 
             assertAll(
-                    () -> assertTrue(refusal.getCause() instanceof NotDirectoryException, refusal::toString),
+                    () -> assertInstanceOf(NotDirectoryException.class, refusal.getCause(), refusal::toString),
                     () -> assertTrue(Files.exists(stale), "the items of the earlier import stay"));
         }
 
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a sources directory that cannot be listed is refused, and the earlier items stay")
-        void unlistableSources() throws IOException {
+        void unlistableSources() throws Exception {
             var sources = corpusRoot.resolve(CorpusImport.SOURCES);
             var permissions = Files.getPosixFilePermissions(sources);
             Files.setPosixFilePermissions(sources, PosixFilePermissions.fromString("-wx------"));
@@ -385,7 +386,7 @@ class CorpusImportTest {
         @Test
         @EnabledOnOs({OS.LINUX, OS.MAC})
         @DisplayName("a corpus root whose entries cannot be looked up is refused")
-        void unsearchableRoot() throws IOException {
+        void unsearchableRoot() throws Exception {
             var permissions = Files.getPosixFilePermissions(corpusRoot);
             Files.setPosixFilePermissions(corpusRoot, PosixFilePermissions.fromString("r--------"));
             try {

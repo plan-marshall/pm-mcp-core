@@ -294,7 +294,7 @@ class CorpusValidatorTest {
 
     @Test
     @DisplayName("the codec-refusal fixtures pass their schemas, so the codec refusal is what reports them")
-    void codecRefusalFixturesPassTheirSchemas() throws IOException {
+    void codecRefusalFixturesPassTheirSchemas() throws Exception {
         var manifestErrors = SchemaSubset.validate(JsonValue.parse(pathTwice().getBytes(UTF_8)),
                 JsonValue.parse(resource("source-manifest.schema.json")));
         var overlayErrors = SchemaSubset.validate(JsonValue.parse(rowTwice().getBytes(UTF_8)),
