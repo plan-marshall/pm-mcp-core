@@ -10,7 +10,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* The task queue store: queue task records and task leases per worker generation.
+* The task queue store: queue task records and task leases per worker generation; a generation is a worker's, issued with its job token by link:worker-launch.adoc[`worker-launch`] (roadmap Milestone 4, worker generations and fencing), never a session's: the session generation record of link:session-log-and-generations.adoc[`session-log-and-generations`] is no part of the target and goes with link:removed-concepts.adoc[`removed-concepts`].
 * The task protocol: offers, acknowledgement, leases, fencing, task outcomes and re-offers, and skill delivery per generation.
 * The compiled `worker-task` unit is content of the assembly; this package proves the protocol against a fixture unit.
 

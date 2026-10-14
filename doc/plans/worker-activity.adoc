@@ -1,0 +1,31 @@
+= What a worker does, and a worker off track
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `worker-activity`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4 (the worker activity and the off-track signals); the activity of a task below a plan or an epic (link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-1[Use Cases, UC-PLN-1]) in both clients of `pm-mcp-clients`
+Where:: pm-core (the activity kinds of the profile schema and the mapping `headless.events`, the activity journal in the store of the task's scope); pm-runtime (the mapping of a worker's output stream while it runs, the off-track signals and the server's actions, the activity endpoints and the stream of one task)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles § What a Worker Does], link:../../../plan-marshall-documentation/doc/specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work § A Worker Off Track], and link:../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc#activity-journal[Store Schemas § Activity Journal] (`PM-WORK-7`).
+* *Events, mapped per harness*: `headless.events` maps a line of the worker's output stream onto the closed, harness-neutral activity kinds `text` (cut to the compiled bound), `tool_call` (the tool's name and its target, never its whole arguments), `tool_result` (its size and whether it failed, never its content), `file_changed`, and `turn` (its usage through the usage pointers of link:token-usage.adoc[`token-usage`]); a line that matches no mapping is counted, not shown; the server adds the entries it knows itself (the links the worker followed, its questions and answer acknowledgements, the off-track signals and actions).
+* *The activity journal*: per task, append-only in the store of the task's scope, written while the worker runs, masked, bounded, archived with the plan and deleted with it; untrusted data, shown as plain text and never read by a model as instructions.
+* *The off-track signals*: computed by the runtime from the activity journal and the task's records, never by a model (`repeating`, `no_progress`, `over_size`, `outside_footprint`), each against its compiled threshold, which a role artifact may lower in its `off_track` member and never raise, evaluated at every activity entry in the transaction that appends it, at most once per attempt and plan task; a signal is no limit and ends no plan; the action the role artifact chooses from the closed list (`show`, the default, `nudge`, `yield`, `restart`), recorded in the queue task's `signals[]` and as a `signal` entry of the activity journal, a `yield` or `restart` reported `task.off_track` (link:operator-reports.adoc[`operator-reports`]); a running plan's `off_track` with its signal in the project's resource (link:process-and-overview.adoc[`process-and-overview`]).
+* *Served to the clients*: a task's activity from a cursor and as a live stream a client opens only while it shows the task; the plan's process names per leaf its tasks with a link to their activity.
+* *Verified per harness*: the stage `events` of the profile verification checks that every mapping resolves and every expected kind appears, recording per kind `reported` or `missing`; a recorded output of each shipped harness version is a parsing fixture, written for the test, never copied from the content of the product.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Use case: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-1[UC-PLN-1]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-7[PM-WORK-7]; link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-3[PM-WORK-3]; link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-1[PM-SEC-1]
+* Specification: the sections the first bullet of _What_ names; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification]; link:../../../plan-marshall-documentation/doc/specification/model-work/04-worker-launch.adoc#worker-output[Model Work § Output Read While the Worker Runs]
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]
+
+== Done When
+
+A recorded output of each shipped harness version maps onto its expected activity entries, an unmatched line counted and not shown, no tool result's content and no whole argument list recorded; the journal is masked and bounded, archived with its plan, and served from a cursor and as a live stream; each off-track signal holds on a fixture at its threshold and not below it, a lowered threshold of a role artifact applies and a raised one is refused, each action is recorded in `signals[]` and the journal, a signal takes its action at most once per attempt and plan task, and a `yield` or `restart` is reported once; no signal ends a plan; the stage `events` records each kind `reported` or `missing` and fails for a mapping that does not resolve.

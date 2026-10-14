@@ -10,14 +10,16 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* A session of an eligible host takes tasks of `read_only` roles that set `session_first`; otherwise the supervisor serves them.
+The specification has no interactive session as a worker: a harness is a worker only as a job the runtime launches (link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL § All Interaction in the Operator's Clients]), and the requirement `PM-WORK-5` and the section Model Work § The Session as Optional Worker are removed. Nothing of this package is to be built; it waits for the operator's decision to drop it (link:README.adoc#packages[index]).
+
+* (removed) A session of an eligible host takes tasks of `read_only` roles that set `session_first`; otherwise the supervisor serves them.
 
 == Trace
 
 Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
-* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/02-task-protocol.adoc#session-worker[Model Work § The Session as Optional Worker]
+* Requirements: `PM-WORK-5` (removed); link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1] (harnesses as workers)
+* Specification: Model Work § The Session as Optional Worker (removed); link:../../../plan-marshall-documentation/doc/specification/model-work/02-task-protocol.adoc#task-protocol[Model Work § Task Protocol]
 * Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]
 
 == Done When

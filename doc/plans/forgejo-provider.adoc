@@ -4,21 +4,22 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `forgejo-provider`
 
 [horizontal]
-Serves:: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[Use Cases, UC-STA-4]; issues of Codeberg in both clients of `pm-mcp-clients`; no roadmap milestone yet
-Where:: pm-providers (a new module `pm-provider-forgejo`, once the Module Structure Specification lists it); pm-core (the provider in every closed list)
+Serves:: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[Use Cases, UC-STA-4]; issues of Codeberg in both clients of `pm-mcp-clients`; no roadmap item yet
+Where:: pm-providers (the module `pm-provider-forgejo`, listed in the link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-forgejo[Module Structure Specification]); pm-core (the value `forgejo` in every closed list of providers)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == What
 
-* *Specification first*: the package writes the change Codeberg and Forgejo into `plan-marshall-documentation` as part of its own work, the module included in the link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification], once UC-STA-4 is agreed.
-* *One list of providers*: the provider ids are defined once, in one closed list of the specification, and `ci_provider`, the integrations, the credential keys, and the provider defaults refer to it instead of each naming the providers, so that adding `forgejo` is one change.
-* The CI contract over the Forgejo REST API, `ci.issue-view` first; the host detection (`codeberg.org`, else a probe of `/api/v1/version`); the value `forgejo` in `ci_provider` and the integrations; the credential key `forgejo` with its host; the provider in the machine's provider defaults.
+* *Implements* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure § Codeberg and Forgejo (`pm-provider-forgejo`)] (`PM-EXEC-5`, `PM-TECH-2`).
+* The CI contract of `pm-provider-ci` over the Forgejo REST API (`/api/v1`) on the shared origin-pinned HTTP base, the native variant only, `ci.issue-view` and `ci.issue-comment` first, then the rest of the contract for a project whose remote is on a Forgejo forge; the findings contract of `pm-core` for its pull request reviews.
+* The host detection (`codeberg.org`, else a probe of `/api/v1/version`) for the derived fact `ci_provider`; the value `forgejo` in every closed list of providers and integrations (the team's `ci_provider` override, the machine's provider defaults, a project's integrations, the audit's integration records); the credential key `forgejo`, whose entry's `url` names the forge's host.
 
 == Trace
 
-* Use case: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4] and its change link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#change-forgejo[Codeberg and Forgejo]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/07-project-configuration.adoc[Store Schemas § Project Configuration]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc[§ Derived Facts]; link:../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#agent-credentials[CLI & Security § Agent Credentials]
+* Use case: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]; link:../../../plan-marshall-documentation/doc/requirements/09-technology.adoc#PM-TECH-2[PM-TECH-2]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure § Codeberg and Forgejo]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas § Machine Provider Defaults]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/08-project-configuration-local.adoc#local-config[§ Operator Local Configuration]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/07-project-configuration.adoc[Store Schemas § Project Configuration]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/09-derived-facts-and-build-timings.adoc[§ Derived Facts]; link:../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#agent-credentials[CLI & Security § Agent Credentials]
 
 == Done When
 
-The specification is merged in `plan-marshall-documentation`; the provider reads an issue of a public and of a private repository against a recorded Forgejo API, and detects Codeberg and a self-hosted Forgejo.
+The provider reads an issue of a public and of a private repository against a recorded Forgejo API, and detects Codeberg and a self-hosted Forgejo.
