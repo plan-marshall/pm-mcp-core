@@ -1,0 +1,29 @@
+= Corpus sources fetched at pinned commits
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `corpus-sources`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-core package `core.role` (the source manifest, the overlay, item generation, the hash checks, and a fetch service interface); pm-runtime (the fetch implemented with `pm-provider-git`), by the dependency rules of the link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* The one implementation that turns the corpus's own part into a complete corpus: it reads the source manifests (a public dataset's repository, a pinned commit, every file used with its SHA-256, the licence) and the overlays (which rows, the item framing, written replies, rubrics, review status) that the model verification corpus holds (link:../../../plan-marshall-mcp/doc/plans/question-corpus-public-datasets.adoc[`plan-marshall-mcp` / `question-corpus-public-datasets`]), fetches each source at its pin, checks every file against its hash, and generates the items into a cache outside the repository.
+* The fetch goes through the product's git client: a fetch service interface in `pm-core`, implemented with the git contract of `pm-provider-git` (plain JGit); a file stored with Git LFS is fetched as its pointer and its object from the repository's LFS batch endpoint, and checked against the pointer's SHA-256.
+* A source that cannot be fetched or does not verify is reported by name and its items are left out: the result names the sources it covers and those it misses, so that a qualification on a partial corpus is recorded as such.
+* The same code serves both uses: our development, through a JUnit test of `plan-marshall-mcp` in its own Maven profile (it needs the network), and `pm-operator roles qualify` on a user's machine, through link:role-qualification.adoc[`role-qualification`].
+* The item validation of the corpus (the rules of `test/model/verification/validate.py`: schema, id equals path, canary, closed answers among the choices, rubric items, context files, no transient names) as a Java validator over the corpus's own and the generated items, so that the build validates the corpus without Python.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6], link:../../../plan-marshall-documentation/doc/requirements/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/01-roles-and-configuration.adoc#qualification[Model Work § Role Qualification]; link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure] (`pm-core`, `pm-runtime`, `pm-provider-git`)
+* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]
+
+== Done When
+
+Against a local fixture repository (a plain file and an LFS object, served without network): a pinned source is fetched, verified, and its overlay generated into valid items; a changed file fails its hash; an unreachable source yields the remaining items and names the missing source; the Java validator accepts the corpus of `plan-marshall-mcp` and rejects each rule's negative fixture.

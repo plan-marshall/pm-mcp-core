@@ -231,10 +231,16 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:session-log-and-generations.adoc[`session-log-and-generations`]
 |Milestone 4
 
+|link:corpus-sources.adoc[`corpus-sources`]
+|Corpus sources fetched at pinned commits, and the corpus validator in Java
+|`open`
+|nothing
+|Milestone 4
+
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]; link:corpus-sources.adoc[`corpus-sources`]
 |Milestone 4
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
