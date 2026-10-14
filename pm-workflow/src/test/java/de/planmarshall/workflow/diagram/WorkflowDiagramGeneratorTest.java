@@ -33,6 +33,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.plan.PlanInstance;
 import de.planmarshall.workflow.plan.PlanInstanceHeader;
+import de.planmarshall.workflow.plan.PruneReason;
+import de.planmarshall.workflow.plan.PrunedElement;
+import de.planmarshall.workflow.plan.WaivedGate;
 
 /**
  * The generator of the documentation of a unit (PM-IMPL-5): each of the three forms of the dedicated fixture unit
@@ -462,6 +465,30 @@ class WorkflowDiagramGeneratorTest {
                     () -> assertTrue(rendered.contains("as instance_pruned_2_2\n"), rendered),
                     () -> assertTrue(rendered.contains("state \"waived gates\" as instance_waived {\n"), rendered),
                     () -> assertTrue(rendered.contains("as instance_waived_1_6\n"), rendered));
+        }
+
+        @Test
+        @DisplayName("Should escape a double quote, a line break and a hash in the text of a label")
+        void shouldEscapeLabelText() {
+            var fixture = DiagramFixtures.instance();
+            var header = fixture.header();
+            var hostile = new PlanInstanceHeader(header.planId(), header.version(), header.event(),
+                    header.composedAt(), header.inputs(), header.lane(), header.posture(), header.steps(),
+                    List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:\"quoted\"\nstep",
+                            PruneReason.LOCAL_ONLY, "fact #1;\r\nline")),
+                    List.of(), List.of(new WaivedGate("gate \"x\"\nnext", "W-1")));
+            var instance = new PlanInstance(fixture.version(), hostile, fixture.unit(), fixture.text());
+
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(instance, Optional.empty());
+
+            assertAll(
+                    () -> assertTrue(rendered.contains("state \"step default:#quot;quoted#quot; step: local_only "
+                            + "(fact #35;1; line)\" as instance_pruned_1\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"gate #quot;x#quot; next: waived W-1\" as "
+                            + "instance_waived_1\n"), rendered),
+                    () -> assertTrue(rendered.lines().filter(line -> line.contains(" as instance_"))
+                                    .allMatch(line -> line.chars().filter(character -> character == '"').count() == 2),
+                            rendered));
         }
 
         private static PlanInstance bareInstance() {

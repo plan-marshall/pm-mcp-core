@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -454,8 +455,7 @@ final class HeaderJson {
         var steps = (ObjectNode) members.get(STEPS);
         return new PlanInstanceHeader(text(members.get(PLAN_ID)), intValue(members.get(VERSION), VERSION),
                 wire(members.get(EVENT), CompositionEvent::fromWireName),
-                OffsetDateTime.parse(text(members.get(COMPOSED_AT)).toUpperCase(Locale.ROOT),
-                        DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant(),
+                instant(text(members.get(COMPOSED_AT))),
                 inputs((ObjectNode) members.get(INPUTS)),
                 optionalText(members.get(LANE)).flatMap(PlanInstanceHeader.Lane::fromWireName),
                 optionalText(members.get(POSTURE)).flatMap(PlanInstanceHeader.Posture::fromWireName),
@@ -467,6 +467,23 @@ final class HeaderJson {
                     var gate = ((ObjectNode) node).members();
                     return new WaivedGate(text(gate.get(GATE)), text(gate.get(WAIVER_ID)));
                 }).toList());
+    }
+
+    /**
+     * Parses a {@code composed_at} value; the schema check and the reader both go through here, so the check refuses
+     * exactly what the reader cannot parse.
+     *
+     * @param text the RFC 3339 date-time
+     * @return the instant it denotes
+     * @throws IllegalArgumentException if the text is no date-time the reader can parse
+     */
+    static Instant instant(String text) {
+        try {
+            return OffsetDateTime.parse(text.toUpperCase(Locale.ROOT), DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    .toInstant();
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("not a date-time the header reader can parse: " + text, e);
+        }
     }
 
     private static CompositionInputs inputs(ObjectNode node) {

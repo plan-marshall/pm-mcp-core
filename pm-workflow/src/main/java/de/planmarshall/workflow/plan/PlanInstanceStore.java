@@ -93,8 +93,9 @@ public final class PlanInstanceStore {
      * @param instance    the composed version
      * @param texts       the verified texts of the sub-units; every sub-unit the header names needs its text
      * @param record      the log line of the composition
-     * @throws IllegalArgumentException if the record is not the composed record of the version, a text does not match
-     *                                  its digest, or a sub-unit the header names has no text; nothing was recorded
+     * @throws IllegalArgumentException if the record is not the composed record of the version (its result, version,
+     *                                  event, trigger and input digests are those of the version), a text does not
+     *                                  match its digest, or a sub-unit the header names has no text; nothing was recorded
      * @throws IllegalStateException    if the version file exists already; nothing was recorded
      * @throws UncheckedIOException     if a directory of the plan cannot be created
      */
@@ -103,8 +104,7 @@ public final class PlanInstanceStore {
         Objects.requireNonNull(transaction, "transaction");
         Objects.requireNonNull(instance, "instance");
         Objects.requireNonNull(record, "record");
-        if (record.result() != CompositionRecord.Result.COMPOSED
-                || !record.version().equals(Optional.of(instance.version()))) {
+        if (!recordsComposition(record, instance)) {
             throw new IllegalArgumentException("the record does not record the composition of version "
                     + instance.version());
         }
@@ -177,6 +177,16 @@ public final class PlanInstanceStore {
      */
     public Optional<String> readSubUnit(String digest) {
         return read(subUnitPath(digest));
+    }
+
+    /** The record is the composed record of the version: its result, version, event, trigger and input digests. */
+    private static boolean recordsComposition(CompositionRecord record, PlanInstance instance) {
+        var header = instance.header();
+        return record.result() == CompositionRecord.Result.COMPOSED
+                && record.version().equals(Optional.of(instance.version()))
+                && record.event() == header.event()
+                && record.trigger() == header.event().trigger()
+                && record.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()));
     }
 
     private static byte[] line(CompositionRecord record) {

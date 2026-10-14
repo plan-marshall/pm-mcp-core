@@ -37,8 +37,8 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  * {@code version} from {@code 1}, the closed enumerations (composition event, lane, posture, element kind, prune
  * reason, policy unit, argument source, unit origin), the patterns of the plan id, of every digest (64 lowercase
  * hexadecimal characters), of the Phase 6 step ids and of the waiver ids, and {@code composed_at} as an RFC 3339
- * date-time. A JSON text that is no single JSON value, or names a member of an object twice, is one violation of the
- * header as a whole or of that member.
+ * date-time that the reader can parse. A JSON text that is no single JSON value, or names a member of an object
+ * twice, is one violation of the header as a whole or of that member.
  * <p>
  * A violation names the JSON pointer of the member or element that breaks the constraint and what is wrong. A member
  * of the wrong type is reported once, and what lies inside it is not checked further.
@@ -149,7 +149,7 @@ public final class HeaderSchemaCheck {
                     .ifPresent(value -> out.add(new HeaderViolation(pointer, BELOW_ONE))));
             member(members, "", HeaderJson.EVENT, (node, pointer) -> enumerated(node, pointer, EVENTS, out));
             member(members, "", HeaderJson.COMPOSED_AT, (node, pointer) -> string(node, pointer, out)
-                    .filter(text -> !DATE_TIME.matcher(text).matches())
+                    .filter(text -> !isDateTime(text))
                     .ifPresent(text -> out.add(new HeaderViolation(pointer, NOT_DATE_TIME))));
             member(members, "", HeaderJson.INPUTS, (node, pointer) -> inputs(node, pointer, out));
             member(members, "", HeaderJson.LANE, (node, pointer) -> nullableEnumerated(node, pointer, LANES, out));
@@ -164,6 +164,19 @@ public final class HeaderSchemaCheck {
                     (node, pointer) -> each(node, pointer, out, (element, at) -> waivedGate(element, at, out)));
         });
         return List.copyOf(out);
+    }
+
+    /** A date-time is valid when it has the RFC 3339 shape and the header reader can parse it. */
+    private static boolean isDateTime(String text) {
+        if (!DATE_TIME.matcher(text).matches()) {
+            return false;
+        }
+        try {
+            HeaderJson.instant(text);
+            return true;
+        } catch (IllegalArgumentException _) {
+            return false;
+        }
     }
 
     private static void inputs(Node node, String pointer, List<HeaderViolation> out) {

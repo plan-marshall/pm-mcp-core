@@ -28,6 +28,7 @@ import java.time.Clock;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
@@ -197,6 +198,60 @@ class PlanInstanceStoreTest {
                         () -> assertThrows(IllegalArgumentException.class,
                                 () -> store.recordAttempt(transaction, composedRecord)));
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Records of another version")
+    class ForeignRecords {
+
+        private CompositionRecord composedWith(CompositionEvent event, CompositionEvent.Trigger trigger,
+                SortedMap<String, String> digests) {
+            return new CompositionRecord(event, CompositionRecord.Result.COMPOSED, Optional.of(1), trigger,
+                    Optional.empty(), digests, COMPOSED_AT);
+        }
+
+        private void assertRefused(CompositionRecord record) {
+            var instance = version1();
+            var texts = texts();
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> store.recordComposed(transaction, instance, texts, record)),
+                        () -> assertFalse(Files.exists(scope.resolve("instance"))));
+            }
+        }
+
+        @Test
+        @DisplayName("a composed record of another event is refused")
+        void otherEvent() {
+            var instance = version1();
+
+            assertRefused(composedWith(CompositionEvent.OUTLINE, instance.header().event().trigger(),
+                    CompositionRecord.inputDigests(instance.header().inputs())));
+        }
+
+        @Test
+        @DisplayName("a composed record of another trigger is refused")
+        void otherTrigger() {
+            var instance = version1();
+
+            assertRefused(composedWith(instance.header().event(), CompositionEvent.Trigger.OPERATOR,
+                    CompositionRecord.inputDigests(instance.header().inputs())));
+        }
+
+        @Test
+        @DisplayName("a composed record of other input digests is refused")
+        void otherDigests() {
+            var instance = version1();
+            var digests = new TreeMap<>(CompositionRecord.inputDigests(instance.header().inputs()));
+            digests.put("config_hash", "0".repeat(64));
+
+            assertRefused(composedWith(instance.header().event(), instance.header().event().trigger(), digests));
         }
     }
 

@@ -31,7 +31,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * {@code instance_waived} and {@code instance_waived_<n>}, numbered from {@code 1} in header order; an identifier the
  * unit could use itself (the alias of a state, a transition target or a phase composite, also with a numeric suffix)
  * is passed over by appending the next free {@code _<n>}, so no identifier of the annotations names a state of the
- * unit.
+ * unit. The text of a label comes from the header and is escaped for the quotes that enclose it: a {@code #} and a
+ * double quote become Mermaid entities and a line break a space.
  *
  * @since 0.1
  */
@@ -73,10 +74,19 @@ final class InstanceMermaidRenderer {
         out.append(INDENT).append("state \"").append(label).append("\" as ").append(identifiers.allocate(prefix))
                 .append(" {\n");
         for (var index = 0; index < entries.size(); index++) {
-            out.append(INDENT.repeat(2)).append("state \"").append(describe.apply(entries.get(index)))
+            out.append(INDENT.repeat(2)).append("state \"").append(label(describe.apply(entries.get(index))))
                     .append("\" as ").append(identifiers.allocate(prefix + "_" + (index + 1))).append('\n');
         }
         out.append(INDENT).append("}\n");
+    }
+
+    /**
+     * Makes free text safe inside the double quotes of a {@code state "..."} label: {@code #} becomes the entity
+     * {@code #35;} (so text that looks like an entity stays text), a double quote the entity {@code #quot;}, and each
+     * line break, which would end the declaration, a single space.
+     */
+    private static String label(String text) {
+        return text.replace("#", "#35;").replace("\"", "#quot;").replaceAll("\\R", " ");
     }
 
     private static String preferred(String name) {

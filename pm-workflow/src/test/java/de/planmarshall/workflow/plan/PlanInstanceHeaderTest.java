@@ -244,6 +244,18 @@ class PlanInstanceHeaderTest {
             assertTrue(refused.getMessage().contains("fix_budget"), refused.getMessage());
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"2026-02-30T08:05:00Z", "2026-10-14T08:05:60Z", "2026-10-14T08:05:00+23:59"})
+        @DisplayName("a composed_at the reader cannot parse is refused as an instance header")
+        void unparsableDateTime(String composedAt) {
+            var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("2026-10-14T08:05:00Z",
+                    composedAt);
+
+            var refused = assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+
+            assertTrue(refused.getMessage().contains("/composed_at"), refused.getMessage());
+        }
+
         @Test
         @DisplayName("a version beyond the range of an int is refused")
         void versionOutOfRange() {
