@@ -1577,7 +1577,7 @@ public final class WorkflowValidator {
 
     /**
      * What the passes that leave a dispatch hub with one transition settle: the number of distinct steps of each pass
-     * (at most two) and the steps that some pass completes more than once.
+     * (at most two) and, per path, the first step that path completes a second time.
      */
     private record PassSettlements(Set<Integer> distinctCounts, Set<String> repeatedSteps) {
     }
@@ -1587,9 +1587,10 @@ public final class WorkflowValidator {
      * A pass is a path that leaves the hub on one of its outcomes and returns to it; a path that enters a terminal
      * state, {@link #MERGE_GATE} or an implicit-failed state leaves the step list instead, and one that ends early on
      * an {@code UNSETTLED} or {@code STEPPED_OUT} outcome hands its step back. Each outcome of the hub with a pass that
-     * settles no step, or more than one distinct step, is refused at its transition, and so is each step that a pass
-     * of it completes more than once, named as completed twice whether or not the firing check also refuses the
-     * second completion (ADR 022).
+     * settles no step, or more than one distinct step, is refused at its transition, and so is a pass of it that
+     * completes a step more than once: the first step a path of the pass completes a second time is named as
+     * completed twice, whether or not the firing check also refuses the second completion (ADR 022). A pass that
+     * repeats two steps names the first only; it is refused as settling more than one distinct step as well.
      */
     private static void checkStepListPasses(WorkflowDefinition definition, StateNode hub,
             Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, List<Violation> violations) {
@@ -1615,7 +1616,7 @@ public final class WorkflowValidator {
 
     /**
      * @return the number of distinct steps settled, at most two, on each pass that leaves the hub with the transition
-     *         and returns to it, and the steps completed more than once on such a pass, in name order; both empty when
+     *         and returns to it, and the first step each such path completes a second time, in name order; both empty when
      *         no path of it returns
      */
     private static PassSettlements passSettlements(WorkflowDefinition definition, String hubId,
