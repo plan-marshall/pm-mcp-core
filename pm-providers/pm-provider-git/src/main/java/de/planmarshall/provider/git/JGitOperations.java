@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.EmptyCommitException;
@@ -71,6 +72,13 @@ public final class JGitOperations implements GitOperations {
 
     /** The refs that keep the pinned commits of a cache repository reachable. */
     static final String PINNED_REFS = "refs/pinned/";
+
+    /** git's {@code upload-pack} refusing a want it does not serve, lower case. */
+    private static final String NOT_OUR_REF = "not our ref";
+
+    /** A remote refusing a want by its object id: JGit's {@code UploadPack} or a remote reporting it absent. */
+    private static final Pattern WANT_REFUSED =
+            Pattern.compile("(?i)\\bwant [0-9a-f]{40}(?:[0-9a-f]{24})? not (?:valid|found)\\b");
 
     private final FS fs;
     private final RemotePolicy remotePolicy;
@@ -516,9 +524,28 @@ public final class JGitOperations implements GitOperations {
 
     /** @return {@code true} if the remote answered but refused to serve the wanted object */
     private static boolean isUnservedWant(TransportException e) {
-        var message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
-        return message.contains("want") && (message.contains("not valid") || message.contains("not our ref")
-                || message.contains("not found"));
+        return isUnservedWant(e.getMessage());
+    }
+
+    /**
+     * Recognises the closed set of messages by which a remote that answered refuses to serve a wanted object; the test
+     * ignores case. A transport failure with any other message is {@code FAILED}.
+     * <ul>
+     * <li>{@code not our ref}: the wording of git's {@code upload-pack}, which GitHub and GitLab run, for a want it
+     * does not advertise or no longer has, e.g. {@code upload-pack: not our ref <sha>} or
+     * {@code remote error: upload-pack: not our ref <sha>}.</li>
+     * <li>{@code want <object id> not valid}: the wording of JGit's {@code UploadPack}.</li>
+     * <li>{@code want <object id> not found}: a want the remote reports as absent.</li>
+     * </ul>
+     *
+     * @param message the message of a transport failure; {@code null} if it has none
+     * @return {@code true} if the message is one of the set
+     */
+    static boolean isUnservedWant(String message) {
+        if (message == null) {
+            return false;
+        }
+        return message.toLowerCase(Locale.ROOT).contains(NOT_OUR_REF) || WANT_REFUSED.matcher(message).find();
     }
 
     private static GitResult<RefUpdate> toPushResult(RemoteRefUpdate update) {

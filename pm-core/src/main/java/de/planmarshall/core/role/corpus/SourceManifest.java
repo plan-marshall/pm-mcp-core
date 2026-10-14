@@ -73,13 +73,7 @@ public record SourceManifest(String name, URI repository, String commit, String 
      */
     public SourceManifest {
         require(name, NAME, "name");
-        Objects.requireNonNull(repository, "repository");
-        if (!repository.isAbsolute() || !"https".equals(repository.getScheme()) || repository.getHost() == null
-                || repository.getRawQuery() != null || repository.getRawFragment() != null
-                || repository.getRawUserInfo() != null) {
-            throw new IllegalArgumentException(
-                    "'repository' must be an absolute https URI without user, query or fragment: " + repository);
-        }
+        requireRepository(repository);
         require(commit, COMMIT, "commit");
         require(licence, LICENCE, "licence");
         files = List.copyOf(Objects.requireNonNull(files, "files"));
@@ -100,6 +94,24 @@ public record SourceManifest(String name, URI repository, String commit, String 
      */
     public Optional<SourceFile> file(String path) {
         return files.stream().filter(file -> file.path().equals(path)).findFirst();
+    }
+
+    /**
+     * Requires a repository a source may be fetched from, and an imported item may name as its origin: an absolute
+     * {@code https} URI with a host and without user information, query or fragment. The manifest and the imported item
+     * share this rule, so every item generated from a manifest the codec accepts is accepted too.
+     *
+     * @param repository the repository URI
+     * @throws IllegalArgumentException if the URI is outside the rule
+     */
+    static void requireRepository(URI repository) {
+        Objects.requireNonNull(repository, "repository");
+        if (!repository.isAbsolute() || !"https".equals(repository.getScheme()) || repository.getHost() == null
+                || repository.getRawQuery() != null || repository.getRawFragment() != null
+                || repository.getRawUserInfo() != null) {
+            throw new IllegalArgumentException(
+                    "'repository' must be an absolute https URI without user, query or fragment: " + repository);
+        }
     }
 
     static void require(String value, Pattern pattern, String field) {

@@ -24,8 +24,11 @@ import java.util.regex.Pattern;
  */
 public final class SourceFetch {
 
-    /** The user information of a URI in a detail, which may carry a credential. */
-    private static final Pattern USER_INFO = Pattern.compile("(?i)\\b([a-z][a-z0-9+.-]*://)[^/@\\s]*@");
+    /**
+     * The user information of a URI in a detail, which may carry a credential: everything of the authority up to its
+     * last {@code @}, so a password with an unencoded {@code @} is removed whole.
+     */
+    private static final Pattern USER_INFO = Pattern.compile("(?i)\\b([a-z][a-z0-9+.-]*://)[^/?#\\s]*@");
 
     private static final byte[] NOTHING = new byte[0];
 

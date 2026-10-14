@@ -26,7 +26,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06
 . The batch request, `POST <repository>.git/info/lfs/objects/batch` (`batchUri` appends `.git` unless the path ends with it and drops a trailing slash), with `Accept` and `Content-Type` `application/vnd.git-lfs+json` (`MEDIA_TYPE`) and the body `{"operation":"download","transfers":["basic"],"objects":[{"oid","size"}],"hash_algo":"sha256"}`.
 . The download, `GET` of the `href` of the answer's `actions.download`, with the string values of its `header` object. These values may carry a token; they are sent but never logged, and the query of the URL is cut from every detail.
 
-Every request goes to an `https` URL without user information; a repository or download URL that is not `https` is refused before anything is sent.
+Every request goes to an `https` URL without user information; a repository URL without scheme or host, or a repository or download URL that is not `https`, is refused before anything is sent.
 The package-private constructor admits plain `http` to a loopback address as well, for the mock web server of the tests.
 Every request is bounded by the compiled connect timeout `CONNECT_TIMEOUT_SECONDS` (10 s) and read timeout `READ_TIMEOUT_SECONDS` (60 s).
 
@@ -38,7 +38,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 |===
 |What happens |`SourceFetch.Outcome`
 
-|the URL is not `https` or carries user information; the endpoint does not answer, times out or is interrupted; the batch API answers an error status other than 404; the batch answer is no JSON; the download action names no URL; the download answers an error status other than 404 and 410; the pointer's size exceeds what a byte array holds
+|the URL names no scheme or no host, is not `https` or carries user information; the endpoint does not answer, times out or is interrupted; the batch API answers an error status other than 404; the batch answer is no JSON; the download action names no URL; the download answers an error status other than 404 and 410; the pointer's size exceeds what a byte array holds
 |`UNREACHABLE`
 
 |the batch API answers 404 (the repository has no LFS endpoint); the batch answer names no entry for the oid, an object `error`, or no download action; the download answers 404 or 410
@@ -48,7 +48,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 |`FETCHED`
 |===
 
-Every `UNREACHABLE` and `PIN_MISSING` outcome is logged as WARN `PM_RUNTIME-126` `CORPUS_LFS_OBJECT_UNAVAILABLE` with the oid, the repository without user information, and the detail.
+Every `UNREACHABLE` and `PIN_MISSING` outcome is logged as WARN `PM_RUNTIME-126` `CORPUS_LFS_OBJECT_UNAVAILABLE` with the oid, the repository without user information, query or fragment, and the detail; a repository URL without scheme or host is named `<a URL without scheme or host>` and none of its parts is logged, so writing the WARN never fails on what the caller handed in.
 
 The client does not decide whether delivered bytes are the object.
 It reads the download up to one byte beyond the pointer's size and stops there (`BoundedBody`), so a longer body is never held in full.
@@ -67,6 +67,7 @@ The client under test is built with the loopback admitted, a connect timeout of 
 * Every way the endpoint does not deliver (404, 503, object error, another object, no JSON, no download action, download 404 and 500): `UNREACHABLE` or `PIN_MISSING`, the WARN logged, the action's header value absent from the detail.
 * A stalled response (headers delayed beyond the read timeout): `UNREACHABLE`, the WARN logged.
 * A repository that is not `https`, and one with user information: refused with nothing sent.
+* A repository URL without scheme or host (a relative path, `mailto:`, `https:/path`, `file:///`, `//host/path`): `UNREACHABLE` with nothing sent and the WARN logged, never an exception.
 * `batchUri` for the URL forms of a repository.
 * Within `CorpusImport`, with a manifest whose `https` repository is redirected to the mock web server: the delivered object yields the item, and bytes with another SHA-256, fewer bytes or more bytes fail the run with `hash_mismatch`.
 

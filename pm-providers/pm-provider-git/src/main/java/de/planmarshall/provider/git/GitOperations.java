@@ -125,7 +125,8 @@ public interface GitOperations {
      * @param input the input
      * @return {@code OK} with the commit id, {@code REMOTE_ORIGIN_MISMATCH} if the policy does not admit the URL
      *         (nothing was sent), {@code UNKNOWN_REVISION} if the remote does not serve the commit,
-     *         {@code NOT_A_REPOSITORY} if the cache is no repository, or {@code FAILED} if the remote did not answer
+     *         {@code NOT_A_REPOSITORY} if the cache is no repository, {@code CAPABILITY_MISSING} if the transport would
+     *         start a process (nothing was sent), or {@code FAILED} if the remote did not answer
      */
     GitResult<String> fetchCommit(FetchCommitInput input);
 

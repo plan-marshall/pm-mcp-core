@@ -12,6 +12,7 @@ package de.planmarshall.provider.git;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.eclipse.jgit.transport.URIish;
 import org.eclipse.jgit.util.FileUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -217,5 +219,82 @@ class JGitSourceRepositoryTest {
                 () -> assertEquals(List.of("screening/beta/q-1.json"), itemFiles()));
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                 CoreLogMessages.WARN.CORPUS_SOURCE_MISSED.resolveIdentifierString());
+    }
+
+    @Test
+    @DisplayName("a pinned commit the repository does not serve is missed as pin_missing, not unreachable")
+    void unservedCommit() throws Exception {
+        betaRepository(CSV);
+        alphaCommit = "a".repeat(40);
+        writeCorpus();
+
+        var result = run();
+
+        assertAll(
+                () -> assertEquals(Verdict.PARTIAL, result.verdict(), result::toString),
+                () -> assertEquals(List.of("alpha"), result.missed().stream().map(MissedSource::name).toList()),
+                () -> assertEquals(Reason.PIN_MISSING, result.missed().getFirst().reason()),
+                () -> assertTrue(result.missed().getFirst().detail().startsWith("unknown_revision of "),
+                        result.missed().getFirst()::detail),
+                () -> assertEquals(List.of("screening/beta/q-1.json"), itemFiles()));
+    }
+
+    @Test
+    @DisplayName("a path that is no file at the pinned commit is pin_missing")
+    void absentPath() throws Exception {
+        betaRepository(CSV);
+        var manifest = new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
+                List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+        var repository = new JGitSourceRepository(git,
+                source -> new Remote(fixtures.get(source.name()).toUri().toString(), RemotePolicy.localOnly()));
+        assertTrue(repository.prepare(cache, manifest).isFetched());
+        assertTrue(repository.fetchCommit(cache, manifest).isFetched());
+
+        var fetch = repository.readFile(cache, manifest, "data/absent.csv");
+
+        assertAll(
+                () -> assertEquals(SourceFetch.Outcome.PIN_MISSING, fetch.outcome(), fetch::detail),
+                () -> assertTrue(fetch.detail().startsWith("path_not_found of https://github.com/example/beta"),
+                        fetch::detail));
+    }
+
+    @Test
+    @DisplayName("the default remote fetches from the manifest's repository, admitted by its https origin alone")
+    void defaultRemote() {
+        var manifest = new SourceManifest("gamma", URI.create("https://127.0.0.1:1/example/gamma"), "a".repeat(40),
+                "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+        var repository = new JGitSourceRepository(git);
+        assertTrue(repository.prepare(cache, manifest).isFetched());
+
+        var fetch = repository.fetchCommit(cache, manifest);
+
+        assertAll(
+                () -> assertEquals(SourceFetch.Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
+                () -> assertTrue(fetch.detail().startsWith("failed of https://127.0.0.1:1/example/gamma"),
+                        fetch::detail));
+    }
+
+    @Test
+    @DisplayName("Remote.of names the manifest's repository and admits its origin with its port, nothing else")
+    void remoteOf() throws Exception {
+        var manifest = new SourceManifest("gamma", URI.create("https://git.example.org:8443/group/gamma"),
+                "a".repeat(40), "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+        var standard = new SourceManifest("delta", URI.create("https://github.com/example/delta/"), "a".repeat(40),
+                "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+
+        var remote = Remote.of(manifest);
+        var standardRemote = Remote.of(standard);
+
+        var policy = remote.policy();
+        assertAll(
+                () -> assertEquals("https://git.example.org:8443/group/gamma", remote.url()),
+                () -> assertTrue(policy.permits(new URIish("https://git.example.org:8443/group/gamma"))),
+                () -> assertFalse(policy.permits(new URIish("https://git.example.org/group/gamma"))),
+                () -> assertFalse(policy.permits(new URIish("https://other.example.org:8443/group/gamma"))),
+                () -> assertFalse(policy.permits(new URIish("http://git.example.org:8443/group/gamma"))),
+                () -> assertFalse(policy.permits(new URIish("file:///tmp/gamma"))),
+                () -> assertEquals("https://github.com/example/delta/", standardRemote.url()),
+                () -> assertTrue(standardRemote.policy().permits(new URIish("https://github.com:443/example/delta"))),
+                () -> assertFalse(standardRemote.policy().permits(new URIish("https://gitlab.com/example/delta"))));
     }
 }

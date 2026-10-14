@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
 
@@ -64,6 +65,26 @@ class JsonlRowReaderTest {
                     "x", "null"), row.fields());
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"2.50", "1e3", "-0", "-0.0", "1E-7", "9223372036854775808",
+                "123456789012345678901234567890", "0.1234567890123456789", "12345678901234567890.123456789"})
+        @DisplayName("a number keeps the text the line writes, never a converted value")
+        void numberText(String number) {
+            var row = read("{\"n\":" + number + "}").getFirst();
+
+            assertEquals(number, row.fields().get("n"));
+        }
+
+        @Test
+        @DisplayName("a nested object or array keeps the text it spans, its numbers unconverted")
+        void nestedText() {
+            var row = read("{\"meta\": {\"score\" : 2.50, \"list\": [1e3, -0]}, \"after\":\"x\"}").getFirst();
+
+            assertAll(
+                    () -> assertEquals("{\"score\" : 2.50, \"list\": [1e3, -0]}", row.fields().get("meta")),
+                    () -> assertEquals("x", row.fields().get("after")));
+        }
+
         @Test
         @DisplayName("a blank last line and CRLF line ends are accepted")
         void blankLastLine() {
@@ -87,6 +108,10 @@ class JsonlRowReaderTest {
                 Arguments.of("a line that is an array", "[1,2]\n", 1, "not a JSON object"),
                 Arguments.of("a field twice", "{\"id\":\"a\"}\n{\"id\":\"a\",\"id\":\"b\"}\n", 2,
                         "field 'id' twice"),
+                Arguments.of("a key twice in a nested object", "{\"meta\":{\"n\":1,\"n\":2}}\n", 1,
+                        "field 'n' twice in a nested object"),
+                Arguments.of("a key twice in an object inside an array",
+                        "{\"id\":\"a\"}\n{\"l\":[{\"k\":1,\"k\":1}]}\n", 2, "field 'k' twice in a nested object"),
                 Arguments.of("content after the object", "{\"id\":\"a\"} {\"id\":\"b\"}\n", 1,
                         "content after the JSON object"),
                 Arguments.of("a blank line before the last", "{\"id\":\"a\"}\n\n{\"id\":\"b\"}\n", 2,

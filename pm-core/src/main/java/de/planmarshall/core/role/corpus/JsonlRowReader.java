@@ -13,12 +13,12 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -31,8 +31,10 @@ import de.planmarshall.core.store.StrictJson;
  * Reads the rows of a JSON Lines source file (PM-WORK-6): one JSON object per line, UTF-8 encoded.
  * <p>
  * A field whose value is a string keeps the string; any other value (a number, a boolean, {@code null}, a nested
- * object or array) keeps its JSON text. Lines end with LF or CRLF; the last line may be blank. Any other line that is
- * not exactly one JSON object with each key once is refused with its line number.
+ * object or array) keeps its JSON text exactly as the line writes it: a number is never converted ({@code 2.50} stays
+ * {@code 2.50}, {@code 1e3} stays {@code 1e3}), a nested object or array is the text it spans. Lines end with LF or
+ * CRLF; the last line may be blank. Any other line that is not exactly one JSON object, with each key once in the row
+ * and in every object nested in it, is refused with its line number.
  *
  * @since 0.1
  */
@@ -84,7 +86,7 @@ public class JsonlRowReader {
                 if (fields.containsKey(name)) {
                     throw new MalformedSource(number, "field '%s' twice".formatted(name), null);
                 }
-                fields.put(name, value(parser));
+                fields.put(name, value(parser, text, number));
             }
             if (parser.nextToken() != null) {
                 throw new MalformedSource(number, "content after the JSON object", null);
@@ -97,14 +99,48 @@ public class JsonlRowReader {
         return fields;
     }
 
-    private static String value(JsonParser parser) throws IOException {
-        if (parser.currentToken() == JsonToken.VALUE_STRING) {
+    /**
+     * @return the string of a string value; the text of the line the value spans otherwise. A number is never
+     *         converted, so {@code 2.50} stays {@code 2.50} and {@code 1e3} stays {@code 1e3}.
+     */
+    private static String value(JsonParser parser, String text, int number) throws IOException {
+        var token = parser.currentToken();
+        if (!token.isStructStart()) {
+            // A scalar: the parser keeps the text of a number as written; true, false and null have one text only.
             return parser.getText();
         }
-        var json = new StringWriter();
-        try (var generator = StrictJson.factory().createGenerator(json)) {
-            generator.copyCurrentStructure(parser);
+        var start = parser.currentTokenLocation().getCharOffset();
+        requireUniqueKeys(parser, number);
+        var end = parser.currentLocation().getCharOffset();
+        return text.substring(Math.toIntExact(start), Math.toIntExact(end));
+    }
+
+    /**
+     * Walks the object or array the parser stands at to its end, refusing a key named twice in any object of it.
+     */
+    private static void requireUniqueKeys(JsonParser parser, int number) throws IOException {
+        if (parser.currentToken() == JsonToken.START_OBJECT) {
+            var names = new HashSet<String>();
+            while (parser.nextToken() == JsonToken.FIELD_NAME) {
+                var name = parser.currentName();
+                if (!names.add(name)) {
+                    throw new MalformedSource(number, "field '%s' twice in a nested object".formatted(name), null);
+                }
+                walkValue(parser, parser.nextToken(), number);
+            }
+            return;
         }
-        return json.toString();
+        for (var token = parser.nextToken(); token != JsonToken.END_ARRAY; token = parser.nextToken()) {
+            walkValue(parser, token, number);
+        }
+    }
+
+    private static void walkValue(JsonParser parser, JsonToken token, int number) throws IOException {
+        if (token == null) {
+            throw new MalformedSource(number, "not JSON: the line ends inside a value", null);
+        }
+        if (token.isStructStart()) {
+            requireUniqueKeys(parser, number);
+        }
     }
 }

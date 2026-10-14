@@ -20,8 +20,9 @@ The operator approved no CSV library. Both readers are written in this package a
 line a row starts on and its named fields in source order):
 
 * `JsonlRowReader` reads one JSON object per line on the streaming API of `jackson-core`; a string field keeps the
-  string, any other value its JSON text; a blank last line is allowed, any other malformed line is refused with its
-  line number.
+  string, any other value its JSON text exactly as the line writes it (a number is never converted, a nested object
+  or array is the text it spans); a key named twice in the row or in an object nested in it is refused; a blank last
+  line is allowed, any other malformed line is refused with its line number.
 * `CsvRowReader` reads RFC 4180: UTF-8 with an optional byte order mark, a header of unique non-empty names, quoted
   fields with commas, line breaks and doubled quotes, CRLF or LF. A record with another field count than the header,
   an unterminated quoted field, a quote inside an unquoted field, or a stray character after a closing quote is

@@ -46,6 +46,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.role.corpus.CorpusImport;
 import de.planmarshall.core.role.corpus.ImportResult.Reason;
@@ -290,6 +291,21 @@ class LfsBatchClientTest {
                 () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
                 () -> assertFalse(fetch.detail().contains("pw"), fetch::detail),
                 () -> assertEquals(0, server.getRequestCount()));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"example/beta", "mailto:user@example.org", "https:/example/beta", "file:///tmp/beta",
+            "//example.org/beta"})
+    @DisplayName("refuses a repository URL without scheme or host as UNREACHABLE, logs the WARN and never throws")
+    void refusesWithoutSchemeOrHost(String uri) {
+        var fetch = client.object(URI.create(uri), POINTER);
+
+        assertAll(
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
+                () -> assertTrue(fetch.detail().startsWith("refused"), fetch::detail),
+                () -> assertEquals(0, server.getRequestCount()));
+        assertUnavailableLogged();
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, "<a URL without scheme or host>");
     }
 
     @ParameterizedTest(name = "{0}")

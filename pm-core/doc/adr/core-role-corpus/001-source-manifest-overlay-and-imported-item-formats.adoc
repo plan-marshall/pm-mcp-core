@@ -31,6 +31,10 @@ The operator decided that this package defines the three formats and plan-marsha
   `provenance.origin` requires `repository`, `commit`, `path` and `line`. Every optional member has one shape only.
   So `validate.py` and the Java validator both accept a generated item, and `ImportedItemCodec` writes it
   deterministically.
+* The origin `repository` of an imported item follows the rule of the manifest's `repository`: an absolute `https`
+  URI without user, query or fragment, on any host. One check (`SourceManifest.requireRepository`) and one schema
+  pattern serve both, so a manifest the validator accepts never yields items the import refuses. The item schema of
+  the corpus in plan-marshall-mcp admits GitHub origins only and is widened there for a source outside GitHub.
 * In a manifest, the hash of a file with `lfs: true` is the hash of the object, not of the pointer.
 
 == Alternatives Considered

@@ -117,8 +117,9 @@ public final class LfsBatchClient implements LfsObjectSource {
     }
 
     private SourceFetch download(URI repository, LfsPointer pointer) {
-        if (repository.getRawUserInfo() != null || repository.getHost() == null) {
-            return SourceFetch.unreachable("refused: the repository URL names no host or carries user information");
+        if (repository.getScheme() == null || repository.getHost() == null || repository.getRawUserInfo() != null) {
+            return SourceFetch.unreachable(
+                    "refused: the repository URL names no scheme or no host, or carries user information");
         }
         var batch = batchUri(repository);
         if (!admitted(batch)) {
@@ -280,14 +281,22 @@ public final class LfsBatchClient implements LfsObjectSource {
         return uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
     }
 
-    private static URI withoutUserInfo(URI uri) {
-        return URI.create(scheme(uri) + "://" + Optional.ofNullable(uri.getHost()).orElse("")
-                + (uri.getPort() == -1 ? "" : ":" + uri.getPort()) + Optional.ofNullable(uri.getRawPath()).orElse(""));
+    /**
+     * @return the URL for a log line or a detail: scheme, host, port and path, without user information, query or
+     *         fragment, which may carry a credential or a signature. A URL without scheme or host is named as such and
+     *         none of its parts is shown, so the method never fails on what a caller hands in.
+     */
+    static String withoutUserInfo(URI uri) {
+        if (uri.getScheme() == null || uri.getHost() == null) {
+            return "<a URL without scheme or host>";
+        }
+        return scheme(uri) + "://" + uri.getHost() + (uri.getPort() == -1 ? "" : ":" + uri.getPort())
+                + Optional.ofNullable(uri.getRawPath()).orElse("");
     }
 
     /** @return the URL without its query, which may carry a signature */
     private static String withoutQuery(URI uri) {
-        return withoutUserInfo(uri).toString();
+        return withoutUserInfo(uri);
     }
 
     /** The download action of the batch answer. */

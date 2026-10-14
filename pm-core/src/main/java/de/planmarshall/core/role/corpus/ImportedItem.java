@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
+import static de.planmarshall.core.role.corpus.SourceManifest.requireRepository;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -28,7 +29,9 @@ import java.util.regex.Pattern;
  * the provenance of the row it was generated from.
  * <p>
  * The imported item has the format of a corpus item, tightened: {@code provenance.kind} is {@code fetched}, and
- * {@code provenance.origin} names the repository, the pinned commit, the path and the line of the row. Every optional
+ * {@code provenance.origin} names the repository, the pinned commit, the path and the line of the row. The origin
+ * repository follows the rule of the manifest's repository (an absolute {@code https} URI without user information,
+ * query or fragment), so every source a manifest names produces items this format accepts. Every optional
  * member of the corpus item format has one shape only: an absent list is empty and a present one is not,
  * {@code expected_empty} is present only when {@code true}. Members the generation never writes (a group, an answer
  * schema, context files, the contamination note, the location of a rubric item) are not part of it. So an imported
@@ -59,9 +62,6 @@ Target target, Grading grading, Provenance provenance, Review review, String can
 
     /** The slug of an item: the file name below its topic, without {@code .json}. */
     public static final Pattern SLUG = Pattern.compile("^[a-z0-9][a-z0-9-]*$");
-
-    /** A repository an item may come from, as the item schema of the corpus admits it. */
-    public static final Pattern REPOSITORY = Pattern.compile("^https://github\\.com/[^/]+/[^/]+$");
 
     /** The longest title, in characters. */
     public static final int TITLE_MAX_LENGTH = 120;
@@ -235,8 +235,7 @@ Target target, Grading grading, Provenance provenance, Review review, String can
          * @throws IllegalArgumentException if a value is outside the format
          */
         public Origin {
-            Objects.requireNonNull(repository, "repository");
-            require(repository.toString(), REPOSITORY, "repository");
+            requireRepository(repository);
             require(commit, COMMIT, "commit");
             require(path, RELATIVE_PATH, "path");
             if (line < 1) {
