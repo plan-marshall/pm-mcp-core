@@ -48,7 +48,7 @@ String checkpointHash) {
      */
     public AuditIndexEntry {
         AuditRecord.requireForm(AuditRecord.HASH, Objects.requireNonNull(prevHash, "prevHash"), "prev_hash");
-        AuditRecord.requireForm(ROTATED_FILE_FORM,Objects.requireNonNull(file, "file"), "file");
+        AuditRecord.requireForm(ROTATED_FILE_FORM, Objects.requireNonNull(file, "file"), "file");
         AuditRecord.requireForm(AuditHeadRecord.UUID_FORM, Objects.requireNonNull(firstEventId, "firstEventId"),
                 "first_event_id");
         AuditRecord.requireForm(AuditHeadRecord.UUID_FORM, Objects.requireNonNull(lastEventId, "lastEventId"),
