@@ -26,7 +26,10 @@ import java.util.Optional;
 public enum CompositionEvent {
     /** Version 1, composed when the plan is created: both lanes open, the posture prunes applied. */
     START("start", Trigger.SERVER),
-    /** The lane is known: the other lane is pruned. */
+    /**
+     * The lane is known and recorded in the header ({@code lane}). No lane route is pruned: lane-route pruning is
+     * deferred to the work package {@code doc/plans/lane-route-pruning.adoc} (ADR {@code workflow-plan/011}).
+     */
     OUTLINE("outline", Trigger.SERVER),
     /** Steps and tasks are known: provider and footprint prunes, budgets bound. */
     PLAN("plan", Trigger.SERVER),
