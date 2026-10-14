@@ -11,6 +11,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * Grading a role's configuration against the model verification corpus, its record bound to the qualification digest, its invalidation, and the conservative fallback of an unqualified or unavailable role.
+* The corpus is completed from its sources before grading, through link:corpus-sources.adoc[`corpus-sources`]; a grading on a partial corpus records the missing sources, and a role counts as qualified only on what was graded.
 * The corpus itself and its validation by the build are link:../../../plan-marshall-mcp/doc/plans/qualification-corpus-in-the-build.adoc[`plan-marshall-mcp` / `qualification-corpus-in-the-build`].
 
 == Trace
