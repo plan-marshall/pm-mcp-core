@@ -287,7 +287,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:process-and-overview.adoc[`process-and-overview`]
 |The plan's process, what needs the operator, running work and the overview, the events per scope, and ended work as resources
-|`blocked`
+|`open`
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the activity, the holds); link:entity-addressing.adoc[`entity-addressing`]
 |no roadmap item yet; the client work of `pm-mcp-clients`
 
@@ -323,8 +323,8 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans and epics: pause, start, cancel, abandon, a plan's settings; the epic told; next plan, archive check, cancel; holds; the release of a project
-|`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]
+|`open`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]
 |Milestones 6, 10, and 12; the client work of `pm-mcp-clients`
 
 |link:epic-findings-review.adoc[`epic-findings-review`]
