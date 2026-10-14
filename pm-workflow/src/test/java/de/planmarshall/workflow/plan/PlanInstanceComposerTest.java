@@ -303,6 +303,7 @@ class PlanInstanceComposerTest {
 
         @Test
         @DisplayName("a raise needs a ceiling and a met waiver takes none")
+        @SuppressWarnings("java:S5778") // each lambda is one constructor call; its arguments are the case table
         void waiverShape() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "fix_budget:x",

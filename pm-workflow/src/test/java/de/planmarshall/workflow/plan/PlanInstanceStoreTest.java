@@ -312,6 +312,7 @@ class PlanInstanceStoreTest {
 
         @Test
         @DisplayName("a composed attempt needs its version and no other attempt has one")
+        @SuppressWarnings("java:S5778") // each lambda is one constructor call; its arguments are the case table
         void versionFitsResult() {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(

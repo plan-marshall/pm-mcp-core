@@ -399,6 +399,7 @@ class WorkflowDiagramGeneratorTest {
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
         @DisplayName("Should refuse an active state the instance does not have, a pruned state included")
+        @SuppressWarnings("java:S5778") // the lambdas name the refused call; hoisting its argument hides the case
         void shouldRefuseUnknownActiveState(String form, String golden, InstanceForm render) {
             assertAll(form,
                     () -> assertThrows(IllegalArgumentException.class,

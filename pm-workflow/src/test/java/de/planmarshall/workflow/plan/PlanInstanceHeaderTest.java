@@ -373,6 +373,7 @@ class PlanInstanceHeaderTest {
 
         @Test
         @DisplayName("the lists and the arguments are copies the caller cannot change")
+        @SuppressWarnings("java:S5778") // the getter chain is the copy under test; hoisting it would test nothing
         void unmodifiable() {
             var header = fullHeader("plan-24", 1, "lane");
 
@@ -390,6 +391,7 @@ class PlanInstanceHeaderTest {
 
         @Test
         @DisplayName("a missing component is refused")
+        @SuppressWarnings("java:S5778") // each lambda is one constructor call; its arguments are the case table
         void nullRefused() {
             var empty = Optional.<String>empty();
             assertAll(

@@ -45,6 +45,8 @@ Optional<String> activeState, List<Pruned> pruned, List<Waived> waivedGates) {
     /** The value shown for a header value that is not set. */
     static final String NONE = "-";
 
+    // \R matches a CRLF pair as one unit, so the pair collapses to a single space; no character class can express it
+    @SuppressWarnings("java:S6035")
     private static final Pattern LINE_BREAKS_AND_CONTROLS = Pattern.compile("\\R|\\p{Cc}");
 
     /**
