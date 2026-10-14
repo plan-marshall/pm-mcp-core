@@ -85,12 +85,16 @@ class AuditLogTest {
         log = new AuditLog(base, anchor, CLOCK, PRINCIPAL);
     }
 
-    /** The anchor of the tests: it records its calls and answers a predecessor it was given. */
+    /**
+     * The anchor of the tests: it records its calls and the last line of the log it sees before an append, and
+     * answers a predecessor it was given.
+     */
     private static final class RecordingAnchor implements AuditAnchor {
 
         private final List<String> calls = new ArrayList<>();
         private final Optional<String> predecessor;
         private RuntimeException failure;
+        private AuditRecord lastBefore;
         private AuditRecord appended;
         private String lineHash;
 
@@ -101,6 +105,9 @@ class AuditLogTest {
         @Override
         public void beforeAppend(LockTransaction transaction, AuditLog auditLog) {
             calls.add("beforeAppend");
+            var lines = auditLog.read(transaction).lines();
+            lastBefore = lines.isEmpty() ? null
+                    : AuditCodec.readRecord(auditLog.logFile(), lines.getLast().content());
             if (failure != null) {
                 throw failure;
             }
@@ -418,6 +425,29 @@ class AuditLogTest {
                     () -> assertEquals(ANCHORED, records.get(0).prevHash()),
                     () -> assertEquals(first, records.get(1)),
                     () -> assertChained(ANCHORED));
+        }
+
+        @Test
+        @DisplayName("behind a checkpoint is cut and its record follows the checkpoint before the anchor is called")
+        void behindCheckpoint() throws Exception {
+            append(template("first"));
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(auditKey);
+                log.appendCheckpoint(transaction, checkpoint());
+            }
+            tearTail();
+
+            var second = append(template("second"));
+
+            var records = records();
+            assertAll(
+                    () -> assertEquals(List.of("first", AuditRecord.EVENT_CHECKPOINT, AuditEvent.JSONL_TAIL_REPAIRED,
+                            "second"), records.stream().map(AuditRecord::event).toList()),
+                    () -> assertEquals(records.get(2), anchor.lastBefore,
+                            "the anchor saw the repair record, not the checkpoint, as the last line"),
+                    () -> assertEquals(second, records.getLast()),
+                    () -> assertFalse(Files.exists(intentFile()), "the intent was closed"),
+                    () -> assertChained(AuditCodec.GENESIS_HASH));
         }
 
         @Test

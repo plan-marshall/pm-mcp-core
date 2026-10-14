@@ -81,7 +81,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * writes after a checkpoint, is cut first and its {@code jsonl_tail_repaired} record follows the checkpoint: the log is
  * then no longer pending, and the append is not refused. The integrity of the trail is not affected: that record is
  * chained, a checkpoint that does not verify still gets no index entry and no rename, no head is written over a log
- * that no longer holds the anchored line, and the verification still reports a cut.
+ * that no longer holds the anchored line, and the verification still reports a cut. A checkpoint whose index entry is
+ * already written is the one case with a lasting consequence: the log the entry names as rotated stays the current
+ * log, and the head of the append, counted over it, anchors the index with that entry. The next start reports the
+ * current log as {@code reset} after a first rotation, its first record chaining to genesis, and as {@code link_broken}
+ * at line 1 after a later one, its first record chaining to the checkpoint before; and every later due append logs a
+ * rotation failure, since the log is already entered in the index, and never rotates it.
  * <p>
  * A stop after the rename, before the first record of the new log, leaves no current log and a head that anchors the
  * rotated log; the verification reports it intact when the rotated log and its checkpoint verify against the entry,

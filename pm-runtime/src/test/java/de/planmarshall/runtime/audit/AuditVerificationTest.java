@@ -258,6 +258,20 @@ class AuditVerificationTest {
         assertBroken(BreakReason.MISSING, trail.verification().verify());
     }
 
+    @Test
+    @DisplayName("missing: the log of a rotated trail is gone while its head anchors records, in both")
+    void missingAfterRotation() throws Exception {
+        var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);
+        trail.createKey();
+        trail.append(3);
+        Files.delete(trail.logFile());
+
+        assertAll(
+                () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                () -> assertBroken(BreakReason.MISSING, trail.verification().verify()),
+                () -> assertBroken(BreakReason.MISSING, trail.verification().full()));
+    }
+
     @Nested
     @DisplayName("reset")
     class Reset {
@@ -269,6 +283,20 @@ class AuditVerificationTest {
             writeLines(trail.logFile(), List.of());
 
             assertBroken(BreakReason.RESET, trail.verification().verify());
+        }
+
+        @Test
+        @DisplayName("the log of a rotated trail is emptied while its head anchors records, in both")
+        void emptiedAfterRotation() {
+            var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);
+            trail.createKey();
+            trail.append(3);
+            writeLines(trail.logFile(), List.of());
+
+            assertAll(
+                    () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                    () -> assertBroken(BreakReason.RESET, trail.verification().verify()),
+                    () -> assertBroken(BreakReason.RESET, trail.verification().full()));
         }
 
         @Test
@@ -568,6 +596,62 @@ class AuditVerificationTest {
             Files.write(trail.headFile(), earlier);
 
             assertBrokenInBoth(BreakReason.HEAD_MISMATCH, trail);
+        }
+
+        @Test
+        @DisplayName("with a head of the right record count under the key but another head_hash is head_mismatch")
+        void headWithOtherHeadHash() throws Exception {
+            var trail = stopped();
+            var key = trail.createKey();
+            var head = trail.readHead().orElseThrow();
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(key,
+                    head.withHeadHash(AuditTrailFixture.hashOf(rotatedFile(trail), 1)))));
+
+            assertAll(
+                    () -> assertEquals(2, head.recordCount(), "the head counts the records of the rotated log"),
+                    () -> assertNotAnchoringLineBeforeCheckpoint(trail.verification().verify()),
+                    () -> assertNotAnchoringLineBeforeCheckpoint(trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("with a head of the right record count under the key but another last_event_id is head_mismatch")
+        void headWithOtherLastEventId() throws Exception {
+            var trail = stopped();
+            var key = trail.createKey();
+            var head = trail.readHead().orElseThrow();
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(key,
+                    head.withLastEventId(recordAt(rotatedFile(trail), 1).eventId()))));
+
+            assertAll(
+                    () -> assertEquals(2, head.recordCount(), "the head counts the records of the rotated log"),
+                    () -> assertNotAnchoringLineBeforeCheckpoint(trail.verification().verify()),
+                    () -> assertNotAnchoringLineBeforeCheckpoint(trail.verification().full()));
+        }
+
+        /** Asserts the head_mismatch of a head that does not anchor the line before the rotated log's checkpoint. */
+        private static void assertNotAnchoringLineBeforeCheckpoint(Outcome outcome) {
+            var broken = assertBroken(BreakReason.HEAD_MISMATCH, outcome);
+            assertTrue(broken.diagnostic().contains("the line before its checkpoint"), broken::diagnostic);
+        }
+
+        @Test
+        @DisplayName("with the last index entry removed is missing: the head anchors records of a log that is gone")
+        void lastIndexEntryRemoved() {
+            var trail = stopped();
+            removeLine(trail.indexFile(), 1);
+
+            assertBrokenInBoth(BreakReason.MISSING, trail);
+        }
+
+        @Test
+        @DisplayName("after earlier rotations, with the last index entry removed, is missing")
+        void lastIndexEntryRemovedAfterEarlierRotations() {
+            var trail = stopped(ROTATE_ALWAYS, 3);
+            removeLine(trail.indexFile(), 3);
+
+            assertAll(
+                    () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                    () -> assertBrokenInBoth(BreakReason.MISSING, trail));
         }
 
         @Test

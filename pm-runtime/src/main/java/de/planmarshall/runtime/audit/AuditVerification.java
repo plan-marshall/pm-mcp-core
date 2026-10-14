@@ -37,13 +37,13 @@ import de.planmarshall.runtime.start.AuditChainVerification;
  * fills the seam {@link AuditChainVerification} of the start with the incremental verification ({@link #verify()})
  * and offers the full verification that {@code pm-operator audit verify} requests ({@link #full()}).
  * <p>
- * The incremental verification checks, in this order: the HMAC of the head under the enrolment integrity key, the
- * chain of the audit index and the head's anchor of its last line, and the records of the current log, which starts
- * after the last checkpoint: its first record chains to the {@code checkpoint_hash} of the last index entry (to
- * {@link AuditCodec#GENESIS_HASH} when no rotation ever happened), every other record to the line before it; the
- * number of records and the last line are the ones the head anchors. The full verification checks every rotated file
- * the index lists before: its records, its count, its first and last record and its checkpoint; a purged file is
- * accounted for by its entry.
+ * The incremental verification checks, in this order: the chain of the audit index; the head, which parses, whose
+ * HMAC verifies under the enrolment integrity key and which anchors the last line of the index; and the records of
+ * the current log, which starts after the last checkpoint: its first record chains to the {@code checkpoint_hash} of
+ * the last index entry (to {@link AuditCodec#GENESIS_HASH} when no rotation ever happened), every other record to the
+ * line before it; the number of records and the last line are the ones the head anchors. The full verification checks,
+ * after the head and before the current log, every rotated file the index lists: its records, its count, its first
+ * and last record and its checkpoint; a purged file is accounted for by its entry.
  * <p>
  * A current log whose last line is a checkpoint is a pending rotation, interrupted after its checkpoint, before or
  * after its index entry: it is verified as the rotated file it is about to become, against that entry once written,

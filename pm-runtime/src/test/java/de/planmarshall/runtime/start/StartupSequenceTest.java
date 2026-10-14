@@ -103,10 +103,30 @@ class StartupSequenceTest {
                                         StartupSequence.DETAIL_FIRST_BROKEN_LINE, FIRST_BROKEN_LINE,
                                         StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                                "Audit chain broken (reason 'link_broken', first broken line 7), the start goes on"),
+                                "Audit chain broken (reason 'link_broken', first broken line 7): " + DIAGNOSTIC
+                                        + "; the start goes on"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                                 "Bounded verification finished: audit chain broken (reason 'link_broken', "
-                                        + "first broken line 7)"));
+                                        + "first broken line 7): " + DIAGNOSTIC));
+            }
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"logs/audit.jsonl", "logs/audit-index.jsonl",
+                "logs/audit-0199e2a4-5b1c-7d3e-8f40-123456789abc.jsonl"})
+        @DisplayName("a broken link logs the file its first broken line is counted in, and records no file")
+        void shouldLogFileOfFirstBrokenLine(String file) throws Exception {
+            var broken = AuditChainVerification.Outcome.Broken.linkBroken(3, file + " line 3 does not parse");
+
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, run(() -> broken));
+
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                "first broken line 3): " + file + " line 3 does not parse; the start goes on"),
+                        () -> assertEquals(Map.of(StartupSequence.DETAIL_REASON, "link_broken",
+                                StartupSequence.DETAIL_FIRST_BROKEN_LINE, 3L,
+                                StartupSequence.DETAIL_OS_PRINCIPAL, USER), records.getFirst().details()));
             }
         }
 
@@ -128,10 +148,10 @@ class StartupSequenceTest {
                                         StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 "Audit chain broken (reason '" + reason.wireName()
-                                        + "', first broken line none), the start goes on"),
+                                        + "', first broken line none): " + DIAGNOSTIC + "; the start goes on"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                                 "Bounded verification finished: audit chain broken (reason '" + reason.wireName()
-                                        + "', first broken line none)"));
+                                        + "', first broken line none): " + DIAGNOSTIC));
             }
         }
 

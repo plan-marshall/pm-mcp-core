@@ -105,8 +105,15 @@ A log that no longer holds the anchored line, cut short or with its last line re
 head stays, so the verification reports `truncated` (fewer records than it anchors) or `head_mismatch`, and
 `PM_RUNTIME-123` names the reason `anchored_line_missing`. Nothing re-signs a cut as the new baseline.
 
-Two gaps stay open: a deleted head file reads as absent, so the next append counts the whole log; and an index entry
-carries no HMAC of its own.
+These gaps stay open, and they are all of them:
+
+* a deleted head file reads as absent, so the next append counts the whole log;
+* an index entry carries no HMAC of its own; a rotation since the head is accepted only through the verifying
+  checkpoint of the rotated file the entry names;
+* a head replayed over the state it anchors verifies, among them a head from before a rotation with the new log
+  deleted, which reads as a rotation stopped after its rename;
+* a head rolled back together with the files it anchors verifies: the head carries no sequence the verification could
+  compare.
 
 [#_the_key]
 === The Key
@@ -203,7 +210,12 @@ its `jsonl_tail_repaired` record follows the checkpoint; the log is then no long
 refused. No writer of the trail leaves such a tail, since none writes after a checkpoint: it is a foreign write. The
 integrity of the trail is not affected: the repair record is chained, a checkpoint that does not verify still gets no
 index entry and no rename, no head is written over a log that no longer holds the anchored line, and the verification
-still reports a cut.
+still reports a cut. A checkpoint whose index entry is already written is the one case with a lasting consequence: the
+log the entry names as rotated stays the current log, and the head of the append, counted over it, anchors the index
+with that entry. The next start reports the current log as `reset` after a first rotation, its first record chaining
+to genesis, and as `link_broken` at line 1 after a later one, its first record chaining to the checkpoint before; and
+every later due append logs `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`), since the log is already entered in the index,
+and never rotates it.
 
 *A torn tail of the index.* The index entry is appended through the JSONL append path, which first cuts a torn tail of
 the index. Its `jsonl_tail_repaired` record cannot go into the log being closed, so the rotation refuses the hand-over:
@@ -234,8 +246,9 @@ assembly; this package takes them as `Limits`.
 
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
-`verify()` is step 4.1 of the start: its cost depends on the current log only, not on the number of projects, plans or
-jobs. It checks, in this order:
+`verify()` is step 4.1 of the start: its cost depends on the current log only, and while a rotation is stopped after
+its rename on the one rotated file its head anchors, never on the number of projects, plans or jobs. It checks, in
+this order:
 
 . the key: absent is `NotVerified` (nothing is anchored yet), unreadable is `NotVerified` naming the reason code;
 . no head, no log line and no index entry: `NotVerified` (no audit chain yet);
@@ -257,7 +270,7 @@ A rotation stopped between its rename and the first record of the new log (<<_th
 without a complete line and a head that anchors the index line before the last entry. That state is intact exactly
 when every piece of it verifies, and `verify()` reads the rotated file for it:
 
-* the head verifies under the key (checked first, as for every trail);
+* the head verifies under the key (checked after the chain of the index, as for every trail);
 * the last index entry chains to the index line the head anchors;
 * the rotated file that entry names exists and matches it: its first record chains to the checkpoint of the entry
   before it (genesis for the first), every other one to the line before it, its record count, its first event id, its
@@ -285,9 +298,11 @@ A break is an `Outcome.Broken` with its reason:
 
 |`link_broken`
 |A line does not parse, or does not chain to the line before it (a removed, reordered or edited record); also a broken
-index chain, with the index line and a diagnostic naming `audit-index.jsonl`, and in `full()` a line after the
-checkpoint of a rotated file or a checkpoint that is not the one its entry names. The only reason with a first broken
-line, counted from 1 in the file the diagnostic names.
+index chain, with the index line and a diagnostic naming `audit-index.jsonl`; in `full()` a line after the
+checkpoint of a rotated file or a checkpoint that is not the one its entry names; and in `verify()` too, the same
+causes in the rotated file the head anchors after a rotation stopped after its rename, and a checkpoint closing a
+pending rotation that does not verify. The only reason with a first broken line, counted from 1 in the file the
+diagnostic names.
 
 |`missing`
 |The current log is missing while the head anchors records, or, after a rotation stopped after its rename, the rotated
@@ -308,8 +323,8 @@ the rename: not the line before the checkpoint of the rotated file).
 |===
 
 The diagnostic names the file and the position, never a key or a hash secret. `StartupSequence` records the reason and
-the line, not the diagnostic (link:runtime-start.adoc#_the_audit_chain_seam[`runtime.start` § The Audit Chain
-Seam]).
+the line, not the diagnostic, and logs the diagnostic with them, so the log names the file a first broken line is
+counted in (link:runtime-start.adoc#_the_audit_chain_seam[`runtime.start` § The Audit Chain Seam]).
 
 *No lock, no repair.* The verification reads without the audit lock and never writes. A rotation or an append between
 its reads would show a state that never existed, so it reads the head, the index and the log, then the head and the
@@ -376,15 +391,22 @@ line; a cut that coincides with a due rotation, and a damaged head over a cut lo
 by `verify()` and `full()`, also after later due appends; a head stopped before a rotation defers the next one until
 the next head; a checkpoint forged under another key, or a genuine signature replayed, appended to a cut log is never
 completed, nothing is written, and `verify()` and `full()` report `link_broken` at the checkpoint; a forged checkpoint
-entered in the index and renamed by hand is never re-signed by the next head and stays reported.
+entered in the index and renamed by hand is never re-signed by the next head and stays reported; a torn tail behind a
+forged checkpoint over a cut log is cut, its repair record follows the checkpoint, the append is not refused, no head
+is written and both verifications report `head_mismatch`; and a torn tail behind a genuine checkpoint already entered
+in the index leaves the log current, reported `reset` after a first rotation and `link_broken` at line 1 after a later
+one, while every later due append logs `PM_RUNTIME-124` and adds no entry.
 link:{test}/AuditVerificationTest.java[`AuditVerificationTest`]:: The acceptance of the package: a removed, a reordered
 and an edited record (`link_broken` with the first broken line), a replaced head (`head_mismatch`), `missing`,
-`reset`, `truncated`, an intact chain, no key and no chain `NotVerified`, a rotation in the middle of a verification
+`reset`, `truncated`, the current log of a rotated trail deleted (`missing`) or emptied (`reset`) in both
+verifications, an intact chain, no key and no chain `NotVerified`, a rotation in the middle of a verification
 reported intact, `full()` across rotated files, a pending rotation closed by a genuine checkpoint intact and one closed
 by a forged checkpoint, entered or not, `link_broken` at the checkpoint in both verifications, a rotation stopped after
 its rename intact with the new log absent, empty or torn and after earlier rotations, while the same layout is
-`NotVerified` without the key and a break in both verifications with a head under another key or an earlier genuine
-head (`head_mismatch`), the rotated file gone (`missing`), a record or the checkpoint cut from it (`link_broken`,
+`NotVerified` without the key and a break in both verifications with a head under another key, an earlier genuine
+head, or a head under the key with the right record count and another `head_hash` or `last_event_id`
+(`head_mismatch`), the rotated file gone or the last index entry removed (`missing`), a record or the checkpoint cut
+from it (`link_broken`,
 `truncated`), an index entry that does not match it, or a cut closed by a forged checkpoint entered and renamed by hand
 (`link_broken`), and a record of the new log without its head stays `head_mismatch`; and nothing in the fixture changed
 by a verification.

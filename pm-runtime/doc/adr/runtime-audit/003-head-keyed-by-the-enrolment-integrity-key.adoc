@@ -104,10 +104,15 @@ a failing keyring can make it unreadable.
   `jsonl_tail_repaired` record follows the checkpoint; the log is then no longer pending and the append is not refused.
   Integrity is not affected: the record is chained, a checkpoint that does not verify gets no index entry and no
   rename, no head is written over a log that no longer holds the anchored line, and the verification still reports a
-  cut.
-* Two gaps stay open: a deleted head file reads as absent, so the next append counts the whole log, and an index entry
-  carries no HMAC of its own; a rotation since the head is accepted only through the verifying checkpoint of the
-  rotated file the entry names.
+  cut. Behind a checkpoint whose index entry is already written the log stays current behind that entry; the next
+  start reports it as `reset` after a first rotation and as `link_broken` at line 1 after a later one, and every later
+  due append logs `PM_RUNTIME-124` and never rotates it.
+* These gaps stay open, and they are all of them: a deleted head file reads as absent, so the next append counts the
+  whole log; an index entry carries no HMAC of its own, so a rotation since the head is accepted only through the
+  verifying checkpoint of the rotated file the entry names; a head replayed over the state it anchors verifies, among
+  them a head from before a rotation with the new log deleted, which reads as a rotation stopped after its rename; and
+  a head rolled back together with the files it anchors verifies, since the head carries no sequence the verification
+  could compare.
 * Residual risk, as the specification states it: the anchoring is tamper-evident, not tamper-proof. A process that
   holds the integrity key (on macOS, anything that runs the `pm-mcpd` binary; on hosts without a keyring, any process
   of the user) can forge a consistent head.

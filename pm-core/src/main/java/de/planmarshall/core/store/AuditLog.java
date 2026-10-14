@@ -61,6 +61,9 @@ import de.planmarshall.core.service.LockTransaction;
  * a checkpoint record, which no writer of the trail leaves, is therefore cut and its record follows the checkpoint
  * before the anchor can refuse an append behind that checkpoint; the anchor then finds the repair record as the last
  * line and lets the append through. The chain is not broken by that: the repair record is chained like every line.
+ * When the anchor had already entered the log closed by that checkpoint as rotated, the log stays the current log
+ * behind that entry, and the anchor's verification reports it as a chain that does not continue from the checkpoint;
+ * the anchor of the runtime ({@code AuditRotation} of {@code pm-runtime}) documents that consequence.
  * <p>
  * The directory {@code logs/} must exist before the first append, and the caller that builds the log creates it: the
  * audit lock is a leaf key, whose lock file is the log itself, and the lock manager creates that file where it is

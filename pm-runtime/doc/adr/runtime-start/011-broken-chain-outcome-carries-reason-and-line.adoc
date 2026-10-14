@@ -27,8 +27,10 @@ these values. The project is before 1.0, without deprecation cycles or compatibi
   is kept.
 * `BreakReason` is the closed set of the specification, each with its wire name.
 * `StartupSequence` records `details.reason`, `details.first_broken_line` (for `link_broken` only) and
-  `details.os_principal`, and drops `details.diagnostic`. `PM_RUNTIME-108` (`AUDIT_CHAIN_BROKEN`) logs the reason and
-  the line, `none` for every other reason: `Audit chain broken (reason '%s', first broken line %s), the start goes on`.
+  `details.os_principal`, and drops `details.diagnostic`. `PM_RUNTIME-108` (`AUDIT_CHAIN_BROKEN`) logs the reason, the
+  line, `none` for every other reason, and the diagnostic, which names the file the line is counted in (the current
+  log, the audit index or a rotated file): `Audit chain broken (reason '%s', first broken line %s): %s; the start goes
+  on`. The specification gives the record no detail for that file, so the record does not carry it.
 * `AuditChainVerification.NONE` stays the default until the assembly wires `AuditVerification`.
 
 == Alternatives Considered
@@ -39,8 +41,10 @@ Alternatives not recorded.
 
 * A caller that built `Broken` from a diagnostic alone no longer compiles; inside this repository `StartupSequence`,
   its test and `AuditVerification` are the consumers.
-* The diagnostic stays in the outcome for the caller of the verification, but `StartupSequence` neither logs it nor
-  writes it into the audit record, which carries only what the specification lets it carry.
+* The diagnostic stays in the outcome for the caller of the verification, and `StartupSequence` logs it, but never
+  writes it into the audit record, which carries only what the specification lets it carry. A recorded
+  `first_broken_line` therefore does not say which file it counts in; only the log does, until the specification
+  gives the record a field for the file.
 * A new break reason is a change of the specification and of `BreakReason` together.
 
 == Source

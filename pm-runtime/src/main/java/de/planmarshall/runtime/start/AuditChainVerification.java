@@ -57,8 +57,9 @@ public interface AuditChainVerification {
         LINK_BROKEN("link_broken"),
 
         /**
-         * The current log is missing while the anchored head counts records. A rotated file the audit index lists and
-         * that is gone is not reported: it is accounted for by its index entry as purged.
+         * The current log is missing while the anchored head counts records, or, after a rotation stopped after its
+         * rename, the rotated file the head anchors. Any other rotated file the audit index lists and that is gone is
+         * not reported: it is accounted for by its index entry as purged.
          */
         MISSING("missing"),
 
@@ -96,9 +97,11 @@ public interface AuditChainVerification {
          * The chain is broken; it is reported and recorded, never repaired.
          *
          * @param reason          why the chain is broken
-         * @param firstBrokenLine the first broken line of the log, counted from 1; present exactly for
+         * @param firstBrokenLine the first broken line, counted from 1 in the file the diagnostic names (the current
+         *                        log, the audit index or a rotated file); present exactly for
          *                        {@link BreakReason#LINK_BROKEN}
-         * @param diagnostic      what is broken, naming the file and the position, never a key or a hash secret
+         * @param diagnostic      what is broken, naming the file and the position, never a key or a hash secret; it is
+         *                        logged, never recorded
          */
         record Broken(BreakReason reason, OptionalLong firstBrokenLine, String diagnostic) implements Outcome {
 

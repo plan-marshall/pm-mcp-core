@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -719,6 +720,128 @@ class AuditRotationTest {
                     () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN, broken.reason(),
                             broken::diagnostic),
                     () -> assertEquals(OptionalLong.of(line), broken.firstBrokenLine(), broken::diagnostic));
+        }
+    }
+
+    @Nested
+    @DisplayName("a torn tail behind a checkpoint")
+    class TornTailBehindCheckpoint {
+
+        /** A key other than the integrity key, as anyone without the key could sign with. */
+        private static final SecretKey OTHER_KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
+
+        /** A torn line, as a stop while a record was written leaves it. */
+        private static final String TORN = "{\"format_version\":1,\"prev_hash\":\"00";
+
+        @Test
+        @DisplayName("behind a forged checkpoint over a cut log: the repair record follows the checkpoint, the append "
+                + "is not refused, and verify and full still report the cut")
+        void forgedCheckpointOverCutLog() throws Exception {
+            var trail = new AuditTrailFixture(base, NEVER);
+            trail.createKey();
+            trail.append(4);
+            var anchored = trail.readHead().orElseThrow();
+            AuditTrailFixture.removeLine(trail.logFile(), 4);
+            AuditTrailFixture.removeLine(trail.logFile(), 3);
+            var headHash = hashOf(trail.logFile(), 2);
+            trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
+                    checkpoint(trail, OTHER_KEY, 2, headHash)));
+            tearTail(trail);
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(5, lines(trail.logFile()).size(), "the record was appended"),
+                    () -> assertTrue(recordAt(trail.logFile(), 3).isCheckpoint()),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, recordAt(trail.logFile(), 4).event()),
+                    () -> assertEquals(hashOf(trail.logFile(), 3), recordAt(trail.logFile(), 4).prevHash()),
+                    () -> assertFalse(Files.exists(trail.indexFile()), "the forged checkpoint got no index entry"),
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow(), "no head over the cut log"),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_PENDING.resolveIdentifierString()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.ANCHORED_LINE_MISSING)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH,
+                            reason(trail.verification().verify())),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH,
+                            reason(trail.verification().full())));
+        }
+
+        @Test
+        @DisplayName("behind a genuine checkpoint already entered in the index after a first rotation: the next start "
+                + "reports reset")
+        void enteredCheckpointFirstRotation() throws Exception {
+            var trail = new AuditTrailFixture(base, NEVER);
+            var key = trail.createKey();
+            trail.append(2);
+            enterCheckpoint(trail, key);
+            tearTail(trail);
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(5, lines(trail.logFile()).size(), "the record was appended"),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, recordAt(trail.logFile(), 4).event()),
+                    () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(5, trail.readHead().orElseThrow().recordCount()),
+                    () -> assertEquals(AuditChainVerification.BreakReason.RESET,
+                            reason(trail.verification().verify())),
+                    () -> assertEquals(AuditChainVerification.BreakReason.RESET,
+                            reason(trail.verification().full())));
+        }
+
+        @Test
+        @DisplayName("behind a genuine checkpoint already entered in the index after a later rotation: the next start "
+                + "reports link_broken at line 1, and every later due append logs a rotation failure and never "
+                + "rotates")
+        void enteredCheckpointLaterRotation() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_SIZE);
+            var key = trail.createKey();
+            trail.append(2);
+            enterCheckpoint(trail, key);
+            tearTail(trail);
+
+            trail.append(1);
+            trail.append(1);
+
+            var broken = assertInstanceOf(AuditChainVerification.Outcome.Broken.class, trail.verification().verify());
+            assertAll(
+                    () -> assertEquals(5, lines(trail.logFile()).size(), "the records were appended"),
+                    () -> assertEquals(2, trail.head.index().snapshot().entries().size(), "never rotated again"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_FAILED.resolveIdentifierString()),
+                    () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN, broken.reason(),
+                            broken::diagnostic),
+                    () -> assertEquals(OptionalLong.of(1), broken.firstBrokenLine(), broken::diagnostic),
+                    () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN,
+                            reason(trail.verification().full())));
+        }
+
+        /**
+         * Closes the current log by a genuine checkpoint and enters it in the index, as a rotation stopped before its
+         * rename leaves it.
+         */
+        private void enterCheckpoint(AuditTrailFixture trail, SecretKey key) {
+            var count = lines(trail.logFile()).size();
+            var first = recordAt(trail.logFile(), 1);
+            var headHash = hashOf(trail.logFile(), count);
+            trail.underAuditLock(transaction -> {
+                var checkpoint = checkpoint(trail, key, count, headHash);
+                var checkpointHash = trail.log.appendCheckpoint(transaction, checkpoint);
+                trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
+                        AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), checkpoint.eventId(),
+                        count + 1L, checkpointHash), _ -> {
+                });
+            });
+        }
+
+        private static void tearTail(AuditTrailFixture trail) throws IOException {
+            Files.writeString(trail.logFile(), TORN, StandardOpenOption.APPEND);
+        }
+
+        private static AuditChainVerification.BreakReason reason(AuditChainVerification.Outcome outcome) {
+            var broken = assertInstanceOf(AuditChainVerification.Outcome.Broken.class, outcome);
+            return broken.reason();
         }
     }
 

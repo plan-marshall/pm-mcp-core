@@ -116,18 +116,22 @@ answers `NotVerified` for every start, until it wires that one.
 `Outcome.Intact`:: The chain is intact from its last checkpoint.
 `Outcome.Broken(reason, firstBrokenLine, diagnostic)`:: The chain is broken. `reason` is one `BreakReason` of the closed
 set of the specification, by wire name `link_broken`, `missing`, `reset`, `truncated` or `head_mismatch`.
-`firstBrokenLine` (an `OptionalLong`, counted from 1) is present exactly for `link_broken`; the record's constructor
-refuses a line for any other reason, a missing one for `link_broken` and a line below 1. The factories are
-`Broken.linkBroken(line, diagnostic)` and `Broken.withoutLine(reason, diagnostic)`. The diagnostic names the file and
-the position, never a key or a hash secret.
+`firstBrokenLine` (an `OptionalLong`, counted from 1 in the file the diagnostic names: the current log, the audit index
+or a rotated file) is present exactly for `link_broken`; the record's constructor refuses a line for any other reason,
+a missing one for `link_broken` and a line below 1. The factories are `Broken.linkBroken(line, diagnostic)` and
+`Broken.withoutLine(reason, diagnostic)`. The diagnostic names the file and the position, never a key or a hash
+secret.
 `Outcome.NotVerified(reason)`:: The chain was not verified, for example because no chain or no key exists yet.
 
-On a broken chain the start goes on. `StartupSequence` logs `PM_RUNTIME-108` (`AUDIT_CHAIN_BROKEN`) with the reason and
-the first broken line, `none` for every reason but `link_broken`, and hands one `audit_chain_broken` record to the audit
-sink (`category: security`, `outcome: failed`) with the details `reason`, `first_broken_line` (for `link_broken`
-only) and `os_principal`, the running user, since the record is machine-level. The diagnostic is not recorded: it may
-name more than the specification lets the record carry. The outcome is carried in `Outcome.Ready`, and the status text
-of the verification names the reason and the line. A sink that refuses the record never stops the start.
+On a broken chain the start goes on. `StartupSequence` logs `PM_RUNTIME-108` (`AUDIT_CHAIN_BROKEN`,
+`Audit chain broken (reason '%s', first broken line %s): %s; the start goes on`) with the reason, the first broken
+line, `none` for every reason but `link_broken`, and the diagnostic, which names the file the line is counted in. It
+hands one `audit_chain_broken` record to the audit sink (`category: security`, `outcome: failed`) with the details
+`reason`, `first_broken_line` (for `link_broken` only) and `os_principal`, the running user, since the record is
+machine-level. The diagnostic is not recorded: it may name more than the specification lets the record carry, and the
+specification gives the record no detail for the file, so a recorded `first_broken_line` does not say which file it
+counts in; only the log does. The outcome is carried in `Outcome.Ready`, and the status text of the verification
+(`PM_RUNTIME-14`) names the reason, the line and the diagnostic. A sink that refuses the record never stops the start.
 
 `Outcome.Broken` was changed in place from a record with one diagnostic, without a compatibility constructor
 (link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
@@ -166,8 +170,9 @@ never touched however old, an unreadable record kept and reported as a failure, 
 recover reported as a failure with nothing removed, and two records removed in one run owing two records with two
 distinct `transaction_id` values.
 link:{test}/StartupSequenceTest.java[`StartupSequenceTest`]:: The broken-chain cases: a `link_broken` record with its
-`reason`, `first_broken_line` and `os_principal` details, one case per other reason without a line, and `Intact` and
-`NotVerified` unchanged.
+`reason`, `first_broken_line` and `os_principal` details, the log naming the file the first broken line is counted in
+(current log, audit index, rotated file) while the record names none, one case per other reason without a line, and
+`Intact` and `NotVerified` unchanged.
 link:{test}/FencedSessionGenerationsSweepTest.java[`FencedSessionGenerationsSweepTest`]:: A generation fenced before
 the instant removed and then unknown; one fenced later and the current ones kept; an old current generation never
 removed; a project without a record; a record of another format version reported as a failure and left as it is.

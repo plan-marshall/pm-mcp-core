@@ -30,11 +30,13 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <li>Remove a stale {@code run/runtime.sock} and {@code state/runtime.json}, only while holding the lock.</li>
  * <li>Check the socket path length, create and verify the directories ({@link BaseDirectoryCheck}).</li>
  * <li>Bounded verification: work whose cost does not grow with the number of projects, plans or jobs. The audit
- * chain is verified through {@link AuditChainVerification}; a broken chain is logged with its reason and first broken
- * line, handed to the audit sink as an {@value #AUDIT_CHAIN_BROKEN} record carrying {@value #DETAIL_REASON},
+ * chain is verified through {@link AuditChainVerification}; a broken chain is logged with its reason, its first broken
+ * line and its diagnostic, which names the file the line is counted in (the current log, the audit index or a rotated
+ * file), handed to the audit sink as an {@value #AUDIT_CHAIN_BROKEN} record carrying {@value #DETAIL_REASON},
  * {@value #DETAIL_FIRST_BROKEN_LINE} (for {@code link_broken} only) and {@value #DETAIL_OS_PRINCIPAL}, and carried in
- * {@link Outcome.Ready}; it is never repaired, and the start goes on. No store or unit work is done: no enrolment,
- * plan or job file is read.</li>
+ * {@link Outcome.Ready}; it is never repaired, and the start goes on. The record names no file: the specification
+ * gives the {@value #AUDIT_CHAIN_BROKEN} record no detail for it. No store or unit work is done: no enrolment, plan
+ * or job file is read.</li>
  * <li>Write a fresh runtime token.</li>
  * </ol>
  * Steps 2 to 5 run only while the singleton lock is held. Steps 6 (bind, runtime record) and 7 (ready) run inside
@@ -148,7 +150,7 @@ AuditSink auditSink) {
     private AuditChainVerification.Outcome boundedVerification() {
         var verification = auditChain.verify();
         if (verification instanceof AuditChainVerification.Outcome.Broken broken) {
-            LOGGER.warn(WARN.AUDIT_CHAIN_BROKEN, broken.reason().wireName(), line(broken));
+            LOGGER.warn(WARN.AUDIT_CHAIN_BROKEN, broken.reason().wireName(), line(broken), broken.diagnostic());
             recordBrokenChain(broken);
         }
         LOGGER.info(INFO.BOUNDED_VERIFICATION_FINISHED, describe(verification));
@@ -182,7 +184,7 @@ AuditSink auditSink) {
         return switch (verification) {
             case AuditChainVerification.Outcome.Intact() -> "intact";
             case AuditChainVerification.Outcome.Broken broken -> "broken (reason '" + broken.reason().wireName()
-                    + "', first broken line " + line(broken) + ")";
+                    + "', first broken line " + line(broken) + "): " + broken.diagnostic();
             case AuditChainVerification.Outcome.NotVerified(var reason) -> "not verified (" + reason + ")";
         };
     }
