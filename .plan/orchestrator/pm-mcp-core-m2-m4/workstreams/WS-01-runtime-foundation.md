@@ -26,6 +26,8 @@ The Milestone 2 groundwork of the daemon: the lock manager and leases, the runti
 | PLAN-08-runtime-lifecycle | staged | Runtime lifecycle: bounded verification, drain, recovery, sweep, version mismatch |
 | PLAN-09-audit-trail | staged | Anchored audit trail |
 | PLAN-23-stalled-scope-detection | staged | Stalled-scope detection |
+| PLAN-59-runtime-control | parked | Stop, drain, restart, upgrade (added by #59) |
+| PLAN-60-runtime-metrics | parked | The metric registry and catalogue (added by #59) |
 
 ## Sequencing and Surface Notes
 

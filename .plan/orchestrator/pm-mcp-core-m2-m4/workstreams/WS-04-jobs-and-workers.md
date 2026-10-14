@@ -26,6 +26,7 @@ The Milestone 4 job side of the runtime: verify-not-resolve, the subprocess job 
 | PLAN-29-worker-launch | staged | Worker launch and harness enrolment |
 | PLAN-30-supervisor | staged | Worker supervisor |
 | PLAN-31-slots-usage-and-budgets | staged | Model slots, usage rows and learned budgets |
+| PLAN-61-token-usage | parked | Tokens, not money (added by #60; blocked) |
 
 ## Sequencing and Surface Notes
 

@@ -1,0 +1,10 @@
+{
+  "id": "PLAN-54",
+  "slug": "static-verifier-rule-gaps-completion",
+  "workstream": "WS-03",
+  "status": "shipped",
+  "plan_marshall_plan_id": "static-verifier-rule-gaps-completion",
+  "pr": "#48",
+  "landing": "landings/PLAN-54.md",
+  "seq": 54
+}

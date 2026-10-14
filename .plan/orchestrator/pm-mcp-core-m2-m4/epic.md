@@ -47,6 +47,13 @@ decision or a dependency outside this repository.
   it is staged; ask for it by id when a slot is free.
 - PLAN-39, PLAN-40 — WS-10 module documentation backfill, staged 2026-10-11; both wait for PLAN-08,
   PLAN-10, PLAN-11, PLAN-36 and are disjoint from each other.
+- PLAN-42, PLAN-43 — parked: added to the index by #35 and #36 (2026-10-12), `blocked` on use cases
+  in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
+  They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
+- PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
+- PLAN-44 — shipped as #38, gaps materially open; PLAN-54 completed the package (#48, minor gaps). PLAN-17 is unblocked; PLAN-56 holds the residuals and blocks nothing.
+- PLAN-55 — parked: `chat`, added by #46 (2026-10-13), blocked; PLAN-51, PLAN-52 and PLAN-53 now also depend on it.
+- PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
 
 ## Decisions
@@ -225,15 +232,233 @@ decision or a dependency outside this repository.
   Alternatives: only PLAN-17 waits (recommended); neither waits. Their specs carry the dependency;
   PLAN-41's pull request adds it to the two index rows, as a sanctioned exception to the own-row rule.
 
+- 2026-10-12 — PLAN-41 `static-verifier-remaining-rules` landed as #34 (ebe82b3), the first plan run
+  under Antigravity; landing record `landings/PLAN-41.md`. Extended verification at the operator's
+  request, including an independent read-only audit of the code against the package and the
+  specification (two key findings re-checked by hand): **materially incomplete** although it reported
+  7/7 and ADR 001 claims complete coverage — Rule 9 duplicates only, Rule 11b dead, Rule 3 config
+  reachability unsound, Rule 6 `stepped_out` rules missing, question class `ask` missing, 23 fixtures
+  for ~55 checks, `every-construct.pmwf` trimmed, tests weakened. Process: 0 tokens, missing phase
+  boundaries, an empty execute trail, Spotless from Maven Central, no pre-commit/coverage gate on the
+  final head, `/review` not re-posted (operator override), no documentation PR.
+- 2026-10-12 — Operator decisions (AskUserQuestion): (1) the gaps become a new package and plan,
+  PLAN-44 `static-verifier-rule-gaps` (alternatives: reopen the package; accept as is); (2) PLAN-17
+  waits for PLAN-44, PLAN-13 does not (alternatives: both wait; neither waits). (3) Antigravity
+  issues are filed directly as high priority to plan-marshall `lessons-routing`: 7 findings,
+  `pm-mcp-core-m2-m4-124.md` to `-130.md`. Inbox drain: the landing reconciled, 3 lessons promoted
+  here (2026-10-12-12-001 to -003).
+- 2026-10-12 — #35 and #36 added the packages `operator-wait-and-machine-scope` and
+  `phase-sub-workflows` (both `blocked`); staged as parked PLAN-42 and PLAN-43.
+
+- 2026-10-12 — PLAN-11 `enrolment-store` landed as #30 (5010969), run under Claude Code (inferred);
+  landing record `landings/PLAN-11.md`. 48 h and 11.6 M tokens, nine finalize rounds, `/review`
+  re-posted ten times with no override, documentation PR merged. New package `runtime.enrolment`
+  (the spec's `runtime.security` guess was wrong) plus recovery steps in `runtime.start` and
+  `LiveWork` in `core.service`. Inbox drain of 18 messages: the landing reconciled; 6 lessons
+  promoted here (2026-10-12-13-001 to -006), 1 folded into 2026-10-11-20-001, 10 routed to
+  plan-marshall as `pm-mcp-core-m2-m4-134.md` to `-143.md`. #37 added `project-onboarding-unit`
+  (`blocked`), staged as parked PLAN-45.
+
+- 2026-10-12 — PLAN-44 `static-verifier-rule-gaps` landed as #38 (6caa663), the first plan run under
+  opencode; landing record `landings/PLAN-44.md`. Extended verification with an independent code
+  audit (five key claims re-checked by hand): **gaps materially open**. Rule 9 untouched; Rule 3
+  booleans only, the transition check deleted as "infeasible"; Rule 6 made conditional against the
+  specification; tests still count enum constants, with weakenings kept plus one new one. The package
+  file and ADRs 002–005 were rewritten to match what shipped; the project-units dependency cell was
+  missed. Process trail far better than PLAN-41's, but tokens 0, phases unclosed, finalize build logs
+  not archived. Three high-priority opencode findings filed: `pm-mcp-core-m2-m4-146.md` to `-148.md`.
+  Lessons: 2 promoted here (2026-10-12-18-001, -002), 2 routed (`-144.md`, `-145.md`).
+- 2026-10-12 — Operator decisions (AskUserQuestion): (1) one more remediation plan, PLAN-54
+  (alternatives: split in two; record only); (2) PLAN-54 runs under Claude Code, written into its
+  spec (alternatives: harness open; Claude Code for all plans); (3) PLAN-17 waits for PLAN-54
+  (alternative: may start).
+- 2026-10-12 — #39 to #42 added eight `blocked` packages; staged as parked PLAN-46 to PLAN-53 from
+  their package files. PLAN-45's dependency widened to UC-PRJ-1 to UC-PRJ-3.
+
+- 2026-10-13 — PLAN-13 `workflow-engine` landed as #45 (5a5db68), Claude Code; landing record
+  `landings/PLAN-13.md`. Clean: CI green, `/review` after every round with no override, pre-commit
+  on the final head, documentation PR #49 merged, and the first plan to follow the WS-10 module
+  documentation rule (developer guides plus 9 ADRs). Inbox drain of 19 messages: the landing
+  reconciled; 1 lesson promoted (2026-10-13-06-001, specification drift during a run), 1 folded into
+  2026-10-10-14-001, 16 routed as `pm-mcp-core-m2-m4-153.md` to `-168.md`. #46 added the `blocked`
+  package `chat`, staged as parked PLAN-55.
+- 2026-10-13 — Operator rule: the harness is Claude Code unless the operator states otherwise.
+
+- 2026-10-13 — PLAN-18 `verify-not-resolve` landed as #43 (68c6bc3), Claude Code; landing record
+  `landings/PLAN-18.md`. CI green, pre-commit on the final head, required bots re-reviewed (one
+  override for the optional Sourcery only), module docs plus 3 ADRs. Operator decisions dropped the
+  wrapper git-tracked requirement from the specification and limited the forbidden free flags to
+  canonical build jobs. Documentation PR #46 open and behind the code. Inbox drain of 24 messages:
+  the landing reconciled; 2 lessons promoted (2026-10-13-07-001, -002), 1 folded into 2026-10-11-20-001,
+  20 routed (`pm-mcp-core-m2-m4-169.md` to `-188.md`). The stray plan-marshall lesson 2026-10-11-07-001
+  in this store was routed as `-189.md` and removed; the store holds no plan-marshall lesson now.
+
+- 2026-10-13 — PLAN-54 `static-verifier-rule-gaps-completion` landed as #48 (36a0bcd), Claude Code;
+  landing record `landings/PLAN-54.md`. Extended verification with an independent audit (two key
+  residual claims re-checked by hand): **complete with minor gaps** — the Rule 6 regression is
+  reverted, the weakened tests are restored, there is a real 79-entry checklist with exact fixtures,
+  and every-construct is restored. Residuals: Rule 9 firing not per step; result guards checked on
+  calls only; the remediation budget seam is not genuine; `lost` limited to plan units; the Rule 3
+  activation was kept; the guide over-claims; the Rule 3 specification issue is not filed.
+  Orchestrator judgement: accepted as shipped, PLAN-17 unblocked, residuals staged as PLAN-56
+  (blocks nothing). Inbox drain of 14 messages: the landing reconciled, 13 lessons routed
+  (`pm-mcp-core-m2-m4-190.md` to `-202.md`). #47 widened the scope of the parked `chat` package.
+
+- 2026-10-13 — PLAN-16 `diagram-generator` landed as #49 (f4b14f2), Claude Code; landing record
+  `landings/PLAN-16.md`. Clean: exactly the declared surface, pre-commit on the final head, required
+  bots reviewed (override only for the optional Sourcery), module docs plus 10 ADRs. Documentation PR
+  #52 open, and it overlaps that repository's still-open #34 (PLAN-10). Inbox drain of 11 messages:
+  the landing reconciled; 1 lesson promoted (2026-10-13-10-001), 9 routed (`pm-mcp-core-m2-m4-203.md`
+  to `-211.md`).
+
+- 2026-10-13 — PLAN-22 `scenario-replay-harness` landed as #50 (115d7ed), Claude Code; landing record
+  `landings/PLAN-22.md`. Clean: declared surface only, pre-commit on the final head, required bots
+  reviewed (override for the optional Sourcery only), module docs plus 6 ADRs; documentation PR #53
+  open. Inbox drain of 17 messages: the landing reconciled; 1 lesson promoted (2026-10-13-11-001),
+  1 folded into 2026-10-10-14-001, 14 routed (`pm-mcp-core-m2-m4-212.md` to `-225.md`).
+- 2026-10-13 — Operator decision (AskUserQuestion, overlap prompt): start PLAN-39 alongside PLAN-12,
+  PLAN-17 and PLAN-21 despite the shared ADR directories; its backfilled ADRs are renumbered onto the
+  free numbers after a rebase before push (rule added to the spec). Alternative: leave the slot
+  empty. PLAN-40 stays behind PLAN-12 (`core-store.adoc`).
+
+- 2026-10-13 — Operator rule: every landing analysis verifies that all PRs related to the plan,
+  especially its `plan-marshall-documentation` PR, are **merged**, and that their content matches the
+  merged code. Each landing record lists them by number with state and merge time. Applied at once to
+  all shipped plans: the documentation PRs of PLAN-01, 02, 03, 04, 06, 07, 08, 10, 11, 13, 16, 18, 22
+  and 36 (doc #19, 20, 24, 26, 27, 28, 30, 31, 33, 34, 46, 49, 52, 53) are all MERGED; no PR is open
+  in `plan-marshall-documentation`. Gaps found: doc #46 (PLAN-18) merged with its single pre-review
+  commit, so the mandatory `maxLength` of enrolled patterns is not in the specification; PLAN-41,
+  PLAN-44 and PLAN-54 opened no documentation PR, so PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 stay open on
+  documentation main although the verifier implements them.
+
+- 2026-10-13 — PLAN-12 `session-log-and-generations` landed as #51 (d7b622d), Claude Code; landing
+  record `landings/PLAN-12.md`. Code clean (pre-commit on the final head, `/review` after both rounds,
+  no override, docs plus 9 ADRs in three modules); it also wrote `runtime.start` sweeps and
+  `core.service`. **Not complete under the related-PR rule:** documentation PR #59 is OPEN, and the
+  `pm-mcp-server` sweep registration in plan-marshall-mcp is owed (the SNAPSHOT breaks the assembly
+  until then). Inbox drain of 12 messages: the landing reconciled; 3 lessons promoted
+  (2026-10-13-13-001 to -003), 8 routed (`pm-mcp-core-m2-m4-226.md` to `-233.md`).
+- 2026-10-13 — Operator instruction: no new emits; the queue drains (running PLAN-17, PLAN-21,
+  PLAN-39 finish first). #52 and #55 changed only parked packages; PLAN-46 to PLAN-53 and PLAN-55
+  were regenerated from their package files, and PLAN-42, PLAN-43 and PLAN-45 were marked for
+  re-reading before any emit.
+
+- 2026-10-13 — Operator decision: every versioned artifact stays at `format_version` 1 until the
+  first release; a format change replaces version 1 in place. Existing bumps are an Open Defect to
+  clean up at the end of this epic. Added as a Standing Constraint to every staged and parked spec;
+  the running PLAN-17, PLAN-21 and PLAN-39 were told through their mailboxes.
+
+- 2026-10-13 — Operator decision: split `PmMcpLogMessages` into one holder per Maven module
+  (`CoreLogMessages`/`PM_CORE`, `RuntimeLogMessages`/`PM_RUNTIME`, and more only where records exist),
+  renumbered per holder from the start of each level range; pre-1.0, so the break is intended. It is a
+  plain Claude Code session plan outside this queue, `.plan/temp/log-messages-per-module-plan.md` of
+  pm-mcp-core, following the git workflow and the quality profile. It runs after the running PLAN-17,
+  PLAN-21 and PLAN-39 have landed, because they may still add records. When it lands, the
+  per-workstream identifier blocks go away and the staged specs' log bullet is rewritten from its
+  report.
+
+- 2026-10-13 — PLAN-21 `entity-addressing` landed as #54 (b25d115), Claude Code; landing record
+  `landings/PLAN-21.md`. Code clean (pre-commit on the final head, `/review` x3, override only for the
+  optional Sourcery). Reworked in-PR after PLAN-12's `EntryId` landed. It also touched `core.spi` and
+  `workflow.verify` (the `lessons-review` rename). **Not complete under the related-PR rule:** doc #56
+  is OPEN. PLAN-12's doc #59 is now MERGED, so PLAN-12 is complete. Inbox drain of 9 messages: the
+  landing reconciled, 8 lessons routed (`pm-mcp-core-m2-m4-234.md` to `-241.md`). #58 and #59 added
+  four `blocked` packages (epic-auto, operator-reports, runtime-control, runtime-metrics), staged as
+  parked PLAN-57 to PLAN-60; PLAN-51 and PLAN-53 were regenerated. Practice from now on: re-check a
+  spec's premises against the landings since staging, right before emitting it.
+
+- 2026-10-13 — PLAN-39 `module-readmes-and-adrs` landed as #53 (c0ecf33), Claude Code; landing
+  record `landings/PLAN-39.md`. Complete (no documentation PR required): 9 module READMEs, the ADR
+  template and index, 44 ADRs including 4 repository-wide ones, and the rule in CLAUDE.md. The
+  concurrent-numbering rule worked: two collisions, and only its own ADRs were renumbered. ADR 003
+  (log identifier blocks) is to be superseded by the log-holder split. Inbox drain of 11 messages:
+  the landing reconciled, 10 lessons routed (`pm-mcp-core-m2-m4-242.md` to `-251.md`). #57 moved
+  plan-marshall to the `functional-review` / `code-review` finalize steps (required bots kept). #60
+  added the `blocked` package `token-usage`, staged as parked PLAN-61. WS-10: PLAN-39 is done,
+  PLAN-40 remains.
+
+- 2026-10-13 — PLAN-17 `project-units-and-invariants` landed as #56 (df4b318), Claude Code; landing
+  record `landings/PLAN-17.md`. Code clean (8/8 deliverables, pre-commit on the final head, `/review`
+  x6, Sonar 0 new issues). Rules 6 (`work_performed`), 7 and 8 of the finalize validator and three
+  invariants are named hooks (operator-accepted). Test-scope dependencies `cui-test-juli-logger` and
+  `cui-test-generator` were added to pm-workflow with consent. **Not complete under the related-PR
+  rule:** doc #57 is OPEN (content matches the code). Inbox drain of 12 messages: the landing
+  reconciled, 11 lessons routed (`pm-mcp-core-m2-m4-252.md` to `-262.md`). #61 and #62 added the
+  `blocked` packages `process-designer` and `cleanup`, staged as parked PLAN-62 (WS-03) and PLAN-63
+  (WS-01). No plan is running: the drain is complete, and the log-holder session plan is next.
+
+- 2026-10-13 — Doc #57 merged (20:44:58Z, fff6552), before the log-holder plan's documentation PR:
+  PLAN-17 is complete. Cleanup while the log-holder session plan runs (main at fa58b0d):
+  - Re-grounding of the 40 open specs: 236 claims, 99 corroborated, 137 unverifiable (hypotheses
+    and verify-first clauses), none left contradicted.
+  - Four stale "greenfield" claims rewritten (PLAN-20, PLAN-27 `runtime.job` of PLAN-18; PLAN-25
+    `workflow.engine` of PLAN-13/21; PLAN-28 `core.queue` of PLAN-12); PLAN-20's `LiveWork` claim
+    updated.
+  - PLAN-40 re-scoped to the real gap: 25 packages without a developer file, seven guides still
+    in `plan-marshall-documentation`. It now runs after the log-holder plan, because `core-log.adoc`
+    describes its result.
+  - 19 parked specs (PLAN-42/43/45–53/55/57–63) gained their module-doc paths in Expected Surface;
+    their constraints already required them.
+  - Watches for doc #57, doc #20 and documentation #36 relocated to `settled.md`.
+  - Deferred to the log-holder report: every open spec's log bullet and the holder path in its
+    surface.
+
+- 2026-10-14 — Log-holder session plan reported: pm-mcp-core #64 (head a777427, CI green, OPEN) and
+  plan-marshall-documentation #68 (OPEN, merge after #64). Verified on the branch: `CoreLogMessages`
+  3 records, `RuntimeLogMessages` 54, `WorkflowLogMessages` 3 (= the 57 of `PmMcpLogMessages` plus
+  PLAN-17's 3); `PmMcpLogMessages` deleted with no reference left outside `.plan/`; ADR 005
+  supersedes ADR 003; `KNOWN_PREFIXES` in `CoreLogMessagesTest`. The operator put the 16 records only
+  the assembly uses into `RuntimeLogMessages` (Javadoc "Used by the assembly pm-mcp-server"), not into
+  `CoreLogMessages`. The log rule of the 40 open specs was rewritten to "the holder of your module, next
+  free identifier", naming each spec's holders. Like the old shared holder, a module's holder stays
+  out of the Expected Surface; collisions are resolved on rebase. Emitting waits for #64 on main. The
+  ledger's history (landings, older decisions) keeps the old names on purpose.
+
+- 2026-10-14 — Log-holder PRs merged by the session, with the operator's authorisation:
+  pm-mcp-core #64 at 06:08:33Z (50827cf; main CI green, SNAPSHOT deployed) and
+  plan-marshall-documentation #68 at 06:20:45Z (d9d3e83). No identifier changed since a777427. The
+  orchestrator verified on both mains:
+  - holders 3/54/3, with `PmMcpLogMessages` absent and no reference left;
+  - no `PM_MCP-<n>` row left in `doc/LogMessages.adoc`.
+
+  The shared-identifier defect and the PR watch are relocated to `settled.md`. Emitting may resume.
+
+- 2026-10-14 — Doc #56 (PLAN-21) merged by the orchestrator on the operator's word, at 06:51:30Z
+  (42217c3, squash through the merge queue): PLAN-21 is complete.
+  - It conflicted with main in `doc/roadmap.adoc` only. The resolution kept main's `[~]` for
+    `pm-mcp enter` and #56's `[x]` for entity addressing, with main's specification links.
+  - The first resolution attempt pushed a commit with conflict markers (dfb23c7). 3c5342b fixed it
+    before the merge, and the squash left no trace on main; main was checked to have no markers.
+  - No open documentation PR remains for this epic.
+
 ## Open Defects
+
+- **Format version bumped although nothing is released (cleanup at the end of the epic).**
+  - `TransactionJournal.FORMAT_VERSION = 3` (`pm-core/src/main/java/de/planmarshall/core/store/TransactionJournal.java`
+    l.77, and its Javadoc l.48): raised 1→2 by PLAN-06 (#26, owed audit events) and 2→3 by PLAN-12 (#51,
+    delete mode).
+  - The bump is also recorded in `pm-core/doc/developer/core-store.adoc` (l.169, l.414) and ADR
+    `pm-core/doc/adr/core-store/007-delete-mode-of-the-transaction-journal.adoc`, plus any test fixture
+    or test that pins 2 or 3.
+  - Open `plan-marshall-documentation` #59 (PLAN-12) puts `"format_version": 3` into the store schema
+    specification.
+
+  The target: the journal at version 1 everywhere — code, tests, fixtures, guide, ADR (record the
+  decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
+  2026-10-13 at bed24eb) — source: operator, 2026-10-13.
+
+- Documentation behind the code: (a) the Job Runtime specification lacks PLAN-18's mandatory
+  `maxLength` for enrolled patterns (doc #46 merged before the review fixes); (b) the Workflow DSL
+  watch items PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 are still open on documentation main although
+  PLAN-41/44/54 implemented them (no documentation PR). Proposed owner: PLAN-56 (residuals) takes (b);
+  (a) is a small direct documentation PR — source: PR check of 2026-10-13.
+
+- Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
   package to adopt the check itself — source: landing PLAN-03.
-- Two plans of one workstream can take the same log identifier; it surfaced as a merge conflict
-  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03;
-  confirmed by PLAN-01 (inbox 006), which moved to WARN 151. PLAN-04, PLAN-08 and PLAN-09 share the
-  same WS-01 block.
+> ↪ Relocated to `settled.md` § "Defect: shared log identifier blocks" — replaced by one holder per module (pm-mcp-core #64, 50827cf)
 
 - The roadmap item behind PLAN-02 is only partly delivered and no staged plan owns the rest:
   validators for `request.md` and pull request bodies (PM-WF-6), the `OutlineValidator` rules that
@@ -247,15 +472,28 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- PLAN-11's #30 reads DIRTY against `main` since #29 and #31 merged (2026-10-12): one content
-  conflict in `PmMcpLogMessages`, adjacent new blocks, no identifier taken twice. Advisory delivered
-  to its mailbox. Retire when #30 is clean or merged.
+> ↪ Relocated to `settled.md` § "Watch: doc #56 of PLAN-21" — #56 merged 2026-10-14T06:51:30Z (42217c3); PLAN-21 complete
+- A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
+> ↪ Relocated to `settled.md` § "Watch: the log-holder PRs" — #64 merged 06:08:33Z (50827cf, SNAPSHOT deployed), doc #68 merged 06:20:45Z (d9d3e83)
+- plan-marshall-mcp `pm-mcp-server` imports `PmMcpLogMessages` and breaks against the SNAPSHOT of #64 until it switches to `RuntimeLogMessages` (all of its 16 records) or takes over its own records.
+> ↪ Relocated to `settled.md` § "Watch: doc #57 of PLAN-17" — #57 merged 2026-10-13T20:44:58Z (fff6552); PLAN-17 complete
+- plan-marshall-mcp owes, from PLAN-17: `DefaultUnitInvariantTest` over the real default units, and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal).
 
-- `FindingSchemaParityTest` of PLAN-36 reads the sibling checkout of `plan-marshall-documentation`
+- plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
+
+- The specification issue "Workflow DSL Rule 3: define how a `depends_on_config` value activates a guard" is not filed in `plan-marshall-documentation`; its text is in PR #48 and ADR 006 (operator, or PLAN-56).
+- Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
+
+- No plan records its harness (high-priority finding `pm-mcp-core-m2-m4-132.md`). The operator's rule since 2026-10-13: assume Claude Code unless stated otherwise.
+- **Non-Claude-Code runs (Antigravity, opencode) need the extended landing verification** (code-vs-package audit, build-log and
+  gate check, review trail), because the plan's self-report was unreliable on its first run (seven
+  high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.
+> ↪ Relocated to `settled.md` § "Watch: documentation #36 during PLAN-41" — PLAN-44 shipped as #38 against the current specification
+
+
+- `FindingSchemaParityTest` of PLAN-36 and `WorkflowStatusSchemaParityTest` of PLAN-13 read the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
-- Documentation PRs open in `plan-marshall-documentation`: #31 (PLAN-36), #34 (PLAN-10), #20
-  (PLAN-02) — operator merges. (#33 of PLAN-08 merged.)
 - Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
   `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
   `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).
@@ -272,8 +510,7 @@ decision or a dependency outside this repository.
   touched (27 `pm-runtime` files on PLAN-01; lesson 2026-10-10-14-001). Every running plan can
   pull unrelated diffs into its PR. A parent POM change, outside this repository.
 
-- `plan-marshall-documentation` #20 (documentation of PLAN-02) was still open on 2026-10-10 at the
-  PLAN-03 drain. The index already says `done`. Retire when #20 is merged.
+> ↪ Relocated to `settled.md` § "Watch: doc #20 of PLAN-02" — #20 merged 2026-10-13T11:28:36Z (be27641)
 - Token metrics of a plan can be overstated: PLAN-02 recorded 8,809,647 against its own sum of
   6,131,992 (lesson 2026-10-10-07-019). Read later landings' totals with that in mind.
 

@@ -2,9 +2,9 @@
   "id": "PLAN-41",
   "slug": "static-verifier-remaining-rules",
   "workstream": "WS-03",
-  "status": "running",
+  "status": "shipped",
   "plan_marshall_plan_id": "plan-41-static-verifier-remaining-rules",
-  "pr": "",
-  "landing": "",
+  "pr": "#34",
+  "landing": "landings/PLAN-41.md",
   "seq": 41
 }

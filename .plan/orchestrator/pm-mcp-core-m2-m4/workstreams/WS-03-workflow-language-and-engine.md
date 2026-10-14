@@ -29,6 +29,15 @@ The dependency chain from the primitive SPI over the DSL parser, the static veri
 | PLAN-21-entity-addressing | staged | Entity addressing of the bootstrap units |
 | PLAN-24-plan-instance | staged | Plan instance composition |
 | PLAN-41-static-verifier-remaining-rules | staged | Static verifier: the remaining rules (added to the index by #32) |
+| PLAN-42-operator-wait-and-machine-scope | parked | The operator wait and the machine scope (added by #35; blocked on use cases) |
+| PLAN-43-phase-sub-workflows | parked | Phases as sub-workflows, the plan's history (added by #36; blocked on UC-PLN-1) |
+| PLAN-44-static-verifier-rule-gaps | staged | The rule gaps PLAN-41 left (operator decision 2026-10-12) |
+| PLAN-45-project-onboarding-unit | parked | The project onboarding unit (added by #37; blocked on UC-PRJ-1 and PLAN-42) |
+| PLAN-46..PLAN-53 | parked | Blocked packages added by #39-#42 (machine onboarding, decision engine, start from clients, recipe workflows, plan/epic control, epic findings review, epic decomposition); PLAN-49 forgejo-provider in WS-08 |
+| PLAN-54-static-verifier-rule-gaps-completion | staged | Second remediation of the verifier gaps; Claude Code only (operator decision 2026-10-12) |
+| PLAN-56-static-verifier-residuals | staged | Residual verifier gaps after PLAN-54; blocks nothing |
+| PLAN-57-epic-auto | parked | An epic runs by itself (added by #58) |
+| PLAN-58-operator-reports | parked | Reports to the operator (added by #58) |
 
 ## Sequencing and Surface Notes
 

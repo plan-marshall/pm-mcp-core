@@ -2,9 +2,9 @@
   "id": "PLAN-17",
   "slug": "project-units-and-invariants",
   "workstream": "WS-03",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-17-project-units-and-invariants",
+  "pr": "#56",
+  "landing": "landings/PLAN-17.md",
   "seq": 17
 }

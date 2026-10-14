@@ -27,6 +27,7 @@ The model work on the engine side: the profile loader, role sets and the model c
 | PLAN-32-consultation | staged | Consultation through the server |
 | PLAN-33-session-as-worker | staged | The interactive session as optional worker |
 | PLAN-34-role-qualification | staged | Role qualification |
+| PLAN-55-chat | parked | Chatting with the planning role (added by #46; blocked) |
 
 ## Sequencing and Surface Notes
 

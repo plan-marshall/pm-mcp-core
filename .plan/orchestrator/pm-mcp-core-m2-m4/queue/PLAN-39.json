@@ -2,9 +2,9 @@
   "id": "PLAN-39",
   "slug": "module-readmes-and-adrs",
   "workstream": "WS-10",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-39-module-readmes-and-adrs",
+  "pr": "#53",
+  "landing": "landings/PLAN-39.md",
   "seq": 39
 }

@@ -100,9 +100,11 @@ the rule write their own share as they implement.
   answered. No documentation PR in `plan-marshall-documentation`.
 - Log messages: none.
 
+- **Concurrent ADR numbering (operator decision 2026-10-13).** PLAN-12, PLAN-17 and PLAN-21 run alongside and write ADRs into `pm-core/doc/adr/core-store/`, `pm-workflow/doc/adr/workflow-unit/` / `workflow-verify/` / `workflow-finalize/` and `pm-workflow/doc/adr/workflow-engine/`. Several package ADR directories already exist from PLAN-13, PLAN-16, PLAN-18, PLAN-22, PLAN-41/44/54 (`ls pm-*/doc/adr/`). Backfill into the existing numbering (next free number per directory); immediately before pushing, rebase onto `origin/main` and renumber any backfilled ADR whose number a merged plan took meanwhile, fixing every link to it. Do not renumber another plan's ADR. Several module `doc/developer/` files and `doc/adr/` directories exist already — the READMEs link to them; extend, never overwrite.
+
 ## Claim Labels
 
-- OBSERVED: no module has a README and no `doc/` exists below a module; the repository root has `README.md` and `doc/plans/` only — directory listing of `main` at d091527 on 2026-10-11
+- OBSERVED: no module has a README (2026-10-13); module `doc/` trees now exist in `pm-core`, `pm-workflow` and `pm-runtime` from the plans shipped since WS-10 — directory listing of `main` at 115d7ed (re-grounded 2026-10-13)
   - verdict: unverifiable | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - OBSERVED: the modules are `pm-core`, `pm-workflow`, `pm-runtime` and `pm-providers` with `pm-provider-git`, `-ci`, `-github`, `-gitlab`, `-sonar` — read at `pom.xml` and `pm-providers/pom.xml` § `modules`
   - verdict: corroborated | checked_at: c0d4b92f568923098a36992b6c22e78100b84028 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pom.xml exists at c0d4b92 (presence checked, content not re-read)

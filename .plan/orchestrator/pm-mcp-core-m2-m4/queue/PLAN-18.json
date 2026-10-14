@@ -2,9 +2,9 @@
   "id": "PLAN-18",
   "slug": "verify-not-resolve",
   "workstream": "WS-04",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "verify-not-resolve",
+  "pr": "#43",
+  "landing": "landings/PLAN-18.md",
   "seq": 18
 }

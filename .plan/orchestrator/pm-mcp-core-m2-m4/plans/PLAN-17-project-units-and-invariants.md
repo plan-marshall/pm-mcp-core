@@ -89,7 +89,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-10 (`static-verifier-and-fuzzer`); PLAN-41 (`static-verifier-remaining-rules`) — operator decision 2026-10-12, not yet in the index row (PLAN-41's pull request adds it)
+- Depends on: PLAN-10 (`static-verifier-and-fuzzer`); PLAN-41 (`static-verifier-remaining-rules`, shipped #34, added to the index row) PLAN-44 (`static-verifier-rule-gaps`, shipped incomplete #38) and PLAN-54 (`static-verifier-rule-gaps-completion`) — operator decisions 2026-10-12; PLAN-54's pull request adds `static-verifier-rule-gaps` to the index row
 - Overlaps with: PLAN-10 (`static-verifier-and-fuzzer`) in `workflow.verify`; every plan through `doc/plans/README.adoc`; the plans of WS-03 through their shared identifier block in `PmMcpLogMessages`, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `doc/LogMessages.adoc` of `plan-marshall-documentation`, which goes into the documentation pull request
 
