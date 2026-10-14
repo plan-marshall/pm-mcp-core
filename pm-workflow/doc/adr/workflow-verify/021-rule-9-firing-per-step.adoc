@@ -20,7 +20,7 @@ Until the work package `static-verifier-residuals`, `WorkflowValidator` ended a 
 
 == Decision
 
-1. *Firing per step*. A firing is judged per step. It ends at the next opening of the same step once the step is completed, at `finalize.merge-gate`, or at a terminal state; it passes the opening of another step without ending. A re-entry into an opening of the step while the step is open continues the firing, as before.
+1. *Firing per step*. A firing is judged per step. It ends at the next opening of the same step once the step is completed, at `finalize.merge-gate`, or at a terminal state; it passes the opening of another step without ending. A re-entry into an opening of the step while the step is open continues the firing. Before this change only a re-entry into the firing's own opening did; a re-entry into another opening of the same step ended the path as not completed.
 2. *Which steps an opening begins*. An opening begins the steps completed on a path from it before another opening is reached, less every step completed on a transition into it: a step completed on the way into an opening is one the opening follows, not one it begins. The openings themselves are those of ADR 007: the start state, the named region entry states, and the link targets of the `STEP_LIST` hub.
 3. *What stays*. The early end on an outcome of class `UNSETTLED` or `STEPPED_OUT`, the end at `finalize.merge-gate`, the implicit `failed` on entry into `plan.aborted`, `plan.return` or `finalize.hand-back`, and the refusal of a step completed twice on one transition are unchanged.
 
