@@ -1162,6 +1162,42 @@ class AdditionalRulesTest {
     }
 
     @Test
+    @DisplayName("Rule 6: a result guard on a link of a state that is no call is refused")
+    void resultGuardOnLink() {
+        var def = unit("workspace", """
+                state verify.entry
+                    phase verify
+                    link next proceed ()
+                        do test.proceed
+                            done -> verify.done
+                                guard not result.pushed
+                """ + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.entry",
+                "a result guard is admitted only on the outcome 'done' of a call, but found on the outcome 'done' of the state 'verify.entry', which is no call"),
+                found(def));
+    }
+
+    @Test
+    @DisplayName("Rule 6: a guarded done on a callee without a result schema is refused once per call")
+    void resultGuardOnCalleeWithoutSchema() {
+        var def = unit("subworkflow", """
+                state verify.entry
+                    phase inherit
+                    call test.depth5()
+                        done -> verify.done
+                            guard result.pushed
+                        done -> verify.done
+                            guard not result.pushed
+                        stepped_out -> verify.stepped-out
+                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+
+        assertEquals(callContract("verify.entry",
+                "the call guards the outcome 'done' on the result of 'test.depth5', which declares no result schema"),
+                found(def));
+    }
+
+    @Test
     @DisplayName("ENTITY_KIND_BINDING: the entity unit of a kind is resolved against the catalog")
     void entityUnitResolvedAgainstCatalog() {
         var unresolved = unit("plan", """

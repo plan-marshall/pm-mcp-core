@@ -4,7 +4,8 @@
 # auto, job, composite_job, job llm with each, role each, ask, consult and lost, call,
 # question, terminal), links with bounded, unbounded and optional text parameters and
 # explicit forms, the escalate link request_waiver, guards with every atom, combinator and
-# depends_on_config, facts, skill and result guards. It holds every construct the rules
+# depends_on_config, facts, skill, and result guards as the complementary pair on the
+# done of a call whose callee declares a result schema. It holds every construct the rules
 # reach: a STEP_LIST dispatch hub whose targets open the firings of the steps, completions
 # on every firing path, a step completed as waived on the waived outcome of a remediation
 # call, the review loop rejected -> verify.review, an enqueuing primitive whose job-starting

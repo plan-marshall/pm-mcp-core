@@ -178,7 +178,8 @@ final class TestPrimitives {
     }
 
     /**
-     * @return a catalog of the units the tests call: {@code git.commit_and_push}, the link-free call chain
+     * @return a catalog of the units the tests call: {@code git.commit_and_push} with the result schema
+     *         {@code commit-result} (registered by {@link SchemaRegistry#defaults()}), the link-free call chain
      *         {@code test.depth1} to {@code test.depth5}, the self-calling {@code verify.call-cycle}, the remediation
      *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND},
      *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, and the workspace unit {@link #WORKSPACE_UNIT}
@@ -190,6 +191,7 @@ final class TestPrimitives {
                 param push : enum[enabled|disabled]
                 param attempts : int[1..5]
                 param targets : list<enum[origin|mirror]>
+                result schema[commit-result]
                 start git.push
 
                 state git.push

@@ -165,6 +165,10 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-exit-twice.pmwf"),
             new Check("Rule 6: a result guard sits only on the outcome done",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-not-done.pmwf"),
+            new Check("Rule 6: a result guard sits only on a call's done, on no other transition",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-outside-call.pmwf"),
+            new Check("Rule 6: a result guard requires a callee that declares a result schema",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-callee-without-schema.pmwf"),
             new Check("Rule 6: a guarded done is admitted only as the complementary pair",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "result-guard-single-done.pmwf"),
             new Check("Rule 6: the parameter bindings of a call match the callee's parameters",
@@ -430,6 +434,20 @@ class WorkflowValidatorTest {
                                 phase verify
                                 job llm change role reviewer
                                     approved -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a guarded complementary done pair on a call to a callee with a result schema,"
+                            + " matched with result-guard-callee-without-schema.pmwf", "verify.inline", "subworkflow", """
+                            state verify.entry
+                                phase inherit
+                                call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                                    done -> verify.done
+                                        guard result.pushed
+                                    done -> verify.done
+                                        guard not result.pushed
+                                    stepped_out -> verify.stepped-out
+
+                            state verify.stepped-out terminal stepped_out stepped_out
+                                phase inherit
                             """ + DONE_TERMINAL),
                     Arguments.of("the engine-made asked of an ask state, matched with model-job-asked-declared.pmwf",
                             "verify.inline", "plan", """

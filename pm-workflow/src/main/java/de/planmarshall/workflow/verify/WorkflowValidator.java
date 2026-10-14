@@ -803,6 +803,10 @@ public final class WorkflowValidator {
                         "the resting link state '%s' of a sub-workflow must declare a skill".formatted(state.id())));
             }
 
+            if (!(state.behavior() instanceof StateBehavior.SubWorkflowCall)) {
+                checkResultGuardOutsideCall(state, violations);
+            }
+
             if (state.behavior() instanceof StateBehavior.SubWorkflowCall call) {
                 var calleeOpt = catalog.find(call.subWorkflowId());
                 if (calleeOpt.isEmpty()) {
@@ -830,6 +834,16 @@ public final class WorkflowValidator {
                 // outcome stepped_out, which is part of it implicitly. Every call routes it, whatever the callee's
                 // states are.
                 contractOutcomes.add(STEPPED_OUT);
+
+                // Rule 6: a result guard reads a field of the callee's result, so the callee declares a result
+                // schema. Whether the field is a boolean or optional field of it is not checked (ADR 010).
+                if (callee.resultSchema().isEmpty()) {
+                    call.transitions().stream().filter(transition -> transition.resultGuard().isPresent())
+                            .findFirst().ifPresent(transition -> violations.add(new Violation(
+                                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
+                                    "the call guards the outcome '%s' on the result of '%s', which declares no result schema"
+                                            .formatted(transition.outcomeName(), call.subWorkflowId()))));
+                }
 
                 var outcomeCounts = new HashMap<String, Integer>();
                 var resultGuardsOnDone = new ArrayList<ResultGuard>();
@@ -910,6 +924,21 @@ public final class WorkflowValidator {
                                         .formatted(paramName, call.subWorkflowId())));
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Rule 6: a result guard reads the result of a called sub-workflow, so it sits only on the {@code done} of a call;
+     * on the transition of any other state, its declared links included, it is refused.
+     */
+    private static void checkResultGuardOutsideCall(StateNode state, List<Violation> violations) {
+        for (var transition : UnitGraph.allTransitions(state.behavior())) {
+            if (transition.resultGuard().isPresent()) {
+                violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(),
+                        transition.location(),
+                        "a result guard is admitted only on the outcome 'done' of a call, but found on the outcome '%s' of the state '%s', which is no call"
+                                .formatted(transition.outcomeName(), state.id())));
             }
         }
     }
