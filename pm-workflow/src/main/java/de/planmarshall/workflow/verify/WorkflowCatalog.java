@@ -94,7 +94,7 @@ public final class WorkflowCatalog {
      * @param id the unit identifier
      * @return the registered units with a {@code call} of the unit, in registration order
      */
-    public List<WorkflowDefinition> callersOf(String id) {
+    List<WorkflowDefinition> callersOf(String id) {
         return definitions.values().stream().filter(definition -> calls(definition, id)).toList();
     }
 
@@ -108,7 +108,7 @@ public final class WorkflowCatalog {
      * @param id the unit identifier, registered or not
      * @return {@code true} when only plan units reach the unit, directly or through sub-workflows
      */
-    public boolean calledOnlyFromPlanUnits(String id) {
+    boolean calledOnlyFromPlanUnits(String id) {
         var visited = new HashSet<String>();
         var queue = new ArrayDeque<>(List.of(id));
         var reachesPlanUnit = false;

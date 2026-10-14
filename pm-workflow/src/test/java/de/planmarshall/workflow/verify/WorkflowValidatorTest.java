@@ -197,6 +197,8 @@ class WorkflowValidatorTest {
                     VerificationRule.STEP_COMPLETION, "step-completion-firing.pmwf"),
             new Check("Rule 9: a firing of a step ends at the next opening of the same step, not at another step's"
                     + " opening", VerificationRule.STEP_COMPLETION, "step-completion-firing-per-step.pmwf"),
+            new Check("Rule 9: a step completed on a loop-back into its own opening stays begun there",
+                    VerificationRule.STEP_COMPLETION, "step-completion-loop-back-opening.pmwf"),
             new Check("Rule 9: a firing completes each of its steps on every path",
                     VerificationRule.STEP_COMPLETION, "step-completion-no-completion.pmwf"),
             new Check("Rule 9: entering an implicit-failed state completes the open step, no transition into it does",
@@ -539,6 +541,25 @@ class WorkflowValidatorTest {
                                     succeeded -> verify.done
                                         completes step:s as done
                                     failed -> verify.entry
+                                    cancelled -> verify.done
+                                        completes step:s as failed
+                            """ + DONE_TERMINAL),
+                    Arguments.of("a completion on the loop-back into the opening and on every other path of its"
+                            + " firing, matched with step-completion-loop-back-opening.pmwf", "verify.inline", "plan", """
+                            state verify.entry
+                                phase verify
+                                auto test.prepare
+                                    done -> verify.work
+                                    skipped -> verify.done
+                                        completes step:s as skipped
+
+                            state verify.work
+                                phase verify
+                                job test.build
+                                    succeeded -> verify.done
+                                        completes step:s as done
+                                    failed -> verify.entry
+                                        completes step:s as failed
                                     cancelled -> verify.done
                                         completes step:s as failed
                             """ + DONE_TERMINAL),

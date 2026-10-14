@@ -1106,6 +1106,45 @@ class AdditionalRulesTest {
     }
 
     @Test
+    @DisplayName("Cycle measure STEP_LIST: a pass that settles one step twice counts it once, only the firing refuses it")
+    void stepListPassSettlingOneStepTwice() {
+        var def = unit("plan", """
+                state verify.entry
+                    phase verify
+                    auto test.next-step
+                        first -> verify.one
+                        second -> verify.two
+                        settled -> verify.done
+
+                state verify.one
+                    phase verify
+                    auto test.prepare
+                        done -> verify.again
+                            completes step:x as done
+                        skipped -> verify.entry
+                            completes step:x as skipped
+
+                state verify.again
+                    phase verify
+                    auto test.proceed
+                        done -> verify.entry
+                            completes step:x as done
+
+                state verify.two
+                    phase verify
+                    auto test.prepare
+                        done -> verify.entry
+                            completes step:two as done
+                        skipped -> verify.entry
+                            completes step:two as skipped
+                """ + DONE_TERMINAL);
+
+        assertEquals(stepCompletion("verify.again",
+                "the step 'step:x' is completed twice in one firing from 'verify.one'"),
+                found(def));
+    }
+
+    @Test
     @DisplayName("Cycle measure STEP_LIST: a path that hands its step back or leaves the step list is no pass")
     void stepListPathsThatAreNoPass() {
         var def = unit("plan", """

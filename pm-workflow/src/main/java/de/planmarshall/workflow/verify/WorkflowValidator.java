@@ -1304,7 +1304,8 @@ public final class WorkflowValidator {
      * Checks every firing of the unit (Rule 9, "Once per firing"), one step at a time. A firing opens at an opening:
      * the start state, a named region entry state, or a link target of a {@link CycleMeasure#STEP_LIST} hub. An
      * opening begins the steps completed on a path from it before another opening is reached, but for a step
-     * completed on a transition into it, which the opening follows rather than begins. A firing of a step ends at the
+     * completed on a transition into it from outside that reach, which the opening follows rather than begins; a step
+     * completed on a loop-back into the opening from inside the reach stays begun. A firing of a step ends at the
      * next opening of the same step once the step is completed (a re-entry into one of its openings while it is open
      * continues the firing), at {@link #MERGE_GATE}, or at a terminal state; it passes the opening of another step
      * without ending. Every such path completes the step exactly once. A path ends early, without judgement, on an
@@ -1336,14 +1337,17 @@ public final class WorkflowValidator {
 
     /**
      * @return the steps an opening begins: those completed on a path from it before another opening is reached, less
-     *         every step completed on a transition into it
+     *         every step completed on a transition into it from a state outside that reach; a completion on a
+     *         loop-back from inside the reach into the opening settles a firing of the opening itself and keeps the
+     *         step
      */
-    private Set<String> stepsBegunAt(WorkflowDefinition definition, UnitGraph graph, Set<String> openings,
+    private static Set<String> stepsBegunAt(WorkflowDefinition definition, UnitGraph graph, Set<String> openings,
             String opening, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
-        var steps = stepsOfFiring(definition, openings, opening, outcomeClasses);
+        var reach = firingReach(definition, openings, opening, outcomeClasses);
+        var steps = stepsCompletedIn(definition, reach);
         for (var source : graph.predecessors(opening)) {
             var sourceState = definition.states().get(source);
-            if (sourceState == null) {
+            if (sourceState == null || reach.contains(source)) {
                 continue;
             }
             UnitGraph.allTransitions(sourceState.behavior()).stream()
@@ -1372,10 +1376,13 @@ public final class WorkflowValidator {
         return openings;
     }
 
-    private Set<String> stepsOfFiring(WorkflowDefinition definition, Set<String> openings, String opening,
+    /**
+     * @return the states a path from the opening reaches before it ends or another opening is reached, the opening
+     *         included
+     */
+    private static Set<String> firingReach(WorkflowDefinition definition, Set<String> openings, String opening,
             Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
-        var steps = new LinkedHashSet<String>();
-        var seen = new HashSet<>(Set.of(opening));
+        var seen = new LinkedHashSet<>(Set.of(opening));
         var queue = new ArrayDeque<>(List.of(opening));
         while (!queue.isEmpty()) {
             var state = definition.states().get(queue.poll());
@@ -1383,7 +1390,6 @@ public final class WorkflowValidator {
                 continue;
             }
             for (var transition : UnitGraph.allTransitions(state.behavior())) {
-                transition.completions().forEach(completion -> steps.add(completion.stepId()));
                 var target = transition.targetStateId();
                 var targetState = definition.states().get(target);
                 boolean ends = endsEarly(transition, outcomeClasses) || IMPLICIT_FAILED_STATES.contains(target)
@@ -1394,6 +1400,16 @@ public final class WorkflowValidator {
                 }
             }
         }
+        return seen;
+    }
+
+    /** @return the steps completed on a transition that leaves one of the states */
+    private static Set<String> stepsCompletedIn(WorkflowDefinition definition, Set<String> stateIds) {
+        var steps = new LinkedHashSet<String>();
+        stateIds.stream().map(definition.states()::get).filter(Objects::nonNull)
+                .flatMap(state -> UnitGraph.allTransitions(state.behavior()).stream())
+                .flatMap(transition -> transition.completions().stream())
+                .forEach(completion -> steps.add(completion.stepId()));
         return steps;
     }
 
@@ -1551,8 +1567,11 @@ public final class WorkflowValidator {
         }
     }
 
-    /** A position of a pass of a dispatch hub: the state reached and the steps settled on the way, at most two. */
-    private record PassPosition(String stateId, int settled) {
+    /**
+     * A position of a pass of a dispatch hub: the state reached and the distinct steps settled on the way, at most
+     * two.
+     */
+    private record PassPosition(String stateId, Set<String> settled) {
     }
 
     /**
@@ -1580,15 +1599,16 @@ public final class WorkflowValidator {
     }
 
     /**
-     * @return the number of steps settled, at most two, on each pass that leaves the hub with the transition and
-     *         returns to it; empty when no path of it returns
+     * @return the number of distinct steps settled, at most two, on each pass that leaves the hub with the transition
+     *         and returns to it; empty when no path of it returns. A step settled twice on one pass counts once: the
+     *         firing check refuses the second completion.
      */
     private static Set<Integer> passSettledCounts(WorkflowDefinition definition, String hubId,
             OutcomeTransition start, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses) {
         var counts = new HashSet<Integer>();
         var seen = new HashSet<PassPosition>();
         var stack = new ArrayDeque<PassPosition>();
-        advancePass(definition, hubId, start, 0, outcomeClasses, counts, seen, stack);
+        advancePass(definition, hubId, start, Set.of(), outcomeClasses, counts, seen, stack);
         while (!stack.isEmpty()) {
             var position = stack.pop();
             var state = definition.states().get(position.stateId());
@@ -1600,16 +1620,21 @@ public final class WorkflowValidator {
     }
 
     private static void advancePass(WorkflowDefinition definition, String hubId, OutcomeTransition transition,
-            int settledBefore, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses, Set<Integer> counts,
-            Set<PassPosition> seen, ArrayDeque<PassPosition> stack) {
+            Set<String> settledBefore, Map<OutcomeTransition, Optional<OutcomeClass>> outcomeClasses,
+            Set<Integer> counts, Set<PassPosition> seen, ArrayDeque<PassPosition> stack) {
         if (endsEarly(transition, outcomeClasses)) {
             return;
         }
-        var settledHere = transition.completions().stream().map(StepCompletion::stepId).distinct().count();
-        var settled = (int) Math.min(2, settledBefore + settledHere);
+        var settledSteps = new LinkedHashSet<>(settledBefore);
+        for (var completion : transition.completions()) {
+            if (settledSteps.size() < 2) {
+                settledSteps.add(completion.stepId());
+            }
+        }
+        var settled = Set.copyOf(settledSteps);
         var target = transition.targetStateId();
         if (hubId.equals(target)) {
-            counts.add(settled);
+            counts.add(settled.size());
             return;
         }
         var targetState = definition.states().get(target);
