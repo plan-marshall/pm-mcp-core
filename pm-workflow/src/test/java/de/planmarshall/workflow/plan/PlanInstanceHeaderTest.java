@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -350,7 +351,7 @@ class PlanInstanceHeaderTest {
 
             assertAll(
                     () -> assertEquals(new BoundArgument(value, BoundArgument.Source.TEMPLATE,
-                            Optional.of("finalize.pmwf"), Optional.empty()),
+                                    Optional.of("finalize.pmwf"), Optional.empty()),
                             BoundArgument.fromTemplate(value, "finalize.pmwf")),
                     () -> assertEquals(new BoundArgument(value, BoundArgument.Source.COMPOSITION_RULE,
                             Optional.empty(), Optional.empty()), BoundArgument.fromCompositionRule(value)),
