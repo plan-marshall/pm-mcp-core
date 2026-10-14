@@ -1,0 +1,42 @@
+= ADR 006: The Header Schema Is Checked in Full, in Code
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The instance header has a JSON Schema in the specification: required members, `additionalProperties: false` at every level, closed enumerations, patterns for ids and digests, `version` from 1, `composed_at` as a date-time.
+The header line is canonical JSON so its digest is reproducible.
+The module has jackson-core on its classpath and no JSON Schema validator; a dependency needs the user's approval.
+
+== Decision
+
+* `HeaderSchemaCheck` checks every constraint of the schema in code, over the tree `HeaderJson` parses with the streaming API of jackson-core, and returns every `HeaderViolation` with the JSON pointer of the member.
+* A member of the wrong type is reported once, and what lies inside it is not checked further; a text that is no single JSON value, or names a member twice, is one violation.
+* `HeaderJson` writes exactly one spelling: one line, UTF-8, members sorted, no insignificant whitespace, every schema member present, an absent optional value as `null`.
+* The composer runs the check on every version (ADR 001).
+
+== Alternatives Considered
+
+1. *A JSON Schema validator library.*
+_Rejected_: a new dependency for one schema; the closed shape is small enough to check directly.
+2. *Check only the members the composer writes.*
+_Rejected_: a header read back from a file must be checked as fully as one being written.
+
+== Consequences
+
+* A change of the header schema in the specification is a change of `HeaderSchemaCheck` and `HeaderJson`, with a case in `HeaderSchemaCheckTest` per constraint.
+* Re-serialising an unchanged header gives byte-identical output and the same digest.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], header schema and Header
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#instance-header-grammar[Workflow DSL § Instance Header Grammar]
+* Watch item PM-WATCH-STORE-41 (Store Schemas), implemented by this package
+* `doc/plans/plan-instance.adoc`; operator decision at refine (full header schema check)

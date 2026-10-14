@@ -1,0 +1,47 @@
+= ADR 008: The Provider, Footprint, Change-Type and Recipe Rules Prune Derived Targets
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification names four rule families, posture aside, by their prune reasons (`provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `recipe_override`) without stating which facts they read or which elements they prune.
+The step catalogue marks `default:finalize-step-simplify` and `default:adr-propose` as the steps of the lane class `prunable (no_code_delta)`; `default:analysis-roundtrip` needs an analysis provider; the recipe `simplify-codebase` is itself the simplification.
+The rule language reads one fact per rule, and Sonar is the only analysis adapter shipped.
+
+== Decision
+
+The shipped rule file carries one rule per family, with targets derived from the catalogue:
+
+* `analysis-provider-unconfigured`: `integrations.sonar` unset prunes `default:analysis-roundtrip` (`provider_unconfigured`).
+* `no-code-delta`: a `footprint` disjoint from the code and build globs prunes `default:finalize-step-simplify` and `default:adr-propose` (`footprint_disjoint`); an empty or unknown footprint keeps them.
+* `report-change-type`: `change_type` in `analysis`, `verification` prunes `default:finalize-step-simplify` (`change_type_exempt`).
+* `simplify-recipe`: `recipe_id` = `simplify-codebase` prunes `default:finalize-step-simplify` (`recipe_override`).
+
+No family prunes a floor-immune step. The specification is corrected to state exactly these targets.
+
+== Alternatives Considered
+
+1. *Leave the four families without rules until the specification names targets.*
+_Rejected_ by the operator: the reasons exist in the header schema, and the targets follow from the catalogue.
+2. *A provider rule per configured provider, or over a derived list of providers.*
+_Rejected_ for this slice: the rule language reads one fact per rule, and Sonar is the only adapter.
+
+== Consequences
+
+* The provider rule reads only `integrations.sonar`. A second analysis adapter needs either a derived fact (the configured analysis providers) or a conjunction in the rule language before its own rule can be added.
+* Several rules can prune `default:finalize-step-simplify`; the composer lists it once, with the reason of the first rule in file order.
+* A composer test that expects no prune must set `integrations.sonar`.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules], Shipped Rules
+* link:../../../../../plan-marshall-documentation/doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#plan-instance-composition[Phase Workflows § Plan Instance Composition], Prune Predicates and Floor Immunity
+* link:../../../../../plan-marshall-documentation/doc/specification/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Finalize Step Bands]
+* `doc/plans/plan-instance.adoc`; operator decisions during execution (families get content by specification correction; targets kept as derived, the Sonar-only provider check a known limit)

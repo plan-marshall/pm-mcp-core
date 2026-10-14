@@ -24,8 +24,10 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `AsciiTableRenderer`:: Renders the right-border-aligned table drawn with Unicode box-drawing characters.
 `StateKind`:: The kind of a state (`auto`, `job`, `composite_job`, `call`, `link`, `terminal`, `awaiting_user`), derived from the sealed `StateBehavior` by a switch without a default arm.
 `StateTransitions`:: The edges of a unit in declaration order with their label parts: the description of a state, the task label of a task state, the trigger of an engine transition, the source form of a guard, and the implicit links of a state.
+`InstanceAnnotations`:: What the instance forms show beside the composed unit of a plan instance version, derived once from its header: the title `plan <plan_id> v<N> (<event>)`, the lane and posture (`-` when unset), the active state, every pruned element and every waived gate, as the wire names of the header in header order.
+`InstanceMermaidRenderer`, `InstanceAsciiDocTableRenderer`, `InstanceAsciiTableRenderer`:: Render a plan instance version: the composed unit through the renderer of the same form, and the annotations beside it.
 
-The renderers, `StateKind` and `StateTransitions` are package-private (see link:../adr/workflow-diagram/001-one-facade-three-forms.adoc[ADR 001]).
+The renderers, `StateKind`, `StateTransitions` and `InstanceAnnotations` are package-private (see link:../adr/workflow-diagram/001-one-facade-three-forms.adoc[ADR 001]).
 
 [source]
 ----
@@ -122,6 +124,59 @@ A task state shows its task label and its outcome transitions, never a link of i
 │                                             │ -                │ -                                                                │ stepped_out -> diagram.failed │
 ----
 
+[#instance-forms]
+=== Instance forms
+
+_Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]_
+
+A plan instance version, a `PlanInstance` of `workflow.plan`, is rendered in the same three forms (see link:../adr/workflow-diagram/011-instance-diagram-from-header-annotations.adoc[ADR 011]):
+
+[source,java]
+----
+String diagram = WorkflowDiagramGenerator.renderInstanceMermaid(instance, Optional.empty());
+String tables = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, Optional.of("finalize.merge-gate"));
+String terminal = WorkflowDiagramGenerator.renderInstanceAscii(instance, Optional.empty());
+----
+
+Each form draws the composed unit through the renderer of its unit form, so the unit part is byte-identical to the unit form of `instance.unit()`, and adds what the header records beside the unit.
+The pruned elements are absent from the composed unit, so they are listed beside it, never drawn as states of the unit.
+An active state that is no state of the instance, a pruned state included, is refused with `IllegalArgumentException`.
+
+[cols="1,3"]
+|===
+|Form |What it adds to the unit
+
+|Mermaid
+|A front matter titled `plan <plan_id> v<N> (<event>)`; below the unit a composite state `pruned` with one state per pruned element (`<element> <id>: <reason> (<source_fact>)`) and a composite state `waived gates` with one state per waived gate (`<gate>: waived <waiver_id>`), each only when the header lists one. The active state is styled `active`. The identifiers `instance_pruned`, `instance_pruned_<n>`, `instance_waived`, `instance_waived_<n>` pass over every identifier the unit's diagram could use by the next free `_<n>`. Lane and posture are not shown.
+
+|AsciiDoc tables
+|A table `Instance <title>` with plan, version, composition event, lane, posture and active state before the unit tables; after them a table of the pruned elements (element, id, reason, source fact) and a table of the waived gates (gate, waiver id), each only when the header lists one.
+
+|Terminal
+|A property table (instance, lane, posture, active state) before the unit table with the active state marked; after it the tables of the pruned elements and of the waived gates, each only when the header lists one.
+|===
+
+The excerpt below is copied from the golden file `instance-fixture.mmd` of the fixture instance that `DiagramFixtures` builds from the unit `diagram/instance-fixture.pmwf` and a header written for the test:
+
+[source,text]
+----
+---
+title: plan diagram-fixture v3 (plan)
+---
+stateDiagram-v2
+...
+    state "pruned" as instance_pruned {
+        state "step default:analysis-roundtrip: provider_unconfigured (integrations.sonar)" as instance_pruned_1
+        state "state finalize.merge-dispatch: auto_merge_off (merge.auto_merge)" as instance_pruned_2
+        state "policy_action finalize.remediate-ci/loop_back: local_only (derived.push_remote)" as instance_pruned_3
+    }
+    state "waived gates" as instance_waived {
+        state "finalize.merge-gate: waived W-7" as instance_waived_1
+    }
+----
+
+The read-only resource `pm://plan/{plan_id}/diagram` that serves the instance in force is bound in `pm-mcp-server`, not here.
+
 == Extension
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
@@ -175,10 +230,11 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 == Testing
 
 * `WorkflowDiagramGeneratorTest` compares each form of the fixture unit with its golden file byte for byte, renders twice, checks the line endings, the active state, the refusal of an unknown one, the task-state rows, the `role each` label, every parameter type of the link table and the distinct Mermaid aliases of colliding state names, of a composite whose alias a state holds and of an undeclared target.
+* The same test compares each instance form of the fixture instance with its golden file (`instance-fixture.mmd`, `.adoc`, `.txt`), checks that the three forms name the same pruned elements and waived gates, the active state, the refusal of an unknown or pruned active state, an instance without annotations, and annotation identifiers that collide with the unit's; the unit-form golden files are unaffected.
 * `StateKindTest` maps each variant of `StateBehavior`, a plain and a composite job apart, to its kind label.
 * `DiagramFixtures` parses the fixture unit and verifies it with `WorkflowValidator` before any test renders it, with the primitives, the entity kind `change` and the called sub-workflow `diagram.callee` registered in the test package.
 
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Workflow DSL § Automated Mermaid, AsciiDoc Table, and ASCII Diagram Generation]
+* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Workflow DSL § Automated Mermaid, AsciiDoc Table, and ASCII Diagram Generation]; link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]

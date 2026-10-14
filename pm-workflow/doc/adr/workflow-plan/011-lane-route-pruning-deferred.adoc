@@ -1,0 +1,53 @@
+= ADR 011: Lane-Route Pruning Is Deferred to a Work Package of Its Own
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification says the `outline` event composes a version in which "the other lane is pruned".
+The default plan unit does not separate the two lanes: shared routers read the plan's lane and route into either one.
+`outline.route-rework` reads `planning_lane` and has a `light` outcome into `outline.light-regate`; it is entered from the deep route (`outline.remediate-qgate` `fix_requested`), from the join's `findings_pending` path, and from the replan entries `plan.revise-tasks`, `outline.route-review`, `execute.replan` and `finalize.replan`.
+`init.light-gate` routes `pass` into the light lane.
+`INV-INIT-2` requires every `light -> deep` ratchet transition of the default unit to be present, and Rule 2 refuses an outcome left unrouted; pruning a state removes every transition into it but never re-routes the outcome that led there.
+The DSL marks no state with a lane, and the prune reasons have none for the other lane.
+
+== Decision
+
+* This package prunes no lane route. The composer composes the `outline` version like any other; a `deep` instance keeps the `light` route.
+* The lane is recorded in the header (`lane`).
+* The work is moved to the work package `doc/plans/lane-route-pruning.adoc`, which opens with a discussion of the current design, its limitations and the next steps before any implementation.
+
+== Alternatives Considered
+
+1. *(A) A lane clause in the DSL* marking each state with its lane.
+_Rejected_: the widest change, a grammar, AST and verifier change for one prune.
+2. *(B) Plain reachability* from the chosen lane's entry over all transitions, the escalation included.
+_Rejected_: it prunes nothing. The shared router `outline.route-rework` reaches the light lane from the deep route, as do the join's `findings_pending` path and the replan entries, so the reach of each lane contains the other.
+3. *(B') Reachability that ignores an outcome by its name* (`light`, `deep`).
+_Rejected_: a special case of outcome names the language does not have.
+4. *Folding the routers by lane* (taking only the router outcome of the plan's lane).
+_Rejected_: it cuts the `light -> deep` escalation through `outline.detect-change-type`, which `INV-INIT-2` requires.
+5. *(C) A composition rule over the lane fact*: `lane` = `deep` prunes `outline.light` and `outline.light-regate` with a new reason `other_lane`.
+_Rejected_ after it was built: the version fails Rule 2 (the outcomes `init.light-gate` `pass` and `outline.route-rework` `light` are left unrouted) and `INV-INIT-2` (the ratchet transitions of `init.light-gate` and `outline.light-regate` are missing).
+6. *A symmetric prune with a new composition event.*
+_Rejected_: it needs engine support that does not exist, and a new event in the closed set.
+
+== Consequences
+
+* The specification sentence of the `outline` event states more than the code does until the follow-up package corrects it or implements it.
+* The follow-up package starts from the operator's model: escalation is an ordinary outcome of the light lane. That works once the default plan unit has per-lane rework and replan routes instead of shared lane-reading routers, and `INV-INIT-2`'s ratchet clause is reworded per lane; then plain reachability from the chosen lane's entry prunes correctly, with a prune reason for the other lane.
+* The developer guide of `workflow.plan` lists lane-route pruning under its limitations.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events (`outline`)
+* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.route-rework[State Catalogue, `outline.route-rework`], link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.light-regate[`outline.light-regate`]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model], compiled invariant `INV-INIT-2`
+* `doc/plans/plan-instance.adoc`; follow-up `doc/plans/lane-route-pruning.adoc`; operator decision during execution (split into a follow-up work package)

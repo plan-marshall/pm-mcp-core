@@ -1,0 +1,35 @@
+= ADR 010: The Instance Resources Are Bound in `pm-mcp-server`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification exposes the instance as the read-only resources `pm://plan/{plan_id}/instance[/{version}]` and `pm://plan/{plan_id}/diagram`, and through `pm-operator status`.
+No module of this repository may depend on an MCP library, Quarkus or CDI; the resource bindings of the daemon live in `pm-mcp-server` in `plan-marshall-mcp`.
+
+== Decision
+
+* `workflow.plan` provides what a resource returns: `PlanInstanceStore.readVersion`, the header model and the rendering of `WorkflowDiagramGenerator.renderInstance*`.
+* The URIs, their binding and the operator command are left to `pm-mcp-server` and the operator CLI.
+
+== Alternatives Considered
+
+1. *Bind the resources here.*
+_Rejected_: it would need an MCP library, which the dependency rules of this repository forbid.
+
+== Consequences
+
+* Which version is in force, and so which one the `instance` and `diagram` resources show, is decided by the engine and the assembly, not by this package.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Header
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
+* `doc/plans/plan-instance.adoc`; operator decision at refine (resource URI bindings in `pm-mcp-server`)

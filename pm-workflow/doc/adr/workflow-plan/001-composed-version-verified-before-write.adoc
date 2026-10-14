@@ -1,0 +1,44 @@
+= ADR 001: A Composed Version Is Verified in Full Before Anyone May Write It
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A plan instance version is immutable once written, and the engine executes the version in force.
+The specification requires every version to verify against Rules 1-12 and the compiled invariants, and to contain the current state and every call-stack state; a version that fails is never written.
+The composition prunes template elements, which can leave an outcome unrouted or remove a transition an invariant requires, so a version that the template passes can still fail.
+
+== Decision
+
+* `PlanInstanceComposer.compose` checks every version before it returns it as `CompositionResult.Composed`, in this order: the position rule first; then `HeaderSchemaCheck`, the static verification Rules 1-12 (`WorkflowValidator` over the compiled units and the request's sub-units, without a released baseline), `FinalizePipelineValidator` over the default descriptors of the kept Phase 6 steps, and `CompiledInvariants` against the verified default units passed to the constructor.
+* The position rule is checked first and alone: a version without the plan's position is refused before the other checks run.
+* The other checks all run, and every violation they find is reported; a violation an invariant only re-reports from Rules 1-12 is dropped.
+* `PlanInstanceStore` accepts a version only through `recordComposed`, which takes a `PlanInstance`; nothing else of the package produces one.
+
+== Alternatives Considered
+
+1. *Verify in the store at write time.*
+_Rejected_: the store writes through the caller's transaction and would then need the registries, the default units and the roster; the composer already holds them, and a refusal must be known before the caller decides what to write.
+2. *Stop at the first violation.*
+_Rejected_: the operator needs every reason a version is refused to fix the configuration or the waiver that caused it.
+
+== Consequences
+
+* Only a verified version can be written; a refused attempt is recorded by its log line alone.
+* The composer needs the `VerificationContext`, the default units and the default finalize roster at construction; the assembly supplies them.
+* Rules 13 and 14 are not part of the checks (ADR 007).
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events items 2 and 3
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Invariants per Version and Position Rule
+* `doc/plans/plan-instance.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java`

@@ -1,0 +1,46 @@
+= ADR 011: The Plan Instance Renders in All Three Forms From Its Header Annotations
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification requires the generator to render each plan's instance in force: the active state, the pruned steps with their reason, the waived gates with their waiver id.
+The pruned elements are absent from the composed unit, so they cannot be drawn as its states.
+The unit forms are pure, byte-stable functions of a unit behind the one public facade `WorkflowDiagramGenerator` (ADR 001), and Mermaid has no table, so not every header value fits a state diagram.
+
+== Decision
+
+1. `WorkflowDiagramGenerator` gains `renderInstanceMermaid`, `renderInstanceAsciiDocTables` and `renderInstanceAscii`, each taking a `PlanInstance` and an optional active state; an active state the instance does not have, a pruned one included, is refused with `IllegalArgumentException`.
+2. Each form draws the composed unit through the renderer of its unit form, unchanged, and adds the annotations beside it; the package-private renderers `InstanceMermaidRenderer`, `InstanceAsciiDocTableRenderer` and `InstanceAsciiTableRenderer` keep the generator the only public type.
+3. The annotations are derived once from the header by the package-private `InstanceAnnotations`, so the three forms name the title `plan <plan_id> v<N> (<event>)`, every pruned element (element, id, reason, source fact) and every waived gate (gate, waiver id) in the same words, in header order.
+4. The waived gates get a block of their own in every form, separate from the pruned elements; a block is emitted only when the header lists an entry.
+5. The two table forms name the lane and the posture; Mermaid omits them and shows the active state by its style alone.
+6. The Mermaid annotation composites take identifiers (`instance_pruned`, `instance_waived`, with `_<n>`) that no state, transition target or phase composite of the unit can hold.
+
+== Alternatives Considered
+
+1. *The Mermaid form only.*
+_Rejected_ by the operator: the table forms are the ones the documentation and the terminal read, and the header values the diagram cannot hold belong in a table.
+2. *Mark the waived gates on the gate state of the unit.*
+_Rejected_: it would change the unit part of the form, which then no longer equals the unit form of the composed unit.
+3. *Lane and posture as a Mermaid note.*
+_Rejected_: a note attaches to a state; the values belong to the instance, not to a state.
+
+== Consequences
+
+* The unit golden files are unchanged; the fixture instance has its own golden files `instance-fixture.mmd`, `.adoc` and `.txt`.
+* The read-only resource that serves the instance in force is bound in `pm-mcp-server` (`workflow-plan` ADR 010).
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
+* `doc/plans/plan-instance.adoc`; operator decision at outline (all three forms)
+* `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java`

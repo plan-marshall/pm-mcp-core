@@ -1,0 +1,39 @@
+= ADR 009: A Sub-Unit Text Is Stored Once per Digest
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The instance header lists every sub-unit a version binds by id and digest.
+The specification keeps the verified text of each as `mcp/units/<digest>.pmwf` in the plan directory, content-addressed, written once and never rewritten, so a running plan is not affected by a later change of the project copy.
+Consecutive versions mostly bind the same sub-units.
+
+== Decision
+
+* `PlanInstanceStore.recordComposed` takes the verified texts as `SubUnitText`, checks that each matches its digest and that every sub-unit the header names has a text, and stages `mcp/units/<digest>.pmwf` only for a digest that has no file yet, in the transaction of the version.
+* An existing file is never rewritten; `readSubUnit(digest)` returns the stored text.
+
+== Alternatives Considered
+
+1. *One copy per version.*
+_Rejected_: identical texts would be stored again with every version; the digest already identifies the text.
+2. *Keep only the reference and read the project copy.*
+_Rejected_: the project copy can change while the plan runs; the specification requires the verified text.
+
+== Consequences
+
+* Two versions that bind the same text share one file; a changed text has a new digest and a new file.
+* The engine's read of the stored text instead of the project copy, while a version naming it is in force, is outside this package.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Sub-Units
+* `doc/plans/plan-instance.adoc`; operator decision at outline review (sub-unit store added)
+* `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java`

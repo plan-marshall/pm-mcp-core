@@ -1,0 +1,41 @@
+= ADR 002: A Refused Composition Is a Value With a Closed Reason
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A composition can be refused for two reasons the specification names: the version does not contain the current state or a call-stack state (`position_not_contained`), or it breaks a verification rule, a compiled invariant or the header schema.
+A refusal is an expected answer to a configuration or waiver change, and the composition log records it with its reason in `cause.refusal`; the version in force stays.
+
+== Decision
+
+* `PlanInstanceComposer.compose` returns the sealed `CompositionResult`: `Composed` with the version, or `Refused` with a `Refusal` and every violation as one line.
+* `Refusal` is closed: `POSITION_NOT_CONTAINED` (`position_not_contained`) and `INVARIANT_FAILED` (`invariant_failed`), the wire names of `cause.refusal`.
+* The same holds below the composer: `HeaderSchemaCheck` returns `HeaderViolation` values, and `CompositionRules.parse` returns `Loaded` or `Refused`.
+* Only a malformed call throws: a `null` argument, or a `CompositionRequest` whose event does not fit its previous version.
+
+== Alternatives Considered
+
+1. *An exception per refusal.*
+_Rejected_: every caller would have to catch what it must record in the composition log anyway, and a refusal is no fault of the caller.
+2. *One reason per check* (header, rule, pipeline, invariant).
+_Rejected_: the log schema names two refusals; the violation lines already say which check failed.
+
+== Consequences
+
+* `PlanInstanceStore.recordAttempt` records a refusal as a log line with result `refused` and logs `PM_WORKFLOW-101`.
+* A refusal reason added later is a member of `Refusal` with its wire name, and of the log schema.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Position Rule and Composition Log
+* Watch item PM-WATCH-STORE-41 (Store Schemas), implemented by this package
+* `doc/plans/plan-instance.adoc`

@@ -1,0 +1,41 @@
+= ADR 005: Facts, Configuration and Waivers Are Input Values
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A composition reads the facts of the plan, the effective configuration and the waivers in force.
+The specification requires that facts are never duplicated: they stay where they are owned, and the instance header names them by digest.
+The stores that own them (status, configuration, waivers) are written by other packages, partly not yet built.
+
+== Decision
+
+* `CompositionRequest` carries every input as a value: `PlanFacts` (the plan facts and the effective configuration by key), the configuration hash, the optional footprint and provider digests, the `Waiver` list, the `InstancePosition` and the version in force.
+* `PlanFacts.digest()` is the header's `plan_facts_digest`; an absent fact is unknown, and a rule over it holds only when it asks whether the fact is unset.
+* Nothing in `workflow.plan` reads a store of the plan to compose an instance; the caller reads the owners and builds the request.
+
+== Alternatives Considered
+
+1. *The composer reads the stores itself.*
+_Rejected_: it would couple the composition to stores of other packages and make every composition test a store test.
+2. *Copy the facts into the header.*
+_Rejected_: the specification forbids duplicated facts; the header names them by digest.
+
+== Consequences
+
+* The composer is a pure function of its request and the rules, apart from the clock of `composed_at`.
+* The caller is responsible for reading a consistent set of facts for one composition.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* link:../../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
+* link:../../../../../plan-marshall-documentation/doc/specification/domain-extensions/06-configuration.adoc[Domain Extensions § Configuration]
+* `doc/plans/plan-instance.adoc`; operator decision at refine (facts, configuration and waivers as input values)
