@@ -478,9 +478,9 @@ class WorkflowDiagramGeneratorTest {
                     List.of(new PrunedElement(PrunedElement.Kind.STEP, "default:\"quoted\"\nstep",
                             PruneReason.LOCAL_ONLY, "fact #1;\r\nline")),
                     List.of(), List.of(new WaivedGate("gate \"x\"\nnext", "W-1")));
-            var instance = new PlanInstance(fixture.version(), hostile, fixture.unit(), fixture.text());
+            var hostileLabels = new PlanInstance(fixture.version(), hostile, fixture.unit(), fixture.text());
 
-            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(instance, Optional.empty());
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(hostileLabels, Optional.empty());
 
             assertAll(
                     () -> assertTrue(rendered.contains("state \"step default:#quot;quoted#quot; step: local_only "
@@ -490,6 +490,37 @@ class WorkflowDiagramGeneratorTest {
                     () -> assertTrue(rendered.lines().filter(line -> line.contains(" as instance_"))
                                     .allMatch(line -> line.chars().filter(character -> character == '"').count() == 2),
                             rendered));
+        }
+
+        @Test
+        @DisplayName("Should write the front matter title as a YAML double-quoted scalar, a colon kept, a backslash "
+                + "and a double quote escaped")
+        void shouldQuoteFrontMatterTitle() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId("a: \"b\" \\c"),
+                    Optional.empty());
+
+            assertEquals("---\ntitle: \"plan a: \\\"b\\\" \\\\c v3 (plan)\"\n---\n", frontMatter(rendered),
+                    rendered);
+        }
+
+        @Test
+        @DisplayName("Should quote a plain title without escaping anything in it")
+        void shouldQuotePlainTitle() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(withPlanId("plain-plan"), Optional.empty());
+
+            assertEquals("---\ntitle: \"plan plain-plan v3 (plan)\"\n---\n", frontMatter(rendered), rendered);
+        }
+
+        private PlanInstance withPlanId(String planId) {
+            var header = instance.header();
+            var renamed = new PlanInstanceHeader(planId, header.version(), header.event(), header.composedAt(),
+                    header.inputs(), header.lane(), header.posture(), header.steps(), header.pruned(),
+                    header.policyCalls(), header.waivedGates());
+            return new PlanInstance(instance.version(), renamed, instance.unit(), instance.text());
+        }
+
+        private static String frontMatter(String rendered) {
+            return rendered.substring(0, rendered.indexOf("stateDiagram-v2"));
         }
 
         @Test

@@ -63,7 +63,7 @@ public final class PlanInstanceStore {
      * @throws IllegalArgumentException if the scope is no plan scope
      */
     public PlanInstanceStore(JournalScope scope) {
-        this.scope = Objects.requireNonNull(scope, "scope");
+        this.scope = Objects.requireNonNull(scope, "the scope");
         if (scope.type() != JournalScopeType.PLAN) {
             throw new IllegalArgumentException("the plan instance lives in a plan scope, not " + scope.type());
         }
@@ -89,22 +89,23 @@ public final class PlanInstanceStore {
      * Records a composed version in the transaction: its text, the text of every sub-unit its header names whose
      * digest has no file yet, and its log line.
      *
-     * @param transaction the open transaction of the plan
-     * @param instance    the composed version
-     * @param texts       the verified texts of the sub-units; every sub-unit the header names needs its text
-     * @param record      the log line of the composition
-     * @throws IllegalArgumentException if the record is not the composed record of the version (its result, version,
-     *                                  event, trigger and input digests are those of the version), a text does not
-     *                                  match its digest, or a sub-unit the header names has no text; nothing was recorded
+     * @param transaction       the open transaction of the plan
+     * @param instance          the composed version
+     * @param texts             the verified texts of the sub-units; every sub-unit the header names needs its text
+     * @param compositionRecord the log line of the composition
+     * @throws IllegalArgumentException if the composition record is not the composed record of the version (its
+     *                                  result, version, event, trigger and input digests are those of the version), a
+     *                                  text does not match its digest, or a sub-unit the header names has no text;
+     *                                  nothing was recorded
      * @throws IllegalStateException    if the version file exists already; nothing was recorded
      * @throws UncheckedIOException     if a directory of the plan cannot be created
      */
     public void recordComposed(ScopeTransaction transaction, PlanInstance instance, List<SubUnitText> texts,
-            CompositionRecord record) {
-        Objects.requireNonNull(transaction, "transaction");
-        Objects.requireNonNull(instance, "instance");
-        Objects.requireNonNull(record, "record");
-        if (!recordsComposition(record, instance)) {
+            CompositionRecord compositionRecord) {
+        Objects.requireNonNull(transaction, "the transaction");
+        Objects.requireNonNull(instance, "the instance");
+        Objects.requireNonNull(compositionRecord, "the composition record");
+        if (!recordsComposition(compositionRecord, instance)) {
             throw new IllegalArgumentException("the record does not record the composition of version "
                     + instance.version());
         }
@@ -133,7 +134,7 @@ public final class PlanInstanceStore {
         transaction.replace(versionPath, instance.text().getBytes(StandardCharsets.UTF_8));
         named.stream().map(UnitReference::digest).distinct().filter(digest -> !exists(subUnitPath(digest)))
                 .forEach(digest -> transaction.replace(subUnitPath(digest), byDigest.get(digest).bytes()));
-        transaction.append(COMPOSITION_LOG, line(record));
+        transaction.append(COMPOSITION_LOG, line(compositionRecord));
         LOGGER.info(INFO.PLAN_INSTANCE_VERSION_RECORDED, instance.version(), scope.scopeId(),
                 instance.header().event().wireName());
     }
@@ -141,22 +142,22 @@ public final class PlanInstanceStore {
     /**
      * Records a composition attempt that composed no version, its log line only.
      *
-     * @param transaction the open transaction of the plan
-     * @param record      the log line of the attempt
-     * @throws IllegalArgumentException if the record is the record of a composed version
+     * @param transaction       the open transaction of the plan
+     * @param compositionRecord the log line of the attempt
+     * @throws IllegalArgumentException if the composition record is the record of a composed version
      * @throws UncheckedIOException     if the directory of the log cannot be created
      */
-    public void recordAttempt(ScopeTransaction transaction, CompositionRecord record) {
-        Objects.requireNonNull(transaction, "transaction");
-        Objects.requireNonNull(record, "record");
-        if (record.result() == CompositionRecord.Result.COMPOSED) {
+    public void recordAttempt(ScopeTransaction transaction, CompositionRecord compositionRecord) {
+        Objects.requireNonNull(transaction, "the transaction");
+        Objects.requireNonNull(compositionRecord, "the composition record");
+        if (compositionRecord.result() == CompositionRecord.Result.COMPOSED) {
             throw new IllegalArgumentException("a composed version is recorded with its text");
         }
         createDirectory(INSTANCE_DIRECTORY);
-        transaction.append(COMPOSITION_LOG, line(record));
-        if (record.result() == CompositionRecord.Result.REFUSED) {
-            LOGGER.warn(WARN.PLAN_INSTANCE_COMPOSITION_REFUSED, record.event().wireName(), scope.scopeId(),
-                    record.cause().flatMap(CompositionCause::refusal).map(CompositionResult.Refusal::wireName)
+        transaction.append(COMPOSITION_LOG, line(compositionRecord));
+        if (compositionRecord.result() == CompositionRecord.Result.REFUSED) {
+            LOGGER.warn(WARN.PLAN_INSTANCE_COMPOSITION_REFUSED, compositionRecord.event().wireName(),
+                    scope.scopeId(), compositionRecord.cause().flatMap(CompositionCause::refusal).map(CompositionResult.Refusal::wireName)
                             .orElse("unknown"));
         }
     }
@@ -179,18 +180,21 @@ public final class PlanInstanceStore {
         return read(subUnitPath(digest));
     }
 
-    /** The record is the composed record of the version: its result, version, event, trigger and input digests. */
-    private static boolean recordsComposition(CompositionRecord record, PlanInstance instance) {
+    /**
+     * The composition record is the composed record of the version: its result, version, event, trigger and input
+     * digests.
+     */
+    private static boolean recordsComposition(CompositionRecord compositionRecord, PlanInstance instance) {
         var header = instance.header();
-        return record.result() == CompositionRecord.Result.COMPOSED
-                && record.version().equals(Optional.of(instance.version()))
-                && record.event() == header.event()
-                && record.trigger() == header.event().trigger()
-                && record.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()));
+        return compositionRecord.result() == CompositionRecord.Result.COMPOSED
+                && compositionRecord.version().equals(Optional.of(instance.version()))
+                && compositionRecord.event() == header.event()
+                && compositionRecord.trigger() == header.event().trigger()
+                && compositionRecord.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()));
     }
 
-    private static byte[] line(CompositionRecord record) {
-        return (record.toJson() + "\n").getBytes(StandardCharsets.UTF_8);
+    private static byte[] line(CompositionRecord compositionRecord) {
+        return (compositionRecord.toJson() + "\n").getBytes(StandardCharsets.UTF_8);
     }
 
     private boolean exists(String path) {

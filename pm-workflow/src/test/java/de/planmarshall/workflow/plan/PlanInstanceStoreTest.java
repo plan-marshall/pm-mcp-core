@@ -172,10 +172,10 @@ class PlanInstanceStoreTest {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
-                var record = CompositionRecord.composed(instance, COMPOSED_AT);
+                var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
                 var texts = texts();
                 assertThrows(IllegalStateException.class, () -> store.recordComposed(transaction, instance, texts,
-                        record));
+                        compositionRecord));
             }
             assertEquals(Optional.of(instance.text()), store.readVersion(1));
         }
@@ -211,7 +211,7 @@ class PlanInstanceStoreTest {
                     Optional.empty(), digests, COMPOSED_AT);
         }
 
-        private void assertRefused(CompositionRecord record) {
+        private void assertRefused(CompositionRecord compositionRecord) {
             var instance = version1();
             var texts = texts();
 
@@ -221,7 +221,7 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, texts, record)),
+                                () -> store.recordComposed(transaction, instance, texts, compositionRecord)),
                         () -> assertFalse(Files.exists(scope.resolve("instance"))));
             }
         }
@@ -281,7 +281,7 @@ class PlanInstanceStoreTest {
 
         @Test
         @DisplayName("a refused composition writes its line and no version or sub-unit file, and is logged")
-        void refusedWritesOnlyItsLine() throws Exception {
+        void refusedWritesOnlyItsLine() {
             committed(transaction -> store.recordAttempt(transaction, attempt(CompositionRecord.Result.REFUSED,
                     Optional.of(CompositionCause.refused(CompositionResult.Refusal.INVARIANT_FAILED)))));
 
@@ -382,7 +382,7 @@ class PlanInstanceStoreTest {
         @DisplayName("a text that does not match its digest, or a missing text, is refused before any write")
         void refusedBeforeWrite() {
             var instance = version1();
-            var record = CompositionRecord.composed(instance, COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
             var reference = texts().getFirst().reference();
             var wrong = List.of(new SubUnitText(reference, "workflow other version 1 format 1\n"),
                     texts().get(1));
@@ -394,9 +394,9 @@ class PlanInstanceStoreTest {
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
                 assertAll(
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, wrong, record)),
+                                () -> store.recordComposed(transaction, instance, wrong, compositionRecord)),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> store.recordComposed(transaction, instance, missing, record)),
+                                () -> store.recordComposed(transaction, instance, missing, compositionRecord)),
                         () -> assertFalse(Files.exists(scope.resolve("instance"))),
                         () -> assertThrows(IllegalStateException.class, transaction::commit));
             }

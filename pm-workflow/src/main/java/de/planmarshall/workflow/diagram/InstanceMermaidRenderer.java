@@ -22,7 +22,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * Instance, Display).
  * <p>
  * The diagram opens with a front matter whose {@code title} is the title of the instance
- * ({@link InstanceAnnotations#title()}), followed by the diagram of the composed unit exactly as
+ * ({@link InstanceAnnotations#title()}) written as a YAML double-quoted scalar, a backslash and a double quote escaped
+ * with a backslash, followed by the diagram of the composed unit exactly as
  * {@link MermaidRenderer} draws it, the active state styled {@code active}. Below the unit come, each only when the
  * header lists one, a composite state {@code pruned} with one state per pruned element, described as
  * {@link InstanceAnnotations.Pruned#describe()}, and a composite state {@code waived gates} with one state per waived
@@ -56,7 +57,7 @@ final class InstanceMermaidRenderer {
      */
     static String render(WorkflowDefinition unit, InstanceAnnotations annotations) {
         var out = new StringBuilder();
-        out.append("---\n").append("title: ").append(annotations.title()).append('\n').append("---\n");
+        out.append("---\n").append("title: ").append(yamlQuoted(annotations.title())).append('\n').append("---\n");
         out.append(MermaidRenderer.render(unit, annotations.activeState()));
         var identifiers = Identifiers.of(unit);
         composite(out, identifiers, "pruned", "instance_pruned", annotations.pruned(),
@@ -90,8 +91,13 @@ final class InstanceMermaidRenderer {
         return InstanceAnnotations.singleLine(text.replace("#", "#35;").replace("\"", "#quot;"));
     }
 
-    private static String preferred(String name) {
-        return name.replace('.', '_').replace('-', '_');
+    /**
+     * Writes the title as a YAML double-quoted scalar, so a {@code ": "} or a leading YAML indicator in it never
+     * breaks the front matter: a backslash becomes {@code \\} and a double quote {@code \"}. The title is one line
+     * already ({@link InstanceAnnotations#title()}), so no other character needs an escape.
+     */
+    static String yamlQuoted(String text) {
+        return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     /**
@@ -119,6 +125,11 @@ final class InstanceMermaidRenderer {
             unit.states().values().forEach(state -> phases.add(state.phase()));
             phases.forEach(phase -> preferredForms.add(PHASE_PREFIX + preferred(phase)));
             return new Identifiers(preferredForms, names.size() + phases.size() + 1, new HashSet<>());
+        }
+
+        /** The identifier the unit's diagram prefers for a name: dots and hyphens become underscores. */
+        private static String preferred(String name) {
+            return name.replace('.', '_').replace('-', '_');
         }
 
         String allocate(String preferred) {
