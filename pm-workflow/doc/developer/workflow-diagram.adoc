@@ -147,7 +147,7 @@ An active state that is no state of the instance, a pruned state included, is re
 |Form |What it adds to the unit
 
 |Mermaid
-|A front matter titled `plan <plan_id> v<N> (<event>)`; below the unit a composite state `pruned` with one state per pruned element (`<element> <id>: <reason> (<source_fact>)`) and a composite state `waived gates` with one state per waived gate (`<gate>: waived <waiver_id>`), each only when the header lists one. The active state is styled `active`. The identifiers `instance_pruned`, `instance_pruned_<n>`, `instance_waived`, `instance_waived_<n>` pass over every identifier the unit's diagram could use by the next free `_<n>`. Lane and posture are not shown.
+|A front matter whose `title` is `plan <plan_id> v<N> (<event>)`, written as a YAML double-quoted scalar; below the unit a composite state `pruned` with one state per pruned element (`<element> <id>: <reason> (<source_fact>)`) and a composite state `waived gates` with one state per waived gate (`<gate>: waived <waiver_id>`), each only when the header lists one. The active state is styled `active`. The identifiers `instance_pruned`, `instance_pruned_<n>`, `instance_waived`, `instance_waived_<n>` pass over every identifier the unit's diagram could use by the next free `_<n>`. Lane and posture are not shown.
 
 |AsciiDoc tables
 |A table `Instance <title>` with plan, version, composition event, lane, posture and active state before the unit tables; after them a table of the pruned elements (element, id, reason, source fact) and a table of the waived gates (gate, waiver id), each only when the header lists one.
@@ -159,8 +159,9 @@ An active state that is no state of the instance, a pruned state included, is re
 The text of a label or cell, a plan id, a pruned element, a source fact, a gate or a waiver id, comes from the header and may hold any character, so every form makes it safe for the place that holds it, and a line break (a line feed, a carriage return or both, any other Unicode line terminator, and any other Unicode control character, that is the general category Cc: the C0 controls, DEL and the C1 controls U+0080 to U+009F) becomes one space in all three:
 
 * Mermaid: in the label of a state a `#` becomes the entity `+#35;+` (so text that looks like an entity stays text) and a double quote the entity `+#quot;+`.
+The front matter `title` is written as a YAML double-quoted scalar, `title: "<text>"`, with a backslash written as `+\\+` and a double quote as `+\"+`, so a title that holds `: ` or begins with a YAML indicator keeps the front matter well-formed; the title is one line already, so no other character needs an escape.
 * AsciiDoc tables: a `|` is escaped as `\|` so that it never starts the next cell, and the line break that would end the table early becomes a space.
-* Terminal tables: only the line break is replaced, so that no cell leaves its line and the right border stays aligned.
+* Terminal tables: nothing is escaped; every line break and every other Unicode control character is replaced by a single space, so that no cell leaves its line and the right border stays aligned.
 
 The replacement is one function, `InstanceAnnotations.singleLine`, which the three forms share, and it applies to the title of the instance as well.
 
@@ -169,7 +170,7 @@ The excerpt below is copied from the golden file `instance-fixture.mmd` of the f
 [source,text]
 ----
 ---
-title: plan diagram-fixture v3 (plan)
+title: "plan diagram-fixture v3 (plan)"
 ---
 stateDiagram-v2
 ...
@@ -238,7 +239,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 == Testing
 
 * `WorkflowDiagramGeneratorTest` compares each form of the fixture unit with its golden file byte for byte, renders twice, checks the line endings, the active state, the refusal of an unknown one, the task-state rows, the `role each` label, every parameter type of the link table and the distinct Mermaid aliases of colliding state names, of a composite whose alias a state holds and of an undeclared target.
-* The same test compares each instance form of the fixture instance with its golden file (`instance-fixture.mmd`, `.adoc`, `.txt`), checks that the three forms name the same pruned elements and waived gates, the active state, the refusal of an unknown or pruned active state, an instance without annotations, and annotation identifiers that collide with the unit's; the unit-form golden files are unaffected.
+* The same test compares each instance form of the fixture instance with its golden file (`instance-fixture.mmd`, `.adoc`, `.txt`), checks that the three forms name the same pruned elements and waived gates, the active state, the refusal of an unknown or pruned active state, an instance without annotations, annotation identifiers that collide with the unit's, and the quoted front matter title of a plan id with a colon, a double quote and a backslash beside a plain-title control; the unit-form golden files are unaffected.
 * `StateKindTest` maps each variant of `StateBehavior`, a plain and a composite job apart, to its kind label.
 * `DiagramFixtures` parses the fixture unit and verifies it with `WorkflowValidator` before any test renders it, with the primitives, the entity kind `change` and the called sub-workflow `diagram.callee` registered in the test package.
 

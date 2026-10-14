@@ -47,7 +47,7 @@ The canonical JSON form of the header is written and read by the package-private
 === Composition and storage
 
 [horizontal]
-`CompositionRequest`:: Everything one composition reads, as values: plan id, event, merged template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one.
+`CompositionRequest`:: Everything one composition reads, as values: plan id, event, merged template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one. The event and the `post_run` fact of the facts agree: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, every other event leaves the fact unset.
 `Waiver`:: A waiver in force: `met` marks its gate waived, `raise` names `<argument>:<policy>` and the new ceiling.
 `InstancePosition`:: The current state and the calling state of every call-stack frame.
 `PlanInstanceComposer`:: `compose(request)` returns a `CompositionResult`. Constructed with the `VerificationContext`, the verified default units, the default finalize roster, the rules and a `Clock`.
@@ -108,6 +108,7 @@ The composer reads no store and writes nothing; Rules 13 and 14 are not checked.
 
 The composer composes a version for every event the same way: the event decides the version number and is written to the header, and the rules decide what is pruned.
 Event-specific effects are expressed through the facts: the post-run-only forms of `fallback` and `empty_harvest` come from the fact `post_run`, whose rules prune every Phase 6 step below order 900.
+`CompositionRequest` refuses a request whose event and `post_run` fact disagree, with an `IllegalArgumentException` naming the event and the fact: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, and every other event has no `post_run` fact.
 When a composed version comes into force, server events for the rest of their chain and operator events from the next transition, is the engine's concern, not this package's.
 
 === Limitations
@@ -156,6 +157,12 @@ A recorded version logs `PM_WORKFLOW-002` (INFO), a refused attempt `PM_WORKFLOW
 The header line is canonical JSON: one line, UTF-8, members sorted by name, no insignificant whitespace, every schema member present with an absent optional value as `null`.
 Re-serialising an unchanged header gives the same bytes and so the same digest.
 
+The store checks the composition record against the version, but it does not repeat the verification (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]).
+`PlanInstance` is a public record with a public canonical constructor, so a value can be built without the composer; the caller of `recordComposed` owns passing only a version the composer returned as `CompositionResult.Composed`.
+
+When the reader maps an integral header number to an `int` (the `version` and an integral policy-argument value), it checks the magnitude before the exact conversion.
+A number such as `1e999999999` is held as a mantissa and an exponent, and converting it would allocate every one of its digits; it is refused as out of range (`Instance header refused: '<name>' is out of range: <value>`) without that allocation.
+
 == The Rule File
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]_
@@ -191,7 +198,8 @@ The targets of the provider, footprint, change-type and recipe rules are derived
 . Add the rule to `composition-rules.json` and raise its `revision`; the digest changes with the bytes.
 . A new fact name must be registered: a new plan fact in `PlanFacts` (its component, its name constant and `PLAN_FACT_NAMES`), or a configuration key the rules already admit.
 . A new prune reason is a constant of `PruneReason` and a value of the header schema's enumeration; the schema is corrected in the documentation repository first.
-. A rule never adds an element, never binds `retry_budget`, `fix_budget` or `waiver_wait_seconds`, and never names a gate; `CompositionRules` refuses such a file with `ADDS_ELEMENT`, `RAISES_BUDGET` or `NAMES_GATE`.
+. A rule never adds an element, never binds a budget parameter of the remediation schema (`retry_budget`, `fix_budget`, `waiver_wait_seconds`), and never names a gate; `CompositionRules` refuses such a file with `ADDS_ELEMENT`, `RAISES_BUDGET` or `NAMES_GATE`.
+The refused budget parameters are not listed in this package: `CompositionRules` reads them from their one definition, `CompiledInvariants.remediationBudgetParameters()` of `workflow.verify`, which the remediation invariants (`INV-REM-1`, `INV-REM-5`) use as well, so a budget parameter added to the schema is refused by the rule file check without a second edit.
 . Add a positive case and a matched negative control to `CompositionRuleEvaluatorTest`, and the rule's shape to `CompositionRulesTest`.
 
 == Invariants
@@ -200,7 +208,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 . *Never adds.* The composition only removes or rebinds what the template declares; it adds no state, link, transition or argument.
 . *Values in, values out.* Facts, configuration and waivers arrive as values (link:../adr/workflow-plan/005-facts-configuration-and-waivers-as-input-values.adoc[ADR 005]); the composer reads no store; a refusal is a value.
-. *Verified before written.* Only a `Composed` version reaches the store; a refused attempt writes its log line only.
+. *Verified before written.* The composer is the only code of the package that composes a version and verifies it, and a refused attempt writes its log line only. `recordComposed` re-checks the composition record against the version but not the verification; its caller owns passing only a version the composer returned as `CompositionResult.Composed` (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]).
 . *Write-once.* A version file and a sub-unit file are never rewritten.
 . *Reproducible header.* The same header always gives the same bytes and the same digest; the schema is checked in code in full (link:../adr/workflow-plan/006-header-schema-checked-in-code.adoc[ADR 006]).
 . *Ordered, not sorted.* Pruned elements follow rule order, policy calls the declaration order of the states, waived gates the order of the waivers.
@@ -219,8 +227,11 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |The version breaks the header schema, a rule, the finalize pipeline or a compiled invariant
 |`Refused(invariant_failed)` with every violation.
 
-|`start` with a previous version, another event without one, a previous version of another plan
+|`start` with a previous version, another event without one, a previous version of another plan, an event and a `post_run` fact that disagree
 |`IllegalArgumentException` from `CompositionRequest`.
+
+|A header integer whose magnitude no `int` reaches, such as `1e999999999`
+|`IllegalArgumentException` (out of range) from the header reader, before the number is expanded.
 
 |The rule file is unreadable or breaks its shape
 |`CompositionRules.Refused` with the `Refusal` and a detail.
@@ -244,9 +255,9 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/12-
 
 * `PlanInstanceHeaderTest`: canonical JSON (sorted members, byte-identical re-serialisation and digest), round trip, reading refusals, wire names and value semantics.
 * `HeaderSchemaCheckTest`: a valid header, one violation per constraint, malformed text.
-* `CompositionRulesTest`: the shipped file (one rule per family, floor immunity), the rule shape and each refusal.
+* `CompositionRulesTest`: the shipped file (one rule per family, floor immunity), the rule shape and each refusal, a binding of every budget parameter `CompiledInvariants.remediationBudgetParameters()` names included.
 * `CompositionRuleEvaluatorTest`: lanes, configuration, posture, the four families with a matched negative control each, the post-run forms, evaluation order and the plan facts.
-* `PlanInstanceComposerTest`: the composed version, one version per event with its number, the rules, the waivers, and the refusals (position rule, invariant failure).
+* `PlanInstanceComposerTest`: the composed version, one version per event with its number, the agreement of the event and the `post_run` fact (a matched positive and negative control per arm), the rules, the waivers, and the refusals (position rule, invariant failure).
 * `PlanInstanceStoreTest`: write-once versions, one log line per attempt, sub-unit texts stored once per digest.
 * `PlanFixtures` builds the requests over the plan template `plan/plan-template-fixture.pmwf`, written for these tests, with the sub-units and registries of `InvariantFixtures`; its facts make no shipped rule hold. The invariant refusal is driven by `merge.auto_merge=false`, which prunes `finalize.merge-dispatch` and leaves the outcome of `finalize.merge-gate` unrouted.
 
