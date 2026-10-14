@@ -213,7 +213,7 @@ public final class AuditHead implements AuditAnchor {
             case Previous.Unverifiable _ -> Optional.of(HEAD_UNVERIFIABLE);
             case Previous.Verifying(var anchored) -> anchored.indexHeadHash().equals(indexSnapshot.headHash())
                     && holdsAnchoredLine(log.read(transaction).lines(), anchored) ? Optional.empty()
-                            : Optional.of(ANCHORED_LINE_MISSING);
+                    : Optional.of(ANCHORED_LINE_MISSING);
         };
     }
 
