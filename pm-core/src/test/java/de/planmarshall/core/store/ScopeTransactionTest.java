@@ -628,7 +628,7 @@ class ScopeTransactionTest {
 
         @Test
         @DisplayName("of one store by two transactions of one lock transaction commits the first and refuses the second")
-        void interleavedTransactions() throws Exception {
+        void interleavedTransactions() {
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(scope.lockKey());
                 var first = openUnder(transaction);
