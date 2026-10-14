@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: WAITING on the merge of pm-mcp-core #64 (log holders), then doc #68. After #64 is on main: retire the shared-log-identifier Open Defect and resume emitting (PLAN-20, 23, 24, 56, one of 09/14/15; PLAN-40 after #64), re-grounding each spec first. Open doc PR: #56 (PLAN-21).
+**Resume anchor**: READY TO EMIT (main 50827cf). Candidates: PLAN-20, 23, 24, 40, 56, one of 09/14/15 — re-ground each against landings since staging, then the disjointness gate, before emitting. Open doc PR: #56 (PLAN-21). plan-marshall-mcp owes the switch to RuntimeLogMessages.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-19 (WS-05)

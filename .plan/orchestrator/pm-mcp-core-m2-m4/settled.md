@@ -34,3 +34,14 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
 
 - `plan-marshall-documentation` #36 changed `workflow-dsl/02-units-jobs-decisions.adoc` during
   PLAN-41's execute (07:25Z); PLAN-44 re-verifies against the current specification.
+
+## Defect: shared log identifier blocks
+
+- Two plans of one workstream can take the same log identifier; it surfaced as a merge conflict
+  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03;
+  confirmed by PLAN-01 (inbox 006), which moved to WARN 151. PLAN-04, PLAN-08 and PLAN-09 share the
+  same WS-01 block.
+
+## Watch: the log-holder PRs
+
+- pm-mcp-core #64 (log holders per module) and plan-marshall-documentation #68 are OPEN. Merge #64 first, then #68. No plan is emitted before #64 is on main, because every open spec's log rule names the new holders. Once #64 has merged, retire the Open Defect on shared log identifiers.

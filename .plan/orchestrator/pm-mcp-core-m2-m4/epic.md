@@ -414,6 +414,15 @@ decision or a dependency outside this repository.
   out of the Expected Surface; collisions are resolved on rebase. Emitting waits for #64 on main. The
   ledger's history (landings, older decisions) keeps the old names on purpose.
 
+- 2026-10-14 — Log-holder PRs merged by the session, with the operator's authorisation:
+  pm-mcp-core #64 at 06:08:33Z (50827cf; main CI green, SNAPSHOT deployed) and
+  plan-marshall-documentation #68 at 06:20:45Z (d9d3e83). No identifier changed since a777427. The
+  orchestrator verified on both mains:
+  - holders 3/54/3, with `PmMcpLogMessages` absent and no reference left;
+  - no `PM_MCP-<n>` row left in `doc/LogMessages.adoc`.
+
+  The shared-identifier defect and the PR watch are relocated to `settled.md`. Emitting may resume.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
@@ -441,10 +450,7 @@ decision or a dependency outside this repository.
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
   package to adopt the check itself — source: landing PLAN-03.
-- Two plans of one workstream can take the same log identifier; it surfaced as a merge conflict
-  between #19 and #20. The shared block is per workstream, not per plan — source: landing PLAN-03;
-  confirmed by PLAN-01 (inbox 006), which moved to WARN 151. PLAN-04, PLAN-08 and PLAN-09 share the
-  same WS-01 block.
+> ↪ Relocated to `settled.md` § "Defect: shared log identifier blocks" — replaced by one holder per module (pm-mcp-core #64, 50827cf)
 
 - The roadmap item behind PLAN-02 is only partly delivered and no staged plan owns the rest:
   validators for `request.md` and pull request bodies (PM-WF-6), the `OutlineValidator` rules that
@@ -460,7 +466,7 @@ decision or a dependency outside this repository.
 
 - Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
 - A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
-- pm-mcp-core #64 (log holders per module) and plan-marshall-documentation #68 are OPEN. Merge #64 first, then #68. No plan is emitted before #64 is on main, because every open spec's log rule names the new holders. Once #64 has merged, retire the Open Defect on shared log identifiers.
+> ↪ Relocated to `settled.md` § "Watch: the log-holder PRs" — #64 merged 06:08:33Z (50827cf, SNAPSHOT deployed), doc #68 merged 06:20:45Z (d9d3e83)
 - plan-marshall-mcp `pm-mcp-server` imports `PmMcpLogMessages` and breaks against the SNAPSHOT of #64 until it switches to `RuntimeLogMessages` (all of its 16 records) or takes over its own records.
 > ↪ Relocated to `settled.md` § "Watch: doc #57 of PLAN-17" — #57 merged 2026-10-13T20:44:58Z (fff6552); PLAN-17 complete
 - plan-marshall-mcp owes, from PLAN-17: `DefaultUnitInvariantTest` over the real default units, and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal).
