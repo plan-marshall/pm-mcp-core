@@ -40,7 +40,10 @@ decision q3 of the work package.
 
 == Consequences
 
-* A reader of the audit log, `pm-operator audit verify` included, deduplicates by `transaction_id` alone.
+* A reader of the audit log that consumes its records drops a record handed over twice by its `transaction_id` alone.
+  The verification of the chain (`pm-operator audit verify` and the verification at the start) deduplicates nothing:
+  it counts every line, a re-delivered record included, as a record of the chain
+  (link:027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]).
 * The records of one transaction are no longer grouped by a shared id; a reader that needs the transaction behind a
   record has no field for it.
 * A new producer that owes through `ScopeTransaction.owe` takes `recordId()`, never `transactionId()`. The enrolment

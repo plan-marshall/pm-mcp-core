@@ -56,7 +56,10 @@ public interface AuditChainVerification {
          */
         LINK_BROKEN("link_broken"),
 
-        /** The log, or a rotated file the audit index lists and has not accounted for as purged, is missing. */
+        /**
+         * The current log is missing while the anchored head counts records. A rotated file the audit index lists and
+         * that is gone is not reported: it is accounted for by its index entry as purged.
+         */
         MISSING("missing"),
 
         /** The chain starts over where the anchored head or the audit index says it goes on. */
