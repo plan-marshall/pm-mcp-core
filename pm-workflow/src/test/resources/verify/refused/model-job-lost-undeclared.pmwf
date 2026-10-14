@@ -1,5 +1,5 @@
 # expect: MODEL_JOB_OUTCOMES state verify.entry line 7
-# Only a plan unit leaves lost undeclared and lets the engine route it by default.
+# Only a plan unit, or a sub-workflow every caller chain of which ends in plan units, leaves lost undeclared (ADR 025).
 workflow verify.model-job-lost-undeclared version 1 format 1
 scope workspace
 start verify.entry

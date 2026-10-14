@@ -29,7 +29,7 @@ Alternatives not recorded.
 
 * The fuzzer finds a planted dead state in a control unit.
 * A fuzzer run is reproducible from its seed, its number of runs and its greatest number of steps (`FuzzConfiguration`).
-* The configuration reachability of Rule 3 was added later as advisories over Boolean assignments of the `depends_on_config` keys (link:004-rule-3-configuration-reachability.adoc[ADR 004]); the enumeration of enum values remains a seam (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
+* A configuration-reachability check of Rule 3 was added later, as advisories over Boolean assignments of the `depends_on_config` keys, and removed again because it could refuse nothing (link:004-rule-3-configuration-reachability.adoc[ADR 004]); Rule 3 configuration reachability is a seam until the specification states how a configuration value activates a guard (link:006-rule-3-value-activation-gap.adoc[ADR 006]). Reachability stays plain graph reachability.
 
 == Source
 

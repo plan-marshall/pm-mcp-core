@@ -23,7 +23,8 @@ Left as a seam, each named by an ADR of `pm-workflow/doc/adr/workflow-verify/`:
 * Rule 3: configuration reachability as a whole, the enumeration of the `depends_on_config` values, the rule by which a value activates a guard, and the refusal of a state or transition no combination reaches (ADR 004, ADR 006).
 * Rule 4: the leaf-task constraint over the callees of a worker unit, and the recognition of a consultation unit by its identifier, which is a heuristic (ADR 001).
 * Rule 11: the 11a measure of an engine-chained cycle that runs inside a callee (ADR 001).
-* Rule 9: the per-phase fallback, and an `escalate` link named by its identifier (ADR 002).
+* Rule 6: which of the fallback states `plan.return` and `finalize.hand-back` belongs to the phase of a plan unit's calling state (ADR 001).
+* Rule 12: an `escalate` link told by its identifier `request_waiver` rather than by a primitive that files a waiver request (ADR 001).
 * Rule 9: whether a `lost` or `infeasible` route that completes a step `skipped` is the declared conservative route of an optional step (ADR 002).
 * Rule 1: `each` over a read-only, list-returning primitive and `role each` over a primitive returning role names (ADR 010).
 * Rule 6: the guarded field of a result guard is a boolean or optional field of the callee's result schema; `SchemaRegistry` registers names only (ADR 010).

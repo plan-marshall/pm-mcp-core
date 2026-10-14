@@ -268,12 +268,31 @@ class WorkflowValidatorTest {
             new Unpinned("Rule 1: each runs over a read-only list primitive, role each over one returning role names",
                     VerificationRule.ENTITY_KIND_BINDING,
                     "ADR 010: the primitive SPI cannot express either; only the registration is checked"),
+            new Unpinned("Rule 4: the sub-workflows a worker unit calls hold no job llm state and no link into one",
+                    VerificationRule.LEAF_TASK_CONSTRAINT,
+                    "ADR 001: the callees of a worker unit are not walked; only its own states are checked"),
+            new Unpinned("Rule 4: a consultation unit is recognised as one",
+                    VerificationRule.LEAF_TASK_CONSTRAINT,
+                    "ADR 001: the language marks no consultation unit; the identifier is a heuristic"),
+            new Unpinned("Rule 4: a consult role clause names no zero_tool role",
+                    VerificationRule.LEAF_TASK_CONSTRAINT,
+                    "ADR 016: checked with the role's existence by Rule 13, which is not part of the verifier"),
             new Unpinned("Rule 6: the guarded field is a boolean or optional field of the callee's result schema",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
                     "ADR 010: SchemaRegistry registers schema names only"),
+            new Unpinned("Rule 6: in a plan unit stepped_out targets the fallback state of the calling phase",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
+                    "ADR 001: plan.return and finalize.hand-back are both admitted, whatever the calling phase"),
             new Unpinned("Rule 9: skipped on lost or infeasible only on the declared conservative route of an optional"
                     + " step", VerificationRule.STEP_COMPLETION,
-                    "ADR 002: the AST declares no optional step and no conservative route"));
+                    "ADR 002: the AST declares no optional step and no conservative route"),
+            new Unpinned("Rule 11: a cycle through a call counts the measure or awaited event of a state in the callee",
+                    VerificationRule.CYCLE_AWAITED_EVENT,
+                    "ADR 001: the callee is not entered; a call counts as engine-chained and awaiting no event"),
+            new Unpinned("Rule 12: an escalate link is one whose primitive files a waiver request and never waits",
+                    VerificationRule.LINK_COMPATIBILITY,
+                    "ADR 001: the primitive SPI declares no waiver request; the link is told by its identifier"
+                            + " request_waiver"));
 
     private final WorkflowValidator validator = new WorkflowValidator(TestPrimitives.registry(), RELEASED,
             TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),

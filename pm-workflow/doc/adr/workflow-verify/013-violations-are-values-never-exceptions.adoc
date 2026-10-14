@@ -31,7 +31,7 @@ Alternatives not recorded.
 
 * Each check is proven by a refusing fixture that states its rule, state and line, and one passing unit uses every construct.
 * No check stops at the first violation; a unit is answered with all of its violations.
-* The result later gained a second channel for findings that are reported but do not refuse (link:008-verification-result-advisories.adoc[ADR 008]); `passed()` still reads the violations only.
+* The result later gained a second channel for findings that are reported but do not refuse, and lost it again with the only check that used it (link:008-verification-result-advisories.adoc[ADR 008]); `VerificationResult` carries the violations only, and `passed()` is "no violation".
 * Further rules left out of the first slice were added by the package `static-verifier-remaining-rules` (link:001-static-verifier-remaining-rules.adoc[ADR 001]); the checks that package left out are recorded in link:016-left-out-rules-tracked-as-an-open-package.adoc[ADR 016].
 
 == Source
