@@ -1,0 +1,61 @@
+= ADR 006: The Corpus Fetch Split Across `pm-core`, `pm-provider-git` and `pm-runtime`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The model verification corpus is its own part plus items generated from public datasets, fetched at the commits
+their manifests pin (PM-WORK-6). The fetch has a git part (a cache repository, one pinned commit, one file at that
+commit) and a Git LFS part (the object a pointer names, over HTTP). The work package `corpus-sources` placed the
+fetch in `pm-runtime`, "implemented with `pm-provider-git`". The dependency rules the root POM enforces forbid that:
+`pm-runtime` depends on `pm-core` and `pm-api` alone among the modules of the product, and `pm-core` never on JGit or
+`cui-http`. The one module that may see `pm-core`, a provider module and `pm-runtime` together is the assembly
+`pm-mcp-server` in plan-marshall-mcp.
+
+== Decision
+
+The operator decided the split in the clarification of the plan `corpus-sources`:
+
+* `pm-core`, package `de.planmarshall.core.role.corpus`: the formats, the row readers, the hash and pointer checks, the
+  two fetch interfaces `SourceRepository` (git part) and `LfsObjectSource` (LFS part) with their closed outcome
+  `SourceFetch`, the item generation, `CorpusImport` with its `ImportResult`, and `CorpusValidator`.
+* `pm-provider-git`: the cache repository operations `initCache`, `fetchCommit` and `readFile` on the shared
+  `GitOperations` contract, natively on JGit, and `JGitSourceRepository`, which implements `SourceRepository`.
+* `pm-runtime`, package `de.planmarshall.runtime.corpus`: `LfsBatchClient`, which implements `LfsObjectSource`
+  through `cui-http`.
+* `pm-mcp-server` composes `CorpusImport(JGitSourceRepository, LfsBatchClient)`; that wiring is not in this
+  repository.
+
+The enforcer rules of the root POM stay unchanged; the split satisfies every one of them.
+
+== Alternatives Considered
+
+1. *The fetch in `pm-runtime` with `pm-provider-git`*, as the work package stated. Not taken: it breaks the rule that
+   `pm-runtime` depends on no provider module.
+2. *The whole fetch in `pm-provider-git`*, the LFS download included. Rationale for not taking it not recorded; the
+   operator placed the HTTP part in `pm-runtime`.
+
+== Consequences
+
+* `CorpusImport` is tested in `pm-core` with in-test fakes of both interfaces, and end to end on each side by the
+  module that implements it: `JGitSourceRepositoryTest` over fixture repositories on disk, `LfsBatchClientTest` over a
+  mock web server. A test of the composed real parts belongs to plan-marshall-mcp.
+* `pm-runtime` gains `cui-test-mockwebserver-junit5` in test scope; no production dependency changes.
+* The work package's Where text and the Module Structure rows of `pm-core`, `pm-provider-git` and `pm-runtime` in
+  plan-marshall-documentation are corrected to the split.
+
+== Source
+
+* Work package link:../plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Plan `corpus-sources`, operator clarification "Fetch split", and its pull request
+* Module Structure Specification, `doc/specification/module-structure.adoc` of plan-marshall-documentation
+* Developer documentation: link:../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`],
+  link:../../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[`provider-git.adoc`],
+  link:../../pm-runtime/doc/developer/runtime-corpus.adoc[`runtime-corpus.adoc`]

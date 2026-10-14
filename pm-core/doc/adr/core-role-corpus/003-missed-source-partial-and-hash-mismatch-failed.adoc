@@ -1,0 +1,69 @@
+= ADR 003: A Missed Source Is Partial, a Hash Mismatch Fails the Run
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+An import of the corpus sources depends on public repositories and LFS endpoints the product does not control. One of
+them may not answer, may no longer have the pinned commit or object, or may deliver content that is not what the
+manifest pins. A role qualification graded on the corpus must say on what it was graded. The operator stated that a
+source that cannot be fetched is reported by name with its items left out, and that any hash mismatch is a failure,
+not a partial run.
+
+== Decision
+
+`ImportResult` reports every covered source with its item count and every missed source with its `Reason`
+(`unreachable`, `pin_missing`, `hash_mismatch`, `malformed`), the file it concerns and the detail. A missed source
+contributes no item; the other sources are imported all the same. The verdict is:
+
+* `FAILED` when any source is missed for `hash_mismatch` or `malformed`: the items of the other sources are still
+  generated, but no role is qualified on a failed run;
+* otherwise `PARTIAL` when a source is missed for `unreachable` or `pin_missing`, with the missed sources named;
+* otherwise `COMPLETE`.
+
+A hash mismatch is any file, pointer oid or LFS object whose SHA-256 is not the one the manifest pins. Bytes an LFS
+endpoint delivers count as delivered, whatever they are: `LfsBatchClient` of `pm-runtime` returns them as `FETCHED`
+and `CorpusImport` checks them, so delivered bytes that are not the object fail the run. The client reads a download
+up to one byte beyond the pointer's size and stops there; a longer body therefore yields bytes of the wrong size,
+which is a mismatch, not an unavailable object. Only an object the endpoint cannot deliver (an error status, no
+answer, a timeout, a malformed or refusing batch answer) is `unreachable` or `pin_missing`.
+
+`malformed` is a fourth reason the outline did not name: a manifest, overlay or source file that does not yield the
+selected items is a defect of the corpus, so it fails the run like a mismatch.
+
+== Alternatives Considered
+
+1. *A mismatching source missed like an unreachable one*, making the run `PARTIAL`. Not taken: changed content at a
+   pinned commit means the pin no longer holds, which a partial qualification would hide.
+2. *Aborting the import at the first mismatch.* Not taken: the report would name only the first broken source.
+3. *The LFS client refusing mismatching bytes as `pin_missing`.* Not taken for the same reason as the first
+   alternative: it would turn a failed run into a partial one.
+4. *Refusing an oversized download as unavailable.* Not taken: the endpoint did deliver, and what it delivered is not
+   the object.
+
+== Consequences
+
+* A caller qualifies only on `COMPLETE` or `PARTIAL`; a qualification on `PARTIAL` is recorded as partial with the
+  missed sources named (`role-qualification`).
+* Every missed source is logged: WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`, and for a mismatch ERROR `PM_CORE-200`
+  `CORPUS_SOURCE_HASH_MISMATCH`. An LFS object the endpoint does not deliver is also logged by the client as WARN
+  `PM_RUNTIME-123` `CORPUS_LFS_OBJECT_UNAVAILABLE`.
+* An implementation of `SourceRepository` or `LfsObjectSource` returns what it fetched and leaves the hash check to
+  `CorpusImport`.
+
+== Source
+
+* Work package link:../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Plan `corpus-sources`: the clarified request ("a hash mismatch is a failure, not a partial run"), the operator's
+  answer to the outline ("any mismatch makes the run FAILED"), and its pull request
+* Specification: `doc/specification/model-work/01-roles-and-configuration.adoc` § Role Qualification of
+  plan-marshall-documentation
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Fetch and Import,
+  link:../../../../pm-runtime/doc/developer/runtime-corpus.adoc[`runtime-corpus.adoc`] § Outcomes

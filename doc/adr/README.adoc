@@ -30,8 +30,13 @@ The repository:
 * link:../../pm-core/doc/adr/core-analysis/[`pm-core/doc/adr/core-analysis/`]: the code-analysis contract.
 * link:../../pm-core/doc/adr/core-findings/[`pm-core/doc/adr/core-findings/`]: the findings contract.
 * link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the task queue store and the session generations.
+* link:../../pm-core/doc/adr/core-role-corpus/[`pm-core/doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import and the corpus validator.
 * link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:../../pm-core/doc/adr/core-store/[`pm-core/doc/adr/core-store/`]: the state stores and the engine ports.
+
+`pm-provider-git`:
+
+* link:../../pm-providers/pm-provider-git/doc/adr/provider-git/[`pm-providers/pm-provider-git/doc/adr/provider-git/`]: the cache repository operations on the shared git contract.
 
 `pm-runtime`:
 

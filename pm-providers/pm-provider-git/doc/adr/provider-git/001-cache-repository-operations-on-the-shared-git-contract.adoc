@@ -1,0 +1,54 @@
+= ADR 001: Cache Repository Operations on the Shared Git Contract
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The git part of the fetch of the corpus sources needs three steps: initialise a cache repository, fetch one pinned
+commit, and read one file at that commit. Every git operation of the engine has one contract with typed input and a
+closed outcome enumeration, and runs natively in process, through JGit over HTTPS only, with no process started
+(PM-EXEC-5). A file kept in Git LFS must be read as its pointer, without a filter driver.
+
+== Decision
+
+The operator decided that the three steps are typed operations of the shared `GitOperations` contract, implemented
+natively in `JGitOperations`:
+
+* `initCache(Path)`: creates or opens a bare cache repository.
+* `fetchCommit(FetchCommitInput)`: fetches exactly one commit by its full id into `refs/pinned/<id>`, without tags
+  and without credential, from a URL the given `RemotePolicy` admits (checked before and after `insteadOf`
+  rewriting), within the compiled transport timeout `FETCH_TIMEOUT_SECONDS` (60 s). A commit already in the cache is
+  not fetched again; a commit the remote does not serve is `UNKNOWN_REVISION`, never a ref fallback.
+* `readFile(ReadFileInput)`: the raw blob of a path at a commit, through the object reader, so no filter runs.
+
+`GitOutcome` gains `PATH_NOT_FOUND` for a path that is no file at the commit. `JGitSourceRepository` implements
+`SourceRepository` of `pm-core` over the three operations: `OK` is `FETCHED`; `UNKNOWN_REVISION` and `PATH_NOT_FOUND`
+are `PIN_MISSING`; every other outcome is `UNREACHABLE`. Each source has its cache at
+`<cache root>/repositories/<name>.git`; its `Remote` (URL and policy) defaults to the manifest's repository with its
+HTTPS origin alone and can be replaced by a function, the extension point for a mirror or a local fixture.
+
+== Alternatives Considered
+
+1. *A separate fetch client beside the contract.* Not taken: it would be a second git surface without the typed
+   inputs and closed outcomes PM-EXEC-5 asks of every operation.
+
+== Consequences
+
+* The three operations get their CLI form when the CLI variant of the contract is built.
+* The operations are tested against fixture repositories on disk served over `file://` under
+  `RemotePolicy.localOnly()`, configured with `uploadpack.allowAnySHA1InWant`; no test needs the network.
+* The LFS object is not this module's concern: `LfsBatchClient` of `pm-runtime` downloads it over HTTP.
+
+== Source
+
+* Work package link:../../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Plan `corpus-sources`, operator clarification "Git operations", and its pull request
+* Requirement PM-EXEC-5, `doc/requirements/06-execution.adoc` of plan-marshall-documentation
+* Developer documentation: link:../../developer/provider-git.adoc[`provider-git.adoc`]

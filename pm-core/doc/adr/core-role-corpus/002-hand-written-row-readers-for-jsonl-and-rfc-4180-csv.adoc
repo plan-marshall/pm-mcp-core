@@ -1,0 +1,47 @@
+= ADR 002: Hand-Written Row Readers for JSON Lines and RFC 4180 CSV
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The public datasets the corpus imports from store their rows as JSON Lines or as CSV. `pm-core` has `jackson-core`
+for JSON and no CSV reader. A new dependency needs the operator's approval.
+
+== Decision
+
+The operator approved no CSV library. Both readers are written in this package and yield `SourceRow` values (the
+line a row starts on and its named fields in source order):
+
+* `JsonlRowReader` reads one JSON object per line on the streaming API of `jackson-core`; a string field keeps the
+  string, any other value its JSON text; a blank last line is allowed, any other malformed line is refused with its
+  line number.
+* `CsvRowReader` reads RFC 4180: UTF-8 with an optional byte order mark, a header of unique non-empty names, quoted
+  fields with commas, line breaks and doubled quotes, CRLF or LF. A record with another field count than the header,
+  an unterminated quoted field, a quote inside an unquoted field, or a stray character after a closing quote is
+  refused with the line the record starts on.
+
+`CorpusImport` picks the reader by the extension of the overlay's file, `.jsonl` or `.csv`; any other file is
+malformed.
+
+== Alternatives Considered
+
+1. *A CSV library.* Not taken: the operator approved no new dependency besides the mock web server of the tests.
+
+== Consequences
+
+* The readers accept exactly what their tests name; a dataset in another dialect (another separator, another
+  encoding) is refused, and its source is missed as malformed, failing the run.
+* No CSV library is on the classpath of `pm-core`.
+
+== Source
+
+* Plan `corpus-sources`, operator clarification "Dependencies", and its pull request
+* RFC 4180, Common Format and MIME Type for Comma-Separated Values (CSV) Files
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Rows and Checks
