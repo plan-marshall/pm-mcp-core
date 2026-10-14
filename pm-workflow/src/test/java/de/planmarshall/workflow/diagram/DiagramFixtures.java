@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +33,14 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.plan.CompositionEvent;
+import de.planmarshall.workflow.plan.CompositionInputs;
+import de.planmarshall.workflow.plan.PlanInstance;
+import de.planmarshall.workflow.plan.PlanInstanceHeader;
+import de.planmarshall.workflow.plan.PruneReason;
+import de.planmarshall.workflow.plan.PrunedElement;
+import de.planmarshall.workflow.plan.UnitReference;
+import de.planmarshall.workflow.plan.WaivedGate;
 import de.planmarshall.workflow.verify.EntityKind;
 import de.planmarshall.workflow.verify.EntityKindRegistry;
 import de.planmarshall.workflow.verify.QuestionClassRegistry;
@@ -42,7 +51,9 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
 /**
  * Reads the fixture of the diagram tests from the test classpath: the unit {@code diagram/diagram-fixture.pmwf},
  * written for these tests and never copied from a unit of the product, and its golden files
- * {@code diagram/diagram-fixture.mmd}, {@code .adoc} and {@code .txt}, read as UTF-8.
+ * {@code diagram/diagram-fixture.mmd}, {@code .adoc} and {@code .txt}, read as UTF-8; and the fixture of the instance
+ * forms, a plan instance version whose composed unit is {@code diagram/instance-fixture.pmwf}, also written for these
+ * tests, with its golden files {@code diagram/instance-fixture.mmd}, {@code .adoc} and {@code .txt}.
  * <p>
  * The fixture is parsed and checked by the static verifier before a test renders it, so the golden files show a unit
  * the generator is meant for. The primitives, the entity kind {@code change} and the called sub-workflow
@@ -65,7 +76,78 @@ final class DiagramFixtures {
     /** The classpath resource of the terminal golden file, rendered without an active state. */
     static final String ASCII_GOLDEN = "diagram/diagram-fixture.txt";
 
+    /** The classpath resource of the composed unit of the fixture instance. */
+    static final String INSTANCE_FIXTURE = "diagram/instance-fixture.pmwf";
+
+    /** The classpath resource of the instance Mermaid golden file, rendered without an active state. */
+    static final String INSTANCE_MERMAID_GOLDEN = "diagram/instance-fixture.mmd";
+
+    /** The classpath resource of the instance AsciiDoc golden file, rendered without an active state. */
+    static final String INSTANCE_ASCIIDOC_GOLDEN = "diagram/instance-fixture.adoc";
+
+    /** The classpath resource of the instance terminal golden file, rendered without an active state. */
+    static final String INSTANCE_ASCII_GOLDEN = "diagram/instance-fixture.txt";
+
+    /** The plan of the fixture instance. */
+    static final String INSTANCE_PLAN_ID = "diagram-fixture";
+
+    /** The version of the fixture instance, which its unit's header repeats. */
+    static final int INSTANCE_VERSION = 3;
+
+    /** The gate the fixture instance waives, a state of its unit. */
+    static final String WAIVED_GATE = "finalize.merge-gate";
+
+    /** The waiver that waives {@link #WAIVED_GATE}. */
+    static final String WAIVER_ID = "W-7";
+
+    /** The elements the fixture instance prunes, in header order: a step, a state and a policy action. */
+    static final List<PrunedElement> PRUNED = List.of(
+            new PrunedElement(PrunedElement.Kind.STEP, "default:analysis-roundtrip", PruneReason.PROVIDER_UNCONFIGURED,
+                    "integrations.sonar"),
+            new PrunedElement(PrunedElement.Kind.STATE, "finalize.merge-dispatch", PruneReason.AUTO_MERGE_OFF,
+                    "merge.auto_merge"),
+            new PrunedElement(PrunedElement.Kind.POLICY_ACTION, "finalize.remediate-ci/loop_back",
+                    PruneReason.LOCAL_ONLY, "derived.push_remote"));
+
+    private static final String DIGEST = "0123456789abcdef".repeat(4);
+
     private DiagramFixtures() {
+    }
+
+    /**
+     * Reads and parses the composed unit of the fixture instance and gives it the fixture header: event {@code plan},
+     * lane {@code deep}, posture {@code standard}, the elements of {@link #PRUNED}, and {@link #WAIVED_GATE} waived by
+     * {@link #WAIVER_ID}.
+     *
+     * The unit passes the static verifier, so the golden files show an instance the generator is meant for.
+     *
+     * @return the fixture instance version
+     */
+    static PlanInstance instance() {
+        var text = read(INSTANCE_FIXTURE);
+        var unit = parse(INSTANCE_FIXTURE, text);
+        var result = validator().verify(unit);
+        assertTrue(result.passed(), () -> INSTANCE_FIXTURE + " was refused by the verifier: " + result);
+        return instance(unit, text);
+    }
+
+    /**
+     * Gives a composed unit the fixture header; the unit must name the version {@link #INSTANCE_VERSION}.
+     *
+     * @param unit the composed unit
+     * @param text the DSL text of the unit
+     * @return the instance version of that unit
+     */
+    static PlanInstance instance(WorkflowDefinition unit, String text) {
+        var inputs = new CompositionInputs(DIGEST, List.of(new UnitReference("plan", Optional.of("plan.pmwf"), DIGEST,
+                        UnitOrigin.DEFAULT)), List.of(), "1", DIGEST, DIGEST, Optional.empty(), Optional.of("feature"),
+                Optional.empty());
+        var header = new PlanInstanceHeader(INSTANCE_PLAN_ID, INSTANCE_VERSION, CompositionEvent.PLAN,
+                Instant.parse("2026-10-14T09:00:00Z"), inputs, Optional.of(PlanInstanceHeader.Lane.DEEP),
+                Optional.of(PlanInstanceHeader.Posture.STANDARD),
+                new PlanInstanceHeader.Steps(List.of(), List.of("default:archive-plan")), PRUNED, List.of(),
+                List.of(new WaivedGate(WAIVED_GATE, WAIVER_ID)));
+        return new PlanInstance(INSTANCE_VERSION, header, unit, text);
     }
 
     /**

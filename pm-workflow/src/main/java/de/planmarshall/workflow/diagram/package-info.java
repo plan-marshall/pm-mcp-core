@@ -21,6 +21,14 @@
  * <li><b>Terminal</b>: a table drawn with Unicode box-drawing characters, aligned on its right border, with the
  * active state marked.</li>
  * </ul>
+ * A plan instance version, a {@link de.planmarshall.workflow.plan.PlanInstance}, is rendered in the same three forms
+ * (Workflow DSL Specification, Plan Instance, Display), each by its own package-private renderer that draws the
+ * composed unit through the renderer of the unit form, the active state highlighted or marked, and adds what the
+ * instance header records beside the unit: the plan, the version and its composition event, every pruned element with
+ * its reason and source fact, every waived gate with its waiver id, and in the two table forms the lane and the
+ * posture. These values are derived once from the header into one shared view, so the three instance forms name them
+ * in the same words.
+ * <p>
  * The three renderers share the kind of a state, derived from the sealed
  * {@link de.planmarshall.workflow.ast.StateBehavior} alone, and the edges of the unit with their label parts, so the
  * vocabulary and the order of every form are defined once.

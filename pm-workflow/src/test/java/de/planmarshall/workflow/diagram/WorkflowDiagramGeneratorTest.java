@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -30,12 +31,16 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.plan.PlanInstance;
+import de.planmarshall.workflow.plan.PlanInstanceHeader;
 
 /**
  * The generator of the documentation of a unit (PM-IMPL-5): each of the three forms of the dedicated fixture unit
  * equals its committed golden file byte for byte, two renderings give identical bytes and no line ends in a carriage
  * return; a present active state adds the Mermaid style and the terminal mark, an unknown one is refused; a task
- * state shows its role and its outcomes, never a link its unit does not declare.
+ * state shows its role and its outcomes, never a link its unit does not declare. The three instance forms of the
+ * fixture instance equal their golden files as well, name the same pruned elements and waived gates, and refuse an
+ * active state the instance does not have.
  */
 @DisplayName("WorkflowDiagramGenerator")
 class WorkflowDiagramGeneratorTest {
@@ -302,6 +307,188 @@ class WorkflowDiagramGeneratorTest {
             assertAll(() -> assertTrue(rendered.contains("state \"build_missing\" as build_missing\n"), rendered),
                     () -> assertTrue(rendered.contains("build_missing --> build_missing_2 : "), rendered));
         }
+    }
+
+    @Nested
+    @DisplayName("Instance forms")
+    class InstanceForms {
+
+        private final PlanInstance instance = DiagramFixtures.instance();
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should equal the golden file byte for byte")
+        void shouldEqualGoldenFile(String form, String golden, InstanceForm render) {
+            var expected = DiagramFixtures.read(golden).getBytes(StandardCharsets.UTF_8);
+
+            var rendered = render.apply(instance, Optional.empty()).getBytes(StandardCharsets.UTF_8);
+
+            assertArrayEquals(expected, rendered, () -> form + " differs from " + golden + ":\n"
+                    + new String(rendered, StandardCharsets.UTF_8));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should give identical bytes on a second rendering and end every line with a line feed alone")
+        void shouldRenderIdenticalBytesTwice(String form, String golden, InstanceForm render) {
+            var first = render.apply(instance, Optional.empty());
+
+            var second = render.apply(DiagramFixtures.instance(), Optional.empty());
+
+            assertAll(form, () -> assertArrayEquals(first.getBytes(StandardCharsets.UTF_8),
+                            second.getBytes(StandardCharsets.UTF_8)),
+                    () -> assertFalse(first.contains("\r"), "carriage return"),
+                    () -> assertTrue(first.endsWith("\n"), "last line feed"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should name every pruned element with its reason and source fact and every waived gate with its "
+                + "waiver id")
+        void shouldNameSameAnnotations(String form, String golden, InstanceForm render) {
+            var rendered = render.apply(instance, Optional.empty());
+
+            assertAll(form, Stream.concat(
+                    DiagramFixtures.PRUNED.stream().flatMap(pruned -> Stream.of(pruned.element().wireName(),
+                            pruned.id(), pruned.reason().wireName(), pruned.sourceFact())),
+                    Stream.of(DiagramFixtures.WAIVED_GATE, DiagramFixtures.WAIVER_ID, "plan diagram-fixture v3 (plan)"))
+                    .map(expected -> () -> assertTrue(rendered.contains(expected), expected + " missing in\n"
+                            + rendered)));
+        }
+
+        @Test
+        @DisplayName("Should style the active state in the instance Mermaid diagram")
+        void shouldStyleActiveStateInMermaid() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(instance,
+                    Optional.of(DiagramFixtures.WAIVED_GATE));
+
+            assertAll(() -> assertTrue(rendered.contains("""
+                                classDef active fill:#90ee90
+                                class finalize_merge_gate active
+                            """), rendered),
+                    () -> assertFalse(WorkflowDiagramGenerator.renderInstanceMermaid(instance, Optional.empty())
+                            .contains("classDef"), "no style without an active state"));
+        }
+
+        @Test
+        @DisplayName("Should name the active state in the instance AsciiDoc tables")
+        void shouldNameActiveStateInAsciiDoc() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance,
+                    Optional.of(DiagramFixtures.WAIVED_GATE));
+
+            assertAll(() -> assertTrue(rendered.contains("|Active state\n|`finalize.merge-gate`\n"), rendered),
+                    () -> assertTrue(WorkflowDiagramGenerator.renderInstanceAsciiDocTables(instance, Optional.empty())
+                            .contains("|Active state\n|-\n"), "no active state"));
+        }
+
+        @Test
+        @DisplayName("Should mark the active state in the instance terminal tables")
+        void shouldMarkActiveStateInTerminalTable() {
+            var rendered = WorkflowDiagramGenerator.renderInstanceAscii(instance,
+                    Optional.of(DiagramFixtures.WAIVED_GATE));
+
+            assertAll(() -> assertTrue(rendered.contains("│ *finalize.merge-gate "), rendered),
+                    () -> assertEquals(1, rendered.lines().filter(line -> line.contains("(ACTIVE)")).count()),
+                    () -> assertFalse(WorkflowDiagramGenerator.renderInstanceAscii(instance, Optional.empty())
+                            .contains("(ACTIVE)"), "no mark without an active state"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should refuse an active state the instance does not have, a pruned state included")
+        void shouldRefuseUnknownActiveState(String form, String golden, InstanceForm render) {
+            assertAll(form,
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> render.apply(instance, Optional.of("finalize.unknown"))),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> render.apply(instance, Optional.of("finalize.merge-dispatch"))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.diagram.WorkflowDiagramGeneratorTest#instanceForms")
+        @DisplayName("Should refuse a missing instance or active state")
+        void shouldRefuseMissingArguments(String form, String golden, InstanceForm render) {
+            assertAll(form,
+                    () -> assertThrows(NullPointerException.class, () -> render.apply(null, Optional.empty())),
+                    () -> assertThrows(NullPointerException.class, () -> render.apply(instance, null)));
+        }
+
+        @Test
+        @DisplayName("Should leave out the annotations of an instance that prunes and waives nothing")
+        void shouldOmitEmptyAnnotations() {
+            var bare = bareInstance();
+
+            var mermaid = WorkflowDiagramGenerator.renderInstanceMermaid(bare, Optional.empty());
+            var asciiDoc = WorkflowDiagramGenerator.renderInstanceAsciiDocTables(bare, Optional.empty());
+            var terminal = WorkflowDiagramGenerator.renderInstanceAscii(bare, Optional.empty());
+
+            assertAll(() -> assertFalse(mermaid.contains("instance_pruned"), mermaid),
+                    () -> assertFalse(mermaid.contains("instance_waived"), mermaid),
+                    () -> assertFalse(asciiDoc.contains("pruned elements"), asciiDoc),
+                    () -> assertFalse(asciiDoc.contains("waived gates"), asciiDoc),
+                    () -> assertFalse(terminal.contains("Source fact"), terminal),
+                    () -> assertFalse(terminal.contains("Waiver id"), terminal),
+                    () -> assertTrue(asciiDoc.contains("|Lane\n|-\n"), asciiDoc),
+                    () -> assertTrue(terminal.contains("│ Posture      │ -"), terminal));
+        }
+
+        @Test
+        @DisplayName("Should give the annotations Mermaid identifiers that no state of the unit can hold")
+        void shouldSeparateAnnotationIdentifiersFromUnit() {
+            var source = """
+                    workflow plan version 3 format 1
+                    scope plan
+                    start instance.pruned
+
+                    state instance.pruned
+                        phase build
+                        auto diagram.proceed
+                            done -> instance-pruned
+
+                    state instance-pruned
+                        phase build
+                        auto diagram.proceed
+                            done -> instance_waived_1
+                    """;
+            var unit = DiagramFixtures.parse("annotation-collision.pmwf", source);
+
+            var rendered = WorkflowDiagramGenerator.renderInstanceMermaid(
+                    DiagramFixtures.instance(unit, source), Optional.empty());
+
+            assertAll(() -> assertTrue(rendered.contains("state \"instance-pruned\" as instance_pruned_2\n"), rendered),
+                    () -> assertTrue(rendered.contains("instance_pruned --> instance_pruned_2 : "), rendered),
+                    () -> assertTrue(rendered.contains("state \"pruned\" as instance_pruned_6 {\n"), rendered),
+                    () -> assertTrue(rendered.contains("as instance_pruned_1\n"), rendered),
+                    () -> assertTrue(rendered.contains("as instance_pruned_2_2\n"), rendered),
+                    () -> assertTrue(rendered.contains("state \"waived gates\" as instance_waived {\n"), rendered),
+                    () -> assertTrue(rendered.contains("as instance_waived_1_6\n"), rendered));
+        }
+
+        private static PlanInstance bareInstance() {
+            var fixture = DiagramFixtures.instance();
+            var header = fixture.header();
+            var bare = new PlanInstanceHeader(header.planId(), header.version(), header.event(), header.composedAt(),
+                    header.inputs(), Optional.empty(), Optional.empty(), header.steps(), List.of(), List.of(),
+                    List.of());
+            return new PlanInstance(fixture.version(), bare, fixture.unit(), fixture.text());
+        }
+    }
+
+    static Stream<Arguments> instanceForms() {
+        return Stream.of(
+                Arguments.of("Mermaid", DiagramFixtures.INSTANCE_MERMAID_GOLDEN,
+                        (InstanceForm) WorkflowDiagramGenerator::renderInstanceMermaid),
+                Arguments.of("AsciiDoc", DiagramFixtures.INSTANCE_ASCIIDOC_GOLDEN,
+                        (InstanceForm) WorkflowDiagramGenerator::renderInstanceAsciiDocTables),
+                Arguments.of("terminal", DiagramFixtures.INSTANCE_ASCII_GOLDEN,
+                        (InstanceForm) WorkflowDiagramGenerator::renderInstanceAscii));
+    }
+
+    /** One instance form of the generator. */
+    @FunctionalInterface
+    interface InstanceForm {
+
+        String apply(PlanInstance instance, Optional<String> activeState);
     }
 
     @Nested
