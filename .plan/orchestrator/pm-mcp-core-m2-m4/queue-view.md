@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: READY TO EMIT (main 6bc8b71, ledger landed #65). No plan running; no open doc PR. plan-marshall-mcp #76 (follow the SNAPSHOT) merged e34961b and absorbed — assembly is green against pm-mcp-core main. Candidates: PLAN-20, 23, 24, 40, 56, one of 09/14/15 — re-ground each against landings since staging, then the disjointness gate, before emitting. PLAN-09 re-grounding: include the production AuditSink / startup audit-chain verification (watch of 2026-10-14).
+**Resume anchor**: EMITTED PLAN-09 (audit-trail), PLAN-24 (plan-instance), PLAN-56 (static-verifier-residuals) on 2026-10-14 — awaiting the operator's launch confirmation (auto_emit=false; rows still staged). Transition each to launched once started. Held back: PLAN-14/15/20/23 (core.store, after PLAN-09), PLAN-40. Ledger commits 50e1ee0 + this round not yet landed.
 **Phase**: orchestrating
 **Parked**:
 - PLAN-19 (WS-05)
