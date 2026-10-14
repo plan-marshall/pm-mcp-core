@@ -458,6 +458,204 @@ class AuditVerificationTest {
         }
     }
 
+    @Nested
+    @DisplayName("a rotation stopped after its rename, before the next record and its head")
+    class StoppedAfterRename {
+
+        /** A key other than the integrity key, as anyone without the key could sign with. */
+        private static final SecretKey OTHER_KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
+
+        /** A torn first line of the new log: a stop while the record was written. */
+        private static final String TORN = "{\"format_version\":1,\"prev_hash\":\"00";
+
+        /**
+         * Appends the records under the limits, then rotates the log and stops after the rename: no current log, no
+         * record of the new log, and the head of the last append before the rotation.
+         */
+        private AuditTrailFixture stopped(AuditRotation.Limits limits, int records) {
+            var trail = new AuditTrailFixture(base, limits);
+            var key = trail.createKey();
+            trail.append(records);
+            var rotation = new AuditRotation(trail.head.index(), ROTATE_ALWAYS, trail.clock, AuditTrailFixture.USER);
+            trail.underAuditLock(transaction -> assertTrue(
+                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+            return trail;
+        }
+
+        private AuditTrailFixture stopped() {
+            return stopped(AuditRotation.Limits.DEFAULTS, 2);
+        }
+
+        private static Path rotatedFile(AuditTrailFixture trail) {
+            return trail.logFile().resolveSibling(trail.head.index().snapshot().entries().getLast().file());
+        }
+
+        private static void assertBrokenInBoth(BreakReason reason, AuditTrailFixture trail) {
+            assertAll(
+                    () -> assertBroken(reason, trail.verification().verify()),
+                    () -> assertBroken(reason, trail.verification().full()));
+        }
+
+        private static void assertLinkBrokenInBoth(long line, AuditTrailFixture trail) {
+            assertAll(
+                    () -> assertLinkBroken(line, trail.verification().verify()),
+                    () -> assertLinkBroken(line, trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("is intact with the new log absent, empty or torn, incrementally and in full")
+        void intact() throws IOException {
+            var trail = stopped();
+            var logAbsent = !Files.exists(trail.logFile());
+            var absent = List.of(trail.verification().verify(), trail.verification().full());
+            Files.createFile(trail.logFile());
+            var empty = List.of(trail.verification().verify(), trail.verification().full());
+            Files.writeString(trail.logFile(), TORN, StandardCharsets.UTF_8);
+            var torn = List.of(trail.verification().verify(), trail.verification().full());
+
+            assertAll(
+                    () -> assertTrue(logAbsent, "the log was renamed"),
+                    () -> assertEquals(List.of(INTACT, INTACT), absent),
+                    () -> assertEquals(List.of(INTACT, INTACT), empty),
+                    () -> assertEquals(List.of(INTACT, INTACT), torn));
+        }
+
+        @Test
+        @DisplayName("is intact after earlier rotations, the rotated log chaining to the checkpoint before it")
+        void intactAfterEarlierRotations() {
+            var trail = stopped(ROTATE_ALWAYS, 3);
+
+            assertAll(
+                    () -> assertEquals(3, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(INTACT, trail.verification().verify()),
+                    () -> assertEquals(INTACT, trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("without the key, or with an unreadable key, is not verified, never intact")
+        void notVerifiedWithoutKey() {
+            var trail = stopped();
+            var withoutKey = new AuditTrailFixture(base).verification().verify();
+            trail.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, "keyring locked");
+
+            assertAll(
+                    () -> assertInstanceOf(Outcome.NotVerified.class, withoutKey),
+                    () -> assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify()),
+                    () -> assertInstanceOf(Outcome.NotVerified.class, trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("with a head under another key is head_mismatch")
+        void headUnderOtherKey() throws IOException {
+            var trail = stopped();
+            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(OTHER_KEY,
+                    trail.readHead().orElseThrow())));
+
+            assertBrokenInBoth(BreakReason.HEAD_MISMATCH, trail);
+        }
+
+        @Test
+        @DisplayName("with a genuine earlier head, anchoring another line of the rotated log, is head_mismatch")
+        void earlierHead() throws IOException {
+            var trail = new AuditTrailFixture(base);
+            var key = trail.createKey();
+            trail.append(1);
+            var earlier = Files.readAllBytes(trail.headFile());
+            trail.append(1);
+            var rotation = new AuditRotation(trail.head.index(), ROTATE_ALWAYS, trail.clock, AuditTrailFixture.USER);
+            trail.underAuditLock(transaction -> assertTrue(
+                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+            Files.write(trail.headFile(), earlier);
+
+            assertBrokenInBoth(BreakReason.HEAD_MISMATCH, trail);
+        }
+
+        @Test
+        @DisplayName("with the rotated log gone is missing")
+        void rotatedLogGone() throws IOException {
+            var trail = stopped();
+            Files.delete(rotatedFile(trail));
+
+            assertBrokenInBoth(BreakReason.MISSING, trail);
+        }
+
+        @Test
+        @DisplayName("with a record cut from the rotated log is link_broken at the line after the cut")
+        void rotatedLogCut() {
+            var trail = stopped();
+            removeLine(rotatedFile(trail), 2);
+
+            assertLinkBrokenInBoth(2, trail);
+        }
+
+        @Test
+        @DisplayName("with the checkpoint cut from the rotated log is truncated")
+        void checkpointCut() {
+            var trail = stopped();
+            removeLine(rotatedFile(trail), 3);
+
+            assertBrokenInBoth(BreakReason.TRUNCATED, trail);
+        }
+
+        @Test
+        @DisplayName("with an index entry that does not match the rotated log is link_broken at the checkpoint")
+        void mismatchingIndexEntry() throws IOException {
+            var trail = stopped();
+            var entry = trail.head.index().snapshot().entries().getLast();
+            Files.delete(trail.indexFile());
+            trail.underAuditLock(transaction -> trail.head.index().append(transaction, entry.withRecordCount(2),
+                    _ -> {
+                    }));
+
+            assertLinkBrokenInBoth(3, trail);
+        }
+
+        @Test
+        @DisplayName("with a cut log closed by a forged checkpoint, entered and renamed by hand, is link_broken")
+        void forgedCheckpointRenamedByHand() throws IOException {
+            var trail = fiveRecords();
+            var first = recordAt(trail.logFile(), 1);
+            removeLine(trail.logFile(), 5);
+            removeLine(trail.logFile(), 4);
+            removeLine(trail.logFile(), 3);
+            var headHash = AuditTrailFixture.hashOf(trail.logFile(), 2);
+            trail.underAuditLock(transaction -> {
+                var forged = Pending.checkpoint(trail, OTHER_KEY, 2, headHash);
+                var forgedHash = trail.log.appendCheckpoint(transaction, forged);
+                trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
+                        AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), forged.eventId(), 3,
+                        forgedHash), _ -> {
+                });
+            });
+            Files.move(trail.logFile(), trail.rotatedFile(first.eventId()));
+
+            assertLinkBrokenInBoth(3, trail);
+        }
+
+        @Test
+        @DisplayName("with a record of the new log written without its head is head_mismatch")
+        void recordWithoutHead() {
+            var trail = stopped();
+            new AuditTrailFixture(base).append(1);
+
+            assertAll(
+                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertBroken(BreakReason.HEAD_MISMATCH, trail.verification().verify()));
+        }
+
+        @Test
+        @DisplayName("is not changed by a verification")
+        void changesNothing() {
+            var trail = stopped();
+            var before = trail.files();
+
+            trail.verification().verify();
+            trail.verification().full();
+
+            assertEquals(before, trail.files());
+        }
+    }
+
     @Test
     @DisplayName("a verification changes nothing, also on a broken chain")
     void changesNothing() {

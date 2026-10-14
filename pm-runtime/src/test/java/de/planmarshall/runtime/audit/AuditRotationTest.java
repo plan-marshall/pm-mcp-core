@@ -356,7 +356,8 @@ class AuditRotationTest {
     class Stopped {
 
         @Test
-        @DisplayName("stopped after the rename: the next append still chains to the checkpoint line")
+        @DisplayName("stopped after the rename: verified intact, and the next append chains to the checkpoint line "
+                + "and writes the head over the new log")
         void afterRename() {
             var trail = new AuditTrailFixture(base, NEVER);
             var key = trail.createKey();
@@ -365,13 +366,48 @@ class AuditRotationTest {
             var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
             trail.underAuditLock(transaction -> assertTrue(rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
             var logAfterStop = Files.exists(trail.logFile());
+            var headAfterStop = trail.readHead().orElseThrow();
+            var stoppedVerify = trail.verification().verify();
+            var stoppedFull = trail.verification().full();
             var checkpointHash = hashOf(trail.rotatedFile(first.eventId()), 3);
 
             trail.append(1);
 
+            var healed = trail.readHead().orElseThrow();
             assertAll(
                     () -> assertFalse(logAfterStop, "the log was renamed"),
+                    () -> assertEquals(2, headAfterStop.recordCount(), "the stop left the head of the old log"),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), stoppedVerify),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), stoppedFull),
                     () -> assertEquals(checkpointHash, recordAt(trail.logFile(), 1).prevHash()),
+                    () -> assertEquals(1, healed.recordCount()),
+                    () -> assertEquals(hashOf(trail.logFile(), 1), healed.headHash()),
+                    () -> assertEquals(trail.head.index().snapshot().headHash(), healed.indexHeadHash()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.resolveIdentifierString()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("stopped after a rename that the lock left an empty log behind: the next append heals it too")
+        void afterRenameWithEmptyLog() throws IOException {
+            var trail = new AuditTrailFixture(base, NEVER);
+            var key = trail.createKey();
+            trail.append(2);
+            var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
+            trail.underAuditLock(transaction -> assertTrue(rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+            Files.createFile(trail.logFile());
+            var stopped = trail.verification().verify();
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), stopped),
+                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertEquals(1, trail.readHead().orElseThrow().recordCount()),
+                    () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()),
                     () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
         }
 

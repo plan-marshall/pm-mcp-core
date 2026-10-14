@@ -57,6 +57,11 @@ import de.planmarshall.core.service.LockTransaction;
  * record, a stop after it at most writes it again with the same {@code transaction_id}, the deduplication key. When the
  * write fails, the intent stays and the append is not carried out.
  * <p>
+ * The repair runs before {@link AuditAnchor#beforeAppend}, so the anchor sees the log as repaired. A torn tail behind
+ * a checkpoint record, which no writer of the trail leaves, is therefore cut and its record follows the checkpoint
+ * before the anchor can refuse an append behind that checkpoint; the anchor then finds the repair record as the last
+ * line and lets the append through. The chain is not broken by that: the repair record is chained like every line.
+ * <p>
  * The directory {@code logs/} must exist before the first append, and the caller that builds the log creates it: the
  * audit lock is a leaf key, whose lock file is the log itself, and the lock manager creates that file where it is
  * absent but never its directory.

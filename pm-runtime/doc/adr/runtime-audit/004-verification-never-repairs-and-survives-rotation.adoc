@@ -25,6 +25,16 @@ its reads and show a state that never existed, for example a new head over an ol
 * The reads are re-validated: head, index and log are read, then head and index again; when they changed, the reads
   are repeated, at most three times. A `Broken` result is checked once more against a fresh consistent read and is
   reported only when that read shows it as well.
+* A rotation stopped between its rename and the record of the same append is not a break. The current log then holds
+  no complete line (absent, empty or torn), and the head still anchors the index line before the last entry and the
+  line before the checkpoint of the rotated file that entry names. `verify()` reads that rotated file and reports the
+  state intact exactly when every piece verifies: the head under the key, the entry chaining to the index line the head
+  anchors, the rotated file against the entry (its chain from the checkpoint before it, its record count, its first
+  and last event id, its checkpoint line) and its checkpoint under the key, and the head anchoring the line before the
+  checkpoint (record count, hash, event id). Every partial match stays a break (`missing` for a rotated file that is
+  gone, `link_broken` or `truncated` for one that does not match, `head_mismatch` for a head that anchors another
+  line), and without the key the trail is `NotVerified`. The verification does not repair the state; the next append
+  heals it (link:003-head-keyed-by-the-enrolment-integrity-key.adoc[ADR 003]).
 * A broken index chain is reported as `link_broken` with the index line and a diagnostic naming
   `audit-index.jsonl`. `full()` verifies every rotated file the index lists; a file that is gone is accounted for by
   its entry.
@@ -36,6 +46,11 @@ Alternatives not recorded.
 == Consequences
 
 * A rotation in the middle of a verification is reported intact, never as a break.
+* A runtime that stopped between a rotation's rename and the next record starts without `audit_chain_broken`; the
+  incremental verification then reads one rotated file, the newest, besides the current log.
+* The acceptance is no weaker than the rest of the trail: it rests on the verifying checkpoint and the verifying head,
+  which only a holder of the key can produce. A head file rolled back together with the files it anchors stays
+  undetectable here as anywhere in the trail, since the head carries no sequence the verification could compare.
 * A persistent change between the reads (a writer appending faster than three re-reads) yields the last read as it
   is; a break shown by it is still checked once more.
 * Whoever reports or records a break (`StartupSequence`, `pm-operator audit verify`) never repairs it; the next record

@@ -290,6 +290,10 @@ public final class AuditHead implements AuditAnchor {
      * holds that line at its position. Index entries and renames are plain file operations; without this, a log cut
      * and closed by a forged checkpoint, entered and renamed by anyone who can write the files, would be re-signed by
      * the next head and pass the incremental verification.
+     * <p>
+     * This is also how the writer heals a stop between a rotation's rename and the first record of the new log: the
+     * head of that record counts the new log and anchors the last index line, the state the verification checks
+     * against the same evidence while the record is missing ({@code AuditVerification}).
      */
     private boolean rotatedSince(SecretKey key, AuditLog log, AuditHeadRecord anchored,
             AuditIndex.Snapshot indexSnapshot) {

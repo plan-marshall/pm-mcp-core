@@ -54,6 +54,12 @@ a failing keyring can make it unreadable.
   otherwise a cut closed by a forged checkpoint, entered and renamed by hand, would be re-signed by the next head. A log that no longer holds that line, cut short or
   with its last line replaced, gets no new head: the previous head stays, so the verification reports `truncated` or
   `head_mismatch`, and `PM_RUNTIME-123` names the reason `anchored_line_missing`.
+* *A stop between a rotation's rename and the record of the same append* leaves no current log and the head of the
+  last append before the rotation, anchoring the index line before the new entry and the line before the checkpoint
+  of the rotated file. The head is not rewritten for it: the next append heals the state, its record chaining to the
+  checkpoint line and its head counted over the new log as a rotation since the head, on the evidence of the verifying
+  checkpoint. Until then the verification checks the same evidence and reports the state intact only when every piece
+  verifies under the key (link:004-verification-never-repairs-and-survives-rotation.adoc[ADR 004]).
 * *A damaged head is never replaced.* The head is replaced atomically, so the only legitimate state without a
   verifying head is an absent head file. A head file that exists but does not parse or does not verify under the key
   gets no new head and no recount: it stays in place, the verification reports `head_mismatch`, and `PM_RUNTIME-123`
@@ -93,6 +99,12 @@ a failing keyring can make it unreadable.
   refused with `PM_RUNTIME-125` (`checkpoint_unverifiable`): the audit trail takes no record until an operator deals
   with the forged line, or the key can be read again. Refusing is preferred to appending behind a checkpoint or
   completing one that does not verify.
+* The refusal holds while the checkpoint is the last complete line. `AuditLog.append` cuts a torn tail before it calls
+  the anchor, so a torn tail behind a checkpoint, which no writer of the trail leaves, is cut and its
+  `jsonl_tail_repaired` record follows the checkpoint; the log is then no longer pending and the append is not refused.
+  Integrity is not affected: the record is chained, a checkpoint that does not verify gets no index entry and no
+  rename, no head is written over a log that no longer holds the anchored line, and the verification still reports a
+  cut.
 * Two gaps stay open: a deleted head file reads as absent, so the next append counts the whole log, and an index entry
   carries no HMAC of its own; a rotation since the head is accepted only through the verifying checkpoint of the
   rotated file the entry names.

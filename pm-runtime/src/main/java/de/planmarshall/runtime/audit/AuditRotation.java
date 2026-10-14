@@ -76,6 +76,17 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * with the reason {@value #CHECKPOINT_UNVERIFIABLE}, the log stays as it is, and the verification reports it. A due log
  * that the last index entry already names as its rotated file is never entered a second time.
  * <p>
+ * The refusal holds while the checkpoint is the last complete line. {@link AuditLog#append} cuts a torn tail of the
+ * log before it calls the anchor, so a torn tail behind a checkpoint, which no writer of the trail leaves since none
+ * writes after a checkpoint, is cut first and its {@code jsonl_tail_repaired} record follows the checkpoint: the log is
+ * then no longer pending, and the append is not refused. The integrity of the trail is not affected: that record is
+ * chained, a checkpoint that does not verify still gets no index entry and no rename, no head is written over a log
+ * that no longer holds the anchored line, and the verification still reports a cut.
+ * <p>
+ * A stop after the rename, before the first record of the new log, leaves no current log and a head that anchors the
+ * rotated log; the verification reports it intact when the rotated log and its checkpoint verify against the entry,
+ * and the next append writes the head over the new log.
+ * <p>
  * The HMAC of a checkpoint is the HMAC-SHA-256 under the enrolment integrity key over the UTF-8 bytes of
  * {@code {"record_count":<record_count>,"head_hash":"<head_hash>"}} ({@link #checkpointHmac(SecretKey, long, String)}).
  * A tail repair of the index during a rotation stays owed beside the index until the log is renamed, and is then

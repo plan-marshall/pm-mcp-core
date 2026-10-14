@@ -52,8 +52,17 @@ import de.planmarshall.runtime.start.AuditChainVerification;
  * records before it, names and chains to the line before it, and its HMAC verifies under the key. A checkpoint
  * appended to a cut log does not, and is reported as {@code link_broken} at its line by both verifications.
  * <p>
+ * A rotation stopped after its rename, before the first record of the new log and its head, leaves a current log
+ * without a complete line (absent, empty or torn), an index whose last entry names the rotated log, and a head that
+ * still anchors the index line before that entry and the line before the checkpoint of the rotated log. That state is
+ * intact exactly when every piece of it verifies: the head under the key, the entry chaining to the index line the head
+ * anchors, the rotated log against that entry (its chain from the checkpoint before it, its record count, its first
+ * record, its checkpoint line and the checkpoint's HMAC under the key), and the head anchoring the line before that
+ * checkpoint. Every partial match is a break, and without the key the trail is {@code NotVerified}, never intact.
+ * <p>
  * A break is reported by its reason: {@code link_broken} with the first broken line for a line that does not parse or
- * does not chain, {@code missing} for a missing log, {@code reset} for a chain that starts over, {@code truncated}
+ * does not chain, {@code missing} for a missing log (also the rotated log a head anchors after a rename),
+ * {@code reset} for a chain that starts over, {@code truncated}
  * for fewer records than anchored, {@code head_mismatch} for a head that does not verify or does not match. Without
  * the key nothing is anchored yet, and the trail is {@code NotVerified}; so is a base without any audit trail.
  * <p>
@@ -196,7 +205,10 @@ public final class AuditVerification implements AuditChainVerification {
         var lines = state.log().lines();
         var pending = pendingRotation(lines, indexSnapshot);
         var entered = pending.flatMap(PendingRotation::entry);
-        var anchoredIndexHead = entered.map(AuditIndexEntry::prevHash).orElse(indexSnapshot.headHash());
+        var renamed = pending.isEmpty() && lines.isEmpty() ? renamedRotation(head.get(), indexSnapshot)
+                : Optional.<AuditIndexEntry>empty();
+        var closing = entered.or(() -> renamed);
+        var anchoredIndexHead = closing.map(AuditIndexEntry::prevHash).orElse(indexSnapshot.headHash());
         if (!head.get().indexHeadHash().equals(anchoredIndexHead)) {
             return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH, LOGS + AuditHead.FILE_NAME
                     + " does not anchor the last line of " + LOGS + AuditIndex.FILE_NAME);
@@ -208,7 +220,10 @@ public final class AuditVerification implements AuditChainVerification {
                 return rotated.get();
             }
         }
-        var firstPredecessor = checkpointBefore(entries, entered.isPresent() ? entries.size() - 1 : entries.size());
+        var firstPredecessor = checkpointBefore(entries, closing.isPresent() ? entries.size() - 1 : entries.size());
+        if (renamed.isPresent()) {
+            return verifyRenamed(key, renamed.get(), head.get(), firstPredecessor);
+        }
         if (pending.isPresent()) {
             var closed = verifyClosed(key, lines, pending.get(), firstPredecessor);
             if (closed.isPresent()) {
@@ -255,6 +270,48 @@ public final class AuditVerification implements AuditChainVerification {
         var lastHash = AuditCodec.sha256Hex(lastLine);
         return Optional.of(new PendingRotation(last,
                 snapshot.last().filter(entry -> entry.checkpointHash().equals(lastHash))));
+    }
+
+    /**
+     * A rotation stopped after its rename, before the first record of the new log: the current log holds no complete
+     * line, and the last index entry chains to the index line the head anchors, so the head still anchors the log
+     * that entry names. Whether that log is the one the head anchors is left to {@link #verifyRenamed}.
+     *
+     * @return the last index entry when it chains to the index line the head anchors; empty otherwise
+     */
+    private static Optional<AuditIndexEntry> renamedRotation(AuditHeadRecord head, AuditIndex.Snapshot snapshot) {
+        return snapshot.last().filter(entry -> entry.prevHash().equals(head.indexHeadHash()));
+    }
+
+    /**
+     * Verifies a trail stopped between a rotation's rename and the first record of the new log. It is intact exactly
+     * when the rotated file the last index entry names verifies against that entry, its checkpoint under the key
+     * included, and the head anchors the line before that checkpoint: its record count, its hash and its event id.
+     * Anything else is a break: a rotated file that is gone is {@code missing}, one that does not match its entry or
+     * whose checkpoint does not verify is reported as {@code full()} reports it, and a head that anchors another line
+     * is {@code head_mismatch}.
+     */
+    private Outcome verifyRenamed(SecretKey key, AuditIndexEntry entry, AuditHeadRecord head,
+            String firstPredecessor) {
+        var name = LOGS + entry.file();
+        var file = logFile.resolveSibling(entry.file());
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            return Outcome.Broken.withoutLine(BreakReason.MISSING,
+                    name + " is missing, the rotated log its head anchors");
+        }
+        var lines = new JsonlStoreFile(file, lockKey).snapshot().lines();
+        var rotated = verifyRotatedFile(key, entry, name, lines, firstPredecessor);
+        if (rotated.isPresent()) {
+            return rotated.get();
+        }
+        var count = lines.size() - 1;
+        var anchored = lines.get(count - 1).content();
+        if (head.recordCount() != count || !head.headHash().equals(AuditCodec.sha256Hex(anchored))
+                || !AuditCodec.readRecord(file, anchored).eventId().equals(head.lastEventId())) {
+            return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH, LOGS + AuditHead.FILE_NAME
+                    + " does not anchor line " + count + " of " + name + ", the line before its checkpoint");
+        }
+        return new Outcome.Intact();
     }
 
     /**
