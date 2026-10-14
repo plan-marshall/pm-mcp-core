@@ -245,7 +245,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:corpus-sources.adoc[`corpus-sources`]
 |Corpus sources fetched at pinned commits, and the corpus validator in Java
-|`open`
+|`done`
 |nothing
 |Milestone 4
 
