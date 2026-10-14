@@ -1,0 +1,70 @@
+# A merged plan template written for the composer tests, never copied from a unit of the product. The push barrier,
+# the pull request, a Q-Gate remediation call that binds every action, the merge gate and the merge execution the
+# rule merge.auto_merge = false prunes, the landing, and finalize.archive-plan, which alone enters the delivery
+# terminals. The completes clauses name the mandatory steps of the test roster.
+workflow plan version 1 format 1
+scope plan
+start finalize.push-barrier
+
+state finalize.push-barrier
+    phase finalize
+    call git.commit_and_push(push_mode = push)
+        done -> finalize.create-pr
+        stepped_out -> finalize.hand-back
+
+state finalize.create-pr
+    phase finalize
+    auto test.proceed
+        done -> finalize.remediate
+            completes default:create-pr as done
+
+state finalize.remediate
+    phase finalize
+    call remediation.qgate-findings(retry_budget = 1, fix_budget = 3, waiver_wait_seconds = 0, actions = [retry, fix, loop_back])
+        resolved -> finalize.merge-gate
+        waived -> finalize.merge-gate
+        exhausted -> finalize.hand-back
+        fix_requested -> finalize.hand-back
+        stepped_out -> finalize.hand-back
+
+state finalize.merge-gate
+    phase finalize
+    auto test.proceed
+        done -> finalize.merge-dispatch
+
+state finalize.merge-dispatch
+    phase finalize
+    auto test.merge
+        merged -> finalize.land
+            completes default:branch-cleanup as done
+        not_merged -> finalize.hand-back
+
+state finalize.land
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+            completes default:emit-landing as done
+
+state finalize.hand-back
+    phase finalize
+    auto test.proceed
+        done -> finalize.archive-plan
+
+state finalize.archive-plan
+    phase finalize
+    auto test.deliver
+        completed -> completed
+            completes default:archive-plan as done
+        handed_back -> handed_back
+            completes default:archive-plan as done
+        returned -> returned
+            completes default:archive-plan as done
+
+state completed terminal completed success
+    phase finalize
+
+state handed_back terminal handed_back failure
+    phase finalize
+
+state returned terminal returned failure
+    phase finalize
