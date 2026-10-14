@@ -1,0 +1,64 @@
+= ADR 003: The Head Is Keyed by the Enrolment Integrity Key, Which the Audit Path Only Reads
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification protects the head `logs/audit.head` and the checkpoint record of a rotation with an HMAC-SHA-256
+under the integrity key of the enrolment store. That key (`EnrolmentKey`) is created on the first enrolment write,
+under the credentials lock (`EnrolmentKey.creationLock`), and never replaced. The head is written inside the writer's
+append, under the audit lock, the leaf of the total lock order
+(link:../../../../pm-core/doc/adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[`core-store` ADR 011]):
+no lock may be taken after it. Records reach the audit log before any enrolment exists, so the key can be absent, and
+a failing keyring can make it unreadable.
+
+== Decision
+
+* `AuditHead` signs the head over `AuditCodec.signedContent` (the canonical JSON of the other fields), and
+  `AuditRotation` signs a checkpoint over the UTF-8 bytes of `{"record_count":<record_count>,"head_hash":"<head_hash>"}`,
+  both with HMAC-SHA-256 under the enrolment integrity key.
+* The audit path only reads the key, through `EnrolmentKey.read()`, which takes no `LockKey`; it never calls
+  `readOrCreate()` and never takes the credentials lock. A key once read is kept, since it is never replaced.
+* *Key absent* (no enrolment yet): no head is written and no rotation happens, since a checkpoint needs the HMAC; the
+  record stands and nothing is logged. The first append after the key exists writes the head over the whole log. The
+  verification answers `NotVerified`: nothing is anchored yet.
+* *Key unreadable* (`SecretStoreException`): no head and no rotation; the record stands and `PM_RUNTIME-123`
+  (`AUDIT_HEAD_NOT_WRITTEN`) names the reason code, never the key. The verification answers `NotVerified` naming the
+  code.
+* The verification classifies a head that does not match the log as `head_mismatch`: more records than the head
+  anchors, a last line other than the one it names, an HMAC that does not verify, an `index_head_hash` that is not the
+  last index line, or no head for a trail with records. An empty log whose head anchors records is `reset`, and so is
+  a log whose first line starts at genesis while the index continues the chain. A missing log whose head anchors 0
+  records is intact.
+
+== Alternatives Considered
+
+* A step before the audit lock (`prepare()`) that creates the key on the audit path: rejected; the key stays created
+  by the first enrolment write alone, and the audit path never reaches the credentials lock at all.
+
+== Consequences
+
+* The credentials lock is never taken after the audit lock, and the one total lock order holds.
+* Records written before the first enrolment are chained but not anchored until the first head after the key appears;
+  that head counts the whole current log.
+* A crash between the creation of the key and the first head leaves a non-empty log without a head, reported as
+  `head_mismatch` at the next start. The window is accepted: it is reported, never repaired, and closes with the next
+  append.
+* Residual risk, as the specification states it: the anchoring is tamper-evident, not tamper-proof. A process that
+  holds the integrity key (on macOS, anything that runs the `pm-mcpd` binary; on hosts without a keyring, any process
+  of the user) can forge a consistent head.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#_security_audit_trail_three_tier_identity_verification[CLI & Security § Security Audit Trail] (Anchored Head, Residual Risk),
+  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-head[Store Schemas § Audit Head],
+  link:../../../../../plan-marshall-documentation/doc/concepts/enrolment.adoc#residual-risk[Concepts § Enrolment, Residual Risk]
+* Related: link:../runtime-enrolment/003-integrity-key-created-atomically.adoc[`runtime-enrolment` ADR 003]

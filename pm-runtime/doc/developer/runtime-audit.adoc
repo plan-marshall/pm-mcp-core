@@ -1,0 +1,287 @@
+= Audit Trail (`runtime.audit`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/audit
+:test: ../../src/test/java/de/planmarshall/runtime/audit
+
+== Purpose
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+Package `de.planmarshall.runtime.audit` of `pm-runtime` makes the hash chain of `logs/audit.jsonl` checkable for
+tampering. The chain itself, its formats and the production audit sink are in `core.store` of `pm-core`
+(link:../../../pm-core/doc/developer/core-store.adoc#_audit_log[Scope Stores § The Audit Log]); a chain alone shows a
+removed, reordered or edited record, but not a log that was cut short, replaced or started over. This package adds
+what anchors the chain beyond itself:
+
+* the head `logs/audit.head`, which counts the records and names the last line under an HMAC keyed by the enrolment
+  integrity key;
+* the rotation of the log by size and age, with a `checkpoint` record that closes a log and the hash-chained audit
+  index `logs/audit-index.jsonl` that lists the rotated files;
+* the verification: incremental at every runtime start, and full for `pm-operator audit verify`.
+
+The package was work package `audit-trail`; it is its own package because it fills two seams, `AuditAnchor` of
+`core.store` and `AuditChainVerification` of `runtime.start`, and `runtime.start` changes only at its seam
+(link:../adr/runtime-audit/001-audit-trail-in-its-own-package.adoc[ADR 001]).
+
+== Core Types
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+[horizontal]
+link:{src}/AuditHead.java[`AuditHead`]:: Implements `AuditAnchor`, the seam `AuditLog` calls under the audit lock in
+every append. `beforeAppend` lets `AuditRotation` rotate the log when a limit is reached; `emptyLogPredecessor()`
+returns the `checkpoint_hash` of the last index entry; `afterAppend` writes the head. It reads the enrolment integrity
+key and never creates it (<<_the_key>>). `read(headFile)`, `sign` and `verifies` are the head operations the
+verification shares.
+link:{src}/AuditIndex.java[`AuditIndex`]:: The index `logs/audit-index.jsonl`: one `AuditIndexEntry` per rotated file,
+appended only at a rotation, under the audit lock, through the JSONL append path; each entry chains to the SHA-256 of
+the line before it, the first to 64 `0`. `snapshot()` reads it without a lock and reports the entries up to the first
+line that does not parse or does not chain, the hash of its last line and that first broken line. An entry is never
+removed.
+link:{src}/AuditRotation.java[`AuditRotation`]:: Rotates the log when its size reaches `maxBytes` or its first record
+`maxAge`, whichever comes first. `Limits` are supplied by the caller; `Limits.DEFAULTS` are 64 MiB and 30 days
+(link:../adr/runtime-audit/002-rotation-limits-supplied-by-the-caller.adoc[ADR 002]).
+link:{src}/AuditVerification.java[`AuditVerification`]:: Implements `AuditChainVerification` of `runtime.start` with the
+incremental `verify()`, and offers `full()`, the verification `pm-operator audit verify` requests. It reads without the
+lock, never writes and never throws.
+
+=== Component Interaction
+
+[source]
+----
+AuditLogSink.append(event)                          (core.store; own transaction, audit lock acquired)
+  AuditLog.append(transaction, record)
+    ├─ repair a torn tail of the log
+    ├─ AuditHead.beforeAppend ──► AuditRotation.rotateIfDue          (only with the key present)
+    │     limit reached? ── checkpoint ──► AuditLog.appendCheckpoint ──► checkpoint_hash
+    │                       index entry ──► AuditIndex.append            (before the rename)
+    │                       rename audit.jsonl ──► audit-<first_event_id>.jsonl, directory forced
+    ├─ prev_hash: last line, else AuditHead.emptyLogPredecessor() (the checkpoint line), else genesis
+    ├─ append the record
+    └─ AuditHead.afterAppend ──► logs/audit.head (count, last id, head_hash, index_head_hash, HMAC)
+
+StartupSequence step 4 ──► AuditVerification.verify()      (no lock; head, index, current log)
+pm-operator audit verify ──► AuditVerification.full()      (and every rotated file the index lists)
+----
+
+== The Head
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+After every append `AuditHead` writes `logs/audit.head`: the file (`audit.jsonl`), the record count, the event id of the
+last record, the SHA-256 of the last line (`head_hash`), the SHA-256 of the last line of the index (`index_head_hash`,
+64 `0` before the first rotation) and the HMAC-SHA-256 under the enrolment integrity key over the canonical JSON of the
+other fields (`AuditCodec.signedContent`). The head is replaced atomically through the store file of `core.store`,
+forced to disk, and readable and writable by its owner only.
+
+The record count is the previous head's count plus one when the previous head anchors exactly the line the appended
+record chains to and verifies under the key; otherwise the complete lines of the log are counted. So the first head
+after the key appears covers the whole current log.
+
+[#_the_key]
+=== The Key
+
+The audit path only reads the key, through `EnrolmentKey.read()`, which takes no `LockKey`: the audit lock stays the
+leaf of the lock order, and the credentials lock that guards the creation of the key is never taken after it. A key
+once read is kept, because it is never replaced
+(link:../adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[ADR 003]).
+
+[cols="2,3"]
+|===
+|Key |Behaviour of an append
+
+|Present
+|The rotation runs when due, the head is written.
+
+|Absent (no enrolment yet)
+|No rotation (a checkpoint needs the HMAC) and no head; the record stands and nothing is logged. The first append after
+the key exists writes the head over the whole log.
+
+|Unreadable (`SecretStoreException`)
+|No rotation and no head; the record stands, and `PM_RUNTIME-123` (`AUDIT_HEAD_NOT_WRITTEN`) names the reason code,
+never the key.
+|===
+
+A head that cannot be written is logged as `PM_RUNTIME-123` with the reason `head_unwritable`. Nothing of the head
+throws into the append: a gap of the head is what the next verification reports.
+
+== The Rotation
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+Before an append, with the key present, `AuditRotation.rotateIfDue` reads the first and the last complete line of the
+log. A log that does not exist, holds no complete line, or whose first line does not parse is not rotated. When the
+size of the log reaches `maxBytes`, or the `timestamp` of its first record lies `maxAge` or more in the past, it closes
+the log, under the audit lock and inside the writer's append, in this order:
+
+. the `checkpoint` record (`category: security`, `scope_type: machine`, `details{record_count, head_hash, hmac}`: the
+  records before it, the hash of the line before it, and the HMAC-SHA-256 under the key over the UTF-8 bytes of
+  `{"record_count":<record_count>,"head_hash":"<head_hash>"}`) is appended through `AuditLog.appendCheckpoint`, the one
+  path by which this package writes into the log;
+. an index entry names the file `audit-<first_event_id>.jsonl`, its first record, the checkpoint as its last record,
+  its record count with the checkpoint, and the hash of the checkpoint line as `checkpoint_hash`;
+. the log is renamed to that file name by an atomic move, and the directory is forced to disk.
+
+A rotation logs `PM_RUNTIME-25` (`AUDIT_LOG_ROTATED`) with the rotated file and its record count. The new log is
+empty, so the writer chains the next record by its predecessor rule to `emptyLogPredecessor()`, the checkpoint line.
+
+*A stop during a rotation.* Because the index entry is written before the rename, a stop after the rename still finds
+the entry, and the next record links to the checkpoint. A log whose last line is a checkpoint is a rotation a stop
+interrupted: the next append completes it without a second checkpoint, writing the index entry unless the last entry
+already names that line, and then renaming the log.
+
+*A torn tail of the index.* The index entry is appended through the JSONL append path, which first cuts a torn tail of
+the index. Its `jsonl_tail_repaired` record cannot go into the log being closed, so the rotation refuses the hand-over:
+the record stays owed in the intent file of the index (logged `PM_CORE-100` by the substrate). After the rename the
+rotation hands the owed records into the new log.
+
+*A rotation that fails* (the log or the index cannot be read or written, the rename fails, an intent file is unreadable)
+is logged as `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`); the record is appended to the current log, and the next append
+completes or retries the rotation.
+
+Reading the limits from `machine-config.json` (`audit_rotation.max_bytes`, `audit_rotation.max_days`) belongs to the
+assembly; this package takes them as `Limits`.
+
+== The Verification
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+`verify()` is step 4.1 of the start: its cost depends on the current log only, not on the number of projects, plans or
+jobs. It checks, in this order:
+
+. the key: absent is `NotVerified` (nothing is anchored yet), unreadable is `NotVerified` naming the reason code;
+. no head, no log line and no index entry: `NotVerified` (no audit chain yet);
+. the chain of the index;
+. the head: present, parsed, its HMAC verified under the key, and its `index_head_hash` the hash of the last index line;
+. the current log: its first record chains to the `checkpoint_hash` of the last index entry (to genesis when the index
+  is empty), every other one to the line before it, the count equals the head's `record_count`, and the last line and
+  its event id are the ones the head names.
+
+`full()` checks, after the head and before the current log, every rotated file the index lists, in index order: its
+first record chains to the checkpoint of the file before it (genesis for the first), its count, its first event id and
+its checkpoint are the ones its entry names, and the checkpoint counts the records before it, names the hash of the
+line before it and its HMAC verifies. A rotated file that is gone (purged) is accounted for by its entry and skipped.
+
+A break is an `Outcome.Broken` with its reason:
+
+[cols="2,4"]
+|===
+|Reason |When
+
+|`link_broken`
+|A line does not parse, or does not chain to the line before it (a removed, reordered or edited record); also a broken
+index chain, with the index line and a diagnostic naming `audit-index.jsonl`, and in `full()` a line after the
+checkpoint of a rotated file or a checkpoint that is not the one its entry names. The only reason with a first broken
+line, counted from 1 in the file the diagnostic names.
+
+|`missing`
+|The current log is missing while the head anchors records. A missing log whose head anchors 0 records is `Intact`.
+
+|`reset`
+|The log is empty while its head anchors records, or its first line starts at genesis while the index continues the
+chain.
+
+|`truncated`
+|The log, or a rotated file, holds fewer records than its head, or its entry, counts.
+
+|`head_mismatch`
+|No head for a trail that has records or index entries, a head that does not parse, does not verify under the key or
+does not anchor the last index line, more records than the head anchors, or a last line that is not the one the head
+names.
+|===
+
+The diagnostic names the file and the position, never a key or a hash secret. `StartupSequence` records the reason and
+the line, not the diagnostic (link:runtime-start.adoc#_the_audit_chain_seam[`runtime.start` § The Audit Chain
+Seam]).
+
+*No lock, no repair.* The verification reads without the audit lock and never writes. A rotation or an append between
+its reads would show a state that never existed, so it reads the head, the index and the log, then the head and the
+index again, and repeats the reads (at most three times) until the second read matches the first; a `Broken` result is
+checked once more against a fresh consistent read and is reported only when that read shows it too. A rotation in the
+middle of a verification is therefore never reported as a break. A trail that cannot be read is `NotVerified`, never an
+exception (link:../adr/runtime-audit/004-verification-never-repairs-and-survives-rotation.adoc[ADR 004]).
+
+== Wiring in the Assembly
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+The package ships no default wiring. The assembly `pm-mcp-server` of `plan-marshall-mcp` builds the trail from the
+runtime's base directory, the enrolment integrity key (`EnrolmentKey`), its clock and the running user, and replaces
+with it `AuditChainVerification.NONE` and the audit sink that refuses every record:
+
+[source,java]
+----
+Files.createDirectories(base.resolve("logs"));            // the lock manager never creates it
+var head = new AuditHead(base, integrityKey, AuditRotation.Limits.DEFAULTS, clock, user);
+var log = new AuditLog(base, head, clock, user);
+AuditSink auditSink = new AuditLogSink(lockManager, log);
+AuditChainVerification auditChain = new AuditVerification(base, integrityKey);
+----
+
+* `logs/` must exist before the first append: the audit lock is a leaf key whose lock file is the log itself, and
+  `FileLockManager` creates that file but never its directory.
+* `FileLockManager` takes the audit sink in its constructor, and `AuditLogSink` takes the lock manager: the assembly
+  breaks the cycle, for example with a sink that forwards to the `AuditLogSink` once it is built.
+* The limits come from `audit_rotation` of `machine-config.json` once the assembly reads it; until then
+  `Limits.DEFAULTS`.
+* Exactly one `AuditLog` per base: its appends serialize on the in-process lock of the audit key of the one lock
+  manager, and the runtime lock excludes a second runtime.
+
+== Testing
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+The tests run on the JVM over a test base with the file lock manager of the runtime and an in-memory keyring
+(`InMemoryKeyring`); link:{test}/AuditTrailFixture.java[`AuditTrailFixture`] builds a chain, a head and an index and
+edits them into the tamper cases.
+
+[horizontal]
+link:{test}/AuditHeadTest.java[`AuditHeadTest`]:: A head after every append with a valid HMAC; a head under another key
+or with an edited field fails the check; without a key the append stands, no head, no rotation, and the keyring still
+holds no key; with an unreadable key the append stands and the warning carries no key material; the first append
+after the key appears writes a head over the whole log.
+link:{test}/AuditIndexTest.java[`AuditIndexTest`]:: The index chain round trip; an edited or removed index line breaks
+it.
+link:{test}/AuditRotationTest.java[`AuditRotationTest`]:: Rotation by size and by age with the defaults asserted, the
+checkpoint fields, the rotated file name, the index entry, the first record of the new log chained to the checkpoint
+line; a stop after the rename, and a stop after the checkpoint, completed with exactly one checkpoint and one entry.
+link:{test}/AuditVerificationTest.java[`AuditVerificationTest`]:: The acceptance of the package: a removed, a reordered
+and an edited record (`link_broken` with the first broken line), a replaced head (`head_mismatch`), `missing`,
+`reset`, `truncated`, an intact chain, no key and no chain `NotVerified`, a rotation in the middle of a verification
+reported intact, `full()` across rotated files, and nothing in the fixture changed by a verification.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+
+1. **Never create the key on the audit path**: `readOrCreate()` takes the credentials lock, which must never follow the
+   audit lock. Only the first enrolment write creates the key.
+2. **Write into the log only through `appendCheckpoint`**: a second write path would chain by another rule or call the
+   anchor again inside a rotation.
+3. **Index entry before the rename**: the entry carries the link from the new log to the checkpoint; renamed first, a
+   stop would leave the next record chaining to genesis, reported as `reset`.
+4. **Never repair in the verification**: a break is reported and recorded, and the trail stays as it was found.
+5. **Re-read before reporting**: a verification without the lock that reports its first read sees rotations as breaks.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+* Specification: link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit
+  Log] (checkpoint records, hash chain), link:{spec}/store-schemas/12-machine-stores.adoc#audit-head[§ Audit Head],
+  link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index],
+  link:{spec}/cli-and-security/02-credentials-and-operator.adoc#_security_audit_trail_three_tier_identity_verification[CLI
+  & Security § Security Audit Trail], link:{spec}/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime
+  Model § Startup Sequence] (step 4.1)
+* Chain and sink: link:../../../pm-core/doc/developer/core-store.adoc#_audit_log[`core.store` § The Audit Log]
+* Seam of the start: link:runtime-start.adoc#_the_audit_chain_seam[`runtime.start` § The Audit Chain Seam]
+* Decisions: link:../adr/runtime-audit/001-audit-trail-in-its-own-package.adoc[ADR 001],
+  link:../adr/runtime-audit/002-rotation-limits-supplied-by-the-caller.adoc[ADR 002],
+  link:../adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[ADR 003],
+  link:../adr/runtime-audit/004-verification-never-repairs-and-survives-rotation.adoc[ADR 004]

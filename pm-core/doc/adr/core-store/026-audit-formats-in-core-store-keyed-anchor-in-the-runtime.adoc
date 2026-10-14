@@ -1,0 +1,54 @@
+= ADR 026: The Audit Formats and the Chain in `core.store`, the Keyed Anchor in the Runtime
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The audit trail has three files: the log `logs/audit.jsonl`, its head `logs/audit.head` and the index of rotated
+files `logs/audit-index.jsonl`. The head and the checkpoint record of a rotation carry an HMAC under the enrolment
+integrity key, which lives in the keyring or the key file of `pm-runtime`; `pm-core` holds no key and may not depend
+on the runtime. The writer of the log, which every component reaches through the `AuditSink` of `core.service`, must
+call the head and the rotation in every append, under the audit lock, and the first record after a rotation must link
+to the checkpoint line that closed the rotated log.
+
+== Decision
+
+* The wire formats of the three files are in `core.store`: `AuditRecord`, `AuditHeadRecord` and `AuditIndexEntry`
+  with the strict codec `AuditCodec`, each in `format_version` 1 and checked against the schemas of the specification
+  by `AuditSchemaParityTest`. The chain, `AuditLog`, and the production sink, `AuditLogSink`, are there too.
+* What needs the key, the head, the rotation and the index, is behind the seam `AuditAnchor`, implemented by
+  `AuditHead` of `runtime.audit`. The writer calls its three methods under the audit lock: `beforeAppend` (rotation
+  if due), `emptyLogPredecessor()` (the `checkpoint_hash` of the last index entry) and `afterAppend` (the head).
+* `runtime.audit` writes into the log only through the public `AuditLog.appendCheckpoint`, which chains the checkpoint
+  like every line, returns the hash of its line, and never calls the anchor, so a rotation cannot recurse.
+* One predecessor rule decides what every line chains to: the SHA-256 of the last complete line of the log; when the
+  log holds no complete line, `emptyLogPredecessor()` when present; genesis (64 `0`) only when no rotation ever
+  happened. The first record after a rotation therefore links to the checkpoint line.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* An implementation of `AuditAnchor` takes no lock of its own, since the audit lock is the leaf of the lock order, and
+  never throws for a head or an index it cannot write: the record stays appended and the next verification reports
+  the gap.
+* `AuditAnchor.NONE` lets the chain run alone, for tests and for a runtime that wires no anchor.
+* A change of a format is a change in `core.store` and in the specification together, guarded by the parity test.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log],
+  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-head[§ Audit Head],
+  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
+* Related: link:../../../../pm-runtime/doc/adr/runtime-audit/001-audit-trail-in-its-own-package.adoc[`runtime-audit` ADR 001],
+  link:../../../../pm-runtime/doc/adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[`runtime-audit` ADR 003]

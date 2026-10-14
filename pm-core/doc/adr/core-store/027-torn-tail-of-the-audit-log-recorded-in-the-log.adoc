@@ -1,0 +1,50 @@
+= ADR 027: The Record of a Torn Tail of the Audit Log Is Written Into the Log Before Its Intent Is Deleted
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A stop in the middle of an append leaves the audit log with a torn tail. Like every JSONL store, the log is repaired by
+the next writer: `JsonlStoreFile.repairTail` cuts the tail, forces the cut to disk, owes a `jsonl_tail_repaired`
+record in the intent file of the store and hands it to the sink it is given; `AuditIntentFile.handOver` deletes the
+intent only after the sink returned (link:018-jsonl-tail-repair-of-the-last-line-only.adoc[ADR 018],
+link:022-audit-record-owed-before-the-mutation.adoc[ADR 022]). For the audit log that sink cannot be the production
+`AuditSink`: it would append to the log that is being repaired, under the audit lock already held, and the append
+would run the repair again while the intent still exists. `JsonlStoreFile` stays unchanged
+(link:024-audit-log-appended-through-the-jsonl-store-file.adoc[ADR 024]).
+
+== Decision
+
+* `AuditLog` repairs the tail first in every append and checkpoint, through `JsonlStoreFile.repairTail` with its own
+  private in-log sink.
+* The in-log sink, before it returns, maps the record to an `AuditRecord` with its own `transaction_id`, chains it by
+  the predecessor rule (so the repair record of a freshly rotated log links to the checkpoint line) and writes that
+  one line with `SyncedFiles.append`, forced to disk, never through `JsonlStoreFile.append`.
+* A write that fails throws `UncheckedIOException`; the intent stays, and the append is not carried out. `AuditLog`
+  refuses to append while an intent of the log is left.
+
+== Alternatives Considered
+
+* Changing `JsonlStoreFile` so that the audit log writes its repair record in the same append: rejected, because
+  operator decision q2 keeps `JsonlStoreFile` unchanged.
+
+== Consequences
+
+* No window loses the record: a stop before the in-log write leaves the intent, and the next append hands the record
+  over again; a stop after the write and before the intent is deleted writes it once more, with the same
+  `transaction_id`, which a reader drops (link:025-one-transaction-id-per-audit-record.adoc[ADR 025]).
+* The log may hold a repair record twice; the verification counts it as a record like any other.
+* A complete line of the log is never changed; only the torn tail is cut.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline] (item 6),
+  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[§ Security & Transition Audit Log] (Hash chain)

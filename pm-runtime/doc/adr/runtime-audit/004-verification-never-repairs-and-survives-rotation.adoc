@@ -1,0 +1,48 @@
+= ADR 004: The Verification Never Repairs, Never Stops the Start, and Survives a Rotation Between Its Reads
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification verifies the audit chain at every runtime start and on demand through `pm-operator audit verify`;
+a broken chain is reported and recorded, and the log is never rewritten or silently repaired. The seam
+`AuditChainVerification` of `runtime.start` states that an implementation never throws and never stops the start. The
+verification reads the head, the index and the log without the audit lock, so a rotation or an append can come between
+its reads and show a state that never existed, for example a new head over an old log.
+
+== Decision
+
+* `AuditVerification` reads without the lock and never writes: a break is reported as `Outcome.Broken` with its reason
+  and, for `link_broken`, the first broken line, and the trail stays as it was found.
+* A trail that cannot be read, or a key that cannot be read, is `NotVerified`; nothing is thrown into the start.
+* The reads are re-validated: head, index and log are read, then head and index again; when they changed, the reads
+  are repeated, at most three times. A `Broken` result is checked once more against a fresh consistent read and is
+  reported only when that read shows it as well.
+* A broken index chain is reported as `link_broken` with the index line and a diagnostic naming
+  `audit-index.jsonl`. `full()` verifies every rotated file the index lists; a file that is gone is accounted for by
+  its entry.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A rotation in the middle of a verification is reported intact, never as a break.
+* A persistent change between the reads (a writer appending faster than three re-reads) yields the last read as it
+  is; a break shown by it is still checked once more.
+* Whoever reports or records a break (`StartupSequence`, `pm-operator audit verify`) never repairs it; the next record
+  chains to the last line as found.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#_security_audit_trail_three_tier_identity_verification[CLI & Security § Security Audit Trail] (Chain Verification at Runtime Start),
+  link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup Sequence] (step 4.1)

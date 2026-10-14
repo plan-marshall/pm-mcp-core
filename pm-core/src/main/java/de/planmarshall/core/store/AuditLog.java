@@ -51,7 +51,9 @@ import de.planmarshall.core.service.LockTransaction;
  * record, a stop after it at most writes it again with the same {@code transaction_id}, the deduplication key. When the
  * write fails, the intent stays and the append is not carried out.
  * <p>
- * The directory {@code logs/} exists before the first append; the lock manager creates it with the lock of the log.
+ * The directory {@code logs/} must exist before the first append, and the caller that builds the log creates it: the
+ * audit lock is a leaf key, whose lock file is the log itself, and the lock manager creates that file where it is
+ * absent but never its directory.
  *
  * @since 0.1
  */

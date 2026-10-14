@@ -13,6 +13,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 `package-info.java`.
 
 * `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores, the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
+* `audit`: the anchoring and the verification of the audit trail: what makes the hash chain of `logs/audit.jsonl`, which `AuditLog` of `pm-core` writes, checkable for tampering.
 * `credentials`: the credential stores of the runtime: exactly one active secret store per machine, chosen at runtime start.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
 * `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`.
@@ -44,11 +45,13 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 
 == Developer Documentation
 
+* link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
 * link:doc/developer/runtime-job.adoc[Job Verification (`runtime.job`)]
-* link:doc/developer/runtime-start.adoc[Sweep Steps of the Periodic Sweep (`runtime.start`)]
+* link:doc/developer/runtime-start.adoc[Sweep Steps and the Audit Chain Seam (`runtime.start`)]
 
 == ADRs
 
+* link:doc/adr/runtime-audit/[`doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
 * link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.

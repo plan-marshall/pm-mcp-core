@@ -1,0 +1,48 @@
+= ADR 001: The Audit Trail Is Anchored and Verified in Its Own Package `runtime.audit`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The bounded verification of the runtime start (`StartupSequence`, step 4) already had the seam
+`AuditChainVerification` in `runtime.start`, answered by `AuditChainVerification.NONE` while no chain existed. The
+work package `audit-trail` adds the keyed head, the rotation with the audit index, the incremental verification at the
+start and the full verification of `pm-operator audit verify`. All of it fills two seams, `AuditChainVerification` of
+`runtime.start` and `AuditAnchor` of `core.store`. The operator decided where it lives as decision q1 of the work
+package.
+
+== Decision
+
+* A new package `de.planmarshall.runtime.audit` holds `AuditHead` (implements `AuditAnchor`), `AuditIndex`,
+  `AuditRotation` and `AuditVerification` (implements `AuditChainVerification`).
+* `runtime.start` changes only at its seam: `AuditChainVerification.Outcome.Broken` carries the reason and the first
+  broken line, and `StartupSequence` records them
+  (link:../runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[`runtime-start` ADR 011]).
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* `runtime.start` does not depend on `runtime.audit`; the assembly passes an `AuditVerification` where it passes
+  `AuditChainVerification.NONE` today.
+* `runtime.audit` depends on `runtime.start` for the seam, on `runtime.enrolment` and `runtime.credentials` for the key and the HMAC, and on
+  `core.store` for the formats and the log.
+* The package ships no wiring; the assembly `pm-mcp-server` builds and wires it.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+  decision q1
+* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup Sequence] (step 4.1)
+* Related: link:../../../../pm-core/doc/adr/core-store/026-audit-formats-in-core-store-keyed-anchor-in-the-runtime.adoc[`core-store` ADR 026]

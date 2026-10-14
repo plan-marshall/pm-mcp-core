@@ -17,7 +17,12 @@ This guide covers the stores of a scope that `pm-core` adds on top of the store 
 * the work package `session-log-and-generations` added a third target mode to the transaction journal, the delete,
   and on it the scope session log `sessions.jsonl` and the pending entry record `pending/<entry_id>.json` of the
   workspace scope. The session generation record of the task queue, which the same package added, lives in
-  `core.queue` and has a guide of its own (link:core-queue.adoc[Session Generations (`core.queue`)]).
+  `core.queue` and has a guide of its own (link:core-queue.adoc[Session Generations (`core.queue`)]);
+* the work package `audit-trail` added the machine's audit log `logs/audit.jsonl` as a hash chain, the formats of its
+  head and its index, the seam through which the runtime anchors it, and the production audit sink; and it gave every
+  audit record a scope transaction owes a `transaction_id` of its own (<<_audit_log>>). The keyed head, the rotation
+  and the verification live in `runtime.audit` of `pm-runtime`
+  (link:../../../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]).
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
@@ -350,6 +355,174 @@ Tested by `PendingEntryCodecTest` (round trip with byte-identical raw members, r
 (create, replace, read and remove, the removal of an absent record, two concurrent entries with two distinct records,
 names that do not parse never listed) and `PendingEntrySchemaParityTest`.
 
+[#_audit_log]
+== The Audit Log
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+Every record a component hands to the `AuditSink` of `core.service` ends up as one line of `<base>/logs/audit.jsonl`.
+Each line names the SHA-256 of the line before it, so no complete record can be removed, reordered or edited without
+breaking the chain. This package holds the formats, the chain and the sink; what anchors the chain beyond itself (the
+keyed head, the rotation, the index) is behind the seam `AuditAnchor` and lives in the runtime, because the head is keyed
+by the enrolment integrity key, which `pm-core` does not hold
+(link:../adr/core-store/026-audit-formats-in-core-store-keyed-anchor-in-the-runtime.adoc[ADR 026]).
+
+=== The Three Formats
+
+[horizontal]
+`AuditRecord`:: One line of the log in `format_version` 1: `event_id` (a lower-case UUID version 7), `prev_hash`,
+`timestamp`, `category` and `outcome` (closed sets), `event`, `scope_type` and `scope_id` (nullable), `actor` and
+`details`. `EVENT_CHECKPOINT` names the record that closes a log before a rotation.
+`AuditHeadRecord`:: The head `logs/audit.head`: `file` (always `audit.jsonl`), `record_count`, `last_event_id` (`null`
+for an empty log), `head_hash`, `index_head_hash` and `hmac`.
+`AuditIndexEntry`:: One line of `logs/audit-index.jsonl`: `prev_hash`, `file` (`audit-<first_event_id>.jsonl`),
+`first_event_id`, `last_event_id` (the checkpoint), `record_count` (at least 1) and `checkpoint_hash`.
+`AuditCodec`:: Reads the three shapes strictly over `StrictJson`: `format_version` first, every field at most once,
+only the declared fields, the closed sets and the forms of ids and hashes; whatever does not parse is a `StoreRefusal`
+naming the file. It writes every field in schema order without whitespace, the details sorted by name. The canonical
+line of a record is its exact UTF-8 bytes in the log without the newline, and `sha256Hex` hashes those bytes as they
+stand in the file, never a re-encoding. `signedContent` is the canonical JSON of the head without `hmac`, the bytes the
+runtime's HMAC covers. `GENESIS_HASH` is 64 `0` characters.
+
+=== The Chain and the Predecessor Rule
+
+`AuditLog` is the chain on `logs/audit.jsonl`. One rule decides what every line written into the log chains to:
+
+. the SHA-256 of the last complete line of the log;
+. when the log holds no complete line, `AuditAnchor.emptyLogPredecessor()` when present: the `checkpoint_hash` of the
+  last index entry, that is the checkpoint line that closed the rotated log;
+. `GENESIS_HASH` only when the log is empty and no rotation ever happened.
+
+So the first record after a rotation links to the checkpoint line of the log before it, and the chain runs across
+every rotated file.
+
+[source]
+----
+caller: LockTransaction holding LockKey.auditLog(base)   (leaf of the lock order)
+AuditLog.append(transaction, template)
+  1. JsonlStoreFile.repairTail(transaction, inLogSink)   a torn tail is cut, its record written into the log
+  2. AuditAnchor.beforeAppend(transaction, log)          rotation if due; the log is empty afterwards
+  3. prev_hash by the predecessor rule
+  4. JsonlStoreFile.append(transaction, line, inLogSink)
+  5. AuditAnchor.afterAppend(transaction, log, appended, lineHash)   the head over the new last line
+----
+
+The read of the last line, the append and the anchor calls run in the one transaction that holds the audit lock, so no
+second appender comes between the hash and the line that carries it. The append goes through the one append path of a
+JSONL store, `JsonlStoreFile`, unchanged. It closes its channel after every append, so only the in-process lock of the
+key holds the append; the runtime lock (`RuntimeLock`) excludes a second runtime on the same base
+(link:../adr/core-store/024-audit-log-appended-through-the-jsonl-store-file.adoc[ADR 024]).
+
+`AuditLog.appendCheckpoint(transaction, checkpoint)` is the one member through which the runtime writes into the log:
+it repairs a torn tail, chains the checkpoint by the same rule, appends it and returns the SHA-256 of its line. It never
+calls the anchor, so a rotation cannot recurse; it refuses a transaction without the audit lock
+(`IllegalStateException`) and a record that is not a checkpoint (`IllegalArgumentException`). `logFile()` names the
+file a rotation renames, `recordCount(transaction)` counts its complete lines under the lock, and `snapshot()` reads it
+without a lock.
+
+The directory `logs/` must exist before the first append, and the caller that builds the log creates it: the audit
+lock is a leaf key whose lock file is the log itself, and the lock manager creates that file where it is absent but
+never its directory. In the daemon the assembly `pm-mcp-server` has to create it before it builds the log.
+
+=== The Torn Tail of the Log Itself
+
+A stop in the middle of an append leaves a line without its newline. The next append cuts it through the unchanged
+`JsonlStoreFile.repairTail`, which owes the `jsonl_tail_repaired` record in the intent file of the log and hands it to
+the sink it is given. For the log itself that sink is the private in-log sink of `AuditLog`: before it returns, it maps
+the record to an `AuditRecord` (its own `transaction_id` kept), chains it by the predecessor rule and writes the line
+directly with `SyncedFiles.append`, forced to disk, never through `JsonlStoreFile.append`, which would repair the tail
+again while the intent still exists. The intent is deleted only after the sink returned
+(link:../adr/core-store/027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]):
+
+* a stop before the in-log write leaves the intent, and the next append hands the record over again;
+* a stop after the write and before the intent is deleted writes the record once more, with the same
+  `transaction_id`;
+* a write that fails throws `UncheckedIOException`; the intent stays, and the append is not carried out.
+
+=== The Anchor Seam
+
+`AuditAnchor` is what the writer calls under the audit lock, in every append:
+
+[horizontal]
+`beforeAppend(transaction, log)`:: Rotates the log when a rotation is due, writing the checkpoint through
+`AuditLog.appendCheckpoint` on the handed log and renaming `logFile()`.
+`emptyLogPredecessor()`:: The hash a line chains to when the log holds no complete line; empty when no rotation ever
+happened.
+`afterAppend(transaction, log, appended, lineHash)`:: Writes the head from the new last line.
+
+An implementation takes no `LockKey` of its own, since the audit lock is the leaf of the total lock order
+(link:../adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[ADR 011]), and never throws for a head or
+an index it cannot write: the record stays appended, and the next verification reports the gap. `AuditAnchor.NONE`
+anchors nothing and serves the tests of the chain alone. The implementation of the daemon is `AuditHead` of
+`runtime.audit`.
+
+=== The Production Sink
+
+`AuditLogSink` implements `AuditSink`. It gives a record what the producer does not know: a fresh `event_id` and the
+`timestamp` from the clock of the log, and the OS principal of the runtime as `actor`. A record whose details name a
+scope (`scope_type` with a type of the audit log, and `scope_id`) carries that scope; every other one is a
+machine-level record without a scope id. The details are kept as given, `transaction_id` included. Each record is
+appended in a transaction of its own that acquires the audit lock; two sinks of one runtime serialize on its
+in-process lock. An append that fails throws `UncheckedIOException`, as the `AuditSink` contract states, and the
+producer of a store mutation keeps its intent.
+
+=== One Transaction Id per Record
+
+Every record a `ScopeTransaction` owes carries a `transaction_id` of its own, issued by `ScopeTransaction.recordId()`:
+distinct from `transactionId()` and from the id of every other record the transaction owes. The id travels with the
+owed record into the journal, so a record the recovery hands over again keeps it. The transaction's own id stays the id
+of its journal, its staged files and its `transaction_rolled_forward` record. `OrderedWrite` owes `cross_scope_reconciled`
+and `ScopeSessionLog` owes `entry_client_changed` with such an id, and so does the pending-record sweep of
+`runtime.start` for `pending_entry_removed`
+(link:../adr/core-store/025-one-transaction-id-per-audit-record.adoc[ADR 025]).
+
+Delivery of an owed record is at least once. The `transaction_id` is the deduplication key: a reader of the audit log
+drops a record whose id it has seen. `AuditLogSink` appends what it is handed and drops nothing; a record handed over
+twice is two lines with the same id. `PM_CORE-100` (`AUDIT_RECORD_DEFERRED`) names the record by that id.
+
+=== Invariants
+
+* *One lock for the check and the act*: the read of the last line, the append and the anchor calls run under the audit
+  lock held by the caller's transaction; an append without it is refused before anything is written.
+* *One predecessor rule*: every line, the in-log repair record and the checkpoint included, chains by the same rule, so
+  the first record after a rotation links to the checkpoint line.
+* *Never rewritten*: a complete line of the log is never changed or removed; only a torn tail is cut, and its record is
+  written into the log.
+* *The anchor takes no lock*: `AuditAnchor` runs under the leaf of the lock order and acquires nothing.
+* *One id per record*: no record a scope transaction owes carries `transactionId()` of the transaction.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|An append without the audit lock
+|`append` throws `InternalFaultException`, `appendCheckpoint` `IllegalStateException`; nothing is written.
+
+|The intent file of the log is unreadable
+|`append` throws `StoreRefusal`; nothing is written.
+
+|The log cannot be repaired or appended to, or the record of a repair cannot be written into the log
+|`UncheckedIOException`; the record is not appended, and the intent of a repair stays for the next append.
+
+|A stop in the middle of an append
+|A torn tail, reported by `snapshot()` apart from the records; the next append cuts it and writes its record.
+
+|The anchor cannot write the head or the index
+|The record stays appended; the anchor logs it, and the next verification reports the head that does not match.
+
+|A record whose category or outcome is not one of the audit log
+|`AuditLogSink.append` throws `IllegalArgumentException`; nothing is written.
+|===
+
+Tested by `AuditCodecTest` (round trip of the three shapes, the refusals, stable canonical bytes and hashes),
+`AuditLogTest` (genesis, each `prev_hash` the hash of the line before, the append without the lock refused, a torn tail
+cut and its record chained before the new record, a stop on either side of the in-log write, the anchor calls in order,
+the first record of an empty log chained to `emptyLogPredecessor()` or to genesis, `appendCheckpoint`, a lock-free read
+with a torn tail), `AuditLogSinkTest` (one event one chained record, a failing append, two sinks serialized) and
+`AuditSchemaParityTest`; the per-record ids by `ScopeTransactionTest`, `JournalRecoveryTest`, `OrderedWriteTest` and
+`ScopeSessionLogTest`.
+
 == Reading Helpers Shared with `core.queue`
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
@@ -385,7 +558,7 @@ closes such a task `lost`.
 == Testing
 
 The tests run on the JVM over stores in a temporary base. The schema parity tests (`ScopeSessionRowSchemaParityTest`,
-`PendingEntrySchemaParityTest`) read the JSON schema from the documentation checkout named by the system property
+`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`) read the JSON schema from the documentation checkout named by the system property
 `pm.documentation.root` (`SpecificationDocument`), by default `../plan-marshall-documentation` beside the repository.
 Without the checkout they are skipped with the missing path named, never passed unseen; a build in a worktree that is
 not beside the checkout passes `-Dpm.documentation.root=<path>` to run them.
@@ -396,7 +569,9 @@ not beside the checkout passes `-Dpm.documentation.root=<path>` to run them.
   Store], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas §
   Transaction Journal], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store
   Schemas § Scope Session Log], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store
-  Schemas § Pending Entry Record]
+  Schemas § Pending Entry Record], link:{docs}/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas §
+  Security & Transition Audit Log], link:{docs}/specification/store-schemas/12-machine-stores.adoc#audit-head[§ Audit
+  Head], link:{docs}/specification/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
 == Decisions
@@ -416,3 +591,11 @@ not beside the checkout passes `-Dpm.documentation.root=<path>` to run them.
   the envelope and the engine-owned members are typed, `facts`, `source` and `options` kept raw.
 * link:../adr/core-store/009-entry-client-changed-written-in-the-log-append.adoc[ADR 009]: `entry_client_changed` is
   owed by the transaction that appends the row.
+* link:../adr/core-store/024-audit-log-appended-through-the-jsonl-store-file.adoc[ADR 024]: the audit log is appended
+  through `JsonlStoreFile` under the in-process lock of the audit key; the lock manager is not changed.
+* link:../adr/core-store/025-one-transaction-id-per-audit-record.adoc[ADR 025]: every owed audit record carries its own
+  `transaction_id`, the deduplication key.
+* link:../adr/core-store/026-audit-formats-in-core-store-keyed-anchor-in-the-runtime.adoc[ADR 026]: the formats and the
+  chain in `core.store`, the keyed head, rotation and verification behind `AuditAnchor` in the runtime.
+* link:../adr/core-store/027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]: the record of a torn tail of
+  the audit log is written into the log by its own in-log sink before the intent is deleted.
