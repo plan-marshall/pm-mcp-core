@@ -84,6 +84,52 @@
       }
     },
     {
+      "id": "analysis-provider-unconfigured",
+      "when": { "fact": "integrations.sonar", "unset": true },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:analysis-roundtrip", "reason": "provider_unconfigured" }
+        ]
+      }
+    },
+    {
+      "id": "no-code-delta",
+      "when": {
+        "fact": "footprint",
+        "disjoint": [
+          "**.java", "**.kt", "**.kts", "**.groovy", "**.gradle", "**.scala",
+          "**.js", "**.mjs", "**.cjs", "**.jsx", "**.ts", "**.tsx",
+          "**.py", "**.sh",
+          "pom.xml", "**/pom.xml", "package.json", "**/package.json", "pyproject.toml", "**/pyproject.toml",
+          "Dockerfile", "**/Dockerfile", "Containerfile", "**/Containerfile"
+        ]
+      },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "footprint_disjoint" },
+          { "element": "step", "id": "default:adr-propose", "reason": "footprint_disjoint" }
+        ]
+      }
+    },
+    {
+      "id": "report-change-type",
+      "when": { "fact": "change_type", "in": ["analysis", "verification"] },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "change_type_exempt" }
+        ]
+      }
+    },
+    {
+      "id": "simplify-recipe",
+      "when": { "fact": "recipe_id", "equals": "simplify-codebase" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "recipe_override" }
+        ]
+      }
+    },
+    {
       "id": "post-run-returned",
       "when": { "fact": "post_run", "equals": "returned" },
       "then": {

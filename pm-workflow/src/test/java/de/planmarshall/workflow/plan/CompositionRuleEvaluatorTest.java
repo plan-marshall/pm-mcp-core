@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Lane;
@@ -38,14 +39,26 @@ import de.planmarshall.workflow.plan.PrunedElement.Kind;
  * holds contributes exactly its prunes, with its reason and the fact it read as the source fact, and its bindings, in
  * rule order; with the fact not holding, the same rule contributes nothing. An unknown fact never makes a rule hold
  * except one asking whether it is unset, so an unreadable push remote or footprint is never read as "none".
+ * <p>
+ * The facts of most tests configure the analysis provider, so the rule that prunes the analysis step of a project
+ * without one stays silent and each test sees only the rule it is about.
  */
 @DisplayName("CompositionRuleEvaluator")
 class CompositionRuleEvaluatorTest {
 
     private static final CompositionRules SHIPPED = ((CompositionRules.Loaded) CompositionRules.shipped()).rules();
 
+    private static final String SONAR = "integrations.sonar";
+
+    private static final RuleEffects NOTHING = new RuleEffects(List.of(), List.of());
+
     private static RuleEffects evaluate(PlanFacts facts) {
         return CompositionRuleEvaluator.evaluate(SHIPPED, facts);
+    }
+
+    /** Facts with the analysis provider configured and every other fact unknown. */
+    private static PlanFacts.Builder facts() {
+        return PlanFacts.builder().configuration(SONAR, "sonarcloud");
     }
 
     private static PrunedElement step(String id, PruneReason reason, String fact) {
@@ -55,8 +68,6 @@ class CompositionRuleEvaluatorTest {
     private static PrunedElement state(String id, PruneReason reason, String fact) {
         return new PrunedElement(Kind.STATE, id, reason, fact);
     }
-
-    private static final RuleEffects NOTHING = new RuleEffects(List.of(), List.of());
 
     @Nested
     @DisplayName("Lanes")
@@ -70,7 +81,7 @@ class CompositionRuleEvaluatorTest {
         @Test
         @DisplayName("land binds every policy call to retry and prunes task allocation, fix and loop_back")
         void land() {
-            var effects = evaluate(PlanFacts.builder().lane(Lane.LAND).build());
+            var effects = evaluate(facts().lane(Lane.LAND).build());
 
             assertEquals(new RuleEffects(
                     List.of(state("finalize.allocate-remediation", PruneReason.LAND_LANE, "lane"),
@@ -85,14 +96,14 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("adopt prunes create-pr, since the adopted pull request exists")
         void adopt() {
             assertEquals(new RuleEffects(List.of(step("default:create-pr", PruneReason.ADOPT, "lane")), List.of()),
-                    evaluate(PlanFacts.builder().lane(Lane.ADOPT).build()));
+                    evaluate(facts().lane(Lane.ADOPT).build()));
         }
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(value = Lane.class, names = {"LIGHT", "DEEP"})
         @DisplayName("a request plan binds nothing and prunes nothing for its lane, so fix stays among its actions")
         void requestPlanControl(Lane lane) {
-            assertEquals(NOTHING, evaluate(PlanFacts.builder().lane(lane).build()));
+            assertEquals(NOTHING, evaluate(facts().lane(lane).build()));
         }
     }
 
@@ -103,7 +114,7 @@ class CompositionRuleEvaluatorTest {
         @Test
         @DisplayName("an empty push remote prunes every remote-bound step and keeps the two local gates")
         void localOnly() {
-            var effects = evaluate(PlanFacts.builder().configuration("derived.push_remote", "").build());
+            var effects = evaluate(facts().configuration("derived.push_remote", "").build());
 
             assertAll(
                     () -> assertEquals(List.of(
@@ -123,9 +134,9 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("a push remote, or one that could not be derived, prunes nothing")
         void localOnlyControl() {
             assertAll(
-                    () -> assertEquals(NOTHING, evaluate(PlanFacts.builder()
-                            .configuration("derived.push_remote", "origin").build())),
-                    () -> assertEquals(NOTHING, evaluate(PlanFacts.builder().build())));
+                    () -> assertEquals(NOTHING, evaluate(facts().configuration("derived.push_remote", "origin")
+                            .build())),
+                    () -> assertEquals(NOTHING, evaluate(facts().build())));
         }
 
         @Test
@@ -136,13 +147,13 @@ class CompositionRuleEvaluatorTest {
                                     state("finalize.merge-queue-wait", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge"),
                                     state("finalize.merge-queue-exit", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge")),
                             List.of()),
-                    evaluate(PlanFacts.builder().configuration("merge.auto_merge", "false").build()));
+                    evaluate(facts().configuration("merge.auto_merge", "false").build()));
         }
 
         @Test
         @DisplayName("merge.auto_merge true prunes nothing")
         void autoMergeOn() {
-            assertEquals(NOTHING, evaluate(PlanFacts.builder().configuration("merge.auto_merge", "true").build()));
+            assertEquals(NOTHING, evaluate(facts().configuration("merge.auto_merge", "true").build()));
         }
     }
 
@@ -162,7 +173,7 @@ class CompositionRuleEvaluatorTest {
                             step("default:lessons-capture", PruneReason.POSTURE, "posture"),
                             step("default:adr-propose", PruneReason.POSTURE, "posture"),
                             step("default:plan-retrospective", PruneReason.POSTURE, "posture")),
-                    evaluate(PlanFacts.builder().posture(Posture.MINIMAL).build()).prunes());
+                    evaluate(facts().posture(Posture.MINIMAL).build()).prunes());
         }
 
         @Test
@@ -172,7 +183,7 @@ class CompositionRuleEvaluatorTest {
                             step("default:finalize-step-security-audit", PruneReason.POSTURE, "posture"),
                             step("default:adr-propose", PruneReason.POSTURE, "posture"),
                             step("default:plan-retrospective", PruneReason.POSTURE, "posture")),
-                    evaluate(PlanFacts.builder().posture(Posture.STANDARD).build()).prunes());
+                    evaluate(facts().posture(Posture.STANDARD).build()).prunes());
         }
 
         @Test
@@ -181,13 +192,92 @@ class CompositionRuleEvaluatorTest {
             assertEquals(List.of(
                             step("default:adr-propose", PruneReason.POSTURE, "posture"),
                             step("default:plan-retrospective", PruneReason.POSTURE, "posture")),
-                    evaluate(PlanFacts.builder().posture(Posture.FULL).build()).prunes());
+                    evaluate(facts().posture(Posture.FULL).build()).prunes());
         }
 
         @Test
         @DisplayName("an unknown posture prunes nothing")
         void unknown() {
-            assertEquals(NOTHING, evaluate(PlanFacts.builder().build()));
+            assertEquals(NOTHING, evaluate(facts().build()));
+        }
+    }
+
+    @Nested
+    @DisplayName("Provider, footprint, change type and recipe")
+    class Families {
+
+        @Test
+        @DisplayName("a project without an analysis provider prunes the analysis roundtrip")
+        void providerUnconfigured() {
+            assertEquals(new RuleEffects(List.of(step("default:analysis-roundtrip",
+                            PruneReason.PROVIDER_UNCONFIGURED, SONAR)), List.of()),
+                    evaluate(PlanFacts.builder().build()));
+        }
+
+        @Test
+        @DisplayName("a configured analysis provider keeps the analysis roundtrip")
+        void providerConfiguredControl() {
+            assertEquals(NOTHING, evaluate(PlanFacts.builder().configuration(SONAR, "sonarcloud").build()));
+        }
+
+        @Test
+        @DisplayName("a footprint without code prunes simplify and the ADR proposal")
+        void footprintDisjoint() {
+            assertEquals(new RuleEffects(List.of(
+                            step("default:finalize-step-simplify", PruneReason.FOOTPRINT_DISJOINT, "footprint"),
+                            step("default:adr-propose", PruneReason.FOOTPRINT_DISJOINT, "footprint")), List.of()),
+                    evaluate(facts().footprint(List.of("doc/guide.adoc", "README.md", ".github/project.yml"))
+                            .build()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"Main.java", "pm-workflow/src/main/java/A.java", "build.gradle.kts",
+                "web/src/app.ts", "web/src/app.mjs", "tools/run.py", "scripts/build.sh", "pom.xml",
+                "pm-core/pom.xml", "package.json", "web/package.json", "pyproject.toml", "Dockerfile",
+                "image/Containerfile"})
+        @DisplayName("a footprint with one code or build path keeps simplify and the ADR proposal")
+        void footprintWithCodeControl(String codePath) {
+            assertEquals(NOTHING, evaluate(facts().footprint(List.of("doc/guide.adoc", codePath)).build()));
+        }
+
+        @Test
+        @DisplayName("an empty or unknown footprint is indeterminate and keeps every step")
+        void footprintIndeterminateControl() {
+            assertAll(
+                    () -> assertEquals(NOTHING, evaluate(facts().footprint(List.of()).build())),
+                    () -> assertEquals(NOTHING, evaluate(facts().build())));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"analysis", "verification"})
+        @DisplayName("a report change type exempts the plan from simplify")
+        void changeTypeExempt(String changeType) {
+            assertEquals(new RuleEffects(List.of(step("default:finalize-step-simplify",
+                            PruneReason.CHANGE_TYPE_EXEMPT, "change_type")), List.of()),
+                    evaluate(facts().changeType(changeType).build()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"feature", "enhancement", "bug_fix", "tech_debt"})
+        @DisplayName("a code change type keeps simplify")
+        void codeChangeTypeControl(String changeType) {
+            assertEquals(NOTHING, evaluate(facts().changeType(changeType).build()));
+        }
+
+        @Test
+        @DisplayName("the simplify-codebase recipe overrides the simplify step")
+        void recipeOverride() {
+            assertEquals(new RuleEffects(List.of(step("default:finalize-step-simplify",
+                            PruneReason.RECIPE_OVERRIDE, "recipe_id")), List.of()),
+                    evaluate(facts().recipeId("simplify-codebase").build()));
+        }
+
+        @Test
+        @DisplayName("another recipe, or none, keeps the simplify step")
+        void recipeControl() {
+            assertAll(
+                    () -> assertEquals(NOTHING, evaluate(facts().recipeId("lesson-cleanup").build())),
+                    () -> assertEquals(NOTHING, evaluate(facts().build())));
         }
     }
 
@@ -200,7 +290,7 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("prune every step below order 900 with the reason of the form")
         void postRun(String form, PruneReason reason) {
             assertEquals(new RuleEffects(List.of(step("order<900", reason, "post_run")), List.of()),
-                    evaluate(PlanFacts.builder().postRun(form).build()));
+                    evaluate(facts().postRun(form).build()));
         }
     }
 
@@ -212,10 +302,10 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("the effects of several rules come in rule order")
         void ruleOrder() {
             var effects = evaluate(PlanFacts.builder().lane(Lane.LAND).posture(Posture.FULL)
-                    .configuration("merge.auto_merge", "false").build());
+                    .configuration("merge.auto_merge", "false").changeType("analysis").build());
 
             assertEquals(List.of("lane", "lane", "lane", "lane", "merge.auto_merge", "merge.auto_merge",
-                            "merge.auto_merge", "posture", "posture"),
+                            "merge.auto_merge", "posture", "posture", SONAR, "change_type"),
                     effects.prunes().stream().map(PrunedElement::sourceFact).toList());
         }
 
@@ -228,10 +318,10 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertEquals(List.of(step("default:analysis-roundtrip", PruneReason.PROVIDER_UNCONFIGURED,
-                                    "integrations.sonar")),
+                                    SONAR)),
                             CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder().build()).prunes()),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                            .configuration("integrations.sonar", "sonarcloud").build())));
+                            .configuration(SONAR, "sonarcloud").build())));
         }
 
         @Test
@@ -307,7 +397,7 @@ class CompositionRuleEvaluatorTest {
                     () -> assertEquals(Optional.of(List.of("a")), facts.list("footprint")),
                     () -> assertEquals(Optional.empty(), facts.list("lane")),
                     () -> assertEquals(Optional.of("true"), facts.text("merge.auto_merge")),
-                    () -> assertEquals(Optional.empty(), facts.text("integrations.sonar")));
+                    () -> assertEquals(Optional.empty(), facts.text(SONAR)));
         }
 
         @Test

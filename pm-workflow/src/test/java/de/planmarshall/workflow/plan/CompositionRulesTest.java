@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 
@@ -42,8 +43,21 @@ import de.planmarshall.workflow.plan.CompositionRules.Refusal;
 class CompositionRulesTest {
 
     private static final List<String> SHIPPED_RULE_IDS = List.of("land-lane", "adopt-lane", "local-only",
-            "auto-merge-off", "posture-minimal", "posture-standard", "posture-default-off", "post-run-returned",
-            "post-run-handed-back", "post-run-empty-harvest");
+            "auto-merge-off", "posture-minimal", "posture-standard", "posture-default-off",
+            "analysis-provider-unconfigured", "no-code-delta", "report-change-type", "simplify-recipe",
+            "post-run-returned", "post-run-handed-back", "post-run-empty-harvest");
+
+    /**
+     * The floor-immune steps (lane class {@code core} or {@code derived-state}) of the step catalogue: only the rules
+     * of {@code local_only}, {@code adopt} and the post-run-only forms may prune one of them.
+     */
+    private static final Set<String> FLOOR_IMMUNE_STEPS = Set.of("default:finalize-step-sync-baseline",
+            "default:pre-push-quality-gate", "default:push", "default:create-pr", "default:ci-verify",
+            "default:branch-cleanup", "default:record-metrics", "default:finalize-step-print-phase-breakdown",
+            "default:emit-landing", "default:archive-plan", "default:architecture-refresh");
+
+    private static final Set<PruneReason> FLOOR_OVERRIDING_REASONS = Set.of(PruneReason.LOCAL_ONLY,
+            PruneReason.ADOPT, PruneReason.RETURNED, PruneReason.HANDED_BACK, PruneReason.EMPTY_HARVEST);
 
     /** A rule file around the given rules, written for the test. */
     private static CompositionRules.Loading file(String rules) {
@@ -105,6 +119,59 @@ class CompositionRulesTest {
                     () -> assertTrue(rules.stream().flatMap(rule -> rule.prunes().stream())
                             .noneMatch(prune -> prune.id().contains("gate"))));
         }
+
+        /**
+         * The four families the specification names without content each have exactly one shipped rule, over the
+         * fact and with the condition and targets the specification states for it.
+         */
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.plan.CompositionRulesTest#families")
+        @DisplayName("ships one rule per prune family, over its fact, with its targets")
+        void family(PruneReason reason, CompositionRule.Condition when, List<String> targets) {
+            var rules = loaded(CompositionRules.shipped()).rules().stream()
+                    .filter(rule -> rule.prunes().stream().anyMatch(prune -> prune.reason() == reason)).toList();
+
+            assertEquals(1, rules.size(), rules::toString);
+            var rule = rules.getFirst();
+            assertAll(
+                    () -> assertEquals(when, rule.when()),
+                    () -> assertEquals(targets, rule.prunes().stream().map(CompositionRule.Prune::id).toList()),
+                    () -> assertTrue(rule.prunes().stream().allMatch(prune -> prune.reason() == reason
+                            && prune.element() == PrunedElement.Kind.STEP)),
+                    () -> assertEquals(List.of(), rule.bindings()));
+        }
+
+        @Test
+        @DisplayName("prunes a floor-immune step only for local-only runs, adopt and the post-run-only forms")
+        void floorImmunity() {
+            var floorPrunes = loaded(CompositionRules.shipped()).rules().stream()
+                    .flatMap(rule -> rule.prunes().stream())
+                    .filter(prune -> FLOOR_IMMUNE_STEPS.contains(prune.id())).toList();
+
+            assertAll(
+                    () -> assertFalse(floorPrunes.isEmpty()),
+                    () -> assertTrue(floorPrunes.stream()
+                                    .allMatch(prune -> FLOOR_OVERRIDING_REASONS.contains(prune.reason())),
+                            floorPrunes::toString));
+        }
+    }
+
+    static Stream<Arguments> families() {
+        return Stream.of(
+                Arguments.of(PruneReason.PROVIDER_UNCONFIGURED, new CompositionRule.Unset("integrations.sonar"),
+                        List.of("default:analysis-roundtrip")),
+                Arguments.of(PruneReason.FOOTPRINT_DISJOINT, new CompositionRule.Disjoint("footprint", List.of(
+                                "**.java", "**.kt", "**.kts", "**.groovy", "**.gradle", "**.scala",
+                                "**.js", "**.mjs", "**.cjs", "**.jsx", "**.ts", "**.tsx", "**.py", "**.sh",
+                                "pom.xml", "**/pom.xml", "package.json", "**/package.json", "pyproject.toml",
+                                "**/pyproject.toml", "Dockerfile", "**/Dockerfile", "Containerfile",
+                                "**/Containerfile")),
+                        List.of("default:finalize-step-simplify", "default:adr-propose")),
+                Arguments.of(PruneReason.CHANGE_TYPE_EXEMPT,
+                        new CompositionRule.In("change_type", List.of("analysis", "verification")),
+                        List.of("default:finalize-step-simplify")),
+                Arguments.of(PruneReason.RECIPE_OVERRIDE, new CompositionRule.Equals("recipe_id", "simplify-codebase"),
+                        List.of("default:finalize-step-simplify")));
     }
 
     @Nested
