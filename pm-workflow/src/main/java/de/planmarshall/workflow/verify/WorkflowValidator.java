@@ -190,6 +190,7 @@ public final class WorkflowValidator {
         Objects.requireNonNull(definition, "definition");
         var violations = new ArrayList<Violation>();
         var graph = UnitGraph.of(definition);
+        var defaultLostRoute = routesLostByDefault(definition);
         checkSchemaBinding(definition, violations);
         checkStateIdUniqueness(definition, violations);
         checkStateExists(definition, violations);
@@ -198,7 +199,7 @@ public final class WorkflowValidator {
         for (var state : definition.states().values()) {
             checkPrimitiveBinding(definition, state, violations);
             checkParameterEquivalence(state, violations);
-            checkOutcomeCoverage(definition, state, violations);
+            checkOutcomeCoverage(state, defaultLostRoute, violations);
             checkLinkIdentifiers(definition.scope(), state, violations);
             checkLinkCompatibility(state, violations);
             checkJobStartingOutcomes(definition, state, violations);
@@ -212,9 +213,27 @@ public final class WorkflowValidator {
         checkSessionDrivenLinks(definition, violations);
         checkCycleAwaitedEvent(definition, violations);
         checkReachability(definition, graph, violations);
-        checkExitPaths(definition, graph, violations);
+        checkExitPaths(definition, graph, defaultLostRoute, violations);
         checkReleasedStates(definition, violations);
         return new VerificationResult(ordered(definition, violations));
+    }
+
+    /**
+     * Rule 2: whether the engine routes the reserved outcome {@code lost} of a task state that declares no
+     * {@code lost} transition to the phase's fallback. It does in a plan unit, and in a sub-workflow every caller chain
+     * of which through the catalog ends in plan units (Workflow DSL, 02-units-jobs-decisions, Model Job States item 4;
+     * ADR 025). A sub-workflow with a caller of another scope, directly or through other sub-workflows, or with no
+     * caller at all, routes {@code lost} itself, like every other unit.
+     *
+     * @param definition the unit being verified
+     * @return {@code true} when an undeclared {@code lost} takes the default route
+     */
+    private boolean routesLostByDefault(WorkflowDefinition definition) {
+        return switch (definition.scope()) {
+            case PLAN -> true;
+            case SUBWORKFLOW -> catalog.calledOnlyFromPlanUnits(definition.id());
+            case EPIC, WORKSPACE, ENTITY -> false;
+        };
     }
 
     private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
@@ -506,14 +525,14 @@ public final class WorkflowValidator {
                 "the link '%s' of the primitive '%s' %s".formatted(link.idPattern(), primitive.id(), detail));
     }
 
-    private void checkOutcomeCoverage(WorkflowDefinition definition, StateNode state, List<Violation> violations) {
+    private void checkOutcomeCoverage(StateNode state, boolean defaultLostRoute, List<Violation> violations) {
         switch (state.behavior()) {
             case StateBehavior.AutoStep auto ->
                 coverOutcomes(state, auto.primitiveId(), auto.transitions(), state.location(), violations);
             case StateBehavior.JobStep job ->
                 coverOutcomes(state, job.primitiveId(), job.transitions(), state.location(), violations);
             case StateBehavior.ModelJob modelJob ->
-                coverModelJobOutcomes(definition, state, modelJob, violations);
+                coverModelJobOutcomes(state, modelJob, defaultLostRoute, violations);
             case StateBehavior.QuestionWait question ->
                 coverQuestionOutcomes(state, question, violations);
             case StateBehavior.InteractiveLinks _, StateBehavior.SubWorkflowCall _,
@@ -550,7 +569,7 @@ public final class WorkflowValidator {
                         "does not route the outcome '%s' of the primitive '%s'".formatted(outcome, primitiveId))));
     }
 
-    private void coverModelJobOutcomes(WorkflowDefinition definition, StateNode state, StateBehavior.ModelJob modelJob,
+    private void coverModelJobOutcomes(StateNode state, StateBehavior.ModelJob modelJob, boolean defaultLostRoute,
             List<Violation> violations) {
         var entityKindOpt = entityKinds.find(modelJob.entityKind());
         if (entityKindOpt.isEmpty()) {
@@ -589,7 +608,7 @@ public final class WorkflowValidator {
             }
         }
 
-        if (definition.scope() != WorkflowScope.PLAN && !routed.contains(UnitGraph.LOST_OUTCOME)) {
+        if (!defaultLostRoute && !routed.contains(UnitGraph.LOST_OUTCOME)) {
             violations.add(new Violation(VerificationRule.MODEL_JOB_OUTCOMES, state.id(), state.location(),
                     "the state '%s' does not route the reserved outcome 'lost'".formatted(state.id())));
         }
@@ -1769,7 +1788,8 @@ public final class WorkflowValidator {
         return false;
     }
 
-    private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, List<Violation> violations) {
+    private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, boolean defaultLostRoute,
+            List<Violation> violations) {
         if (definition.scope() == WorkflowScope.WORKSPACE) {
             var returning = graph.backwardClosure(Set.of(definition.startState()));
             definition.states().values().stream()
@@ -1781,7 +1801,7 @@ public final class WorkflowValidator {
         }
         var exits = new LinkedHashSet<String>();
         for (var state : definition.states().values()) {
-            if (isTerminal(state) || UnitGraph.hasImplicitExit(definition.scope(), state)) {
+            if (isTerminal(state) || UnitGraph.hasImplicitExit(definition.scope(), state, defaultLostRoute)) {
                 exits.add(state.id());
             }
         }

@@ -9,15 +9,19 @@
  */
 package de.planmarshall.workflow.verify;
 
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
+import de.planmarshall.workflow.ast.WorkflowScope;
 
 /**
  * An immutable registry of registered {@link WorkflowDefinition} units (PM-IMPL-5, PM-WF-16).
@@ -84,5 +88,55 @@ public final class WorkflowCatalog {
      */
     public Collection<WorkflowDefinition> definitions() {
         return definitions.values();
+    }
+
+    /**
+     * @param id the unit identifier
+     * @return the registered units with a {@code call} of the unit, in registration order
+     */
+    public List<WorkflowDefinition> callersOf(String id) {
+        return definitions.values().stream().filter(definition -> calls(definition, id)).toList();
+    }
+
+    /**
+     * Tells whether every caller chain of a unit through the catalog ends in plan units (Rule 2, ADR 025): the unit
+     * has a caller, every caller is a {@link WorkflowScope#PLAN} unit or a {@link WorkflowScope#SUBWORKFLOW} unit
+     * whose callers satisfy the same, walked transitively, and the walk reaches a plan unit. A caller of any other
+     * scope, or a unit on the walk without a caller, ends a chain outside the plan units. Each unit is walked once, so
+     * a call cycle, which Rule 7 refuses, does not loop.
+     *
+     * @param id the unit identifier, registered or not
+     * @return {@code true} when only plan units reach the unit, directly or through sub-workflows
+     */
+    public boolean calledOnlyFromPlanUnits(String id) {
+        var visited = new HashSet<String>();
+        var queue = new ArrayDeque<>(List.of(id));
+        var reachesPlanUnit = false;
+        while (!queue.isEmpty()) {
+            var current = queue.poll();
+            if (!visited.add(current)) {
+                continue;
+            }
+            var callers = callersOf(current);
+            if (callers.isEmpty()) {
+                return false;
+            }
+            for (var caller : callers) {
+                switch (caller.scope()) {
+                    case PLAN -> reachesPlanUnit = true;
+                    case SUBWORKFLOW -> queue.add(caller.id());
+                    case EPIC, WORKSPACE, ENTITY -> {
+                        return false;
+                    }
+                }
+            }
+        }
+        return reachesPlanUnit;
+    }
+
+    private static boolean calls(WorkflowDefinition definition, String id) {
+        return definition.states().values().stream()
+                .anyMatch(state -> state.behavior() instanceof StateBehavior.SubWorkflowCall call
+                        && id.equals(call.subWorkflowId()));
     }
 }

@@ -157,18 +157,34 @@ final class UnitGraph {
     }
 
     /**
-     * Tells whether a state leaves the unit through an exit no transition declares: the implicit {@code step_out} of
-     * a link state of a {@link WorkflowScope#SUBWORKFLOW} unit, and the default route of the reserved outcome
-     * {@code lost} of a task state that declares no {@code lost} transition.
+     * Tells whether a state of a unit that passed {@link WorkflowValidator} leaves the unit through an exit no
+     * transition declares: the verifier admits an undeclared {@code lost} only where the engine routes it by default,
+     * so every task state without a {@code lost} transition takes that route.
      *
      * @param scope the scope of the unit
      * @param state a state of the unit
      * @return {@code true} when the state has such an implicit exit
+     * @see #hasImplicitExit(WorkflowScope, StateNode, boolean)
      */
     static boolean hasImplicitExit(WorkflowScope scope, StateNode state) {
+        return hasImplicitExit(scope, state, true);
+    }
+
+    /**
+     * Tells whether a state leaves the unit through an exit no transition declares: the implicit {@code step_out} of
+     * a link state of a {@link WorkflowScope#SUBWORKFLOW} unit, and, where the engine routes the reserved outcome
+     * {@code lost} by default, the default route of a task state that declares no {@code lost} transition (Rule 2).
+     *
+     * @param scope            the scope of the unit
+     * @param state            a state of the unit
+     * @param defaultLostRoute whether the engine routes an undeclared {@code lost} of the unit to the phase's fallback:
+     *                         in a plan unit and in a sub-workflow every caller chain of which ends in plan units
+     * @return {@code true} when the state has such an implicit exit
+     */
+    static boolean hasImplicitExit(WorkflowScope scope, StateNode state, boolean defaultLostRoute) {
         return switch (state.behavior()) {
             case StateBehavior.InteractiveLinks _ -> scope == WorkflowScope.SUBWORKFLOW;
-            case StateBehavior.ModelJob modelJob -> modelJob.transitions().stream()
+            case StateBehavior.ModelJob modelJob -> defaultLostRoute && modelJob.transitions().stream()
                     .noneMatch(transition -> LOST_OUTCOME.equals(transition.outcomeName()));
             case StateBehavior.AutoStep _, StateBehavior.JobStep _, StateBehavior.SubWorkflowCall _,
                 StateBehavior.QuestionWait _, StateBehavior.TerminalState _ -> false;

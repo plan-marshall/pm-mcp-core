@@ -111,8 +111,10 @@ class WorkflowValidatorTest {
                     VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-unknown.pmwf"),
             new Check("Rule 2: a job llm state routes each outcome once",
                     VerificationRule.MODEL_JOB_OUTCOMES, "model-job-outcome-twice.pmwf"),
-            new Check("Rule 2: lost stays undeclared only in a plan unit",
-                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-undeclared.pmwf"),
+            new Check("Rule 2: lost stays undeclared only in a plan unit or a sub-workflow every caller chain of which"
+                    + " ends in plan units", VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-undeclared.pmwf"),
+            new Check("Rule 2: a sub-workflow with a non-plan caller routes lost",
+                    VerificationRule.MODEL_JOB_OUTCOMES, "model-job-lost-mixed-callers.pmwf"),
             new Check("Rule 2: asked is engine-made and refused when declared",
                     VerificationRule.MODEL_JOB_OUTCOMES, "model-job-asked-declared.pmwf"),
             new Check("Rule 2: a question clause routes every resolution outcome of its class",
@@ -431,6 +433,14 @@ class WorkflowValidatorTest {
                             "verify.inline", "plan", """
                             state verify.entry
                                 phase verify
+                                job llm change role reviewer
+                                    approved -> verify.done
+                            """ + DONE_TERMINAL),
+                    Arguments.of("the default lost route of a sub-workflow reached only from a plan unit through"
+                            + " another sub-workflow, matched with model-job-lost-mixed-callers.pmwf",
+                            TestPrimitives.PLAN_ONLY_INNER, "subworkflow", """
+                            state verify.entry
+                                phase inherit
                                 job llm change role reviewer
                                     approved -> verify.done
                             """ + DONE_TERMINAL),

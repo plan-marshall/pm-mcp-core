@@ -142,6 +142,27 @@ final class TestPrimitives {
     /** A session-driven sub-workflow with a resting link state. */
     static final String LINKS_INNER = "test.links-inner";
 
+    /** A plan unit of the test catalog that calls {@link #PLAN_ONLY_OUTER} and {@link #MIXED_CALLERS}. */
+    static final String PLAN_CALLER = "test.plan-caller";
+
+    /** An epic unit of the test catalog that calls {@link #MIXED_CALLERS}. */
+    static final String EPIC_CALLER = "test.epic-caller";
+
+    /** A sub-workflow only {@link #PLAN_CALLER} calls; it calls {@link #PLAN_ONLY_INNER}. */
+    static final String PLAN_ONLY_OUTER = "test.plan-only-outer";
+
+    /**
+     * A sub-workflow reached only from the plan unit {@link #PLAN_CALLER}, through {@link #PLAN_ONLY_OUTER}; its task
+     * state leaves {@code lost} undeclared (Rule 2, ADR 025).
+     */
+    static final String PLAN_ONLY_INNER = "test.plan-only-inner";
+
+    /**
+     * The sub-workflow of the refusing fixture {@code model-job-lost-mixed-callers.pmwf}, called by the plan unit
+     * {@link #PLAN_CALLER} and by the epic unit {@link #EPIC_CALLER}; the catalog does not register it.
+     */
+    static final String MIXED_CALLERS = "verify.model-job-lost-mixed-callers";
+
     private TestPrimitives() {
     }
 
@@ -191,7 +212,10 @@ final class TestPrimitives {
      *         {@code commit-result} (registered by {@link SchemaRegistry#defaults()}), the link-free call chain
      *         {@code test.depth1} to {@code test.depth5}, the self-calling {@code verify.call-cycle}, the remediation
      *         unit {@link #REMEDIATION}, the entity unit {@code entity} of {@link #CHANGE_KIND},
-     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, and the workspace unit {@link #WORKSPACE_UNIT}
+     *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, the workspace unit {@link #WORKSPACE_UNIT}, and the
+     *         caller chains of Rule 2's {@code lost} omission: the plan unit {@link #PLAN_CALLER} calling
+     *         {@link #PLAN_ONLY_OUTER}, which calls {@link #PLAN_ONLY_INNER}, and {@link #MIXED_CALLERS}, which
+     *         {@link #EPIC_CALLER} calls as well
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
@@ -310,7 +334,98 @@ final class TestPrimitives {
                     phase setup
                 """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
-                remediation, entity, linksInner, linksOuter, workspaceUnit));
+                remediation, entity, linksInner, linksOuter, workspaceUnit, planCaller(), epicCaller(),
+                planOnlyOuter(), planOnlyInner()));
+    }
+
+    /** The plan unit {@link #PLAN_CALLER}: it calls {@link #PLAN_ONLY_OUTER}, then {@link #MIXED_CALLERS}. */
+    private static WorkflowDefinition planCaller() {
+        return VerifyFixtures.parseSource("test.plan-caller.pmwf", """
+                workflow test.plan-caller version 1 format 1
+                scope plan
+                start plan-caller.outer
+
+                state plan-caller.outer
+                    phase verify
+                    call test.plan-only-outer()
+                        done -> plan-caller.mixed
+                        stepped_out -> plan.return
+
+                state plan-caller.mixed
+                    phase verify
+                    call verify.model-job-lost-mixed-callers()
+                        done -> plan-caller.done
+                        stepped_out -> plan.return
+
+                state plan.return terminal returned failure
+                    phase verify
+
+                state plan-caller.done terminal done success
+                    phase verify
+                """);
+    }
+
+    /** The epic unit {@link #EPIC_CALLER}: it calls {@link #MIXED_CALLERS} and rests on a job afterwards. */
+    private static WorkflowDefinition epicCaller() {
+        return VerifyFixtures.parseSource("test.epic-caller.pmwf", """
+                workflow test.epic-caller version 1 format 1
+                scope epic
+                start epic-caller.mixed
+
+                state epic-caller.mixed
+                    phase verify
+                    call verify.model-job-lost-mixed-callers()
+                        done -> epic-caller.done
+                        stepped_out -> epic-caller.rest
+
+                state epic-caller.rest
+                    phase verify
+                    job test.build
+                        succeeded -> epic-caller.done
+                        failed -> epic-caller.done
+                        cancelled -> epic-caller.done
+
+                state epic-caller.done terminal done success
+                    phase verify
+                """);
+    }
+
+    /** The sub-workflow {@link #PLAN_ONLY_OUTER}: it calls {@link #PLAN_ONLY_INNER}. */
+    private static WorkflowDefinition planOnlyOuter() {
+        return VerifyFixtures.parseSource("test.plan-only-outer.pmwf", """
+                workflow test.plan-only-outer version 1 format 1
+                scope subworkflow
+                start plan-only-outer.inner
+
+                state plan-only-outer.inner
+                    phase inherit
+                    call test.plan-only-inner()
+                        done -> plan-only-outer.done
+                        stepped_out -> plan-only-outer.stepped-out
+
+                state plan-only-outer.done terminal done success
+                    phase inherit
+
+                state plan-only-outer.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """);
+    }
+
+    /** The sub-workflow {@link #PLAN_ONLY_INNER}: one task state that leaves {@code lost} undeclared. */
+    private static WorkflowDefinition planOnlyInner() {
+        return VerifyFixtures.parseSource("test.plan-only-inner.pmwf", """
+                workflow test.plan-only-inner version 1 format 1
+                scope subworkflow
+                start plan-only-inner.review
+
+                state plan-only-inner.review
+                    phase inherit
+                    job llm change role reviewer
+                        approved -> plan-only-inner.done
+
+                state plan-only-inner.done terminal done success
+                    phase inherit
+                """);
     }
 
     /** A link-free sub-workflow {@code test.depth<n>} whose one state calls {@code callee}. */

@@ -11,6 +11,7 @@ package de.planmarshall.workflow.verify;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -275,6 +276,79 @@ class AdditionalRulesTest {
                         + " 'test.evaluate-change' does not have",
                 "the state 'verify.entry' does not route the reserved outcome 'lost'"),
                 found(def));
+    }
+
+    /** A unit of the given scope whose one state calls {@code callee}; it is read only as a caller, never verified. */
+    private static WorkflowDefinition caller(String id, String scope, String callee) {
+        return VerifyFixtures.parseSource(id + ".pmwf", """
+                workflow %s version 1 format 1
+                scope %s
+                start caller.invoke
+
+                state caller.invoke
+                    phase verify
+                    call %s()
+                        done -> caller.done
+                        stepped_out -> caller.done
+
+                state caller.done terminal done success
+                    phase verify
+                """.formatted(id, scope, callee));
+    }
+
+    /**
+     * The sub-workflow {@code verify.reviewed}: its task state routes {@code approved} back to itself and leaves
+     * {@code lost} undeclared, so the default {@code lost} route is its only exit.
+     */
+    private static final WorkflowDefinition REVIEWED = VerifyFixtures.parseSource("reviewed.pmwf", """
+            workflow verify.reviewed version 1 format 1
+            scope subworkflow
+            start verify.entry
+
+            state verify.entry
+                phase inherit
+                job llm change role reviewer
+                    approved -> verify.entry
+            """);
+
+    /** Verifies {@link #REVIEWED} against a catalog of the callers and the entity unit of its task state. */
+    private static List<RuleStateMessage> foundWithCallers(WorkflowDefinition... callers) {
+        var units = new ArrayList<>(List.of(callers));
+        units.add(TestPrimitives.catalog().find("entity").orElseThrow());
+        var verifier = new WorkflowValidator(TestPrimitives.registry(), List.of("verify.entry"),
+                TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(), SchemaRegistry.defaults(),
+                new WorkflowCatalog(units));
+        return found(verifier, REVIEWED);
+    }
+
+    private static final List<RuleStateMessage> LOST_ROUTED_ITSELF = List.of(
+            new RuleStateMessage(VerificationRule.MODEL_JOB_OUTCOMES, "verify.entry",
+                    "the state 'verify.entry' does not route the reserved outcome 'lost'"),
+            new RuleStateMessage(VerificationRule.EXIT_PATH, "verify.entry",
+                    "the state 'verify.entry' has no path to a terminal state"));
+
+    @Test
+    @DisplayName("MODEL_JOB_OUTCOMES and EXIT_PATH: a sub-workflow reached only from plan units takes the default lost route (ADR 025)")
+    void lostOmittedUnderPlanUnitsOnly() {
+        assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed")));
+        assertEquals(List.of(), foundWithCallers(caller("verify.plan-a", "plan", "verify.middle"),
+                caller("verify.plan-b", "plan", "verify.reviewed"),
+                caller("verify.middle", "subworkflow", "verify.reviewed")));
+    }
+
+    @Test
+    @DisplayName("MODEL_JOB_OUTCOMES and EXIT_PATH: a sub-workflow with a caller chain outside the plan units routes lost (ADR 025)")
+    void lostOmittedOutsidePlanUnitsOnly() {
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(), "no caller");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.plan-a", "plan", "verify.reviewed"),
+                caller("verify.epic-a", "epic", "verify.reviewed")), "a direct epic caller");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.plan-a", "plan", "verify.middle"),
+                caller("verify.middle", "subworkflow", "verify.reviewed"),
+                caller("verify.workspace-a", "workspace", "verify.middle")), "a workspace caller through a sub-workflow");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.middle", "subworkflow", "verify.reviewed")),
+                "a sub-workflow caller without a caller of its own");
+        assertEquals(LOST_ROUTED_ITSELF, foundWithCallers(caller("verify.entity-a", "entity", "verify.reviewed")),
+                "an entity caller");
     }
 
     @Test
