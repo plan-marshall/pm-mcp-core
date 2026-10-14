@@ -179,6 +179,8 @@ class WorkflowValidatorTest {
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "subworkflow-link-without-skill.pmwf"),
             new Check("Rule 6: stepped_out never targets a success terminal and fits the scope's target rule",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-target.pmwf"),
+            new Check("Rule 6: inside a remediation unit stepped_out targets the budget re-check",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-remediation-budget-check.pmwf"),
             new Check("Rule 6: stepped_out is declared only by a terminal of class stepped_out",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "stepped-out-terminal-class.pmwf"),
             new Check("Rule 7: the call graph is acyclic",
@@ -261,9 +263,6 @@ class WorkflowValidatorTest {
             new Unpinned("Rule 6: the guarded field is a boolean or optional field of the callee's result schema",
                     VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
                     "ADR 010: SchemaRegistry registers schema names only"),
-            new Unpinned("Rule 6: inside a remediation unit stepped_out targets the budget re-check",
-                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT,
-                    "ADR 010: the language does not mark the budget re-check; only a SUCCESS target is refused"),
             new Unpinned("Rule 9: skipped on lost or infeasible only on the declared conservative route of an optional"
                     + " step", VerificationRule.STEP_COMPLETION,
                     "ADR 002: the AST declares no optional step and no conservative route"));
@@ -447,6 +446,24 @@ class WorkflowValidatorTest {
                                     stepped_out -> verify.stepped-out
 
                             state verify.stepped-out terminal stepped_out stepped_out
+                                phase inherit
+                            """ + DONE_TERMINAL),
+                    Arguments.of("stepped_out of a call in a remediation unit routed to its budget re-check, matched"
+                            + " with stepped-out-remediation-budget-check.pmwf", "remediation.inline", "subworkflow", """
+                            state verify.entry
+                                phase inherit
+                                call git.commit_and_push(push = enabled, attempts = 2, targets = [origin])
+                                    done -> verify.done
+                                    stepped_out -> remediation-inline.budget-check
+
+                            state remediation-inline.budget-check
+                                phase inherit
+                                auto remediation.check-budgets
+                                    budget_left -> verify.done
+                                    exhausted_wait -> verify.exhausted
+                                    exhausted -> verify.exhausted
+
+                            state verify.exhausted terminal exhausted failure
                                 phase inherit
                             """ + DONE_TERMINAL),
                     Arguments.of("the engine-made asked of an ask state, matched with model-job-asked-declared.pmwf",

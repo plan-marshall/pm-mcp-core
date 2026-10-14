@@ -104,6 +104,14 @@ final class TestPrimitives {
      * ({@code UNSETTLED}). */
     static final String FIX = "test.fix";
 
+    /**
+     * The primitive of the budget re-check {@code remediation-<class>.budget-check} of a remediation unit, with the
+     * outcomes of the Unit Template (Workflow DSL, 08-remediation-units): {@code budget_left} ({@code SUCCESS}),
+     * {@code exhausted_wait} ({@code SUCCESS}), {@code exhausted} ({@code FAILURE}). The specification names the
+     * outcomes, not their classes.
+     */
+    static final String CHECK_BUDGETS = "remediation.check-budgets";
+
     /** The remediation unit of the test catalog: exit contract {@code done}, {@code waived}, {@code stepped_out}. */
     static final String REMEDIATION = "remediation.test-waiver";
 
@@ -168,6 +176,7 @@ final class TestPrimitives {
                 new Fixed<>(LIST_CHANGES, NoParams.class, DoneOutcome.class),
                 new Fixed<>(LIST_ROLES, NoParams.class, DoneOutcome.class),
                 new Fixed<>(LAND_WORK, NoParams.class, LandOutcome.class),
+                new Fixed<>(CHECK_BUDGETS, NoParams.class, BudgetOutcome.class),
                 new EnqueuePrimitive(),
                 new ArtifactConsumer(),
                 new ArtifactProducer(),
@@ -655,6 +664,30 @@ final class TestPrimitives {
         private final OutcomeClass outcomeClass;
 
         LandOutcome(String wireName, OutcomeClass outcomeClass) {
+            this.wireName = wireName;
+            this.outcomeClass = outcomeClass;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return outcomeClass;
+        }
+    }
+
+    /** The outcomes of {@link #CHECK_BUDGETS}. */
+    enum BudgetOutcome implements PrimitiveOutcome {
+        BUDGET_LEFT("budget_left", OutcomeClass.SUCCESS), EXHAUSTED_WAIT("exhausted_wait", OutcomeClass.SUCCESS),
+        EXHAUSTED("exhausted", OutcomeClass.FAILURE);
+
+        private final String wireName;
+        private final OutcomeClass outcomeClass;
+
+        BudgetOutcome(String wireName, OutcomeClass outcomeClass) {
             this.wireName = wireName;
             this.outcomeClass = outcomeClass;
         }

@@ -237,7 +237,7 @@ public final class InvariantFixtures {
                 new Declared<>("test.merge", MergeOutcome.class),
                 new Declared<>("test.deliver", DeliverOutcome.class),
                 new Declared<>("test.evaluate-decision", DecisionOutcome.class),
-                new Declared<>("test.budget", BudgetOutcome.class),
+                new Declared<>(TestPrimitives.CHECK_BUDGETS, BudgetOutcome.class),
                 new Declared<>("test.conservative", ConservativeOutcome.class),
                 new Declared<>("remediation.offer-actions", OfferOutcome.class),
                 new Declared<>("test.gather", GatherOutcome.class, AwaitedEvent.NONE, Set.of("qgate")),
@@ -626,8 +626,9 @@ public final class InvariantFixtures {
         }
     }
 
+    /** The outcomes of the budget re-check {@code remediation.check-budgets}, as the Unit Template names them. */
     enum BudgetOutcome implements PrimitiveOutcome {
-        WITHIN("within", OutcomeClass.SUCCESS), EXHAUSTED_WAIT("exhausted_wait", OutcomeClass.SUCCESS),
+        BUDGET_LEFT("budget_left", OutcomeClass.SUCCESS), EXHAUSTED_WAIT("exhausted_wait", OutcomeClass.SUCCESS),
         EXHAUSTED("exhausted", OutcomeClass.FAILURE);
 
         private final String wireName;

@@ -1101,11 +1101,21 @@ class AdditionalRulesTest {
                 found(chained));
     }
 
-    @Test
-    @DisplayName("Rule 6 stepped_out target: a remediation unit may route it to a state the language does not mark (ADR 010)")
-    void steppedOutInRemediationUnit() {
-        var def = VerifyFixtures.parseSource("remediation.pmwf", """
-                workflow remediation.inline version 1 format 1
+    /**
+     * A remediation unit whose call routes {@code stepped_out} to {@code target}, a state with the given id that runs
+     * the given {@code auto} primitive, routing every outcome of it onwards.
+     */
+    private static WorkflowDefinition remediationUnit(String unitId, String target, String auto) {
+        var outcomes = TestPrimitives.CHECK_BUDGETS.equals(auto) ? """
+                        budget_left -> verify.done
+                        exhausted_wait -> verify.stepped-out
+                        exhausted -> verify.stepped-out
+                """ : """
+                        done -> verify.done
+                        skipped -> verify.stepped-out
+                """;
+        return VerifyFixtures.parseSource("remediation.pmwf", """
+                workflow %1$s version 1 format 1
                 scope subworkflow
                 start verify.entry
 
@@ -1113,16 +1123,56 @@ class AdditionalRulesTest {
                     phase inherit
                     call test.depth5()
                         done -> verify.done
-                        stepped_out -> verify.recheck
+                        stepped_out -> %2$s
 
-                state verify.recheck
+                state %2$s
                     phase inherit
-                    auto test.prepare
-                        done -> verify.done
-                        skipped -> verify.stepped-out
-                """ + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+                    auto %3$s
+                """.formatted(unitId, target, auto) + outcomes + STEPPED_OUT_TERMINAL + DONE_TERMINAL);
+    }
 
-        assertEquals(List.of(), violations(def));
+    private static final String NOT_THE_BUDGET_RE_CHECK = "which is neither a terminal of class STEPPED_OUT or"
+            + " FAILURE, nor a link state that continues the step-out, nor the budget re-check"
+            + " 'remediation-<class>.budget-check' running 'remediation.check-budgets'";
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: a remediation unit may route it to its budget re-check (ADR 024)")
+    void steppedOutInRemediationUnit() {
+        var budgetCheck = remediationUnit("remediation.inline", "remediation-inline.budget-check",
+                TestPrimitives.CHECK_BUDGETS);
+        assertEquals(List.of(), violations(budgetCheck));
+
+        var unmarked = remediationUnit("remediation.inline", "verify.recheck", TestPrimitives.PREPARE);
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'verify.recheck', " + NOT_THE_BUDGET_RE_CHECK),
+                found(unmarked));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: the budget re-check is told by its state id and its primitive together")
+    void steppedOutToBudgetCheckByIdAndPrimitive() {
+        var wrongPrimitive = remediationUnit("remediation.inline", "remediation-inline.budget-check",
+                TestPrimitives.PREPARE);
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'remediation-inline.budget-check', " + NOT_THE_BUDGET_RE_CHECK),
+                found(wrongPrimitive));
+
+        var wrongId = remediationUnit("remediation.inline", "remediation-inline.recheck",
+                TestPrimitives.CHECK_BUDGETS);
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'remediation-inline.recheck', " + NOT_THE_BUDGET_RE_CHECK),
+                found(wrongId));
+    }
+
+    @Test
+    @DisplayName("Rule 6 stepped_out target: the budget re-check is admitted only inside a remediation unit")
+    void steppedOutToBudgetCheckOutsideRemediationUnit() {
+        var def = remediationUnit("verify.inline", "remediation-inline.budget-check", TestPrimitives.CHECK_BUDGETS);
+
+        assertEquals(callContract("verify.entry",
+                "the call routes 'stepped_out' to 'remediation-inline.budget-check', which is neither a terminal of"
+                        + " class STEPPED_OUT or FAILURE nor a link state that continues the step-out"),
+                found(def));
     }
 
     @Test

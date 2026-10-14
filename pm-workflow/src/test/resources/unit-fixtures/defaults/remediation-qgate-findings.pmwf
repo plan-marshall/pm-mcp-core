@@ -18,8 +18,8 @@ state remediation-qgate.gather
 
 state remediation-qgate.budget-check
     phase inherit
-    auto test.budget
-        within -> remediation-qgate.decide
+    auto remediation.check-budgets
+        budget_left -> remediation-qgate.decide
         exhausted_wait -> remediation-qgate.waiver-wait
         exhausted -> remediation-qgate.exhausted
 

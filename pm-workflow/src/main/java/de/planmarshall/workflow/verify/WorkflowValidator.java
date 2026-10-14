@@ -90,6 +90,15 @@ public final class WorkflowValidator {
     /** The namespace of the remediation units, the only callees whose {@code waived} outcome completes a step. */
     private static final String REMEDIATION_UNIT_PREFIX = "remediation.";
 
+    /**
+     * The last segment of the budget re-check of a remediation unit, {@code remediation-<class>.budget-check}; the
+     * remediation invariants find the state by the same suffix.
+     */
+    private static final String BUDGET_CHECK_SUFFIX = ".budget-check";
+
+    /** The primitive the budget re-check of a remediation unit runs. */
+    private static final String CHECK_BUDGETS = "remediation.check-budgets";
+
     /** The control outcome every sub-workflow returns implicitly (Rule 6). */
     private static final String STEPPED_OUT = "stepped_out";
 
@@ -949,9 +958,10 @@ public final class WorkflowValidator {
      * {@code finalize.hand-back} (which of the two belongs to the calling phase is not checked); in an epic, workspace
      * or entity unit (the bootstrap units are entity units) a resting state of the calling unit; in a sub-workflow a
      * state that continues the unwinding or handles the failure: a terminal of class {@code STEPPED_OUT} or
-     * {@code FAILURE}, or a link state whose own {@code step_out} continues it. A remediation unit may also route it to
-     * its budget re-check, a state the language does not mark, so in a remediation unit only the success terminal is
-     * refused (ADR 010). A target that is not a state of the unit is refused by {@link VerificationRule#STATE_EXISTS}.
+     * {@code FAILURE}, or a link state whose own {@code step_out} continues it. A remediation unit may route it to its
+     * budget re-check as well: the state {@code remediation-<class>.budget-check} that runs
+     * {@code remediation.check-budgets} (INV-REM-4, ADR 024); any other target is refused there as in every
+     * sub-workflow. A target that is not a state of the unit is refused by {@link VerificationRule#STATE_EXISTS}.
      */
     private static void checkSteppedOutTarget(WorkflowDefinition definition, StateNode state,
             OutcomeTransition transition, List<Violation> violations) {
@@ -968,17 +978,44 @@ public final class WorkflowValidator {
                 case PLAN -> PHASE_FALLBACK_STATES.contains(target.id()) ? null
                         : "not the phase's fallback state 'plan.return' or 'finalize.hand-back'";
                 case EPIC, WORKSPACE, ENTITY -> isRestingState(target) ? null : "not a resting state of the unit";
-                case SUBWORKFLOW -> definition.id().startsWith(REMEDIATION_UNIT_PREFIX)
-                        || target.behavior() instanceof StateBehavior.InteractiveLinks
-                        || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
-                        || outcomeClass == OutcomeClass.FAILURE).isPresent() ? null
-                        : "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
+                case SUBWORKFLOW -> subWorkflowSteppedOutDetail(definition, target, targetClass);
             };
         }
         if (detail != null) {
             violations.add(new Violation(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, state.id(), transition.location(),
                     "the call routes 'stepped_out' to '%s', which is %s".formatted(target.id(), detail)));
         }
+    }
+
+    /**
+     * @return {@code null} when a sub-workflow may route {@code stepped_out} to the target, otherwise what the target
+     *         is not
+     */
+    private static String subWorkflowSteppedOutDetail(WorkflowDefinition definition, StateNode target,
+            Optional<OutcomeClass> targetClass) {
+        var continuesStepOut = target.behavior() instanceof StateBehavior.InteractiveLinks
+                || targetClass.filter(outcomeClass -> outcomeClass == OutcomeClass.STEPPED_OUT
+                || outcomeClass == OutcomeClass.FAILURE).isPresent();
+        if (continuesStepOut) {
+            return null;
+        }
+        if (!definition.id().startsWith(REMEDIATION_UNIT_PREFIX)) {
+            return "neither a terminal of class STEPPED_OUT or FAILURE nor a link state that continues the step-out";
+        }
+        return isBudgetCheck(target) ? null
+                : "neither a terminal of class STEPPED_OUT or FAILURE, nor a link state that continues the step-out, nor the budget re-check 'remediation-<class>%s' running '%s'"
+                        .formatted(BUDGET_CHECK_SUFFIX, CHECK_BUDGETS);
+    }
+
+    /**
+     * The budget re-check of a remediation unit, told by its state id and its primitive together: the state's last
+     * segment is {@code budget-check}, as the remediation invariants find it, and it is
+     * {@code auto remediation.check-budgets}.
+     */
+    private static boolean isBudgetCheck(StateNode state) {
+        return state.id().endsWith(BUDGET_CHECK_SUFFIX)
+                && state.behavior() instanceof StateBehavior.AutoStep auto
+                && CHECK_BUDGETS.equals(auto.primitiveId());
     }
 
     /** A state that rests between events: a link, question, {@code job}, {@code composite_job} or {@code job llm}. */
