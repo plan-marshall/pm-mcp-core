@@ -16,6 +16,7 @@ import static de.planmarshall.runtime.audit.AuditTrailFixture.recordAt;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -189,9 +190,9 @@ class AuditRotationTest {
         var key = trail.createKey();
         var rotation = new AuditRotation(trail.head.index(), NEVER, trail.clock, USER);
 
-        trail.underAuditLock(transaction -> assertFalse(rotation.rotateIfDue(transaction, trail.log, key)));
+        trail.underAuditLock(transaction -> assertFalse(rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
         trail.append(2);
-        trail.underAuditLock(transaction -> assertFalse(rotation.rotateIfDue(transaction, trail.log, key)));
+        trail.underAuditLock(transaction -> assertFalse(rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
 
         assertAll(
                 () -> assertEquals(NEVER, rotation.limits()),
@@ -208,9 +209,142 @@ class AuditRotationTest {
         AuditTrailFixture.editLine(trail.logFile(), 1, _ -> "not a record");
         var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
 
-        trail.underAuditLock(transaction -> assertFalse(rotation.rotateIfDue(transaction, trail.log, key)));
+        trail.underAuditLock(transaction -> assertFalse(rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
 
         assertFalse(Files.exists(trail.indexFile()));
+    }
+
+    @Nested
+    @DisplayName("a due rotation over a tampered trail")
+    class Refused {
+
+        @Test
+        @DisplayName("a cut that coincides with a due rotation signs no checkpoint and is reported by verify and full")
+        void cutLogNotClosed() {
+            var trail = new AuditTrailFixture(base, BY_AGE);
+            trail.createKey();
+            trail.append(4);
+            var anchored = trail.readHead().orElseThrow();
+            AuditTrailFixture.removeLine(trail.logFile(), 4);
+            AuditTrailFixture.removeLine(trail.logFile(), 3);
+            trail.clock.advance(Duration.ofDays(2));
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertFalse(Files.exists(trail.indexFile()), "no checkpoint closed the cut log"),
+                    () -> assertEquals(0, checkpoints(trail.logFile())),
+                    () -> assertEquals(3, lines(trail.logFile()).size()),
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_FAILED.format(AuditHead.ANCHORED_LINE_MISSING)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED,
+                            reason(trail.verification().verify())),
+                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED,
+                            reason(trail.verification().full())));
+        }
+
+        @Test
+        @DisplayName("a cut log stays unrotated at every later due append, so no recount accepts it")
+        void cutLogNeverClosedLater() {
+            var trail = new AuditTrailFixture(base, BY_AGE);
+            trail.createKey();
+            trail.append(3);
+            AuditTrailFixture.removeLine(trail.logFile(), 3);
+            trail.clock.advance(Duration.ofDays(2));
+
+            trail.append(3);
+
+            assertAll(
+                    () -> assertFalse(Files.exists(trail.indexFile())),
+                    () -> assertEquals(5, lines(trail.logFile()).size()),
+                    () -> assertEquals(3, trail.readHead().orElseThrow().recordCount()),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH,
+                            reason(trail.verification().full())));
+        }
+
+        @Test
+        @DisplayName("a damaged head over a cut log refuses the due rotation and stays in place")
+        void damagedHeadNotClosed() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_AGE);
+            trail.createKey();
+            trail.append(4);
+            AuditTrailFixture.removeLine(trail.logFile(), 4);
+            Files.writeString(trail.headFile(), "not a head");
+            trail.clock.advance(Duration.ofDays(2));
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertFalse(Files.exists(trail.indexFile()), "no checkpoint closed the cut log"),
+                    () -> assertEquals("not a head", Files.readString(trail.headFile())),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_FAILED.format(AuditHead.HEAD_UNVERIFIABLE)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH,
+                            reason(trail.verification().verify())),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH,
+                            reason(trail.verification().full())));
+        }
+
+        @Test
+        @DisplayName("a due log without any head is closed: nothing is anchored yet")
+        void absentHeadClosed() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_AGE);
+            var key = trail.createKey();
+            trail.append(2);
+            Files.delete(trail.headFile());
+            var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
+
+            trail.underAuditLock(transaction -> assertTrue(
+                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+
+            assertEquals(1, trail.head.index().snapshot().entries().size());
+        }
+
+        @Test
+        @DisplayName("a head that anchors an index line the last entry does not chain to refuses the rotation")
+        void foreignIndexAnchorNotClosed() throws Exception {
+            var trail = new AuditTrailFixture(base, NEVER);
+            var key = trail.createKey();
+            trail.append(2);
+            var claimed = AuditHead.sign(key, trail.readHead().orElseThrow().withIndexHeadHash(hashOf(
+                    trail.logFile(), 1)));
+            Files.write(trail.headFile(), AuditCodec.writeHead(claimed));
+            var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
+
+            trail.underAuditLock(transaction -> assertFalse(
+                    rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+
+            assertFalse(Files.exists(trail.indexFile()));
+        }
+
+        @Test
+        @DisplayName("a head stopped before the rotation refuses the next one until the next append rewrote it")
+        void headBeforeRotationDefersTheNext() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_SIZE);
+            trail.createKey();
+            trail.append(1);
+            var beforeRotation = Files.readAllBytes(trail.headFile());
+            trail.append(1);
+            Files.write(trail.headFile(), beforeRotation);
+
+            trail.append(1);
+            var deferred = trail.head.index().snapshot().entries().size();
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(1, deferred, "the rotation waited for the head of the current log"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_FAILED.format(AuditHead.ANCHORED_LINE_MISSING)),
+                    () -> assertEquals(2, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(1, trail.readHead().orElseThrow().recordCount()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+        }
+
+        private static AuditChainVerification.BreakReason reason(AuditChainVerification.Outcome outcome) {
+            return assertInstanceOf(AuditChainVerification.Outcome.Broken.class, outcome).reason();
+        }
     }
 
     @Nested
@@ -225,7 +359,7 @@ class AuditRotationTest {
             trail.append(2);
             var first = recordAt(trail.logFile(), 1);
             var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
-            trail.underAuditLock(transaction -> assertTrue(rotation.rotateIfDue(transaction, trail.log, key)));
+            trail.underAuditLock(transaction -> assertTrue(rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
             var logAfterStop = Files.exists(trail.logFile());
             var checkpointHash = hashOf(trail.rotatedFile(first.eventId()), 3);
 
@@ -387,7 +521,7 @@ class AuditRotationTest {
             due.keyring.entries.putAll(trail.keyring.entries);
 
             trail.underAuditLock(transaction -> assertThrows(UncheckedIOException.class,
-                    () -> rotation.rotateIfDue(transaction, trail.log, key)));
+                    () -> rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
             due.append(1);
 
             assertAll(

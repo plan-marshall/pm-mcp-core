@@ -34,12 +34,24 @@ a failing keyring can make it unreadable.
   code, never the key. The verification answers `NotVerified` naming the code.
 * *The record count of a new head* is the previous head's count plus one when the previous head verifies and anchors
   exactly the line the appended record chains to. Otherwise the lines are counted, but a recount never hides a cut: it
-  is accepted only without a verifying previous head (the first head after the key appears, a head that does not
-  parse), after a rotation since that head (the last index entry chains to the index line it anchored), or when the log
-  still holds the line it anchored at its position (the gap a stop between an append and its head leaves). A log that
-  no longer holds that line, cut short or with its last line replaced, gets no new head: the previous head stays, so
-  the verification reports `truncated` or `head_mismatch`, and `PM_RUNTIME-123` names the reason
-  `anchored_line_missing`.
+  is accepted only without a head file (the first head after the key appears), after a rotation since that head (the
+  last index entry chains to the index line it anchored), or when the log still holds the line it anchored at its
+  position (the gap a stop between an append and its head leaves). A log that no longer holds that line, cut short or
+  with its last line replaced, gets no new head: the previous head stays, so the verification reports `truncated` or
+  `head_mismatch`, and `PM_RUNTIME-123` names the reason `anchored_line_missing`.
+* *A damaged head is never replaced.* The head is replaced atomically, so the only legitimate state without a
+  verifying head is an absent head file. A head file that exists but does not parse or does not verify under the key
+  gets no new head and no recount: it stays in place, the verification reports `head_mismatch`, and `PM_RUNTIME-123`
+  names the reason `head_unverifiable`. Otherwise truncating the log and damaging the head would let the next append
+  re-sign the cut.
+* *No checkpoint over a cut log.* A checkpoint signs the record count of the log, and the recount after a rotation
+  accepts the new log, so a rotation over a cut log would turn the cut into a consistent rotated file. Before it signs
+  a checkpoint, the rotation runs `AuditHead.closeCheck`: the log is closed only without a head file, or when the head
+  verifies, anchors the current last index line, and the log still holds the line it anchors at its position. A
+  refused rotation is logged as `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`) with the reason `head_unverifiable` or
+  `anchored_line_missing`, and the record goes to the current log, where no head is re-signed over the cut. A pending
+  rotation is completed without the check, since its checkpoint is already signed and `full()` reports a cut before
+  it.
 * The verification classifies a head that does not match the log as `head_mismatch`: more records than the head
   anchors, a last line other than the one it names, an HMAC that does not verify, an `index_head_hash` that is not the
   last index line, or no head for a trail with records. An empty log whose head anchors records is `reset`, and so is
@@ -59,8 +71,11 @@ a failing keyring can make it unreadable.
 * A crash between the creation of the key and the first head leaves a non-empty log without a head, reported as
   `head_mismatch` at the next start. The window is accepted: it is reported, never repaired, and closes with the next
   append.
-* A cut of the log stays reported after later appends: no head is re-signed over it, so a cut trail keeps its last
-  verifying head until an operator deals with it.
+* A cut of the log stays reported after later appends: no head is re-signed over it and no checkpoint closes it, so a
+  cut trail keeps its last verifying head, and its current log grows unrotated, until an operator deals with it. The
+  same holds for a damaged head.
+* Two gaps stay open: a deleted head file reads as absent, so the next append counts the whole log, and an index entry
+  carries no HMAC of its own.
 * Residual risk, as the specification states it: the anchoring is tamper-evident, not tamper-proof. A process that
   holds the integrity key (on macOS, anything that runs the `pm-mcpd` binary; on hosts without a keyring, any process
   of the user) can forge a consistent head.

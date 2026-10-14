@@ -82,18 +82,27 @@ last record, the SHA-256 of the last line (`head_hash`), the SHA-256 of the last
 other fields (`AuditCodec.signedContent`). The head is replaced atomically through the store file of `core.store`,
 forced to disk, and readable and writable by its owner only.
 
+The head is replaced atomically, so the one head that anchors nothing is an absent head file. A head file that exists
+but does not parse or does not verify under the key is never replaced: no head is written over it, it stays in place,
+so the verification reports `head_mismatch`, and `PM_RUNTIME-123` names the reason `head_unverifiable`. Damaging the
+head is therefore no way to have a cut log recounted.
+
 The record count is the previous head's count plus one when the previous head anchors exactly the line the appended
 record chains to and verifies under the key. Otherwise the complete lines of the log are counted, but only where the
 count cannot hide a cut (link:../adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[ADR 003]):
 
-* no previous head verifies: the first head after the key appears covers the whole current log;
-* the log was rotated since the previous head: the last index entry chains to the index line that head anchored;
+* no head file exists: the first head after the key appears covers the whole current log;
+* the log was rotated since the previous head: the last index entry chains to the index line that head anchored, and
+  the rotation signed its checkpoint only over a log that held the line the head anchored (<<_the_rotation>>);
 * the log still holds the line the previous head anchored, at its position: a stop between an append and its head
   left records without a head, and the recount covers them.
 
 A log that no longer holds the anchored line, cut short or with its last line replaced, gets no new head. The previous
 head stays, so the verification reports `truncated` (fewer records than it anchors) or `head_mismatch`, and
 `PM_RUNTIME-123` names the reason `anchored_line_missing`. Nothing re-signs a cut as the new baseline.
+
+Two gaps stay open: a deleted head file reads as absent, so the next append counts the whole log; and an index entry
+carries no HMAC of its own.
 
 [#_the_key]
 === The Key
@@ -119,8 +128,9 @@ after the key exists writes the head over the whole log.
 (`AUDIT_HEAD_NOT_WRITTEN`) names the reason code, never the key.
 |===
 
-A head that cannot be written is logged as `PM_RUNTIME-123` with the reason `head_unwritable`, one that is withheld over
-a cut log with `anchored_line_missing`. Nothing of the head
+A head that cannot be read or written is logged as `PM_RUNTIME-123` with the reason `head_unwritable`, one that is
+withheld over a damaged head with `head_unverifiable`, and one withheld over a cut log with `anchored_line_missing`.
+Nothing of the head
 throws into the append: a gap of the head is what the next verification reports. The one failure `AuditHead` throws
 into the append is a rotation that stays pending after its checkpoint (<<_the_rotation>>).
 
@@ -142,6 +152,19 @@ the log, under the audit lock and inside the writer's append, in this order:
 
 A rotation logs `PM_RUNTIME-25` (`AUDIT_LOG_ROTATED`) with the rotated file and its record count. The new log is
 empty, so the writer chains the next record by its predecessor rule to `emptyLogPredecessor()`, the checkpoint line.
+
+*No checkpoint over a cut log.* A checkpoint signs the record count and the last line of the log, and the recount after
+the rotation accepts the new log, so a checkpoint over a log cut below the line the head anchors would turn the cut into
+a consistent rotated file that `verify()` and `full()` report intact. Before it signs a checkpoint, `rotateIfDue`
+therefore runs the `CloseCheck` the caller passes; `AuditHead.closeCheck` lets the log be closed only when no head file
+exists, or when the head verifies, anchors the current last index line, and the log still holds the line it anchors
+at its position. Otherwise the rotation is refused and logged as `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`) with the
+reason `head_unverifiable` (the head file does not parse or does not verify) or `anchored_line_missing`. The record is
+appended to the current log and gets no new head, so the cut stays reported as `truncated` or `head_mismatch`, and every
+later due append is refused again. A head that anchors the index line before the last entry, left by a stop between a
+rotation and the head of the next append, is refused as well: the record goes to the current log, its head is counted
+after the rotation, and the next due append rotates. Completing a pending rotation runs no check: its checkpoint is
+already signed, and `full()` reports a cut before it.
 
 *A stop during a rotation.* Because the index entry is written before the rename, a stop after the rename still finds
 the entry, and the next record links to the checkpoint. A log whose last line is a checkpoint is a _pending rotation_,
@@ -279,7 +302,9 @@ or with an edited field fails the check; without a key the append stands, no hea
 holds no key; with an unreadable key the append stands and the warning carries no key material; the first append
 after the key appears writes a head over the whole log; a log cut below the anchored count, a replaced last line and a
 head claiming more records than the log holds are never re-signed and stay reported, while a stop between an append
-and its head is closed by a recount.
+and its head is closed by a recount; a head that does not parse over a cut log, and one that does not verify, stay in
+place and are reported by `verify()` and `full()`, while an absent head lets the lines be counted; a head that cannot
+be read or written is logged as `head_unwritable`; a failed rotation over a log that cannot be read counts as pending.
 link:{test}/AuditIndexTest.java[`AuditIndexTest`]:: The index chain round trip; an edited or removed index line breaks
 it.
 link:{test}/AuditRotationTest.java[`AuditRotationTest`]:: Rotation by size and by age with the defaults asserted, the
@@ -287,7 +312,9 @@ checkpoint fields, the rotated file name, the index entry, the first record of t
 line; a stop after the rename, and a stop after the checkpoint, completed with exactly one checkpoint and one entry and
 verified intact while pending; a failed rename that refuses the record, verifies intact, and is completed by the next
 append with exactly one entry, also without the key; a due log the index already names never entered twice; a torn
-tail of the index owed during the rotation and handed into the new log, chained to the checkpoint line.
+tail of the index owed during the rotation and handed into the new log, chained to the checkpoint line; a cut that
+coincides with a due rotation, and a damaged head over a cut log, sign no checkpoint and stay reported by `verify()` and
+`full()`, also after later due appends; a head stopped before a rotation defers the next one until the next head.
 link:{test}/AuditVerificationTest.java[`AuditVerificationTest`]:: The acceptance of the package: a removed, a reordered
 and an edited record (`link_broken` with the first broken line), a replaced head (`head_mismatch`), `missing`,
 `reset`, `truncated`, an intact chain, no key and no chain `NotVerified`, a rotation in the middle of a verification
@@ -308,7 +335,7 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
 6. **Never let a record follow a checkpoint**: a rotation that stays pending after its checkpoint refuses the append,
    and the next append completes it.
 7. **Never re-sign a cut**: a head over a log that no longer holds the line the previous head anchored would accept the
-   cut as the new baseline.
+   cut as the new baseline, and so would a checkpoint over such a log, or a recount that replaces a damaged head.
 
 == Specification Tracing
 

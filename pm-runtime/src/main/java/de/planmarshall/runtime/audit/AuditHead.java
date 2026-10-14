@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -29,6 +30,7 @@ import de.planmarshall.core.store.AuditHeadRecord;
 import de.planmarshall.core.store.AuditIndexEntry;
 import de.planmarshall.core.store.AuditLog;
 import de.planmarshall.core.store.AuditRecord;
+import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.credentials.SecretStoreException;
@@ -55,6 +57,13 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * written, is logged as a warning naming the reason code, never the key, and the append stands: a gap of the head is
  * what the next verification reports. The one failure that is thrown into the append is a rotation that stays
  * pending after its checkpoint, because no record may follow a checkpoint.
+ * <p>
+ * Since the head is replaced atomically, the one head that anchors nothing is an absent head file: the lines are then
+ * counted. A head file that exists but does not parse or does not verify under the key is never replaced, neither by a
+ * recount nor by a rotation: it stays in place, so the verification reports it, and the gap is logged with the reason
+ * {@value #HEAD_UNVERIFIABLE}. Nor is a log closed by a checkpoint while it no longer holds the line a verifying head
+ * anchors ({@link #closeCheck(SecretKey)}): a checkpoint signs the record count of the log, so one over a cut log
+ * would sign the cut.
  *
  * @since 0.1
  */
@@ -65,6 +74,12 @@ public final class AuditHead implements AuditAnchor {
 
     /** The reason a head is not written over a log that no longer holds the line the previous head anchored. */
     static final String ANCHORED_LINE_MISSING = "anchored_line_missing";
+
+    /** The reason a head is not written, and a log not rotated, while the head file does not parse or verify. */
+    static final String HEAD_UNVERIFIABLE = "head_unverifiable";
+
+    /** The reason a head is not written because the head cannot be read or written. */
+    static final String HEAD_UNWRITABLE = "head_unwritable";
 
     private static final CuiLogger LOGGER = new CuiLogger(AuditHead.class);
 
@@ -109,10 +124,11 @@ public final class AuditHead implements AuditAnchor {
     }
 
     /**
-     * Rotates the log when a limit is reached and the key is present, and completes a pending rotation with or without
-     * the key. A rotation that cannot be carried out before its checkpoint is logged, and the record is appended to
-     * the current log. A rotation that stays pending after its checkpoint is logged and thrown: no record may follow
-     * the checkpoint, so the record is not appended.
+     * Rotates the log when a limit is reached, the key is present and the {@link #closeCheck(SecretKey)} lets the log
+     * be closed, and completes a pending rotation with or without the key. A rotation that cannot be carried out
+     * before its checkpoint, or that the check refuses, is logged, and the record is appended to the current log. A
+     * rotation that stays pending after its checkpoint is logged and thrown: no record may follow the checkpoint, so
+     * the record is not appended.
      *
      * @throws UncheckedIOException if a rotation stays pending after its checkpoint
      * @throws StoreRefusal         if a rotation stays pending after its checkpoint because an intent file is
@@ -123,7 +139,7 @@ public final class AuditHead implements AuditAnchor {
         var key = key(false);
         try {
             if (key.isPresent()) {
-                rotation.rotateIfDue(transaction, log, key.get());
+                rotation.rotateIfDue(transaction, log, key.get(), closeCheck(key.get()));
             } else {
                 rotation.completePending(transaction, log);
             }
@@ -143,9 +159,10 @@ public final class AuditHead implements AuditAnchor {
 
     /**
      * Writes the head over the log as it is after the append. Without a key nothing is written; a key that cannot be
-     * read or a head that cannot be written is logged. A head is never written over a log that no longer holds the
-     * line the previous head anchored: the previous head stays, so the verification reports the cut, and the gap is
-     * logged.
+     * read or a head that cannot be read or written is logged. A head file that does not parse or does not verify is
+     * never replaced: it stays, so the verification reports it, and the gap is logged. Nor is a head written over a
+     * log that no longer holds the line the previous head anchored: the previous head stays, so the verification
+     * reports the cut, and the gap is logged.
      */
     @Override
     public void afterAppend(LockTransaction transaction, AuditLog log, AuditRecord appended, String lineHash) {
@@ -155,7 +172,14 @@ public final class AuditHead implements AuditAnchor {
         }
         try {
             var indexSnapshot = index.read(transaction);
-            var recordCount = recordCount(transaction, log, appended, key.get(), indexSnapshot);
+            var previous = previous(key.get());
+            if (previous instanceof Previous.Unverifiable) {
+                LOGGER.warn(WARN.AUDIT_HEAD_NOT_WRITTEN, HEAD_UNVERIFIABLE);
+                return;
+            }
+            var recordCount = previous instanceof Previous.Verifying(var anchored)
+                    ? recordCount(transaction, log, appended, anchored, indexSnapshot)
+                    : OptionalLong.of(log.recordCount(transaction));
             if (recordCount.isEmpty()) {
                 LOGGER.warn(WARN.AUDIT_HEAD_NOT_WRITTEN, ANCHORED_LINE_MISSING);
                 return;
@@ -164,8 +188,33 @@ public final class AuditHead implements AuditAnchor {
                     lineHash, indexSnapshot.headHash(), AuditCodec.GENESIS_HASH);
             store.write(transaction, AuditCodec.writeHead(sign(key.get(), unsigned)));
         } catch (UncheckedIOException | StoreRefusal e) {
-            LOGGER.warn(e, WARN.AUDIT_HEAD_NOT_WRITTEN, "head_unwritable");
+            LOGGER.warn(e, WARN.AUDIT_HEAD_NOT_WRITTEN, HEAD_UNWRITABLE);
         }
+    }
+
+    /**
+     * The check a rotation runs before it signs a checkpoint over the current log. A checkpoint signs the record count
+     * of the log, and the recount after the rotation accepts the new log, so a checkpoint over a log cut below the
+     * line the head anchors would hide the cut. The log may be closed when no head file exists, since nothing is
+     * anchored yet, or when the head verifies, anchors the current last line of the index, and the log still holds
+     * the line it anchors at its position. The check refuses with {@value #HEAD_UNVERIFIABLE} for a head file that
+     * does not parse or does not verify, and with {@value #ANCHORED_LINE_MISSING} for every other head, also for one
+     * that anchors the index line before the last entry: a stop between a rotation and the head of the next append.
+     * The record of that append is then written to the current log, and its head, counted after the rotation, lets
+     * the next due append rotate.
+     *
+     * @param key the enrolment integrity key
+     * @return the check, which reads the head on disk
+     */
+    AuditRotation.CloseCheck closeCheck(SecretKey key) {
+        Objects.requireNonNull(key, "key");
+        return (transaction, log, indexSnapshot) -> switch (previous(key)) {
+            case Previous.Absent _ -> Optional.empty();
+            case Previous.Unverifiable _ -> Optional.of(HEAD_UNVERIFIABLE);
+            case Previous.Verifying(var anchored) -> anchored.indexHeadHash().equals(indexSnapshot.headHash())
+                    && holdsAnchoredLine(log.read(transaction).lines(), anchored) ? Optional.empty()
+                            : Optional.of(ANCHORED_LINE_MISSING);
+        };
     }
 
     /**
@@ -207,44 +256,72 @@ public final class AuditHead implements AuditAnchor {
     }
 
     /**
-     * The number of records after the append: one more than the previous head counts when that head verifies and
+     * The number of records after the append under a verifying previous head: one more than that head counts when it
      * anchors exactly the line the appended record chains to. Otherwise the lines of the log are counted, but only
-     * where the count cannot hide a cut: no verifying previous head, a rotation since it (the last index entry chains
-     * to the index line it anchored), or a log that still holds the line it anchored at its position, the gap a stop
-     * between an append and its head leaves.
+     * where the count cannot hide a cut: a rotation since the head (the last index entry chains to the index line it
+     * anchored), whose checkpoint the {@link #closeCheck(SecretKey)} let sign only a log that held the line the head
+     * anchored, or a log that still holds the line it anchored at its position, the gap a stop between an append and
+     * its head leaves.
      *
      * @return the record count; empty when the log no longer holds the line the previous head anchored
      */
-    private OptionalLong recordCount(LockTransaction transaction, AuditLog log, AuditRecord appended, SecretKey key,
-            AuditIndex.Snapshot indexSnapshot) {
-        var previous = verifyingHead(key);
-        if (previous.isEmpty()) {
-            return OptionalLong.of(log.recordCount(transaction));
-        }
-        var anchored = previous.get();
+    private static OptionalLong recordCount(LockTransaction transaction, AuditLog log, AuditRecord appended,
+            AuditHeadRecord anchored, AuditIndex.Snapshot indexSnapshot) {
         if (anchored.headHash().equals(appended.prevHash())) {
             return OptionalLong.of(anchored.recordCount() + 1);
         }
-        if (indexSnapshot.last().map(AuditIndexEntry::prevHash).filter(anchored.indexHeadHash()::equals).isPresent()) {
+        if (rotatedSince(anchored, indexSnapshot)) {
             return OptionalLong.of(log.recordCount(transaction));
         }
         var lines = log.read(transaction).lines();
-        var position = anchored.recordCount();
-        if (position >= 1 && position <= lines.size()
-                && AuditCodec.sha256Hex(lines.get(Math.toIntExact(position - 1)).content())
-                .equals(anchored.headHash())) {
-            return OptionalLong.of(lines.size());
-        }
-        return OptionalLong.empty();
+        return holdsAnchoredLine(lines, anchored) ? OptionalLong.of(lines.size()) : OptionalLong.empty();
     }
 
-    /** @return the head on disk when it parses and verifies under the key */
-    private Optional<AuditHeadRecord> verifyingHead(SecretKey key) {
+    /** @return whether the last index entry chains to the index line the head anchored: a rotation since the head */
+    private static boolean rotatedSince(AuditHeadRecord anchored, AuditIndex.Snapshot indexSnapshot) {
+        return indexSnapshot.last().map(AuditIndexEntry::prevHash).filter(anchored.indexHeadHash()::equals)
+                .isPresent();
+    }
+
+    /** @return whether the lines hold the line the head anchored at its position */
+    private static boolean holdsAnchoredLine(List<JsonlStoreFile.Line> lines, AuditHeadRecord anchored) {
+        var position = anchored.recordCount();
+        return position >= 1 && position <= lines.size()
+                && AuditCodec.sha256Hex(lines.get(Math.toIntExact(position - 1)).content())
+                .equals(anchored.headHash());
+    }
+
+    /**
+     * Reads the head on disk under the key.
+     *
+     * @throws UncheckedIOException if the head exists and cannot be read
+     */
+    private Previous previous(SecretKey key) {
+        Optional<AuditHeadRecord> head;
         try {
-            return read(file()).filter(head -> verifies(key, head));
+            head = read(file());
         } catch (StoreRefusal _) {
-            // a head that does not parse anchors nothing; the lines are counted
-            return Optional.empty();
+            return new Previous.Unverifiable();
+        }
+        if (head.isEmpty()) {
+            return new Previous.Absent();
+        }
+        return verifies(key, head.get()) ? new Previous.Verifying(head.get()) : new Previous.Unverifiable();
+    }
+
+    /** The head on disk before an append or a rotation. */
+    private sealed interface Previous {
+
+        /** No head file: nothing is anchored yet, so the lines may be counted. */
+        record Absent() implements Previous {
+        }
+
+        /** @param head a head that parses and verifies under the key */
+        record Verifying(AuditHeadRecord head) implements Previous {
+        }
+
+        /** A head file that does not parse or does not verify: it anchors nothing, and it is never replaced. */
+        record Unverifiable() implements Previous {
         }
     }
 

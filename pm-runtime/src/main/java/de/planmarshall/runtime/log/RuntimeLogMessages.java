@@ -461,9 +461,11 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged when the head of the audit log cannot be written after an append, because the enrolment integrity
-         * key cannot be read, the head cannot be written ({@code head_unwritable}), or the log no longer holds the line
-         * the previous head anchored ({@code anchored_line_missing}, the previous head stays); names the reason code,
-         * never the key. The record stays appended, and the next verification reports the head that does not match.
+         * key cannot be read, the head cannot be read or written ({@code head_unwritable}), the head file exists and
+         * does not parse or does not verify ({@code head_unverifiable}, the damaged head stays), or the log no longer
+         * holds the line the previous head anchored ({@code anchored_line_missing}, the previous head stays); names
+         * the reason code, never the key. The record stays appended, and the next verification reports the head that
+         * does not match.
          */
         public static final LogRecord AUDIT_HEAD_NOT_WRITTEN = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -472,8 +474,10 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when a due rotation of the audit log cannot be carried out before its checkpoint was written; the
-         * record is appended to the current log, and the next append retries the rotation.
+         * Logged when a due rotation of the audit log cannot be carried out before its checkpoint was written, or is
+         * refused because the log no longer holds the line the audit head anchors ({@code anchored_line_missing}) or
+         * the head file does not parse or does not verify ({@code head_unverifiable}), so that no checkpoint signs a
+         * cut log; the record is appended to the current log, and the next append retries the rotation.
          */
         public static final LogRecord AUDIT_ROTATION_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)

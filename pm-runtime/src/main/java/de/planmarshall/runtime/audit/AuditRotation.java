@@ -38,13 +38,16 @@ import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.enrolment.EnrolmentHmac;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The rotation of the audit log (PM-SEC-6; Store Schemas, Security &amp; Transition Audit Log, Checkpoint records and
  * Audit Index): when the current log reaches its maximum size, or its first record its maximum age, the log is closed
  * and renamed, and the next record starts a new log that chains to it.
  * <p>
- * A rotation runs under the audit lock inside the writer's append, before the record is appended, in this order:
+ * A rotation runs under the audit lock inside the writer's append, before the record is appended, and only when the
+ * {@link CloseCheck} of the caller lets the log be closed (the audit head refuses a log that no longer holds the line
+ * it anchors, and a head that does not verify), in this order:
  * <ol>
  * <li>the {@value AuditRecord#EVENT_CHECKPOINT} record ({@code security}, scope {@code machine}, details
  * {@value #DETAIL_RECORD_COUNT}, {@value #DETAIL_HEAD_HASH} and {@value #DETAIL_HMAC}) is appended through
@@ -150,21 +153,46 @@ public final class AuditRotation {
     }
 
     /**
-     * Rotates the log when a limit is reached, or completes a pending rotation. A log that does not exist, holds no
-     * complete line, or whose first line cannot be read is not rotated.
+     * The check a rotation runs before it signs a checkpoint: whether the current log may be closed. A checkpoint
+     * signs the record count and the last line of the log, so it must never be written over a log that no longer
+     * holds what its head anchors.
+     *
+     * @since 0.1
+     */
+    @FunctionalInterface
+    public interface CloseCheck {
+
+        /**
+         * @param transaction   the writer's transaction, which holds the audit lock
+         * @param log           the audit log, due for rotation and not pending
+         * @param indexSnapshot the audit index as read under the audit lock
+         * @return the reason code why the log may not be closed; empty when it may
+         * @throws UncheckedIOException if what the check reads cannot be read
+         */
+        Optional<String> refusal(LockTransaction transaction, AuditLog log, AuditIndex.Snapshot indexSnapshot);
+    }
+
+    /**
+     * Rotates the log when a limit is reached and the check lets it be closed, or completes a pending rotation. A log
+     * that does not exist, holds no complete line, or whose first line cannot be read is not rotated. A due log the
+     * check refuses is not rotated either: the refusal is logged with its reason code, and the next append runs the
+     * check again.
      *
      * @param transaction the writer's transaction, which holds the audit lock and has repaired the tail of the log
      * @param log         the audit log
      * @param key         the enrolment integrity key the checkpoint is signed with
+     * @param check       the check run before a checkpoint is signed; a pending rotation is completed without it,
+     *                    since its checkpoint is already signed
      * @return whether a rotation was carried out or completed
-     * @throws UncheckedIOException if the log or the index cannot be read or written, the log cannot be renamed, or
-     *                              the due log is already named by the last index entry while records follow its
-     *                              checkpoint
+     * @throws UncheckedIOException if the log or the index cannot be read or written, the log cannot be renamed, the
+     *                              check cannot read what it checks, or the due log is already named by the last
+     *                              index entry while records follow its checkpoint
      * @throws StoreRefusal         if the intent file of the log or of the index is unreadable
      */
-    public boolean rotateIfDue(LockTransaction transaction, AuditLog log, SecretKey key) {
+    public boolean rotateIfDue(LockTransaction transaction, AuditLog log, SecretKey key, CloseCheck check) {
         Objects.requireNonNull(transaction, "transaction");
         Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(check, "check");
         var logFile = log.logFile();
         var edges = edges(logFile);
         if (edges.isEmpty()) {
@@ -181,9 +209,15 @@ public final class AuditRotation {
             return false;
         }
         var rotatedFile = AuditIndexEntry.rotatedFileName(first.get().eventId());
-        if (index.read(transaction).last().filter(entry -> entry.file().equals(rotatedFile)).isPresent()) {
+        var indexSnapshot = index.read(transaction);
+        if (indexSnapshot.last().filter(entry -> entry.file().equals(rotatedFile)).isPresent()) {
             throw new UncheckedIOException(new IOException("The audit log is already entered in the audit index as "
                     + rotatedFile + " while records follow its checkpoint; it is not entered a second time"));
+        }
+        var refusal = check.refusal(transaction, log, indexSnapshot);
+        if (refusal.isPresent()) {
+            LOGGER.warn(WARN.AUDIT_ROTATION_FAILED, refusal.get());
+            return false;
         }
         var lastLine = edges.get().last();
         var recordCount = log.recordCount(transaction);

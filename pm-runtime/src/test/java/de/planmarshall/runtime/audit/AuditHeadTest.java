@@ -18,12 +18,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.spec.SecretKeySpec;
 
 import de.cuioss.test.juli.LogAsserts;
@@ -170,16 +174,112 @@ class AuditHeadTest {
         }
 
         @Test
-        @DisplayName("a head that does not parse makes the lines be counted")
-        void unreadableHeadCountsTheLines() throws Exception {
+        @DisplayName("a damaged head over a cut log is never replaced by a recount, so the cut stays detectable")
+        void damagedHeadOverCutLogNotReplaced() throws Exception {
             var trail = new AuditTrailFixture(base);
             trail.createKey();
-            trail.append(2);
+            trail.append(4);
+            AuditTrailFixture.removeLine(trail.logFile(), 4);
+            AuditTrailFixture.removeLine(trail.logFile(), 3);
             Files.writeString(trail.headFile(), "not a head");
 
             trail.append(1);
 
-            assertEquals(3, trail.readHead().orElseThrow().recordCount());
+            assertAll(
+                    () -> assertEquals("not a head", Files.readString(trail.headFile())),
+                    () -> assertEquals(3, lines(trail.logFile()).size()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNVERIFIABLE)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, assertInstanceOf(
+                            AuditChainVerification.Outcome.Broken.class, trail.verification().full()).reason()));
+        }
+
+        @Test
+        @DisplayName("a head that parses but does not verify under the key is never replaced")
+        void foreignHeadNotReplaced() throws Exception {
+            var trail = new AuditTrailFixture(base);
+            trail.createKey();
+            trail.append(2);
+            var foreign = AuditHead.sign(new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM),
+                    trail.readHead().orElseThrow());
+            Files.write(trail.headFile(), AuditCodec.writeHead(foreign));
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(foreign, trail.readHead().orElseThrow()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNVERIFIABLE)),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail)));
+        }
+
+        @Test
+        @DisplayName("an absent head lets the lines be counted, the first head over the whole log")
+        void absentHeadCountsTheLines() throws Exception {
+            var trail = new AuditTrailFixture(base);
+            var key = trail.createKey();
+            trail.append(2);
+            Files.delete(trail.headFile());
+
+            trail.append(1);
+
+            var head = trail.readHead().orElseThrow();
+            assertAll(
+                    () -> assertEquals(3, head.recordCount()),
+                    () -> assertTrue(AuditHead.verifies(key, head)),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()));
+        }
+
+        @Test
+        @DisplayName("a head that cannot be read or written is logged as head_unwritable and the append stands")
+        void unwritableHead() throws Exception {
+            var trail = new AuditTrailFixture(base);
+            trail.createKey();
+            Files.createDirectories(trail.headFile());
+            Files.writeString(trail.headFile().resolve("blocker"), "blocks the head");
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertTrue(Files.isDirectory(trail.headFile())),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNWRITABLE)));
+        }
+
+        @Test
+        @DisplayName("a failed rotation over a log that cannot be read counts as pending and is thrown")
+        void unreadableLogAfterFailedRotationIsPending() {
+            var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);
+            trail.createKey();
+            trail.append(1);
+            var thrown = new AtomicReference<RuntimeException>();
+
+            trail.underAuditLock(transaction -> {
+                permissions(trail.logFile(), "---------");
+                try {
+                    assumeFalse(Files.isReadable(trail.logFile()), "the log stays readable, as for a superuser");
+                    thrown.set(assertThrows(UncheckedIOException.class,
+                            () -> trail.head.beforeAppend(transaction, trail.log)));
+                } finally {
+                    permissions(trail.logFile(), "rw-------");
+                }
+            });
+
+            assertAll(
+                    () -> assertEquals(1, thrown.get().getSuppressed().length),
+                    () -> assertInstanceOf(UncheckedIOException.class, thrown.get().getSuppressed()[0]),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_PENDING.resolveIdentifierString()));
+        }
+
+        private static void permissions(Path file, String permissions) {
+            try {
+                Files.setPosixFilePermissions(file, PosixFilePermissions.fromString(permissions));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 
