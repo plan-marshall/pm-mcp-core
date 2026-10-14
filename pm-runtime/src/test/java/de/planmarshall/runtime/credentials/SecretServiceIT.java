@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.Optional;
 import java.util.UUID;
 
-
 import de.planmarshall.runtime.credentials.dbus.DbusConnection;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

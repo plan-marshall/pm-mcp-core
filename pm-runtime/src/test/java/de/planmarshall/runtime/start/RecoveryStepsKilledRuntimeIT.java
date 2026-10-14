@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
-
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.runtime.lock.FileLockManager;

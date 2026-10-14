@@ -11,7 +11,6 @@ package de.planmarshall.runtime.job;
 
 import java.util.Optional;
 
-
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
 

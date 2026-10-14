@@ -15,7 +15,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.queue.SessionGenerationStore;
 import de.planmarshall.core.service.InternalFaultException;

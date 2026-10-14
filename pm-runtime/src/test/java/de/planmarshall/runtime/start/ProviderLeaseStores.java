@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.HolderInstance;
 import de.planmarshall.core.store.LeaseOwner;

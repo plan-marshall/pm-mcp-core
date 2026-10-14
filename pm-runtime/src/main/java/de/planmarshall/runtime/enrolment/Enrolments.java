@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;

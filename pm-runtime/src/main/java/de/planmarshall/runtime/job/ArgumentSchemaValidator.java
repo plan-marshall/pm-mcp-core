@@ -15,7 +15,6 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-
 import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.BooleanValue;
 import de.planmarshall.core.store.ProjectEnrolment.EnumValue;

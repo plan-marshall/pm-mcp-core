@@ -27,7 +27,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.EnrolmentStore;

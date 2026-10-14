@@ -29,7 +29,6 @@ import java.util.UUID;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.runtime.credentials.CredentialAccount;

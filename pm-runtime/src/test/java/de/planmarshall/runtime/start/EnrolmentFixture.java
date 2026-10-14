@@ -25,7 +25,6 @@ import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import javax.crypto.Mac;
 
-
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.EnrolmentSidecar;

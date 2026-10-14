@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.JournalRecovery;

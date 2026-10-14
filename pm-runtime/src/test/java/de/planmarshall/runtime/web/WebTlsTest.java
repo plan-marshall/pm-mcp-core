@@ -27,7 +27,6 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 
-
 import de.planmarshall.runtime.test.TestBases;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

@@ -12,7 +12,6 @@ package de.planmarshall.runtime.lock;
 import java.time.Instant;
 import java.util.Optional;
 
-
 import de.planmarshall.core.store.HolderInstance;
 import lombok.experimental.UtilityClass;
 

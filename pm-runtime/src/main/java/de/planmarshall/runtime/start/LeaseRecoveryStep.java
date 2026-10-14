@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.runtime.lock.StaleLeaseSweep;

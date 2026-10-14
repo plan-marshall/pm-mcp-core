@@ -18,7 +18,6 @@ import java.util.Objects;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 
-
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.StoreDigest;
 import lombok.experimental.UtilityClass;

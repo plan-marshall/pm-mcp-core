@@ -12,7 +12,6 @@ package de.planmarshall.runtime.start;
 import java.util.List;
 import java.util.Objects;
 
-
 import de.planmarshall.core.store.EnrolmentStore;
 
 /**

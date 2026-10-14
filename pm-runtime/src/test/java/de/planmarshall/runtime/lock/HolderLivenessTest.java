@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-
 import de.planmarshall.core.store.HolderInstance;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

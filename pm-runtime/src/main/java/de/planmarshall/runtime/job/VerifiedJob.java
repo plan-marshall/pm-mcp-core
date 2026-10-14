@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-
 import de.planmarshall.core.store.ProjectEnrolment;
 
 /**

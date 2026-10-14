@@ -19,7 +19,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
-
 import de.planmarshall.runtime.credentials.dbus.FakeBus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

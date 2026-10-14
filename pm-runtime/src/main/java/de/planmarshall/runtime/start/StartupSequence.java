@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.AuditEvent;

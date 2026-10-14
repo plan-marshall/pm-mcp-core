@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
-
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.junit5.EnableTestLogger;

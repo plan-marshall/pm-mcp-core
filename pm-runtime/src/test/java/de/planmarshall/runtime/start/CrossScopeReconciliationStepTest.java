@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-
 import de.planmarshall.core.store.CrossScopeReconciler;
 import de.planmarshall.core.store.CrossScopeReconciler.Reconciliation;
 import de.planmarshall.core.store.JournalScope;

@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalLong;
 
-
 import de.planmarshall.runtime.start.AuditChainVerification.BreakReason;
 import de.planmarshall.runtime.start.AuditChainVerification.Outcome.Broken;
 import org.junit.jupiter.api.DisplayName;
