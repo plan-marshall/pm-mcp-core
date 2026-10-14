@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PM-MCP imported corpus item",
+  "description": "A corpus item generated from one row of a fetched source: the corpus item format, tightened. provenance.kind is fetched and provenance.origin names the repository, the pinned commit, the path and the line of the row; an optional list is absent rather than empty, expected_empty is present only when true. The schema uses only the keyword subset the corpus validator evaluates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "topic",
+    "role",
+    "title",
+    "input",
+    "target",
+    "grading",
+    "provenance",
+    "review",
+    "canary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$",
+      "description": "<topic path>/<slug>"
+    },
+    "topic": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+(/[a-z0-9-]+)*$"
+    },
+    "role": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question",
+        "facts"
+      ],
+      "properties": {
+        "question": {
+          "type": "string"
+        },
+        "facts": {
+          "type": "string"
+        },
+        "choices": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rationale"
+      ],
+      "properties": {
+        "answer": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "alternatives": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "expected_empty": {
+          "const": true
+        }
+      }
+    },
+    "grading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "exact_choice",
+            "label",
+            "rubric_items",
+            "rubric_properties"
+          ]
+        },
+        "judge": {
+          "type": "string"
+        },
+        "pass_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "created",
+        "origin",
+        "history"
+      ],
+      "properties": {
+        "kind": {
+          "const": "fetched"
+        },
+        "created": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "commit",
+            "path",
+            "line"
+          ],
+          "properties": {
+            "repository": {
+              "type": "string",
+              "pattern": "^https://github\\.com/[^/]+/[^/]+$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$",
+              "description": "the pinned commit of the source"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$",
+              "description": "the repository-relative path of the file"
+            },
+            "line": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "the line of the row in the file"
+            }
+          }
+        },
+        "history": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "draft",
+            "confirmed",
+            "contested",
+            "retired"
+          ]
+        },
+        "by": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "canary": {
+      "type": "string",
+      "description": "the corpus canary"
+    }
+  }
+}

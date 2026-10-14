@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PM-MCP corpus source overlay",
+  "description": "sources/<name>/overlay.json of the model verification corpus: the rows of one file of the source that become items, and per row the framing, the question, facts and choices as templates over the row's fields, the written reference answer, the grading and the review. Every declared field is present; a value the overlay does not give is null or an empty array. The schema uses only the keyword subset the corpus validator evaluates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format_version",
+    "source",
+    "file",
+    "key_field",
+    "created",
+    "rows"
+  ],
+  "properties": {
+    "format_version": {
+      "const": 1
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$",
+      "description": "the name of the source, the name of its manifest"
+    },
+    "file": {
+      "type": "string",
+      "pattern": "^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$",
+      "description": "the repository-relative path of the file the rows are read from, a file of the manifest"
+    },
+    "key_field": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": ".",
+      "description": "the field whose value selects a row; null selects rows by their position, from 1"
+    },
+    "created": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "the date the overlay was written, the creation date of its items"
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "id",
+          "topic",
+          "role",
+          "title",
+          "tags",
+          "question",
+          "facts",
+          "choices",
+          "target",
+          "grading",
+          "review"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": ".",
+            "description": "the value of the key field of the row, or its position when the overlay names no key field"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$",
+            "description": "the slug of the item: its file name below the topic without .json"
+          },
+          "topic": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+(/[a-z0-9-]+)*$"
+          },
+          "role": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "question": {
+            "type": "string",
+            "description": "a template; {field} names a field of the row"
+          },
+          "facts": {
+            "type": "string",
+            "description": "a template; {field} names a field of the row"
+          },
+          "choices": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "description": "a template; {field} names a field of the row"
+            }
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "answer",
+              "rationale",
+              "alternatives",
+              "items",
+              "expected_empty"
+            ],
+            "properties": {
+              "answer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "alternatives": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "description"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "expected_empty": {
+                "type": "boolean"
+              }
+            }
+          },
+          "grading": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "judge",
+              "pass_threshold"
+            ],
+            "properties": {
+              "method": {
+                "enum": [
+                  "exact_choice",
+                  "label",
+                  "rubric_items",
+                  "rubric_properties"
+                ]
+              },
+              "judge": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pass_threshold": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "by",
+              "date",
+              "notes"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "draft",
+                  "confirmed",
+                  "contested",
+                  "retired"
+                ]
+              },
+              "by": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "notes": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
