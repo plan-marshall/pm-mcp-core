@@ -11,12 +11,10 @@ package de.planmarshall.runtime.audit;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -49,7 +47,10 @@ import de.planmarshall.runtime.start.AuditChainVerification;
  * <p>
  * A current log whose last line is a checkpoint is a pending rotation, interrupted after its checkpoint, before or
  * after its index entry: it is verified as the rotated file it is about to become, against that entry once written,
- * and the head anchors the line before the checkpoint and the index line before that entry.
+ * and the head anchors the line before the checkpoint and the index line before that entry. Its checkpoint is verified
+ * as the writer verifies it before completing the rotation ({@code AuditRotation.checkpointVerifies}): it counts the
+ * records before it, names and chains to the line before it, and its HMAC verifies under the key. A checkpoint
+ * appended to a cut log does not, and is reported as {@code link_broken} at its line by both verifications.
  * <p>
  * A break is reported by its reason: {@code link_broken} with the first broken line for a line that does not parse or
  * does not chain, {@code missing} for a missing log, {@code reset} for a chain that starts over, {@code truncated}
@@ -269,7 +270,7 @@ public final class AuditVerification implements AuditChainVerification {
         if (walk(name, lines, firstPredecessor) instanceof Walk.Broken(var broken)) {
             return Optional.of(broken);
         }
-        if (!checkpointVerifies(key, pending.checkpoint(), lines)) {
+        if (!AuditRotation.checkpointVerifies(key, pending.checkpoint(), lines)) {
             var count = lines.size();
             return Optional.of(Outcome.Broken.linkBroken(count,
                     name + " line " + count + " is a checkpoint that does not verify"));
@@ -350,26 +351,11 @@ public final class AuditVerification implements AuditChainVerification {
         if (!last.lastHash().equals(entry.checkpointHash()) || !checkpoint.isCheckpoint()
                 || !checkpoint.eventId().equals(entry.lastEventId())
                 || !firstRecord.eventId().equals(entry.firstEventId())
-                || !checkpointVerifies(key, checkpoint, lines)) {
+                || !AuditRotation.checkpointVerifies(key, checkpoint, lines)) {
             return Optional.of(Outcome.Broken.linkBroken(count,
                     name + " line " + count + " is not the checkpoint its index entry names"));
         }
         return Optional.empty();
-    }
-
-    /** The checkpoint counts the records before it, names the hash of the line before it, and its HMAC verifies. */
-    private static boolean checkpointVerifies(SecretKey key, AuditRecord checkpoint, List<JsonlStoreFile.Line> lines) {
-        var details = checkpoint.details();
-        var count = lines.size() - 1L;
-        if (count < 1 || !Long.valueOf(count).equals(details.get(AuditRotation.DETAIL_RECORD_COUNT))
-                || !(details.get(AuditRotation.DETAIL_HEAD_HASH) instanceof String headHash)
-                || !(details.get(AuditRotation.DETAIL_HMAC) instanceof String hmac)) {
-            return false;
-        }
-        var lineBefore = AuditCodec.sha256Hex(lines.get(lines.size() - 2).content());
-        return headHash.equals(lineBefore) && MessageDigest.isEqual(
-                AuditRotation.checkpointHmac(key, count, headHash).getBytes(StandardCharsets.US_ASCII),
-                hmac.getBytes(StandardCharsets.US_ASCII));
     }
 
     /** The outcome of walking the chain of one log file. */

@@ -27,11 +27,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import de.planmarshall.core.store.AuditCodec;
+import de.planmarshall.core.store.AuditIndexEntry;
+import de.planmarshall.core.store.AuditRecord;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.start.AuditChainVerification.BreakReason;
@@ -375,6 +380,81 @@ class AuditVerificationTest {
             Files.delete(trail.logFile().resolveSibling(trail.head.index().snapshot().entries().getFirst().file()));
 
             assertEquals(INTACT, trail.verification().full());
+        }
+    }
+
+    @Nested
+    @DisplayName("a pending rotation")
+    class Pending {
+
+        /** A key other than the integrity key, as anyone without the key could sign with. */
+        private static final SecretKey OTHER_KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
+
+        @Test
+        @DisplayName("closed by a genuine checkpoint is intact, incrementally and in full")
+        void genuineCheckpointIntact() {
+            var trail = fiveRecords();
+            var key = trail.createKey();
+            var headHash = AuditTrailFixture.hashOf(trail.logFile(), 5);
+            trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
+                    checkpoint(trail, key, 5, headHash)));
+
+            assertAll(
+                    () -> assertEquals(INTACT, trail.verification().verify()),
+                    () -> assertEquals(INTACT, trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("closed by a forged checkpoint after a cut is link_broken at the checkpoint, in both")
+        void forgedCheckpointOverCutLog() {
+            var trail = fiveRecords();
+            removeLine(trail.logFile(), 5);
+            removeLine(trail.logFile(), 4);
+            var headHash = AuditTrailFixture.hashOf(trail.logFile(), 3);
+            trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
+                    checkpoint(trail, OTHER_KEY, 3, headHash)));
+
+            assertAll(
+                    () -> assertLinkBroken(4, trail.verification().verify()),
+                    () -> assertLinkBroken(4, trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("closed by a forged checkpoint the index already names is link_broken at the checkpoint, in both")
+        void forgedCheckpointEntered() {
+            var trail = fiveRecords();
+            var first = recordAt(trail.logFile(), 1);
+            removeLine(trail.logFile(), 5);
+            var headHash = AuditTrailFixture.hashOf(trail.logFile(), 4);
+            trail.underAuditLock(transaction -> {
+                var forged = checkpoint(trail, OTHER_KEY, 4, headHash);
+                var forgedHash = trail.log.appendCheckpoint(transaction, forged);
+                trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
+                        AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), forged.eventId(), 5,
+                        forgedHash), _ -> {
+                });
+            });
+
+            assertAll(
+                    () -> assertLinkBroken(5, trail.verification().verify()),
+                    () -> assertLinkBroken(5, trail.verification().full()));
+        }
+
+        private static AuditRecord checkpoint(AuditTrailFixture trail, SecretKey key, long recordCount,
+                String headHash) {
+            return AuditRecord.builder()
+                    .eventId(TransactionId.generate(trail.clock).value())
+                    .prevHash(AuditCodec.GENESIS_HASH)
+                    .timestamp(trail.clock.instant())
+                    .category(AuditRecord.Category.SECURITY)
+                    .event(AuditRecord.EVENT_CHECKPOINT)
+                    .scopeType(AuditRecord.Scope.MACHINE)
+                    .actor(AuditTrailFixture.USER)
+                    .outcome(AuditRecord.Outcome.SUCCEEDED)
+                    .details(Map.of(AuditRotation.DETAIL_RECORD_COUNT, recordCount, AuditRotation.DETAIL_HEAD_HASH,
+                            headHash, AuditRotation.DETAIL_HMAC,
+                            AuditRotation.checkpointHmac(key, recordCount, headHash)))
+                    .build();
         }
     }
 

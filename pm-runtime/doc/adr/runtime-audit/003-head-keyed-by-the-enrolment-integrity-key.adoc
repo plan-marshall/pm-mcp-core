@@ -28,15 +28,30 @@ a failing keyring can make it unreadable.
   `readOrCreate()` and never takes the credentials lock. A key once read is kept, since it is never replaced.
 * *Key absent* (no enrolment yet): no head is written and no rotation starts, since a checkpoint needs the HMAC; the
   record stands and nothing is logged. The first append after the key exists writes the head over the whole log. The
-  verification answers `NotVerified`: nothing is anchored yet.
-* *Key unreadable* (`SecretStoreException`): no head and no rotation starts; a pending rotation, whose checkpoint is
-  already signed, is completed. The record stands and `PM_RUNTIME-123` (`AUDIT_HEAD_NOT_WRITTEN`) names the reason
-  code, never the key. The verification answers `NotVerified` naming the code.
+  verification answers `NotVerified`: nothing is anchored yet. A pending rotation is not completed (see below).
+* *Key unreadable* (`SecretStoreException`): no head and no rotation starts, and a pending rotation is not completed
+  (see below). Otherwise the record stands and `PM_RUNTIME-123` (`AUDIT_HEAD_NOT_WRITTEN`) names the reason code, never
+  the key. The verification answers `NotVerified` naming the code.
+* *A pending rotation is completed only over a checkpoint that verifies.* A log whose last line is a checkpoint is a
+  rotation interrupted after its checkpoint; the next append completes it (index entry, rename) without a second
+  checkpoint. Its last line merely having the event `checkpoint` proves nothing: anyone who can write the log can cut
+  its tail and append a line with that event, and completing it would enter the cut in the index, rename it, and let the
+  next head be counted over the new log, so `verify()` would answer `Intact`. Before completing it, the rotation
+  therefore verifies the checkpoint under the key exactly as the verification does (`AuditRotation.checkpointVerifies`):
+  it counts the records before it, names the hash of the line before it and chains to that line, and its HMAC verifies.
+  A checkpoint that does not verify is not completed, also when the last index entry already names it: no index entry,
+  no rename, and the append is refused, since no record may follow a checkpoint, with `PM_RUNTIME-125`
+  (`AUDIT_ROTATION_PENDING`) naming the reason `checkpoint_unverifiable`. The same holds while the key is absent or
+  unreadable, since the checkpoint cannot be verified then. The log stays as it is, so the verification reports the
+  checkpoint as `link_broken` at its line; a genuine pending rotation is completed by the next append with the key.
 * *The record count of a new head* is the previous head's count plus one when the previous head verifies and anchors
   exactly the line the appended record chains to. Otherwise the lines are counted, but a recount never hides a cut: it
   is accepted only without a head file (the first head after the key appears), after a rotation since that head (the
-  last index entry chains to the index line it anchored), or when the log still holds the line it anchored at its
-  position (the gap a stop between an append and its head leaves). A log that no longer holds that line, cut short or
+  last index entry chains to the index line it anchored, and the rotated file it names is closed by a checkpoint that
+  verifies under the key and still holds the line the head anchored at its position), or when the log still holds the
+  line it anchored at its position (the gap a stop between an append and its head leaves). An index entry and a rename
+  are plain file operations, so a rotation since the head is accepted only on the evidence of its verifying checkpoint;
+  otherwise a cut closed by a forged checkpoint, entered and renamed by hand, would be re-signed by the next head. A log that no longer holds that line, cut short or
   with its last line replaced, gets no new head: the previous head stays, so the verification reports `truncated` or
   `head_mismatch`, and `PM_RUNTIME-123` names the reason `anchored_line_missing`.
 * *A damaged head is never replaced.* The head is replaced atomically, so the only legitimate state without a
@@ -50,8 +65,8 @@ a failing keyring can make it unreadable.
   verifies, anchors the current last index line, and the log still holds the line it anchors at its position. A
   refused rotation is logged as `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`) with the reason `head_unverifiable` or
   `anchored_line_missing`, and the record goes to the current log, where no head is re-signed over the cut. A pending
-  rotation is completed without the check, since its checkpoint is already signed and `full()` reports a cut before
-  it.
+  rotation is completed without the check, but only over a checkpoint that verifies under the key (above): a forged
+  checkpoint, which anyone can append after a cut, is never completed.
 * The verification classifies a head that does not match the log as `head_mismatch`: more records than the head
   anchors, a last line other than the one it names, an HMAC that does not verify, an `index_head_hash` that is not the
   last index line, or no head for a trail with records. An empty log whose head anchors records is `reset`, and so is
@@ -74,8 +89,13 @@ a failing keyring can make it unreadable.
 * A cut of the log stays reported after later appends: no head is re-signed over it and no checkpoint closes it, so a
   cut trail keeps its last verifying head, and its current log grows unrotated, until an operator deals with it. The
   same holds for a damaged head.
+* While a forged checkpoint closes the log, or the key is absent or unreadable over a pending rotation, every append is
+  refused with `PM_RUNTIME-125` (`checkpoint_unverifiable`): the audit trail takes no record until an operator deals
+  with the forged line, or the key can be read again. Refusing is preferred to appending behind a checkpoint or
+  completing one that does not verify.
 * Two gaps stay open: a deleted head file reads as absent, so the next append counts the whole log, and an index entry
-  carries no HMAC of its own.
+  carries no HMAC of its own; a rotation since the head is accepted only through the verifying checkpoint of the
+  rotated file the entry names.
 * Residual risk, as the specification states it: the anchoring is tamper-evident, not tamper-proof. A process that
   holds the integrity key (on macOS, anything that runs the `pm-mcpd` binary; on hosts without a keyring, any process
   of the user) can forge a consistent head.

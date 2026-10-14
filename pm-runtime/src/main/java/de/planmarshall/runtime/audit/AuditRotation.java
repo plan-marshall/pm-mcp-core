@@ -11,6 +11,7 @@ package de.planmarshall.runtime.audit;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -20,8 +21,10 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,6 +37,7 @@ import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.AuditIndexEntry;
 import de.planmarshall.core.store.AuditLog;
 import de.planmarshall.core.store.AuditRecord;
+import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.enrolment.EnrolmentHmac;
@@ -62,10 +66,15 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <p>
  * A log whose last line is a checkpoint is a <em>pending rotation</em>: one a stop or a failure interrupted after its
  * checkpoint. No record may follow that checkpoint, so the anchor does not let the record be appended while the
- * rotation stays pending ({@link #pending(AuditLog)}). The next append completes it without a second checkpoint, also
- * without the key ({@link #completePending(LockTransaction, AuditLog)}): the log gets its index entry, unless the last
- * entry already names that line, and is renamed. A due log that the last index entry already names as its rotated file
- * is never entered a second time.
+ * rotation stays pending ({@link #pending(AuditLog)}). The next append with the key completes it without a second
+ * checkpoint, but only over a checkpoint that verifies ({@code checkpointVerifies}):
+ * it counts the records before it, names the hash of the line before it, chains to that line, and its HMAC verifies
+ * under the key. The log then gets its index entry, unless the last entry already names that line, and is renamed. A
+ * last line that merely has the event {@value AuditRecord#EVENT_CHECKPOINT} proves nothing, since anyone who can write
+ * the log can append one after cutting its tail; so a checkpoint that does not verify, and every pending checkpoint
+ * while the key is absent or unreadable ({@link #refusePending(AuditLog)}), is never completed: the append is refused
+ * with the reason {@value #CHECKPOINT_UNVERIFIABLE}, the log stays as it is, and the verification reports it. A due log
+ * that the last index entry already names as its rotated file is never entered a second time.
  * <p>
  * The HMAC of a checkpoint is the HMAC-SHA-256 under the enrolment integrity key over the UTF-8 bytes of
  * {@code {"record_count":<record_count>,"head_hash":"<head_hash>"}} ({@link #checkpointHmac(SecretKey, long, String)}).
@@ -85,6 +94,12 @@ public final class AuditRotation {
 
     /** The detail of a checkpoint that holds the HMAC over its record count and head hash. */
     public static final String DETAIL_HMAC = "hmac";
+
+    /**
+     * The reason a pending rotation is not completed: its checkpoint does not verify under the integrity key, or the
+     * key is absent or unreadable, so it cannot be verified.
+     */
+    static final String CHECKPOINT_UNVERIFIABLE = "checkpoint_unverifiable";
 
     private static final CuiLogger LOGGER = new CuiLogger(AuditRotation.class);
 
@@ -173,17 +188,49 @@ public final class AuditRotation {
     }
 
     /**
-     * Rotates the log when a limit is reached and the check lets it be closed, or completes a pending rotation. A log
-     * that does not exist, holds no complete line, or whose first line cannot be read is not rotated. A due log the
-     * check refuses is not rotated either: the refusal is logged with its reason code, and the next append runs the
-     * check again.
+     * A pending rotation that is not completed because its checkpoint does not verify, or cannot be verified without
+     * the key. It stays pending, so the record of the append is refused: no record may follow a checkpoint.
+     *
+     * @since 0.1
+     */
+    static final class PendingRefusal extends UncheckedIOException {
+
+        @Serial
+        private static final long serialVersionUID = 1L;
+
+        /** The reason code. */
+        private final String reason;
+
+        /**
+         * @param reason the reason code
+         * @param detail what was refused
+         */
+        PendingRefusal(String reason, String detail) {
+            super(detail, new IOException(detail));
+            this.reason = reason;
+        }
+
+        /** @return the reason code, logged in place of the detail */
+        String reason() {
+            return reason;
+        }
+    }
+
+    /**
+     * Rotates the log when a limit is reached and the check lets it be closed, or completes a pending rotation whose
+     * checkpoint verifies. A log that does not exist, holds no complete line, or whose first line cannot be read is not
+     * rotated. A due log the check refuses is not rotated either: the refusal is logged with its reason code, and the
+     * next append runs the check again.
      *
      * @param transaction the writer's transaction, which holds the audit lock and has repaired the tail of the log
      * @param log         the audit log
-     * @param key         the enrolment integrity key the checkpoint is signed with
+     * @param key         the enrolment integrity key the checkpoint is signed with, and a pending checkpoint verified
+     *                    under
      * @param check       the check run before a checkpoint is signed; a pending rotation is completed without it,
-     *                    since its checkpoint is already signed
+     *                    since its checkpoint verifies under the key
      * @return whether a rotation was carried out or completed
+     * @throws PendingRefusal       if the last line of the log is a checkpoint that does not verify; the log stays
+     *                              pending
      * @throws UncheckedIOException if the log or the index cannot be read or written, the log cannot be renamed, the
      *                              check cannot read what it checks, or the due log is already named by the last
      *                              index entry while records follow its checkpoint
@@ -202,7 +249,7 @@ public final class AuditRotation {
         if (first.isEmpty()) {
             return false;
         }
-        if (completePending(transaction, log, edges.get(), first.get())) {
+        if (completePending(transaction, log, edges.get(), first.get(), key)) {
             return true;
         }
         if (!due(edges.get().size(), first.get())) {
@@ -240,23 +287,19 @@ public final class AuditRotation {
     }
 
     /**
-     * Completes a pending rotation, the one case of a rotation that needs no key: its checkpoint is already signed.
+     * Refuses the append while a rotation is pending and the key is absent or unreadable: without the key its
+     * checkpoint cannot be verified, so it is not completed, and no record may follow it. A log that is not pending is
+     * left to the append.
      *
-     * @param transaction the writer's transaction, which holds the audit lock and has repaired the tail of the log
-     * @param log         the audit log
-     * @return whether a pending rotation was completed
-     * @throws UncheckedIOException if the log or the index cannot be read or written, or the log cannot be renamed
-     * @throws StoreRefusal         if the intent file of the log or of the index is unreadable
+     * @param log the audit log
+     * @throws PendingRefusal       if the last complete line of the log is a checkpoint; the log stays pending
+     * @throws UncheckedIOException if the log exists and cannot be read
      */
-    public boolean completePending(LockTransaction transaction, AuditLog log) {
-        Objects.requireNonNull(transaction, "transaction");
-        var logFile = log.logFile();
-        var edges = edges(logFile);
-        if (edges.isEmpty()) {
-            return false;
+    public static void refusePending(AuditLog log) {
+        if (pending(log)) {
+            throw new PendingRefusal(CHECKPOINT_UNVERIFIABLE, "The audit log is closed by a checkpoint that cannot be "
+                    + "verified without the integrity key; the rotation is not completed");
         }
-        var first = decode(logFile, edges.get().first());
-        return first.isPresent() && completePending(transaction, log, edges.get(), first.get());
     }
 
     /**
@@ -285,30 +328,64 @@ public final class AuditRotation {
         return EnrolmentHmac.hmac(key, content.getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Whether a checkpoint closes the lines it ends: it counts the records before it, names the hash of the line
+     * before it and chains to that line, and its HMAC verifies under the key. A checkpoint with no record before it
+     * never verifies, since a rotation closes only a log that holds one.
+     *
+     * @param key        the enrolment integrity key
+     * @param checkpoint the record of the last of the lines
+     * @param lines      the lines of the log the checkpoint closes, the checkpoint the last of them
+     * @return whether the checkpoint verifies
+     */
+    static boolean checkpointVerifies(SecretKey key, AuditRecord checkpoint, List<JsonlStoreFile.Line> lines) {
+        var details = checkpoint.details();
+        var count = lines.size() - 1L;
+        if (!checkpoint.isCheckpoint() || count < 1 || !Long.valueOf(count).equals(details.get(DETAIL_RECORD_COUNT))
+                || !(details.get(DETAIL_HEAD_HASH) instanceof String headHash)
+                || !(details.get(DETAIL_HMAC) instanceof String hmac)) {
+            return false;
+        }
+        var lineBefore = AuditCodec.sha256Hex(lines.get(lines.size() - 2).content());
+        return headHash.equals(lineBefore) && lineBefore.equals(checkpoint.prevHash()) && MessageDigest.isEqual(
+                checkpointHmac(key, count, headHash).getBytes(StandardCharsets.US_ASCII),
+                hmac.getBytes(StandardCharsets.US_ASCII));
+    }
+
     private boolean due(long size, AuditRecord first) {
         return size >= limits.maxBytes()
                 || !first.timestamp().plus(limits.maxAge()).isAfter(clock.instant());
     }
 
     /**
-     * Completes a rotation whose checkpoint is the last line of the log: enters it in the index unless the last entry
-     * already names that line, and renames it.
+     * Completes a rotation whose checkpoint is the last line of the log and verifies under the key: enters it in the
+     * index unless the last entry already names that line, and renames it. A checkpoint that does not verify is
+     * refused before the index or the log is touched, also when the index already names it.
      *
      * @return whether the log was closed by a checkpoint
+     * @throws PendingRefusal if the checkpoint does not verify
      */
-    private boolean completePending(LockTransaction transaction, AuditLog log, Edges edges, AuditRecord first) {
-        var lastLine = edges.last();
-        var last = decode(log.logFile(), lastLine);
+    private boolean completePending(LockTransaction transaction, AuditLog log, Edges edges, AuditRecord first,
+            SecretKey key) {
+        var logFile = log.logFile();
+        var last = decode(logFile, edges.last());
         if (last.isEmpty() || !last.get().isCheckpoint()) {
             return false;
         }
-        var checkpointHash = AuditCodec.sha256Hex(lastLine);
+        var lines = log.read(transaction).lines();
+        var checkpoint = lines.isEmpty() ? Optional.<AuditRecord>empty()
+                : decode(logFile, lines.getLast().content());
+        if (checkpoint.isEmpty() || !checkpointVerifies(key, checkpoint.get(), lines)) {
+            throw new PendingRefusal(CHECKPOINT_UNVERIFIABLE, "The audit log is closed by a checkpoint that does not "
+                    + "verify under the integrity key; the rotation is not completed");
+        }
+        var checkpointHash = AuditCodec.sha256Hex(lines.getLast().content());
+        var recordCount = lines.size();
         var entered = index.read(transaction).lastCheckpointHash().filter(checkpointHash::equals).isPresent();
         if (entered) {
-            rename(transaction, log, first.eventId(), log.recordCount(transaction));
+            rename(transaction, log, first.eventId(), recordCount);
         } else {
-            close(transaction, log, first.eventId(), last.get().eventId(), log.recordCount(transaction),
-                    checkpointHash);
+            close(transaction, log, first.eventId(), checkpoint.get().eventId(), recordCount, checkpointHash);
         }
         return true;
     }

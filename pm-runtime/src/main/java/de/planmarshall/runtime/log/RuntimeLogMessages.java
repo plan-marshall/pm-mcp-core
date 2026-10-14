@@ -487,8 +487,10 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged when a rotation of the audit log stays pending after its checkpoint, because the index entry or the
-         * rename failed; the record is not appended, since no record may follow the checkpoint, and the next append
-         * completes the rotation.
+         * rename failed, or because the checkpoint does not verify under the enrolment integrity key or cannot be
+         * verified while the key is absent or unreadable ({@code checkpoint_unverifiable}, the rotation is not
+         * completed); the record is not appended, since no record may follow the checkpoint, and the next append with
+         * the key completes a rotation whose checkpoint verifies.
          */
         public static final LogRecord AUDIT_ROTATION_PENDING = LogRecordModel.builder()
                 .prefix(PREFIX)

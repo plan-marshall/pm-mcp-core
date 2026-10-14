@@ -59,7 +59,8 @@ AuditLogSink.append(event)                          (core.store; own transaction
   AuditLog.append(transaction, record)
     ├─ repair a torn tail of the log
     ├─ AuditHead.beforeAppend ──► AuditRotation.rotateIfDue          (with the key present;
-    │                                                                    completePending without it)
+    │                                                                    refusePending without it)
+    │     pending checkpoint? ── verifies under the key ──► index entry, rename; else refuse the append
     │     limit reached? ── checkpoint ──► AuditLog.appendCheckpoint ──► checkpoint_hash
     │                       index entry ──► AuditIndex.append            (before the rename)
     │                       rename audit.jsonl ──► audit-<first_event_id>.jsonl, directory forced
@@ -93,7 +94,10 @@ count cannot hide a cut (link:../adr/runtime-audit/003-head-keyed-by-the-enrolme
 
 * no head file exists: the first head after the key appears covers the whole current log;
 * the log was rotated since the previous head: the last index entry chains to the index line that head anchored, and
-  the rotation signed its checkpoint only over a log that held the line the head anchored (<<_the_rotation>>);
+  the rotated file it names is closed by a checkpoint that verifies under the key and still holds the line the head
+  anchored at its position, as the rotation signs a checkpoint only over such a log (<<_the_rotation>>). An index
+  entry and a rename are plain file operations; without the checkpoint as evidence, a cut closed by a forged
+  checkpoint, entered and renamed by hand, would be recounted and re-signed by the next head;
 * the log still holds the line the previous head anchored, at its position: a stop between an append and its head
   left records without a head, and the recount covers them.
 
@@ -121,11 +125,13 @@ once read is kept, because it is never replaced
 
 |Absent (no enrolment yet)
 |No rotation starts (a checkpoint needs the HMAC) and no head; the record stands and nothing is logged. The first append
-after the key exists writes the head over the whole log.
+after the key exists writes the head over the whole log. A pending rotation is not completed and refuses the record
+(`PM_RUNTIME-125`, `checkpoint_unverifiable`).
 
 |Unreadable (`SecretStoreException`)
-|No rotation starts and no head; a pending rotation is completed. The record stands, and `PM_RUNTIME-123`
-(`AUDIT_HEAD_NOT_WRITTEN`) names the reason code, never the key.
+|No rotation starts and no head; the record stands, and `PM_RUNTIME-123` (`AUDIT_HEAD_NOT_WRITTEN`) names the reason
+code, never the key. A pending rotation is not completed and refuses the record (`PM_RUNTIME-125`,
+`checkpoint_unverifiable`) until the key can be read again.
 |===
 
 A head that cannot be read or written is logged as `PM_RUNTIME-123` with the reason `head_unwritable`, one that is
@@ -163,15 +169,27 @@ reason `head_unverifiable` (the head file does not parse or does not verify) or 
 appended to the current log and gets no new head, so the cut stays reported as `truncated` or `head_mismatch`, and every
 later due append is refused again. A head that anchors the index line before the last entry, left by a stop between a
 rotation and the head of the next append, is refused as well: the record goes to the current log, its head is counted
-after the rotation, and the next due append rotates. Completing a pending rotation runs no check: its checkpoint is
-already signed, and `full()` reports a cut before it.
+after the rotation, and the next due append rotates. Completing a pending rotation runs no `CloseCheck`, but it
+verifies the checkpoint under the key (below).
 
 *A stop during a rotation.* Because the index entry is written before the rename, a stop after the rename still finds
 the entry, and the next record links to the checkpoint. A log whose last line is a checkpoint is a _pending rotation_,
-one a stop or a failure interrupted after its checkpoint: the next append completes it without a second checkpoint,
-writing the index entry unless the last entry already names that line, and then renaming the log. Completing it needs
-no key, since the checkpoint is already signed, so it is completed also while the key is absent or unreadable. A due
+one a stop or a failure interrupted after its checkpoint: the next append with the key completes it without a second
+checkpoint, writing the index entry unless the last entry already names that line, and then renaming the log. A due
 log that the last index entry already names as its rotated file is never entered a second time.
+
+*Only a checkpoint that verifies is completed.* A last line that merely has the event `checkpoint` proves nothing:
+anyone who can write the log can cut its tail and append one. Completing it would enter the cut in the index and rename
+it, the next head would be counted over the new log, and `verify()`, which reads no rotated file, would answer
+`Intact`. Before completing a pending rotation, `AuditRotation` therefore verifies the checkpoint as the verification
+does (`AuditRotation.checkpointVerifies`): it counts the records before it, its `head_hash` is the hash of the line
+before it and its `prev_hash` chains to that line, and its HMAC verifies under the key. A checkpoint that does not
+verify, also one the last index entry already names, is not completed: no index entry, no rename, and the append is
+refused, because no record may follow a checkpoint. `AuditHead` logs `PM_RUNTIME-125` (`AUDIT_ROTATION_PENDING`) with
+the reason `checkpoint_unverifiable` and throws into the append. While the key is absent or unreadable the checkpoint
+cannot be verified, so a pending rotation is refused the same way (`AuditRotation.refusePending`) and completed by the
+next append once the key can be read. The log stays as it is, and both verifications report the forged checkpoint as
+`link_broken` at its line (<<_the_verification>>).
 
 *A torn tail of the index.* The index entry is appended through the JSONL append path, which first cuts a torn tail of
 the index. Its `jsonl_tail_repaired` record cannot go into the log being closed, so the rotation refuses the hand-over:
@@ -192,8 +210,8 @@ current log, and the next append retries the rotation.
 *A rotation that fails after its checkpoint* (the index entry cannot be written, the rename fails) stays pending. No
 record may follow the checkpoint, so `AuditHead` logs `PM_RUNTIME-125` (`AUDIT_ROTATION_PENDING`) and throws into the
 append: the record is not appended, and the producer keeps what it owes, as for any refusal of the audit sink. The next
-append completes the rotation. Until then the verification reports the pending rotation intact
-(<<_the_verification>>).
+append with the key completes the rotation, its checkpoint verifying. Until then the verification reports the pending
+rotation intact (<<_the_verification>>).
 
 Reading the limits from `machine-config.json` (`audit_rotation.max_bytes`, `audit_rotation.max_days`) belongs to the
 assembly; this package takes them as `Limits`.
@@ -215,8 +233,11 @@ jobs. It checks, in this order:
 
 A current log whose last line is a checkpoint is a pending rotation (<<_the_rotation>>). It is checked as the rotated
 file it is about to become: against the last index entry when that entry names its checkpoint line, otherwise its chain
-and its checkpoint; and the head anchors the line before the checkpoint and the index line before that entry. A pending
-rotation is therefore reported intact, not as `head_mismatch` or `reset`.
+and its checkpoint; and the head anchors the line before the checkpoint and the index line before that entry. Its
+checkpoint is verified as the rotation verifies it before completing it: it counts the records before it, names and
+chains to the line before it, and its HMAC verifies under the key. A genuine pending rotation is therefore reported
+intact, not as `head_mismatch` or `reset`, and a checkpoint appended to a cut log is reported as `link_broken` at its
+line, by `verify()` as by `full()`.
 
 `full()` checks, after the head and before the current log, every rotated file the index lists, in index order: its
 first record chains to the checkpoint of the file before it (genesis for the first), its count, its first event id and
@@ -304,21 +325,28 @@ after the key appears writes a head over the whole log; a log cut below the anch
 head claiming more records than the log holds are never re-signed and stay reported, while a stop between an append
 and its head is closed by a recount; a head that does not parse over a cut log, and one that does not verify, stay in
 place and are reported by `verify()` and `full()`, while an absent head lets the lines be counted; a head that cannot
-be read or written is logged as `head_unwritable`; a failed rotation over a log that cannot be read counts as pending.
+be read or written is logged as `head_unwritable`, and refuses a due rotation while the record goes to the current log;
+a failed rotation over a log that cannot be read counts as pending.
 link:{test}/AuditIndexTest.java[`AuditIndexTest`]:: The index chain round trip; an edited or removed index line breaks
 it.
 link:{test}/AuditRotationTest.java[`AuditRotationTest`]:: Rotation by size and by age with the defaults asserted, the
 checkpoint fields, the rotated file name, the index entry, the first record of the new log chained to the checkpoint
 line; a stop after the rename, and a stop after the checkpoint, completed with exactly one checkpoint and one entry and
-verified intact while pending; a failed rename that refuses the record, verifies intact, and is completed by the next
-append with exactly one entry, also without the key; a due log the index already names never entered twice; a torn
-tail of the index owed during the rotation and handed into the new log, chained to the checkpoint line; a cut that
-coincides with a due rotation, and a damaged head over a cut log, sign no checkpoint and stay reported by `verify()` and
-`full()`, also after later due appends; a head stopped before a rotation defers the next one until the next head.
+verified intact while pending and after; a failed rename that refuses the record, verifies intact, and is completed by
+the next append with exactly one entry; without the key, or with an unreadable key, a pending rotation is not completed
+and refuses the record (`checkpoint_unverifiable`) until the key is read; a due log the index already names never
+entered twice; a torn tail of the index owed during the rotation and handed into the new log, chained to the checkpoint
+line; a cut that coincides with a due rotation, and a damaged head over a cut log, sign no checkpoint and stay reported
+by `verify()` and `full()`, also after later due appends; a head stopped before a rotation defers the next one until
+the next head; a checkpoint forged under another key, or a genuine signature replayed, appended to a cut log is never
+completed, nothing is written, and `verify()` and `full()` report `link_broken` at the checkpoint; a forged checkpoint
+entered in the index and renamed by hand is never re-signed by the next head and stays reported.
 link:{test}/AuditVerificationTest.java[`AuditVerificationTest`]:: The acceptance of the package: a removed, a reordered
 and an edited record (`link_broken` with the first broken line), a replaced head (`head_mismatch`), `missing`,
 `reset`, `truncated`, an intact chain, no key and no chain `NotVerified`, a rotation in the middle of a verification
-reported intact, `full()` across rotated files, and nothing in the fixture changed by a verification.
+reported intact, `full()` across rotated files, a pending rotation closed by a genuine checkpoint intact and one closed
+by a forged checkpoint, entered or not, `link_broken` at the checkpoint in both verifications, and nothing in the
+fixture changed by a verification.
 
 == Pitfalls
 
@@ -333,8 +361,10 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
 4. **Never repair in the verification**: a break is reported and recorded, and the trail stays as it was found.
 5. **Re-read before reporting**: a verification without the lock that reports its first read sees rotations as breaks.
 6. **Never let a record follow a checkpoint**: a rotation that stays pending after its checkpoint refuses the append,
-   and the next append completes it.
-7. **Never re-sign a cut**: a head over a log that no longer holds the line the previous head anchored would accept the
+   and the next append with the key completes it.
+7. **Never trust a checkpoint by its event name**: a pending checkpoint is completed, and a rotation since the head
+   recounted, only on a checkpoint that verifies under the key; without the key nothing is completed.
+8. **Never re-sign a cut**: a head over a log that no longer holds the line the previous head anchored would accept the
    cut as the new baseline, and so would a checkpoint over such a log, or a recount that replaces a damaged head.
 
 == Specification Tracing

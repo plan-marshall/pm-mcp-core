@@ -249,6 +249,29 @@ class AuditHeadTest {
         }
 
         @Test
+        @DisplayName("a head that cannot be read refuses a due rotation, and the record is appended to the current log")
+        void unreadableHeadRefusesDueRotation() throws Exception {
+            var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);
+            trail.createKey();
+            trail.append(1);
+            Files.delete(trail.headFile());
+            Files.createDirectories(trail.headFile());
+            Files.writeString(trail.headFile().resolve("blocker"), "blocks the head");
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertFalse(Files.exists(trail.indexFile()), "no checkpoint was signed"),
+                    () -> assertEquals(2, lines(trail.logFile()).size()),
+                    () -> assertFalse(recordAt(trail.logFile(), 2).isCheckpoint()),
+                    () -> assertTrue(Files.isDirectory(trail.headFile())),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_FAILED.resolveIdentifierString()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.HEAD_UNWRITABLE)));
+        }
+
+        @Test
         @DisplayName("a failed rotation over a log that cannot be read counts as pending and is thrown")
         void unreadableLogAfterFailedRotationIsPending() {
             var trail = new AuditTrailFixture(base, ROTATE_ALWAYS);

@@ -28,7 +28,9 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
@@ -42,6 +44,8 @@ import de.planmarshall.core.store.AuditRecord;
 import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.TransactionId;
+import de.planmarshall.runtime.credentials.SecretStoreException;
+import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.AuditChainVerification;
@@ -392,6 +396,8 @@ class AuditRotationTest {
                     () -> assertEquals(1, checkpoints(rotated) + checkpoints(trail.logFile())),
                     () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
                     () -> assertEquals(hashOf(rotated, 3), recordAt(trail.logFile(), 1).prevHash()),
+                    () -> assertEquals(1, trail.readHead().orElseThrow().recordCount()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()),
                     () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
         }
 
@@ -476,8 +482,9 @@ class AuditRotationTest {
         }
 
         @Test
-        @DisplayName("a pending rotation is completed without the key, and no record follows its checkpoint")
-        void pendingCompletedWithoutKey() throws Exception {
+        @DisplayName("without the key a pending rotation is not completed and no record follows its checkpoint; "
+                + "the next append with the key completes it")
+        void pendingNotCompletedWithoutKey() throws Exception {
             var trail = new AuditTrailFixture(base, BY_SIZE);
             trail.createKey();
             trail.append(1);
@@ -487,14 +494,51 @@ class AuditRotationTest {
             unblock(blocker);
             var withoutKey = new AuditTrailFixture(base, BY_SIZE);
 
-            withoutKey.append(1);
+            assertThrows(UncheckedIOException.class, () -> withoutKey.append(1));
+            var pendingLines = lines(trail.logFile()).size();
+            var renamedWithoutKey = Files.exists(trail.rotatedFile(first.eventId()));
+            trail.append(1);
 
             var rotated = trail.rotatedFile(first.eventId());
             assertAll(
+                    () -> assertEquals(2, pendingLines, "no record follows the checkpoint"),
+                    () -> assertFalse(renamedWithoutKey, "not completed without the key"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_PENDING.format(AuditRotation.CHECKPOINT_UNVERIFIABLE)),
                     () -> assertEquals(2, lines(rotated).size()),
                     () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
                     () -> assertEquals(1, lines(trail.logFile()).size()),
-                    () -> assertEquals(hashOf(rotated, 2), recordAt(trail.logFile(), 1).prevHash()));
+                    () -> assertEquals(hashOf(rotated, 2), recordAt(trail.logFile(), 1).prevHash()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("with an unreadable key a pending rotation is not completed; once readable it is")
+        void pendingNotCompletedWithUnreadableKey() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_SIZE);
+            trail.createKey();
+            trail.append(1);
+            var first = recordAt(trail.logFile(), 1);
+            var blocker = blockRename(trail, first);
+            assertThrows(UncheckedIOException.class, () -> trail.append(1));
+            unblock(blocker);
+            var locked = new AuditTrailFixture(base, BY_SIZE);
+            locked.keyring.entries.putAll(trail.keyring.entries);
+            locked.keyring.failure = new SecretStoreException(SecretStoreException.Reason.LOCKED, "keyring locked");
+
+            assertThrows(UncheckedIOException.class, () -> locked.append(1));
+            var renamedWhileLocked = Files.exists(trail.rotatedFile(first.eventId()));
+            locked.keyring.failure = null;
+            locked.append(1);
+
+            assertAll(
+                    () -> assertFalse(renamedWhileLocked, "not completed while the key cannot be read"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_PENDING.format(AuditRotation.CHECKPOINT_UNVERIFIABLE)),
+                    () -> assertEquals(2, lines(trail.rotatedFile(first.eventId())).size()),
+                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
         }
 
         @Test
@@ -543,6 +587,102 @@ class AuditRotationTest {
         private void unblock(Path blocker) throws IOException {
             Files.delete(blocker.resolve("blocker"));
             Files.delete(blocker);
+        }
+    }
+
+    @Nested
+    @DisplayName("a forged checkpoint")
+    class Forged {
+
+        /** A key other than the integrity key, as anyone without the key could sign with. */
+        private static final SecretKey OTHER_KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
+
+        @Test
+        @DisplayName("appended to a cut log is never completed, and verify and full report the cut")
+        void forgedOnCutLogNotCompleted() {
+            var trail = new AuditTrailFixture(base, NEVER);
+            trail.createKey();
+            trail.append(4);
+            cutToTwoRecords(trail);
+            var headHash = hashOf(trail.logFile(), 2);
+            trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
+                    checkpoint(trail, OTHER_KEY, 2, headHash)));
+
+            assertNeverCompleted(trail);
+        }
+
+        @Test
+        @DisplayName("replaying a genuine signature over the log before the cut is never completed either")
+        void replayedSignatureOnCutLogNotCompleted() {
+            var trail = new AuditTrailFixture(base, NEVER);
+            var key = trail.createKey();
+            trail.append(4);
+            var signedBeforeCut = checkpoint(trail, key, 4, hashOf(trail.logFile(), 4));
+            cutToTwoRecords(trail);
+            trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction, signedBeforeCut));
+
+            assertNeverCompleted(trail);
+        }
+
+        @Test
+        @DisplayName("entered in the index and renamed by hand is never re-signed by the next head")
+        void forgedAndRenamedByHandNotResigned() throws Exception {
+            var trail = new AuditTrailFixture(base, NEVER);
+            trail.createKey();
+            trail.append(4);
+            var anchored = trail.readHead().orElseThrow();
+            var first = recordAt(trail.logFile(), 1);
+            cutToTwoRecords(trail);
+            var headHash = hashOf(trail.logFile(), 2);
+            trail.underAuditLock(transaction -> {
+                var forged = checkpoint(trail, OTHER_KEY, 2, headHash);
+                var forgedHash = trail.log.appendCheckpoint(transaction, forged);
+                trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
+                        AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), forged.eventId(), 3,
+                        forgedHash), _ -> {
+                });
+            });
+            Files.move(trail.logFile(), trail.rotatedFile(first.eventId()));
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow(), "the head is not re-signed"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.format(AuditHead.ANCHORED_LINE_MISSING)),
+                    () -> assertInstanceOf(AuditChainVerification.Outcome.Broken.class,
+                            trail.verification().verify()),
+                    () -> assertInstanceOf(AuditChainVerification.Outcome.Broken.class,
+                            trail.verification().full()));
+        }
+
+        private static void cutToTwoRecords(AuditTrailFixture trail) {
+            AuditTrailFixture.removeLine(trail.logFile(), 4);
+            AuditTrailFixture.removeLine(trail.logFile(), 3);
+        }
+
+        /** The append is refused, nothing is written, and both verifications report the checkpoint line. */
+        private static void assertNeverCompleted(AuditTrailFixture trail) {
+            var before = trail.files();
+
+            assertThrows(UncheckedIOException.class, () -> trail.append(1));
+
+            assertAll(
+                    () -> assertEquals(before, trail.files(), "no index entry, no rename, no record, no head"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_PENDING.format(AuditRotation.CHECKPOINT_UNVERIFIABLE)),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                            INFO.AUDIT_LOG_ROTATED.resolveIdentifierString()),
+                    () -> assertLinkBroken(3, trail.verification().verify()),
+                    () -> assertLinkBroken(3, trail.verification().full()));
+        }
+
+        private static void assertLinkBroken(long line, AuditChainVerification.Outcome outcome) {
+            var broken = assertInstanceOf(AuditChainVerification.Outcome.Broken.class, outcome);
+            assertAll(
+                    () -> assertEquals(AuditChainVerification.BreakReason.LINK_BROKEN, broken.reason(),
+                            broken::diagnostic),
+                    () -> assertEquals(OptionalLong.of(line), broken.firstBrokenLine(), broken::diagnostic));
         }
     }
 
