@@ -391,7 +391,7 @@ class AuditRotationTest {
 
         @Test
         @DisplayName("stopped after a rename that the lock left an empty log behind: the next append heals it too")
-        void afterRenameWithEmptyLog() throws IOException {
+        void afterRenameWithEmptyLog() throws Exception {
             var trail = new AuditTrailFixture(base, NEVER);
             var key = trail.createKey();
             trail.append(2);

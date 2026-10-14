@@ -504,7 +504,7 @@ class AuditVerificationTest {
 
         @Test
         @DisplayName("is intact with the new log absent, empty or torn, incrementally and in full")
-        void intact() throws IOException {
+        void intact() throws Exception {
             var trail = stopped();
             var logAbsent = !Files.exists(trail.logFile());
             var absent = List.of(trail.verification().verify(), trail.verification().full());
@@ -546,7 +546,7 @@ class AuditVerificationTest {
 
         @Test
         @DisplayName("with a head under another key is head_mismatch")
-        void headUnderOtherKey() throws IOException {
+        void headUnderOtherKey() throws Exception {
             var trail = stopped();
             Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(OTHER_KEY,
                     trail.readHead().orElseThrow())));
@@ -556,7 +556,7 @@ class AuditVerificationTest {
 
         @Test
         @DisplayName("with a genuine earlier head, anchoring another line of the rotated log, is head_mismatch")
-        void earlierHead() throws IOException {
+        void earlierHead() throws Exception {
             var trail = new AuditTrailFixture(base);
             var key = trail.createKey();
             trail.append(1);
@@ -572,7 +572,7 @@ class AuditVerificationTest {
 
         @Test
         @DisplayName("with the rotated log gone is missing")
-        void rotatedLogGone() throws IOException {
+        void rotatedLogGone() throws Exception {
             var trail = stopped();
             Files.delete(rotatedFile(trail));
 
@@ -599,7 +599,7 @@ class AuditVerificationTest {
 
         @Test
         @DisplayName("with an index entry that does not match the rotated log is link_broken at the checkpoint")
-        void mismatchingIndexEntry() throws IOException {
+        void mismatchingIndexEntry() throws Exception {
             var trail = stopped();
             var entry = trail.head.index().snapshot().entries().getLast();
             Files.delete(trail.indexFile());
@@ -612,7 +612,7 @@ class AuditVerificationTest {
 
         @Test
         @DisplayName("with a cut log closed by a forged checkpoint, entered and renamed by hand, is link_broken")
-        void forgedCheckpointRenamedByHand() throws IOException {
+        void forgedCheckpointRenamedByHand() throws Exception {
             var trail = fiveRecords();
             var first = recordAt(trail.logFile(), 1);
             removeLine(trail.logFile(), 5);
