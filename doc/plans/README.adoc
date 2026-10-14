@@ -29,7 +29,7 @@ The packages listed serve roadmap Milestones 2 to 4; later milestones are not cu
 
 |link:audit-trail.adoc[`audit-trail`]
 |Anchored audit trail
-|`open`
+|`done`
 |link:lock-manager-and-leases.adoc[`lock-manager-and-leases`]
 |Milestone 2
 

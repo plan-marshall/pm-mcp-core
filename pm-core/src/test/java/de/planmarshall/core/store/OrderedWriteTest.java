@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -394,6 +395,26 @@ class OrderedWriteTest {
     @Nested
     @DisplayName("audit delivery of a reconciliation")
     class ReconciliationDelivery {
+
+        @Test
+        @DisplayName("the record carries an id of its own, not the transaction id of the derived write")
+        void ownRecordId() {
+            String writeId;
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(workspace.lockKey());
+                var write = ScopeTransaction.open(transaction, workspace, audit, CLOCK);
+                write.replace(QUEUE, bytes(AUTHORITATIVE));
+                OrderedWrite.oweReconciled(write, new Reconciliation(QUEUE_RULE, QUEUE));
+                writeId = write.transactionId().value();
+                write.commit();
+            }
+
+            var recordId = String.valueOf(audit.events().getFirst().details().get(AuditEvent.DETAIL_TRANSACTION_ID));
+            assertAll(
+                    () -> assertEquals(reconciledOf(new Reconciliation(QUEUE_RULE, QUEUE)), reconciledRecords()),
+                    () -> assertTrue(TransactionId.ofSuffix("." + recordId).isPresent(), "the record id is an id"),
+                    () -> assertNotEquals(writeId, recordId, "the record does not share the id of its write"));
+        }
 
         @Test
         @DisplayName("a sink that refuses the record keeps it owed; the next restart delivers it exactly once")

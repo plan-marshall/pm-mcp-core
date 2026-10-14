@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DefinitionCapabilities;

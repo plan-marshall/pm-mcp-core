@@ -243,6 +243,16 @@ public final class RuntimeLogMessages {
                 .identifier(24)
                 .template("Periodic sweep removed %s fenced session generations of project '%s'")
                 .build();
+
+        /**
+         * Logged when the audit log was rotated: closed by its checkpoint record, named by an entry of the audit
+         * index and renamed, with the name of the rotated file and its number of records, the checkpoint included.
+         */
+        public static final LogRecord AUDIT_LOG_ROTATED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(25)
+                .template("Audit log rotated to '%s' with %s records")
+                .build();
     }
 
     /** WARN level messages. */
@@ -325,11 +335,15 @@ public final class RuntimeLogMessages {
                 .template("Lease '%s' in '%s' orphaned: its holder (pid %s) is no longer alive")
                 .build();
 
-        /** Logged when the bounded verification finds the audit chain broken; the start goes on. */
+        /**
+         * Logged when the bounded verification finds the audit chain broken, with the reason by its wire name, the
+         * first broken line, {@code none} for every reason other than {@code link_broken}, and the diagnostic, which
+         * names the file the line is counted in and never a key or a hash secret; the start goes on.
+         */
         public static final LogRecord AUDIT_CHAIN_BROKEN = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(108)
-                .template("Audit chain broken, the start goes on: %s")
+                .template("Audit chain broken (reason '%s', first broken line %s): %s; the start goes on")
                 .build();
 
         /** Logged when the drain timeout expires and the runtime terminates what still runs. */
@@ -444,6 +458,45 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(122)
                 .template("Job of project '%s' refused with reason '%s': %s")
+                .build();
+
+        /**
+         * Logged when the head of the audit log cannot be written after an append, because the enrolment integrity
+         * key cannot be read, the head cannot be read or written ({@code head_unwritable}), the head file exists and
+         * does not parse or does not verify ({@code head_unverifiable}, the damaged head stays), or the log no longer
+         * holds the line the previous head anchored ({@code anchored_line_missing}, the previous head stays); names
+         * the reason code, never the key. The record stays appended, and the next verification reports the head that
+         * does not match.
+         */
+        public static final LogRecord AUDIT_HEAD_NOT_WRITTEN = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(123)
+                .template("Audit head not written, the record stays appended: %s")
+                .build();
+
+        /**
+         * Logged when a due rotation of the audit log cannot be carried out before its checkpoint was written, or is
+         * refused because the log no longer holds the line the audit head anchors ({@code anchored_line_missing}) or
+         * the head file does not parse or does not verify ({@code head_unverifiable}), so that no checkpoint signs a
+         * cut log; the record is appended to the current log, and the next append retries the rotation.
+         */
+        public static final LogRecord AUDIT_ROTATION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(124)
+                .template("Audit log rotation not carried out, the log goes on: %s")
+                .build();
+
+        /**
+         * Logged when a rotation of the audit log stays pending after its checkpoint, because the index entry or the
+         * rename failed, or because the checkpoint does not verify under the enrolment integrity key or cannot be
+         * verified while the key is absent or unreadable ({@code checkpoint_unverifiable}, the rotation is not
+         * completed); the record is not appended, since no record may follow the checkpoint, and the next append with
+         * the key completes a rotation whose checkpoint verifies.
+         */
+        public static final LogRecord AUDIT_ROTATION_PENDING = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(125)
+                .template("Audit log rotation pending after its checkpoint, the record is not appended: %s")
                 .build();
     }
 

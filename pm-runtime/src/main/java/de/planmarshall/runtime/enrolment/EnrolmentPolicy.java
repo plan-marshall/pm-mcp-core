@@ -25,7 +25,6 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;

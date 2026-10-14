@@ -50,7 +50,7 @@ class AuditEventTest {
     }
 
     @Test
-    @DisplayName("a cross-scope reconciliation names the rule, the store it wrote and the transaction that wrote it")
+    @DisplayName("a cross-scope reconciliation names the rule, the store it wrote and the id of the record")
     void crossScopeReconciled() {
         var event = AuditEvent.crossScopeReconciled("plan_end", "lessons/2026-10-10-01.md", TRANSACTION_ID);
 

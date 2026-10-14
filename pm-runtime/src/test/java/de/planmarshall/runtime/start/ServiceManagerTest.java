@@ -20,7 +20,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.List;
 
-
 import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

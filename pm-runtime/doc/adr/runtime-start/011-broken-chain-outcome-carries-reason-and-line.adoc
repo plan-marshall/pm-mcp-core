@@ -1,0 +1,56 @@
+= ADR 011: The Broken Outcome of the Audit Chain Carries the Reason and the First Broken Line
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+`AuditChainVerification.Outcome.Broken` carried one free-text diagnostic, and `StartupSequence` recorded it as
+`details.diagnostic` of the `audit_chain_broken` record. The specification gives that record `details.reason` from the
+closed set `link_broken`, `missing`, `reset`, `truncated` and `head_mismatch`, and `details.first_broken_line` for
+`link_broken`; a machine-level record carries `details.os_principal`. The verification of `runtime.audit` produces
+these values. The project is before 1.0, without deprecation cycles or compatibility shims, and the only consumer of
+`Broken` outside this repository, the assembly `pm-mcp-server`, passes `AuditChainVerification.NONE` and constructs no
+`Broken`.
+
+== Decision
+
+* `Outcome.Broken` is changed in place to `Broken(BreakReason reason, OptionalLong firstBrokenLine, String
+  diagnostic)`, with the factories `Broken.linkBroken(line, diagnostic)` and `Broken.withoutLine(reason,
+  diagnostic)`; the line is present exactly for `link_broken` and counted from 1. No constructor with one diagnostic
+  is kept.
+* `BreakReason` is the closed set of the specification, each with its wire name.
+* `StartupSequence` records `details.reason`, `details.first_broken_line` (for `link_broken` only) and
+  `details.os_principal`, and drops `details.diagnostic`. `PM_RUNTIME-108` (`AUDIT_CHAIN_BROKEN`) logs the reason, the
+  line, `none` for every other reason, and the diagnostic, which names the file the line is counted in (the current
+  log, the audit index or a rotated file): `Audit chain broken (reason '%s', first broken line %s): %s; the start goes
+  on`. The specification gives the record no detail for that file, so the record does not carry it.
+* `AuditChainVerification.NONE` stays the default until the assembly wires `AuditVerification`.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A caller that built `Broken` from a diagnostic alone no longer compiles; inside this repository `StartupSequence`,
+  its test and `AuditVerification` are the consumers.
+* The diagnostic stays in the outcome for the caller of the verification, and `StartupSequence` logs it, but never
+  writes it into the audit record, which carries only what the specification lets it carry. A recorded
+  `first_broken_line` therefore does not say which file it counts in; only the log does, until the specification
+  gives the record a field for the file.
+* A new break reason is a change of the specification and of `BreakReason` together.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log] (Hash chain, Identity tuple),
+  link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup Sequence] (step 4.1)
+* Related: link:007-startup-sequence-without-compatibility-constructor.adoc[ADR 007],
+  link:../runtime-audit/001-audit-trail-in-its-own-package.adoc[`runtime-audit` ADR 001]

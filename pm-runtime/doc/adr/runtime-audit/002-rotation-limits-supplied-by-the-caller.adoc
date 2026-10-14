@@ -1,0 +1,44 @@
+= ADR 002: The Rotation Limits Are Supplied by the Caller
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification rotates `logs/audit.jsonl` when either threshold of `audit_rotation` in `machine-config.json` is
+reached first: `max_bytes` (default 64 MiB) and `max_days` (default 30). No store of `machine-config.json` exists in
+the code yet. The operator decided how the rotation gets its limits as decision q4 of the work package.
+
+== Decision
+
+* `AuditRotation.Limits(maxBytes, maxAge)` is supplied by the caller through the constructor of `AuditHead`.
+* `Limits.DEFAULTS` are 64 MiB (`DEFAULT_MAX_BYTES`) and 30 days (`DEFAULT_MAX_AGE`), the defaults of the
+  specification; a limit that is not positive is refused.
+* No `machine-config.json` store is built in this package.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The assembly passes `Limits.DEFAULTS` until it reads `audit_rotation` of `machine-config.json`, and then passes the
+  values it read.
+* The age of a log is the age of its first record, so a log is rotated by age at the first append after the limit.
+* `retain_days`, the purge of rotated files by `pm-operator sweep --machine`, is not part of the rotation and stays
+  with that verb.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+  decision q4
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store] (`audit_rotation`),
+  link:../../../../../plan-marshall-documentation/doc/specification/timeouts/03-retention-host-config.adoc#configuration-keys[Timeouts & Budgets § Configuration Keys]

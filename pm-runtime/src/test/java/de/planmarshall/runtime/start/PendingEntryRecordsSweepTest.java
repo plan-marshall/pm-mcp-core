@@ -32,10 +32,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
-
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
+import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.PendingEntryCodec;
@@ -142,6 +142,27 @@ class PendingEntryRecordsSweepTest {
                 () -> assertFalse(Files.exists(workspace.journalFile()), "the workspace journal is closed"),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         "Periodic sweep removed 1 pending entry records of project '" + PROJECT_A + "'"));
+    }
+
+    @Test
+    @DisplayName("two old records removed in one run owe two records with two distinct transaction ids")
+    void removalsCarryDistinctTransactionIds() {
+        var secondOld = new EntryId("ent-00000000000000a2");
+        create(entry(OLD_ENTRY, OLD), entry(secondOld, OLD));
+        var before = auditSink.events().size();
+
+        var outcome = sweep.run(PROJECT_A, OLDER_THAN);
+
+        var removals = auditSink.events().subList(before, auditSink.events().size());
+        var transactionIds = removals.stream().map(removal -> removal.details().get("transaction_id")).toList();
+        assertAll(
+                () -> assertEquals(new Outcome.Done("removed 2 pending entry records"), outcome),
+                () -> assertEquals(List.of("pending_entry_removed", "pending_entry_removed"),
+                        removals.stream().map(AuditEvent::event).toList()),
+                () -> assertEquals(2, transactionIds.size(), transactionIds::toString),
+                () -> assertTrue(transactionIds.stream().allMatch(String.class::isInstance),
+                        transactionIds::toString),
+                () -> assertEquals(2, Set.copyOf(transactionIds).size(), transactionIds::toString));
     }
 
     @Test

@@ -88,10 +88,12 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String DETAIL_SCOPE_ID = "scope_id";
 
     /**
-     * The detail that names the transaction of a store mutation: of a roll-forward the transaction of the journal, of
-     * a tail repair the id of the repair, of a reconciliation the transaction of the derived write, of an enrolment
-     * write, succeeded or not confirmed, the transaction of the write. A record handed over again after a failed or
-     * interrupted hand-over carries the same id, so a reader drops the duplicate.
+     * The detail that names one record of a store mutation, unique per record: of a roll-forward the transaction of
+     * the journal, of a tail repair the id of the repair, of an enrolment write, succeeded or not confirmed, the
+     * transaction of the write, and of every record a scope transaction owes (a reconciliation, a client change, a
+     * removed pending entry record) an id issued for that record alone. It is the deduplication key of the reader of
+     * the audit log: a record handed over again after a failed or interrupted hand-over carries the same id, so the
+     * reader drops the duplicate, and no two distinct records share one.
      */
     public static final String DETAIL_TRANSACTION_ID = "transaction_id";
 
@@ -241,7 +243,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /**
      * @param reconciliation the reconciliation rule that applied
      * @param store          the store it wrote
-     * @param transactionId  the transaction that wrote the store, by which a record handed over again is recognised
+     * @param transactionId  the id of this one record, issued by the transaction that writes the store and distinct
+     *                       from its own id; the deduplication key by which a record handed over again is recognised
      *                       as the same
      * @return the record of the reconciliation
      */
@@ -259,8 +262,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @param client                  the client the new row declares, by its wire name
      * @param previousClientSessionId the host session id of the previous row; {@code null} leaves the detail out
      * @param clientSessionId         the host session id of the new row; {@code null} leaves the detail out
-     * @param transactionId           the transaction that appends the row, by which a record handed over again is
-     *                                recognised as the same
+     * @param transactionId           the id of this one record, issued by the transaction that appends the row and
+     *                                distinct from its own id; the deduplication key by which a record handed over
+     *                                again is recognised as the same
      * @return the record of the client change
      * @throws NullPointerException if a client or the transaction id is {@code null}
      */
@@ -282,13 +286,15 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /**
      * The record a pending-record sweep owes for every pending entry record it removes, as the evidence of its
      * removal: the entry, the creation instant the age was measured from, and the store path. It is owed by the
-     * workspace transaction that removes the record.
+     * workspace transaction that removes the record, under an id of its own, so two records removed in one run carry
+     * two ids.
      *
      * @param entryId       the id of the removed entry
      * @param store         the record, relative to the path base of the workspace scope
      * @param createdAt     the creation instant of the record, in its one wire shape
-     * @param transactionId the transaction that removes the record, by which a record handed over again is
-     *                      recognised as the same
+     * @param transactionId the id of this one record, issued by the transaction that removes the record and distinct
+     *                      from its own id; the deduplication key by which a record handed over again is recognised
+     *                      as the same
      * @return the record of the removal
      * @throws NullPointerException if an argument is {@code null}
      */

@@ -25,7 +25,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.JournalScope;

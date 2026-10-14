@@ -13,8 +13,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.security.SecureRandom;
-import java.util.Map;
-
+import java.util.HashMap;
 
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
@@ -31,16 +30,21 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <li>Remove a stale {@code run/runtime.sock} and {@code state/runtime.json}, only while holding the lock.</li>
  * <li>Check the socket path length, create and verify the directories ({@link BaseDirectoryCheck}).</li>
  * <li>Bounded verification: work whose cost does not grow with the number of projects, plans or jobs. The audit
- * chain is verified through {@link AuditChainVerification}; a broken chain is logged, handed to the audit sink as an
- * {@value #AUDIT_CHAIN_BROKEN} record and carried in {@link Outcome.Ready}, never repaired, and the start goes on. No
- * store or unit work is done: no enrolment, plan or job file is read.</li>
+ * chain is verified through {@link AuditChainVerification}; a broken chain is logged with its reason, its first broken
+ * line and its diagnostic, which names the file the line is counted in (the current log, the audit index or a rotated
+ * file), handed to the audit sink as an {@value #AUDIT_CHAIN_BROKEN} record carrying {@value #DETAIL_REASON},
+ * {@value #DETAIL_FIRST_BROKEN_LINE} (for {@code link_broken} only) and {@value #DETAIL_OS_PRINCIPAL}, and carried in
+ * {@link Outcome.Ready}; it is never repaired, and the start goes on. The record names no file: the specification
+ * gives the {@value #AUDIT_CHAIN_BROKEN} record no detail for it. No store or unit work is done: no enrolment, plan
+ * or job file is read.</li>
  * <li>Write a fresh runtime token.</li>
  * </ol>
  * Steps 2 to 5 run only while the singleton lock is held. Steps 6 (bind, runtime record) and 7 (ready) run inside
  * Quarkus ({@link SocketBinding}).
  *
  * @param paths      the machine paths
- * @param user       the name of the running user, the expected owner of the base
+ * @param user       the name of the running user, the expected owner of the base and the OS principal of the
+ *                   {@value #AUDIT_CHAIN_BROKEN} record
  * @param auditChain the audit chain verification of step 4; {@link AuditChainVerification#NONE} while no chain exists
  * @param auditSink  where step 4 hands over the record of a broken audit chain
  * @since 0.1
@@ -59,8 +63,26 @@ AuditSink auditSink) {
     /** The outcome of the {@value #AUDIT_CHAIN_BROKEN} record: the verification failed. */
     public static final String OUTCOME_FAILED = "failed";
 
-    /** The detail of the {@value #AUDIT_CHAIN_BROKEN} record that holds the diagnostic of the verification. */
-    public static final String DETAIL_DIAGNOSTIC = "diagnostic";
+    /**
+     * The detail of the {@value #AUDIT_CHAIN_BROKEN} record that names why the chain is broken, by the wire name of
+     * its {@link AuditChainVerification.BreakReason}.
+     */
+    public static final String DETAIL_REASON = "reason";
+
+    /**
+     * The detail of the {@value #AUDIT_CHAIN_BROKEN} record that holds the first broken line of the log; present only
+     * for the reason {@code link_broken}.
+     */
+    public static final String DETAIL_FIRST_BROKEN_LINE = "first_broken_line";
+
+    /**
+     * The detail of the {@value #AUDIT_CHAIN_BROKEN} record that names the OS principal the runtime runs as; the
+     * record is machine-level and carries no other identity.
+     */
+    public static final String DETAIL_OS_PRINCIPAL = "os_principal";
+
+    /** The first broken line the log message and the status text show for a reason without a line. */
+    static final String NO_LINE = "none";
 
     /**
      * The result of the steps before the bind.
@@ -127,17 +149,25 @@ AuditSink auditSink) {
      */
     private AuditChainVerification.Outcome boundedVerification() {
         var verification = auditChain.verify();
-        if (verification instanceof AuditChainVerification.Outcome.Broken(var diagnostic)) {
-            LOGGER.warn(WARN.AUDIT_CHAIN_BROKEN, diagnostic);
-            recordBrokenChain(diagnostic);
+        if (verification instanceof AuditChainVerification.Outcome.Broken broken) {
+            LOGGER.warn(WARN.AUDIT_CHAIN_BROKEN, broken.reason().wireName(), line(broken), broken.diagnostic());
+            recordBrokenChain(broken);
         }
         LOGGER.info(INFO.BOUNDED_VERIFICATION_FINISHED, describe(verification));
         return verification;
     }
 
-    private void recordBrokenChain(String diagnostic) {
-        var event = new AuditEvent(AUDIT_CHAIN_BROKEN, CATEGORY_SECURITY, OUTCOME_FAILED,
-                Map.of(DETAIL_DIAGNOSTIC, diagnostic));
+    /**
+     * Hands the {@value #AUDIT_CHAIN_BROKEN} record to the audit sink: the reason, the first broken line for
+     * {@code link_broken}, and the OS principal; never the diagnostic, which may name more than the specification lets
+     * a record carry.
+     */
+    private void recordBrokenChain(AuditChainVerification.Outcome.Broken broken) {
+        var details = new HashMap<String, Object>();
+        details.put(DETAIL_REASON, broken.reason().wireName());
+        broken.firstBrokenLine().ifPresent(line -> details.put(DETAIL_FIRST_BROKEN_LINE, line));
+        details.put(DETAIL_OS_PRINCIPAL, user);
+        var event = new AuditEvent(AUDIT_CHAIN_BROKEN, CATEGORY_SECURITY, OUTCOME_FAILED, details);
         try {
             auditSink.append(event);
         } catch (UncheckedIOException e) {
@@ -145,10 +175,16 @@ AuditSink auditSink) {
         }
     }
 
+    private static String line(AuditChainVerification.Outcome.Broken broken) {
+        var firstBrokenLine = broken.firstBrokenLine();
+        return firstBrokenLine.isPresent() ? Long.toString(firstBrokenLine.getAsLong()) : NO_LINE;
+    }
+
     private static String describe(AuditChainVerification.Outcome verification) {
         return switch (verification) {
             case AuditChainVerification.Outcome.Intact() -> "intact";
-            case AuditChainVerification.Outcome.Broken(var diagnostic) -> "broken (" + diagnostic + ")";
+            case AuditChainVerification.Outcome.Broken broken -> "broken (reason '" + broken.reason().wireName()
+                    + "', first broken line " + line(broken) + "): " + broken.diagnostic();
             case AuditChainVerification.Outcome.NotVerified(var reason) -> "not verified (" + reason + ")";
         };
     }

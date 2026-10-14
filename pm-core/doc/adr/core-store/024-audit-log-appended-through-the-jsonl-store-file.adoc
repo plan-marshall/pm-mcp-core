@@ -1,0 +1,56 @@
+= ADR 024: The Audit Log Is Appended Through the JSONL Store File Under the In-Process Lock
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+Every line of `logs/audit.jsonl` names the SHA-256 of the line before it, so an append is a check-then-act on the
+tail of the log: the writer reads the last line, computes `prev_hash`, appends, and lets the anchor write the head.
+The specification states that a writer appends only under the log's `FileChannel.lock()`. The substrate already has
+one append path for a JSONL store, `JsonlStoreFile`, with its tail repair, and the lock key `LockKey.auditLog(base)`,
+the leaf of the total lock order. `JsonlStoreFile` closes its channel after every append, and closing a channel
+releases every lock of the operating system the process holds on that file, so an OS lock on the log cannot be held
+across the read, the append and the anchor calls without changing the lock manager or the store file type. The
+operator decided the point as decision q2 of the work package.
+
+== Decision
+
+* `AuditLog` appends through `JsonlStoreFile`, unchanged, under a `LockTransaction` that holds
+  `LockKey.auditLog(base)`. The read of the last line, the repair of a torn tail, the anchor calls and the append run
+  in that one transaction.
+* The lost OS lock is accepted: the in-process lock of the key, which the lock manager keeps per key, serializes the
+  appenders of the runtime, and the runtime lock (`RuntimeLock`) excludes a second runtime on the same base.
+* Neither the lock manager nor `JsonlStoreFile` changes for the audit log.
+
+== Alternatives Considered
+
+* Holding the OS lock of the log across the whole append: needs a change of the lock manager or of `JsonlStoreFile`,
+  which the operator ruled out.
+* A writer of its own beside `JsonlStoreFile`: a second append path with its own tail repair, rejected for the same
+  reason.
+
+== Consequences
+
+* Exactly one runtime may write the log, which the runtime lock already guarantees; a process outside the runtime
+  that appends to the log is not excluded by any lock and breaks the chain, which the verification reports.
+* The check-then-act on the tail is safe only inside the one transaction that holds the audit key; `AuditLog` refuses
+  an append without it.
+* The audit key is the leaf of the lock order: nothing called during the append, the anchor included, may acquire a
+  lock (link:011-one-total-lock-order-asserted-at-acquisition.adoc[ADR 011]).
+* The directory `logs/` is created by the caller, since the lock manager creates the lock file of a leaf key but never
+  its directory.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+  decision q2
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log] (Hash chain)
+* Related: link:018-jsonl-tail-repair-of-the-last-line-only.adoc[ADR 018],
+  link:027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]

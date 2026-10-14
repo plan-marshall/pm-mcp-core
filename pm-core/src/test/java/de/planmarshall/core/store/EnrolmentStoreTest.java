@@ -547,7 +547,7 @@ class EnrolmentStoreTest {
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                                 WARN.AUDIT_RECORD_DEFERRED.resolveIdentifierString()),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                                "'" + AuditEvent.ENROLMENT_WRITTEN + "' of transaction '"
+                                "'" + AuditEvent.ENROLMENT_WRITTEN + "' with transaction id '"
                                         + first.details().get(AuditEvent.DETAIL_TRANSACTION_ID) + "'"));
 
                 var again = deliver(sink);

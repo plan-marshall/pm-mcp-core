@@ -20,7 +20,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
 
-
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.TransactionId;
 import org.junit.jupiter.api.BeforeEach;

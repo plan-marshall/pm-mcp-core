@@ -30,7 +30,6 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
@@ -44,6 +43,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @EnableTestLogger
@@ -82,24 +82,76 @@ class StartupSequenceTest {
 
         private static final String DIAGNOSTIC = "logs/audit.jsonl line 7: prev_hash does not match line 6";
 
+        private static final long FIRST_BROKEN_LINE = 7;
+
+        private static final AuditChainVerification.Outcome.Broken LINK_BROKEN =
+                AuditChainVerification.Outcome.Broken.linkBroken(FIRST_BROKEN_LINE, DIAGNOSTIC);
+
         @Test
-        @DisplayName("a broken chain appends exactly one audit_chain_broken record and the start goes on")
+        @DisplayName("a broken link appends exactly one audit_chain_broken record with reason, line and principal and the start goes on")
         void shouldRecordBrokenChainAndGoOn() throws Exception {
-            var outcome = run(() -> new AuditChainVerification.Outcome.Broken(DIAGNOSTIC));
+            var outcome = run(() -> LINK_BROKEN);
 
             var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, outcome);
             try (var _ = ready.lock()) {
                 assertAll(
-                        () -> assertEquals(new AuditChainVerification.Outcome.Broken(DIAGNOSTIC),
-                                ready.verification()),
+                        () -> assertEquals(LINK_BROKEN, ready.verification()),
                         () -> assertEquals(43, Files.readString(paths.runtimeToken()).length()),
                         () -> assertEquals(List.of(new AuditEvent(StartupSequence.AUDIT_CHAIN_BROKEN,
                                 StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
-                                Map.of(StartupSequence.DETAIL_DIAGNOSTIC, DIAGNOSTIC))), records),
+                                Map.of(StartupSequence.DETAIL_REASON, "link_broken",
+                                        StartupSequence.DETAIL_FIRST_BROKEN_LINE, FIRST_BROKEN_LINE,
+                                        StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
-                                "Audit chain broken, the start goes on: " + DIAGNOSTIC),
+                                "Audit chain broken (reason 'link_broken', first broken line 7): " + DIAGNOSTIC
+                                        + "; the start goes on"),
                         () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
-                                "Bounded verification finished: audit chain broken (" + DIAGNOSTIC + ")"));
+                                "Bounded verification finished: audit chain broken (reason 'link_broken', "
+                                        + "first broken line 7): " + DIAGNOSTIC));
+            }
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"logs/audit.jsonl", "logs/audit-index.jsonl",
+                "logs/audit-0199e2a4-5b1c-7d3e-8f40-123456789abc.jsonl"})
+        @DisplayName("a broken link logs the file its first broken line is counted in, and records no file")
+        void shouldLogFileOfFirstBrokenLine(String file) throws Exception {
+            var broken = AuditChainVerification.Outcome.Broken.linkBroken(3, file + " line 3 does not parse");
+
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, run(() -> broken));
+
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                "first broken line 3): " + file + " line 3 does not parse; the start goes on"),
+                        () -> assertEquals(Map.of(StartupSequence.DETAIL_REASON, "link_broken",
+                                StartupSequence.DETAIL_FIRST_BROKEN_LINE, 3L,
+                                StartupSequence.DETAIL_OS_PRINCIPAL, USER), records.getFirst().details()));
+            }
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = AuditChainVerification.BreakReason.class, names = "LINK_BROKEN",
+                mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("a chain broken for a reason without a line records the reason and no first broken line")
+        void shouldRecordReasonWithoutLine(AuditChainVerification.BreakReason reason) throws Exception {
+            var broken = AuditChainVerification.Outcome.Broken.withoutLine(reason, DIAGNOSTIC);
+
+            var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, run(() -> broken));
+
+            try (var _ = ready.lock()) {
+                assertAll(
+                        () -> assertEquals(broken, ready.verification()),
+                        () -> assertEquals(List.of(new AuditEvent(StartupSequence.AUDIT_CHAIN_BROKEN,
+                                StartupSequence.CATEGORY_SECURITY, StartupSequence.OUTCOME_FAILED,
+                                Map.of(StartupSequence.DETAIL_REASON, reason.wireName(),
+                                        StartupSequence.DETAIL_OS_PRINCIPAL, USER))), records),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                                "Audit chain broken (reason '" + reason.wireName()
+                                        + "', first broken line none): " + DIAGNOSTIC + "; the start goes on"),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                                "Bounded verification finished: audit chain broken (reason '" + reason.wireName()
+                                        + "', first broken line none): " + DIAGNOSTIC));
             }
         }
 
@@ -156,8 +208,7 @@ class StartupSequenceTest {
             AuditSink refusing = _ -> {
                 throw new UncheckedIOException(new IOException("audit log not writable"));
             };
-            var sequence = new StartupSequence(paths, USER,
-                    () -> new AuditChainVerification.Outcome.Broken(DIAGNOSTIC), refusing);
+            var sequence = new StartupSequence(paths, USER, () -> LINK_BROKEN, refusing);
 
             var ready = assertInstanceOf(StartupSequence.Outcome.Ready.class, sequence.run(new SecureRandom()));
 
@@ -178,7 +229,7 @@ class StartupSequenceTest {
 
             var outcome = run(() -> {
                 calls.incrementAndGet();
-                return new AuditChainVerification.Outcome.Broken(DIAGNOSTIC);
+                return LINK_BROKEN;
             });
 
             assertAll(

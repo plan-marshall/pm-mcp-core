@@ -12,7 +12,6 @@ package de.planmarshall.runtime.start;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 
-
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.StoreRefusal;

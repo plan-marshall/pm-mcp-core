@@ -64,6 +64,15 @@
  * {@link de.planmarshall.core.store.PendingEntryStore} allocates a fresh id and creates, replaces and removes a record
  * as a target of the caller's workspace {@link de.planmarshall.core.store.ScopeTransaction}, and lists only the names
  * that parse as entry ids.</li>
+ * <li><em>The audit log</em> (PM-SEC-6): {@code logs/audit.jsonl} as a hash chain
+ * ({@link de.planmarshall.core.store.AuditLog}) of records ({@link de.planmarshall.core.store.AuditRecord}), each
+ * naming the SHA-256 of the line before it, appended through the JSONL append path under the audit lock, the leaf of
+ * the lock order. The formats of the head {@code logs/audit.head} ({@link de.planmarshall.core.store.AuditHeadRecord})
+ * and of the audit index {@code logs/audit-index.jsonl} ({@link de.planmarshall.core.store.AuditIndexEntry}) are read
+ * and written, with the records, by {@link de.planmarshall.core.store.AuditCodec}; the keyed head, the rotation and the
+ * index are the runtime's, behind the seam {@link de.planmarshall.core.store.AuditAnchor} the log calls under the
+ * audit lock. {@link de.planmarshall.core.store.AuditLogSink} is the production audit sink: every record a component
+ * hands over becomes one record of the chain.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is
@@ -75,6 +84,7 @@
  * <ul>
  * <li>{@code doc/specification/store-schemas/01-format-and-session-log.adoc}</li>
  * <li>{@code doc/specification/store-schemas/02-workflow-state-store.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/12-machine-stores.adoc}</li>
  * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc}</li>
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>
  * </ul>

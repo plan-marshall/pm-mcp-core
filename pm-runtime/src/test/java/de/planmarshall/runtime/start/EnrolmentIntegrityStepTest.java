@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;

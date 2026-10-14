@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -152,7 +153,7 @@ class ScopeSessionLogTest {
         }
 
         @Test
-        @DisplayName("of another client owes exactly one entry_client_changed, with the transaction of the row")
+        @DisplayName("of another client owes exactly one entry_client_changed, under an id of its own")
         void clientChange() {
             append(row(Client.CLAUDE, "sess-1", "1"));
             AuditEvent owed;
@@ -164,10 +165,13 @@ class ScopeSessionLogTest {
                 transactionId = write.transactionId().value();
                 write.commit();
             }
+            var recordId = String.valueOf(owed.details().get(AuditEvent.DETAIL_TRANSACTION_ID));
 
             assertAll(
                     () -> assertEquals(AuditEvent.entryClientChanged("claude", "opencode", "sess-1", "sess-2",
-                            transactionId), owed),
+                            recordId), owed),
+                    () -> assertTrue(TransactionId.ofSuffix("." + recordId).isPresent(), "the record id is an id"),
+                    () -> assertNotEquals(transactionId, recordId, "the record does not carry the row's transaction"),
                     () -> assertEquals(List.of(owed), audit.events(), "handed over once, with the row"));
         }
 

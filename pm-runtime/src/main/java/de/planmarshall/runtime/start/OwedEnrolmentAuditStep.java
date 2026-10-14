@@ -12,7 +12,6 @@ package de.planmarshall.runtime.start;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.enrolment.Enrolments;

@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-
 import de.planmarshall.core.store.ProjectEnrolment.Binding;
 import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
 import de.planmarshall.core.store.ProjectEnrolment.WrapperName;

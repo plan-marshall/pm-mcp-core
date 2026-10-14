@@ -17,7 +17,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 
-
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;

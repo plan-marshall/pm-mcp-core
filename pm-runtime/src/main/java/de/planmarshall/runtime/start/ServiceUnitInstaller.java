@@ -11,7 +11,6 @@ package de.planmarshall.runtime.start;
 
 import java.util.Objects;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;

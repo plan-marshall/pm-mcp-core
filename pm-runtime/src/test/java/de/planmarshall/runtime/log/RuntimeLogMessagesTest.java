@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
 
-
 import de.cuioss.tools.logging.LogRecord;
 import de.planmarshall.core.log.CoreLogMessages;
 import org.junit.jupiter.api.DisplayName;

@@ -17,10 +17,14 @@
  * <p>
  * The bounded verification (step 4) does only work whose cost does not grow with the number of projects, plans or
  * jobs, and no store or unit work. It verifies the audit chain through the seam
- * {@link de.planmarshall.runtime.start.AuditChainVerification}, which the audit trail fills; until then
- * {@link de.planmarshall.runtime.start.AuditChainVerification#NONE} answers that no chain exists. A broken chain is
- * logged and handed to the audit sink as an {@code audit_chain_broken} record; it is never repaired and never stops
- * the start, and the outcome of the verification is carried in the ready outcome for the status to show.
+ * {@link de.planmarshall.runtime.start.AuditChainVerification}, which the package
+ * {@code de.planmarshall.runtime.audit} implements; while the assembly wires no implementation,
+ * {@link de.planmarshall.runtime.start.AuditChainVerification#NONE} answers that no chain exists. A broken chain names
+ * its reason ({@code link_broken}, {@code missing}, {@code reset}, {@code truncated} or {@code head_mismatch}) and, for
+ * {@code link_broken}, the first broken line; it is logged with both and handed to the audit sink as an
+ * {@code audit_chain_broken} record carrying {@code details.reason}, {@code details.first_broken_line} and
+ * {@code details.os_principal}. It is never repaired and never stops the start, and the outcome of the verification
+ * is carried in the ready outcome for the status to show.
  * <p>
  * The drain ({@link de.planmarshall.runtime.start.RuntimeDrain}) ends the runtime on {@code SIGTERM}/{@code SIGINT}
  * and on the stop endpoint: jobs, workers, the LSP pool and the web listener join it as
@@ -68,7 +72,8 @@
  * ({@link de.planmarshall.runtime.start.SweepStep}) are
  * {@link de.planmarshall.runtime.start.PendingEntryRecordsSweep}, which removes the pending entry records older than
  * {@link de.planmarshall.runtime.start.PeriodicSweep#PENDING_ENTRY_MAX_AGE} (86400 seconds) in one transaction of the
- * workspace scope, one owed {@code pending_entry_removed} audit record per record, and
+ * workspace scope, one owed {@code pending_entry_removed} audit record per record, each under a
+ * {@code transaction_id} of its own, and
  * {@link de.planmarshall.runtime.start.FencedSessionGenerationsSweep}, which removes the session generations fenced
  * longer ago under the queue lock. The assembly registers both. Both durations are compiled constants, not
  * configuration. A failing step is logged and does not stop the run; the drain stops the schedule.

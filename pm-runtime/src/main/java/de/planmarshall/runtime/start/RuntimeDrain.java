@@ -22,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 
-
 import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;

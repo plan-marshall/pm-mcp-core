@@ -1,0 +1,57 @@
+= ADR 025: Every Owed Audit Record Carries a Transaction Id of Its Own
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+An owed audit record is delivered at least once: the journal of a scope transaction holds it until the sink accepted
+it, and the recovery hands it over again after a stop. A reader of the audit log drops a record handed over twice by
+its `transaction_id`. Until this package every record a `ScopeTransaction` owed carried `transactionId()` of the
+transaction, so two different records of one transaction shared the key: two `pending_entry_removed` records of one
+sweep run, and a `cross_scope_reconciled` or `entry_client_changed` record and the `transaction_rolled_forward` record
+of the same journal. A reader that drops by that key loses all but one of them. The operator decided the point as
+decision q3 of the work package.
+
+== Decision
+
+* `ScopeTransaction.recordId()` issues a fresh `TransactionId` for each record the transaction owes, distinct from
+  `transactionId()` and from every other record's id. The id travels with the record into the journal, so a record
+  the recovery hands over again keeps it.
+* The transaction's own id stays the id of its journal, its staged files and its `transaction_rolled_forward` record.
+* `OrderedWrite` (`cross_scope_reconciled`), `ScopeSessionLog` (`entry_client_changed`) and the pending-record sweep of
+  `runtime.start` (`pending_entry_removed`) owe their records with such an id.
+* The `transaction_id` of a record is the deduplication key of the audit log, unique per record. `PM_CORE-100` names
+  the record by it (`Audit record '%s' with transaction id '%s' not handed over, kept owed in '%s': %s`).
+
+== Alternatives Considered
+
+* One scope transaction per removed record: keeps one record per transaction for the sweep, but leaves the reconciled
+  and client-changed records sharing their id with the roll-forward record of the same journal, and turns one sweep
+  run into many journaled writes.
+* The key `(event, transaction_id)`: separates records of different events, but two records of the same event in one
+  transaction, such as two removed pending entry records, still share it.
+
+== Consequences
+
+* A reader of the audit log that consumes its records drops a record handed over twice by its `transaction_id` alone.
+  The verification of the chain (`pm-operator audit verify` and the verification at the start) deduplicates nothing:
+  it counts every line, a re-delivered record included, as a record of the chain
+  (link:027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]).
+* The records of one transaction are no longer grouped by a shared id; a reader that needs the transaction behind a
+  record has no field for it.
+* A new producer that owes through `ScopeTransaction.owe` takes `recordId()`, never `transactionId()`. The enrolment
+  records and `jsonl_tail_repaired` already carried one id per record and are unchanged.
+
+== Source
+
+* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+  decision q3
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal] (Audit delivery)
+* Related: link:022-audit-record-owed-before-the-mutation.adoc[ADR 022]

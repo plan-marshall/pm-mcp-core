@@ -22,7 +22,6 @@ import java.util.HexFormat;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-
 import de.planmarshall.core.store.StoreDigest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

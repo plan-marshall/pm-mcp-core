@@ -27,7 +27,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.LockKey;

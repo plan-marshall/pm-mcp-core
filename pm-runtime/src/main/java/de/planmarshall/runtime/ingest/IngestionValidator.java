@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-
 import de.cuioss.http.security.config.SecurityConfiguration;
 import de.cuioss.http.security.core.HttpSecurityValidator;
 import de.cuioss.http.security.exceptions.UrlSecurityException;

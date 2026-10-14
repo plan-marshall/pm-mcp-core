@@ -20,7 +20,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
-
 import de.planmarshall.runtime.lsp.LspClient.LspLocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

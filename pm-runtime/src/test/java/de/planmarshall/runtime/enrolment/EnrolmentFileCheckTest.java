@@ -26,7 +26,6 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 import org.junit.jupiter.api.Assumptions;

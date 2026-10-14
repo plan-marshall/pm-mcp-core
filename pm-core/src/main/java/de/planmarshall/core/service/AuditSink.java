@@ -17,7 +17,9 @@ import java.io.UncheckedIOException;
  * <p>
  * The record of a completed store mutation is delivered at least once: the producer keeps a durable intent of the
  * record until this method returned, and hands the record over again after a failure or a stop. A record handed over
- * again carries the same transaction id ({@link AuditEvent#DETAIL_TRANSACTION_ID}), by which the duplicate is dropped.
+ * again carries the same transaction id ({@link AuditEvent#DETAIL_TRANSACTION_ID}). That id is unique per record and is
+ * the deduplication key of the reader of the audit log: two records with the same id are the same record, handed over
+ * twice, and the duplicate is dropped.
  *
  * @since 0.1
  */
