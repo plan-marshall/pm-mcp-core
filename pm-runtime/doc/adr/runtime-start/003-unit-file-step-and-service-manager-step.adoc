@@ -31,7 +31,7 @@ Alternatives not recorded.
 
 * Golden-file tests cover both unit files (`pm-runtime/src/test/resources/service-unit/`); `@EnabledOnOs` tests install and remove the unit in a temporary home; the service-manager tests run against the hand-written `RecordingProcessCall`.
 * The unit names the `pm-mcpd` path of the install; a unit that names the old path after an upgrade (PM-WATCH-RUN-15) is left open for the upgrade work.
-* Install, uninstall and a service-manager failure are logged with records of the WS-01 block of `PmMcpLogMessages`.
+* Install, uninstall and a service-manager failure are logged with records of `RuntimeLogMessages`.
 
 == Source
 

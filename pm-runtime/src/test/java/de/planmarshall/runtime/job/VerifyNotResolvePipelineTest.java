@@ -36,7 +36,6 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
@@ -54,6 +53,7 @@ import de.planmarshall.runtime.job.JobRequest.Items;
 import de.planmarshall.runtime.job.JobRequest.ProjectScriptCall;
 import de.planmarshall.runtime.job.JobRequest.Text;
 import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -163,7 +163,7 @@ class VerifyNotResolvePipelineTest {
         }
 
         @Test
-        @DisplayName("a missing enrolment is refused as not_enrolled and logged with PM_MCP-180")
+        @DisplayName("a missing enrolment is refused as not_enrolled and logged with PM_RUNTIME-122")
         void missing() {
             var request = new JobRequest("other-project", fixture.beside.toString(), Set.of(), Set.of(), new JobRequest.HostToolCall(ProjectEnrolment.HostToolName.GIT, List.of()));
 

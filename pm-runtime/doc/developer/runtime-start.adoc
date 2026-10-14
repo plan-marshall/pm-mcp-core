@@ -33,7 +33,7 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 [horizontal]
 `PeriodicSweep`:: Runs every step for every enrolled project whose recovery has finished, once per `INTERVAL` (3600
 seconds), handing each step the instant `PENDING_ENTRY_MAX_AGE` (86400 seconds) before the run. Both durations are
-compiled constants. A failed step is logged at WARN as `PM_MCP-159` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither
+compiled constants. A failed step is logged at WARN as `PM_RUNTIME-115` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither
 the other steps nor the other projects.
 `SweepStep`:: The contract of a step: its `Name` and `run(projectId, olderThan)`, which reports a
 `RecoveryStep.Outcome` (`Done` with a report, or `Failed` with a reason it can name), never an exception for a failure
@@ -82,7 +82,7 @@ replaced meanwhile is judged as it is now.
   the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
 
-A run that removed records logs `PM_MCP-65` (`PENDING_ENTRY_RECORDS_SWEPT`) with the count and the project.
+A run that removed records logs `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) with the count and the project.
 
 == The Fenced-Generation Step
 
@@ -91,7 +91,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/0
 The evidence is a fence and its age: a current generation is never removed, and neither is one fenced at or after the
 instant. The removal is one write of the record under the queue lock
 (`SessionGenerationStore.removeFencedOlderThan`); a project without a record has nothing to remove, and a call that
-carries a removed generation finds it unknown. A run that removed entries logs `PM_MCP-66`
+carries a removed generation finds it unknown. A run that removed entries logs `PM_RUNTIME-24`
 (`FENCED_SESSION_GENERATIONS_SWEPT`). A record that is refused (another format version, unreadable) or cannot be
 written is a failure of the step, reported with the refusal code.
 

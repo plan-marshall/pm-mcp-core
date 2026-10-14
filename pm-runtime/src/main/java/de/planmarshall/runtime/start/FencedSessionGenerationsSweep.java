@@ -17,11 +17,11 @@ import java.util.Objects;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
 import de.planmarshall.core.queue.SessionGenerationStore;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 
 /**
  * The step {@link SweepStep.Name#FENCED_SESSION_GENERATIONS} of the periodic sweep: the entries of the project's

@@ -9,7 +9,7 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.core.log.PmMcpLogMessages.ERROR;
+import static de.planmarshall.workflow.log.WorkflowLogMessages.ERROR;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

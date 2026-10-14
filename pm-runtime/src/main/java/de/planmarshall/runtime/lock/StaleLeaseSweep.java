@@ -18,11 +18,11 @@ import java.util.function.Predicate;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.INFO;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import lombok.experimental.UtilityClass;
 
 /**

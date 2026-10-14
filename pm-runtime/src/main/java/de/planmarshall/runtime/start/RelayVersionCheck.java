@@ -23,9 +23,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.log.PmMcpLogMessages.WARN;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * Detects a relay whose version differs from the version of the runtime

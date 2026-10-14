@@ -84,7 +84,7 @@
       }
     },
     "pm-core": {
-      "description": "Plain-Java foundation every other module builds on: the service interfaces (SPIs), the stores, the TOON encoder, the findings and status models, and the log message registry PmMcpLogMessages. Depends on pm-api alone among the modules of the product.",
+      "description": "Plain-Java foundation every other module builds on: the service interfaces (SPIs), the stores, the TOON encoder, the findings and status models, and the log messages of pm-core, CoreLogMessages. Depends on pm-api alone among the modules of the product.",
       "generation": {
         "by": "architecture",
         "tree_sha": "fc67447e183fdea010eca1819ecc0b5731555b597ba3dbe9a1cfb5802593555a"

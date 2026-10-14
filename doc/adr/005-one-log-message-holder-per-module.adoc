@@ -1,0 +1,71 @@
+= ADR 005: One Log-Message Holder per Module
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-13
+
+== Context
+
+Every INFO, WARN and ERROR message was a `LogRecord` constant of one holder in `pm-core`, with the prefix `PM_MCP`.
+It was the one file nearly every work package touched. Its identifiers were allocated in one block per workstream
+(link:003-log-identifiers-per-workstream-block.adoc[ADR 003]), the plans still collided on it (#19 and #20, #30
+against #29 and #31), and the WARN block of WS-01 filled up. The modules have their own README, developer
+documentation and ADRs (link:004-module-documentation-layout.adoc[ADR 004]); the log messages were the one part of a
+module that lived elsewhere.
+
+== Decision
+
+The operator decided on 2026-10-13:
+
+* Every module that logs has one holder in its own `log` package, with a prefix of its own:
++
+[cols="1,2,1"]
+|===
+|Module |Holder |Prefix
+
+|`pm-core` |`de.planmarshall.core.log.CoreLogMessages` |`PM_CORE`
+|`pm-runtime` |`de.planmarshall.runtime.log.RuntimeLogMessages` |`PM_RUNTIME`
+|`pm-workflow` |`de.planmarshall.workflow.log.WorkflowLogMessages` |`PM_WORKFLOW`
+|`pm-provider-<x>` |`de.planmarshall.provider.<x>.log.<X>LogMessages` |`PM_PROVIDER_<X>`
+|===
++
+A holder is created with the first record of its module; there are no empty holders.
+* Every holder uses the ranges INFO 001-099, WARN 100-199 and ERROR 200-299. A new record takes the next free
+  identifier of its level. The blocks per workstream are gone.
+* A record lives in the holder of the module whose production code logs it; a record two modules log lives in
+  `pm-core`. A module logs only through its own holder and that of `pm-core`.
+* The records the assembly `pm-mcp-server` logs and no module of this repository does (the `hello` tool, the socket,
+  the web listener, the core tools, the credential store) live in `RuntimeLogMessages`, each marked "Used by the
+  assembly `pm-mcp-server`", until the assembly takes them over.
+* The existing records were renumbered once, densely from the start of each level in the order of their old
+  identifiers; names, templates and Javadoc are unchanged. The old holder is deleted without alias (pre-1.0).
+
+The reasons are the ones the context names.
+
+== Alternatives Considered
+
+1. *Keep the single holder with blocks per workstream* (ADR 003). Replaced by this decision for the conflicts named in
+   the context.
+
+== Consequences
+
+* A plan adds a record to the holder of the module it changes; no holder is shared between modules any more. The
+  record is still documented in `doc/LogMessages.adoc` of the documentation, the one shared file left for it.
+* The test of each holder refuses an identifier used twice and one outside its level's range; `CoreLogMessagesTest`
+  refuses two holders with one prefix and a holder whose prefix is not in its list of known prefixes, so a new holder
+  adds its prefix there.
+* A log line reads `PM_RUNTIME-107` instead of `PM_MCP-151`; `doc/LogMessages.adoc` of the documentation lists the
+  records per holder.
+* The assembly `pm-mcp-server` in plan-marshall-mcp switches to the new holders, or takes over its own records,
+  before it builds against the new `SNAPSHOT`.
+
+== Source
+
+* Epic `pm-mcp-core-m2-m4`, operator decision of 2026-10-13 on the log-message holders, in the orchestrator ledger
+* Pull request #64, `refactor(log): one log-message holder per module`, with the full mapping of the old to the new
+  identifiers

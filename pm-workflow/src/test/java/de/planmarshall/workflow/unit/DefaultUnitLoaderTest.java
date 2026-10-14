@@ -9,7 +9,7 @@
  */
 package de.planmarshall.workflow.unit;
 
-import static de.planmarshall.core.log.PmMcpLogMessages.ERROR;
+import static de.planmarshall.workflow.log.WorkflowLogMessages.ERROR;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

@@ -105,7 +105,12 @@ them with a fixture project below `src/guard-controls`:
 - Never catch or throw generic `Exception`/`RuntimeException` in production code.
 - Logging: `private static final CuiLogger LOGGER = new CuiLogger(X.class);` (cui-java-tools), `%s` placeholders,
   exception first; no slf4j, log4j, `System.out`/`System.err`. INFO/WARN/ERROR messages are `LogRecord` constants in
-  `PmMcpLogMessages` of `pm-core` (package `de.planmarshall.core.log`, prefix `PM_MCP`), each documented in `doc/LogMessages.adoc` of the
+  the holder of the module that logs them, one holder per module in its own `log` package: `CoreLogMessages`
+  (`de.planmarshall.core.log`, prefix `PM_CORE`), `RuntimeLogMessages` (`de.planmarshall.runtime.log`, `PM_RUNTIME`),
+  `WorkflowLogMessages` (`de.planmarshall.workflow.log`, `PM_WORKFLOW`), a provider `<X>LogMessages`
+  (`de.planmarshall.provider.<x>.log`, `PM_PROVIDER_<X>`), created with its first record. Ranges in every holder:
+  INFO 001–099, WARN 100–199, ERROR 200–299; a new record takes the next free identifier of its level. A module logs
+  only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` of the
   documentation.
 - JUnit 5 only (`@DisplayName`, `@Nested`, AAA, `@ParameterizedTest` for 3+ variants), on the JVM without Quarkus.
   Forbidden: Mockito, PowerMock, Hamcrest. Test data: cui-test-generator; log assertions: cui-test-juli-logger.
