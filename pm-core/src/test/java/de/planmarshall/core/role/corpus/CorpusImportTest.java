@@ -744,18 +744,90 @@ class CorpusImportTest {
         }
     }
 
-    @Test
-    @DisplayName("a cache root below the corpus root is refused before anything is fetched or written")
-    void cacheRootBelowCorpusRoot() throws Exception {
-        var before = snapshot(corpusRoot);
-        var inside = corpusRoot.resolve("cache");
-        var corpusImport = new CorpusImport(repository, lfs);
+    /**
+     * The roots handed to one run: the corpus root and the cache root as passed, and the directory the corpus files
+     * actually lie in.
+     */
+    record Roots(Path corpusArgument, Path cacheArgument, Path corpusFiles) {
+    }
 
-        assertThrows(IllegalArgumentException.class, () -> corpusImport.run(corpusRoot, inside));
+    /** Lays out the roots of one overlap case below the temporary directory, from the written corpus root. */
+    @FunctionalInterface
+    interface Layout {
+        Roots apply(Path base, Path corpusRoot) throws IOException;
+    }
 
-        assertAll(
-                () -> assertEquals(before, snapshot(corpusRoot)),
-                () -> assertEquals(Set.of(), repository.cacheRoots));
+    static Stream<Arguments> overlappingRoots() {
+        return Stream.of(
+                Arguments.of("the cache root below the corpus root", "lies below the corpus root",
+                        (Layout) (base, corpus) -> new Roots(corpus, corpus.resolve("cache"), corpus)),
+                Arguments.of("the cache root is the corpus root", "are both",
+                        (Layout) (base, corpus) -> new Roots(corpus, corpus, corpus)),
+                Arguments.of("the cache root is the corpus root, spelled with ..", "are both",
+                        (Layout) (base, corpus) -> new Roots(corpus, corpus.resolve("sources/.."), corpus)),
+                Arguments.of("the corpus root below the cache root", "lies below the cache root",
+                        (Layout) (base, corpus) -> new Roots(corpus, base, corpus)),
+                Arguments.of("the corpus root below <cache root>/items", "lies below the cache root",
+                        (Layout) (base, corpus) -> {
+                            var cache = base.resolve("outer");
+                            var moved = cache.resolve(CorpusImport.ITEMS).resolve("corpus");
+                            Files.createDirectories(moved.getParent());
+                            Files.move(corpus, moved);
+                            return new Roots(moved, cache, moved);
+                        }),
+                Arguments.of("the corpus root below the cache repositories", "lies below the cache root",
+                        (Layout) (base, corpus) -> {
+                            var cache = base.resolve("outer");
+                            var moved = cache.resolve("repositories/alpha/corpus");
+                            Files.createDirectories(moved.getParent());
+                            Files.move(corpus, moved);
+                            return new Roots(moved, cache, moved);
+                        }),
+                Arguments.of("a link to a corpus root below <cache root>/items", "lies below the cache root",
+                        (Layout) (base, corpus) -> {
+                            var cache = base.resolve("outer");
+                            var moved = cache.resolve(CorpusImport.ITEMS).resolve("corpus");
+                            Files.createDirectories(moved.getParent());
+                            Files.move(corpus, moved);
+                            return new Roots(Files.createSymbolicLink(base.resolve("link"), moved), cache, moved);
+                        }),
+                Arguments.of("a cache root that is a link to the corpus root", "are both",
+                        (Layout) (base, corpus) -> new Roots(corpus,
+                                Files.createSymbolicLink(base.resolve("link"), corpus), corpus)),
+                Arguments.of("a cache root not yet created below a link into the corpus root",
+                        "lies below the corpus root",
+                        (Layout) (base, corpus) -> new Roots(corpus,
+                                Files.createSymbolicLink(base.resolve("link"), corpus).resolve("cache"), corpus)));
+    }
+
+    @Nested
+    @DisplayName("a corpus root and a cache root that overlap")
+    class Overlap {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.core.role.corpus.CorpusImportTest#overlappingRoots")
+        @DisplayName("are refused before anything is fetched, deleted or written, the corpus untouched")
+        void refused(String name, String message, Layout layout) throws Exception {
+            var roots = layout.apply(base, corpusRoot);
+            var before = snapshot(roots.corpusFiles());
+            var corpusImport = new CorpusImport(repository, lfs);
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> corpusImport.run(roots.corpusArgument(), roots.cacheArgument()));
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(message), refusal::getMessage),
+                    () -> assertEquals(before, snapshot(roots.corpusFiles())),
+                    () -> assertEquals(Set.of(), repository.cacheRoots, "no source is fetched"));
+        }
+
+        @Test
+        @DisplayName("a cache root beside the corpus root whose name extends the corpus root's is accepted")
+        void siblingWithSharedPrefix() {
+            var result = new CorpusImport(repository, lfs).run(corpusRoot, base.resolve("corpus-cache"));
+
+            assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString);
+        }
     }
 
     /** The git part of the fetch, serving the files of each source from memory. */

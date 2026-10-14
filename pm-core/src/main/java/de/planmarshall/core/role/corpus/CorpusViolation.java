@@ -15,7 +15,8 @@ import java.util.Objects;
  * One violation the {@link CorpusValidator} reports (PM-WORK-6): what it concerns, the rule it breaks, and what is
  * wrong.
  *
- * @param subject the id of the item, or the path of the file relative to the corpus root, it concerns
+ * @param subject the id of the item, or the path of the file relative to the corpus root, it concerns; {@code items}
+ *                for the generated items directory of the cache root
  * @param rule    the rule it breaks
  * @param detail  what is wrong
  * @since 0.1
@@ -28,7 +29,10 @@ public record CorpusViolation(String subject, Rule rule, String detail) {
      * @since 0.1
      */
     public enum Rule {
-        /** A file of the corpus cannot be read, or the corpus root is no directory. */
+        /**
+         * A file of the corpus cannot be read, the corpus root, its {@code sources} entry or the generated
+         * {@code items} of the cache root is no directory, or a directory cannot be listed.
+         */
         UNREADABLE("unreadable"),
         /** The item schema {@code schema/verification-item.schema.json} of the corpus root is absent or no JSON. */
         ITEM_SCHEMA("item_schema"),

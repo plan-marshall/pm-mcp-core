@@ -45,6 +45,14 @@ be listed, refuse the whole import with an `UncheckedIOException`, the refusal `
 failure: there is no source to name a missed entry after, and an empty result would be `COMPLETE`. The sources are
 listed before the items of an earlier import are removed, so a refused import leaves them in place.
 
+The import deletes and writes below the cache root (`<cache root>/items/` and the cache repositories), so the two
+roots must not overlap. A cache root below the corpus root, a corpus root below the cache root (inside `items/` or the
+cache repositories included) and two roots that are one refuse the run with an `IllegalArgumentException` before
+anything is fetched, deleted or written. The roots are compared as normalized absolute paths and again with their
+links resolved (the real path of the nearest existing ancestor, the rest of the path below it), so a link cannot hide
+an overlap; a link that cannot be resolved refuses the run with an `UncheckedIOException` rather than assume no
+overlap.
+
 == Alternatives Considered
 
 1. *A mismatching source missed like an unreachable one*, making the run `PARTIAL`. Not taken: changed content at a

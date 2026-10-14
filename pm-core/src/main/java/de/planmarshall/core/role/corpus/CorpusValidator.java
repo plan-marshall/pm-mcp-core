@@ -14,6 +14,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,7 +49,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * unless the item is a control ({@code expected_empty}), context files exist, and provenance, review, grading and tags
  * name no transient tool, stage or local path.
  * <p>
- * Every directory below {@code sources/} is a source: its {@code manifest.json} and {@code overlay.json} must be valid
+ * The {@code sources} entry of the corpus root is read by the rules of {@link CorpusImport}: absent, the corpus has
+ * no sources; present but no directory, or a directory that cannot be listed, it is reported {@code unreadable}, as the
+ * import refuses that corpus. Every directory below {@code sources/} is a source: its {@code manifest.json} and {@code overlay.json} must be valid
  * against {@code source-manifest.schema.json} and {@code source-overlay.schema.json} of this package and read with
  * their codecs, the manifest must name its directory, and the overlay its source and a file of the manifest.
  * {@code ATTRIBUTION.md} at the corpus root has exactly one {@code ## <name>} section per source. No third-party text
@@ -57,7 +60,8 @@ import de.planmarshall.core.store.StoreRefusal;
  * <p>
  * The items an import generated below a cache root are checked as well, by {@link #validate(Path)}: against the item
  * schema, against {@code imported-item.schema.json}, and by the item rules, their ids unique together with the
- * corpus's own.
+ * corpus's own. An absent {@code items} directory holds no generated item; an {@code items} entry that is no directory
+ * is reported {@code unreadable} under the subject {@code items}.
  *
  * @since 0.1
  */
@@ -140,8 +144,18 @@ public final class CorpusValidator {
             return List.copyOf(violations);
         }
 
+        /**
+         * Checks the generated items. An absent items directory holds none; an entry that is no directory is a
+         * violation, never read as no generated items.
+         */
         private List<CorpusViolation> generated(Path itemsRoot) {
-            if (Files.isDirectory(itemsRoot)) {
+            if (Files.notExists(itemsRoot, LinkOption.NOFOLLOW_LINKS)) {
+                return List.copyOf(violations);
+            }
+            if (!Files.isDirectory(itemsRoot)) {
+                add(CorpusImport.ITEMS, Rule.UNREADABLE,
+                        "the generated items %s are no directory, so no item can be read".formatted(itemsRoot));
+            } else {
                 for (var file : files(itemsRoot)) {
                     var relative = relative(itemsRoot, file);
                     if (relative.endsWith(JSON)) {
@@ -258,10 +272,21 @@ public final class CorpusValidator {
             }
         }
 
-        /** @return the SHA-256 of every file the manifests name */
+        /**
+         * Checks the sources by the rules {@link CorpusImport} reads them with: an absent {@code sources} entry is a
+         * corpus without sources; an entry that is no directory (a file, a dangling link, an entry that cannot be told
+         * to be absent) and a directory that cannot be listed are violations, never read as no sources.
+         *
+         * @return the SHA-256 of every file the manifests name
+         */
         private Set<String> sources() {
             var sources = corpusRoot.resolve(CorpusImport.SOURCES);
+            if (Files.notExists(sources, LinkOption.NOFOLLOW_LINKS)) {
+                return Set.of();
+            }
             if (!Files.isDirectory(sources)) {
+                add(CorpusImport.SOURCES, Rule.UNREADABLE,
+                        "the sources %s are no directory, so no source can be read".formatted(sources));
                 return Set.of();
             }
             var hashes = new HashSet<String>();

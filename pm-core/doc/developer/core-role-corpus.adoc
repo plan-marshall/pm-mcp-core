@@ -38,7 +38,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
     ├── manifest.json                      SourceManifest: repository, pinned commit, licence, files
     └── overlay.json                       SourceOverlay: the selected rows and their framing
 
-<cache root>                               outside the corpus root (CorpusImport refuses one below it)
+<cache root>                               apart from the corpus root (CorpusImport refuses any overlap)
 ├── repositories/<name>.git                the bare cache repository of a source (JGitSourceRepository)
 └── items/<topic>/<slug>.json              the generated ImportedItems, replaced by every import
 ----
@@ -92,7 +92,9 @@ Per source the import reads the manifest and the overlay with their codecs (the 
 
 It then reads the rows of the overlay's file (`.jsonl` or `.csv`), selects each overlay row by its key field or position, and generates the items.
 A source whose step fails is missed as a whole, and none of its items is written; the other sources are imported all the same.
-The items are written below `<cache root>/items/`, replacing those of an earlier import; nothing is written below the corpus root, and a cache root below the corpus root is refused with an `IllegalArgumentException`.
+The items are written below `<cache root>/items/`, replacing those of an earlier import; nothing is written below the corpus root.
+Since the import deletes and writes below the cache root (`items/` and the cache repositories), the two roots must not overlap: a cache root below the corpus root, a corpus root below the cache root (inside `items/` or the cache repositories included) and two roots that are one are refused with an `IllegalArgumentException` before anything is fetched, deleted or written.
+The roots are compared as normalized absolute paths and again with their links resolved (the real path of the nearest existing ancestor, the rest of the path below it), so a link cannot hide an overlap; a link that cannot be resolved refuses the run with an `UncheckedIOException`.
 
 A corpus with no sources and a corpus that could not be read are told apart.
 A corpus root that exists and has no `sources/` directory, or whose `sources/` holds no subdirectory, imports nothing and is `COMPLETE` with no source: the corpus of the product has no sources yet, and that is a legitimate state.
@@ -133,7 +135,8 @@ A qualification on a `PARTIAL` import is recorded as partial, with the missed so
 [source]
 ----
 CorpusImport.run(corpusRoot, cacheRoot)
-  │  list sources/<name>/                                         ──► UncheckedIOException (root or sources/ unreadable)
+  │  the roots overlap (normalized or real paths)                 ──► IllegalArgumentException
+  │  list sources/<name>/                                        ──► UncheckedIOException (root or sources/ unreadable)
   │  delete <cache root>/items/
   └─ for each sources/<name>/ (sorted)
        ├─ SourceManifestCodec.read  / SourceOverlayCodec.read      ──► malformed
@@ -162,12 +165,14 @@ Every violation is a link:{src}/CorpusViolation.java[`CorpusViolation`] value (s
 The item schema stays with the corpus and is read from `schema/verification-item.schema.json` of the root (link:../adr/core-role-corpus/004-validator-reads-the-item-schema-from-the-corpus-root.adoc[ADR 004]).
 
 An item is every `*.json` file below the root outside `schema/`, `context/` and `sources/`.
+The `sources` entry is read by the rules of `CorpusImport`, so the validator never passes a corpus the import refuses: an absent entry is a corpus without sources; an entry that is no directory (a file, a dangling link, an entry that cannot be told to be absent) and a `sources/` that cannot be listed are `unreadable` violations under the subject `sources`.
+An absent `<cache root>/items` holds no generated item; an `items` entry that is no directory is an `unreadable` violation under the subject `items`.
 
 [cols="1,3",options="header"]
 |===
 |Rule |Checked
 
-|`unreadable` |a file cannot be read, or the corpus root is no directory
+|`unreadable` |a file cannot be read, a directory cannot be listed, or the corpus root, its `sources` entry or the generated `items` is no directory
 |`item_schema` |the item schema is absent or no JSON
 |`not_json` |an item is no JSON document
 |`schema` |an item breaks the item schema, evaluated with `SchemaSubset`
@@ -203,9 +208,9 @@ link:{test}/SourceManifestCodecTest.java[`SourceManifestCodecTest`], link:{test}
 link:{test}/CorpusSchemaResourcesTest.java[`CorpusSchemaResourcesTest`]:: Every codec-written fixture validates against its schema resource with the JSON schema validator of the tests, and every resource uses only the keyword subset.
 link:{test}/JsonlRowReaderTest.java[`JsonlRowReaderTest`], link:{test}/CsvRowReaderTest.java[`CsvRowReaderTest`], link:{test}/Sha256Test.java[`Sha256Test`], link:{test}/LfsPointerTest.java[`LfsPointerTest`]:: The RFC 4180 cases and refusals, the JSON Lines rules, the known SHA-256 vectors, and the pointer shape.
 link:{test}/ItemGeneratorTest.java[`ItemGeneratorTest`]:: The generated item, valid against `imported-item.schema.json`; a template naming a missing field is refused.
-link:{test}/CorpusImportTest.java[`CorpusImportTest`]:: In-test fakes of both fetch interfaces over two sources (a plain CSV file and a JSON Lines file in LFS): the complete run, each hash mismatch (`FAILED`, ERROR logged), the unreachable source and the missing pin (`PARTIAL`, WARN logged), the malformed cases (a manifest or overlay naming another source, an overlay naming a file outside the manifest, an absent or refused manifest or overlay, a file neither `.jsonl` nor `.csv`, a reader refusal, a position beyond the rows, a key matching no or several rows, an unknown template field, a duplicate item id), a source outside GitHub imported `COMPLETE`, the corpus root left untouched, an existing corpus root without `sources/` or with an empty one `COMPLETE` with no source, and the refusal of a corpus root that does not exist or is a file, a `sources/` that is a file, and (POSIX, `@EnabledOnOs`) a `sources/` that cannot be listed and a corpus root whose entries cannot be looked up, each leaving the items of the earlier import in place.
+link:{test}/CorpusImportTest.java[`CorpusImportTest`]:: In-test fakes of both fetch interfaces over two sources (a plain CSV file and a JSON Lines file in LFS): the complete run, each hash mismatch (`FAILED`, ERROR logged), the unreachable source and the missing pin (`PARTIAL`, WARN logged), the malformed cases (a manifest or overlay naming another source, an overlay naming a file outside the manifest, an absent or refused manifest or overlay, a file neither `.jsonl` nor `.csv`, a reader refusal, a position beyond the rows, a key matching no or several rows, an unknown template field, a duplicate item id), a source outside GitHub imported `COMPLETE`, the corpus root left untouched, an existing corpus root without `sources/` or with an empty one `COMPLETE` with no source, and the refusal of a corpus root that does not exist or is a file, a `sources/` that is a file, and (POSIX, `@EnabledOnOs`) a `sources/` that cannot be listed and a corpus root whose entries cannot be looked up, each leaving the items of the earlier import in place; and the refusal of every overlap of the two roots (the cache root below the corpus root, the two equal, also spelled with `..` or through a link, the corpus root below the cache root, below its `items/` and below its cache repositories, a link to a corpus root below `items/`, a cache root not yet created below a link into the corpus root), each leaving the corpus untouched and fetching nothing, while a sibling cache root whose name extends the corpus root's is accepted.
 link:{test}/SourceFetchTest.java[`SourceFetchTest`]:: The user information of every URI in a detail is removed up to the last `@` of its authority, also for a password with an unencoded `@`.
-link:{test}/CorpusValidatorTest.java[`CorpusValidatorTest`], link:{test}/SchemaSubsetTest.java[`SchemaSubsetTest`]:: One negative fixture per rule next to a matched valid corpus, including a manifest naming a path twice and an overlay selecting a row twice, which pass their schemas (proved by the test) and are refused by their codecs; a passing and a failing value per keyword.
+link:{test}/CorpusValidatorTest.java[`CorpusValidatorTest`], link:{test}/SchemaSubsetTest.java[`SchemaSubsetTest`]:: One negative fixture per rule next to a matched valid corpus, including a manifest naming a path twice and an overlay selecting a row twice, which pass their schemas (proved by the test) and are refused by their codecs; an absent `sources` entry accepted, and a `sources` entry that is a file or a dangling link, a `sources/` that cannot be listed (POSIX, `@EnabledOnOs`) and generated `items` that are a file reported `unreadable`; a passing and a failing value per keyword.
 link:{test}/ProductCorpusValidationTest.java[`ProductCorpusValidationTest`]:: The validator accepts the corpus of the plan-marshall-mcp checkout with no violation.
 
 `ProductCorpusValidationTest` finds the checkout through the system property `pm.product.root`, which `pm-core/pom.xml` passes to Surefire from the Maven property of the same name (default `../plan-marshall-mcp` beside the repository).
@@ -226,7 +231,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 1. **Never write below the corpus root**: generated items belong below the cache root; an imported item stored below the corpus is a `third_party_text` violation.
 2. **The manifest hash of an LFS file is the object's**: the pointer is checked by its oid, the object by its bytes. Do not hash the pointer.
 3. **A mismatch is not a missing pin**: bytes that were delivered but are not the pinned file fail the run, even when an LFS endpoint delivered them; only an absent commit, path or object is `pin_missing`.
-4. **Refusals are values**: a missed source is an `ImportResult` entry and a violation a `CorpusViolation`; the import throws only for a cache root below the corpus root (`IllegalArgumentException`) and for a corpus root or `sources/` that cannot be read or listed, or items that cannot be written (`UncheckedIOException`). Never answer an unreadable corpus as one without sources: an empty `COMPLETE` result is for a corpus root that exists and has none.
+4. **Refusals are values**: a missed source is an `ImportResult` entry and a violation a `CorpusViolation`; the import throws only for a corpus root and a cache root that overlap (`IllegalArgumentException`) and for roots whose links cannot be resolved, a corpus root or `sources/` that cannot be read or listed, or items that cannot be written (`UncheckedIOException`). Never answer an unreadable corpus as one without sources: an empty `COMPLETE` result is for a corpus root that exists and has none, and the validator reports what the import refuses.
 
 == Specification Tracing
 

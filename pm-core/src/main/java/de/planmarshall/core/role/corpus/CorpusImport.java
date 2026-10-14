@@ -49,7 +49,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * when its manifest, overlay or file does not yield the selected items; the {@link ImportResult} names it with its
  * reason. The items of the other sources are generated all the same. The items are written below
  * {@code <cache root>/items/} at {@code <topic>/<slug>.json}, replacing those of an earlier import; nothing is written
- * below the corpus root, and the cache root must lie outside it.
+ * below the corpus root. The two roots must not overlap: neither lies below the other and they are not one, compared
+ * as normalized absolute paths and with their links resolved, since the import deletes and writes below the cache
+ * root.
  *
  * @since 0.1
  */
@@ -88,8 +90,13 @@ public final class CorpusImport {
      * @param cacheRoot  the cache root the cache repositories and the items are written below, outside the corpus root
      * @return the sources covered and missed; a corpus root that exists without a {@code sources/} directory, or
      *         whose {@code sources/} holds no source, yields an empty, {@link ImportResult.Verdict#COMPLETE} result
-     * @throws IllegalArgumentException if the cache root lies below the corpus root
-     * @throws UncheckedIOException     if the corpus root does not exist, is no directory or cannot be read, if its
+     * @throws IllegalArgumentException if the corpus root and the cache root overlap: they are one, the cache root lies
+     *                                  below the corpus root, or the corpus root below the cache root (its
+     *                                  {@code items/} and cache repositories included), compared as normalized
+     *                                  absolute paths and with their links resolved; nothing is then fetched,
+     *                                  deleted or written
+     * @throws UncheckedIOException     if the links of either root cannot be resolved, if the corpus root does not
+     *                                  exist, is no directory or cannot be read, if its
      *                                  {@code sources/} is no directory or cannot be listed, or if the items cannot be
      *                                  written; a corpus that cannot be read is never imported as one without
      *                                  sources, and the items of an earlier import are then left in place
@@ -97,10 +104,8 @@ public final class CorpusImport {
     public ImportResult run(Path corpusRoot, Path cacheRoot) {
         var corpus = Objects.requireNonNull(corpusRoot, "corpusRoot").toAbsolutePath().normalize();
         var cache = Objects.requireNonNull(cacheRoot, "cacheRoot").toAbsolutePath().normalize();
-        if (cache.startsWith(corpus)) {
-            throw new IllegalArgumentException("the cache root %s lies below the corpus root %s".formatted(cache,
-                    corpus));
-        }
+        requireApart(corpus, cache);
+        requireApart(real(corpus), real(cache));
         var directories = sourceDirectories(corpus);
         var itemsRoot = cache.resolve(ITEMS);
         deleteTree(itemsRoot);
@@ -119,6 +124,49 @@ public final class CorpusImport {
             }
         }
         return new ImportResult(covered, missed);
+    }
+
+    /**
+     * Refuses a corpus root and a cache root that overlap: the import deletes and writes below the cache root (the
+     * items, the cache repositories), so neither root may lie below the other, and they may not be one.
+     *
+     * @throws IllegalArgumentException if the roots are equal or one lies below the other
+     */
+    private static void requireApart(Path corpus, Path cache) {
+        if (corpus.equals(cache)) {
+            throw new IllegalArgumentException("the corpus root and the cache root are both %s".formatted(corpus));
+        }
+        if (cache.startsWith(corpus)) {
+            throw new IllegalArgumentException("the cache root %s lies below the corpus root %s".formatted(cache,
+                    corpus));
+        }
+        if (corpus.startsWith(cache)) {
+            throw new IllegalArgumentException("the corpus root %s lies below the cache root %s".formatted(corpus,
+                    cache));
+        }
+    }
+
+    /**
+     * Resolves the links of a path: the real path of its nearest existing ancestor, with the rest of the path below
+     * it, so a root that does not exist yet is compared by where it would be created.
+     *
+     * @param path an absolute, normalized path
+     * @return the path with the links of its existing part resolved
+     * @throws UncheckedIOException if the existing part cannot be resolved; an overlap is never assumed absent
+     */
+    private static Path real(Path path) {
+        var existing = path;
+        while (existing != null && !Files.exists(existing)) {
+            existing = existing.getParent();
+        }
+        if (existing == null) {
+            return path;
+        }
+        try {
+            return existing.toRealPath().resolve(existing.relativize(path)).normalize();
+        } catch (IOException e) {
+            throw new UncheckedIOException("The real path of %s cannot be resolved".formatted(path), e);
+        }
     }
 
     private List<ImportedItem> importSource(Path directory, String name, Path cache) throws SourceMissed {

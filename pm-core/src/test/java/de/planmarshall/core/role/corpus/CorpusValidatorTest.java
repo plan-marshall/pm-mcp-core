@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -469,6 +473,91 @@ class CorpusValidatorTest {
         assertAll(
                 () -> assertEquals(1, violations.size(), () -> report(violations)),
                 () -> assertEquals(Rule.UNREADABLE, violations.getFirst().rule()));
+    }
+
+    /**
+     * The {@code sources} entry and the generated {@code items} are read by the rules of {@link CorpusImport}: an
+     * entry of the wrong type, or a directory that cannot be listed, is reported, never read as a corpus without
+     * sources or without generated items.
+     */
+    @Nested
+    @DisplayName("a sources or items entry that cannot be read as a directory")
+    class WrongType {
+
+        private Path sources;
+
+        @BeforeEach
+        void removeSources() throws IOException {
+            sources = fixture.corpus().resolve(CorpusImport.SOURCES);
+            try (Stream<Path> walk = Files.walk(sources)) {
+                for (var entry : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.delete(entry);
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("an absent sources entry is a corpus without sources, no violation")
+        void absentSources() {
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("a sources entry that is a file is reported, as the import refuses it")
+        void sourcesIsFile() throws Exception {
+            Files.writeString(sources, "no directory");
+
+            var violations = validate();
+
+            assertSingle(violations, CorpusImport.SOURCES, Rule.UNREADABLE);
+        }
+
+        @Test
+        @DisplayName("a sources entry that is a dangling link is reported, as the import refuses it")
+        void sourcesIsDanglingLink() throws Exception {
+            Files.createSymbolicLink(sources, base.resolve("nowhere"));
+
+            var violations = validate();
+
+            assertSingle(violations, CorpusImport.SOURCES, Rule.UNREADABLE);
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a sources directory that cannot be listed is reported, as the import refuses it")
+        void unlistableSources() throws Exception {
+            Files.createDirectories(sources.resolve("alpha"));
+            var permissions = Files.getPosixFilePermissions(sources);
+            Files.setPosixFilePermissions(sources, PosixFilePermissions.fromString("-wx------"));
+            try {
+                var violations = validate();
+
+                assertTrue(violations.stream().anyMatch(violation -> violation.rule() == Rule.UNREADABLE
+                        && violation.subject().equals(CorpusImport.SOURCES)), () -> report(violations));
+            } finally {
+                Files.setPosixFilePermissions(sources, permissions);
+            }
+        }
+
+        @Test
+        @DisplayName("generated items that are a file are reported, not read as no generated items")
+        void itemsIsFile() throws Exception {
+            Files.createDirectories(fixture.cache());
+            Files.writeString(fixture.cache().resolve(CorpusImport.ITEMS), "no directory");
+
+            var violations = validate();
+
+            assertSingle(violations, CorpusImport.ITEMS, Rule.UNREADABLE);
+        }
+
+        private static void assertSingle(List<CorpusViolation> violations, String subject, Rule rule) {
+            assertAll(
+                    () -> assertEquals(1, violations.size(), () -> report(violations)),
+                    () -> assertEquals(subject, violations.getFirst().subject(), () -> report(violations)),
+                    () -> assertEquals(rule, violations.getFirst().rule(), () -> report(violations)));
+        }
     }
 
     @Test

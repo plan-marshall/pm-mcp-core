@@ -30,6 +30,11 @@ thrown.
   are ported as they are.
 * Manifests and overlays are checked against the schema resources of this package and read with their codecs; the
   files below `sources/` are no items.
+* The `sources` entry is read by the rules of `CorpusImport`, so the validator never passes a corpus the import
+  refuses: an absent entry is a corpus without sources; an entry that is no directory (a file, a dangling link, an
+  entry that cannot be told to be absent) and a `sources/` that cannot be listed are `unreadable` violations, never
+  read as no sources. Likewise a `<cache root>/items` entry that is no directory is an `unreadable` violation under
+  the subject `items`, never read as no generated items.
 * `ATTRIBUTION.md` has one `## <name>` section per source, and no third-party text is stored below the corpus: no
   file has the SHA-256 of a file a manifest names, and no item is an imported one. An item counts as imported only
   when `provenance.kind` is `fetched` *and* `provenance.origin` names a `commit` and a `line`: the corpus's own items of
