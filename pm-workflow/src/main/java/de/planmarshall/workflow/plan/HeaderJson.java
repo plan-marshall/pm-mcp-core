@@ -95,6 +95,9 @@ final class HeaderJson {
 
     static final String GATE = "gate";
 
+    /** The most digits before the decimal point an {@code int} can have. */
+    private static final int MAX_INT_DIGITS = 10;
+
     private static final JsonFactory JSON = new JsonFactory();
 
     private HeaderJson() {
@@ -172,7 +175,7 @@ final class HeaderJson {
     record StringNode(String value) implements Node {
 
         StringNode {
-            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(value, VALUE);
         }
     }
 
@@ -184,7 +187,7 @@ final class HeaderJson {
     record NumberNode(BigDecimal value) implements Node {
 
         NumberNode {
-            Objects.requireNonNull(value, "value");
+            Objects.requireNonNull(value, VALUE);
         }
 
         /**
@@ -325,25 +328,25 @@ final class HeaderJson {
 
     private static void writeNode(JsonGenerator generator, Node node) throws IOException {
         switch (node) {
-            case ObjectNode object -> {
+            case ObjectNode(var members) -> {
                 generator.writeStartObject();
-                for (var member : new TreeMap<>(object.members()).entrySet()) {
+                for (var member : new TreeMap<>(members).entrySet()) {
                     generator.writeFieldName(member.getKey());
                     writeNode(generator, member.getValue());
                 }
                 generator.writeEndObject();
             }
-            case ArrayNode array -> {
+            case ArrayNode(var elements) -> {
                 generator.writeStartArray();
-                for (var element : array.elements()) {
+                for (var element : elements) {
                     writeNode(generator, element);
                 }
                 generator.writeEndArray();
             }
-            case StringNode string -> generator.writeString(string.value());
+            case StringNode(var value) -> generator.writeString(value);
             case NumberNode number -> writeNumber(generator, number);
-            case BooleanNode bool -> generator.writeBoolean(bool.value());
-            case NullNode ignored -> generator.writeNull();
+            case BooleanNode(var value) -> generator.writeBoolean(value);
+            case NullNode _ -> generator.writeNull();
         }
     }
 
@@ -429,9 +432,9 @@ final class HeaderJson {
 
     private static Node callValue(CallValue value) {
         return switch (value) {
-            case CallValue.EnumValue enumValue -> new StringNode(enumValue.value());
-            case CallValue.IntValue intValue -> number(intValue.value());
-            case CallValue.EnumList list -> strings(list.values());
+            case CallValue.EnumValue(var text) -> new StringNode(text);
+            case CallValue.IntValue(var integer) -> number(integer);
+            case CallValue.EnumList(var values) -> strings(values);
         };
     }
 
@@ -525,7 +528,7 @@ final class HeaderJson {
 
     private static CallValue callValue(Node node, String name) {
         return switch (node) {
-            case StringNode string -> new CallValue.EnumValue(string.value());
+            case StringNode(var text) -> new CallValue.EnumValue(text);
             case NumberNode number when number.integral() -> new CallValue.IntValue(intValue(number, name));
             case ArrayNode array when array.elements().stream().allMatch(StringNode.class::isInstance) ->
                 new CallValue.EnumList(texts(array));
@@ -547,17 +550,28 @@ final class HeaderJson {
     }
 
     private static Optional<String> optionalText(Node node) {
-        return node instanceof StringNode string ? Optional.of(string.value()) : Optional.empty();
+        return node instanceof StringNode(var value) ? Optional.of(value) : Optional.empty();
     }
 
+    /**
+     * The value of an integral number as an {@code int}. The magnitude is checked before the exact conversion: an
+     * integral number such as {@code 1e999999999} is read as a mantissa and an exponent, and converting it would
+     * allocate every one of its digits.
+     */
     private static int intValue(Node node, String name) {
         var value = ((NumberNode) node).value();
+        if (value.signum() != 0 && (long) value.precision() - value.scale() > MAX_INT_DIGITS) {
+            throw new IllegalArgumentException(outOfRange(name, value));
+        }
         try {
             return value.toBigIntegerExact().intValueExact();
         } catch (ArithmeticException e) {
-            throw new IllegalArgumentException("Instance header refused: '%s' is out of range: %s".formatted(name,
-                    value), e);
+            throw new IllegalArgumentException(outOfRange(name, value), e);
         }
+    }
+
+    private static String outOfRange(String name, BigDecimal value) {
+        return "Instance header refused: '%s' is out of range: %s".formatted(name, value);
     }
 
     private static <E> E wire(Node node, Function<String, Optional<E>> lookup) {

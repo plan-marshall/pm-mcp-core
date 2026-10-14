@@ -161,6 +161,15 @@ class HeaderSchemaCheckTest {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/format_version", Optional.of(json("1.0")))));
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"2026-10-14t08:05:00z", "2026-12-31T23:59:59.123456789+18:00",
+                "2026-01-01T00:00:00-18:00", "2024-02-29T08:05:00Z", "0001-01-01T00:00:00Z"})
+        @DisplayName("a composed_at at the edge of the date and of the time with its offset is accepted")
+        void dateTimeEdges(String composedAt) {
+            assertEquals(List.of(), HeaderSchemaCheck.check(edited("/composed_at",
+                    Optional.of(json("\"" + composedAt + "\"")))));
+        }
+
         @Test
         @DisplayName("an argument value may be any JSON value")
         void anyArgumentValue() {
@@ -299,7 +308,7 @@ class HeaderSchemaCheckTest {
 
     static Stream<Arguments> wrongValues() {
         var digestPattern = "must match ^[0-9a-f]{64}$";
-        var waiverPattern = "must match ^W-[0-9]+$";
+        var waiverPattern = "must match ^W-\\d+$";
         return Stream.of(
                 Arguments.of("format_version constant", "/format_version", "2", HeaderSchemaCheck.NOT_FORMAT_VERSION),
                 Arguments.of("format_version type", "/format_version", "\"1\"", HeaderSchemaCheck.NOT_INTEGER),
@@ -321,6 +330,22 @@ class HeaderSchemaCheckTest {
                         HeaderSchemaCheck.NOT_DATE_TIME),
                 Arguments.of("composed_at offset beyond the supported range", "/composed_at",
                         "\"2026-10-14T08:05:00+23:59\"", HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at date only", "/composed_at", "\"2026-10-14\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at month 13", "/composed_at", "\"2026-13-01T08:05:00Z\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at day 32", "/composed_at", "\"2026-10-32T08:05:00Z\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at space as separator", "/composed_at", "\"2026-10-14 08:05:00Z\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at hour 24", "/composed_at", "\"2026-10-14T24:00:00Z\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at without offset", "/composed_at", "\"2026-10-14T08:05:00\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at offset without colon", "/composed_at", "\"2026-10-14T08:05:00+0100\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
+                Arguments.of("composed_at fraction without digits", "/composed_at", "\"2026-10-14T08:05:00.Z\"",
+                        HeaderSchemaCheck.NOT_DATE_TIME),
                 Arguments.of("lane enumeration", "/lane", "\"fast\"",
                         "must be one of [light, deep, land, adopt] or null"),
                 Arguments.of("posture enumeration", "/posture", "\"max\"",

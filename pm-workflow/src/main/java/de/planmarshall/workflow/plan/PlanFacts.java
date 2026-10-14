@@ -36,11 +36,11 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  * <p>
  * The composition rules address a fact by name:
  * <ul>
- * <li>{@value #LANE}, {@value #POSTURE}, {@value #CHANGE_TYPE}, {@value #RECIPE_ID}: the plan facts of the same
- * names;</li>
- * <li>{@value #POST_RUN}: the post-run-only form a fallback or an empty harvest composes ({@code returned},
+ * <li>{@value #LANE_FACT}, {@value #POSTURE_FACT}, {@value #CHANGE_TYPE_FACT}, {@value #RECIPE_ID_FACT}: the plan
+ * facts of the same names;</li>
+ * <li>{@value #POST_RUN_FACT}: the post-run-only form a fallback or an empty harvest composes ({@code returned},
  * {@code handed_back} or {@code empty_harvest});</li>
- * <li>{@value #FOOTPRINT}: the declared footprint, a list of paths; absent when it could not be read;</li>
+ * <li>{@value #FOOTPRINT_FACT}: the declared footprint, a list of paths; absent when it could not be read;</li>
  * <li>every other name is a key of the effective configuration, among them {@code merge.auto_merge},
  * {@code derived.push_remote} and the provider keys {@code integrations.<provider>}; a key the configuration does
  * not set is absent.</li>
@@ -63,20 +63,21 @@ Optional<String> changeType, Optional<String> recipeId, Optional<String> postRun
 SortedMap<String, String> configuration, List<String> steps, List<String> tasks) {
 
     /** The fact name of the lane. */
-    public static final String LANE = "lane";
+    public static final String LANE_FACT = "lane";
     /** The fact name of the posture. */
-    public static final String POSTURE = "posture";
+    public static final String POSTURE_FACT = "posture";
     /** The fact name of the change type. */
-    public static final String CHANGE_TYPE = "change_type";
+    public static final String CHANGE_TYPE_FACT = "change_type";
     /** The fact name of the recipe id. */
-    public static final String RECIPE_ID = "recipe_id";
+    public static final String RECIPE_ID_FACT = "recipe_id";
     /** The fact name of the post-run-only form. */
-    public static final String POST_RUN = "post_run";
+    public static final String POST_RUN_FACT = "post_run";
     /** The fact name of the declared footprint. */
-    public static final String FOOTPRINT = "footprint";
+    public static final String FOOTPRINT_FACT = "footprint";
 
     /** The names of the plan facts; every other fact name is a configuration key. */
-    static final Set<String> PLAN_FACT_NAMES = Set.of(LANE, POSTURE, CHANGE_TYPE, RECIPE_ID, POST_RUN, FOOTPRINT);
+    static final Set<String> PLAN_FACT_NAMES = Set.of(LANE_FACT, POSTURE_FACT, CHANGE_TYPE_FACT, RECIPE_ID_FACT,
+            POST_RUN_FACT, FOOTPRINT_FACT);
 
     /**
      * Refuses a missing component and copies the collections into unmodifiable ones; the configuration is ordered by
@@ -94,11 +95,11 @@ SortedMap<String, String> configuration, List<String> steps, List<String> tasks)
      */
     public PlanFacts {
         Objects.requireNonNull(lane, "lane");
-        Objects.requireNonNull(posture, "posture");
+        Objects.requireNonNull(posture, POSTURE_FACT);
         Objects.requireNonNull(changeType, "changeType");
         Objects.requireNonNull(recipeId, "recipeId");
         Objects.requireNonNull(postRun, "postRun");
-        footprint = Objects.requireNonNull(footprint, "footprint").map(List::copyOf);
+        footprint = Objects.requireNonNull(footprint, FOOTPRINT_FACT).map(List::copyOf);
         configuration = Collections.unmodifiableSortedMap(new TreeMap<>(Objects.requireNonNull(configuration,
                 "configuration")));
         steps = List.copyOf(steps);
@@ -120,12 +121,12 @@ SortedMap<String, String> configuration, List<String> steps, List<String> tasks)
      */
     public Optional<String> text(String fact) {
         return switch (fact) {
-            case LANE -> lane.map(PlanInstanceHeader.Lane::wireName);
-            case POSTURE -> posture.map(PlanInstanceHeader.Posture::wireName);
-            case CHANGE_TYPE -> changeType;
-            case RECIPE_ID -> recipeId;
-            case POST_RUN -> postRun;
-            case FOOTPRINT -> Optional.empty();
+            case LANE_FACT -> lane.map(PlanInstanceHeader.Lane::wireName);
+            case POSTURE_FACT -> posture.map(PlanInstanceHeader.Posture::wireName);
+            case CHANGE_TYPE_FACT -> changeType;
+            case RECIPE_ID_FACT -> recipeId;
+            case POST_RUN_FACT -> postRun;
+            case FOOTPRINT_FACT -> Optional.empty();
             default -> Optional.ofNullable(configuration.get(fact));
         };
     }
@@ -137,7 +138,7 @@ SortedMap<String, String> configuration, List<String> steps, List<String> tasks)
      * @return the list, or empty when the fact is unknown or holds one text
      */
     public Optional<List<String>> list(String fact) {
-        return FOOTPRINT.equals(fact) ? footprint : Optional.empty();
+        return FOOTPRINT_FACT.equals(fact) ? footprint : Optional.empty();
     }
 
     /**
@@ -145,12 +146,12 @@ SortedMap<String, String> configuration, List<String> steps, List<String> tasks)
      */
     public String digest() {
         var members = new LinkedHashMap<String, Node>();
-        members.put(LANE, optional(text(LANE)));
-        members.put(POSTURE, optional(text(POSTURE)));
-        members.put(CHANGE_TYPE, optional(changeType));
-        members.put(RECIPE_ID, optional(recipeId));
-        members.put(POST_RUN, optional(postRun));
-        members.put(FOOTPRINT, footprint.<Node>map(PlanFacts::strings).orElse(NullNode.INSTANCE));
+        members.put(LANE_FACT, optional(text(LANE_FACT)));
+        members.put(POSTURE_FACT, optional(text(POSTURE_FACT)));
+        members.put(CHANGE_TYPE_FACT, optional(changeType));
+        members.put(RECIPE_ID_FACT, optional(recipeId));
+        members.put(POST_RUN_FACT, optional(postRun));
+        members.put(FOOTPRINT_FACT, footprint.<Node>map(PlanFacts::strings).orElse(NullNode.INSTANCE));
         var config = new LinkedHashMap<String, Node>();
         configuration.forEach((key, value) -> config.put(key, new StringNode(value)));
         members.put("configuration", new ObjectNode(config));

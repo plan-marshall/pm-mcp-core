@@ -13,11 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -263,6 +265,46 @@ class PlanInstanceHeaderTest {
                     "\"version\":3000000000");
 
             assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"1e999999999", "9.9E+999999999", "10000000000"})
+        @DisplayName("a version whose magnitude no int reaches is refused fast, before its digits are expanded")
+        void hugeVersionRefusedFast(String version) {
+            var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader()).replace("\"version\":1",
+                    "\"version\":" + version);
+
+            var refused = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json)));
+
+            assertTrue(refused.getMessage().startsWith("Instance header refused: 'version' is out of range: "),
+                    refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("an integral policy argument whose magnitude no int reaches is refused fast")
+        void hugeArgumentRefusedFast() {
+            var json = HeaderJson.write(fullHeader("plan-24", 1, "lane")).replace("\"value\":4",
+                    "\"value\":1e999999999");
+
+            var refused = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json)));
+
+            assertEquals("Instance header refused: 'fix_budget' is out of range: 1E+999999999", refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("the largest int as version and as an integral argument written with an exponent still reads")
+        void largestIntReads() {
+            var json = HeaderJson.write(fullHeader("plan-24", Integer.MAX_VALUE, "lane")).replace("\"value\":4",
+                    "\"value\":4.0e0");
+
+            var header = HeaderJson.read(json);
+
+            assertAll(
+                    () -> assertEquals(Integer.MAX_VALUE, header.version()),
+                    () -> assertEquals(new CallValue.IntValue(4),
+                            header.policyCalls().getFirst().args().get("fix_budget").value()));
         }
     }
 

@@ -67,10 +67,14 @@ public final class HeaderSchemaCheck {
     private static final Pattern PLAN_ID = Pattern.compile("^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$");
     private static final Pattern DIGEST = Pattern.compile("^[0-9a-f]{64}$");
     private static final Pattern PHASE_6_STEP = Pattern.compile("^(default|project):[a-z][a-z0-9-]{0,63}$");
-    private static final Pattern WAIVER_ID = Pattern.compile("^W-[0-9]+$");
-    private static final Pattern DATE_TIME = Pattern.compile(
-            "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):[0-5][0-9]:([0-5][0-9]|60)"
-                    + "(\\.[0-9]+)?([Zz]|[+-]([01][0-9]|2[0-3]):[0-5][0-9])$");
+    private static final Pattern WAIVER_ID = Pattern.compile("^W-\\d+$");
+    /** The date of an RFC 3339 date-time, the ten characters before its {@code T}. */
+    private static final Pattern DATE = Pattern.compile("^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$");
+    /** The time with its offset of an RFC 3339 date-time, everything after its {@code T}. */
+    private static final Pattern TIME_WITH_OFFSET = Pattern.compile(
+            "^([01]\\d|2[0-3]):[0-5]\\d:([0-5]\\d|60)(\\.\\d+)?([Zz]|[+-]([01]\\d|2[0-3]):[0-5]\\d)$");
+    /** The index of the {@code T} that separates the date from the time. */
+    private static final int TIME_SEPARATOR = 10;
 
     private static final List<String> EVENTS = Arrays.stream(CompositionEvent.values())
             .map(CompositionEvent::wireName).toList();
@@ -169,7 +173,7 @@ public final class HeaderSchemaCheck {
 
     /** A date-time is valid when it has the RFC 3339 shape and the header reader can parse it. */
     private static boolean isDateTime(String text) {
-        if (!DATE_TIME.matcher(text).matches()) {
+        if (!hasDateTimeShape(text)) {
             return false;
         }
         try {
@@ -178,6 +182,20 @@ public final class HeaderSchemaCheck {
         } catch (IllegalArgumentException _) {
             return false;
         }
+    }
+
+    /**
+     * The RFC 3339 shape of a date-time: a date, a {@code T} or {@code t} at index {@value #TIME_SEPARATOR}, and a time
+     * with its offset. The two parts are matched apart, so neither pattern grows past a readable size.
+     */
+    private static boolean hasDateTimeShape(String text) {
+        if (text.length() <= TIME_SEPARATOR) {
+            return false;
+        }
+        var separator = text.charAt(TIME_SEPARATOR);
+        return (separator == 'T' || separator == 't')
+                && DATE.matcher(text.substring(0, TIME_SEPARATOR)).matches()
+                && TIME_WITH_OFFSET.matcher(text.substring(TIME_SEPARATOR + 1)).matches();
     }
 
     private static void inputs(Node node, String pointer, List<HeaderViolation> out) {
@@ -288,8 +306,7 @@ public final class HeaderSchemaCheck {
     }
 
     private static void each(Node node, String pointer, List<HeaderViolation> out, BiConsumer<Node, String> check) {
-        if (node instanceof ArrayNode array) {
-            var elements = array.elements();
+        if (node instanceof ArrayNode(var elements)) {
             for (var index = 0; index < elements.size(); index++) {
                 check.accept(elements.get(index), HeaderJson.child(pointer, Integer.toString(index)));
             }
@@ -299,16 +316,16 @@ public final class HeaderSchemaCheck {
     }
 
     private static Optional<Map<String, Node>> object(Node node, String pointer, List<HeaderViolation> out) {
-        if (node instanceof ObjectNode object) {
-            return Optional.of(object.members());
+        if (node instanceof ObjectNode(var members)) {
+            return Optional.of(members);
         }
         out.add(new HeaderViolation(pointer, NOT_OBJECT));
         return Optional.empty();
     }
 
     private static Optional<String> string(Node node, String pointer, List<HeaderViolation> out) {
-        if (node instanceof StringNode string) {
-            return Optional.of(string.value());
+        if (node instanceof StringNode(var value)) {
+            return Optional.of(value);
         }
         out.add(new HeaderViolation(pointer, NOT_STRING));
         return Optional.empty();
@@ -316,8 +333,8 @@ public final class HeaderSchemaCheck {
 
     /** A string or {@code null}; returns the string, empty for {@code null} or a value of another type. */
     private static Optional<String> nullableString(Node node, String pointer, List<HeaderViolation> out) {
-        if (node instanceof StringNode string) {
-            return Optional.of(string.value());
+        if (node instanceof StringNode(var value)) {
+            return Optional.of(value);
         }
         if (node != NullNode.INSTANCE) {
             out.add(new HeaderViolation(pointer, NOT_STRING_OR_NULL));
