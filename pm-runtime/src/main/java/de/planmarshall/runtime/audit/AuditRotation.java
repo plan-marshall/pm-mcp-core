@@ -24,6 +24,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -447,6 +448,22 @@ public final class AuditRotation {
      * @param size  the size of the log in bytes
      */
     private record Edges(byte[] first, byte[] last, long size) {
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Edges that && size == that.size && Arrays.equals(first, that.first)
+                    && Arrays.equals(last, that.last);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(Arrays.hashCode(first), Arrays.hashCode(last), size);
+        }
+
+        @Override
+        public String toString() {
+            return "Edges[first=" + first.length + " bytes, last=" + last.length + " bytes, size=" + size + "]";
+        }
     }
 
     /** Reads the first and the last complete line; empty if the log does not exist or holds no complete line. */

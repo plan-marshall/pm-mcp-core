@@ -22,7 +22,7 @@ import lombok.With;
  * anchors the number of records, the last record and the last line of the audit index: a log cut back, reset or
  * replaced no longer matches it.
  *
- * @param file          the current log file, always {@value #FILE}
+ * @param file          the current log file, always {@value #CURRENT_LOG_FILE}
  * @param recordCount   the number of records in the current log
  * @param lastEventId   the id of the last record; {@code null} for an empty log
  * @param headHash      the SHA-256 of the last canonical line; {@link AuditCodec#GENESIS_HASH} for an empty log
@@ -39,20 +39,21 @@ String indexHeadHash, String hmac) {
     public static final int FORMAT_VERSION = 1;
 
     /** The name of the current log file, the one value of {@code file}. */
-    public static final String FILE = "audit.jsonl";
+    public static final String CURRENT_LOG_FILE = "audit.jsonl";
 
     /** The form of a UUID in lower case. */
     static final Pattern UUID_FORM = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
 
     /**
      * @throws NullPointerException     if a component other than the last event id is {@code null}
-     * @throws IllegalArgumentException if the file is not {@value #FILE}, the record count is negative, the last event
-     *                                  id is no UUID, a hash breaks its form, or the last event id is absent for a
-     *                                  log with records or present for an empty one
+     * @throws IllegalArgumentException if the file is not {@value #CURRENT_LOG_FILE}, the record count is negative, the
+     *                                  last event id is no UUID, a hash breaks its form, or the last event id is
+     *                                  absent for a log with records or present for an empty one
      */
     public AuditHeadRecord {
-        if (!FILE.equals(Objects.requireNonNull(file, "file"))) {
-            throw new IllegalArgumentException("'file' of an audit head must be '%s': %s".formatted(FILE, file));
+        if (!CURRENT_LOG_FILE.equals(Objects.requireNonNull(file, "file"))) {
+            throw new IllegalArgumentException(
+                    "'file' of an audit head must be '%s': %s".formatted(CURRENT_LOG_FILE, file));
         }
         if (recordCount < 0) {
             throw new IllegalArgumentException("'record_count' must not be negative: " + recordCount);

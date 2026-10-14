@@ -71,7 +71,7 @@ class AuditCodecTest {
             + "\"actor\":\"oliver\",\"outcome\":\"succeeded\",\"details\":{\"count\":2,\"identity_mismatch\":false,"
             + "\"targets\":[\"a.json\",\"b.json\"],\"transaction_id\":\"" + OTHER_EVENT_ID + "\"}}";
 
-    private static final AuditHeadRecord HEAD_RECORD = new AuditHeadRecord(AuditHeadRecord.FILE, 3, EVENT_ID, HASH,
+    private static final AuditHeadRecord HEAD_RECORD = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 3, EVENT_ID, HASH,
             AuditCodec.GENESIS_HASH, OTHER_HASH);
 
     private static final AuditIndexEntry INDEX_ENTRY = new AuditIndexEntry(AuditCodec.GENESIS_HASH,
@@ -133,7 +133,7 @@ class AuditCodecTest {
 
         @Test
         @DisplayName("the SHA-256 of the canonical line is stable and is the SHA-256 of its exact bytes")
-        void stableHash() throws Exception {
+        void stableHash() {
             var line = AuditCodec.writeRecord(PLAN_RECORD);
 
             assertAll(
@@ -161,8 +161,9 @@ class AuditCodecTest {
         @DisplayName("a line with an undeclared field, a field twice or an undeclared value is refused as unreadable")
         void undeclared(String prefix) {
             var line = PLAN_LINE.replace("\"format_version\":1,", prefix);
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
 
             assertAll(
                     () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
@@ -174,8 +175,9 @@ class AuditCodecTest {
         @DisplayName("a line without a required field is refused as unreadable")
         void missingField(String field) {
             var line = PLAN_LINE.replaceFirst("\"" + field + "\":(\"[^\"]*\"),", "");
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
 
             assertAll(
                     () -> assertFalse(line.contains("\"" + field + "\""), "the field was removed"),
@@ -187,8 +189,9 @@ class AuditCodecTest {
         @DisplayName("a line of another format version is refused as newer, not as unreadable")
         void otherFormatVersion() {
             var line = PLAN_LINE.replace("\"format_version\":1", "\"format_version\":2");
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
 
             assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, refusal.outcome());
         }
@@ -201,8 +204,9 @@ class AuditCodecTest {
         @DisplayName("an event id that is no lower-case UUID of version 7 is refused")
         void malformedEventId(String eventId) {
             var line = PLAN_LINE.replace(EVENT_ID, eventId);
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
 
             assertTrue(refusal.getMessage().contains("event_id"), refusal::getMessage);
         }
@@ -215,8 +219,9 @@ class AuditCodecTest {
         @DisplayName("a prev_hash that is no 64 lower-case hex digits is refused")
         void malformedHash(String hash) {
             var line = PLAN_LINE.replace(HASH, hash);
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
 
             assertTrue(refusal.getMessage().contains("prev_hash"), refusal::getMessage);
         }
@@ -226,8 +231,9 @@ class AuditCodecTest {
         @DisplayName("details that are no object of strings, integers, booleans or string arrays are refused")
         void malformedDetails(String details) {
             var line = PLAN_LINE.substring(0, PLAN_LINE.indexOf("\"details\":")) + "\"details\":" + details + "}";
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
 
             assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome());
         }
@@ -278,7 +284,7 @@ class AuditCodecTest {
         @Test
         @DisplayName("the head of an empty log has no last event id and round trips")
         void emptyLog() {
-            var empty = new AuditHeadRecord(AuditHeadRecord.FILE, 0, null, AuditCodec.GENESIS_HASH,
+            var empty = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 0, null, AuditCodec.GENESIS_HASH,
                     AuditCodec.GENESIS_HASH, OTHER_HASH);
 
             assertEquals(empty, AuditCodec.readHead(HEAD, AuditCodec.writeHead(empty)));
@@ -290,8 +296,9 @@ class AuditCodecTest {
         void missingField(String field) {
             var document = new String(AuditCodec.writeHead(HEAD_RECORD), UTF_8).replace(field + ",", "")
                     .replace("," + field, "");
+            var input = bytes(document);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readHead(HEAD, bytes(document)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readHead(HEAD, input));
 
             assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome());
         }
@@ -309,8 +316,9 @@ class AuditCodecTest {
             var document = new String(AuditCodec.writeHead(HEAD_RECORD), UTF_8);
             var edited = document.contains(field) ? document.replaceFirst(field + ":[^,}]*", replacement)
                     : document.replace("}", "," + replacement + "}");
+            var input = bytes(edited);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readHead(HEAD, bytes(edited)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readHead(HEAD, input));
 
             assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome());
         }
@@ -320,8 +328,9 @@ class AuditCodecTest {
         void otherFormatVersion() {
             var document = new String(AuditCodec.writeHead(HEAD_RECORD), UTF_8).replace("\"format_version\":1",
                     "\"format_version\":0");
+            var input = bytes(document);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readHead(HEAD, bytes(document)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readHead(HEAD, input));
 
             assertEquals(StoreRefusal.Outcome.FORMAT_OUTDATED, refusal.outcome());
         }
@@ -357,8 +366,9 @@ class AuditCodecTest {
             var line = new String(AuditCodec.writeIndexEntry(INDEX_ENTRY), UTF_8);
             var edited = line.contains(field) ? line.replaceFirst(field + ":[^,}]*", replacement)
                     : line.replace("}", "," + replacement + "}");
+            var input = bytes(edited);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readIndexEntry(INDEX, bytes(edited)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readIndexEntry(INDEX, input));
 
             assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome());
         }
@@ -368,8 +378,9 @@ class AuditCodecTest {
         void missingField() {
             var line = new String(AuditCodec.writeIndexEntry(INDEX_ENTRY), UTF_8)
                     .replace(",\"checkpoint_hash\":\"" + HASH + "\"", "");
+            var input = bytes(line);
 
-            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readIndexEntry(INDEX, bytes(line)));
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readIndexEntry(INDEX, input));
 
             assertTrue(refusal.getMessage().contains("checkpoint_hash"), refusal::getMessage);
         }

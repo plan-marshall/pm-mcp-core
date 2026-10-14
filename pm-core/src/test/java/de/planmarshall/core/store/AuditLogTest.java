@@ -120,9 +120,9 @@ class AuditLogTest {
         }
 
         @Override
-        public void afterAppend(LockTransaction transaction, AuditLog auditLog, AuditRecord record, String hash) {
+        public void afterAppend(LockTransaction transaction, AuditLog auditLog, AuditRecord auditRecord, String hash) {
             calls.add("afterAppend");
-            appended = record;
+            appended = auditRecord;
             lineHash = hash;
         }
     }
@@ -141,7 +141,7 @@ class AuditLogTest {
         }
 
         @Override
-        public void afterAppend(LockTransaction transaction, AuditLog auditLog, AuditRecord record, String hash) {
+        public void afterAppend(LockTransaction transaction, AuditLog auditLog, AuditRecord auditRecord, String hash) {
             // nothing to anchor
         }
     }
@@ -164,15 +164,15 @@ class AuditLogTest {
         return template(AuditRecord.EVENT_CHECKPOINT).withCategory(Category.SECURITY);
     }
 
-    private AuditRecord append(AuditLog auditLog, AuditRecord record) {
+    private AuditRecord append(AuditLog auditLog, AuditRecord auditRecord) {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(auditKey);
-            return auditLog.append(transaction, record);
+            return auditLog.append(transaction, auditRecord);
         }
     }
 
-    private AuditRecord append(AuditRecord record) {
-        return append(log, record);
+    private AuditRecord append(AuditRecord auditRecord) {
+        return append(log, auditRecord);
     }
 
     private void tearTail() throws IOException {
@@ -211,8 +211,8 @@ class AuditLogTest {
         return new JsonlStoreFile(log.logFile(), auditKey).auditIntentFile();
     }
 
-    private static Object transactionId(AuditRecord record) {
-        return record.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
+    private static Object transactionId(AuditRecord auditRecord) {
+        return auditRecord.details().get(AuditEvent.DETAIL_TRANSACTION_ID);
     }
 
     @Nested
@@ -246,13 +246,12 @@ class AuditLogTest {
         @Test
         @DisplayName("an append without the audit lock is refused and writes nothing")
         void withoutLock() {
-            var record = template("first");
+            var auditRecord = template("first");
 
-            var fault = assertThrows(InternalFaultException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    log.append(transaction, record);
-                }
-            });
+            InternalFaultException fault;
+            try (var transaction = locks.openTransaction()) {
+                fault = assertThrows(InternalFaultException.class, () -> log.append(transaction, auditRecord));
+            }
 
             assertAll(
                     () -> assertEquals(Reason.STORE_LOCK_NOT_HELD, fault.reason()),
@@ -391,8 +390,8 @@ class AuditLogTest {
             var stopping = new RecordingAnchor(Optional.empty());
             stopping.failure = new FailingAuditSink.ProcessStopped();
             var stopped = new AuditLog(base, stopping, CLOCK, PRINCIPAL);
-            var record = template("stopped");
-            assertThrows(FailingAuditSink.ProcessStopped.class, () -> append(stopped, record));
+            var stoppedRecord = template("stopped");
+            assertThrows(FailingAuditSink.ProcessStopped.class, () -> append(stopped, stoppedRecord));
             Files.write(intentFile(), intent);
 
             var last = append(template("last"));
@@ -455,9 +454,9 @@ class AuditLogTest {
         void inLogWriteFails() throws Exception {
             var failing = new AuditLog(base, new FailingPredecessorAnchor(), CLOCK, PRINCIPAL);
             tearTail();
-            var record = template("first");
+            var auditRecord = template("first");
 
-            var failure = assertThrows(UncheckedIOException.class, () -> append(failing, record));
+            var failure = assertThrows(UncheckedIOException.class, () -> append(failing, auditRecord));
 
             assertAll(
                     () -> assertTrue(failure.getMessage().contains(intentFile().toString()), failure::getMessage),
@@ -497,25 +496,21 @@ class AuditLogTest {
         void withoutLock() {
             var checkpoint = checkpoint();
 
-            assertThrows(IllegalStateException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    log.appendCheckpoint(transaction, checkpoint);
-                }
-            });
+            try (var transaction = locks.openTransaction()) {
+                assertThrows(IllegalStateException.class, () -> log.appendCheckpoint(transaction, checkpoint));
+            }
             assertFalse(Files.exists(log.logFile()), "nothing was written");
         }
 
         @Test
         @DisplayName("is refused for a record of another event")
         void otherEvent() {
-            var record = template("first");
+            var auditRecord = template("first");
 
-            assertThrows(IllegalArgumentException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    transaction.acquire(auditKey);
-                    log.appendCheckpoint(transaction, record);
-                }
-            });
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(auditKey);
+                assertThrows(IllegalArgumentException.class, () -> log.appendCheckpoint(transaction, auditRecord));
+            }
             assertFalse(Files.exists(log.logFile()), "nothing was written");
         }
     }
@@ -580,11 +575,9 @@ class AuditLogTest {
         void withoutLock() {
             var event = owed();
 
-            assertThrows(IllegalStateException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    log.appendOwedRepair(transaction, event);
-                }
-            });
+            try (var transaction = locks.openTransaction()) {
+                assertThrows(IllegalStateException.class, () -> log.appendOwedRepair(transaction, event));
+            }
             assertFalse(Files.exists(log.logFile()), "nothing was written");
         }
 
@@ -651,11 +644,9 @@ class AuditLogTest {
         @Test
         @DisplayName("the record count is refused without the audit lock")
         void countWithoutLock() {
-            assertThrows(InternalFaultException.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    log.recordCount(transaction);
-                }
-            });
+            try (var transaction = locks.openTransaction()) {
+                assertThrows(InternalFaultException.class, () -> log.recordCount(transaction));
+            }
         }
     }
 }

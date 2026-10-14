@@ -92,12 +92,14 @@ class AuditRotationTest {
         @Test
         @DisplayName("refuse a limit that is not positive")
         void refuseNonPositive() {
+            var negative = Duration.ofDays(-1);
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new AuditRotation.Limits(0, MONTH)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new AuditRotation.Limits(1, Duration.ZERO)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new AuditRotation.Limits(1, Duration.ofDays(-1))));
+                            () -> new AuditRotation.Limits(1, negative)));
         }
     }
 
@@ -600,9 +602,10 @@ class AuditRotationTest {
             var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
             var due = new AuditTrailFixture(base, BY_SIZE);
             due.keyring.entries.putAll(trail.keyring.entries);
+            var closeCheck = trail.head.closeCheck(key);
 
             trail.underAuditLock(transaction -> assertThrows(UncheckedIOException.class,
-                    () -> rotation.rotateIfDue(transaction, trail.log, key, trail.head.closeCheck(key))));
+                    () -> rotation.rotateIfDue(transaction, trail.log, key, closeCheck)));
             due.append(1);
 
             assertAll(

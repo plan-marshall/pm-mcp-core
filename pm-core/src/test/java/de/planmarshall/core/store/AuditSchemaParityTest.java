@@ -179,7 +179,7 @@ class AuditSchemaParityTest {
             var schema = schema(ANCHOR);
 
             assertAll(
-                    () -> assertEquals(AuditHeadRecord.FILE, member(schema, "file").get("const")),
+                    () -> assertEquals(AuditHeadRecord.CURRENT_LOG_FILE, member(schema, "file").get("const")),
                     () -> assertEquals(pattern(schema, "head_hash"), anchored(AuditRecord.HASH)),
                     () -> assertEquals(pattern(schema, "index_head_hash"), anchored(AuditRecord.HASH)),
                     () -> assertEquals(pattern(schema, "hmac"), anchored(AuditRecord.HASH)),
@@ -192,9 +192,9 @@ class AuditSchemaParityTest {
             var validator = validator(ANCHOR);
 
             assertAll(
-                    () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.FILE, 2,
+                    () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 2,
                             EVENT_ID, HASH, AuditCodec.GENESIS_HASH, HASH))),
-                    () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.FILE, 0,
+                    () -> assertValid(validator, AuditCodec.writeHead(new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, 0,
                             null, AuditCodec.GENESIS_HASH, HASH, HASH))));
         }
     }
@@ -221,7 +221,7 @@ class AuditSchemaParityTest {
             var schema = schema(ANCHOR);
 
             assertAll(
-                    () -> assertEquals(pattern(schema, "file"), anchored(AuditIndexEntry.FILE)),
+                    () -> assertEquals(pattern(schema, "file"), anchored(AuditIndexEntry.ROTATED_FILE_FORM)),
                     () -> assertEquals(pattern(schema, "prev_hash"), anchored(AuditRecord.HASH)),
                     () -> assertEquals(pattern(schema, "checkpoint_hash"), anchored(AuditRecord.HASH)),
                     () -> assertEquals(1, ((Number) member(schema, "record_count").get("minimum")).intValue()),

@@ -80,6 +80,10 @@ public final class AuditVerification implements AuditChainVerification {
 
     private static final String LOGS = "logs/";
 
+    private static final String LINE = " line ";
+
+    private static final String HOLDS = " holds ";
+
     private final Path logFile;
     private final Path headFile;
     private final LockKey lockKey;
@@ -191,7 +195,7 @@ public final class AuditVerification implements AuditChainVerification {
         if (indexSnapshot.firstBrokenLine().isPresent()) {
             var line = indexSnapshot.firstBrokenLine().getAsLong();
             return Outcome.Broken.linkBroken(line,
-                    LOGS + AuditIndex.FILE_NAME + " line " + line + " does not parse or does not chain");
+                    LOGS + AuditIndex.FILE_NAME + LINE + line + " does not parse or does not chain");
         }
         var head = parseHead(state.head());
         if (head.isEmpty()) {
@@ -214,24 +218,20 @@ public final class AuditVerification implements AuditChainVerification {
                     + " does not anchor the last line of " + LOGS + AuditIndex.FILE_NAME);
         }
         var entries = indexSnapshot.entries();
-        if (full) {
-            var rotated = verifyRotated(key, entries);
-            if (rotated.isPresent()) {
-                return rotated.get();
-            }
+        var rotated = full ? verifyRotated(key, entries) : Optional.<Outcome>empty();
+        if (rotated.isPresent()) {
+            return rotated.get();
         }
         var firstPredecessor = checkpointBefore(entries, closing.isPresent() ? entries.size() - 1 : entries.size());
+        var anchored = head.get();
         if (renamed.isPresent()) {
-            return verifyRenamed(key, renamed.get(), head.get(), firstPredecessor);
+            return verifyRenamed(key, renamed.get(), anchored, firstPredecessor);
         }
         if (pending.isPresent()) {
-            var closed = verifyClosed(key, lines, pending.get(), firstPredecessor);
-            if (closed.isPresent()) {
-                return closed.get();
-            }
-            return verifyCurrent(true, lines.subList(0, lines.size() - 1), head.get(), firstPredecessor);
+            return verifyClosed(key, lines, pending.get(), firstPredecessor).orElseGet(
+                    () -> verifyCurrent(true, lines.subList(0, lines.size() - 1), anchored, firstPredecessor));
         }
-        return verifyCurrent(state.logExists(), lines, head.get(), firstPredecessor);
+        return verifyCurrent(state.logExists(), lines, anchored, firstPredecessor);
     }
 
     /**
@@ -309,7 +309,7 @@ public final class AuditVerification implements AuditChainVerification {
         if (head.recordCount() != count || !head.headHash().equals(AuditCodec.sha256Hex(anchored))
                 || !AuditCodec.readRecord(file, anchored).eventId().equals(head.lastEventId())) {
             return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH, LOGS + AuditHead.FILE_NAME
-                    + " does not anchor line " + count + " of " + name + ", the line before its checkpoint");
+                    + " does not anchor" + LINE + count + " of " + name + ", the line before its checkpoint");
         }
         return new Outcome.Intact();
     }
@@ -320,7 +320,7 @@ public final class AuditVerification implements AuditChainVerification {
      */
     private Optional<Outcome> verifyClosed(SecretKey key, List<JsonlStoreFile.Line> lines, PendingRotation pending,
             String firstPredecessor) {
-        var name = LOGS + AuditHeadRecord.FILE;
+        var name = LOGS + AuditHeadRecord.CURRENT_LOG_FILE;
         if (pending.entry().isPresent()) {
             return verifyRotatedFile(key, pending.entry().get(), name, lines, firstPredecessor);
         }
@@ -330,14 +330,14 @@ public final class AuditVerification implements AuditChainVerification {
         if (!AuditRotation.checkpointVerifies(key, pending.checkpoint(), lines)) {
             var count = lines.size();
             return Optional.of(Outcome.Broken.linkBroken(count,
-                    name + " line " + count + " is a checkpoint that does not verify"));
+                    name + LINE + count + " is a checkpoint that does not verify"));
         }
         return Optional.empty();
     }
 
     private Outcome verifyCurrent(boolean logExists, List<JsonlStoreFile.Line> lines, AuditHeadRecord head,
             String firstPredecessor) {
-        var name = LOGS + AuditHeadRecord.FILE;
+        var name = LOGS + AuditHeadRecord.CURRENT_LOG_FILE;
         if (!logExists) {
             return head.recordCount() == 0 ? new Outcome.Intact()
                     : Outcome.Broken.withoutLine(BreakReason.MISSING, name + " is missing");
@@ -353,11 +353,11 @@ public final class AuditVerification implements AuditChainVerification {
         }
         if (count < head.recordCount()) {
             return Outcome.Broken.withoutLine(BreakReason.TRUNCATED,
-                    name + " holds " + count + " records, its head anchors " + head.recordCount());
+                    name + HOLDS + count + " records, its head anchors " + head.recordCount());
         }
         if (count > head.recordCount()) {
             return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH,
-                    name + " holds " + count + " records, more than the " + head.recordCount() + " its head anchors");
+                    name + HOLDS + count + " records, more than the " + head.recordCount() + " its head anchors");
         }
         if (count == 0) {
             return new Outcome.Intact();
@@ -365,7 +365,7 @@ public final class AuditVerification implements AuditChainVerification {
         var last = (Walk.Intact) chain;
         if (!head.headHash().equals(last.lastHash()) || !last.lastRecord().eventId().equals(head.lastEventId())) {
             return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH,
-                    name + " line " + count + " is not the line its head anchors");
+                    name + LINE + count + " is not the line its head anchors");
         }
         return new Outcome.Intact();
     }
@@ -396,11 +396,11 @@ public final class AuditVerification implements AuditChainVerification {
         var count = lines.size();
         if (count < entry.recordCount()) {
             return Optional.of(Outcome.Broken.withoutLine(BreakReason.TRUNCATED,
-                    name + " holds " + count + " records, its index entry names " + entry.recordCount()));
+                    name + HOLDS + count + " records, its index entry names " + entry.recordCount()));
         }
         if (count > entry.recordCount()) {
             var line = entry.recordCount() + 1;
-            return Optional.of(Outcome.Broken.linkBroken(line, name + " line " + line + " follows its checkpoint"));
+            return Optional.of(Outcome.Broken.linkBroken(line, name + LINE + line + " follows its checkpoint"));
         }
         var last = (Walk.Intact) chain;
         var checkpoint = last.lastRecord();
@@ -410,7 +410,7 @@ public final class AuditVerification implements AuditChainVerification {
                 || !firstRecord.eventId().equals(entry.firstEventId())
                 || !AuditRotation.checkpointVerifies(key, checkpoint, lines)) {
             return Optional.of(Outcome.Broken.linkBroken(count,
-                    name + " line " + count + " is not the checkpoint its index entry names"));
+                    name + LINE + count + " is not the checkpoint its index entry names"));
         }
         return Optional.empty();
     }
@@ -444,7 +444,7 @@ public final class AuditVerification implements AuditChainVerification {
                 auditRecord = AuditCodec.readRecord(logFile, bytes);
             } catch (StoreRefusal _) {
                 return new Walk.Broken(Outcome.Broken.linkBroken(line.number(),
-                        name + " line " + line.number() + " does not parse"));
+                        name + LINE + line.number() + " does not parse"));
             }
             if (!auditRecord.prevHash().equals(expected)) {
                 if (line.number() == 1 && AuditCodec.GENESIS_HASH.equals(auditRecord.prevHash())) {
@@ -452,7 +452,7 @@ public final class AuditVerification implements AuditChainVerification {
                             name + " starts a new chain where the audit index continues it"));
                 }
                 return new Walk.Broken(Outcome.Broken.linkBroken(line.number(),
-                        name + " line " + line.number() + " does not chain to the line before it"));
+                        name + LINE + line.number() + " does not chain to the line before it"));
             }
             expected = AuditCodec.sha256Hex(bytes);
             last = auditRecord;

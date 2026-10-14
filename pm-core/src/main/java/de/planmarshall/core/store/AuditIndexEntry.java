@@ -38,7 +38,7 @@ String checkpointHash) {
     public static final int FORMAT_VERSION = 1;
 
     /** The form of the name of a rotated log file. */
-    static final Pattern FILE = Pattern
+    static final Pattern ROTATED_FILE_FORM = Pattern
             .compile("audit-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.jsonl");
 
     /**
@@ -48,7 +48,7 @@ String checkpointHash) {
      */
     public AuditIndexEntry {
         AuditRecord.requireForm(AuditRecord.HASH, Objects.requireNonNull(prevHash, "prevHash"), "prev_hash");
-        AuditRecord.requireForm(FILE, Objects.requireNonNull(file, "file"), "file");
+        AuditRecord.requireForm(ROTATED_FILE_FORM,Objects.requireNonNull(file, "file"), "file");
         AuditRecord.requireForm(AuditHeadRecord.UUID_FORM, Objects.requireNonNull(firstEventId, "firstEventId"),
                 "first_event_id");
         AuditRecord.requireForm(AuditHeadRecord.UUID_FORM, Objects.requireNonNull(lastEventId, "lastEventId"),

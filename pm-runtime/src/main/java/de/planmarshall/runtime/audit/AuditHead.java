@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.SecretKey;
 
 import de.cuioss.tools.logging.CuiLogger;
@@ -89,7 +90,7 @@ public final class AuditHead implements AuditAnchor {
     private final AuditRotation rotation;
     private final AtomicStoreFile store;
     private final LockKey lockKey;
-    private volatile SecretKey cachedKey;
+    private final AtomicReference<SecretKey> cachedKey = new AtomicReference<>();
 
     /**
      * @param base         the base directory of the runtime
@@ -192,7 +193,7 @@ public final class AuditHead implements AuditAnchor {
                 LOGGER.warn(WARN.AUDIT_HEAD_NOT_WRITTEN, ANCHORED_LINE_MISSING);
                 return;
             }
-            var unsigned = new AuditHeadRecord(AuditHeadRecord.FILE, recordCount.getAsLong(), appended.eventId(),
+            var unsigned = new AuditHeadRecord(AuditHeadRecord.CURRENT_LOG_FILE, recordCount.getAsLong(), appended.eventId(),
                     lineHash, indexSnapshot.headHash(), AuditCodec.GENESIS_HASH);
             store.write(transaction, AuditCodec.writeHead(sign(key.get(), unsigned)));
         } catch (UncheckedIOException | StoreRefusal e) {
@@ -376,13 +377,13 @@ public final class AuditHead implements AuditAnchor {
     }
 
     private Optional<SecretKey> key(boolean warn) {
-        var key = cachedKey;
+        var key = cachedKey.get();
         if (key != null) {
             return Optional.of(key);
         }
         try {
             var read = integrityKey.read();
-            read.ifPresent(present -> cachedKey = present);
+            read.ifPresent(cachedKey::set);
             return read;
         } catch (SecretStoreException e) {
             if (warn) {
