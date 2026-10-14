@@ -423,6 +423,14 @@ decision or a dependency outside this repository.
 
   The shared-identifier defect and the PR watch are relocated to `settled.md`. Emitting may resume.
 
+- 2026-10-14 — Doc #56 (PLAN-21) merged by the orchestrator on the operator's word, at 06:51:30Z
+  (42217c3, squash through the merge queue): PLAN-21 is complete.
+  - It conflicted with main in `doc/roadmap.adoc` only. The resolution kept main's `[~]` for
+    `pm-mcp enter` and #56's `[x]` for entity addressing, with main's specification links.
+  - The first resolution attempt pushed a commit with conflict markers (dfb23c7). 3c5342b fixed it
+    before the merge, and the squash left no trace on main; main was checked to have no markers.
+  - No open documentation PR remains for this epic.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
@@ -464,7 +472,7 @@ decision or a dependency outside this repository.
 
 ## Watches
 
-- Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
+> ↪ Relocated to `settled.md` § "Watch: doc #56 of PLAN-21" — #56 merged 2026-10-14T06:51:30Z (42217c3); PLAN-21 complete
 - A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
 > ↪ Relocated to `settled.md` § "Watch: the log-holder PRs" — #64 merged 06:08:33Z (50827cf, SNAPSHOT deployed), doc #68 merged 06:20:45Z (d9d3e83)
 - plan-marshall-mcp `pm-mcp-server` imports `PmMcpLogMessages` and breaks against the SNAPSHOT of #64 until it switches to `RuntimeLogMessages` (all of its 16 records) or takes over its own records.

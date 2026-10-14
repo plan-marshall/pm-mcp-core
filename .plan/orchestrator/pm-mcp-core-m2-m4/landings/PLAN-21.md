@@ -20,7 +20,7 @@ logs. Harness: Claude Code (default).
 | PR | Repository | State |
 |----|------------|-------|
 | #54 | pm-mcp-core | MERGED 2026-10-13T15:36:05Z (b25d115) |
-| #56 | plan-marshall-documentation | **OPEN** (PM-ARCH-4 / PM-WF-1 trace lines, the roadmap item, new watch item PM-WATCH-TOOL-22) |
+| #56 | plan-marshall-documentation | MERGED 2026-10-14T06:51:30Z (42217c3) (PM-ARCH-4 / PM-WF-1 trace lines, the roadmap item, new watch item PM-WATCH-TOOL-22) |
 
 **The landing is not complete under the operator's rule until doc #56 is merged.**
 
@@ -65,3 +65,5 @@ the format-version advisory does not apply, since the plan touched no codec or j
 - Merge `plan-marshall-documentation` #56 (operator).
 - A pm-runtime adapter for `PendingEntryReader` over `PendingEntryStore` is owed; it belongs to the
   daemon wiring.
+
+**Completed 2026-10-14:** doc #56 merged at 06:51:30Z (42217c3) after a roadmap conflict with main was resolved.

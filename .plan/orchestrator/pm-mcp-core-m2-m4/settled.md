@@ -45,3 +45,7 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
 ## Watch: the log-holder PRs
 
 - pm-mcp-core #64 (log holders per module) and plan-marshall-documentation #68 are OPEN. Merge #64 first, then #68. No plan is emitted before #64 is on main, because every open spec's log rule names the new holders. Once #64 has merged, retire the Open Defect on shared log identifiers.
+
+## Watch: doc #56 of PLAN-21
+
+- Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
