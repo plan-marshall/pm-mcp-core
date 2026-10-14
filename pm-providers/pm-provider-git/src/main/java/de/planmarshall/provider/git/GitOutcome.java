@@ -47,6 +47,8 @@ public enum GitOutcome {
     WORKTREE_LOCKED,
     /** A derived path lies outside the permitted root or is the main worktree. */
     PATH_REFUSED,
+    /** {@code read-file}: the path does not exist at the commit. */
+    PATH_NOT_FOUND,
     /** {@code worktree-sha}: no digest could be produced (fail-closed). */
     UNAVAILABLE,
     /** An I/O or transport failure outside the domain outcomes. */

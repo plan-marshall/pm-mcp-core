@@ -17,5 +17,13 @@
  * process entry points (hooks, shell commands, filter drivers) with {@code capability_missing}, and
  * linked worktrees are created, listed and removed natively on JGit primitives, since JGit has no
  * {@code git worktree} command.
+ * <p>
+ * Beside the operations on a project repository, the contract has the cache repository operations of the corpus
+ * sources (PM-WORK-6, PM-EXEC-5): {@code initCache} creates a bare cache repository, {@code fetchCommit} fetches one
+ * pinned commit by its id within a compiled transport timeout from a remote the given
+ * {@link de.planmarshall.provider.git.RemotePolicy} admits, without credential, and {@code readFile} reads the raw blob
+ * of a path at that commit, a file kept in Git LFS as its pointer.
+ * {@link de.planmarshall.provider.git.JGitSourceRepository} implements the git part of the fetch of {@code pm-core}
+ * over these operations.
  */
 package de.planmarshall.provider.git;

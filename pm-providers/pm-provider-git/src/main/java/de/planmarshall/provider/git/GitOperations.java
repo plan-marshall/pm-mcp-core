@@ -109,6 +109,78 @@ public interface GitOperations {
     GitResult<RefUpdate> push(PushInput input);
 
     /**
+     * {@code git.cache-init}: creates the bare cache repository at the path, or opens the one there. A cache
+     * repository holds the pinned commits of a source outside every working tree.
+     *
+     * @param cache the git directory of the cache repository
+     * @return {@code OK} with the canonical git directory, {@code NOT_A_REPOSITORY} if the path holds anything but a
+     *         bare repository, or {@code FAILED}
+     */
+    GitResult<Path> initCache(Path cache);
+
+    /**
+     * {@code git.fetch-commit}: fetches exactly one pinned commit, by its id, from a URL into a cache repository,
+     * without credential and within a transport timeout. A commit already in the cache is not fetched again.
+     *
+     * @param input the input
+     * @return {@code OK} with the commit id, {@code REMOTE_ORIGIN_MISMATCH} if the policy does not admit the URL
+     *         (nothing was sent), {@code UNKNOWN_REVISION} if the remote does not serve the commit,
+     *         {@code NOT_A_REPOSITORY} if the cache is no repository, or {@code FAILED} if the remote did not answer
+     */
+    GitResult<String> fetchCommit(FetchCommitInput input);
+
+    /**
+     * {@code git.read-file}: the raw blob of a path at a commit of a cache repository, as it is stored: no filter
+     * runs, so a file kept in Git LFS is read as its pointer.
+     *
+     * @param input the input
+     * @return {@code OK} with the bytes, {@code UNKNOWN_REVISION} if the commit is not in the cache,
+     *         {@code PATH_NOT_FOUND} if the path is no file at the commit, {@code NOT_A_REPOSITORY} if the cache is no
+     *         repository, or {@code FAILED}
+     */
+    GitResult<byte[]> readFile(ReadFileInput input);
+
+    /**
+     * Input of {@code git.fetch-commit}.
+     *
+     * @param cache  the git directory of the cache repository
+     * @param url    the URL of the repository the commit is fetched from
+     * @param commit the full id of the commit
+     * @param policy the remotes the fetch may contact
+     */
+    record FetchCommitInput(Path cache, String url, String commit, RemotePolicy policy) {
+
+        /**
+         * Requires every value.
+         */
+        public FetchCommitInput {
+            Objects.requireNonNull(cache, "cache");
+            Objects.requireNonNull(url, "url");
+            Objects.requireNonNull(commit, "commit");
+            Objects.requireNonNull(policy, "policy");
+        }
+    }
+
+    /**
+     * Input of {@code git.read-file}.
+     *
+     * @param cache  the git directory of the cache repository
+     * @param commit the full id of the commit
+     * @param path   the repository-relative path of the file
+     */
+    record ReadFileInput(Path cache, String commit, String path) {
+
+        /**
+         * Requires every value.
+         */
+        public ReadFileInput {
+            Objects.requireNonNull(cache, "cache");
+            Objects.requireNonNull(commit, "commit");
+            Objects.requireNonNull(path, "path");
+        }
+    }
+
+    /**
      * Facts of an opened repository.
      *
      * @param worktreeRoot the canonical worktree root
