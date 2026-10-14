@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
+import java.util.regex.Pattern;
 
 import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.role.corpus.JsonValue.JsonList;
@@ -49,7 +50,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * The client sends one request of the LFS batch API, {@code POST <repository>.git/info/lfs/objects/batch} with the
  * operation {@code download} and the transfer {@code basic} in the media type {@value #MEDIA_TYPE}, and downloads the
  * object from the {@code href} of the answer's download action, with the action's header values, which are never
- * logged. Every request goes to an {@code https} URL, within the connect timeout of
+ * logged nor carried in a detail. A header the request refuses (an invalid value, such as one with a control
+ * character, or a restricted name) ends the fetch as {@link SourceFetch.Outcome#UNREACHABLE} with a detail that names
+ * the header, never its value. Every request goes to an {@code https} URL, within the connect timeout of
  * {@value #CONNECT_TIMEOUT_SECONDS} s and the read timeout of {@value #READ_TIMEOUT_SECONDS} s. The download is read
  * up to one byte beyond the pointer's size and no further.
  * <p>
@@ -81,6 +84,8 @@ public final class LfsBatchClient implements LfsObjectSource {
     private static final String HTTP = "http";
     private static final Set<String> LOOPBACK = Set.of("localhost", "127.0.0.1", "[::1]", "::1");
     private static final int MAX_OBJECT_SIZE = Integer.MAX_VALUE - 8;
+    /** An HTTP header name (RFC 9110 token), at most 64 characters. */
+    private static final Pattern HEADER_TOKEN = Pattern.compile("[!#$%&'*+.^_`|~0-9A-Za-z-]{1,64}");
 
     private final boolean cleartextLoopback;
     private final int connectTimeoutSeconds;
@@ -225,7 +230,15 @@ public final class LfsBatchClient implements LfsObjectSource {
         try (var handler = HttpHandler.builder().uri(uri).connectionTimeoutSeconds(connectTimeoutSeconds)
                      .readTimeoutSeconds(readTimeoutSeconds).allowInsecureHttp(HTTP.equals(scheme(uri))).build()) {
             var request = handler.requestBuilder().uri(uri);
-            headers.forEach(request::header);
+            for (var header : headers.entrySet()) {
+                try {
+                    request.header(header.getKey(), header.getValue());
+                } catch (IllegalArgumentException e) {
+                    // The JDK's message carries the header value, which may be a credential: name the header only.
+                    return Answer.failed(SourceFetch.unreachable("the request to %s is refused: %s".formatted(
+                            withoutQuery(uri), headerName(header.getKey()))));
+                }
+            }
             if (body == null) {
                 request.GET();
             } else {
@@ -239,9 +252,20 @@ public final class LfsBatchClient implements LfsObjectSource {
             Thread.currentThread().interrupt();
             return Answer.failed(SourceFetch.unreachable("interrupted while asking " + withoutQuery(uri)));
         } catch (IllegalArgumentException | IllegalStateException e) {
+            // The message of such an exception may quote a header value or the full URL: name its type only.
             return Answer.failed(SourceFetch.unreachable("the request to %s is refused: %s".formatted(
-                    withoutQuery(uri), e.getMessage())));
+                    withoutQuery(uri), e.getClass().getSimpleName())));
         }
+    }
+
+    /**
+     * @param name the name of a header the request builder refused
+     * @return the text that names the refused header in a detail: its name when that is an HTTP token, otherwise a
+     *         fixed text, so neither a header value nor a control character of a name reaches a log line
+     */
+    static String headerName(String name) {
+        return HEADER_TOKEN.matcher(name).matches() ? "the header %s of the download action is invalid".formatted(name)
+                : "a header of the download action has an invalid name";
     }
 
     private boolean admitted(URI uri) {

@@ -14,6 +14,9 @@ import java.io.IOException;
 import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -83,9 +86,13 @@ public final class CorpusImport {
      *
      * @param corpusRoot the corpus root, holding {@code sources/}
      * @param cacheRoot  the cache root the cache repositories and the items are written below, outside the corpus root
-     * @return the sources covered and missed
+     * @return the sources covered and missed; a corpus root that exists without a {@code sources/} directory, or
+     *         whose {@code sources/} holds no source, yields an empty, {@link ImportResult.Verdict#COMPLETE} result
      * @throws IllegalArgumentException if the cache root lies below the corpus root
-     * @throws UncheckedIOException     if the sources cannot be listed or the items cannot be written
+     * @throws UncheckedIOException     if the corpus root does not exist, is no directory or cannot be read, if its
+     *                                  {@code sources/} is no directory or cannot be listed, or if the items cannot be
+     *                                  written; a corpus that cannot be read is never imported as one without
+     *                                  sources, and the items of an earlier import are then left in place
      */
     public ImportResult run(Path corpusRoot, Path cacheRoot) {
         var corpus = Objects.requireNonNull(corpusRoot, "corpusRoot").toAbsolutePath().normalize();
@@ -94,12 +101,13 @@ public final class CorpusImport {
             throw new IllegalArgumentException("the cache root %s lies below the corpus root %s".formatted(cache,
                     corpus));
         }
+        var directories = sourceDirectories(corpus);
         var itemsRoot = cache.resolve(ITEMS);
         deleteTree(itemsRoot);
         var covered = new ArrayList<CoveredSource>();
         var missed = new ArrayList<MissedSource>();
         var written = new HashSet<String>();
-        for (var directory : sourceDirectories(corpus.resolve(SOURCES))) {
+        for (var directory : directories) {
             var name = directory.getFileName().toString();
             try {
                 var items = importSource(directory, name, cache);
@@ -241,9 +249,31 @@ public final class CorpusImport {
         }
     }
 
-    private static List<Path> sourceDirectories(Path sources) {
-        if (!Files.isDirectory(sources)) {
+    /**
+     * Lists the source directories, telling a corpus without sources from one that could not be read.
+     *
+     * @param corpus the corpus root
+     * @return the source directories in name order; empty only for a corpus root that exists and has no
+     *         {@code sources/} directory, or a {@code sources/} directory without a subdirectory
+     * @throws UncheckedIOException if the corpus root is no directory, its {@code sources/} entry cannot be told to be
+     *                              absent or is no directory, or the sources cannot be listed
+     */
+    private static List<Path> sourceDirectories(Path corpus) {
+        if (Files.notExists(corpus)) {
+            throw new UncheckedIOException("The corpus root does not exist: " + corpus,
+                    new NoSuchFileException(corpus.toString()));
+        }
+        if (!Files.isDirectory(corpus)) {
+            throw new UncheckedIOException("The corpus root is no directory or cannot be read: " + corpus,
+                    new NotDirectoryException(corpus.toString()));
+        }
+        var sources = corpus.resolve(SOURCES);
+        if (Files.notExists(sources, LinkOption.NOFOLLOW_LINKS)) {
             return List.of();
+        }
+        if (!Files.isDirectory(sources)) {
+            throw new UncheckedIOException("The corpus sources are no directory: " + sources,
+                    new NotDirectoryException(sources.toString()));
         }
         try (Stream<Path> entries = Files.list(sources)) {
             return entries.filter(Files::isDirectory).sorted().toList();

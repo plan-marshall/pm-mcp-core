@@ -22,6 +22,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.lib.CommitBuilder;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.FileMode;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectInserter;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.TreeFormatter;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.util.FileUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -136,6 +145,16 @@ class JGitCacheRepositoryTest {
         void workingTree() {
             assertEquals(GitOutcome.NOT_A_REPOSITORY, git.initCache(source.resolve(".git")).outcome());
         }
+
+        @Test
+        @DisplayName("a cache that cannot be created, below a regular file, is a failure")
+        void cannotCreate() throws Exception {
+            var file = Files.writeString(temp.resolve("cache-file"), "no directory");
+
+            var result = git.initCache(file.resolve("alpha.git"));
+
+            assertEquals(GitOutcome.FAILED, result.outcome(), result.detail());
+        }
     }
 
     @Nested
@@ -213,6 +232,33 @@ class JGitCacheRepositoryTest {
             assertAll(
                     () -> assertEquals(GitOutcome.PATH_NOT_FOUND, read(commit, "data/other.csv").outcome()),
                     () -> assertEquals(GitOutcome.PATH_NOT_FOUND, read(commit, "data").outcome()));
+        }
+
+        @Test
+        @DisplayName("a file whose object the cache lost is a failure to readFile, not a missing path")
+        void lostObject() throws Exception {
+            ObjectId blob;
+            ObjectId cached;
+            try (Repository repository = new FileRepositoryBuilder().setGitDir(cache.toFile()).setBare().build();
+                 ObjectInserter inserter = repository.newObjectInserter()) {
+                blob = inserter.insert(Constants.OBJ_BLOB, CSV.getBytes(UTF_8));
+                var tree = new TreeFormatter();
+                tree.append("test.csv", FileMode.REGULAR_FILE, blob);
+                var commitBuilder = new CommitBuilder();
+                commitBuilder.setTreeId(inserter.insert(tree));
+                var ident = new PersonIdent(AUTHOR.name(), AUTHOR.email());
+                commitBuilder.setAuthor(ident);
+                commitBuilder.setCommitter(ident);
+                commitBuilder.setMessage("cached");
+                cached = inserter.insert(commitBuilder);
+                inserter.flush();
+            }
+            Files.delete(cache.resolve("objects").resolve(blob.name().substring(0, 2))
+                    .resolve(blob.name().substring(2)));
+
+            var result = read(cached.name(), "test.csv");
+
+            assertEquals(GitOutcome.FAILED, result.outcome(), result.detail());
         }
 
         @Test

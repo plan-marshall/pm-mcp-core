@@ -25,6 +25,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06
 
 . The batch request, `POST <repository>.git/info/lfs/objects/batch` (`batchUri` appends `.git` unless the path ends with it and drops a trailing slash), with `Accept` and `Content-Type` `application/vnd.git-lfs+json` (`MEDIA_TYPE`) and the body `{"operation":"download","transfers":["basic"],"objects":[{"oid","size"}],"hash_algo":"sha256"}`.
 . The download, `GET` of the `href` of the answer's `actions.download`, with the string values of its `header` object. These values may carry a token; they are sent but never logged, and the query of the URL is cut from every detail.
+A header the request builder refuses (a value with a control character, a restricted name) ends the fetch before anything is sent; the detail names the header (its name when that is an HTTP token, otherwise a fixed text) and never its value, and no exception message is carried, since the JDK's message quotes the value.
 
 Every request goes to an `https` URL without user information; a repository URL without scheme or host, or a repository or download URL that is not `https`, is refused before anything is sent.
 The package-private constructor admits plain `http` to a loopback address as well, for the mock web server of the tests.
@@ -38,7 +39,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 |===
 |What happens |`SourceFetch.Outcome`
 
-|the URL names no scheme or no host, is not `https` or carries user information; the endpoint does not answer, times out or is interrupted; the batch API answers an error status other than 404; the batch answer is no JSON; the download action names no URL; the download answers an error status other than 404 and 410; the pointer's size exceeds what a byte array holds
+|the URL names no scheme or no host, is not `https` or carries user information; the endpoint does not answer, times out or is interrupted; the batch API answers an error status other than 404; the batch answer is no JSON; the download action names no URL or a header the request refuses; the download answers an error status other than 404 and 410; the pointer's size exceeds what a byte array holds
 |`UNREACHABLE`
 
 |the batch API answers 404 (the repository has no LFS endpoint); the batch answer names no entry for the oid, an object `error`, or no download action; the download answers 404 or 410
@@ -65,6 +66,7 @@ The client under test is built with the loopback admitted, a connect timeout of 
 * The delivered object: the batch request (method, path, media type, body) and the download with the action's header.
 * Delivered bytes that are not the object, and a body longer than the pointer's size, read only up to one byte beyond it: both `FETCHED`.
 * Every way the endpoint does not deliver (404, 503, object error, another object, no JSON, no download action, download 404 and 500): `UNREACHABLE` or `PIN_MISSING`, the WARN logged, the action's header value absent from the detail.
+* A download action whose header value carries a line break: `UNREACHABLE` with only the batch request sent, the WARN logged, and neither the detail nor any log line holding the value.
 * A stalled response (headers delayed beyond the read timeout): `UNREACHABLE`, the WARN logged.
 * A repository that is not `https`, and one with user information: refused with nothing sent.
 * A repository URL without scheme or host (a relative path, `mailto:`, `https:/path`, `file:///`, `//host/path`): `UNREACHABLE` with nothing sent and the WARN logged, never an exception.
@@ -75,7 +77,7 @@ The client under test is built with the loopback admitted, a connect timeout of 
 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
 
-1. **Never log a header value of the download action**: it may be a token. The WARN carries the oid, the repository and the detail only.
+1. **Never log a header value of the download action**: it may be a token. The WARN carries the oid, the repository and the detail only, and no detail carries the message of an exception the request builder throws, which quotes the value it refuses.
 2. **Do not refuse delivered bytes here**: returning `PIN_MISSING` for a mismatch would turn a failed run into a partial one.
 3. **Keep the read bounded**: do not read the download into memory with an unbounded body handler.
 4. **Every request through `cui-http`**: no other HTTP client, and the timeouts stay compiled.

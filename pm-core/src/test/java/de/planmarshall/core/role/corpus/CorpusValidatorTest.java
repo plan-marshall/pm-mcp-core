@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -267,6 +268,50 @@ class CorpusValidatorTest {
         return new SourceOverlay(source, file, "question_id", LocalDate.of(2026, 10, 14), List.of(row));
     }
 
+    /**
+     * @return a manifest of {@code alpha} that names {@link #SOURCE_FILE} twice: its schema admits it (the keyword
+     *         subset has no {@code uniqueItems}), its codec refuses it
+     */
+    private static String pathTwice() {
+        var twoFiles = new SourceManifest("alpha", URI.create("https://github.com/example/alpha"), COMMIT, "MIT",
+                List.of(new SourceFile(SOURCE_FILE, Sha256.hex(CSV), false),
+                        new SourceFile("data/other.csv", Sha256.hex(CSV), false)));
+        return new String(SourceManifestCodec.write(twoFiles), UTF_8).replace("data/other.csv", SOURCE_FILE);
+    }
+
+    /**
+     * @return an overlay of {@code alpha} whose two rows select the key {@code q-1}: its schema admits it, its codec
+     *         refuses it
+     */
+    private static String rowTwice() {
+        var row = overlay("alpha", SOURCE_FILE).rows().getFirst();
+        var second = new Row("q-2", "q-2", row.topic(), row.role(), row.title(), row.tags(), row.question(),
+                row.facts(), row.choices(), row.target(), row.grading(), row.review());
+        var twoRows = new SourceOverlay("alpha", SOURCE_FILE, "question_id", LocalDate.of(2026, 10, 14),
+                List.of(row, second));
+        return new String(SourceOverlayCodec.write(twoRows), UTF_8).replace("\"q-2\"", "\"q-1\"");
+    }
+
+    @Test
+    @DisplayName("the codec-refusal fixtures pass their schemas, so the codec refusal is what reports them")
+    void codecRefusalFixturesPassTheirSchemas() throws IOException {
+        var manifestErrors = SchemaSubset.validate(JsonValue.parse(pathTwice().getBytes(UTF_8)),
+                JsonValue.parse(resource("source-manifest.schema.json")));
+        var overlayErrors = SchemaSubset.validate(JsonValue.parse(rowTwice().getBytes(UTF_8)),
+                JsonValue.parse(resource("source-overlay.schema.json")));
+
+        assertAll(
+                () -> assertEquals(List.of(), manifestErrors),
+                () -> assertEquals(List.of(), overlayErrors));
+    }
+
+    private static byte[] resource(String name) throws IOException {
+        try (var in = CorpusValidator.class.getResourceAsStream(name)) {
+            assertNotNull(in, name);
+            return in.readAllBytes();
+        }
+    }
+
     @Nested
     @DisplayName("a valid corpus")
     class Valid {
@@ -383,6 +428,10 @@ class CorpusValidatorTest {
                 Arguments.of("the manifest names another source", MANIFEST, Rule.MANIFEST,
                         (Mutation) f -> f.manifest(manifest("beta", SOURCE_FILE))),
                 Arguments.of("the manifest is no JSON", MANIFEST, Rule.MANIFEST, (Mutation) f -> f.write(MANIFEST, "[")),
+                Arguments.of("the manifest passes its schema but its codec refuses a path twice", MANIFEST,
+                        Rule.MANIFEST, (Mutation) f -> f.write(MANIFEST, pathTwice())),
+                Arguments.of("the overlay passes its schema but its codec refuses a row twice", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.write(OVERLAY, rowTwice())),
                 Arguments.of("the overlay is missing", OVERLAY, Rule.OVERLAY, (Mutation) f -> f.delete(OVERLAY)),
                 Arguments.of("the overlay names another source", OVERLAY, Rule.OVERLAY,
                         (Mutation) f -> f.overlay(overlay("beta", SOURCE_FILE))),

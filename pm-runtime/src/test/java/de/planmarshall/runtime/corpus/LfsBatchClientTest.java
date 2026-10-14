@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.cuioss.test.mockwebserver.EnableMockWebServer;
 import java.io.IOException;
@@ -256,6 +257,54 @@ class LfsBatchClientTest {
                 () -> assertEquals(requests, server.getRequestCount()),
                 () -> assertFalse(fetch.detail().contains("action-s3cret"), fetch::detail));
         assertUnavailableLogged();
+    }
+
+    static Stream<Arguments> refusedHeaders() {
+        return Stream.of(
+                Arguments.of("a value with a line feed", "Authorization", "RemoteAuth tok\\nen-s3cret",
+                        "the header Authorization of the download action is invalid"),
+                Arguments.of("a value with a carriage return and line feed", "Authorization",
+                        "RemoteAuth tok\\r\\nX-Injected: en-s3cret",
+                        "the header Authorization of the download action is invalid"),
+                Arguments.of("a name with a line feed", "X-Auth\\nX-Other", "RemoteAuth en-s3cret",
+                        "a header of the download action has an invalid name"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("refusedHeaders")
+    @DisplayName("a refused download action header is UNREACHABLE, and no detail or log line holds its value")
+    void refusedHeader(String name, String headerName, String headerValue, String expectedDetail) {
+        var answer = """
+                {"objects":[{"oid":"%s","size":%d,"actions":{"download":{"href":"%s","header":{"%s":"%s"}}}}]}"""
+                .formatted(POINTER.oid(), POINTER.size(), base() + OBJECT_PATH, headerName, headerValue);
+        on("POST", BATCH, lfsJson(200, answer));
+        on("GET", OBJECT_PATH, bytes(OBJECT));
+
+        var fetch = client.object(repository(), POINTER);
+
+        assertAll(
+                () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
+                () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"),
+                () -> assertTrue(fetch.detail().contains(expectedDetail), fetch::detail),
+                () -> assertFalse(fetch.detail().contains("s3cret"), fetch::detail),
+                () -> assertFalse(fetch.detail().contains("RemoteAuth"), fetch::detail));
+        assertUnavailableLogged();
+        for (var level : TestLogLevel.values()) {
+            assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "s3cret").isEmpty(),
+                    "no " + level + " line holds the header value");
+        }
+    }
+
+    @Test
+    @DisplayName("names a header by its name only when that is an HTTP token")
+    void headerNameText() {
+        assertAll(
+                () -> assertEquals("the header X-Auth of the download action is invalid",
+                        LfsBatchClient.headerName("X-Auth")),
+                () -> assertEquals("a header of the download action has an invalid name",
+                        LfsBatchClient.headerName("X Auth: value")),
+                () -> assertEquals("a header of the download action has an invalid name",
+                        LfsBatchClient.headerName("")));
     }
 
     @Test

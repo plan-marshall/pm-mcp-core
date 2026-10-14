@@ -182,6 +182,28 @@ class SourceManifestCodecTest {
 
             assertUnreadable(refusal, "undeclared field 'size'");
         }
+
+        @ParameterizedTest(name = "a file without {0}")
+        @MethodSource("de.planmarshall.core.role.corpus.SourceManifestCodecTest#fileFields")
+        @DisplayName("a file object missing a field is refused, and lfs is never defaulted")
+        void missingFileField(String field) {
+            var members = new LinkedHashMap<String, String>();
+            members.put("path", "\"data/big.jsonl\"");
+            members.put("sha256", "\"" + OBJECT_HASH + "\"");
+            members.put("lfs", "true");
+            members.remove(field);
+            var incomplete = members.entrySet().stream()
+                    .map(member -> "\"" + member.getKey() + "\":" + member.getValue())
+                    .collect(Collectors.joining(",", "{", "}"));
+
+            var refusal = refusalOf(with("files", "[" + file("data/test.csv", HASH, false) + "," + incomplete + "]"));
+
+            assertUnreadable(refusal, "field '%s' of the files[1] is missing".formatted(field));
+        }
+    }
+
+    static Stream<String> fileFields() {
+        return Stream.of("path", "sha256", "lfs");
     }
 
     static Stream<String> requiredFields() {

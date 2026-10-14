@@ -38,6 +38,13 @@ answer, a timeout, a malformed or refusing batch answer) is `unreachable` or `pi
 `malformed` is a fourth reason the outline did not name: a manifest, overlay or source file that does not yield the
 selected items is a defect of the corpus, so it fails the run like a mismatch.
 
+A corpus with no sources is not a corpus that could not be read. A corpus root that exists without a `sources/`
+directory, or whose `sources/` holds no source, is `COMPLETE` with no source: the corpus of the product has none yet.
+A corpus root that does not exist, is no directory or cannot be read, and a `sources/` that is no directory or cannot
+be listed, refuse the whole import with an `UncheckedIOException`, the refusal `run` already declares for an I/O
+failure: there is no source to name a missed entry after, and an empty result would be `COMPLETE`. The sources are
+listed before the items of an earlier import are removed, so a refused import leaves them in place.
+
 == Alternatives Considered
 
 1. *A mismatching source missed like an unreachable one*, making the run `PARTIAL`. Not taken: changed content at a
@@ -47,6 +54,11 @@ selected items is a defect of the corpus, so it fails the run like a mismatch.
    alternative: it would turn a failed run into a partial one.
 4. *Refusing an oversized download as unavailable.* Not taken: the endpoint did deliver, and what it delivered is not
    the object.
+5. *An unreadable corpus as a `FAILED` result with a synthetic missed entry.* Not taken: a missed entry names a
+   source, and an unread corpus has none to name; the typed refusal reaches the caller without a result that could be
+   mistaken for an import.
+6. *A missing corpus root as an empty `COMPLETE` result.* Not taken: a mistyped path or a missing checkout would
+   qualify a role on a corpus nothing was imported from.
 
 == Consequences
 
@@ -55,6 +67,8 @@ selected items is a defect of the corpus, so it fails the run like a mismatch.
 * Every missed source is logged: WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`, and for a mismatch ERROR `PM_CORE-200`
   `CORPUS_SOURCE_HASH_MISMATCH`. An LFS object the endpoint does not deliver is also logged by the client as WARN
   `PM_RUNTIME-126` `CORPUS_LFS_OBJECT_UNAVAILABLE`.
+* A caller that gets the `UncheckedIOException` of an unreadable corpus qualifies nothing; the items of the earlier
+  import stay below the cache root.
 * An implementation of `SourceRepository` or `LfsObjectSource` returns what it fetched and leaves the hash check to
   `CorpusImport`.
 
