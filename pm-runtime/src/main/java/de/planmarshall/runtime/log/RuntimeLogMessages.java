@@ -243,6 +243,16 @@ public final class RuntimeLogMessages {
                 .identifier(24)
                 .template("Periodic sweep removed %s fenced session generations of project '%s'")
                 .build();
+
+        /**
+         * Logged when the audit log was rotated: closed by its checkpoint record, named by an entry of the audit
+         * index and renamed, with the name of the rotated file and its number of records, the checkpoint included.
+         */
+        public static final LogRecord AUDIT_LOG_ROTATED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(25)
+                .template("Audit log rotated to '%s' with %s records")
+                .build();
     }
 
     /** WARN level messages. */
@@ -447,6 +457,27 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(122)
                 .template("Job of project '%s' refused with reason '%s': %s")
+                .build();
+
+        /**
+         * Logged when the head of the audit log cannot be written after an append, because the enrolment integrity
+         * key cannot be read or the head cannot be written; names the reason code, never the key. The record stays
+         * appended, and the next verification reports the head that does not match.
+         */
+        public static final LogRecord AUDIT_HEAD_NOT_WRITTEN = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(123)
+                .template("Audit head not written, the record stays appended: %s")
+                .build();
+
+        /**
+         * Logged when a due rotation of the audit log cannot be carried out; the record is appended to the current
+         * log, and the next append completes or retries the rotation.
+         */
+        public static final LogRecord AUDIT_ROTATION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(124)
+                .template("Audit log rotation not carried out, the log goes on: %s")
                 .build();
     }
 
