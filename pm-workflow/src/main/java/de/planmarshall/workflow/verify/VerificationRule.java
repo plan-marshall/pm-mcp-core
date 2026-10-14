@@ -10,8 +10,8 @@
 package de.planmarshall.workflow.verify;
 
 /**
- * The closed set of checks {@link WorkflowValidator} runs (PM-IMPL-5). Every {@link Violation}, the advisories of a
- * {@link VerificationResult} included, names exactly one of them, and each carries the number of the static verification rule of the specification it implements a part of.
+ * The closed set of checks {@link WorkflowValidator} runs (PM-IMPL-5). Every {@link Violation} names exactly one of
+ * them, and each carries the number of the static verification rule of the specification it implements a part of.
  * This enum is the only source of the rule vocabulary.
  *
  * @since 0.1
@@ -43,13 +43,6 @@ public enum VerificationRule {
     STATE_EXISTS(3),
     /** Every state is reachable from the start state. */
     REACHABILITY(3),
-    /**
-     * Fails when no combination of the Boolean {@code depends_on_config} keys reaches a state or transition; partial
-     * reachability is an advisory. Under the all-keys-true activation the all-true combination reaches everything the
-     * unconditional graph reaches, so the check yields advisories only and no violation until enum values activate
-     * links (ADR 006).
-     */
-    CONFIG_REACHABILITY(3),
     /** {@code plan.aborted} is never targeted, and {@code epic.aborted} only by {@code abort_landed} of {@code epic.next-work}. */
     ABORT_TERMINAL_TARGETING(3),
     /** Transitions must not target condition kinds or reserved state identifiers. */

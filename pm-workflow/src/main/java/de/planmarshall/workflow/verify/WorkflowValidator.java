@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.CycleMeasure;
@@ -59,9 +58,7 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the released state names from the baseline its caller passes. No check stops at the first violation, so the result
  * lists all of them, ordered by the declaration order of their state and then by rule.
  * <p>
- * Reachability is graph reachability over every transition. Configuration reachability (Rule 3) enumerates the
- * Boolean combinations of the guards' {@code depends_on_config} keys and returns a state or transition that some
- * combinations do not reach as an advisory of the result, not as a violation (ADR 004, ADR 006, ADR 008).
+ * Reachability is graph reachability over every transition.
  *
  * @since 0.1
  */
@@ -177,8 +174,7 @@ public final class WorkflowValidator {
      * Runs every check over the unit.
      *
      * @param definition the parsed unit
-     * @return every violation and every advisory of the unit; {@link VerificationResult#passed()} when there is no
-     *         violation
+     * @return every violation of the unit; {@link VerificationResult#passed()} when there is none
      * @throws NullPointerException if the definition is {@code null}
      */
     public VerificationResult verify(WorkflowDefinition definition) {
@@ -207,11 +203,9 @@ public final class WorkflowValidator {
         checkSessionDrivenLinks(definition, violations);
         checkCycleAwaitedEvent(definition, violations);
         checkReachability(definition, graph, violations);
-        var advisories = new ArrayList<Violation>();
-        checkConfigReachability(definition, advisories);
         checkExitPaths(definition, graph, violations);
         checkReleasedStates(definition, violations);
-        return new VerificationResult(ordered(definition, violations), ordered(definition, advisories));
+        return new VerificationResult(ordered(definition, violations));
     }
 
     private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
@@ -726,92 +720,6 @@ public final class WorkflowValidator {
     }
 
     /**
-     * Rule 3, configuration reachability: enumerates the Boolean combinations of the unit's {@code depends_on_config}
-     * keys with the all-keys-true activation of {@link UnitGraph} and reports, as an advisory, every state and every
-     * outcome transition that some combinations reach and others do not, naming both sets. A transition is reached
-     * under a combination when its source state is reached and, for the transition of a declared link, the link is
-     * active. A state the unconditional graph does not reach is refused by {@link VerificationRule#REACHABILITY}, and
-     * an abort terminal counts as reachable from every state.
-     * <p>
-     * No violation is raised here. Under all-keys-true activation the all-true combination activates every link, so
-     * its graph is the unconditional graph and every state and transition the unconditional graph reaches is reached
-     * under at least that combination: the refusal of a state or transition no combination reaches cannot be met.
-     * It becomes satisfiable only with the activation of enum values, which ADR 006 names as a seam.
-     */
-    private static void checkConfigReachability(WorkflowDefinition definition, List<Violation> advisories) {
-        var configKeys = UnitGraph.configKeysOf(definition);
-        if (configKeys.isEmpty()) {
-            return;
-        }
-        var combinations = UnitGraph.configCombinations(configKeys);
-        var baseReached = UnitGraph.of(definition).forwardClosure(Set.of(definition.startState()));
-
-        // One active graph per combination, built once and read by every state and transition below rather than
-        // rebuilt per state.
-        var reachedByCombination = new ArrayList<Set<String>>(combinations.size());
-        for (var combination : combinations) {
-            reachedByCombination.add(UnitGraph.of(definition, combination)
-                    .forwardClosure(Set.of(definition.startState())));
-        }
-
-        for (var state : definition.states().values()) {
-            if (ABORT_TERMINALS.contains(state.id()) || !baseReached.contains(state.id())) {
-                continue;
-            }
-            var stateReach = new boolean[combinations.size()];
-            for (int i = 0; i < combinations.size(); i++) {
-                stateReach[i] = reachedByCombination.get(i).contains(state.id());
-            }
-            partialReach(combinations, stateReach).ifPresent(reach -> advisories.add(new Violation(
-                    VerificationRule.CONFIG_REACHABILITY, state.id(), state.location(),
-                    "the state '%s' is reached from the start state '%s' %s"
-                            .formatted(state.id(), definition.startState(), reach))));
-            for (var transition : UnitGraph.engineTransitions(state.behavior())) {
-                reportPartialTransition(state, transition, combinations, stateReach, advisories);
-            }
-            for (var link : UnitGraph.declaredLinks(state.behavior())) {
-                var linkReach = new boolean[combinations.size()];
-                for (int i = 0; i < combinations.size(); i++) {
-                    linkReach[i] = stateReach[i] && UnitGraph.isLinkActive(link, combinations.get(i));
-                }
-                for (var transition : link.transitions()) {
-                    reportPartialTransition(state, transition, combinations, linkReach, advisories);
-                }
-            }
-        }
-    }
-
-    private static void reportPartialTransition(StateNode state, OutcomeTransition transition,
-            List<Map<String, Boolean>> combinations, boolean[] reached, List<Violation> advisories) {
-        partialReach(combinations, reached).ifPresent(reach -> advisories.add(new Violation(
-                VerificationRule.CONFIG_REACHABILITY, state.id(), transition.location(),
-                "the transition '%s' of the state '%s' into '%s' is reached %s"
-                        .formatted(transition.outcomeName(), state.id(), transition.targetStateId(), reach))));
-    }
-
-    /**
-     * @param combinations the configuration combinations
-     * @param reached      per combination, whether it reaches the state or transition
-     * @return the combinations that reach it and those that do not, when both sets are non-empty; empty otherwise
-     */
-    private static Optional<String> partialReach(List<Map<String, Boolean>> combinations, boolean[] reached) {
-        var reaching = new ArrayList<Map<String, Boolean>>();
-        var notReaching = new ArrayList<Map<String, Boolean>>();
-        for (int i = 0; i < combinations.size(); i++) {
-            if (reached[i]) {
-                reaching.add(combinations.get(i));
-            } else {
-                notReaching.add(combinations.get(i));
-            }
-        }
-        if (reaching.isEmpty() || notReaching.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of("only under configuration %s, not under %s"
-                .formatted(formatCombinations(reaching), formatCombinations(notReaching)));
-    }
-
-    /**
      * Tells whether an identifier names a condition kind or a reserved state identifier
      * ({@code <phase>.blocked}, {@code <phase>.footprint-violation}, {@code <phase>.config-drift}); Rule 3 and the
      * compiled invariant {@link InvariantId#INV_GEN_3} share this one vocabulary.
@@ -833,18 +741,6 @@ public final class WorkflowValidator {
 
     private static boolean isAbortTerminal(String target) {
         return ABORT_TERMINALS.contains(target);
-    }
-
-    private static String formatCombinations(List<Map<String, Boolean>> combinations) {
-        return combinations.stream()
-                .map(WorkflowValidator::formatCombination)
-                .collect(Collectors.joining(", "));
-    }
-
-    private static String formatCombination(Map<String, Boolean> combination) {
-        return combination.entrySet().stream()
-                .map(e -> "%s=%s".formatted(e.getKey(), e.getValue()))
-                .collect(Collectors.joining(", ", "[", "]"));
     }
 
     private static void checkLeafTaskConstraint(WorkflowDefinition definition, List<Violation> violations) {

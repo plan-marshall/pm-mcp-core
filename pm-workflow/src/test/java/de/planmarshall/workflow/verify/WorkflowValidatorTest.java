@@ -247,10 +247,10 @@ class WorkflowValidatorTest {
 
     /** What the specification asks and the verifier does not check: the seams, each named by its ADR. */
     private static final List<Unpinned> SEAMS = List.of(
-            new Unpinned("Rule 3: a state or transition no combination of the depends_on_config values reaches",
-                    VerificationRule.CONFIG_REACHABILITY,
-                    "ADR 006: no activation rule for enum values; under the Boolean all-keys-true activation the"
-                            + " all-true combination reaches everything, so partial reachability is an advisory"),
+            new Unpinned("Rule 3: configuration reachability over the depends_on_config values (no activation rule;"
+                    + " removed)", VerificationRule.REACHABILITY,
+                    "ADR 006: the specification defines no rule by which a depends_on_config value activates a"
+                            + " guard, so the check and its advisories are removed (ADR 004)"),
             new Unpinned("Rule 1: each runs over a read-only list primitive, role each over one returning role names",
                     VerificationRule.ENTITY_KIND_BINDING,
                     "ADR 010: the primitive SPI cannot express either; only the registration is checked"),
@@ -332,7 +332,8 @@ class WorkflowValidatorTest {
             var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
                     SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
 
-            assertEquals(Set.of(VerificationRule.values()), accounted);
+            assertAll(() -> assertEquals(26, VerificationRule.values().length),
+                    () -> assertEquals(Set.of(VerificationRule.values()), accounted));
         }
 
         @Test
@@ -341,11 +342,7 @@ class WorkflowValidatorTest {
             var result = validator.verify(VerifyFixtures.parse(VerifyFixtures.PASSING + "/every-construct.pmwf"));
 
             assertAll(() -> assertTrue(result.passed(), result::toString),
-                    () -> assertEquals(List.of(), result.violations(), result::toString),
-                    () -> assertEquals(List.of("verify.entry CONFIG_REACHABILITY", "verify.entry CONFIG_REACHABILITY"),
-                            result.advisories().stream()
-                                    .map(advisory -> advisory.stateId() + " " + advisory.rule()).toList(),
-                            "only the transitions of the link that depends on configuration are partial"));
+                    () -> assertEquals(List.of(), result.violations(), result::toString));
         }
     }
 
@@ -450,8 +447,7 @@ class WorkflowValidatorTest {
         void shouldPassTheMatchedControl(String exemption, String id, String scope, String states) {
             var result = validator.verify(unit(id, scope, states));
 
-            assertAll(exemption, () -> assertEquals(List.of(), result.violations()),
-                    () -> assertEquals(List.of(), result.advisories()));
+            assertEquals(List.of(), result.violations(), exemption);
         }
     }
 

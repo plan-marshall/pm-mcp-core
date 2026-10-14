@@ -1,48 +1,48 @@
-= ADR 004: Rule 3 Configuration Reachability Enumeration
+= ADR 004: Rule 3 Configuration Reachability Is Not Implemented
 :nofooter:
 
 == Status
 
-Accepted. Corrected by PLAN-54: the refusal of partial reachability PLAN-44 recorded here is replaced by an advisory (link:008-verification-result-advisories.adoc[ADR 008]), and the enumeration of enum values is a named seam (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
+Accepted. Rewritten by the work package `static-verifier-residuals`: the configuration-reachability check this record decided in PLAN-44 and corrected in PLAN-54 (the Boolean enumeration of the `depends_on_config` keys with all-keys-true activation, reporting partial reachability as an advisory) is removed with its advisories. Rule 3 configuration reachability is not implemented; the seam is named by link:006-rule-3-value-activation-gap.adoc[ADR 006].
 
 == Date
 
-2026-10-12
+2026-10-14
 
 == Context
 
 The specification (Workflow DSL, § Static AST Verification Rules, Rule 3) checks reachability for every combination of the values of the configuration keys that the unit's guards declare in `depends_on_config` (every enum value, `true` and `false` for a boolean): a state or outcome transition that no combination reaches fails validation, and one that some combinations do not reach is reported with those combinations.
 
-PLAN-44 (work package `static-verifier-rule-gaps`) refused a state that some combination does not reach, which the specification only reports, and named the enumeration of enum values a future seam, although the specification defines the key domains. PLAN-41 had carried a transition-level loop whose predicate is unsatisfiable.
+The specification gives each key its domain but defines no rule by which a value of a key makes a guard true, and the grammar's `depends_on_config` clause names keys only, never a value a link needs. PLAN-44 and PLAN-54 filled the gap with an activation of their own: every key, an enum key included, was enumerated as `true` and `false`, and a declared link was active when every key its guard names was `true`. Under that activation the all-true assignment activates every link, so its graph is the unconditional graph: every state and transition the unconditional graph reaches is reached under at least that assignment, and what it does not reach is already refused by `REACHABILITY`. The check could therefore refuse nothing. It reported partial reachability as an advisory, judged by an activation rule the specification does not state.
 
 == Decision
 
-1. **Every-combination enumeration**: `configKeysOf` collects every `depends_on_config` key, `configCombinations` enumerates all 2^N Boolean assignments, and the active graph per assignment, built once per assignment, decides reachability. A declared link is active when every key its guard names is `true` (all-keys-true activation); engine transitions are always active.
-2. **Partial reachability is an advisory**: a state, or an outcome transition, that some combinations reach and others do not is returned as an advisory of `VerificationResult` naming both sets of combinations; the unit still passes (link:008-verification-result-advisories.adoc[ADR 008]). A transition is reached under a combination when its source state is reached and, for the transition of a declared link, the link is active.
-3. **No refusal under the Boolean activation**: the all-true assignment activates every link, so its graph is the unconditional graph; every state and transition the unconditional graph reaches is reached under at least that assignment, and a state the unconditional graph does not reach is refused by `REACHABILITY`. The refusal of a state or transition no combination reaches therefore cannot be met and is not written as code; it becomes satisfiable with the activation of enum values, the seam of link:006-rule-3-value-activation-gap.adoc[ADR 006].
+1. **The check is removed.** `WorkflowValidator` has no configuration-reachability check, `VerificationRule` no constant `CONFIG_REACHABILITY` (26 constants remain), and `UnitGraph` no configuration substrate: the key enumeration, the Boolean assignments, the active graph per assignment and the all-keys-true activation are gone. The advisories of `VerificationResult`, which only this check produced, are removed with it (link:008-verification-result-advisories.adoc[ADR 008]).
+2. **Rule 3 configuration reachability is a seam.** The enumeration of the values of a `depends_on_config` key, the rule by which a value activates a guard, the report of partial reachability and the refusal of a state or transition no combination reaches are not checked and not claimed (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
+3. **The `depends_on_config` syntax stays.** `GuardSpec`, `WorkflowParser` and `WorkflowPrinter` keep the clause; the removal touches only the verifier.
 
 == Alternatives Considered
 
-1. **Refusing partial reachability (PLAN-44)**:
+1. **Keeping the Boolean enumeration with its advisories (PLAN-54)**:
+The advisories report something, and nothing is refused.
+*Rejected*: they report partial reachability under an activation rule the verifier invented, so a reader takes them for the specification's report when they are not; a check that can never refuse suggests a guarantee the verifier does not provide.
+
+2. **Refusing partial reachability (PLAN-44)**:
 A state that some combination does not reach fails validation.
-*Rejected*: the specification reports partial reachability and refuses only what no combination reaches; the refusal failed conforming units.
+*Rejected*: the specification reports partial reachability and refuses only what no combination reaches; this refusal failed conforming units, and under the invented activation it is no closer to the specification.
 
-2. **Keeping a refusal for what no combination reaches as a backstop**:
-A check that can never fire costs nothing and might catch a future regression.
-*Rejected*: under the Boolean all-keys-true activation its predicate is unsatisfiable; a check with an unsatisfiable predicate is dead code with a live name, suggests a guarantee the verifier does not provide, and draws fixture effort toward an unplantable defect.
-
-3. **Per-state-per-combination graph rebuilds**:
-Rebuilding the active graph inside the per-state loop instead of once per combination.
-*Rejected*: the same 2^N enumeration would be built once per state per combination; the single pass feeds every state and transition report.
+3. **Inventing a value activation rule**:
+A link is active for every value of its keys, or the key name encodes the value.
+*Rejected*: the verifier checks the specification, it does not refine it; the rule belongs in the specification first (link:006-rule-3-value-activation-gap.adoc[ADR 006]).
 
 == Consequences
 
-* `CONFIG_REACHABILITY` names advisories only; `VerificationResult.passed()` ignores them.
-* The fixture `config-unreachable.pmwf`, which pinned the refusal of partial reachability, is removed: its unit passes with advisories, and no fixture can plant the refusal of what no combination reaches. The advisories are pinned by the inline `CONFIG_REACHABILITY` cases of `AdditionalRulesTest`, and the checklist of `WorkflowValidatorTest` lists the refusal as the seam of ADR 006.
-* The enumeration of enum values, the value activation and the transition-level refusal with its fixture stay open as the seam of link:006-rule-3-value-activation-gap.adoc[ADR 006].
+* Rule 3 checks `STATE_ID_UNIQUE`, `STATE_EXISTS`, `REACHABILITY`, `ABORT_TERMINAL_TARGETING`, `TARGET_NOT_RESERVED`, `EXIT_PATH` and `LINK_ID_UNIQUE`; configuration reachability is not among them.
+* The inline `CONFIG_REACHABILITY` cases of `AdditionalRulesTest` and the tests of the advisories are removed; the checklist of `WorkflowValidatorTest` lists configuration reachability as the seam of ADR 006.
+* When the specification states the activation rule, the check is written anew against it, with a refusing fixture for a state or transition no combination reaches.
 
 == Source
 
-* Workflow DSL specification, § Static AST Verification Rules, Rule 3 (`plan-marshall-documentation`)
-* `doc/plans/static-verifier-rule-gaps.adoc`
+* Workflow DSL specification, § Static AST Verification Rules, Rule 3, and § Formal EBNF Grammar, `depends_on_config` (`plan-marshall-documentation`)
+* `doc/plans/static-verifier-rule-gaps.adoc`, `doc/plans/static-verifier-residuals.adoc`
 * link:006-rule-3-value-activation-gap.adoc[ADR 006], link:008-verification-result-advisories.adoc[ADR 008]

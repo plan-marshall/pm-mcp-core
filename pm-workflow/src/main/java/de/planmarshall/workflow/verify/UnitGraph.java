@@ -32,17 +32,8 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the transitions of every {@link StateBehavior} variant and of every declared link. A target that is not a state of
  * the unit is kept as a successor; whether a target exists is not this graph's concern.
  * <p>
- * {@link WorkflowValidator} searches it for reachability, configuration reachability, and exit paths, and
- * {@link TransitionFuzzer} reads the exits of a state from the same behaviour switches and the atoms of a guard
- * from {@link #atomsOf(GuardExpr)}.
- * <p>
- * The configuration substrate of Rule 3 ({@link #configKeysOf}, {@link #configCombinations},
- * {@link #of(WorkflowDefinition, Map)}, {@link #isLinkActive} and {@link #activeTransitions}) enumerates Boolean
- * assignments only: every {@code depends_on_config} key is {@code true} or {@code false}, and a declared link is active
- * when every key its guard names is {@code true} (all-keys-true activation), while engine transitions are always
- * active. The specification gives a key an enum or a boolean domain but no rule by which a value makes a guard true,
- * and the language names keys only, so the enumeration of enum values and the value activation are a seam (ADR 006).
- * {@link WorkflowValidator} builds the active graph once per assignment and reads it for every state and transition.
+ * {@link WorkflowValidator} searches it for reachability and exit paths, and {@link TransitionFuzzer} reads the
+ * exits of a state from the same behaviour switches and the atoms of a guard from {@link #atomsOf(GuardExpr)}.
  */
 final class UnitGraph {
 
@@ -261,105 +252,6 @@ final class UnitGraph {
             }
         }
         return Collections.unmodifiableSet(targets);
-    }
-
-    /**
-     * @param definition the unit
-     * @return all distinct configuration keys declared in {@code depends_on_config} across the unit, in first-use
-     *         order; guards live on links only, so every key the unit reads is found on a declared link
-     */
-    static List<String> configKeysOf(WorkflowDefinition definition) {
-        var keys = new LinkedHashSet<String>();
-        for (var state : definition.states().values()) {
-            for (var link : declaredLinks(state.behavior())) {
-                link.guard().ifPresent(guard -> keys.addAll(guard.dependsOnConfig()));
-            }
-        }
-        return List.copyOf(keys);
-    }
-
-    /**
-     * Generates all 2^N Boolean assignments for the given configuration keys; an enum key is enumerated as
-     * {@code true} and {@code false} like every other key (ADR 006). The enumeration is exponential by design and stays
-     * lean because a {@code depends_on_config} clause names a handful of keys per link, so N stays small on the units
-     * the verifier reads.
-     *
-     * @param keys the configuration keys
-     * @return the list of assignments, in binary-counting order over the key list
-     */
-    static List<Map<String, Boolean>> configCombinations(List<String> keys) {
-        if (keys.isEmpty()) {
-            return List.of(Map.of());
-        }
-        int count = 1 << keys.size();
-        var combinations = new ArrayList<Map<String, Boolean>>(count);
-        for (int i = 0; i < count; i++) {
-            var assignment = new LinkedHashMap<String, Boolean>();
-            for (int j = 0; j < keys.size(); j++) {
-                assignment.put(keys.get(j), ((i >> j) & 1) == 1);
-            }
-            combinations.add(Collections.unmodifiableMap(assignment));
-        }
-        return Collections.unmodifiableList(combinations);
-    }
-
-    /**
-     * Constructs the active graph under one configuration assignment: engine transitions are always active while a
-     * declared link contributes its transitions only when {@link #isLinkActive} admits it under the assignment.
-     *
-     * @param definition the unit
-     * @param configAssignment the boolean assignment for configuration keys
-     * @return the transition graph under the assignment
-     */
-    static UnitGraph of(WorkflowDefinition definition, Map<String, Boolean> configAssignment) {
-        var successors = new LinkedHashMap<String, Set<String>>();
-        var predecessors = new LinkedHashMap<String, Set<String>>();
-        for (var state : definition.states().values()) {
-            predecessors.computeIfAbsent(state.id(), id -> new LinkedHashSet<>());
-            var targets = new LinkedHashSet<String>();
-            for (var transition : activeTransitions(state.behavior(), configAssignment)) {
-                targets.add(transition.targetStateId());
-                predecessors.computeIfAbsent(transition.targetStateId(), id -> new LinkedHashSet<>()).add(state.id());
-            }
-            successors.put(state.id(), Collections.unmodifiableSet(targets));
-        }
-        return new UnitGraph(Collections.unmodifiableMap(successors), Collections.unmodifiableMap(predecessors));
-    }
-
-    /**
-     * Tells which transitions of a behavior are active under a configuration assignment: every engine transition
-     * plus the transitions of each active declared link.
-     *
-     * @param behavior         what a state does
-     * @param configAssignment the Boolean assignment of the configuration keys
-     * @return the active transitions in declaration order
-     */
-    static List<OutcomeTransition> activeTransitions(StateBehavior behavior, Map<String, Boolean> configAssignment) {
-        var transitions = new ArrayList<>(engineTransitions(behavior));
-        for (var link : declaredLinks(behavior)) {
-            if (isLinkActive(link, configAssignment)) {
-                transitions.addAll(link.transitions());
-            }
-        }
-        return transitions;
-    }
-
-    /**
-     * Applies the all-keys-true activation: a declared link is active when it reads no configuration (no guard, or a
-     * guard with no {@code depends_on_config} keys), and otherwise only when every key its guard names is {@code true}
-     * under the assignment; a key the assignment does not name counts as not true. The activation by an enum value is
-     * a seam (ADR 006).
-     *
-     * @param link             a declared link
-     * @param configAssignment the Boolean assignment of the configuration keys
-     * @return {@code true} when the link contributes its transitions under the assignment
-     */
-    static boolean isLinkActive(LinkSpec link, Map<String, Boolean> configAssignment) {
-        if (link.guard().isEmpty() || link.guard().get().dependsOnConfig().isEmpty()) {
-            return true;
-        }
-        return link.guard().get().dependsOnConfig().stream()
-                .allMatch(key -> Boolean.TRUE.equals(configAssignment.get(key)));
     }
 
     /**

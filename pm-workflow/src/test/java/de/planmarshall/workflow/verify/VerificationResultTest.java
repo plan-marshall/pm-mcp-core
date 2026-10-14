@@ -15,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -29,8 +31,8 @@ import de.planmarshall.workflow.ast.SourceLocation;
 
 /**
  * The values of the static verifier (PM-IMPL-5): the rule vocabulary with the specification rule of every check, a
- * violation that refuses a missing component, and a result that keeps immutable copies of its violations and its
- * advisories and passes on its violations alone.
+ * violation that refuses a missing component, and a result that keeps an immutable copy of its violations, its only
+ * component, and passes when it holds none.
  */
 @DisplayName("VerificationResult, Violation and VerificationRule")
 class VerificationResultTest {
@@ -57,7 +59,6 @@ class VerificationResultTest {
                 Map.entry(VerificationRule.STATE_ID_UNIQUE, 3),
                 Map.entry(VerificationRule.STATE_EXISTS, 3),
                 Map.entry(VerificationRule.REACHABILITY, 3),
-                Map.entry(VerificationRule.CONFIG_REACHABILITY, 3),
                 Map.entry(VerificationRule.ABORT_TERMINAL_TARGETING, 3),
                 Map.entry(VerificationRule.TARGET_NOT_RESERVED, 3),
                 Map.entry(VerificationRule.EXIT_PATH, 3),
@@ -79,43 +80,33 @@ class VerificationResultTest {
         var violation = new Violation(VerificationRule.REACHABILITY, "verify.entry", LOCATION, "unreachable");
         var source = new ArrayList<>(List.of(violation));
 
-        var result = new VerificationResult(source, List.of());
+        var result = new VerificationResult(source);
         source.clear();
         var violations = result.violations();
 
         assertAll(() -> assertEquals(List.of(violation), violations),
                 () -> assertFalse(result.passed()),
-                () -> assertTrue(new VerificationResult(List.of(), List.of()).passed()),
+                () -> assertTrue(new VerificationResult(List.of()).passed()),
                 () -> assertThrows(UnsupportedOperationException.class, violations::clear));
     }
 
     @Test
-    @DisplayName("Should keep an immutable copy of the advisories and pass whatever they hold")
-    void shouldCopyAdvisoriesWithoutFailing() {
-        var advisory = new Violation(VerificationRule.CONFIG_REACHABILITY, "verify.entry", LOCATION, "partial");
-        var source = new ArrayList<>(List.of(advisory));
+    @DisplayName("Should carry the violations as its only component")
+    void shouldCarryViolationsOnly() {
+        var components = Arrays.stream(VerificationResult.class.getRecordComponents())
+                .map(RecordComponent::getName).toList();
 
-        var result = new VerificationResult(List.of(), source);
-        source.clear();
-        var advisories = result.advisories();
-
-        assertAll(() -> assertEquals(List.of(advisory), advisories),
-                () -> assertEquals(List.of(), result.violations()),
-                () -> assertTrue(result.passed()),
-                () -> assertThrows(UnsupportedOperationException.class, advisories::clear));
+        assertEquals(List.of("violations"), components);
     }
 
     @Test
-    @DisplayName("Should refuse a missing list or a missing element in either list")
+    @DisplayName("Should refuse a missing list or a missing element")
     void shouldRefuseIncompleteResult() {
         var withNull = new ArrayList<Violation>();
         withNull.add(null);
-        List<Violation> empty = List.of();
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(null, empty)),
-                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(empty, null)),
-                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(withNull, empty)),
-                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(empty, withNull)));
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(null)),
+                () -> assertThrows(NullPointerException.class, () -> new VerificationResult(withNull)));
     }
 
     @Test
