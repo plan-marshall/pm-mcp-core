@@ -1,0 +1,99 @@
+= Cache Repository Operations (`provider.git`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/git
+:test: ../../src/test/java/de/planmarshall/provider/git
+
+== Purpose
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+Package `de.planmarshall.provider.git` holds the git contract of PM-MCP, `GitOperations`, and its native variant on JGit, `JGitOperations`.
+This guide covers the part of the contract the corpus sources use: the three cache repository operations and `JGitSourceRepository`, the git part of the fetch that `pm-core` declares as `SourceRepository` (see link:../../../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]).
+The operations on a project repository (open, status, commit, push, linked worktrees) are not described here.
+
+The operations are on the shared contract, with typed inputs and closed outcomes, rather than in a separate fetch client (link:../adr/provider-git/001-cache-repository-operations-on-the-shared-git-contract.adoc[ADR 001]).
+Like every operation of `JGitOperations`, they run in process: the repository is opened with `RefusingFS`, so no hook, filter driver or other process ever starts.
+
+== Cache Repository Operations
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
+
+[cols="2,3,4",options="header"]
+|===
+|Operation |Input |Outcomes
+
+|`initCache` (`git.cache-init`)
+|`Path cache`, the git directory
+|`OK` with the canonical git directory; `NOT_A_REPOSITORY` if the path holds anything but a bare repository; `FAILED`
+
+|`fetchCommit` (`git.fetch-commit`)
+|`FetchCommitInput(cache, url, commit, policy)`
+|`OK` with the commit id; `REMOTE_ORIGIN_MISMATCH` if the policy does not admit the URL (nothing sent); `UNKNOWN_REVISION` if the id is not a full commit id or the remote does not serve it; `NOT_A_REPOSITORY`; `CAPABILITY_MISSING` if the transport would start a process; `FAILED` if the remote did not answer
+
+|`readFile` (`git.read-file`)
+|`ReadFileInput(cache, commit, path)`
+|`OK` with the bytes; `UNKNOWN_REVISION` if the commit is not in the cache; `PATH_NOT_FOUND` if the path is no file at the commit; `NOT_A_REPOSITORY`; `FAILED`
+|===
+
+[horizontal]
+`initCache`:: Creates a bare repository at the path (an empty directory is accepted), or opens the bare repository there. Calling it again is idempotent.
+`fetchCommit`:: Fetches exactly one commit by its full id into the ref `refs/pinned/<id>`, which keeps it reachable, without tags and with the fetched objects checked. The policy is checked against the URL before the transport opens and again against the effective URL after `insteadOf` rewriting. The transport timeout `JGitOperations.FETCH_TIMEOUT_SECONDS` (60 s) bounds the connect and every read. No credential is sent. A commit already in the cache is answered without contacting the remote. A remote that answers but refuses the wanted object is `UNKNOWN_REVISION`, never a fallback to a ref.
+`readFile`:: Reads the raw blob of the path through the object reader. No smudge filter runs, so a file kept in Git LFS is read as its pointer; the object comes over HTTP from `LfsBatchClient` of `pm-runtime`.
+
+`GitOutcome` gained the member `PATH_NOT_FOUND` for `readFile`.
+
+== `JGitSourceRepository`
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+
+link:{src}/JGitSourceRepository.java[`JGitSourceRepository`] implements `SourceRepository` of `pm-core` over the three operations.
+Each source has its bare cache repository at `<cache root>/repositories/<name>.git` (`JGitSourceRepository.cache`).
+
+[cols="1,1",options="header"]
+|===
+|`GitOutcome` |`SourceFetch.Outcome`
+
+|`OK` |`FETCHED`
+|`UNKNOWN_REVISION`, `PATH_NOT_FOUND` |`PIN_MISSING`
+|`FAILED`, `REMOTE_ORIGIN_MISMATCH` and every other outcome |`UNREACHABLE`
+|===
+
+The detail of a failed step names the outcome, the manifest's repository and the detail of the operation; `SourceFetch` removes the user information of every URI in it.
+
+=== Remote Policy of a Source
+
+The record `JGitSourceRepository.Remote(url, policy)` says where the pinned commit of a source is fetched from and which remotes the fetch may contact.
+`Remote.of(manifest)`, the default, fetches from the manifest's `repository` and admits its HTTPS origin alone (`RemotePolicy.httpsOrigin`, same host and port).
+The second constructor takes a function from the manifest to a `Remote`: the extension point for a mirror, or for a local fixture repository admitted by `RemotePolicy.localOnly()` (`file://` or a plain path, no host).
+The policy is passed with every `fetchCommit`; it is independent of the policy `JGitOperations` was constructed with for the operations on a project repository.
+
+== Testing
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+The tests need no network.
+A fixture repository is created by the test on disk with `JGitOperations` itself (`init`, `commit`) and configured with `uploadpack.allowAnySHA1InWant` so it serves a commit by its id, as public hosts do; the test fetches from its `file://` URL under `RemotePolicy.localOnly()`.
+
+[horizontal]
+link:{test}/JGitCacheRepositoryTest.java[`JGitCacheRepositoryTest`]:: `initCache` creates and reopens a bare repository and refuses anything else; the pinned commit is fetched, a plain file and an LFS pointer are read raw; a commit already in the cache is served without the remote; an unknown or abbreviated commit is `UNKNOWN_REVISION`; a remote that does not answer is `FAILED`; a missing path or a directory is `PATH_NOT_FOUND`; a remote the policy does not admit is `REMOTE_ORIGIN_MISMATCH` with nothing sent.
+link:{test}/JGitSourceRepositoryTest.java[`JGitSourceRepositoryTest`]:: `CorpusImport` of `pm-core` end to end with this adapter over two fixture repositories and an in-test `LfsObjectSource`: the pinned sources are fetched, verified and generated into items that `CorpusValidator` accepts; a changed file fails its hash and the run; a removed fixture repository is missed by name while the other source's items remain.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+
+1. **No ref fallback**: `fetchCommit` fetches the commit by id or reports `UNKNOWN_REVISION`. Never resolve a branch or tag instead; the pin is the commit.
+2. **No filter driver**: do not route `readFile` through a checkout or `git lfs`; the pointer is what the import checks against the manifest.
+3. **No credential**: the corpus sources are public; the cache operations never take a credential provider.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+* Specification: link:{spec}/module-structure.adoc[Module Structure], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification]
+* Decisions: link:../adr/provider-git/001-cache-repository-operations-on-the-shared-git-contract.adoc[ADR 001], link:../../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]

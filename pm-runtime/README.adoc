@@ -14,6 +14,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 
 * `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores, the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
 * `audit`: the anchoring and the verification of the audit trail: what makes the hash chain of `logs/audit.jsonl`, which `AuditLog` of `pm-core` writes, checkable for tampering.
+* `corpus`: the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
 * `credentials`: the credential stores of the runtime: exactly one active secret store per machine, chosen at runtime start.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
 * `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`.
@@ -38,6 +39,8 @@ Run from the root of the repository:
 
 The commands for the whole repository are in `CLAUDE.md`.
 
+The HTTP tests run against the mock web server of `cui-test-mockwebserver-junit5`, a test dependency of the module.
+
 == Test JAR
 
 The module builds a test JAR with the fixtures the tests of the assembly share: `TestBases`, `FakeBus` and
@@ -46,6 +49,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 == Developer Documentation
 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
+* link:doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources (`runtime.corpus`)]
 * link:doc/developer/runtime-job.adoc[Job Verification (`runtime.job`)]
 * link:doc/developer/runtime-start.adoc[Sweep Steps and the Audit Chain Seam (`runtime.start`)]
 

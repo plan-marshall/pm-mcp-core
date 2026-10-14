@@ -14,6 +14,7 @@
  * {@link de.planmarshall.runtime.corpus.LfsBatchClient} implements
  * {@link de.planmarshall.core.role.corpus.LfsObjectSource} of {@code pm-core}: it asks the LFS batch API of a source's
  * repository for the object a pointer names and downloads it over HTTPS within compiled timeouts, never through a git
- * filter driver, and checks its size and SHA-256 against the pointer.
+ * filter driver, reading at most one byte beyond the pointer's size. Delivered bytes are handed over as they are;
+ * {@link de.planmarshall.core.role.corpus.CorpusImport} checks them against the pinned SHA-256.
  */
 package de.planmarshall.runtime.corpus;

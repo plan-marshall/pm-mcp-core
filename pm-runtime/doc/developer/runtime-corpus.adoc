@@ -1,0 +1,87 @@
+= Git LFS Download of the Corpus Sources (`runtime.corpus`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/corpus
+:test: ../../src/test/java/de/planmarshall/runtime/corpus
+
+== Purpose
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
+
+Package `de.planmarshall.runtime.corpus` of `pm-runtime` holds the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
+Its one class, link:{src}/LfsBatchClient.java[`LfsBatchClient`], implements `LfsObjectSource` of `pm-core` (see link:../../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]).
+The git part reads an LFS file as its pointer; this class downloads the object the pointer names over HTTP, never through a git filter driver.
+`pm-mcp-server` composes it with `JGitSourceRepository` of `pm-provider-git` into a `CorpusImport` (link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[ADR 006]).
+
+== Batch Request and Download
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
+
+`object(repository, pointer)` sends two requests, each through its own `cui-http` `HttpHandler`:
+
+. The batch request, `POST <repository>.git/info/lfs/objects/batch` (`batchUri` appends `.git` unless the path ends with it and drops a trailing slash), with `Accept` and `Content-Type` `application/vnd.git-lfs+json` (`MEDIA_TYPE`) and the body `{"operation":"download","transfers":["basic"],"objects":[{"oid","size"}],"hash_algo":"sha256"}`.
+. The download, `GET` of the `href` of the answer's `actions.download`, with the string values of its `header` object. These values may carry a token; they are sent but never logged, and the query of the URL is cut from every detail.
+
+Every request goes to an `https` URL without user information; a repository or download URL that is not `https` is refused before anything is sent.
+The package-private constructor admits plain `http` to a loopback address as well, for the mock web server of the tests.
+Every request is bounded by the compiled connect timeout `CONNECT_TIMEOUT_SECONDS` (10 s) and read timeout `READ_TIMEOUT_SECONDS` (60 s).
+
+== Outcomes
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+[cols="3,1",options="header"]
+|===
+|What happens |`SourceFetch.Outcome`
+
+|the URL is not `https` or carries user information; the endpoint does not answer, times out or is interrupted; the batch API answers an error status other than 404; the batch answer is no JSON; the download action names no URL; the download answers an error status other than 404 and 410; the pointer's size exceeds what a byte array holds
+|`UNREACHABLE`
+
+|the batch API answers 404 (the repository has no LFS endpoint); the batch answer names no entry for the oid, an object `error`, or no download action; the download answers 404 or 410
+|`PIN_MISSING`
+
+|the download delivered bytes
+|`FETCHED`
+|===
+
+Every `UNREACHABLE` and `PIN_MISSING` outcome is logged as WARN `PM_RUNTIME-123` `CORPUS_LFS_OBJECT_UNAVAILABLE` with the oid, the repository without user information, and the detail.
+
+The client does not decide whether delivered bytes are the object.
+It reads the download up to one byte beyond the pointer's size and stops there (`BoundedBody`), so a longer body is never held in full.
+Whatever it read is `FETCHED`, also when it has another size or another SHA-256 than the pointer; the detail then says the bytes are not the object.
+`CorpusImport` checks every delivered object against the manifest's SHA-256, so such bytes are `hash_mismatch` and the run `FAILED`: a mismatch is never mistaken for a missing pin (link:../../../pm-core/doc/adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[ADR 003 of `core-role-corpus`]).
+
+== Testing
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+link:{test}/LfsBatchClientTest.java[`LfsBatchClientTest`] runs against the mock web server of `cui-test-mockwebserver-junit5` (`@EnableMockWebServer`, a test dependency of `pm-runtime`; link:../../../doc/adr/002-cui-http-and-the-mock-web-server-for-http.adoc[ADR 002]) with its own dispatcher: canned responses by method and target, each answering one request, anything else 404.
+The client under test is built with the loopback admitted, a connect timeout of 2 s and a read timeout of 1 s.
+
+* The delivered object: the batch request (method, path, media type, body) and the download with the action's header.
+* Delivered bytes that are not the object, and a body longer than the pointer's size, read only up to one byte beyond it: both `FETCHED`.
+* Every way the endpoint does not deliver (404, 503, object error, another object, no JSON, no download action, download 404 and 500): `UNREACHABLE` or `PIN_MISSING`, the WARN logged, the action's header value absent from the detail.
+* A stalled response (headers delayed beyond the read timeout): `UNREACHABLE`, the WARN logged.
+* A repository that is not `https`, and one with user information: refused with nothing sent.
+* `batchUri` for the URL forms of a repository.
+* Within `CorpusImport`, with a manifest whose `https` repository is redirected to the mock web server: the delivered object yields the item, and bytes with another SHA-256, fewer bytes or more bytes fail the run with `hash_mismatch`.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
+
+1. **Never log a header value of the download action**: it may be a token. The WARN carries the oid, the repository and the detail only.
+2. **Do not refuse delivered bytes here**: returning `PIN_MISSING` for a mismatch would turn a failed run into a partial one.
+3. **Keep the read bounded**: do not read the download into memory with an unbounded body handler.
+4. **Every request through `cui-http`**: no other HTTP client, and the timeouts stay compiled.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
+
+* Specification: link:{spec}/module-structure.adoc[Module Structure], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification]
+* Decisions: link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006], link:../../../pm-core/doc/adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[`core-role-corpus` ADR 003]

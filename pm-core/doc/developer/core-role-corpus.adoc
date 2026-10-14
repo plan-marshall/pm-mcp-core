@@ -1,0 +1,229 @@
+= Corpus Sources (`core.role.corpus`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/core/role/corpus
+:res: ../../src/main/resources/de/planmarshall/core/role/corpus
+:test: ../../src/test/java/de/planmarshall/core/role/corpus
+
+== Purpose
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+Package `de.planmarshall.core.role.corpus` of `pm-core` holds the corpus sources of the model verification corpus: the formats of its own part, the fetch of public datasets at their pinned commits, the generation of the imported items and the validation of the corpus.
+
+The corpus a role configuration is graded against is its own part plus items generated from public datasets.
+The datasets are never copied into the corpus.
+Each is named by a manifest that pins a repository commit and the SHA-256 of every file read from it; an overlay selects the rows that become items and writes what each item adds.
+An import fetches the files at the pin, checks their hashes, and generates the items below a cache root outside the corpus.
+
+The package declares the two fetch interfaces but implements neither.
+The git part is `JGitSourceRepository` of `pm-provider-git` (see link:../../../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[`provider-git.adoc`]), the Git LFS part is `LfsBatchClient` of `pm-runtime` (see link:../../../pm-runtime/doc/developer/runtime-corpus.adoc[`runtime-corpus.adoc`]); `pm-mcp-server` in plan-marshall-mcp composes them (link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[ADR 006]).
+
+== Corpus Layout
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+[source]
+----
+<corpus root>                              test/model/verification/ of plan-marshall-mcp
+├── schema/verification-item.schema.json   the item schema, read by the validator from the root
+├── context/                               context files the items name (no items)
+├── ATTRIBUTION.md                         one "## <name>" section per source
+├── <topic>/<slug>.json                    the corpus's own items
+└── sources/<name>/                        one directory per source (no items)
+    ├── manifest.json                      SourceManifest: repository, pinned commit, licence, files
+    └── overlay.json                       SourceOverlay: the selected rows and their framing
+
+<cache root>                               outside the corpus root (CorpusImport refuses one below it)
+├── repositories/<name>.git                the bare cache repository of a source (JGitSourceRepository)
+└── items/<topic>/<slug>.json              the generated ImportedItems, replaced by every import
+----
+
+== Formats
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+Each format is a record that refuses every value outside it with an `IllegalArgumentException`, a closed JSON schema resource (draft 2020-12, `additionalProperties: false` at every level, only the keyword subset of `SchemaSubset`), and a codec.
+The decision is link:../adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001].
+
+[horizontal]
+link:{src}/SourceManifest.java[`SourceManifest`]:: `format_version`, `name` (the directory below `sources/`, `^[a-z][a-z0-9-]{1,63}$`), `repository` (an absolute `https` URI without user, query or fragment), `commit` (40 lower-case hexadecimal digits), `licence` (an SPDX-like identifier) and `files`, each with `path`, `sha256` and `lfs`. For a file with `lfs: true` the hash is that of the object the pointer names, not of the pointer. Schema: link:{res}/source-manifest.schema.json[`source-manifest.schema.json`].
+link:{src}/SourceOverlay.java[`SourceOverlay`]:: `format_version`, `source` (the manifest name), `file` (a path of the manifest), `key_field` (the field whose value selects a row; `null` selects rows by their position from 1), `created` and `rows`. Each row writes the framing (`id` slug, `topic`, `role`, `title`, `tags`), the templates `question`, `facts` and `choices`, the `target` with its rubric `items`, the `grading` and the `review`. A value the overlay does not give is `null` or an empty array, never an absent field. Schema: link:{res}/source-overlay.schema.json[`source-overlay.schema.json`].
+link:{src}/ImportedItem.java[`ImportedItem`]:: The corpus item format, tightened: `provenance.kind` is `fetched` and `provenance.origin` requires `repository`, `commit`, `path` and `line`; an optional member has one shape only (an absent list is empty, `expected_empty` is present only when `true`). An imported item is accepted by the item schema of the corpus and by link:{res}/imported-item.schema.json[`imported-item.schema.json`].
+
+link:{src}/SourceManifestCodec.java[`SourceManifestCodec`] and link:{src}/SourceOverlayCodec.java[`SourceOverlayCodec`] read through `StrictJson` of `core.store`: the current `format_version` first, every declared field exactly once, no undeclared field.
+link:{src}/ImportedItemCodec.java[`ImportedItemCodec`] checks `schema_version` 1 first and writes deterministically: members in schema order, an optional member only when it has a value, so a written item reads back equal and writes to the same bytes.
+Every refusal of a codec is a `StoreRefusal` that names the file; the package-private `CorpusJson` holds the reading helpers the codecs share beside `StrictJson`.
+
+== Rows and Checks
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+A source file is read into `SourceRow` values: the line a row starts on (from 1) and its named fields in source order.
+A file the readers cannot read is refused with a `SourceRow.MalformedSource` naming the line.
+Both readers are written by hand on what `pm-core` already has (link:../adr/core-role-corpus/002-hand-written-row-readers-for-jsonl-and-rfc-4180-csv.adoc[ADR 002]).
+
+[horizontal]
+link:{src}/JsonlRowReader.java[`JsonlRowReader`]:: One JSON object per line on `jackson-core`, LF or CRLF, a blank last line allowed. A string field keeps the string; any other value keeps its JSON text. A key named twice in an object is refused.
+link:{src}/CsvRowReader.java[`CsvRowReader`]:: RFC 4180 without a CSV library: UTF-8 with an optional byte order mark, the header names the fields (unique, not empty), quoted fields with commas, line breaks and doubled quotes, CRLF or LF. A record with another field count than the header, an unterminated quoted field, a quote inside an unquoted field, or a character after a closing quote other than a separator is refused with the line the record starts on.
+link:{src}/Sha256.java[`Sha256`]:: The SHA-256 of bytes or a stream as lower-case hex, and the comparison with an expected hash in constant time.
+link:{src}/LfsPointer.java[`LfsPointer`]:: The pointer of the Git LFS specification v1 exactly as git-lfs writes it: the `version https://git-lfs.github.com/spec/v1` line first, `oid sha256:<64 hex>`, `size <bytes>`, keys sorted, every line ended by a line feed, at most `MAX_POINTER_SIZE` (1024) bytes. Anything else is not a pointer (`parse` answers empty).
+
+== Fetch and Import
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+[horizontal]
+link:{src}/SourceRepository.java[`SourceRepository`]:: The git part: `prepare` the cache repository of a source below the cache root, `fetchCommit` the pinned commit, `readFile` one file at that commit as stored (an LFS file as its pointer).
+link:{src}/LfsObjectSource.java[`LfsObjectSource`]:: The LFS part: `object(repository, pointer)`, the bytes the repository's LFS endpoint serves for the pointer, over HTTP and never through a git filter driver.
+link:{src}/SourceFetch.java[`SourceFetch`]:: The closed outcome of one fetch step: `FETCHED` with the bytes (or `done` without bytes), `UNREACHABLE` (the repository or endpoint did not answer), `PIN_MISSING` (the commit, path or object is absent at the pin). The user information of every URI in the detail is removed when the outcome is made.
+link:{src}/ItemGenerator.java[`ItemGenerator`]:: Overlay row plus source row gives one `ImportedItem`: the templates filled from the row's fields (`{field}`; `{{` and `}}` for a literal brace), a fetched provenance with the manifest's repository and commit, the file's path and the row's line, and the corpus canary. A template that names a field the row lacks, or an unmatched brace, is refused.
+link:{src}/CorpusImport.java[`CorpusImport`]:: `run(corpusRoot, cacheRoot)` imports every source below `sources/`, in name order, and answers an `ImportResult`.
+link:{src}/ImportResult.java[`ImportResult`]:: The covered sources with their item counts, the missed sources each with its `Reason` (`unreachable`, `pin_missing`, `hash_mismatch`, `malformed`), the file it concerns and the detail, and the `Verdict`.
+
+Per source the import reads the manifest and the overlay with their codecs (the manifest must name its directory, the overlay its source and a file of the manifest), prepares the cache repository, fetches the commit, reads every file of the manifest and checks it:
+
+* a plain file must have the manifest's SHA-256;
+* a file with `lfs: true` must be a pointer whose oid is the manifest's SHA-256, and the bytes the `LfsObjectSource` delivers for it must have that SHA-256 too.
+
+It then reads the rows of the overlay's file (`.jsonl` or `.csv`), selects each overlay row by its key field or position, and generates the items.
+A source whose step fails is missed as a whole, and none of its items is written; the other sources are imported all the same.
+The items are written below `<cache root>/items/`, replacing those of an earlier import; nothing is written below the corpus root, and a cache root below the corpus root is refused with an `IllegalArgumentException`.
+
+[cols="2,1,1,3",options="header"]
+|===
+|What happens |Reason |Verdict |Logged
+
+|a fetch step is `UNREACHABLE`
+|`unreachable`
+|`PARTIAL`
+|WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`
+
+|a fetch step is `PIN_MISSING`
+|`pin_missing`
+|`PARTIAL`
+|WARN `PM_CORE-102`
+
+|a file, a pointer oid or a delivered LFS object does not have the pinned SHA-256
+|`hash_mismatch`
+|`FAILED`
+|ERROR `PM_CORE-200` `CORPUS_SOURCE_HASH_MISMATCH`
+
+|the manifest, the overlay or the source file does not yield the selected items, or two sources generate one id
+|`malformed`
+|`FAILED`
+|WARN `PM_CORE-102`
+|===
+
+`FAILED` wins over `PARTIAL`; an import that missed nothing is `COMPLETE`.
+The items of the other sources are generated even on a `FAILED` run, but no role is qualified on it (link:../adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[ADR 003]).
+A qualification on a `PARTIAL` import is recorded as partial, with the missed sources named.
+
+=== Component Interaction
+
+[source]
+----
+CorpusImport.run(corpusRoot, cacheRoot)
+  │  delete <cache root>/items/
+  └─ for each sources/<name>/ (sorted)
+       ├─ SourceManifestCodec.read  / SourceOverlayCodec.read      ──► malformed
+       ├─ SourceRepository.prepare(cacheRoot, manifest)           ──► unreachable | pin_missing
+       ├─ SourceRepository.fetchCommit(cacheRoot, manifest)        ──► unreachable | pin_missing
+       ├─ for each file of the manifest
+       │    ├─ SourceRepository.readFile(cacheRoot, manifest, path)
+       │    ├─ plain: Sha256.matches(bytes, sha256)                 ──► hash_mismatch
+       │    └─ lfs:   LfsPointer.parse, oid == sha256              ──► hash_mismatch
+       │              LfsObjectSource.object(repository, pointer)  ──► unreachable | pin_missing
+       │              Sha256.matches(object, sha256)               ──► hash_mismatch
+       ├─ JsonlRowReader | CsvRowReader                            ──► malformed
+       ├─ ItemGenerator.generate per overlay row                   ──► malformed
+       └─ ImportedItemCodec.write → <cache root>/items/<topic>/<slug>.json
+  ▼
+ImportResult{covered[], missed[]}.verdict()  COMPLETE | PARTIAL | FAILED
+----
+
+== Validation
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+link:{src}/CorpusValidator.java[`CorpusValidator`] is the Java form of `validate.py` of the corpus plus the rules of its sources.
+It takes the corpus root as a parameter; `validate()` checks the corpus, `validate(cacheRoot)` also the items an import generated below `<cache root>/items/`.
+Every violation is a link:{src}/CorpusViolation.java[`CorpusViolation`] value (subject, `Rule`, detail); none is thrown.
+The item schema stays with the corpus and is read from `schema/verification-item.schema.json` of the root (link:../adr/core-role-corpus/004-validator-reads-the-item-schema-from-the-corpus-root.adoc[ADR 004]).
+
+An item is every `*.json` file below the root outside `schema/`, `context/` and `sources/`.
+
+[cols="1,3",options="header"]
+|===
+|Rule |Checked
+
+|`unreadable` |a file cannot be read, or the corpus root is no directory
+|`item_schema` |the item schema is absent or no JSON
+|`not_json` |an item is no JSON document
+|`schema` |an item breaks the item schema, evaluated with `SchemaSubset`
+|`imported_item` |a generated item breaks `imported-item.schema.json`
+|`id_path` |the id differs from the path below the root without `.json`
+|`topic_directory` |the topic differs from the directory
+|`duplicate_id` |two items have one id (the generated items count together with the corpus's own)
+|`canary` |the item lacks the corpus canary
+|`closed_answer` |the answer of an `exact_choice` or `label` item is not one of its choices
+|`rubric_items` |a rubric method has no rubric items and the item is no control (`expected_empty`)
+|`context_file` |a context file the item names does not exist
+|`transient_name` |provenance, review, grading or tags name a transient tool, stage or local path (`TRANSIENT`, the pattern of `validate.py`)
+|`manifest` |`sources/<name>/manifest.json` is absent, breaks `source-manifest.schema.json` or its codec, or names another directory
+|`overlay` |`sources/<name>/overlay.json` is absent, breaks `source-overlay.schema.json` or its codec, or names another source or no file of the manifest
+|`attribution` |`ATTRIBUTION.md` lacks the `## <name>` section of a source or has it more than once
+|`third_party_text` |a file below the corpus has the SHA-256 of a file a manifest names, or an item below the corpus is an imported one
+|===
+
+An item counts as imported only when its `provenance.kind` is `fetched` *and* its `provenance.origin` names a `commit` and a `line`, the form `ItemGenerator` writes.
+The corpus's own items of `screening/untrusted-text` are review comments fetched from a pull request: their provenance is `fetched`, but their origin names no commit and no line, so they are no third-party text.
+
+link:{src}/SchemaSubset.java[`SchemaSubset`] evaluates the keywords `type`, `const`, `enum`, `pattern`, `maxLength`, `minimum`, `maximum`, `minItems`, `items`, `required`, `properties` and `additionalProperties: false`, as `validate.py` does: a value of a type the schema does not admit is reported once and not looked into; a boolean is never a number nor an integer; an `integer` is written without fraction or exponent; `pattern` matches anywhere unless anchored; `maxLength` counts code points.
+It walks link:{src}/JsonValue.java[`JsonValue`], a minimal immutable JSON tree on the streaming API of `jackson-core`, whose array type is `JsonList` and which refuses a member named twice.
+
+== Testing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+Every fixture is written by the test into a temporary directory, never copied from the content of the product.
+
+[horizontal]
+link:{test}/SourceManifestCodecTest.java[`SourceManifestCodecTest`], link:{test}/SourceOverlayCodecTest.java[`SourceOverlayCodecTest`], link:{test}/ImportedItemCodecTest.java[`ImportedItemCodecTest`]:: A valid document reads, a written one round-trips byte for byte, and each refusal names the file.
+link:{test}/CorpusSchemaResourcesTest.java[`CorpusSchemaResourcesTest`]:: Every codec-written fixture validates against its schema resource with the JSON schema validator of the tests, and every resource uses only the keyword subset.
+link:{test}/JsonlRowReaderTest.java[`JsonlRowReaderTest`], link:{test}/CsvRowReaderTest.java[`CsvRowReaderTest`], link:{test}/Sha256Test.java[`Sha256Test`], link:{test}/LfsPointerTest.java[`LfsPointerTest`]:: The RFC 4180 cases and refusals, the JSON Lines rules, the known SHA-256 vectors, and the pointer shape.
+link:{test}/ItemGeneratorTest.java[`ItemGeneratorTest`]:: The generated item, valid against `imported-item.schema.json`; a template naming a missing field is refused.
+link:{test}/CorpusImportTest.java[`CorpusImportTest`]:: In-test fakes of both fetch interfaces over two sources (a plain CSV file and a JSON Lines file in LFS): the complete run, each hash mismatch (`FAILED`, ERROR logged), the unreachable source and the missing pin (`PARTIAL`, WARN logged), the malformed cases, and the corpus root left untouched.
+link:{test}/CorpusValidatorTest.java[`CorpusValidatorTest`], link:{test}/SchemaSubsetTest.java[`SchemaSubsetTest`]:: One negative fixture per rule next to a matched valid corpus; a passing and a failing value per keyword.
+link:{test}/ProductCorpusValidationTest.java[`ProductCorpusValidationTest`]:: The validator accepts the corpus of the plan-marshall-mcp checkout with no violation.
+
+`ProductCorpusValidationTest` finds the checkout through the system property `pm.product.root`, which `pm-core/pom.xml` passes to Surefire from the Maven property of the same name (default `../plan-marshall-mcp` beside the repository).
+When the corpus is absent, the test helper `ProductCorpus` aborts the test through a JUnit assumption naming the path, so it is reported as skipped.
+In a worktree below `.plan/local/worktrees/` the default does not resolve; pass the checkout explicitly:
+
+[source,bash]
+----
+python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-core -am -Dpm.product.root=/path/to/plan-marshall-mcp"
+----
+
+The end-to-end fixtures of the two fetch parts live with their implementations: `JGitSourceRepositoryTest` of `pm-provider-git` runs `CorpusImport` over on-disk fixture repositories, `LfsBatchClientTest` of `pm-runtime` over a mock web server.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+1. **Never write below the corpus root**: generated items belong below the cache root; an imported item stored below the corpus is a `third_party_text` violation.
+2. **The manifest hash of an LFS file is the object's**: the pointer is checked by its oid, the object by its bytes. Do not hash the pointer.
+3. **A mismatch is not a missing pin**: bytes that were delivered but are not the pinned file fail the run, even when an LFS endpoint delivered them; only an absent commit, path or object is `pin_missing`.
+4. **Refusals are values**: a missed source is an `ImportResult` entry and a violation a `CorpusViolation`; the import throws only for a cache root below the corpus root (`IllegalArgumentException`) and for an I/O failure listing the sources or writing the items (`UncheckedIOException`).
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+* Specification: link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification-topics[§ Qualification Topics]
+* Decisions: link:../adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001], link:../adr/core-role-corpus/002-hand-written-row-readers-for-jsonl-and-rfc-4180-csv.adoc[ADR 002], link:../adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[ADR 003], link:../adr/core-role-corpus/004-validator-reads-the-item-schema-from-the-corpus-root.adoc[ADR 004], link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]
