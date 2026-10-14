@@ -18,7 +18,7 @@ The specification gives each key its domain (enum or boolean) but no rule by whi
 == Decision
 
 1. Rule 3 configuration reachability is a named seam, not checked and not claimed: the enumeration of the values of a `depends_on_config` key, the rule by which a value activates a guard, the report of a state or transition that some combinations do not reach, and the refusal of a state or transition no combination reaches, with its refusing fixture (a link needing `mode=strict` followed by a link needing `mode=lenient`).
-2. The gap is raised with the specification as the issue "define how a `depends_on_config` value activates a guard" in the repository `plan-marshall-documentation` (§ Source).
+2. The gap is raised with the specification as the issue https://github.com/plan-marshall/plan-marshall-documentation/issues/71["define how a `depends_on_config` value activates a guard"] in the repository `plan-marshall-documentation` (§ Source).
 3. The check is written when the specification answers the issue, against the rule it states.
 
 == Alternatives Considered
@@ -45,4 +45,4 @@ The value a link needs would be in the unit.
 * Workflow DSL specification, § Static AST Verification Rules, Rule 3, and § Formal EBNF Grammar, `depends_on_config` (`plan-marshall-documentation`)
 * `doc/plans/static-verifier-rule-gaps.adoc`, `doc/plans/static-verifier-residuals.adoc`
 * link:004-rule-3-configuration-reachability.adoc[ADR 004]
-* Specification issue in `plan-marshall-documentation`: "define how a `depends_on_config` value activates a guard"
+* Specification issue in `plan-marshall-documentation`: https://github.com/plan-marshall/plan-marshall-documentation/issues/71[#71, "define how a `depends_on_config` value activates a guard"]
