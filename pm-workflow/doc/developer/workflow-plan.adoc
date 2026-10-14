@@ -141,7 +141,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |File (relative to the plan directory) |Content
 
 |`instance/plan.v<N>.pmwf`
-|The text of version `N`; written once, never rewritten. `recordComposed` refuses with `IllegalStateException` when the file exists already.
+|The text of version `N`; written once, never rewritten. `recordComposed` refuses with `IllegalStateException` when the file exists already, and collects the file with `ScopeTransaction.create`, so the commit refuses it as well when another transaction created it in between (link:../../../pm-core/doc/adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[core-store ADR 028]).
 
 |`instance/composition.jsonl`
 |One canonical JSON line per composition attempt, whatever its result; `version` is `null` unless composed, an absent `cause` is not written.
@@ -152,6 +152,12 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 `recordComposed` checks before staging anything that the record is the composed record of the version, that every text matches its digest and that every sub-unit the header names has a text; `recordAttempt` writes the log line of an attempt that composed no version.
 The store creates `instance/` and `mcp/units/` before staging, because the transaction writes into existing directories; the digest sidecar of the plan covers every file through the commit.
+
+A version file is refused twice.
+`recordComposed` refuses a version whose file exists when it is called, before anything is recorded.
+That check alone does not hold for two `ScopeTransaction` objects of one lock transaction: both pass it while neither has committed.
+The version file is therefore a create target, and the commit refuses the whole transaction, under the plan lock and before anything is written, when the file exists by then; the text of the transaction that committed first stays the version.
+The sub-unit texts stay plain replace targets: they are content-addressed, so a second writer of a digest writes the same bytes and a refusal would be wrong.
 A recorded version logs `PM_WORKFLOW-002` (INFO), a refused attempt `PM_WORKFLOW-101` (WARN).
 
 The header line is canonical JSON: one line, UTF-8, members sorted by name, no insignificant whitespace, every schema member present with an absent optional value as `null`.
@@ -209,7 +215,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 . *Never adds.* The composition only removes or rebinds what the template declares; it adds no state, link, transition or argument.
 . *Values in, values out.* Facts, configuration and waivers arrive as values (link:../adr/workflow-plan/005-facts-configuration-and-waivers-as-input-values.adoc[ADR 005]); the composer reads no store; a refusal is a value.
 . *Verified before written.* The composer is the only code of the package that composes a version and verifies it, and a refused attempt writes its log line only. `recordComposed` re-checks the composition record against the version but not the verification; its caller owns passing only a version the composer returned as `CompositionResult.Composed` (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]).
-. *Write-once.* A version file and a sub-unit file are never rewritten.
+. *Write-once.* A version file and a sub-unit file are never rewritten; for a version file the commit checks it under the plan lock, a sub-unit file is content-addressed and is only ever written with the bytes it already holds.
 . *Reproducible header.* The same header always gives the same bytes and the same digest; the schema is checked in code in full (link:../adr/workflow-plan/006-header-schema-checked-in-code.adoc[ADR 006]).
 . *Ordered, not sorted.* Pruned elements follow rule order, policy calls the declaration order of the states, waived gates the order of the waivers.
 
@@ -245,6 +251,9 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |The version file exists already
 |`IllegalStateException`; nothing staged.
 
+|Another transaction created the version file after `recordComposed` collected it
+|`IllegalStateException` from the commit of the caller's transaction; nothing written, the first text stays.
+
 |A directory of the plan cannot be created, a stored file cannot be read
 |`UncheckedIOException`.
 |===
@@ -258,7 +267,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/12-
 * `CompositionRulesTest`: the shipped file (one rule per family, floor immunity), the rule shape and each refusal, a binding of every budget parameter `CompiledInvariants.remediationBudgetParameters()` names included.
 * `CompositionRuleEvaluatorTest`: lanes, configuration, posture, the four families with a matched negative control each, the post-run forms, evaluation order and the plan facts.
 * `PlanInstanceComposerTest`: the composed version, one version per event with its number, the agreement of the event and the `post_run` fact (a matched positive and negative control per arm), the rules, the waivers, and the refusals (position rule, invariant failure).
-* `PlanInstanceStoreTest`: write-once versions, one log line per attempt, sub-unit texts stored once per digest.
+* `PlanInstanceStoreTest`: write-once versions (the early refusal of an existing version, and two transactions of one lock transaction recording the same version: the second commit is refused, the first text stays), one log line per attempt, sub-unit texts stored once per digest.
 * `PlanFixtures` builds the requests over the plan template `plan/plan-template-fixture.pmwf`, written for these tests, with the sub-units and registries of `InvariantFixtures`; its facts make no shipped rule hold. The invariant refusal is driven by `merge.auto_merge=false`, which prunes `finalize.merge-dispatch` and leaves the outcome of `finalize.merge-gate` unrouted.
 
 == Specification Tracing

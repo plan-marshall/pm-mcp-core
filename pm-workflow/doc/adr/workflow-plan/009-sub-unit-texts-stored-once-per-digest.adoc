@@ -19,6 +19,7 @@ Consecutive versions mostly bind the same sub-units.
 
 * `PlanInstanceStore.recordComposed` takes the verified texts as `SubUnitText`, checks that each matches its digest and that every sub-unit the header names has a text, and stages `mcp/units/<digest>.pmwf` only for a digest that has no file yet, in the transaction of the version.
 * An existing file is never rewritten; `readSubUnit(digest)` returns the stored text.
+The text is a plain replace target, not a create: two transactions of one lock transaction that both find the digest without a file write the same bytes, so the second write changes nothing.
 
 == Alternatives Considered
 

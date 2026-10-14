@@ -18,8 +18,9 @@ A server event composes its version in the transaction that enters the target st
 == Decision
 
 * `PlanInstanceStore` lives in `workflow.plan` and is constructed with the `JournalScope` of a plan; it refuses any other scope type.
-* It writes only through a `ScopeTransaction` the caller holds and commits: `recordComposed` stages the version file, the sub-unit texts and the log line, `recordAttempt` the log line alone. `pm-core` is not changed.
-* A version file that exists already is refused with `IllegalStateException` before anything is staged, so a version number is checked again where it is written.
+* It writes only through a `ScopeTransaction` the caller holds and commits: `recordComposed` stages the version file, the sub-unit texts and the log line, `recordAttempt` the log line alone.
+* A version file that exists already is refused with `IllegalStateException` by `recordComposed`, before anything is recorded.
+The version file is collected with `ScopeTransaction.create`, so the commit refuses it again, under the plan lock and before anything is written, when another transaction created it in between (link:../../../../pm-core/doc/adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[core-store ADR 028]); that is the one change this package needed in `pm-core`.
 * The store creates `instance/` and `mcp/units/` before staging, because the transaction writes into existing directories.
 
 == Alternatives Considered
@@ -32,12 +33,12 @@ _Rejected_: the version would commit apart from the state change of the server e
 == Consequences
 
 * The digest sidecar of the plan covers every file the store writes through the commit.
-* The plan lock makes the caller's transaction the only writer of the scope.
+* The plan lock keeps every other lock transaction out of the scope; two `ScopeTransaction` objects of one lock transaction are kept apart for a version file by the check of `create` at the commit.
 * A caller that writes a version must open and commit the plan transaction; the store never commits.
 
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
 * link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Storage and Composition Log
-* `doc/plans/plan-instance.adoc`; operator decision at refine (persistence in `workflow.plan`, no `pm-core` change)
+* `doc/plans/plan-instance.adoc`; operator decision at refine (persistence in `workflow.plan`, no `pm-core` change), revised by the operator decision of 2026-10-14 on CodeRabbit finding 11e8e3 of pull request #67 (`ScopeTransaction.create`)
 * `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java`
