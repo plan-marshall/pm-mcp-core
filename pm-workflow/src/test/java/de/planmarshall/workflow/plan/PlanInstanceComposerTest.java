@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.workflow.ast.CallValue;
@@ -156,7 +157,7 @@ class PlanInstanceComposerTest {
         @EnumSource(value = CompositionEvent.class, mode = EnumSource.Mode.EXCLUDE, names = "START")
         @DisplayName("each event after the start composes the version after the one in force")
         void nextVersion(CompositionEvent event) {
-            var instance = composed(composer().compose(request(event, facts().build(), Optional.of(version1()),
+            var instance = composed(composer().compose(request(event, facts(event).build(), Optional.of(version1()),
                     List.of(), AT_START)));
 
             assertAll(
@@ -178,6 +179,35 @@ class PlanInstanceComposerTest {
                             Optional.empty(), List.of(), AT_START)),
                     () -> assertThrows(IllegalArgumentException.class, () -> request("other-plan",
                             CompositionEvent.PLAN, facts, previous, List.of(), AT_START)));
+        }
+
+        @ParameterizedTest(name = "{0} with {1}")
+        @CsvSource({"FALLBACK, returned", "FALLBACK, handed_back", "EMPTY_HARVEST, empty_harvest"})
+        @DisplayName("a fallback and an empty harvest are accepted with the post_run fact they compose")
+        void postRunMatchesEvent(CompositionEvent event, String postRun) {
+            var previous = Optional.of(version1());
+            var facts = facts().postRun(postRun).build();
+
+            var request = request(event, facts, previous, List.of(), AT_START);
+
+            assertEquals(Optional.of(postRun), request.facts().postRun());
+        }
+
+        @ParameterizedTest(name = "{0} with {1}")
+        @CsvSource(value = {"FALLBACK, -", "FALLBACK, empty_harvest", "EMPTY_HARVEST, -", "EMPTY_HARVEST, returned",
+                "PLAN, returned", "WAIVER, handed_back", "REPLAN, empty_harvest", "START, returned"}, nullValues = "-")
+        @DisplayName("an event whose post_run fact it does not compose is refused, naming the event and the fact")
+        void postRunContradictsEvent(CompositionEvent event, String postRun) {
+            var previous = event == CompositionEvent.START ? Optional.<PlanInstance>empty() : Optional.of(version1());
+            var facts = facts().postRun(postRun).build();
+
+            var refused = assertThrows(IllegalArgumentException.class,
+                    () -> request(event, facts, previous, List.of(), AT_START));
+
+            assertAll(
+                    () -> assertTrue(refused.getMessage().contains("'" + event.wireName() + "'"),
+                            refused.getMessage()),
+                    () -> assertTrue(refused.getMessage().contains(PlanFacts.POST_RUN_FACT), refused.getMessage()));
         }
     }
 

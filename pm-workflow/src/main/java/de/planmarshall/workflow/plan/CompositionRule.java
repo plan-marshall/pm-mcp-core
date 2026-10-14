@@ -170,11 +170,13 @@ public record CompositionRule(String id, Condition when, List<Prune> prunes, Lis
 
         static Pattern compile(String glob) {
             var regex = new StringBuilder();
-            for (var index = 0; index < glob.length(); index++) {
-                var character = glob.charAt(index);
-                if (character == '*' && index + 1 < glob.length() && glob.charAt(index + 1) == '*') {
+            var cursor = 0;
+            while (cursor < glob.length()) {
+                var character = glob.charAt(cursor);
+                var consumed = 1;
+                if (glob.startsWith("**", cursor)) {
                     regex.append(".*");
-                    index++;
+                    consumed = 2;
                 } else if (character == '*') {
                     regex.append("[^/]*");
                 } else if (character == '?') {
@@ -182,6 +184,7 @@ public record CompositionRule(String id, Condition when, List<Prune> prunes, Lis
                 } else {
                     regex.append(Pattern.quote(String.valueOf(character)));
                 }
+                cursor += consumed;
             }
             return Pattern.compile(regex.toString());
         }

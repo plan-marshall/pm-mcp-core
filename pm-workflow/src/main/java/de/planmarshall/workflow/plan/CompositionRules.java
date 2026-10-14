@@ -28,6 +28,7 @@ import de.planmarshall.workflow.plan.HeaderJson.Node;
 import de.planmarshall.workflow.plan.HeaderJson.NumberNode;
 import de.planmarshall.workflow.plan.HeaderJson.ObjectNode;
 import de.planmarshall.workflow.plan.HeaderJson.StringNode;
+import de.planmarshall.workflow.verify.CompiledInvariants;
 
 /**
  * The composition rule file (PM-IMPL-5, PM-EXT-7): the declarative rules that map a plan fact or an effective
@@ -45,8 +46,9 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  * {@code integrations.<provider>}).
  * <p>
  * A file that breaks this shape is refused as a value, never by an exception, and so is a rule that would add an
- * element ({@code then.add}), raise a budget (a binding of {@code retry_budget}, {@code fix_budget} or
- * {@code waiver_wait_seconds}) or name a gate (a {@code gate} element or member); each of these three is refused by its
+ * element ({@code then.add}), raise a budget (a binding of a budget parameter of the remediation schema,
+ * {@code retry_budget}, {@code fix_budget} or {@code waiver_wait_seconds}, read from its one definition
+ * {@link CompiledInvariants#remediationBudgetParameters()}) or name a gate (a {@code gate} element or member); each of these three is refused by its
  * own {@link Refusal}, so the compiled invariants and the operator's waivers stay the only authority over gates and
  * budgets.
  *
@@ -63,7 +65,9 @@ public record CompositionRules(String revision, String digest, List<CompositionR
     /** The only format version of the rule file. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Set<String> BUDGET_ARGUMENTS = Set.of("retry_budget", "fix_budget", "waiver_wait_seconds");
+    private static final String REVISION_MEMBER = "revision";
+    private static final String PRUNE_MEMBER = "prune";
+    private static final String ELEMENT_MEMBER = "element";
     private static final Set<String> CONFIGURATION_FACTS = Set.of("merge.auto_merge", "derived.push_remote");
     private static final String PROVIDER_FACT_PREFIX = "integrations.";
     private static final Pattern RULE_ID = Pattern.compile("^[a-z][a-z0-9-]{0,63}$");
@@ -78,7 +82,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
      * @param rules    the rules in file order
      */
     public CompositionRules {
-        Objects.requireNonNull(revision, "revision");
+        Objects.requireNonNull(revision, REVISION_MEMBER);
         Objects.requireNonNull(digest, "digest");
         rules = List.copyOf(rules);
     }
@@ -173,23 +177,24 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         List<CompositionRule> file(Node root) {
             var members = object(root, "the rule file");
-            if (members == null || !only(members, "the rule file", Set.of("format_version", "revision", "rules"))) {
+            if (refusal.isPresent()
+                    || !only(members, "the rule file", Set.of("format_version", REVISION_MEMBER, "rules"))) {
                 return List.of();
             }
-            if (!(members.get("format_version") instanceof NumberNode version)
-                    || version.value().compareTo(BigDecimal.valueOf(FORMAT_VERSION)) != 0) {
+            if (!(members.get("format_version") instanceof NumberNode(var version))
+                    || version.compareTo(BigDecimal.valueOf(FORMAT_VERSION)) != 0) {
                 return refuse(Refusal.MALFORMED, "'format_version' must be " + FORMAT_VERSION);
             }
-            revision = text(members.get("revision"), "'revision'");
+            revision = text(members.get(REVISION_MEMBER), "'revision'");
             if (revision == null || revision.isEmpty()) {
                 return refuse(Refusal.MALFORMED, "'revision' must be a non-empty string");
             }
-            if (!(members.get("rules") instanceof ArrayNode array)) {
+            if (!(members.get("rules") instanceof ArrayNode(var elements))) {
                 return refuse(Refusal.MALFORMED, "'rules' must be an array");
             }
             var rules = new ArrayList<CompositionRule>();
             var ids = new HashSet<String>();
-            for (var element : array.elements()) {
+            for (var element : elements) {
                 var rule = rule(element);
                 if (refusal.isPresent()) {
                     return List.of();
@@ -204,7 +209,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private CompositionRule rule(Node node) {
             var members = object(node, "a rule");
-            if (members == null) {
+            if (refusal.isPresent()) {
                 return null;
             }
             var id = text(members.get("id"), "the id of a rule");
@@ -218,7 +223,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             }
             var when = condition(members.get("when"), name);
             var then = object(members.get("then"), name + " 'then'");
-            if (when == null || then == null) {
+            if (when == null || refusal.isPresent()) {
                 return null;
             }
             if (then.containsKey("add")) {
@@ -229,23 +234,19 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                 refuse(Refusal.NAMES_GATE, name + " names a gate");
                 return null;
             }
-            if (!only(then, name + " 'then'", Set.of("prune", "bind"))) {
+            if (!only(then, name + " 'then'", Set.of(PRUNE_MEMBER, "bind"))) {
                 return null;
             }
-            var prunes = new ArrayList<CompositionRule.Prune>();
-            for (var entry : list(then.get("prune"), name + " 'prune'")) {
-                prunes.add(prune(entry, name));
-            }
-            var bindings = new ArrayList<CompositionRule.Binding>();
-            for (var entry : list(then.get("bind"), name + " 'bind'")) {
-                bindings.add(binding(entry, name));
-            }
+            var prunes = list(then.get(PRUNE_MEMBER), name + " 'prune'").stream()
+                    .map(entry -> prune(entry, name)).toList();
+            var bindings = list(then.get("bind"), name + " 'bind'").stream()
+                    .map(entry -> binding(entry, name)).toList();
             return refusal.isPresent() ? null : new CompositionRule(id, when, prunes, bindings);
         }
 
         private CompositionRule.Condition condition(Node node, String name) {
             var members = object(node, name + " 'when'");
-            if (members == null) {
+            if (refusal.isPresent()) {
                 return null;
             }
             var fact = text(members.get("fact"), name + " 'fact'");
@@ -275,17 +276,17 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private CompositionRule.Prune prune(Node node, String name) {
             var members = object(node, name + " prune entry");
-            if (members == null) {
+            if (refusal.isPresent()) {
                 return null;
             }
-            if (members.get("element") instanceof StringNode element && GATE.equals(element.value())) {
+            if (members.get(ELEMENT_MEMBER) instanceof StringNode(var kind) && GATE.equals(kind)) {
                 refuse(Refusal.NAMES_GATE, name + " prunes a gate");
                 return null;
             }
-            if (!only(members, name + " prune entry", Set.of("element", "id", "reason"))) {
+            if (!only(members, name + " prune entry", Set.of(ELEMENT_MEMBER, "id", "reason"))) {
                 return null;
             }
-            var element = PrunedElement.Kind.fromWireName(String.valueOf(text(members.get("element"),
+            var element = PrunedElement.Kind.fromWireName(String.valueOf(text(members.get(ELEMENT_MEMBER),
                     name + " 'element'")));
             var id = text(members.get("id"), name + " prune 'id'");
             var reason = PruneReason.fromWireName(String.valueOf(text(members.get("reason"), name + " 'reason'")));
@@ -301,11 +302,11 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private CompositionRule.Binding binding(Node node, String name) {
             var members = object(node, name + " bind entry");
-            if (members == null) {
+            if (refusal.isPresent()) {
                 return null;
             }
             var argument = text(members.get("argument"), name + " bind 'argument'");
-            if (argument != null && BUDGET_ARGUMENTS.contains(argument)) {
+            if (argument != null && CompiledInvariants.remediationBudgetParameters().contains(argument)) {
                 refuse(Refusal.RAISES_BUDGET, "%s binds the budget '%s'".formatted(name, argument));
                 return null;
             }
@@ -323,7 +324,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
 
         private CallValue literal(Node node, String what) {
             return switch (node) {
-                case StringNode string -> new CallValue.EnumValue(string.value());
+                case StringNode(var text) -> new CallValue.EnumValue(text);
                 case NumberNode number when number.integral() && number.value().abs().compareTo(
                         BigDecimal.valueOf(Integer.MAX_VALUE)) <= 0 ->
                     new CallValue.IntValue(number.value().intValueExact());
@@ -342,12 +343,16 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                     || fact.startsWith(PROVIDER_FACT_PREFIX) && fact.length() > PROVIDER_FACT_PREFIX.length();
         }
 
+        /**
+         * The members of an object; for any other node the refusal is recorded and the map is empty, so the caller
+         * decides on {@link #refusal}, never on the map.
+         */
         private Map<String, Node> object(Node node, String what) {
-            if (node instanceof ObjectNode object) {
-                return object.members();
+            if (node instanceof ObjectNode(var members)) {
+                return members;
             }
             refuse(Refusal.MALFORMED, what + " must be an object");
-            return null;
+            return Map.of();
         }
 
         private boolean only(Map<String, Node> members, String what, Set<String> allowed) {
@@ -358,7 +363,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
                 }
             }
             for (var key : allowed) {
-                if (!members.containsKey(key) && !"prune".equals(key) && !"bind".equals(key)) {
+                if (!members.containsKey(key) && !PRUNE_MEMBER.equals(key) && !"bind".equals(key)) {
                     refuse(Refusal.MALFORMED, "%s lacks the member '%s'".formatted(what, key));
                     return false;
                 }
@@ -370,31 +375,28 @@ public record CompositionRules(String revision, String digest, List<CompositionR
             if (node == null) {
                 return List.of();
             }
-            if (node instanceof ArrayNode array) {
-                return array.elements();
+            if (node instanceof ArrayNode(var elements)) {
+                return elements;
             }
             refuse(Refusal.MALFORMED, what + " must be an array");
             return List.of();
         }
 
         private String text(Node node, String what) {
-            if (node instanceof StringNode string) {
-                return string.value();
+            if (node instanceof StringNode(var value)) {
+                return value;
             }
             refuse(Refusal.MALFORMED, what + " must be a string");
             return null;
         }
 
         private List<String> texts(Node node, String what) {
-            var values = new ArrayList<String>();
-            for (var element : list(node, what)) {
-                values.add(text(element, what + " element"));
-            }
+            var values = list(node, what).stream().map(element -> text(element, what + " element")).toList();
             return refusal.isPresent() ? List.of() : values;
         }
 
         private boolean flag(Node node, String what) {
-            if (node instanceof BooleanNode bool && bool.value()) {
+            if (node instanceof BooleanNode(var value) && value) {
                 return true;
             }
             refuse(Refusal.MALFORMED, what + " must be true");

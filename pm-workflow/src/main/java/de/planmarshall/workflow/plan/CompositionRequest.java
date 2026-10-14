@@ -22,6 +22,11 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * The event decides the version: {@link CompositionEvent#START} composes version 1 and has no previous version, every
  * other event composes the version after the previous one. Whether the event's trigger is the server or the operator
  * follows from the event ({@link CompositionEvent#trigger()}).
+ * <p>
+ * The event and the {@value PlanFacts#POST_RUN_FACT} fact of the facts agree: {@link CompositionEvent#FALLBACK}
+ * composes the post-run-only form {@code returned} or {@code handed_back}, {@link CompositionEvent#EMPTY_HARVEST} the
+ * form {@code empty_harvest}, and every other event no post-run-only form, so its facts leave the fact unset. A request
+ * whose event and fact disagree is refused.
  *
  * @param planId                  the id of the plan
  * @param event                   the composition event
@@ -45,6 +50,13 @@ Optional<String> realizedFootprintDigest, Optional<String> providersDigest, List
 InstancePosition position, Optional<PlanInstance> previous, List<String> verificationSteps,
 List<Step> finalizeSteps) {
 
+    /** The post-run-only form of a fallback that returns the plan. */
+    static final String POST_RUN_RETURNED = "returned";
+    /** The post-run-only form of a fallback that hands the plan back. */
+    static final String POST_RUN_HANDED_BACK = "handed_back";
+    /** The post-run-only form of an empty harvest. */
+    static final String POST_RUN_EMPTY_HARVEST = "empty_harvest";
+
     /**
      * Refuses a missing component and an event that does not fit the previous version, and copies the lists into
      * unmodifiable lists that keep their order.
@@ -64,7 +76,8 @@ List<Step> finalizeSteps) {
      * @param verificationSteps       the Phase 5 verification step ids
      * @param finalizeSteps           the Phase 6 steps
      * @throws IllegalArgumentException if {@link CompositionEvent#START} has a previous version, another event has
-     *                                  none, or the previous version belongs to another plan
+     *                                  none, the previous version belongs to another plan, or the event and the
+     *                                  {@code post_run} fact disagree
      */
     public CompositionRequest {
         Objects.requireNonNull(planId, "planId");
@@ -91,6 +104,29 @@ List<Step> finalizeSteps) {
             throw new IllegalArgumentException("the previous version belongs to the plan '%s'"
                     .formatted(instance.header().planId()));
         });
+        checkPostRun(event, facts.postRun());
+    }
+
+    /**
+     * The event and the {@value PlanFacts#POST_RUN_FACT} fact agree: {@link CompositionEvent#FALLBACK} composes
+     * {@code returned} or {@code handed_back}, {@link CompositionEvent#EMPTY_HARVEST} composes {@code empty_harvest},
+     * and every other event composes no post-run-only form.
+     */
+    private static void checkPostRun(CompositionEvent event, Optional<String> postRun) {
+        var admitted = switch (event) {
+            case FALLBACK -> List.of(POST_RUN_RETURNED, POST_RUN_HANDED_BACK);
+            case EMPTY_HARVEST -> List.of(POST_RUN_EMPTY_HARVEST);
+            default -> List.<String>of();
+        };
+        if (admitted.isEmpty() && postRun.isPresent()) {
+            throw new IllegalArgumentException("the event '%s' has no %s fact, but it is '%s'"
+                    .formatted(event.wireName(), PlanFacts.POST_RUN_FACT, postRun.get()));
+        }
+        if (!admitted.isEmpty() && postRun.filter(admitted::contains).isEmpty()) {
+            throw new IllegalArgumentException("the event '%s' needs the %s fact %s, but it is %s"
+                    .formatted(event.wireName(), PlanFacts.POST_RUN_FACT, admitted,
+                            postRun.map("'%s'"::formatted).orElse("unset")));
+        }
     }
 
     /**

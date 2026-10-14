@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.plan.CompositionRules.Refusal;
+import de.planmarshall.workflow.verify.CompiledInvariants;
 
 /**
  * The composition rule file (PM-IMPL-5, PM-EXT-7). The shipped file is a classpath resource of the module, outside
@@ -238,6 +239,42 @@ class CompositionRulesTest {
                     () -> assertEquals(refusal, refused.refusal(), refused::detail),
                     () -> assertTrue(refused.detail().contains(detailPart), refused::detail));
         }
+
+        /**
+         * The refused budgets are the budget parameters of the remediation schema, read from its one definition: a
+         * budget parameter added to the schema is refused here without a second edit.
+         */
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.plan.CompositionRulesTest#budgetParameters")
+        @DisplayName("a binding of every budget parameter of the remediation schema is refused raises_budget")
+        void everyBudgetParameterRefused(String argument) {
+            var loading = file(bindingOf(argument));
+
+            var refused = assertInstanceOf(CompositionRules.Refused.class, loading, loading::toString);
+            assertAll(
+                    () -> assertEquals(Refusal.RAISES_BUDGET, refused.refusal(), refused::detail),
+                    () -> assertTrue(refused.detail().contains(argument), refused::detail));
+        }
+
+        @Test
+        @DisplayName("a binding of an argument outside the budget parameters loads")
+        void otherArgumentLoads() {
+            var rules = loaded(file(bindingOf("mode"))).rules();
+
+            assertEquals("mode", rules.getFirst().bindings().getFirst().argument());
+        }
+
+        private static String bindingOf(String argument) {
+            return """
+                    {"id": "r", "when": {"fact": "lane", "equals": "land"}, "then": {
+                       "bind": [{"call_site": "*", "argument": "%s", "value": 1}]}}""".formatted(argument);
+        }
+    }
+
+    static Stream<String> budgetParameters() {
+        var parameters = CompiledInvariants.remediationBudgetParameters();
+        assertFalse(parameters.isEmpty(), "the remediation schema declares no budget parameter");
+        return parameters.stream().sorted();
     }
 
     static Stream<Arguments> refusedFiles() {

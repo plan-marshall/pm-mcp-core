@@ -156,6 +156,27 @@ final class PlanFixtures {
     }
 
     /**
+     * @param event the composition event
+     * @return the facts of {@link #facts()} with the {@code post_run} fact the event composes: {@code returned} for a
+     *         fallback, {@code empty_harvest} for an empty harvest, unset for every other event
+     */
+    static PlanFacts.Builder facts(CompositionEvent event) {
+        return facts().postRun(postRunOf(event).orElse(null));
+    }
+
+    /**
+     * @param event the composition event
+     * @return the {@code post_run} fact a request of the event carries, empty for an event without one
+     */
+    static Optional<String> postRunOf(CompositionEvent event) {
+        return switch (event) {
+            case FALLBACK -> Optional.of(CompositionRequest.POST_RUN_RETURNED);
+            case EMPTY_HARVEST -> Optional.of(CompositionRequest.POST_RUN_EMPTY_HARVEST);
+            default -> Optional.empty();
+        };
+    }
+
+    /**
      * @param event    the composition event
      * @param facts    the facts of the plan
      * @param previous the version in force
