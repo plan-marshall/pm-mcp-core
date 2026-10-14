@@ -110,7 +110,7 @@ class JGitCacheRepositoryTest {
 
         @Test
         @DisplayName("creates a bare repository, and opens it again unchanged")
-        void idempotent() throws IOException {
+        void idempotent() throws Exception {
             var first = git.initCache(cache);
             var second = git.initCache(cache);
 
@@ -124,7 +124,7 @@ class JGitCacheRepositoryTest {
 
         @Test
         @DisplayName("refuses a directory that holds anything but a repository")
-        void notARepository() throws IOException {
+        void notARepository() throws Exception {
             Files.createDirectories(cache);
             Files.writeString(cache.resolve("notes.txt"), "not a repository");
 
@@ -164,7 +164,7 @@ class JGitCacheRepositoryTest {
 
         @Test
         @DisplayName("a commit already in the cache is served without contacting the remote")
-        void cachedCommit() throws IOException {
+        void cachedCommit() throws Exception {
             assertTrue(fetch(url(), commit, RemotePolicy.localOnly()).isOk());
             FileUtils.delete(source.toFile(), FileUtils.RECURSIVE);
 
@@ -217,7 +217,7 @@ class JGitCacheRepositoryTest {
 
         @Test
         @DisplayName("a cache that is no repository is refused")
-        void cacheIsNoRepository() throws IOException {
+        void cacheIsNoRepository() throws Exception {
             var plain = Files.createDirectories(temp.resolve("plain"));
 
             assertAll(
@@ -243,7 +243,7 @@ class JGitCacheRepositoryTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("refusedRemotes")
     @DisplayName("a remote the policy does not admit is refused before anything is sent")
-    void remoteOutsidePolicy(String name, String url, RemotePolicy policy) throws IOException {
+    void remoteOutsidePolicy(String name, String url, RemotePolicy policy) throws Exception {
         assertTrue(git.initCache(cache).isOk());
 
         var fetched = fetch(url, commit, policy);

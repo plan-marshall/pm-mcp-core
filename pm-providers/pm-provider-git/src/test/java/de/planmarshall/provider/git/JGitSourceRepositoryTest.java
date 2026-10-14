@@ -106,8 +106,8 @@ class JGitSourceRepositoryTest {
 
     private void writeCorpus() throws IOException {
         writeSource(new SourceManifest("alpha", URI.create("https://github.com/example/alpha"), alphaCommit, "MIT",
-                List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false),
-                        new SourceFile("data/big.jsonl", Sha256.hex(JSONL), true))),
+                        List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false),
+                                new SourceFile("data/big.jsonl", Sha256.hex(JSONL), true))),
                 new SourceOverlay("alpha", "data/big.jsonl", null, CREATED, List.of(new Row("1", "d-1", "review/alpha",
                         "review", "missing null check", List.of(), "Review: {diff}", "", null,
                         new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
@@ -115,7 +115,7 @@ class JGitSourceRepositoryTest {
                         new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
                         new Review(ReviewStatus.DRAFT, null, null, null)))));
         writeSource(new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
-                List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false))),
+                        List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false))),
                 new SourceOverlay("beta", "data/test.csv", "question_id", CREATED, List.of(new Row("q-1", "q-1",
                         "screening/beta", "screening", "sky question", List.of("imported"), "{question}", "",
                         List.of("{option_a}", "{option_b}"), new Target("{option_a}", "the first holds", List.of(),
@@ -166,7 +166,7 @@ class JGitSourceRepositoryTest {
 
     @Test
     @DisplayName("fetches the pinned sources, verifies them and generates items the validator accepts")
-    void complete() throws IOException {
+    void complete() throws Exception {
         betaRepository(CSV);
         writeCorpus();
 
@@ -185,7 +185,7 @@ class JGitSourceRepositoryTest {
 
     @Test
     @DisplayName("a changed file fails its hash and the import, the other source's items are still generated")
-    void changedFile() throws IOException {
+    void changedFile() throws Exception {
         betaRepository(CHANGED_CSV);
         writeCorpus();
 
@@ -203,7 +203,7 @@ class JGitSourceRepositoryTest {
 
     @Test
     @DisplayName("a removed fixture repository is missed by name, the other source's items remain")
-    void removedRepository() throws IOException {
+    void removedRepository() throws Exception {
         betaRepository(CSV);
         writeCorpus();
         FileUtils.delete(fixtures.get("alpha").toFile(), FileUtils.RECURSIVE);

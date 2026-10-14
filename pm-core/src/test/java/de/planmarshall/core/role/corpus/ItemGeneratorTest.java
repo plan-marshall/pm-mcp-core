@@ -112,8 +112,8 @@ class ItemGeneratorTest {
                     () -> assertEquals(new Origin(URI.create("https://github.com/example/sample-set"), COMMIT,
                             "data/test.csv", LINE), provenance.origin()),
                     () -> assertEquals(List.of("2026-10-14: generated from line 3 of data/test.csv of "
-                            + "https://github.com/example/sample-set at commit " + COMMIT
-                            + ", selected and framed by the overlay of the source sample-set."),
+                                    + "https://github.com/example/sample-set at commit " + COMMIT
+                                    + ", selected and framed by the overlay of the source sample-set."),
                             provenance.history()));
         }
 

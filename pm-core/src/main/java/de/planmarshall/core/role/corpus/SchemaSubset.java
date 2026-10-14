@@ -18,8 +18,8 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import lombok.experimental.UtilityClass;
 
-import de.planmarshall.core.role.corpus.JsonValue.JsonList;
 import de.planmarshall.core.role.corpus.JsonValue.JsonBoolean;
+import de.planmarshall.core.role.corpus.JsonValue.JsonList;
 import de.planmarshall.core.role.corpus.JsonValue.JsonNull;
 import de.planmarshall.core.role.corpus.JsonValue.JsonNumber;
 import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
@@ -71,7 +71,7 @@ public class SchemaSubset {
             case JsonObject object when b instanceof JsonObject other -> object.members().keySet()
                     .equals(other.members().keySet())
                     && object.members().entrySet().stream()
-                            .allMatch(member -> same(member.getValue(), other.members().get(member.getKey())));
+                    .allMatch(member -> same(member.getValue(), other.members().get(member.getKey())));
             default -> a.equals(b);
         };
     }

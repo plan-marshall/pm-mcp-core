@@ -27,8 +27,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import de.planmarshall.core.role.corpus.CorpusViolation.Rule;
-import de.planmarshall.core.role.corpus.JsonValue.JsonList;
 import de.planmarshall.core.role.corpus.JsonValue.JsonBoolean;
+import de.planmarshall.core.role.corpus.JsonValue.JsonList;
 import de.planmarshall.core.role.corpus.JsonValue.JsonNull;
 import de.planmarshall.core.role.corpus.JsonValue.JsonNumber;
 import de.planmarshall.core.role.corpus.JsonValue.JsonObject;

@@ -176,10 +176,10 @@ public final class LfsBatchClient implements LfsObjectSource {
         var headers = new LinkedHashMap<String, String>();
         download.flatMap(action -> member(action, "header")).filter(JsonObject.class::isInstance)
                 .map(JsonObject.class::cast).ifPresent(header -> header.members().forEach((name, value) -> {
-                    if (value instanceof JsonString string) {
-                        headers.put(name, string.value());
-                    }
-                }));
+            if (value instanceof JsonString string) {
+                headers.put(name, string.value());
+            }
+        }));
         return Step.download(new Download(uri, headers));
     }
 
@@ -222,7 +222,7 @@ public final class LfsBatchClient implements LfsObjectSource {
      */
     private Answer send(URI uri, Map<String, String> headers, String body, BodyHandler<byte[]> reader) {
         try (var handler = HttpHandler.builder().uri(uri).connectionTimeoutSeconds(connectTimeoutSeconds)
-                .readTimeoutSeconds(readTimeoutSeconds).allowInsecureHttp(HTTP.equals(scheme(uri))).build()) {
+                     .readTimeoutSeconds(readTimeoutSeconds).allowInsecureHttp(HTTP.equals(scheme(uri))).build()) {
             var request = handler.requestBuilder().uri(uri);
             headers.forEach(request::header);
             if (body == null) {

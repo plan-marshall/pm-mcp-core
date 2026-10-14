@@ -108,11 +108,11 @@ class CorpusImportTest {
         repository = new FakeRepository();
         lfs = new FakeLfs();
         writeSource(new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0",
-                List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
+                        List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
                 new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
                         List.of(closedRow("q-1", "{question}"), closedRow("q-2", "{question}"))));
         writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT",
-                List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
+                        List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
                 new SourceOverlay("beta", BETA_FILE, null, CREATED, List.of(openRow("2", "review/beta", "d-2"))));
         repository.files.put("alpha:" + ALPHA_FILE, CSV);
         repository.files.put("beta:" + BETA_FILE, new LfsPointer(Sha256.hex(JSONL), JSONL.length).toBytes());
@@ -183,7 +183,7 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("covers both sources, writes their items and is COMPLETE")
-        void complete() throws IOException {
+        void complete() throws Exception {
             var result = run();
 
             assertAll(
@@ -199,7 +199,7 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("generates a valid item from the plain file, naming its row")
-        void plainFileItem() throws IOException {
+        void plainFileItem() throws Exception {
             run();
 
             var item = item(ALPHA_Q2);
@@ -217,7 +217,7 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("generates a valid item from the LFS object, not from its pointer")
-        void lfsObjectItem() throws IOException {
+        void lfsObjectItem() throws Exception {
             run();
 
             var item = item(BETA_D2);
@@ -232,7 +232,7 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("writes nothing below the corpus root, and hands the repository only the cache root")
-        void corpusRootUntouched() throws IOException {
+        void corpusRootUntouched() throws Exception {
             var before = snapshot(corpusRoot);
 
             run();
@@ -244,7 +244,7 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("replaces the items of an earlier import")
-        void replacesEarlierItems() throws IOException {
+        void replacesEarlierItems() throws Exception {
             var stale = items().resolve("old/topic/gone.json");
             Files.createDirectories(stale.getParent());
             Files.writeString(stale, "{}");
@@ -289,7 +289,7 @@ class CorpusImportTest {
     @MethodSource("hashMismatches")
     @DisplayName("a file that fails its hash fails the import, the other source's items are still generated")
     void hashMismatch(String name, String source, String file, String other,
-            BiConsumer<FakeRepository, FakeLfs> change) throws IOException {
+            BiConsumer<FakeRepository, FakeLfs> change) throws Exception {
         change.accept(repository, lfs);
         var before = snapshot(corpusRoot);
 
@@ -337,7 +337,7 @@ class CorpusImportTest {
     @MethodSource("missedSources")
     @DisplayName("a source that cannot be fetched is missed, the import is PARTIAL and keeps the other items")
     void missedSource(String name, String source, Reason reason, String file, String other,
-            BiConsumer<FakeRepository, FakeLfs> failure) throws IOException {
+            BiConsumer<FakeRepository, FakeLfs> failure) throws Exception {
         failure.accept(repository, lfs);
         var before = snapshot(corpusRoot);
 
@@ -372,9 +372,9 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("a template naming a field the row lacks misses the source and fails the import")
-        void unknownTemplateField() throws IOException {
+        void unknownTemplateField() throws Exception {
             writeSource(new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0",
-                    List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
+                            List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
                     new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
                             List.of(closedRow("q-1", "{nothing}"))));
 
@@ -393,9 +393,9 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("an item id another source generates too misses the later source and fails the import")
-        void duplicateItemId() throws IOException {
+        void duplicateItemId() throws Exception {
             writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT",
-                    List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
+                            List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
                     new SourceOverlay("beta", BETA_FILE, null, CREATED,
                             List.of(openRow("2", "screening/alpha", "q-1"))));
 
@@ -411,7 +411,7 @@ class CorpusImportTest {
 
     @Test
     @DisplayName("a cache root below the corpus root is refused before anything is fetched or written")
-    void cacheRootBelowCorpusRoot() throws IOException {
+    void cacheRootBelowCorpusRoot() throws Exception {
         var before = snapshot(corpusRoot);
         var inside = corpusRoot.resolve("cache");
         var corpusImport = new CorpusImport(repository, lfs);

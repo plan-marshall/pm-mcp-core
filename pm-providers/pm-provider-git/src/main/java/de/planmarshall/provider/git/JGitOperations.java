@@ -19,7 +19,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
-
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.EmptyCommitException;
@@ -417,7 +416,7 @@ public final class JGitOperations implements GitOperations {
         try {
             if (Files.exists(cache) && !isEmptyDirectory(cache)) {
                 try (Repository repository = new FileRepositoryBuilder().setFS(fs).setMustExist(true)
-                        .setGitDir(cache.toFile()).build()) {
+                             .setGitDir(cache.toFile()).build()) {
                     return repository.isBare() ? GitResult.ok(cache.toRealPath())
                             : GitResult.of(GitOutcome.NOT_A_REPOSITORY, cache + " is no bare repository");
                 }

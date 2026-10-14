@@ -289,7 +289,7 @@ class CorpusValidatorTest {
 
         @Test
         @DisplayName("an item an import generated below the cache root is accepted")
-        void generatedItemAccepted() throws IOException {
+        void generatedItemAccepted() throws Exception {
             var overlay = CorpusSchemaResourcesTest.overlay("question_id", "q-1", "q-2");
             var generated = ItemGenerator.generate(CorpusSchemaResourcesTest.manifest(), overlay,
                     overlay.rows().getFirst(), new SourceRow(3, Map.of("question", "Is the sky blue?", "subject",
@@ -305,7 +305,7 @@ class CorpusValidatorTest {
 
         @Test
         @DisplayName("the files below schema/, context/ and sources/ are no items")
-        void noItemDirectories() throws IOException {
+        void noItemDirectories() throws Exception {
             fixture.write("context/notes.json", "not JSON");
             fixture.write("schema/other.json", "{\"id\":\"elsewhere\"}");
             fixture.write("sources/alpha/extra.json", "[]");
@@ -317,7 +317,7 @@ class CorpusValidatorTest {
 
         @Test
         @DisplayName("an item of the corpus's own part fetched from a review comment, naming no row, is accepted")
-        void fetchedOwnItem() throws IOException {
+        void fetchedOwnItem() throws Exception {
             fixture.item(with(closedItem(), "provenance", map("kind", "fetched", "created", "2026-10-14", "origin",
                     map("repository", "https://github.com/example/alpha", "path", "src/Main.java"), "history",
                     List.of("2026-10-14: fetched from a review comment of the repository."))));
@@ -329,7 +329,7 @@ class CorpusValidatorTest {
 
         @Test
         @DisplayName("a control without rubric items is accepted")
-        void control() throws IOException {
+        void control() throws Exception {
             var item = with(rubricItem(), "target.items", null);
             fixture.item(with(item, "target.expected_empty", true));
 
@@ -399,7 +399,7 @@ class CorpusValidatorTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("brokenRules")
     @DisplayName("a fixture that breaks one rule reports exactly its violation")
-    void brokenRule(String name, String subject, Rule rule, Mutation mutation) throws IOException {
+    void brokenRule(String name, String subject, Rule rule, Mutation mutation) throws Exception {
         mutation.apply(fixture);
 
         var violations = validate();
@@ -412,7 +412,7 @@ class CorpusValidatorTest {
 
     @Test
     @DisplayName("a corpus root that is no directory is reported, not thrown")
-    void rootIsNoDirectory() throws IOException {
+    void rootIsNoDirectory() throws Exception {
         var file = Files.writeString(base.resolve("file"), "no corpus");
 
         var violations = new CorpusValidator(file).validate();
@@ -424,19 +424,19 @@ class CorpusValidatorTest {
 
     @Test
     @DisplayName("a transient name is named in the detail, once per occurrence")
-    void transientDetail() throws IOException {
+    void transientDetail() throws Exception {
         fixture.item(with(closedItem(), "provenance.history", List.of("2026-10-14: pulled by pull.py, see E12.")));
 
         var violations = validate();
 
         assertEquals(List.of("names a transient tool or stage: 'pull.py'",
-                "names a transient tool or stage: 'E12'"),
+                        "names a transient tool or stage: 'E12'"),
                 violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations));
     }
 
     @Test
     @DisplayName("an item breaking the schema reports each violation with its path")
-    void schemaDetail() throws IOException {
+    void schemaDetail() throws Exception {
         fixture.item(with(with(closedItem(), "title", "t".repeat(121)), "grading.method", "vote"));
 
         var violations = validate();
@@ -445,8 +445,8 @@ class CorpusValidatorTest {
                 () -> assertTrue(violations.stream().allMatch(violation -> violation.rule() == Rule.SCHEMA),
                         () -> report(violations)),
                 () -> assertEquals(List.of("$.title: longer than 120",
-                        "$.grading.method: \"vote\" not in [\"exact_choice\", \"label\", \"rubric_items\", "
-                                + "\"rubric_properties\"]"),
+                                "$.grading.method: \"vote\" not in [\"exact_choice\", \"label\", \"rubric_items\", "
+                                        + "\"rubric_properties\"]"),
                         violations.stream().map(CorpusViolation::detail).toList()));
     }
 }
