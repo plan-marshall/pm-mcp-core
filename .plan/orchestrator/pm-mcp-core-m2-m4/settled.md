@@ -67,3 +67,10 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
   `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
   `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).
 - Settled by #76: `StartupSequence` followed (`AuditChainVerification.NONE` plus a refusing sink in `PmMcpd`); `FindingSource`, `FindingResponder`, `ProjectRecovery`, `AuditEvent`, `CrossScopeReconciler`, the journal format and the enrolment store types have no use site in the assembly. All gates and CI green on 28bd5fe.
+
+<!-- moved by analyze on 2026-10-14: PLAN-56 shipped as #66 (7981d17) -->
+
+## Defect: static verifier residuals after PLAN-54
+
+- Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
+- Settled by PLAN-56 (#66, 7981d17; documentation #72): every item was implemented or named as a seam. The Rule 3 activation remains a seam until documentation issue #71 is answered (see the watch in `epic.md`); `landings/PLAN-56.md`.

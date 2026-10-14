@@ -51,7 +51,7 @@ decision or a dependency outside this repository.
   in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
   They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
 - PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
-- PLAN-44 — shipped as #38, gaps materially open; PLAN-54 completed the package (#48, minor gaps). PLAN-17 is unblocked; PLAN-56 holds the residuals and blocks nothing.
+- PLAN-44 — shipped as #38, gaps materially open; PLAN-54 completed the package (#48, minor gaps). PLAN-17 is unblocked; PLAN-56 closed the residuals (#66, 2026-10-14), except the Rule 3 seam waiting on documentation issue #71.
 - PLAN-55 — parked: `chat`, added by #46 (2026-10-13), blocked; PLAN-51, PLAN-52 and PLAN-53 now also depend on it.
 - PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
@@ -430,6 +430,14 @@ decision or a dependency outside this repository.
   - The first resolution attempt pushed a commit with conflict markers (dfb23c7). 3c5342b fixed it
     before the merge, and the squash left no trace on main; main was checked to have no markers.
   - No open documentation PR remains for this epic.
+- 2026-10-14 — PLAN-56 `static-verifier-residuals` shipped as #66 (7981d17), with documentation #72 merged
+  first; landing report `landings/PLAN-56.md`. The inbox drain covered 11 messages, all valid: 1 landing
+  (reconciled) and 10 candidate lessons. The 10 lessons all concern plan-marshall components and were
+  promoted, routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-263.md` to `-270.md`:
+  - 001 → -263 and 002 → -264 are new.
+  - 003 + 008 → -265, 004 → -266, 005 + 010 → -267, 006 → -268, 007 → -269 and 009 → -270 repeat lessons
+    this epic routed earlier. Each new message names the messages it repeats, so lessons-routing can fold it.
+    The intra-batch pairs were merged into one message each.
 
 ## Open Defects
 
@@ -447,13 +455,12 @@ decision or a dependency outside this repository.
   decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
   2026-10-13 at bed24eb) — source: operator, 2026-10-13.
 
-- Documentation behind the code: (a) the Job Runtime specification lacks PLAN-18's mandatory
-  `maxLength` for enrolled patterns (doc #46 merged before the review fixes); (b) the Workflow DSL
-  watch items PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 are still open on documentation main although
-  PLAN-41/44/54 implemented them (no documentation PR). Proposed owner: PLAN-56 (residuals) takes (b);
-  (a) is a small direct documentation PR — source: PR check of 2026-10-13.
+- Documentation behind the code: the Job Runtime specification lacks PLAN-18's mandatory
+  `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
+  documentation PR — source: PR check of 2026-10-13. (Part (b), the Workflow DSL watch items, was
+  closed by documentation #72, merged 2026-10-14 with PLAN-56.)
 
-- Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
+> ↪ Relocated to `settled.md` § "Defect: static verifier residuals after PLAN-54" — PLAN-56 shipped as #66 (7981d17)
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
@@ -482,7 +489,7 @@ decision or a dependency outside this repository.
 > ↪ Relocated to `settled.md` § "Watch: pm-mcp-server and SweepStep.notImplemented" — refuted by #76: no use site in the assembly
 - **No production `AuditSink` or `AuditChainVerification` in pm-mcp-core** (only test sinks; `AuditChainVerification.NONE`). Since #76 the daemon starts with `NONE` and `NO_AUDIT_STORE`, a sink that refuses every record (`StartupSequence` then logs `AUDIT_CHAIN_BROKEN_NOT_RECORDED`). PLAN-09 `audit-trail` is the natural owner — check at its re-grounding that its deliverables include the production sink and the startup verification the assembly can wire, and that plan-marshall-mcp swaps them in afterwards — source: plan-marshall-mcp #76 report, corroborated 2026-10-14.
 
-- The specification issue "Workflow DSL Rule 3: define how a `depends_on_config` value activates a guard" is not filed in `plan-marshall-documentation`; its text is in PR #48 and ADR 006 (operator, or PLAN-56).
+- Specification issue `plan-marshall-documentation` #71 ("Workflow DSL: define how a `depends_on_config` value activates a guard") is OPEN (filed by PLAN-56). Rule 3 configuration reachability stays a named seam (ADRs 004, 006) until it is answered; then stage a follow-up package that implements the specified activation.
 - Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
 
 - No plan records its harness (high-priority finding `pm-mcp-core-m2-m4-132.md`). The operator's rule since 2026-10-13: assume Claude Code unless stated otherwise.
