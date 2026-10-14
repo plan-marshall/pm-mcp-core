@@ -48,7 +48,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 |`FETCHED`
 |===
 
-Every `UNREACHABLE` and `PIN_MISSING` outcome is logged as WARN `PM_RUNTIME-123` `CORPUS_LFS_OBJECT_UNAVAILABLE` with the oid, the repository without user information, and the detail.
+Every `UNREACHABLE` and `PIN_MISSING` outcome is logged as WARN `PM_RUNTIME-126` `CORPUS_LFS_OBJECT_UNAVAILABLE` with the oid, the repository without user information, and the detail.
 
 The client does not decide whether delivered bytes are the object.
 It reads the download up to one byte beyond the pointer's size and stops there (`BoundedBody`), so a longer body is never held in full.

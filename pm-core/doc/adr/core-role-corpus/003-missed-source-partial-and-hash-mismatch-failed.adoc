@@ -54,7 +54,7 @@ selected items is a defect of the corpus, so it fails the run like a mismatch.
   missed sources named (`role-qualification`).
 * Every missed source is logged: WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`, and for a mismatch ERROR `PM_CORE-200`
   `CORPUS_SOURCE_HASH_MISMATCH`. An LFS object the endpoint does not deliver is also logged by the client as WARN
-  `PM_RUNTIME-123` `CORPUS_LFS_OBJECT_UNAVAILABLE`.
+  `PM_RUNTIME-126` `CORPUS_LFS_OBJECT_UNAVAILABLE`.
 * An implementation of `SourceRepository` or `LfsObjectSource` returns what it fetched and leaves the hash check to
   `CorpusImport`.
 
