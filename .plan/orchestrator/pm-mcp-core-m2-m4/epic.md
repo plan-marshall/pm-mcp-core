@@ -403,6 +403,17 @@ decision or a dependency outside this repository.
   - Deferred to the log-holder report: every open spec's log bullet and the holder path in its
     surface.
 
+- 2026-10-14 — Log-holder session plan reported: pm-mcp-core #64 (head a777427, CI green, OPEN) and
+  plan-marshall-documentation #68 (OPEN, merge after #64). Verified on the branch: `CoreLogMessages`
+  3 records, `RuntimeLogMessages` 54, `WorkflowLogMessages` 3 (= the 57 of `PmMcpLogMessages` plus
+  PLAN-17's 3); `PmMcpLogMessages` deleted with no reference left outside `.plan/`; ADR 005
+  supersedes ADR 003; `KNOWN_PREFIXES` in `CoreLogMessagesTest`. The operator put the 16 records only
+  the assembly uses into `RuntimeLogMessages` (Javadoc "Used by the assembly pm-mcp-server"), not into
+  `CoreLogMessages`. The log rule of the 40 open specs was rewritten to "the holder of your module, next
+  free identifier", naming each spec's holders. Like the old shared holder, a module's holder stays
+  out of the Expected Surface; collisions are resolved on rebase. Emitting waits for #64 on main. The
+  ledger's history (landings, older decisions) keeps the old names on purpose.
+
 ## Open Defects
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
@@ -449,6 +460,8 @@ decision or a dependency outside this repository.
 
 - Documentation PR `plan-marshall-documentation` #56 (PLAN-21) is OPEN — PLAN-21's landing completes when it is merged.
 - A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
+- pm-mcp-core #64 (log holders per module) and plan-marshall-documentation #68 are OPEN. Merge #64 first, then #68. No plan is emitted before #64 is on main, because every open spec's log rule names the new holders. Once #64 has merged, retire the Open Defect on shared log identifiers.
+- plan-marshall-mcp `pm-mcp-server` imports `PmMcpLogMessages` and breaks against the SNAPSHOT of #64 until it switches to `RuntimeLogMessages` (all of its 16 records) or takes over its own records.
 > ↪ Relocated to `settled.md` § "Watch: doc #57 of PLAN-17" — #57 merged 2026-10-13T20:44:58Z (fff6552); PLAN-17 complete
 - plan-marshall-mcp owes, from PLAN-17: `DefaultUnitInvariantTest` over the real default units, and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal).
 
