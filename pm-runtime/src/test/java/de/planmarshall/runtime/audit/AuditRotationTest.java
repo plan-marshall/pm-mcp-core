@@ -23,11 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import javax.crypto.SecretKey;
@@ -46,14 +48,20 @@ import de.planmarshall.core.store.JsonlStoreFile;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.credentials.SecretStoreException;
+import de.planmarshall.runtime.enrolment.EnrolmentHmac;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.AuditChainVerification;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The rotation of the audit log: checkpoint, index entry and rename under the audit lock, and the first record of the
@@ -100,6 +108,48 @@ class AuditRotationTest {
                             () -> new AuditRotation.Limits(1, Duration.ZERO)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new AuditRotation.Limits(1, negative)));
+        }
+    }
+
+    @Nested
+    @DisplayName("the checkpoint HMAC")
+    @ResourceLock(Resources.LOCALE)
+    class CheckpointHmac {
+
+        /** A locale whose default number format writes non-ASCII digits. */
+        private static final Locale ARABIC_DIGITS = Locale.forLanguageTag("ar-EG");
+
+        private static final SecretKey KEY = new SecretKeySpec(new byte[32], EnrolmentKey.ALGORITHM);
+
+        private static final String HEAD_HASH = "0123456789abcdef".repeat(4);
+
+        private final Locale formatLocale = Locale.getDefault(Locale.Category.FORMAT);
+
+        @AfterEach
+        void restoreLocale() {
+            Locale.setDefault(Locale.Category.FORMAT, formatLocale);
+        }
+
+        @Test
+        @DisplayName("the non-ASCII-digit locale of the test does localize the digits of a formatted number")
+        void localeWritesNonAsciiDigits() {
+            Locale.setDefault(Locale.Category.FORMAT, ARABIC_DIGITS);
+
+            var formatted = "%d".formatted(1234L);
+
+            assertNotEquals("1234", formatted, "the locale must make String.formatted write non-ASCII digits");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"en-US", "de-DE", "ar-EG", "th-TH-u-nu-thai"})
+        @DisplayName("signs the record count with ASCII digits under any default locale")
+        void asciiDigitsUnderAnyLocale(String languageTag) {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(languageTag));
+            var content = "{\"record_count\":1234,\"head_hash\":\"" + HEAD_HASH + "\"}";
+
+            var hmac = AuditRotation.checkpointHmac(KEY, 1234L, HEAD_HASH);
+
+            assertEquals(EnrolmentHmac.hmac(KEY, content.getBytes(StandardCharsets.US_ASCII)), hmac);
         }
     }
 

@@ -341,7 +341,8 @@ public final class AuditRotation {
      */
     public static String checkpointHmac(SecretKey key, long recordCount, String headHash) {
         Objects.requireNonNull(headHash, "headHash");
-        var content = "{\"record_count\":%d,\"head_hash\":\"%s\"}".formatted(recordCount, headHash);
+        // Concatenation, not String.formatted: %d formats with the default locale and could write non-ASCII digits.
+        var content = "{\"record_count\":" + Long.toString(recordCount) + ",\"head_hash\":\"" + headHash + "\"}";
         return EnrolmentHmac.hmac(key, content.getBytes(StandardCharsets.UTF_8));
     }
 
