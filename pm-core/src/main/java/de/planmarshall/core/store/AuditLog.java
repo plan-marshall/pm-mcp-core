@@ -44,6 +44,12 @@ import de.planmarshall.core.service.LockTransaction;
  * the {@link AuditAnchor} run in the one transaction that holds the key, so no second appender comes between the hash
  * and the line it chains.
  * <p>
+ * <em>The write paths</em>: every record of a producer goes through {@link #append(LockTransaction, AuditRecord)},
+ * which calls the anchor. A rotation, which runs inside that call, writes through two members that never call the
+ * anchor: {@link #appendCheckpoint(LockTransaction, AuditRecord)} closes the log, and
+ * {@link #appendOwedRepair(LockTransaction, AuditEvent)} hands the owed tail repair of the audit index into the new
+ * log. The in-log sink below writes the record of a tail repair of the log itself. There is no other write path.
+ * <p>
  * <em>A torn tail of the log itself</em> is cut by the next append through the unchanged repair of the JSONL store,
  * which owes the {@code jsonl_tail_repaired} record in its intent file and hands it to the private in-log sink of this
  * type. That sink writes the record into the log directly, chained by the predecessor rule and forced to disk, before
@@ -100,9 +106,11 @@ public final class AuditLog {
      * @param template    the record to append; its {@code prev_hash} is replaced by the hash it chains to
      * @return the record as it was appended
      * @throws InternalFaultException if the transaction does not hold the audit lock; nothing was written then
-     * @throws StoreRefusal           if the intent file of the log is unreadable; nothing was written then
-     * @throws UncheckedIOException   if the log cannot be repaired or appended to, or the record of a repair could not
-     *                                be written into the log; the record was not appended then
+     * @throws StoreRefusal           if the intent file of the log is unreadable, or the anchor refuses the append for
+     *                                that reason; the record was not appended then
+     * @throws UncheckedIOException   if the log cannot be repaired or appended to, the record of a repair could not be
+     *                                written into the log, or the anchor refuses the append because a rotation stays
+     *                                pending after its checkpoint; the record was not appended then
      */
     public AuditRecord append(LockTransaction transaction, AuditRecord template) {
         StoreLockGuard.requireHeld(transaction, logFile(), lockKey());
@@ -129,11 +137,8 @@ public final class AuditLog {
      * @throws UncheckedIOException     if the log cannot be repaired or appended to
      */
     public String appendCheckpoint(LockTransaction transaction, AuditRecord checkpoint) {
-        Objects.requireNonNull(transaction, "transaction");
+        requireAuditLock(transaction, "A checkpoint");
         Objects.requireNonNull(checkpoint, "checkpoint");
-        if (!transaction.holds(lockKey())) {
-            throw new IllegalStateException("A checkpoint is appended only under the audit lock: " + logFile());
-        }
         if (!checkpoint.isCheckpoint()) {
             throw new IllegalArgumentException("Not a checkpoint record: " + checkpoint.event());
         }
@@ -141,6 +146,33 @@ public final class AuditLog {
         var line = AuditCodec.writeRecord(checkpoint.withPrevHash(predecessor()));
         store.append(transaction, block(line), inLogSink);
         return AuditCodec.sha256Hex(line);
+    }
+
+    /**
+     * Appends a {@value AuditEvent#JSONL_TAIL_REPAIRED} record that a tail repair of another file of the audit trail
+     * owes, such as the audit index, which a rotation hands into the new log once it has renamed the closed one. The
+     * record is formed as {@link AuditLogSink} forms it; this member repairs a torn tail, chains the record by the
+     * predecessor rule and appends it, and it never calls the anchor, so a rotation cannot recurse.
+     *
+     * @param transaction a transaction that holds the audit lock
+     * @param owed        the owed record of a tail repair
+     * @return the record as it was appended
+     * @throws IllegalStateException    if the transaction does not hold the audit lock; nothing was written then
+     * @throws IllegalArgumentException if the record is not a {@value AuditEvent#JSONL_TAIL_REPAIRED} record of a
+     *                                  category and an outcome of the audit log; nothing was written then
+     * @throws UncheckedIOException     if the log cannot be repaired or appended to
+     */
+    public AuditRecord appendOwedRepair(LockTransaction transaction, AuditEvent owed) {
+        requireAuditLock(transaction, "An owed record of a tail repair");
+        Objects.requireNonNull(owed, "owed");
+        if (!AuditEvent.JSONL_TAIL_REPAIRED.equals(owed.event())) {
+            throw new IllegalArgumentException("Not the record of a tail repair: " + owed.event());
+        }
+        var template = AuditLogSink.toRecord(owed, clock, osPrincipal);
+        repairTail(transaction);
+        var appended = template.withPrevHash(predecessor());
+        store.append(transaction, block(AuditCodec.writeRecord(appended)), inLogSink);
+        return appended;
     }
 
     /**
@@ -210,6 +242,14 @@ public final class AuditLog {
     /** @return the OS principal of the runtime */
     String osPrincipal() {
         return osPrincipal;
+    }
+
+    /** @throws IllegalStateException if the transaction does not hold the audit lock */
+    private void requireAuditLock(LockTransaction transaction, String what) {
+        Objects.requireNonNull(transaction, "transaction");
+        if (!transaction.holds(lockKey())) {
+            throw new IllegalStateException(what + " is appended only under the audit lock: " + logFile());
+        }
     }
 
     /**

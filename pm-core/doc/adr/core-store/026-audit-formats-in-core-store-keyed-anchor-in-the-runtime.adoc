@@ -26,8 +26,10 @@ to the checkpoint line that closed the rotated log.
 * What needs the key, the head, the rotation and the index, is behind the seam `AuditAnchor`, implemented by
   `AuditHead` of `runtime.audit`. The writer calls its three methods under the audit lock: `beforeAppend` (rotation
   if due), `emptyLogPredecessor()` (the `checkpoint_hash` of the last index entry) and `afterAppend` (the head).
-* `runtime.audit` writes into the log only through the public `AuditLog.appendCheckpoint`, which chains the checkpoint
-  like every line, returns the hash of its line, and never calls the anchor, so a rotation cannot recurse.
+* `runtime.audit` writes into the log only through two public members of `AuditLog`, both used inside a rotation and
+  neither calling the anchor, so a rotation cannot recurse: `appendCheckpoint`, which chains the checkpoint like every
+  line and returns the hash of its line, and `appendOwedRepair`, which hands an owed `jsonl_tail_repaired` record of
+  the audit index into the new log, formed by the one mapping of `AuditLogSink` and chained like every line.
 * One predecessor rule decides what every line chains to: the SHA-256 of the last complete line of the log; when the
   log holds no complete line, `emptyLogPredecessor()` when present; genesis (64 `0`) only when no rotation ever
   happened. The first record after a rotation therefore links to the checkpoint line.
@@ -39,8 +41,9 @@ Alternatives not recorded.
 == Consequences
 
 * An implementation of `AuditAnchor` takes no lock of its own, since the audit lock is the leaf of the lock order, and
-  never throws for a head or an index it cannot write: the record stays appended and the next verification reports
-  the gap.
+  never throws for a head it cannot write: the record stays appended and the next verification reports the gap. The
+  one failure it throws is a rotation that stays pending after its checkpoint, since no record may follow a
+  checkpoint; the append is then not carried out.
 * `AuditAnchor.NONE` lets the chain run alone, for tests and for a runtime that wires no anchor.
 * A change of a format is a change in `core.store` and in the specification together, guarded by the parity test.
 

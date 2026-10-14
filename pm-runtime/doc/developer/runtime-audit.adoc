@@ -58,10 +58,12 @@ lock, never writes and never throws.
 AuditLogSink.append(event)                          (core.store; own transaction, audit lock acquired)
   AuditLog.append(transaction, record)
     ├─ repair a torn tail of the log
-    ├─ AuditHead.beforeAppend ──► AuditRotation.rotateIfDue          (only with the key present)
+    ├─ AuditHead.beforeAppend ──► AuditRotation.rotateIfDue          (with the key present;
+    │                                                                    completePending without it)
     │     limit reached? ── checkpoint ──► AuditLog.appendCheckpoint ──► checkpoint_hash
     │                       index entry ──► AuditIndex.append            (before the rename)
     │                       rename audit.jsonl ──► audit-<first_event_id>.jsonl, directory forced
+    │                       owed index repair ──► AuditLog.appendOwedRepair  (into the new log)
     ├─ prev_hash: last line, else AuditHead.emptyLogPredecessor() (the checkpoint line), else genesis
     ├─ append the record
     └─ AuditHead.afterAppend ──► logs/audit.head (count, last id, head_hash, index_head_hash, HMAC)
@@ -81,8 +83,17 @@ other fields (`AuditCodec.signedContent`). The head is replaced atomically throu
 forced to disk, and readable and writable by its owner only.
 
 The record count is the previous head's count plus one when the previous head anchors exactly the line the appended
-record chains to and verifies under the key; otherwise the complete lines of the log are counted. So the first head
-after the key appears covers the whole current log.
+record chains to and verifies under the key. Otherwise the complete lines of the log are counted, but only where the
+count cannot hide a cut (link:../adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[ADR 003]):
+
+* no previous head verifies: the first head after the key appears covers the whole current log;
+* the log was rotated since the previous head: the last index entry chains to the index line that head anchored;
+* the log still holds the line the previous head anchored, at its position: a stop between an append and its head
+  left records without a head, and the recount covers them.
+
+A log that no longer holds the anchored line, cut short or with its last line replaced, gets no new head. The previous
+head stays, so the verification reports `truncated` (fewer records than it anchors) or `head_mismatch`, and
+`PM_RUNTIME-123` names the reason `anchored_line_missing`. Nothing re-signs a cut as the new baseline.
 
 [#_the_key]
 === The Key
@@ -100,16 +111,18 @@ once read is kept, because it is never replaced
 |The rotation runs when due, the head is written.
 
 |Absent (no enrolment yet)
-|No rotation (a checkpoint needs the HMAC) and no head; the record stands and nothing is logged. The first append after
-the key exists writes the head over the whole log.
+|No rotation starts (a checkpoint needs the HMAC) and no head; the record stands and nothing is logged. The first append
+after the key exists writes the head over the whole log.
 
 |Unreadable (`SecretStoreException`)
-|No rotation and no head; the record stands, and `PM_RUNTIME-123` (`AUDIT_HEAD_NOT_WRITTEN`) names the reason code,
-never the key.
+|No rotation starts and no head; a pending rotation is completed. The record stands, and `PM_RUNTIME-123`
+(`AUDIT_HEAD_NOT_WRITTEN`) names the reason code, never the key.
 |===
 
-A head that cannot be written is logged as `PM_RUNTIME-123` with the reason `head_unwritable`. Nothing of the head
-throws into the append: a gap of the head is what the next verification reports.
+A head that cannot be written is logged as `PM_RUNTIME-123` with the reason `head_unwritable`, one that is withheld over
+a cut log with `anchored_line_missing`. Nothing of the head
+throws into the append: a gap of the head is what the next verification reports. The one failure `AuditHead` throws
+into the append is a rotation that stays pending after its checkpoint (<<_the_rotation>>).
 
 == The Rotation
 
@@ -122,8 +135,7 @@ the log, under the audit lock and inside the writer's append, in this order:
 
 . the `checkpoint` record (`category: security`, `scope_type: machine`, `details{record_count, head_hash, hmac}`: the
   records before it, the hash of the line before it, and the HMAC-SHA-256 under the key over the UTF-8 bytes of
-  `{"record_count":<record_count>,"head_hash":"<head_hash>"}`) is appended through `AuditLog.appendCheckpoint`, the one
-  path by which this package writes into the log;
+  `{"record_count":<record_count>,"head_hash":"<head_hash>"}`) is appended through `AuditLog.appendCheckpoint`;
 . an index entry names the file `audit-<first_event_id>.jsonl`, its first record, the checkpoint as its last record,
   its record count with the checkpoint, and the hash of the checkpoint line as `checkpoint_hash`;
 . the log is renamed to that file name by an atomic move, and the directory is forced to disk.
@@ -132,18 +144,33 @@ A rotation logs `PM_RUNTIME-25` (`AUDIT_LOG_ROTATED`) with the rotated file and 
 empty, so the writer chains the next record by its predecessor rule to `emptyLogPredecessor()`, the checkpoint line.
 
 *A stop during a rotation.* Because the index entry is written before the rename, a stop after the rename still finds
-the entry, and the next record links to the checkpoint. A log whose last line is a checkpoint is a rotation a stop
-interrupted: the next append completes it without a second checkpoint, writing the index entry unless the last entry
-already names that line, and then renaming the log.
+the entry, and the next record links to the checkpoint. A log whose last line is a checkpoint is a _pending rotation_,
+one a stop or a failure interrupted after its checkpoint: the next append completes it without a second checkpoint,
+writing the index entry unless the last entry already names that line, and then renaming the log. Completing it needs
+no key, since the checkpoint is already signed, so it is completed also while the key is absent or unreadable. A due
+log that the last index entry already names as its rotated file is never entered a second time.
 
 *A torn tail of the index.* The index entry is appended through the JSONL append path, which first cuts a torn tail of
 the index. Its `jsonl_tail_repaired` record cannot go into the log being closed, so the rotation refuses the hand-over:
 the record stays owed in the intent file of the index (logged `PM_CORE-100` by the substrate). After the rename the
-rotation hands the owed records into the new log.
+rotation hands the owed records into the new log through `AuditLog.appendOwedRepair`, which forms each record by the
+mapping of `AuditLogSink` (an unknown category or outcome is refused there as by the sink) and chains it by the
+predecessor rule to the checkpoint line.
 
-*A rotation that fails* (the log or the index cannot be read or written, the rename fails, an intent file is unreadable)
-is logged as `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`); the record is appended to the current log, and the next append
-completes or retries the rotation.
+*The write paths of the package.* `runtime.audit` writes into the log through exactly two members of `AuditLog`, and
+only inside a rotation: `appendCheckpoint` closes the log, and `appendOwedRepair` hands an owed `jsonl_tail_repaired`
+record of the index into the new log. Both require the audit lock, chain by the predecessor rule and never call the
+anchor, so a rotation cannot recurse. Every other record reaches the log through `AuditLog.append`.
+
+*A rotation that fails before its checkpoint* (the log or the index cannot be read, the checkpoint cannot be written, an
+intent file is unreadable) is logged as `PM_RUNTIME-124` (`AUDIT_ROTATION_FAILED`); the record is appended to the
+current log, and the next append retries the rotation.
+
+*A rotation that fails after its checkpoint* (the index entry cannot be written, the rename fails) stays pending. No
+record may follow the checkpoint, so `AuditHead` logs `PM_RUNTIME-125` (`AUDIT_ROTATION_PENDING`) and throws into the
+append: the record is not appended, and the producer keeps what it owes, as for any refusal of the audit sink. The next
+append completes the rotation. Until then the verification reports the pending rotation intact
+(<<_the_verification>>).
 
 Reading the limits from `machine-config.json` (`audit_rotation.max_bytes`, `audit_rotation.max_days`) belongs to the
 assembly; this package takes them as `Limits`.
@@ -162,6 +189,11 @@ jobs. It checks, in this order:
 . the current log: its first record chains to the `checkpoint_hash` of the last index entry (to genesis when the index
   is empty), every other one to the line before it, the count equals the head's `record_count`, and the last line and
   its event id are the ones the head names.
+
+A current log whose last line is a checkpoint is a pending rotation (<<_the_rotation>>). It is checked as the rotated
+file it is about to become: against the last index entry when that entry names its checkpoint line, otherwise its chain
+and its checkpoint; and the head anchors the line before the checkpoint and the index line before that entry. A pending
+rotation is therefore reported intact, not as `head_mismatch` or `reset`.
 
 `full()` checks, after the head and before the current log, every rotated file the index lists, in index order: its
 first record chains to the checkpoint of the file before it (genesis for the first), its count, its first event id and
@@ -245,12 +277,17 @@ edits them into the tamper cases.
 link:{test}/AuditHeadTest.java[`AuditHeadTest`]:: A head after every append with a valid HMAC; a head under another key
 or with an edited field fails the check; without a key the append stands, no head, no rotation, and the keyring still
 holds no key; with an unreadable key the append stands and the warning carries no key material; the first append
-after the key appears writes a head over the whole log.
+after the key appears writes a head over the whole log; a log cut below the anchored count, a replaced last line and a
+head claiming more records than the log holds are never re-signed and stay reported, while a stop between an append
+and its head is closed by a recount.
 link:{test}/AuditIndexTest.java[`AuditIndexTest`]:: The index chain round trip; an edited or removed index line breaks
 it.
 link:{test}/AuditRotationTest.java[`AuditRotationTest`]:: Rotation by size and by age with the defaults asserted, the
 checkpoint fields, the rotated file name, the index entry, the first record of the new log chained to the checkpoint
-line; a stop after the rename, and a stop after the checkpoint, completed with exactly one checkpoint and one entry.
+line; a stop after the rename, and a stop after the checkpoint, completed with exactly one checkpoint and one entry and
+verified intact while pending; a failed rename that refuses the record, verifies intact, and is completed by the next
+append with exactly one entry, also without the key; a due log the index already names never entered twice; a torn
+tail of the index owed during the rotation and handed into the new log, chained to the checkpoint line.
 link:{test}/AuditVerificationTest.java[`AuditVerificationTest`]:: The acceptance of the package: a removed, a reordered
 and an edited record (`link_broken` with the first broken line), a replaced head (`head_mismatch`), `missing`,
 `reset`, `truncated`, an intact chain, no key and no chain `NotVerified`, a rotation in the middle of a verification
@@ -262,12 +299,16 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
 
 1. **Never create the key on the audit path**: `readOrCreate()` takes the credentials lock, which must never follow the
    audit lock. Only the first enrolment write creates the key.
-2. **Write into the log only through `appendCheckpoint`**: a second write path would chain by another rule or call the
-   anchor again inside a rotation.
+2. **Write into the log only through `appendCheckpoint` and `appendOwedRepair`**: any other path, `AuditLog.append`
+   included, would chain by another rule or call the anchor again inside a rotation.
 3. **Index entry before the rename**: the entry carries the link from the new log to the checkpoint; renamed first, a
    stop would leave the next record chaining to genesis, reported as `reset`.
 4. **Never repair in the verification**: a break is reported and recorded, and the trail stays as it was found.
 5. **Re-read before reporting**: a verification without the lock that reports its first read sees rotations as breaks.
+6. **Never let a record follow a checkpoint**: a rotation that stays pending after its checkpoint refuses the append,
+   and the next append completes it.
+7. **Never re-sign a cut**: a head over a log that no longer holds the line the previous head anchored would accept the
+   cut as the new baseline.
 
 == Specification Tracing
 

@@ -15,6 +15,7 @@ import static de.planmarshall.runtime.audit.AuditTrailFixture.recordAt;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,6 +34,7 @@ import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.start.AuditChainVerification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -93,18 +95,78 @@ class AuditHeadTest {
         }
 
         @Test
-        @DisplayName("a head that anchors another line than the one the record chains to makes the lines be counted")
-        void headOfAnotherLineCountsTheLines() throws Exception {
+        @DisplayName("a log cut below the records the head anchored is never re-signed and stays truncated")
+        void truncatedLogNotResigned() {
             var trail = new AuditTrailFixture(base);
-            var key = trail.createKey();
-            trail.append(2);
-            var stale = trail.readHead().orElseThrow();
-            Files.write(trail.headFile(), AuditCodec.writeHead(AuditHead.sign(key,
-                    stale.withRecordCount(9).withHeadHash(AuditCodec.GENESIS_HASH))));
+            trail.createKey();
+            trail.append(4);
+            var anchored = trail.readHead().orElseThrow();
+            AuditTrailFixture.removeLine(trail.logFile(), 4);
+            AuditTrailFixture.removeLine(trail.logFile(), 3);
 
             trail.append(1);
 
-            assertEquals(3, trail.readHead().orElseThrow().recordCount());
+            assertAll(
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow()),
+                    () -> assertEquals(3, lines(trail.logFile()).size()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_HEAD_NOT_WRITTEN.resolveIdentifierString()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            AuditHead.ANCHORED_LINE_MISSING),
+                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED, breakReason(trail)));
+        }
+
+        @Test
+        @DisplayName("a replaced last line is never re-signed, though the log keeps its length")
+        void replacedLastLineNotResigned() {
+            var trail = new AuditTrailFixture(base);
+            trail.createKey();
+            trail.append(3);
+            var anchored = trail.readHead().orElseThrow();
+            AuditTrailFixture.editLine(trail.logFile(), 3, line -> line.replace("\"n\":2", "\"n\":7"));
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(anchored, trail.readHead().orElseThrow()),
+                    () -> assertEquals(AuditChainVerification.BreakReason.HEAD_MISMATCH, breakReason(trail)));
+        }
+
+        @Test
+        @DisplayName("a head that anchors a record count beyond the log is never replaced by a recount")
+        void headBeyondTheLogNotReplaced() throws Exception {
+            var trail = new AuditTrailFixture(base);
+            var key = trail.createKey();
+            trail.append(2);
+            var claimed = AuditHead.sign(key,
+                    trail.readHead().orElseThrow().withRecordCount(9).withHeadHash(AuditCodec.GENESIS_HASH));
+            Files.write(trail.headFile(), AuditCodec.writeHead(claimed));
+
+            trail.append(1);
+
+            assertAll(
+                    () -> assertEquals(9, trail.readHead().orElseThrow().recordCount()),
+                    () -> assertEquals(AuditChainVerification.BreakReason.TRUNCATED, breakReason(trail)));
+        }
+
+        @Test
+        @DisplayName("a stop between an append and its head is closed by a recount over the whole log")
+        void crashGapRecounted() throws Exception {
+            var trail = new AuditTrailFixture(base);
+            var key = trail.createKey();
+            trail.append(2);
+            var beforeGap = Files.readAllBytes(trail.headFile());
+            trail.append(2);
+            Files.write(trail.headFile(), beforeGap);
+
+            trail.append(1);
+
+            var head = trail.readHead().orElseThrow();
+            assertAll(
+                    () -> assertEquals(5, head.recordCount()),
+                    () -> assertEquals(hashOf(trail.logFile(), 5), head.headHash()),
+                    () -> assertTrue(AuditHead.verifies(key, head)),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()));
         }
 
         @Test
@@ -176,6 +238,10 @@ class AuditHeadTest {
                             SecretStoreException.Reason.LOCKED.code()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN, secret));
         }
+    }
+
+    private static AuditChainVerification.BreakReason breakReason(AuditTrailFixture trail) {
+        return assertInstanceOf(AuditChainVerification.Outcome.Broken.class, trail.verification().verify()).reason();
     }
 
     @Nested

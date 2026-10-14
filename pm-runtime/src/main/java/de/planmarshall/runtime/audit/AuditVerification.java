@@ -47,6 +47,10 @@ import de.planmarshall.runtime.start.AuditChainVerification;
  * the index lists before: its records, its count, its first and last record and its checkpoint; a purged file is
  * accounted for by its entry.
  * <p>
+ * A current log whose last line is a checkpoint is a pending rotation, interrupted after its checkpoint, before or
+ * after its index entry: it is verified as the rotated file it is about to become, against that entry once written,
+ * and the head anchors the line before the checkpoint and the index line before that entry.
+ * <p>
  * A break is reported by its reason: {@code link_broken} with the first broken line for a line that does not parse or
  * does not chain, {@code missing} for a missing log, {@code reset} for a chain that starts over, {@code truncated}
  * for fewer records than anchored, {@code head_mismatch} for a head that does not verify or does not match. Without
@@ -188,26 +192,98 @@ public final class AuditVerification implements AuditChainVerification {
             return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH,
                     LOGS + AuditHead.FILE_NAME + " does not verify under the integrity key");
         }
-        if (!head.get().indexHeadHash().equals(indexSnapshot.headHash())) {
+        var lines = state.log().lines();
+        var pending = pendingRotation(lines, indexSnapshot);
+        var entered = pending.flatMap(PendingRotation::entry);
+        var anchoredIndexHead = entered.map(AuditIndexEntry::prevHash).orElse(indexSnapshot.headHash());
+        if (!head.get().indexHeadHash().equals(anchoredIndexHead)) {
             return Outcome.Broken.withoutLine(BreakReason.HEAD_MISMATCH, LOGS + AuditHead.FILE_NAME
                     + " does not anchor the last line of " + LOGS + AuditIndex.FILE_NAME);
         }
+        var entries = indexSnapshot.entries();
         if (full) {
-            var rotated = verifyRotated(key, indexSnapshot.entries());
+            var rotated = verifyRotated(key, entries);
             if (rotated.isPresent()) {
                 return rotated.get();
             }
         }
-        return verifyCurrent(state, head.get(), indexSnapshot.lastCheckpointHash().orElse(AuditCodec.GENESIS_HASH));
+        var firstPredecessor = checkpointBefore(entries, entered.isPresent() ? entries.size() - 1 : entries.size());
+        if (pending.isPresent()) {
+            var closed = verifyClosed(key, lines, pending.get(), firstPredecessor);
+            if (closed.isPresent()) {
+                return closed.get();
+            }
+            return verifyCurrent(true, lines.subList(0, lines.size() - 1), head.get(), firstPredecessor);
+        }
+        return verifyCurrent(state.logExists(), lines, head.get(), firstPredecessor);
     }
 
-    private Outcome verifyCurrent(State state, AuditHeadRecord head, String firstPredecessor) {
+    /**
+     * A rotation interrupted after its checkpoint: the last line of the current log is a checkpoint, and the head
+     * still anchors the line before it.
+     *
+     * @param checkpoint the checkpoint record, the last line of the current log
+     * @param entry      the last index entry when it names that checkpoint line; empty when the entry was not written
+     */
+    private record PendingRotation(AuditRecord checkpoint, Optional<AuditIndexEntry> entry) {
+    }
+
+    /**
+     * @return the hash the first record of a log chains to when the given number of index entries precede it: the
+     *         {@code checkpoint_hash} of the last of them, {@link AuditCodec#GENESIS_HASH} when none does
+     */
+    private static String checkpointBefore(List<AuditIndexEntry> entries, int preceding) {
+        return preceding == 0 ? AuditCodec.GENESIS_HASH : entries.get(preceding - 1).checkpointHash();
+    }
+
+    /** @return the pending rotation of the current log; empty when its last line is not a checkpoint */
+    private Optional<PendingRotation> pendingRotation(List<JsonlStoreFile.Line> lines, AuditIndex.Snapshot snapshot) {
+        if (lines.isEmpty()) {
+            return Optional.empty();
+        }
+        var lastLine = lines.getLast().content();
+        AuditRecord last;
+        try {
+            last = AuditCodec.readRecord(logFile, lastLine);
+        } catch (StoreRefusal _) {
+            return Optional.empty();
+        }
+        if (!last.isCheckpoint()) {
+            return Optional.empty();
+        }
+        var lastHash = AuditCodec.sha256Hex(lastLine);
+        return Optional.of(new PendingRotation(last,
+                snapshot.last().filter(entry -> entry.checkpointHash().equals(lastHash))));
+    }
+
+    /**
+     * Verifies a current log closed by its checkpoint as a rotated file: against the index entry that names it, or,
+     * before the entry was written, its chain and its checkpoint.
+     */
+    private Optional<Outcome> verifyClosed(SecretKey key, List<JsonlStoreFile.Line> lines, PendingRotation pending,
+            String firstPredecessor) {
         var name = LOGS + AuditHeadRecord.FILE;
-        if (!state.logExists()) {
+        if (pending.entry().isPresent()) {
+            return verifyRotatedFile(key, pending.entry().get(), name, lines, firstPredecessor);
+        }
+        if (walk(name, lines, firstPredecessor) instanceof Walk.Broken(var broken)) {
+            return Optional.of(broken);
+        }
+        if (!checkpointVerifies(key, pending.checkpoint(), lines)) {
+            var count = lines.size();
+            return Optional.of(Outcome.Broken.linkBroken(count,
+                    name + " line " + count + " is a checkpoint that does not verify"));
+        }
+        return Optional.empty();
+    }
+
+    private Outcome verifyCurrent(boolean logExists, List<JsonlStoreFile.Line> lines, AuditHeadRecord head,
+            String firstPredecessor) {
+        var name = LOGS + AuditHeadRecord.FILE;
+        if (!logExists) {
             return head.recordCount() == 0 ? new Outcome.Intact()
                     : Outcome.Broken.withoutLine(BreakReason.MISSING, name + " is missing");
         }
-        var lines = state.log().lines();
         var chain = walk(name, lines, firstPredecessor);
         if (chain instanceof Walk.Broken(var broken)) {
             return broken;
@@ -242,8 +318,8 @@ public final class AuditVerification implements AuditChainVerification {
         for (var entry : entries) {
             var file = logFile.resolveSibling(entry.file());
             if (Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-                var outcome = verifyRotatedFile(key, entry, new JsonlStoreFile(file, lockKey).snapshot().lines(),
-                        predecessor);
+                var outcome = verifyRotatedFile(key, entry, LOGS + entry.file(),
+                        new JsonlStoreFile(file, lockKey).snapshot().lines(), predecessor);
                 if (outcome.isPresent()) {
                     return outcome;
                 }
@@ -253,9 +329,8 @@ public final class AuditVerification implements AuditChainVerification {
         return Optional.empty();
     }
 
-    private Optional<Outcome> verifyRotatedFile(SecretKey key, AuditIndexEntry entry, List<JsonlStoreFile.Line> lines,
-            String predecessor) {
-        var name = LOGS + entry.file();
+    private Optional<Outcome> verifyRotatedFile(SecretKey key, AuditIndexEntry entry, String name,
+            List<JsonlStoreFile.Line> lines, String predecessor) {
         var chain = walk(name, lines, predecessor);
         if (chain instanceof Walk.Broken(var broken)) {
             return Optional.of(broken);

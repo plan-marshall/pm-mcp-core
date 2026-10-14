@@ -19,8 +19,9 @@ import de.planmarshall.core.service.LockTransaction;
  * because the head is keyed by the enrolment integrity key, which this module does not hold.
  * <p>
  * An implementation takes no {@link LockKey} of its own: the audit lock is the leaf of the total lock order, so no
- * lock may be acquired after it. And it never throws for a head or an index it cannot write: the record stays
- * appended, and the next verification reports the gap.
+ * lock may be acquired after it. And it never throws for a head it cannot write: the record stays appended, and the
+ * next verification reports the gap. The one failure it throws is a rotation that stays pending after its checkpoint:
+ * no record may follow a checkpoint, so the record is not appended then.
  *
  * @since 0.1
  */
@@ -46,12 +47,19 @@ public interface AuditAnchor {
     };
 
     /**
-     * Called before a record is appended: rotates the log when a rotation is due. A rotation writes the checkpoint
-     * record through {@link AuditLog#appendCheckpoint(LockTransaction, AuditRecord)} on the handed log and renames
-     * {@link AuditLog#logFile()}; the log is empty afterwards.
+     * Called before a record is appended: rotates the log when a rotation is due, or completes one pending after its
+     * checkpoint. A rotation writes the checkpoint record through
+     * {@link AuditLog#appendCheckpoint(LockTransaction, AuditRecord)} on the handed log, renames
+     * {@link AuditLog#logFile()}, and hands the owed tail repairs of the audit index into the new log through
+     * {@link AuditLog#appendOwedRepair(LockTransaction, de.planmarshall.core.service.AuditEvent)}; the new log holds
+     * those records alone afterwards.
      *
      * @param transaction the writer's transaction, which holds the audit lock
      * @param log         the log the record is appended to
+     * @throws java.io.UncheckedIOException if a rotation stays pending after its checkpoint; the record is not
+     *                                      appended then
+     * @throws StoreRefusal                 if a rotation stays pending after its checkpoint because an intent file is
+     *                                      unreadable; the record is not appended then
      */
     void beforeAppend(LockTransaction transaction, AuditLog log);
 

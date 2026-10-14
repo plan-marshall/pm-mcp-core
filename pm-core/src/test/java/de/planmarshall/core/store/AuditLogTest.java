@@ -491,6 +491,89 @@ class AuditLogTest {
     }
 
     @Nested
+    @DisplayName("owed repair")
+    class OwedRepair {
+
+        private AuditEvent owed() {
+            return AuditEvent.jsonlTailRepaired(base.resolve("logs").resolve("audit-index.jsonl"), TORN.length,
+                    StoreSnapshot.sha256(TORN), TransactionId.generate(CLOCK).value());
+        }
+
+        private AuditRecord appendOwed(AuditEvent event) {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(auditKey);
+                return log.appendOwedRepair(transaction, event);
+            }
+        }
+
+        @Test
+        @DisplayName("is formed as the sink forms it, chained to the anchor's predecessor, and never calls the anchor")
+        void appended() {
+            var anchored = new RecordingAnchor(Optional.of(ANCHORED));
+            log = new AuditLog(base, anchored, CLOCK, PRINCIPAL);
+            var event = owed();
+
+            var appended = appendOwed(event);
+
+            var expected = AuditLogSink.toRecord(event, CLOCK, PRINCIPAL);
+            assertAll(
+                    () -> assertEquals(List.of(appended), records()),
+                    () -> assertEquals(ANCHORED, appended.prevHash()),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, appended.event()),
+                    () -> assertEquals(expected.category(), appended.category()),
+                    () -> assertEquals(expected.outcome(), appended.outcome()),
+                    () -> assertEquals(expected.scopeType(), appended.scopeType()),
+                    () -> assertEquals(PRINCIPAL, appended.actor()),
+                    () -> assertEquals(event.details(), appended.details()),
+                    () -> assertEquals(List.of("emptyLogPredecessor"), anchored.calls,
+                            "the anchor was asked for the predecessor only, never before or after an append"));
+        }
+
+        @Test
+        @DisplayName("chains to the last line of a log that holds lines, after cutting its torn tail")
+        void chainedAfterRepair() throws Exception {
+            append(template("first"));
+            tearTail();
+
+            var appended = appendOwed(owed());
+
+            var records = records();
+            assertAll(
+                    () -> assertEquals(3, records.size()),
+                    () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, records.get(1).event()),
+                    () -> assertEquals(appended, records.getLast()),
+                    () -> assertChained(AuditCodec.GENESIS_HASH));
+        }
+
+        @Test
+        @DisplayName("is refused without the audit lock")
+        void withoutLock() {
+            var event = owed();
+
+            assertThrows(IllegalStateException.class, () -> {
+                try (var transaction = locks.openTransaction()) {
+                    log.appendOwedRepair(transaction, event);
+                }
+            });
+            assertFalse(Files.exists(log.logFile()), "nothing was written");
+        }
+
+        @Test
+        @DisplayName("is refused for a record of another event, and for an unknown category as the sink refuses it")
+        void otherRecords() {
+            var otherEvent = new AuditEvent("first", AuditEvent.CATEGORY_STORE, AuditEvent.OUTCOME_SUCCEEDED,
+                    Map.of());
+            var unknownCategory = new AuditEvent(AuditEvent.JSONL_TAIL_REPAIRED, "unknown",
+                    AuditEvent.OUTCOME_SUCCEEDED, Map.of());
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(otherEvent)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> appendOwed(unknownCategory)),
+                    () -> assertFalse(Files.exists(log.logFile()), "nothing was written"));
+        }
+    }
+
+    @Nested
     @DisplayName("read")
     class Reading {
 

@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -30,11 +32,17 @@ import javax.crypto.SecretKey;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.store.AuditAnchor;
 import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.AuditIndexEntry;
+import de.planmarshall.core.store.AuditLog;
 import de.planmarshall.core.store.AuditRecord;
+import de.planmarshall.core.store.JsonlStoreFile;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.AuditChainVerification;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -126,6 +134,34 @@ class AuditRotationTest {
     }
 
     @Test
+    @DisplayName("a torn tail of the index stays owed during the rotation and is handed into the new log")
+    void tornIndexHandedIntoNewLog() throws Exception {
+        var trail = new AuditTrailFixture(base, BY_SIZE);
+        trail.createKey();
+        trail.append(1);
+        var first = recordAt(trail.logFile(), 1);
+        Files.writeString(trail.indexFile(), "{\"format_version\":1,\"prev_hash\":\"00");
+        var indexIntent = new JsonlStoreFile(trail.indexFile(), LockKey.auditLog(base)).auditIntentFile();
+
+        trail.append(1);
+
+        var rotated = trail.rotatedFile(first.eventId());
+        var handedOver = recordAt(trail.logFile(), 1);
+        assertAll(
+                () -> assertEquals(2, lines(rotated).size()),
+                () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                () -> assertEquals(2, lines(trail.logFile()).size()),
+                () -> assertEquals(AuditEvent.JSONL_TAIL_REPAIRED, handedOver.event()),
+                () -> assertEquals(trail.indexFile().toString(), handedOver.details().get(AuditEvent.DETAIL_STORE)),
+                () -> assertEquals(hashOf(rotated, 2), handedOver.prevHash()),
+                () -> assertEquals(AuditTrailFixture.EVENT, recordAt(trail.logFile(), 2).event()),
+                () -> assertFalse(Files.exists(indexIntent), "the owed record was handed over"),
+                () -> assertEquals(1, checkpoints(rotated) + checkpoints(trail.logFile())),
+                () -> assertEquals(2, trail.readHead().orElseThrow().recordCount()),
+                () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+    }
+
+    @Test
     @DisplayName("by age: the log is rotated once its first record is older than the maximum age")
     void rotatesByAge() {
         var trail = new AuditTrailFixture(base, BY_AGE);
@@ -211,11 +247,13 @@ class AuditRotationTest {
             var headHash = hashOf(trail.logFile(), 2);
             trail.underAuditLock(transaction -> trail.log.appendCheckpoint(transaction,
                     checkpoint(trail, key, 2, headHash)));
+            var pending = trail.verification().full();
 
             trail.append(1);
 
             var rotated = trail.rotatedFile(first.eventId());
             assertAll(
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), pending),
                     () -> assertEquals(3, lines(rotated).size()),
                     () -> assertEquals(1, checkpoints(rotated) + checkpoints(trail.logFile())),
                     () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
@@ -239,14 +277,138 @@ class AuditRotationTest {
                         checkpointHash), _ -> {
                 });
             });
+            var pending = trail.verification().full();
 
             trail.append(1);
 
             assertAll(
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), pending),
                     () -> assertEquals(3, lines(trail.rotatedFile(first.eventId())).size()),
                     () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
                     () -> assertEquals(1, lines(trail.logFile()).size()),
                     () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+        }
+    }
+
+    @Nested
+    @DisplayName("a failed rotation")
+    class Failed {
+
+        @Test
+        @DisplayName("a failed rename refuses the record, so none follows the checkpoint, and verifies intact")
+        void failedRenameRefusesTheRecord() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_SIZE);
+            trail.createKey();
+            trail.append(1);
+            var first = recordAt(trail.logFile(), 1);
+            var blocker = blockRename(trail, first);
+
+            assertThrows(UncheckedIOException.class, () -> trail.append(1));
+            var verified = trail.verification().verify();
+            unblock(blocker);
+
+            assertAll(
+                    () -> assertEquals(2, lines(trail.logFile()).size()),
+                    () -> assertTrue(recordAt(trail.logFile(), 2).isCheckpoint()),
+                    () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_PENDING.resolveIdentifierString()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), verified),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("a rename that fails once is completed by the next append with exactly one index entry")
+        void failedRenameCompletedByTheNextAppend() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_SIZE);
+            trail.createKey();
+            trail.append(1);
+            var first = recordAt(trail.logFile(), 1);
+            var blocker = blockRename(trail, first);
+            assertThrows(UncheckedIOException.class, () -> trail.append(1));
+            unblock(blocker);
+
+            trail.append(1);
+
+            var rotated = trail.rotatedFile(first.eventId());
+            assertAll(
+                    () -> assertEquals(2, lines(rotated).size()),
+                    () -> assertEquals(1, checkpoints(rotated)),
+                    () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertEquals(hashOf(rotated, 2), recordAt(trail.logFile(), 1).prevHash()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().verify()),
+                    () -> assertEquals(new AuditChainVerification.Outcome.Intact(), trail.verification().full()));
+        }
+
+        @Test
+        @DisplayName("a pending rotation is completed without the key, and no record follows its checkpoint")
+        void pendingCompletedWithoutKey() throws Exception {
+            var trail = new AuditTrailFixture(base, BY_SIZE);
+            trail.createKey();
+            trail.append(1);
+            var first = recordAt(trail.logFile(), 1);
+            var blocker = blockRename(trail, first);
+            assertThrows(UncheckedIOException.class, () -> trail.append(1));
+            unblock(blocker);
+            var withoutKey = new AuditTrailFixture(base, BY_SIZE);
+
+            withoutKey.append(1);
+
+            var rotated = trail.rotatedFile(first.eventId());
+            assertAll(
+                    () -> assertEquals(2, lines(rotated).size()),
+                    () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(1, lines(trail.logFile()).size()),
+                    () -> assertEquals(hashOf(rotated, 2), recordAt(trail.logFile(), 1).prevHash()));
+        }
+
+        @Test
+        @DisplayName("a due log the index already names is never entered a second time")
+        void enteredLogNotEnteredTwice() {
+            var trail = new AuditTrailFixture(base, NEVER);
+            var key = trail.createKey();
+            trail.append(2);
+            var first = recordAt(trail.logFile(), 1);
+            var headHash = hashOf(trail.logFile(), 2);
+            var chainOnly = new AuditLog(base, AuditAnchor.NONE, trail.clock, USER);
+            trail.underAuditLock(transaction -> {
+                var checkpoint = checkpoint(trail, key, 2, headHash);
+                var checkpointHash = trail.log.appendCheckpoint(transaction, checkpoint);
+                trail.head.index().append(transaction, new AuditIndexEntry(AuditCodec.GENESIS_HASH,
+                        AuditIndexEntry.rotatedFileName(first.eventId()), first.eventId(), checkpoint.eventId(), 3,
+                        checkpointHash), _ -> {
+                });
+                chainOnly.append(transaction, checkpoint(trail, key, 2, headHash).toBuilder()
+                        .event(AuditTrailFixture.EVENT).details(Map.of()).build());
+            });
+            var rotation = new AuditRotation(trail.head.index(), BY_SIZE, trail.clock, USER);
+            var due = new AuditTrailFixture(base, BY_SIZE);
+            due.keyring.entries.putAll(trail.keyring.entries);
+
+            trail.underAuditLock(transaction -> assertThrows(UncheckedIOException.class,
+                    () -> rotation.rotateIfDue(transaction, trail.log, key)));
+            due.append(1);
+
+            assertAll(
+                    () -> assertEquals(1, trail.head.index().snapshot().entries().size()),
+                    () -> assertEquals(5, lines(trail.logFile()).size()),
+                    () -> assertFalse(Files.exists(trail.rotatedFile(first.eventId()))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.AUDIT_ROTATION_FAILED.resolveIdentifierString()));
+        }
+
+        /** Puts a non-empty directory where the log is renamed to, so the atomic move fails. */
+        private Path blockRename(AuditTrailFixture trail, AuditRecord first) throws IOException {
+            var blocker = trail.rotatedFile(first.eventId());
+            Files.createDirectories(blocker);
+            Files.writeString(blocker.resolve("blocker"), "blocks the rename");
+            return blocker;
+        }
+
+        private void unblock(Path blocker) throws IOException {
+            Files.delete(blocker.resolve("blocker"));
+            Files.delete(blocker);
         }
     }
 

@@ -69,6 +69,10 @@ public final class AuditLogSink implements AuditSink {
     }
 
     /**
+     * The one mapping of a handed-over record to a record of the audit log; {@link AuditLog} forms the records it
+     * writes itself (an owed tail repair of the log, or of the audit index during a rotation) by it as well, so an
+     * unknown category or outcome is refused on every path.
+     *
      * @param event the record as its producer handed it over
      * @param clock the clock of the instant and the id of the record
      * @param actor the OS principal of the runtime

@@ -26,12 +26,20 @@ a failing keyring can make it unreadable.
   both with HMAC-SHA-256 under the enrolment integrity key.
 * The audit path only reads the key, through `EnrolmentKey.read()`, which takes no `LockKey`; it never calls
   `readOrCreate()` and never takes the credentials lock. A key once read is kept, since it is never replaced.
-* *Key absent* (no enrolment yet): no head is written and no rotation happens, since a checkpoint needs the HMAC; the
+* *Key absent* (no enrolment yet): no head is written and no rotation starts, since a checkpoint needs the HMAC; the
   record stands and nothing is logged. The first append after the key exists writes the head over the whole log. The
   verification answers `NotVerified`: nothing is anchored yet.
-* *Key unreadable* (`SecretStoreException`): no head and no rotation; the record stands and `PM_RUNTIME-123`
-  (`AUDIT_HEAD_NOT_WRITTEN`) names the reason code, never the key. The verification answers `NotVerified` naming the
-  code.
+* *Key unreadable* (`SecretStoreException`): no head and no rotation starts; a pending rotation, whose checkpoint is
+  already signed, is completed. The record stands and `PM_RUNTIME-123` (`AUDIT_HEAD_NOT_WRITTEN`) names the reason
+  code, never the key. The verification answers `NotVerified` naming the code.
+* *The record count of a new head* is the previous head's count plus one when the previous head verifies and anchors
+  exactly the line the appended record chains to. Otherwise the lines are counted, but a recount never hides a cut: it
+  is accepted only without a verifying previous head (the first head after the key appears, a head that does not
+  parse), after a rotation since that head (the last index entry chains to the index line it anchored), or when the log
+  still holds the line it anchored at its position (the gap a stop between an append and its head leaves). A log that
+  no longer holds that line, cut short or with its last line replaced, gets no new head: the previous head stays, so
+  the verification reports `truncated` or `head_mismatch`, and `PM_RUNTIME-123` names the reason
+  `anchored_line_missing`.
 * The verification classifies a head that does not match the log as `head_mismatch`: more records than the head
   anchors, a last line other than the one it names, an HMAC that does not verify, an `index_head_hash` that is not the
   last index line, or no head for a trail with records. An empty log whose head anchors records is `reset`, and so is
@@ -51,6 +59,8 @@ a failing keyring can make it unreadable.
 * A crash between the creation of the key and the first head leaves a non-empty log without a head, reported as
   `head_mismatch` at the next start. The window is accepted: it is reported, never repaired, and closes with the next
   append.
+* A cut of the log stays reported after later appends: no head is re-signed over it, so a cut trail keeps its last
+  verifying head until an operator deals with it.
 * Residual risk, as the specification states it: the anchoring is tamper-evident, not tamper-proof. A process that
   holds the integrity key (on macOS, anything that runs the `pm-mcpd` binary; on hosts without a keyring, any process
   of the user) can forge a consistent head.

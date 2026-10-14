@@ -28,7 +28,6 @@ import java.util.Optional;
 import javax.crypto.SecretKey;
 
 import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.AuditCodec;
@@ -49,22 +48,27 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * <ol>
  * <li>the {@value AuditRecord#EVENT_CHECKPOINT} record ({@code security}, scope {@code machine}, details
  * {@value #DETAIL_RECORD_COUNT}, {@value #DETAIL_HEAD_HASH} and {@value #DETAIL_HMAC}) is appended through
- * {@link AuditLog#appendCheckpoint(LockTransaction, AuditRecord)}, the one path by which this package writes into the
- * log;</li>
+ * {@link AuditLog#appendCheckpoint(LockTransaction, AuditRecord)};</li>
  * <li>an entry of the audit index names the rotated file, its first and its last record, its number of records and
  * the hash of the checkpoint line;</li>
  * <li>the log is renamed to {@code audit-<first_event_id>.jsonl} by an atomic move, and its directory is forced to
  * disk.</li>
  * </ol>
  * The new log is empty, so the writer chains its first record to the {@code checkpoint_hash} of the last index entry,
- * the checkpoint line; because the entry is written before the rename, that link survives a stop after the rename. A
- * rotation stopped after the checkpoint is completed by the next append without a second checkpoint: a log whose last
- * line is a checkpoint gets its index entry, unless the last entry already names that line, and is renamed.
+ * the checkpoint line; because the entry is written before the rename, that link survives a stop after the rename.
+ * <p>
+ * A log whose last line is a checkpoint is a <em>pending rotation</em>: one a stop or a failure interrupted after its
+ * checkpoint. No record may follow that checkpoint, so the anchor does not let the record be appended while the
+ * rotation stays pending ({@link #pending(AuditLog)}). The next append completes it without a second checkpoint, also
+ * without the key ({@link #completePending(LockTransaction, AuditLog)}): the log gets its index entry, unless the last
+ * entry already names that line, and is renamed. A due log that the last index entry already names as its rotated file
+ * is never entered a second time.
  * <p>
  * The HMAC of a checkpoint is the HMAC-SHA-256 under the enrolment integrity key over the UTF-8 bytes of
  * {@code {"record_count":<record_count>,"head_hash":"<head_hash>"}} ({@link #checkpointHmac(SecretKey, long, String)}).
  * A tail repair of the index during a rotation stays owed beside the index until the log is renamed, and is then
- * handed into the new log.
+ * handed into the new log through {@link AuditLog#appendOwedRepair}. These two members of {@link AuditLog}, neither
+ * of which calls the anchor, are the only paths by which this package writes into the log.
  *
  * @since 0.1
  */
@@ -146,14 +150,16 @@ public final class AuditRotation {
     }
 
     /**
-     * Rotates the log when a limit is reached, or completes a rotation a stop interrupted after its checkpoint. A log
-     * that does not exist, holds no complete line, or whose first line cannot be read is not rotated.
+     * Rotates the log when a limit is reached, or completes a pending rotation. A log that does not exist, holds no
+     * complete line, or whose first line cannot be read is not rotated.
      *
      * @param transaction the writer's transaction, which holds the audit lock and has repaired the tail of the log
      * @param log         the audit log
      * @param key         the enrolment integrity key the checkpoint is signed with
      * @return whether a rotation was carried out or completed
-     * @throws UncheckedIOException if the log or the index cannot be read or written, or the log cannot be renamed
+     * @throws UncheckedIOException if the log or the index cannot be read or written, the log cannot be renamed, or
+     *                              the due log is already named by the last index entry while records follow its
+     *                              checkpoint
      * @throws StoreRefusal         if the intent file of the log or of the index is unreadable
      */
     public boolean rotateIfDue(LockTransaction transaction, AuditLog log, SecretKey key) {
@@ -168,15 +174,18 @@ public final class AuditRotation {
         if (first.isEmpty()) {
             return false;
         }
-        var lastLine = edges.get().last();
-        var last = decode(logFile, lastLine);
-        if (last.isPresent() && last.get().isCheckpoint()) {
-            complete(transaction, log, first.get().eventId(), last.get().eventId(), AuditCodec.sha256Hex(lastLine));
+        if (completePending(transaction, log, edges.get(), first.get())) {
             return true;
         }
         if (!due(edges.get().size(), first.get())) {
             return false;
         }
+        var rotatedFile = AuditIndexEntry.rotatedFileName(first.get().eventId());
+        if (index.read(transaction).last().filter(entry -> entry.file().equals(rotatedFile)).isPresent()) {
+            throw new UncheckedIOException(new IOException("The audit log is already entered in the audit index as "
+                    + rotatedFile + " while records follow its checkpoint; it is not entered a second time"));
+        }
+        var lastLine = edges.get().last();
         var recordCount = log.recordCount(transaction);
         var headHash = AuditCodec.sha256Hex(lastLine);
         var checkpoint = AuditRecord.builder()
@@ -197,6 +206,40 @@ public final class AuditRotation {
     }
 
     /**
+     * Completes a pending rotation, the one case of a rotation that needs no key: its checkpoint is already signed.
+     *
+     * @param transaction the writer's transaction, which holds the audit lock and has repaired the tail of the log
+     * @param log         the audit log
+     * @return whether a pending rotation was completed
+     * @throws UncheckedIOException if the log or the index cannot be read or written, or the log cannot be renamed
+     * @throws StoreRefusal         if the intent file of the log or of the index is unreadable
+     */
+    public boolean completePending(LockTransaction transaction, AuditLog log) {
+        Objects.requireNonNull(transaction, "transaction");
+        var logFile = log.logFile();
+        var edges = edges(logFile);
+        if (edges.isEmpty()) {
+            return false;
+        }
+        var first = decode(logFile, edges.get().first());
+        return first.isPresent() && completePending(transaction, log, edges.get(), first.get());
+    }
+
+    /**
+     * Whether a rotation is pending: the last complete line of the log is a checkpoint. While it is, no record may be
+     * appended to the log.
+     *
+     * @param log the audit log
+     * @return whether the log is closed by its checkpoint and not yet renamed
+     * @throws UncheckedIOException if the log exists and cannot be read
+     */
+    public static boolean pending(AuditLog log) {
+        var logFile = log.logFile();
+        return edges(logFile).flatMap(edges -> decode(logFile, edges.last())).filter(AuditRecord::isCheckpoint)
+                .isPresent();
+    }
+
+    /**
      * @param key         the enrolment integrity key
      * @param recordCount the number of records of the rotated log before its checkpoint
      * @param headHash    the SHA-256 of the last line before the checkpoint
@@ -213,15 +256,27 @@ public final class AuditRotation {
                 || !first.timestamp().plus(limits.maxAge()).isAfter(clock.instant());
     }
 
-    /** Completes a rotation whose checkpoint is the last line of the log. */
-    private void complete(LockTransaction transaction, AuditLog log, String firstEventId, String checkpointEventId,
-            String checkpointHash) {
+    /**
+     * Completes a rotation whose checkpoint is the last line of the log: enters it in the index unless the last entry
+     * already names that line, and renames it.
+     *
+     * @return whether the log was closed by a checkpoint
+     */
+    private boolean completePending(LockTransaction transaction, AuditLog log, Edges edges, AuditRecord first) {
+        var lastLine = edges.last();
+        var last = decode(log.logFile(), lastLine);
+        if (last.isEmpty() || !last.get().isCheckpoint()) {
+            return false;
+        }
+        var checkpointHash = AuditCodec.sha256Hex(lastLine);
         var entered = index.read(transaction).lastCheckpointHash().filter(checkpointHash::equals).isPresent();
         if (entered) {
-            rename(transaction, log, firstEventId, log.recordCount(transaction));
+            rename(transaction, log, first.eventId(), log.recordCount(transaction));
         } else {
-            close(transaction, log, firstEventId, checkpointEventId, log.recordCount(transaction), checkpointHash);
+            close(transaction, log, first.eventId(), last.get().eventId(), log.recordCount(transaction),
+                    checkpointHash);
         }
+        return true;
     }
 
     /** Enters the closed log in the index and renames it. */
@@ -246,21 +301,7 @@ public final class AuditRotation {
             throw new UncheckedIOException("The audit log cannot be renamed to " + rotated, e);
         }
         LOGGER.info(INFO.AUDIT_LOG_ROTATED, rotated.getFileName(), recordCount);
-        index.handOverRepairs(transaction, event -> log.append(transaction, toRecord(event)));
-    }
-
-    private AuditRecord toRecord(AuditEvent event) {
-        return AuditRecord.builder()
-                .eventId(TransactionId.generate(clock).value())
-                .prevHash(AuditCodec.GENESIS_HASH)
-                .timestamp(clock.instant())
-                .category(AuditRecord.Category.fromWireName(event.category()).orElse(AuditRecord.Category.STORE))
-                .event(event.event())
-                .scopeType(AuditRecord.Scope.MACHINE)
-                .actor(osPrincipal)
-                .outcome(AuditRecord.Outcome.fromWireName(event.outcome()).orElse(AuditRecord.Outcome.SUCCEEDED))
-                .details(event.details())
-                .build();
+        index.handOverRepairs(transaction, owed -> log.appendOwedRepair(transaction, owed));
     }
 
     private static Optional<AuditRecord> decode(Path logFile, byte[] line) {

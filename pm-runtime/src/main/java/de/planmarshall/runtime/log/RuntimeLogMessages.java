@@ -461,8 +461,9 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged when the head of the audit log cannot be written after an append, because the enrolment integrity
-         * key cannot be read or the head cannot be written; names the reason code, never the key. The record stays
-         * appended, and the next verification reports the head that does not match.
+         * key cannot be read, the head cannot be written ({@code head_unwritable}), or the log no longer holds the line
+         * the previous head anchored ({@code anchored_line_missing}, the previous head stays); names the reason code,
+         * never the key. The record stays appended, and the next verification reports the head that does not match.
          */
         public static final LogRecord AUDIT_HEAD_NOT_WRITTEN = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -471,13 +472,24 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when a due rotation of the audit log cannot be carried out; the record is appended to the current
-         * log, and the next append completes or retries the rotation.
+         * Logged when a due rotation of the audit log cannot be carried out before its checkpoint was written; the
+         * record is appended to the current log, and the next append retries the rotation.
          */
         public static final LogRecord AUDIT_ROTATION_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(124)
                 .template("Audit log rotation not carried out, the log goes on: %s")
+                .build();
+
+        /**
+         * Logged when a rotation of the audit log stays pending after its checkpoint, because the index entry or the
+         * rename failed; the record is not appended, since no record may follow the checkpoint, and the next append
+         * completes the rotation.
+         */
+        public static final LogRecord AUDIT_ROTATION_PENDING = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(125)
+                .template("Audit log rotation pending after its checkpoint, the record is not appended: %s")
                 .build();
     }
 

@@ -412,12 +412,21 @@ JSONL store, `JsonlStoreFile`, unchanged. It closes its channel after every appe
 key holds the append; the runtime lock (`RuntimeLock`) excludes a second runtime on the same base
 (link:../adr/core-store/024-audit-log-appended-through-the-jsonl-store-file.adoc[ADR 024]).
 
-`AuditLog.appendCheckpoint(transaction, checkpoint)` is the one member through which the runtime writes into the log:
-it repairs a torn tail, chains the checkpoint by the same rule, appends it and returns the SHA-256 of its line. It never
-calls the anchor, so a rotation cannot recurse; it refuses a transaction without the audit lock
-(`IllegalStateException`) and a record that is not a checkpoint (`IllegalArgumentException`). `logFile()` names the
-file a rotation renames, `recordCount(transaction)` counts its complete lines under the lock, and `snapshot()` reads it
-without a lock.
+*The write paths.* Every record a producer hands over goes through `append`, which calls the anchor. A rotation, which
+runs inside that call, writes through exactly two members that never call the anchor, so a rotation cannot recurse:
+
+* `AuditLog.appendCheckpoint(transaction, checkpoint)` closes the log before the rename: it repairs a torn tail, chains
+  the checkpoint by the same rule, appends it and returns the SHA-256 of its line. It refuses a record that is not a
+  checkpoint (`IllegalArgumentException`).
+* `AuditLog.appendOwedRepair(transaction, owed)` hands an owed `jsonl_tail_repaired` record of another file of the
+  trail, the audit index, into the new log after the rename: it forms the record by the mapping of `AuditLogSink`,
+  repairs a torn tail, chains it by the same rule and appends it. It refuses another event, and a category or an
+  outcome that is not one of the audit log, as the sink does (`IllegalArgumentException`).
+
+Both refuse a transaction without the audit lock (`IllegalStateException`). The in-log sink of the log's own torn tail
+(<<_the_torn_tail_of_the_log_itself>>) is the only other write; there is no further path into the log. `logFile()`
+names the file a rotation renames, `recordCount(transaction)` counts its complete lines under the lock, and
+`snapshot()` reads it without a lock.
 
 The directory `logs/` must exist before the first append, and the caller that builds the log creates it: the audit
 lock is a leaf key whose lock file is the log itself, and the lock manager creates that file where it is absent but
@@ -444,14 +453,17 @@ again while the intent still exists. The intent is deleted only after the sink r
 
 [horizontal]
 `beforeAppend(transaction, log)`:: Rotates the log when a rotation is due, writing the checkpoint through
-`AuditLog.appendCheckpoint` on the handed log and renaming `logFile()`.
+`AuditLog.appendCheckpoint` on the handed log, renaming `logFile()` and handing owed index repairs into the new log
+through `AuditLog.appendOwedRepair`; or completes a rotation pending after its checkpoint.
 `emptyLogPredecessor()`:: The hash a line chains to when the log holds no complete line; empty when no rotation ever
 happened.
 `afterAppend(transaction, log, appended, lineHash)`:: Writes the head from the new last line.
 
 An implementation takes no `LockKey` of its own, since the audit lock is the leaf of the total lock order
-(link:../adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[ADR 011]), and never throws for a head or
-an index it cannot write: the record stays appended, and the next verification reports the gap. `AuditAnchor.NONE`
+(link:../adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[ADR 011]), and never throws for a head it
+cannot write: the record stays appended, and the next verification reports the gap. The one failure it throws is a
+rotation that stays pending after its checkpoint: no record may follow a checkpoint, so the append is not carried out.
+`AuditAnchor.NONE`
 anchors nothing and serves the tests of the chain alone. The implementation of the daemon is `AuditHead` of
 `runtime.audit`.
 
@@ -483,7 +495,8 @@ twice is two lines with the same id. `PM_CORE-100` (`AUDIT_RECORD_DEFERRED`) nam
 
 * *One lock for the check and the act*: the read of the last line, the append and the anchor calls run under the audit
   lock held by the caller's transaction; an append without it is refused before anything is written.
-* *One predecessor rule*: every line, the in-log repair record and the checkpoint included, chains by the same rule, so
+* *One predecessor rule*: every line, the in-log repair record, the checkpoint and an owed index repair included,
+  chains by the same rule, so
   the first record after a rotation links to the checkpoint line.
 * *Never rewritten*: a complete line of the log is never changed or removed; only a torn tail is cut, and its record is
   written into the log.
@@ -497,7 +510,8 @@ twice is two lines with the same id. `PM_CORE-100` (`AUDIT_RECORD_DEFERRED`) nam
 |Failure |Behaviour
 
 |An append without the audit lock
-|`append` throws `InternalFaultException`, `appendCheckpoint` `IllegalStateException`; nothing is written.
+|`append` throws `InternalFaultException`, `appendCheckpoint` and `appendOwedRepair` `IllegalStateException`; nothing
+is written.
 
 |The intent file of the log is unreadable
 |`append` throws `StoreRefusal`; nothing is written.
@@ -508,8 +522,11 @@ twice is two lines with the same id. `PM_CORE-100` (`AUDIT_RECORD_DEFERRED`) nam
 |A stop in the middle of an append
 |A torn tail, reported by `snapshot()` apart from the records; the next append cuts it and writes its record.
 
-|The anchor cannot write the head or the index
+|The anchor cannot write the head, or a rotation fails before its checkpoint
 |The record stays appended; the anchor logs it, and the next verification reports the head that does not match.
+
+|A rotation stays pending after its checkpoint
+|The anchor throws; the record is not appended, and the next append completes the rotation.
 
 |A record whose category or outcome is not one of the audit log
 |`AuditLogSink.append` throws `IllegalArgumentException`; nothing is written.
@@ -518,8 +535,8 @@ twice is two lines with the same id. `PM_CORE-100` (`AUDIT_RECORD_DEFERRED`) nam
 Tested by `AuditCodecTest` (round trip of the three shapes, the refusals, stable canonical bytes and hashes),
 `AuditLogTest` (genesis, each `prev_hash` the hash of the line before, the append without the lock refused, a torn tail
 cut and its record chained before the new record, a stop on either side of the in-log write, the anchor calls in order,
-the first record of an empty log chained to `emptyLogPredecessor()` or to genesis, `appendCheckpoint`, a lock-free read
-with a torn tail), `AuditLogSinkTest` (one event one chained record, a failing append, two sinks serialized) and
+the first record of an empty log chained to `emptyLogPredecessor()` or to genesis, `appendCheckpoint`,
+`appendOwedRepair` formed as the sink forms it and never calling the anchor, a lock-free read with a torn tail), `AuditLogSinkTest` (one event one chained record, a failing append, two sinks serialized) and
 `AuditSchemaParityTest`; the per-record ids by `ScopeTransactionTest`, `JournalRecoveryTest`, `OrderedWriteTest` and
 `ScopeSessionLogTest`.
 
