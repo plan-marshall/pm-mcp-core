@@ -566,6 +566,106 @@ class ScopeTransactionTest {
         }
     }
 
+    /**
+     * A create target writes a store that must not exist when the transaction commits; the commit checks it under the
+     * scope lock, so a store another transaction of the same lock transaction wrote in between is not overwritten.
+     */
+    @Nested
+    @DisplayName("create")
+    class Creating {
+
+        @Test
+        @DisplayName("writes a store that is absent, with its digest, and leaves no journal and no staged file")
+        void absentStore() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.create(STATUS, bytes(NEW_STATUS));
+                write.commit();
+            }
+
+            assertAll(
+                    () -> assertArrayEquals(bytes(NEW_STATUS), Files.readAllBytes(store(STATUS))),
+                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(NEW_STATUS)))), sidecar()),
+                    () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
+                    () -> assertEquals(List.of(), stagedFiles(), "no staged file remains"));
+        }
+
+        @Test
+        @DisplayName("of a store that exists refuses the commit; nothing is written and the transaction stays open")
+        void existingStore() throws Exception {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var first = openUnder(transaction);
+                first.replace(STATUS, bytes(OLD_STATUS));
+                first.commit();
+            }
+            var sidecarBefore = Files.readAllBytes(scope.sidecarFile());
+            var references = bytes(NEW_REFERENCES);
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(REFERENCES, bytes(NEW_REFERENCES));
+                write.create(STATUS, bytes(NEW_STATUS));
+
+                var refusal = assertThrows(IllegalStateException.class, write::commit);
+
+                assertAll(
+                        () -> assertTrue(refusal.getMessage().contains(STATUS), "the refusal names the store"),
+                        () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
+                                "the store is untouched"),
+                        () -> assertFalse(Files.exists(store(REFERENCES)), "no other target was written"),
+                        () -> assertArrayEquals(sidecarBefore, Files.readAllBytes(scope.sidecarFile()),
+                                "the sidecar is untouched"),
+                        () -> assertFalse(Files.exists(scope.journalFile()), "no journal was written"),
+                        () -> assertEquals(List.of(), stagedFiles(), "nothing was staged"),
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> write.replace(REFERENCES, references),
+                                "the transaction is still open: it takes targets and refuses a second one"));
+            }
+        }
+
+        @Test
+        @DisplayName("of one store by two transactions of one lock transaction commits the first and refuses the second")
+        void interleavedTransactions() {
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var first = openUnder(transaction);
+                var second = openUnder(transaction);
+                first.create(STATUS, bytes(OLD_STATUS));
+                second.create(STATUS, bytes(NEW_STATUS));
+
+                first.commit();
+
+                assertThrows(IllegalStateException.class, second::commit);
+            }
+
+            assertAll(
+                    () -> assertArrayEquals(bytes(OLD_STATUS), Files.readAllBytes(store(STATUS)),
+                            "the content of the first transaction is kept"),
+                    () -> assertEquals(DigestSidecar.of(Map.of(STATUS, StoreDigest.of(bytes(OLD_STATUS)))), sidecar()),
+                    () -> assertFalse(Files.exists(scope.journalFile())),
+                    () -> assertEquals(List.of(), stagedFiles()));
+        }
+
+        @Test
+        @DisplayName("is refused for a store that is a target of the transaction already, like a replace")
+        void sameStoreTwice() {
+            var content = bytes(NEW_STATUS);
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(scope.lockKey());
+                var write = openUnder(transaction);
+                write.replace(STATUS, bytes(OLD_STATUS));
+                write.create(REFERENCES, bytes(NEW_REFERENCES));
+
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.create(STATUS, content)),
+                        () -> assertThrows(IllegalArgumentException.class, () -> write.replace(REFERENCES, content)));
+            }
+        }
+    }
+
     @Nested
     @DisplayName("refusals")
     class Refusals {

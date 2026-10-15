@@ -1,0 +1,38 @@
+┌──────────────┬────────────────────────────────┐
+│ Property     │ Value                          │
+├──────────────┼────────────────────────────────┤
+│ Instance     │ plan diagram-fixture v3 (plan) │
+│ Lane         │ deep                           │
+│ Posture      │ standard                       │
+│ Active state │ -                              │
+└──────────────┴────────────────────────────────┘
+
+┌───────────────────────┬─────────────────┬──────────────┬────────────────────────────────┐
+│ State                 │ Task link (rel) │ Offered when │ Outcome -> Next State          │
+├───────────────────────┼─────────────────┼──────────────┼────────────────────────────────┤
+│ outline.deep          │ -               │ -            │ done -> finalize.merge-gate    │
+│  auto diagram.proceed │                 │              │                                │
+├───────────────────────┼─────────────────┼──────────────┼────────────────────────────────┤
+│ finalize.merge-gate   │ -               │ -            │ held -> finalize.archive-plan  │
+│  auto diagram.ready   │ -               │ -            │ not_held -> finalize.hand-back │
+├───────────────────────┼─────────────────┼──────────────┼────────────────────────────────┤
+│ finalize.hand-back    │ -               │ -            │ done -> finalize.archive-plan  │
+│  auto diagram.proceed │                 │              │                                │
+├───────────────────────┼─────────────────┼──────────────┼────────────────────────────────┤
+│ finalize.archive-plan │ -               │ -            │ -                              │
+│  terminal completed   │                 │              │                                │
+└───────────────────────┴─────────────────┴──────────────┴────────────────────────────────┘
+
+┌───────────────┬─────────────────────────────────┬───────────────────────┬─────────────────────┐
+│ Element       │ Id                              │ Reason                │ Source fact         │
+├───────────────┼─────────────────────────────────┼───────────────────────┼─────────────────────┤
+│ step          │ default:analysis-roundtrip      │ provider_unconfigured │ integrations.sonar  │
+│ state         │ finalize.merge-dispatch         │ auto_merge_off        │ merge.auto_merge    │
+│ policy_action │ finalize.remediate-ci/loop_back │ local_only            │ derived.push_remote │
+└───────────────┴─────────────────────────────────┴───────────────────────┴─────────────────────┘
+
+┌─────────────────────┬───────────┐
+│ Gate                │ Waiver id │
+├─────────────────────┼───────────┤
+│ finalize.merge-gate │ W-7       │
+└─────────────────────┴───────────┘

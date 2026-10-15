@@ -101,6 +101,13 @@ final class RemediationInvariants {
     /** The hard cap of the waiver wait in seconds. */
     static final int WAIVER_WAIT_CAP = 86400;
 
+    /**
+     * The budget parameters of the remediation schema with their hard caps; the one definition of the budget
+     * parameters, which {@link CompiledInvariants#remediationBudgetParameters()} publishes.
+     */
+    static final Map<String, Integer> BUDGET_CAPS = Map.of(RETRY_BUDGET, BUDGET_CAP, FIX_BUDGET, BUDGET_CAP,
+            WAIVER_WAIT, WAIVER_WAIT_CAP);
+
     /** The closed action set of the remediation units. */
     static final Set<String> ACTION_SET = Set.of("retry", "fix", ExecuteInvariants.LOOP_BACK);
 
@@ -528,8 +535,7 @@ final class RemediationInvariants {
 
     private static void checkBudgetBindings(Context context, InvariantId id, StateNode state,
             StateBehavior.SubWorkflowCall call) {
-        for (var entry : Map.of(RETRY_BUDGET, BUDGET_CAP, FIX_BUDGET, BUDGET_CAP, WAIVER_WAIT, WAIVER_WAIT_CAP)
-                .entrySet()) {
+        for (var entry : BUDGET_CAPS.entrySet()) {
             if (call.paramBindings().get(entry.getKey()) instanceof CallValue.IntValue(var value)
                     && (value < 0 || value > entry.getValue())) {
                 context.reportState(id, state, "'%s' binds %s=%d above the hard cap %d".formatted(state.id(),

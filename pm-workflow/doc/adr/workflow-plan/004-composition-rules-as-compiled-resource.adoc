@@ -1,0 +1,41 @@
+= ADR 004: The Composition Rules Are a Compiled Resource at the Package Path
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification defines the composition rules as a compiled rule file with a revision, whose revision and digest are inputs of every instance header.
+No module may carry model-facing content below `workflows/`, `roles/`, `bundles/` or `skills/`, and the rule file is no such content: it is read by the composer, not by a model.
+A rule never adds an element, raises a budget or names a gate, so that the compiled invariants and the operator's waivers stay the only authority over gates and budgets.
+
+== Decision
+
+* The shipped rule file is the classpath resource `/de/planmarshall/workflow/plan/composition-rules.json` of `pm-workflow`, beside the classes that read it; it has no project copy and nothing overrides it.
+* `CompositionRules.shipped()` loads it, `CompositionRules.parse(byte[])` checks any bytes; the digest is the SHA-256 of the file bytes.
+* The shape is closed and checked in code; a rule that adds an element (`then.add`), binds `retry_budget`, `fix_budget` or `waiver_wait_seconds`, or names a gate is refused with its own `Refusal` (`ADDS_ELEMENT`, `RAISES_BUDGET`, `NAMES_GATE`).
+
+== Alternatives Considered
+
+1. *A resource of `plan-marshall-mcp`.*
+_Rejected_: the rules are part of the composition semantics this module implements and tests; the assembly would have to pass them in for every test.
+2. *A path outside the package* (for example a top-level `rules/` directory).
+_Rejected_: the operator chose the package path; it keeps the resource next to the reader and clear of the content directories the build guards.
+
+== Consequences
+
+* A rule change is a change of this module, with its `revision` raised and its tests.
+* Every header names the rules by `revision` and `digest`, so a changed file shows up as a changed input.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules]
+* `doc/plans/plan-instance.adoc`; operator decision at outline (package path)

@@ -1,0 +1,29 @@
+---
+title: "plan diagram-fixture v3 (plan)"
+---
+stateDiagram-v2
+    state phase_outline {
+        state "outline.deep" as outline_deep
+        outline_deep : auto diagram.proceed
+    }
+    state phase_finalize {
+        state "finalize.merge-gate" as finalize_merge_gate
+        state "finalize.hand-back" as finalize_hand_back
+        state "finalize.archive-plan" as finalize_archive_plan
+        finalize_merge_gate : auto diagram.ready
+        finalize_hand_back : auto diagram.proceed
+        finalize_archive_plan : terminal completed
+        finalize_merge_gate --> finalize_archive_plan : auto / held
+        finalize_merge_gate --> finalize_hand_back : auto / not_held
+        finalize_hand_back --> finalize_archive_plan : auto / done
+    }
+    [*] --> outline_deep
+    outline_deep --> finalize_merge_gate : auto / done
+    state "pruned" as instance_pruned {
+        state "step default:analysis-roundtrip: provider_unconfigured (integrations.sonar)" as instance_pruned_1
+        state "state finalize.merge-dispatch: auto_merge_off (merge.auto_merge)" as instance_pruned_2
+        state "policy_action finalize.remediate-ci/loop_back: local_only (derived.push_remote)" as instance_pruned_3
+    }
+    state "waived gates" as instance_waived {
+        state "finalize.merge-gate: waived W-7" as instance_waived_1
+    }

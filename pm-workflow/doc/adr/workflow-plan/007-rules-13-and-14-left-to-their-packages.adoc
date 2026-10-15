@@ -1,0 +1,38 @@
+= ADR 007: Rules 13 and 14 Are Left to the Packages That Own Roles and Skills
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The specification verifies every composed version against Rules 1-14; Rules 13 and 14 resolve roles and skills at composition (`role_undefined`, `class_mismatch`, `skill_unresolved`).
+The role sets and the skill catalogue they resolve against do not exist in this repository yet; they are the work packages `profile-loader` and `role-sets-and-model-caller`.
+
+== Decision
+
+* `PlanInstanceComposer` checks Rules 1-12, the finalize pipeline and the compiled invariants, and not Rules 13 and 14.
+* The seam is the verification step of the composer: the rule checks join it when the packages that own the role sets and the skill catalogue provide them.
+
+== Alternatives Considered
+
+1. *A stub resolver that admits every role and skill.*
+_Rejected_: it would report a check that never ran as passed.
+2. *Hold this package until the role sets exist.*
+_Rejected_: composition, versions and the position rule do not depend on role resolution.
+
+== Consequences
+
+* A composed version can name a role or skill that does not resolve; nothing in this package detects it.
+* The packages `profile-loader` and `role-sets-and-model-caller` add the checks to the composition.
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events item 3
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
+* `doc/plans/plan-instance.adoc`, `doc/plans/profile-loader.adoc`, `doc/plans/role-sets-and-model-caller.adoc`

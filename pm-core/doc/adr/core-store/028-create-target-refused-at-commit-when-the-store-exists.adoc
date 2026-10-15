@@ -1,0 +1,65 @@
+= ADR 028: A Create Target Is Refused at the Commit When Its Store Exists
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A version file of a plan instance is written once and never rewritten, and `PlanInstanceStore.recordComposed` of
+`pm-workflow` refused a version whose file existed while it collected the targets of the caller's `ScopeTransaction`.
+The review of pull request #67 (CodeRabbit finding 11e8e3) showed that this check does not hold for two transactions of
+one lock transaction. `ScopeTransaction.open` only requires that the lock transaction holds the key of the scope, so a
+caller can open two `ScopeTransaction` objects of the same scope under one lock transaction. Both pass a check made
+while their targets are collected, as long as neither has committed. The commit refused only a journal left by an
+earlier transaction, which the first commit has deleted again when the second commit starts, and the apply step moves
+the staged file of the second transaction over the store the first one wrote. The second version text then replaced
+the first.
+
+== Decision
+
+* `ScopeTransaction.create(relativePath, content)` collects a replace target that must not exist when the transaction
+  commits. The same path rules as for `replace` apply, and a store is a target of a transaction once.
+* `ScopeTransaction.commit()` checks every create target after it has checked the scope lock and the leftover journal,
+  and before anything is staged. If the store exists (without following a link), it throws `IllegalStateException`
+  naming the store; nothing is written and the transaction stays uncommitted, like the other refusals of the commit.
+* The journal records a create as a `replace` target. `TransactionJournal`, the staged-file naming, the apply step and
+  `JournalRecovery` are unchanged.
+* `PlanInstanceStore` writes the version file with `create`. It keeps its early check in `recordComposed`, and it keeps
+  `replace` for the sub-unit texts, which are content-addressed: a second writer of a digest writes the same bytes.
+
+The check belongs in the commit because only there does it run under the scope lock immediately before the write, after
+every other transaction of the same lock transaction that committed earlier has applied its targets.
+
+== Alternatives Considered
+
+1. *A registry of the open transactions per scope in the store.*
+_Rejected_: the store cannot observe a commit or an abandoned transaction, so the registry either blocks a version for
+good or misses a second instance of the store.
+2. *Refuse a second open `ScopeTransaction` per scope in `ScopeTransaction.open`.*
+_Rejected_: it restricts every store of the package for the need of one.
+3. *A create mode in the transaction journal.*
+_Rejected_: it changes the journal format and the recovery for no gain; the check is made before the journal is
+written, and after that a create is completed exactly as a replace.
+
+== Consequences
+
+* A store collected by `create` is never replaced by a transaction that collected it while it was absent: the
+  transaction that commits second is refused, and the content of the first stays.
+* A refused create refuses the whole transaction; the caller decides what to record instead.
+* The check runs once, before the journal is written. A commit stopped after its journal is completed by the recovery
+  like a replace and is not checked again.
+* `ScopeTransaction` has one more public method; a later store that writes a file once uses `create` as well.
+
+== Source
+
+* Pull request #67, `feat(workflow): compose plan instances with versions and composition log`, CodeRabbit finding
+  11e8e3 on `PlanInstanceStore.java`, and the operator decision of 2026-10-14 to fix it in that pull request
+* Work package link:../../../../doc/plans/plan-instance.adoc[`plan-instance`] (PLAN-24)
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
+* `pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java`

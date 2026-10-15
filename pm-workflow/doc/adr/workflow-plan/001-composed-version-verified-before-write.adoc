@@ -1,0 +1,57 @@
+= ADR 001: A Composed Version Is Verified in Full Before Anyone May Write It
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A plan instance version is immutable once written, and the engine executes the version in force.
+The specification requires every version to verify against Rules 1-12 and the compiled invariants, and to contain the current state and every call-stack state; a version that fails is never written.
+The composition prunes template elements, which can leave an outcome unrouted or remove a transition an invariant requires, so a version that the template passes can still fail.
+
+== Decision
+
+* `PlanInstanceComposer.compose` checks every version before it returns it as `CompositionResult.Composed`, in this order: the position rule first; then `HeaderSchemaCheck`, the static verification Rules 1-12 (`WorkflowValidator` over the compiled units and the request's sub-units, without a released baseline), `FinalizePipelineValidator` over the default descriptors of the kept Phase 6 steps, and `CompiledInvariants` against the verified default units passed to the constructor.
+* The position rule is checked first and alone: a version without the plan's position is refused before the other checks run.
+* The other checks all run, and every violation they find is reported; a violation an invariant only re-reports from Rules 1-12 is dropped.
+* `PlanInstanceComposer` is the only code of the package that composes a version and verifies it.
+* `PlanInstanceStore` writes a version only through `recordComposed`, which takes a `PlanInstance` and its `CompositionRecord`.
+`recordComposed` re-checks that the record is the composed record of that version (its result, version, event, trigger and input digests), but it does not repeat the verification.
+* The store never replaces a version file, and it refuses one twice: `recordComposed` refuses a version whose file exists when it is called, before anything is recorded, and it collects the version file with `ScopeTransaction.create`, so the commit refuses the whole transaction, under the plan lock and before anything is written, when another transaction created the file in between (link:../../../../pm-core/doc/adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[core-store ADR 028]).
+The sub-unit texts stay plain replaces, because they are content-addressed and a second writer of a digest writes the same bytes.
+* `PlanInstance` is a public record with a public canonical constructor, so a caller can build a value without the composer.
+The caller of `recordComposed` owns passing only a version the composer returned as `CompositionResult.Composed`.
+
+== Alternatives Considered
+
+1. *Verify in the store at write time.*
+_Rejected_: the store writes through the caller's transaction and would then need the registries, the default units and the roster; the composer already holds them, and a refusal must be known before the caller decides what to write.
+2. *Stop at the first violation.*
+_Rejected_: the operator needs every reason a version is refused to fix the configuration or the waiver that caused it.
+3. *Give `PlanInstance` a package-private constructor, so only the composer can build one.*
+_Rejected_: not possible; the canonical constructor of a record must be at least as accessible as the record (JLS 8.10.4.1), and `PlanInstance` is public API of `CompositionRequest` and of the store.
+4. *Make `PlanInstance` a final class with a package-private constructor instead of a record.*
+_Rejected_: it loses the record contract (the components, `equals`, `hashCode` and `toString` derived from them), and it gives the assembly no way to rebuild the version in force from its stored text.
+
+== Consequences
+
+* A version the composer returns is verified in full; a refused attempt is recorded by its log line alone.
+* The store does not enforce that a version it writes was verified: it checks the composition record against the version, and the caller that passes the version to `recordComposed` owns that it came from the composer as `CompositionResult.Composed`.
+* What the store does enforce is that a version is written once: a second transaction that records a version another transaction committed after its own early check is refused at its commit, and the first text stays the version.
+* The composer needs the `VerificationContext`, the default units and the default finalize roster at construction; the assembly supplies them.
+* Rules 13 and 14 are not part of the checks (ADR 007).
+
+== Source
+
+* link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events items 2 and 3
+* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Invariants per Version and Position Rule
+* `doc/plans/plan-instance.adoc`
+* `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java`
+* Pull request #67, CodeRabbit finding 11e8e3 on `PlanInstanceStore.java` (the write-once check of a version)

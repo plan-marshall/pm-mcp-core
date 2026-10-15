@@ -1,0 +1,62 @@
+= Lane-route pruning at the `outline` event
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `lane-route-pruning`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 3
+Where:: pm-workflow package `workflow.plan`; the default plan unit and its templates in `plan-marshall-mcp`; the specification in `plan-marshall-documentation`
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== Discussion
+
+This section is worked first, with the operator, before any implementation. Its outcome is a decision on the design, recorded as an ADR of `pm-workflow/doc/adr/workflow-plan/` that supersedes or extends ADR 011, and the tasks of § What adjusted to it.
+
+=== Current design
+
+* The `outline` event composes a version like every other event: link:plan-instance.adoc[`plan-instance`] evaluates the composition rules over the plan facts, prunes and binds, and verifies the version (Rules 1-12, the finalize pipeline, the compiled invariants). No rule reads the lane to prune a route, so a `deep` instance keeps the `light` route and a `light` instance the `deep` one; the lane is recorded in the header (`lane`).
+* The default plan unit routes both lanes through shared states that read the plan's lane:
+** `init.light-gate` routes `pass` into the light lane (`outline.detect-change-type` and on to `outline.light`) and its budget, `neighbours_indeterminate` and `baseline_conflict` outcomes to `refine.baseline-reconcile`, the one-way ratchet to `deep`.
+** `outline.route-rework` is a router over `planning_lane`: `deep` -> `outline.deep`, `light` -> `outline.light-regate`. It is entered from the deep route (`outline.qgate` `blocking` through `outline.remediate-qgate` `fix_requested`), from the join's `findings_pending` path (`outline.gate` through `outline.remediate-qgate`), and from the four replan entries `plan.revise-tasks`, `outline.route-review`, `execute.replan` and `finalize.replan`.
+* Pruning removes a state and every transition into it; it never re-routes the outcome that led there.
+* Why pruning cannot remove the light route: in a `deep` plan the router's `light` outcome is never taken, but the graph cannot know that. Plain reachability from the deep entry reaches `outline.light-regate` and `outline.light` through `outline.route-rework`, so it prunes nothing; a rule that prunes them anyway leaves the router's `light` outcome and `init.light-gate`'s `pass` unrouted.
+
+=== Limitations
+
+* *Rule 2.* An outcome must be routed. Pruning `outline.light` and `outline.light-regate` in a `deep` version leaves `init.light-gate` `pass` and `outline.route-rework` `light` unrouted; the composer refuses that version with `invariant_failed`. This was built and refused in link:plan-instance.adoc[`plan-instance`] (ADR 011, option C).
+* *`INV-INIT-2`.* Its clause "the `light -> deep` ratchet transitions of the default unit are present" demands the transitions of `init.light-gate` and `outline.light-regate`, so any version without the light gates fails it, whatever its lane.
+* *No engine handling.* The engine has no notion of a lane-specific route or of a version that drops states the plan may still escalate through; a symmetric prune of the deep route of a `light` plan would remove the escalation target, and a new composition event for the escalation does not exist.
+* *No vocabulary.* The DSL marks no state with a lane, and the closed `prune_reason` enumeration has no reason for the other lane.
+
+=== Next steps
+
+* *The operator's model.* Escalation is an ordinary outcome of the light lane: a `light` plan's route contains the escalation into `deep`, a `deep` plan's route contains nothing of `light`.
+* *Per-lane routes in the default plan unit.* Replace the shared lane-reading routers by per-lane rework and replan routes in the State Catalogue and in the plan templates of `plan-marshall-mcp`: the deep route re-enters `outline.deep` directly, the light route `outline.light-regate`; `init.light-gate` stays the entry of the light lane.
+* *`INV-INIT-2` reworded per lane.* The ratchet clause requires the `light -> deep` transitions only in a version whose lane is `light` (or before the lane is known), not in a `deep` version.
+* *Reachability pruning.* With the routes separated, the `outline` event prunes every state not reachable from the chosen lane's entry over all transitions, escalation included, with a new prune reason `other_lane` (header schema and identifier registry); a `light` version keeps the deep route, a `deep` version drops the light one.
+* *Specification correction.* The sentence of the `outline` event ("lane known, the other lane pruned") is corrected to state exactly what is pruned, or kept as it is once the above is implemented.
+
+== What
+
+To be confirmed by the § Discussion:
+
+* The per-lane rework and replan routes in the State Catalogue and in the plan templates of `plan-marshall-mcp`.
+* `INV-INIT-2` reworded per lane, in the specification and in `CompiledInvariants`.
+* The prune reason `other_lane` in `PruneReason`, `HeaderSchemaCheck` and the header schema.
+* Reachability pruning at the `outline` event in `workflow.plan`, with a test per lane and a matched control: a `deep` version without the light route verifies; a `light` version keeps the deep route.
+* The corrected `outline` event sentence; the developer guide of `workflow.plan` without the limitation.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+* Specification: link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance] (Versions & Composition Events, the `outline` event); link:../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model] (compiled invariant `INV-INIT-2`); link:../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc[State Catalogue § Plan Workflow: Phases 1-3] (link:../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.route-rework[`outline.route-rework`], link:../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.light-regate[`outline.light-regate`], link:../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-catalogue-init[Phase 1 `init`]); link:../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance] (`prune_reason`)
+* Decision: `pm-workflow/doc/adr/workflow-plan/011-lane-route-pruning-deferred.adoc`
+
+== Done When
+
+* The § Discussion is decided with the operator and recorded as an ADR.
+* A `deep` instance composed at the `outline` event contains no state of the light route and verifies; a `light` instance keeps the escalation into `deep` and verifies; each has its test.
+* The specification states what the `outline` event prunes, and `INV-INIT-2` holds per lane.
+* `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green on the pushed head.

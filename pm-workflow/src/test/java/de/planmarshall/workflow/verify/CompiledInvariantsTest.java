@@ -37,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
@@ -127,6 +128,34 @@ class CompiledInvariantsTest {
                     () -> assertEquals(InvariantFixtures.PLAN_FILES.size(), plan.version()),
                     () -> assertEquals("init.begin", plan.startState()),
                     () -> assertEquals(INIT_FILE, plan.location().resourceName()));
+        }
+    }
+
+    @Nested
+    @DisplayName("Budget parameters")
+    class BudgetParameters {
+
+        @Test
+        @DisplayName("are the parameters of the remediation contract but its actions, the set INV-REM-5 caps")
+        void contractParameters() {
+            var unit = InvariantFixtures.defaultUnits().get("remediation.qgate-findings");
+            var declared = unit.params().stream().map(ParamDecl::name)
+                    .filter(name -> !RemediationInvariants.ACTIONS.equals(name)).collect(Collectors.toSet());
+
+            assertAll(
+                    () -> assertEquals(Set.of("retry_budget", "fix_budget", "waiver_wait_seconds"),
+                            CompiledInvariants.remediationBudgetParameters()),
+                    () -> assertEquals(declared, CompiledInvariants.remediationBudgetParameters()),
+                    () -> assertEquals(RemediationInvariants.BUDGET_CAPS.keySet(),
+                            CompiledInvariants.remediationBudgetParameters()));
+        }
+
+        @Test
+        @DisplayName("cannot be changed by a caller")
+        void unmodifiable() {
+            var parameters = CompiledInvariants.remediationBudgetParameters();
+
+            assertThrows(UnsupportedOperationException.class, () -> parameters.add("other_budget"));
         }
     }
 

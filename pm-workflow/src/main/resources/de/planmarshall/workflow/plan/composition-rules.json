@@ -1,0 +1,160 @@
+{
+  "format_version": 1,
+  "revision": "1",
+  "rules": [
+    {
+      "id": "land-lane",
+      "when": { "fact": "lane", "equals": "land" },
+      "then": {
+        "prune": [
+          { "element": "state", "id": "finalize.allocate-remediation", "reason": "land_lane" },
+          { "element": "policy_action", "id": "*/fix", "reason": "land_lane" },
+          { "element": "policy_action", "id": "*/loop_back", "reason": "land_lane" },
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "land_lane" }
+        ],
+        "bind": [
+          { "call_site": "*", "argument": "actions", "value": ["retry"] }
+        ]
+      }
+    },
+    {
+      "id": "adopt-lane",
+      "when": { "fact": "lane", "equals": "adopt" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:create-pr", "reason": "adopt" }
+        ]
+      }
+    },
+    {
+      "id": "local-only",
+      "when": { "fact": "derived.push_remote", "empty": true },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:push", "reason": "local_only" },
+          { "element": "step", "id": "default:create-pr", "reason": "local_only" },
+          { "element": "step", "id": "default:ci-verify", "reason": "local_only" },
+          { "element": "step", "id": "default:automatic-review", "reason": "local_only" },
+          { "element": "step", "id": "default:analysis-roundtrip", "reason": "local_only" }
+        ]
+      }
+    },
+    {
+      "id": "auto-merge-off",
+      "when": { "fact": "merge.auto_merge", "equals": "false" },
+      "then": {
+        "prune": [
+          { "element": "state", "id": "finalize.merge-dispatch", "reason": "auto_merge_off" },
+          { "element": "state", "id": "finalize.merge-queue-wait", "reason": "auto_merge_off" },
+          { "element": "state", "id": "finalize.merge-queue-exit", "reason": "auto_merge_off" }
+        ]
+      }
+    },
+    {
+      "id": "posture-minimal",
+      "when": { "fact": "posture", "equals": "minimal" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "posture" },
+          { "element": "step", "id": "default:finalize-step-security-audit", "reason": "posture" },
+          { "element": "step", "id": "default:pre-submission-self-review", "reason": "posture" },
+          { "element": "step", "id": "default:automatic-review", "reason": "posture" },
+          { "element": "step", "id": "default:analysis-roundtrip", "reason": "posture" },
+          { "element": "step", "id": "default:lessons-capture", "reason": "posture" }
+        ]
+      }
+    },
+    {
+      "id": "posture-standard",
+      "when": { "fact": "posture", "equals": "standard" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-security-audit", "reason": "posture" }
+        ]
+      }
+    },
+    {
+      "id": "posture-default-off",
+      "when": { "fact": "posture", "in": ["minimal", "standard", "full"] },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:adr-propose", "reason": "posture" },
+          { "element": "step", "id": "default:plan-retrospective", "reason": "posture" }
+        ]
+      }
+    },
+    {
+      "id": "analysis-provider-unconfigured",
+      "when": { "fact": "integrations.sonar", "unset": true },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:analysis-roundtrip", "reason": "provider_unconfigured" }
+        ]
+      }
+    },
+    {
+      "id": "no-code-delta",
+      "when": {
+        "fact": "footprint",
+        "disjoint": [
+          "**.java", "**.kt", "**.kts", "**.groovy", "**.gradle", "**.scala",
+          "**.js", "**.mjs", "**.cjs", "**.jsx", "**.ts", "**.tsx",
+          "**.py", "**.sh",
+          "pom.xml", "**/pom.xml", "package.json", "**/package.json", "pyproject.toml", "**/pyproject.toml",
+          "Dockerfile", "**/Dockerfile", "Containerfile", "**/Containerfile"
+        ]
+      },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "footprint_disjoint" },
+          { "element": "step", "id": "default:adr-propose", "reason": "footprint_disjoint" }
+        ]
+      }
+    },
+    {
+      "id": "report-change-type",
+      "when": { "fact": "change_type", "in": ["analysis", "verification"] },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "change_type_exempt" }
+        ]
+      }
+    },
+    {
+      "id": "simplify-recipe",
+      "when": { "fact": "recipe_id", "equals": "simplify-codebase" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "recipe_override" }
+        ]
+      }
+    },
+    {
+      "id": "post-run-returned",
+      "when": { "fact": "post_run", "equals": "returned" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "order<900", "reason": "returned" }
+        ]
+      }
+    },
+    {
+      "id": "post-run-handed-back",
+      "when": { "fact": "post_run", "equals": "handed_back" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "order<900", "reason": "handed_back" }
+        ]
+      }
+    },
+    {
+      "id": "post-run-empty-harvest",
+      "when": { "fact": "post_run", "equals": "empty_harvest" },
+      "then": {
+        "prune": [
+          { "element": "step", "id": "order<900", "reason": "empty_harvest" }
+        ]
+      }
+    }
+  ]
+}

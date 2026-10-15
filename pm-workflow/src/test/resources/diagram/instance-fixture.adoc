@@ -1,0 +1,129 @@
+.Instance plan diagram-fixture v3 (plan)
+[cols="1,3"]
+|===
+|Property |Value
+
+|Plan
+|`diagram-fixture`
+
+|Version
+|`3`
+
+|Composition event
+|`plan`
+
+|Lane
+|`deep`
+
+|Posture
+|`standard`
+
+|Active state
+|-
+|===
+
+.Phase `outline`: states
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|`outline.deep`
+|`outline`
+|`auto`
+|start
+|outcomes `done`
+|`finalize.merge-gate`
+|
+|===
+
+.Phase `outline`: outcomes
+[cols="2,2,2,2"]
+|===
+|State |Outcome |Guard |Next state
+
+|`outline.deep`
+|`done`
+|-
+|`finalize.merge-gate`
+|===
+
+.Phase `finalize`: states
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|`finalize.merge-gate`
+|`finalize`
+|`auto`
+|`outline.deep`
+|outcomes `held`, `not_held`
+|`finalize.archive-plan`, `finalize.hand-back`
+|
+
+|`finalize.hand-back`
+|`finalize`
+|`auto`
+|`finalize.merge-gate`
+|outcomes `done`
+|`finalize.archive-plan`
+|
+
+|`finalize.archive-plan`
+|`finalize`
+|`terminal`
+|`finalize.merge-gate`, `finalize.hand-back`
+|reports `completed` (`success`)
+|-
+|
+|===
+
+.Phase `finalize`: outcomes
+[cols="2,2,2,2"]
+|===
+|State |Outcome |Guard |Next state
+
+|`finalize.merge-gate`
+|`held`
+|-
+|`finalize.archive-plan`
+
+|`finalize.merge-gate`
+|`not_held`
+|-
+|`finalize.hand-back`
+
+|`finalize.hand-back`
+|`done`
+|-
+|`finalize.archive-plan`
+|===
+
+.Instance: pruned elements
+[cols="1,2,1,2"]
+|===
+|Element |Id |Reason |Source fact
+
+|`step`
+|`default:analysis-roundtrip`
+|`provider_unconfigured`
+|`integrations.sonar`
+
+|`state`
+|`finalize.merge-dispatch`
+|`auto_merge_off`
+|`merge.auto_merge`
+
+|`policy_action`
+|`finalize.remediate-ci/loop_back`
+|`local_only`
+|`derived.push_remote`
+|===
+
+.Instance: waived gates
+[cols="2,1"]
+|===
+|Gate |Waiver id
+
+|`finalize.merge-gate`
+|`W-7`
+|===

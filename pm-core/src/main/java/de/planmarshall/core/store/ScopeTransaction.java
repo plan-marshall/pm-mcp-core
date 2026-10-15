@@ -38,8 +38,8 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  * One write to the stores of a scope, run through the transaction journal of the scope (PM-IMPL-7). A single-store
  * write is a transaction with one target.
  * <p>
- * The targets are collected first, at most one per store, each a replace, an append or a delete, and written by
- * {@link #commit()} in five steps:
+ * The targets are collected first, at most one per store, each a replace, a create, an append or a delete, and
+ * written by {@link #commit()} in five steps:
  * <ol>
  * <li><em>Stage</em>: the new content of every replaced store is written to {@code <store>.tmp.<transaction id>}, and
  * the block of every append to {@code <store>.append.<transaction id>}, each forced to disk. A torn tail of a JSONL
@@ -58,6 +58,12 @@ import de.planmarshall.core.store.TransactionJournal.Target;
  * and committed only by a transaction that holds the key of the scope. Nothing removes a staged file or the journal
  * when a step fails: a write stopped at any point leaves exactly what a killed process leaves, and the recovery of the
  * scope decides what becomes of it.
+ * <p>
+ * A create ({@link #create(String, byte[])}) is a replace of a store that must not exist yet. Whether it exists is
+ * checked by the commit, under the scope lock and before anything is staged, not while the targets are collected:
+ * two transactions of one lock transaction can both collect a create of the same store, and only the check at the
+ * commit sees the store the first of them wrote. The journal records a create as a replace, so the recovery of the
+ * scope treats both alike.
  * <p>
  * The directory of every store exists before the commit; this type does not create it.
  *
@@ -115,26 +121,30 @@ public final class ScopeTransaction {
     /**
      * A target collected before the commit.
      *
-     * @param path    the store, relative to the path base in normalized form with {@code /} as separator
-     * @param mode    replace, append or delete
-     * @param content the new content or the appended block, held, not copied; empty for a delete
+     * @param path         the store, relative to the path base in normalized form with {@code /} as separator
+     * @param mode         replace, append or delete
+     * @param content      the new content or the appended block, held, not copied; empty for a delete
+     * @param mustBeAbsent whether the commit is refused when the store exists; true only for a create
      */
-    private record PendingTarget(String path, Mode mode, byte[] content) {
+    private record PendingTarget(String path, Mode mode, byte[] content, boolean mustBeAbsent) {
 
         @Override
         public boolean equals(Object other) {
-            return other instanceof PendingTarget(String otherPath, Mode otherMode, byte[] otherContent)
-                    && path.equals(otherPath) && mode == otherMode && Arrays.equals(content, otherContent);
+            return other instanceof PendingTarget(String otherPath, Mode otherMode, byte[] otherContent,
+                    boolean otherMustBeAbsent)
+                    && path.equals(otherPath) && mode == otherMode && Arrays.equals(content, otherContent)
+                    && mustBeAbsent == otherMustBeAbsent;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(path, mode) * 31 + Arrays.hashCode(content);
+            return Objects.hash(path, mode, mustBeAbsent) * 31 + Arrays.hashCode(content);
         }
 
         @Override
         public String toString() {
-            return "PendingTarget[path=%s, mode=%s, %d bytes]".formatted(path, mode, content.length);
+            return "PendingTarget[path=%s, mode=%s, mustBeAbsent=%s, %d bytes]".formatted(path, mode, mustBeAbsent,
+                    content.length);
         }
     }
 
@@ -235,7 +245,22 @@ public final class ScopeTransaction {
      * @throws IllegalStateException    if the transaction was committed
      */
     public void replace(String relativePath, byte[] content) {
-        add(relativePath, Mode.REPLACE, Objects.requireNonNull(content, "content").clone());
+        add(relativePath, Mode.REPLACE, Objects.requireNonNull(content, "content").clone(), false);
+    }
+
+    /**
+     * Creates a store of the scope that must not exist when the transaction commits. The target is a replace in the
+     * journal; {@link #commit()} refuses the whole transaction, before anything is staged, when the store exists then.
+     * The check belongs to the commit and not to this method: a store that is absent while the targets are collected
+     * can have been written by another transaction of the same lock transaction before this one commits.
+     *
+     * @param relativePath the store, relative to the path base of the scope
+     * @param content      the content of the new store
+     * @throws IllegalArgumentException for a store as {@link #replace(String, byte[])} refuses it
+     * @throws IllegalStateException    if the transaction was committed
+     */
+    public void create(String relativePath, byte[] content) {
+        add(relativePath, Mode.REPLACE, Objects.requireNonNull(content, "content").clone(), true);
     }
 
     /**
@@ -249,7 +274,7 @@ public final class ScopeTransaction {
      */
     public void append(String relativePath, byte[] records) {
         JsonlStoreFile.requireBlock(scope.pathBase().resolve(relativePath), records);
-        add(relativePath, Mode.APPEND, records.clone());
+        add(relativePath, Mode.APPEND, records.clone(), false);
     }
 
     /**
@@ -262,7 +287,7 @@ public final class ScopeTransaction {
      * @throws IllegalStateException    if the transaction was committed
      */
     public void delete(String relativePath) {
-        add(relativePath, Mode.DELETE, new byte[0]);
+        add(relativePath, Mode.DELETE, new byte[0], false);
     }
 
     /**
@@ -272,10 +297,14 @@ public final class ScopeTransaction {
      * The records the transaction owes are handed to the audit sink after the digests and before the close. If the
      * sink refuses one, the commit still completes its data, but the journal stays as the intent of the records, and
      * the next recovery of the scope hands them over again.
+     * <p>
+     * A store collected by {@link #create(String, byte[])} is checked here, under the scope lock and before anything
+     * is staged: if it exists, the commit is refused, nothing is written, and the transaction stays uncommitted.
      *
      * @throws InternalFaultException if the transaction no longer holds the key of the scope; nothing was written then
-     * @throws IllegalStateException  if the transaction has no target or was committed, or if the scope has a journal
-     *                                that its recovery has not closed yet; nothing was written then
+     * @throws IllegalStateException  if the transaction has no target or was committed, if the scope has a journal
+     *                                that its recovery has not closed yet, or if a store collected by
+     *                                {@link #create(String, byte[])} exists; nothing was written then
      * @throws UncheckedIOException   if a file cannot be written; what was written stays for the recovery
      */
     public void commit() {
@@ -287,6 +316,12 @@ public final class ScopeTransaction {
         if (Files.exists(scope.journalFile(), LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalStateException("The scope %s has a journal to recover before a new transaction"
                     .formatted(scope.pathBase()));
+        }
+        for (var target : targets.values()) {
+            if (target.mustBeAbsent() && Files.exists(scope.resolve(target.path()), LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalStateException("Store '%s' of the scope %s exists and cannot be created"
+                        .formatted(target.path(), scope.pathBase()));
+            }
         }
         committed = true;
         try {
@@ -306,7 +341,7 @@ public final class ScopeTransaction {
         }
     }
 
-    private void add(String relativePath, Mode mode, byte[] content) {
+    private void add(String relativePath, Mode mode, byte[] content, boolean mustBeAbsent) {
         requireOpen();
         var store = scope.resolveWithoutLinks(relativePath);
         if (store.equals(scope.journalFile()) || store.equals(scope.sidecarFile())) {
@@ -317,7 +352,8 @@ public final class ScopeTransaction {
             throw new IllegalArgumentException("Store '%s' does not lie in a directory the scope owns: %s"
                     .formatted(relativePath, scope.ownedDirectories()));
         }
-        if (targets.putIfAbsent(store, new PendingTarget(storePath(scope, store), mode, content)) != null) {
+        var target = new PendingTarget(storePath(scope, store), mode, content, mustBeAbsent);
+        if (targets.putIfAbsent(store, target) != null) {
             throw new IllegalArgumentException("Store '%s' is a target of the transaction already"
                     .formatted(relativePath));
         }

@@ -170,6 +170,19 @@ public final class CompiledInvariants {
     }
 
     /**
+     * The budget parameters of the remediation schema ({@link InvariantId#INV_REM_1}): {@code retry_budget},
+     * {@code fix_budget} and {@code waiver_wait_seconds}, the parameters whose binding at a call site
+     * {@link InvariantId#INV_REM_5} caps. This is the one definition of the set; a consumer outside the package, such
+     * as the check of the composition rule file that refuses a rule binding a budget, reads it here rather than
+     * repeating the names, so a budget parameter added to the schema is refused there without a second edit.
+     *
+     * @return the names of the budget parameters, an unmodifiable set
+     */
+    public static Set<String> remediationBudgetParameters() {
+        return RemediationInvariants.BUDGET_CAPS.keySet();
+    }
+
+    /**
      * Maps the violations of the static verifier to invariant violations: a Rule 9 violation of the plan unit to
      * {@link InvariantId#INV_FIN_3}, every other one to {@link InvariantId#INV_GEN_1}.
      *

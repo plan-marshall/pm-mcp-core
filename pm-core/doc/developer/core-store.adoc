@@ -26,7 +26,8 @@ This guide covers the stores of a scope that `pm-core` adds on top of the store 
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
-not repeated here; this guide describes only what the delete mode changes in it. The schemas of the documents are in
+not repeated here; this guide describes only what the delete mode and the create target change in it. The schemas of
+the documents are in
 link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store] and
 link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session
 Log].
@@ -229,6 +230,53 @@ Tested by `TransactionJournalTest` (round trip of a delete target, version 2 ref
 members refused), `ScopeTransactionTest` (a delete stopped after each step through the step hook, the delete of an
 absent store, a delete and a replace of one store refused), `JournalRecoveryTest` (a half-applied delete with the store
 present and absent, a torn journal of a delete, a repeated recovery), `DigestSidecarTest` and `ScopeIntegrityTest`.
+
+[#_create_target]
+== The Create Target of a Scope Transaction
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+A store that is written once and never rewritten, such as a version file of a plan instance, needs a write that
+refuses a store that exists. A check made while the targets are collected is not enough: the scope lock serializes
+lock transactions, not the `ScopeTransaction` objects opened under one of them, so two transactions of one lock
+transaction can both collect a target of the same absent store, and the apply step of the second moves its staged file
+over the store the first one wrote. The check therefore belongs in the commit
+(link:../adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[ADR 028]).
+
+[horizontal]
+`ScopeTransaction.create(relativePath, content)`:: Collects a replace target that must not exist when the transaction
+commits. The same path rules as for `replace` apply, and a store is a target of a transaction once, whatever its mode.
+`ScopeTransaction.commit()`:: After it has checked that the transaction still holds the scope lock and that the scope
+has no journal to recover, and before anything is staged, it refuses the transaction with `IllegalStateException`
+naming the store when a create target exists (checked without following a link). Nothing is staged, journaled or
+applied, the sidecar is untouched, and the transaction stays uncommitted, like the other refusals of the commit.
+
+A create target is a `TransactionJournal.Mode.REPLACE` target in the journal: the staged name, the journal format, the
+apply step and `JournalRecovery` are those of a replace. The check is made once, before the journal is written; a
+commit stopped after its journal is completed by the recovery as any replace.
+
+=== Invariants
+
+* *Checked under the lock where it is written*: the create check runs in the commit, while the lock transaction holds
+  the scope lock, so no transaction of another lock transaction writes the store between the check and the apply; a
+  transaction of the same lock transaction that committed first is seen.
+* *All or nothing*: a refused create refuses the whole transaction; no other target of it is written.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|The store of a create target exists when the transaction commits
+|`commit()` throws `IllegalStateException` naming the store; nothing is written, the transaction is not committed.
+
+|A store is named twice in one transaction, by a create and any other target
+|The second target throws `IllegalArgumentException`; nothing is added.
+|===
+
+Tested by `ScopeTransactionTest` (a create of an absent store, the refused commit of an existing store with nothing
+written and the transaction left open, two transactions of one lock transaction creating the same store: the first
+commits, the second is refused, the first content stays).
 
 [#_scope_session_log]
 == The Scope Session Log
@@ -616,3 +664,5 @@ not beside the checkout passes `-Dpm.documentation.root=<path>` to run them.
   chain in `core.store`, the keyed head, rotation and verification behind `AuditAnchor` in the runtime.
 * link:../adr/core-store/027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]: the record of a torn tail of
   the audit log is written into the log by its own in-log sink before the intent is deleted.
+* link:../adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[ADR 028]: a create target is
+  refused at the commit, under the scope lock, when its store exists.
