@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -305,5 +306,41 @@ class ImportedItemCodecTest {
                 "\"answer_schema\" : " + value);
 
         assertUnreadable(refusalOf(text), "'answer_schema' must be an object or null");
+    }
+
+    @Nested
+    @DisplayName("the answer schema of the input")
+    class AnswerSchema {
+
+        /** An input with the given answer schema. */
+        private static Input input(JsonValue answerSchema) {
+            return new Input("Which holds?", "Subject: logic", List.of("first", "second"), answerSchema);
+        }
+
+        static Stream<Arguments> nonObjectValues() {
+            return Stream.of(
+                    Arguments.of("a string", new JsonValue.JsonString("not-an-object")),
+                    Arguments.of("a number", new JsonValue.JsonNumber(new BigDecimal("7"), true)),
+                    Arguments.of("a boolean", new JsonValue.JsonBoolean(true)),
+                    Arguments.of("an array", new JsonValue.JsonList(List.of(new JsonValue.JsonString("a")))),
+                    Arguments.of("a JSON null", new JsonValue.JsonNull()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("nonObjectValues")
+        @DisplayName("an answer schema that is no object and no null is refused at construction")
+        void nonObjectRefused(String name, JsonValue answerSchema) {
+            var refused = assertThrows(IllegalArgumentException.class, () -> input(answerSchema));
+
+            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("a JSON object and a null are accepted")
+        void objectAndNullAccepted() {
+            assertAll(
+                    () -> assertEquals(ANSWER_SCHEMA, input(ANSWER_SCHEMA).answerSchema()),
+                    () -> assertNull(input(null).answerSchema()));
+        }
     }
 }

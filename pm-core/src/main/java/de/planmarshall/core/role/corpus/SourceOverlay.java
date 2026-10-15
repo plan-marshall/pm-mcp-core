@@ -69,7 +69,8 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
      * @param question     the template of the question
      * @param facts        the template of the facts
      * @param choices      the templates of the choices of a closed answer; {@code null} for an open answer
-     * @param answerSchema the JSON Schema the answer of the item is checked against; {@code null} if there is none
+     * @param answerSchema the JSON Schema the answer of the item is checked against, a JSON object; {@code null} if
+     *                     there is none
      * @param target       the reference answer; its answer and its alternatives are templates, its rationale and rubric
      *                     items literal
      * @param grading      how an answer is graded
@@ -101,6 +102,10 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
                 if (choices.size() < 2) {
                     throw new IllegalArgumentException("'choices' must name at least two choices");
                 }
+            }
+            if (answerSchema != null && !(answerSchema instanceof JsonValue.JsonObject)) {
+                throw new IllegalArgumentException(
+                        "'answer_schema' must be an object or null: " + answerSchema.toJson());
             }
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(grading, "grading");

@@ -73,7 +73,8 @@ Target target, Grading grading, Provenance provenance, Review review, String can
      * @param question     the question
      * @param facts        exactly the text the model sees besides the question
      * @param choices      the choices of a closed answer, at least two; {@code null} for an open answer
-     * @param answerSchema the JSON Schema the answer of the item is checked against; {@code null} if there is none
+     * @param answerSchema the JSON Schema the answer of the item is checked against, a JSON object; {@code null} if
+     *                     there is none
      * @since 0.1
      */
     public record Input(String question, String facts, List<String> choices, JsonValue answerSchema) {
@@ -89,6 +90,10 @@ Target target, Grading grading, Provenance provenance, Review review, String can
                 if (choices.size() < 2) {
                     throw new IllegalArgumentException("'choices' must name at least two choices");
                 }
+            }
+            if (answerSchema != null && !(answerSchema instanceof JsonValue.JsonObject)) {
+                throw new IllegalArgumentException(
+                        "'answer_schema' must be an object or null: " + answerSchema.toJson());
             }
         }
     }

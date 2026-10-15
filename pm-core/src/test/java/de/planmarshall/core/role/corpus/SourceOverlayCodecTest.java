@@ -353,4 +353,47 @@ class SourceOverlayCodecTest {
     void malformedRowValue(String name, String field, String value, String detail) {
         assertUnreadable(refusalOf(withRow(field, value)), detail);
     }
+
+    @Nested
+    @DisplayName("the answer schema of a row")
+    class AnswerSchema {
+
+        /** A valid row with the given answer schema. */
+        private static SourceOverlay.Row row(JsonValue answerSchema) {
+            return new SourceOverlay.Row("q-1", "q-1", "screening/sample-set", "screening", "sample question",
+                    List.of("imported"), "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"),
+                    answerSchema,
+                    new ImportedItem.Target("{option_a}", "the first option holds", List.of(), List.of(), false),
+                    new ImportedItem.Grading(GradingMethod.EXACT_CHOICE, null, null),
+                    new ImportedItem.Review(ReviewStatus.DRAFT, null, null, null));
+        }
+
+        static Stream<Arguments> nonObjectValues() {
+            return Stream.of(
+                    Arguments.of("a string", new JsonValue.JsonString("not-an-object")),
+                    Arguments.of("a number", new JsonValue.JsonNumber(new BigDecimal("7"), true)),
+                    Arguments.of("a boolean", new JsonValue.JsonBoolean(true)),
+                    Arguments.of("an array", new JsonValue.JsonList(List.of(new JsonValue.JsonString("a")))),
+                    Arguments.of("a JSON null", new JsonValue.JsonNull()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("nonObjectValues")
+        @DisplayName("an answer schema that is no object and no null is refused at construction")
+        void nonObjectRefused(String name, JsonValue answerSchema) {
+            var refused = assertThrows(IllegalArgumentException.class, () -> row(answerSchema));
+
+            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("a JSON object and a null are accepted")
+        void objectAndNullAccepted() {
+            var schema = JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
+
+            assertAll(
+                    () -> assertEquals(schema, row(schema).answerSchema()),
+                    () -> assertNull(row(null).answerSchema()));
+        }
+    }
 }
