@@ -114,10 +114,10 @@ class SchemaSubsetTest {
 
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = '|', value = {
-            "https://example.org/a|true",
-            "https://exa\u001cmple.org/a|false",
-            "https://exa mple.org/a|false",
-            "https://example.org/a b|false"})
+                "https://example.org/a|true",
+                "https://exa\u001cmple.org/a|false",
+                "https://exa mple.org/a|false",
+                "https://example.org/a b|false"})
         @DisplayName("\\s of the repository pattern is Python's whitespace, \\x1c to \\x1f and Unicode spaces included")
         void unicodeSpace(String value, boolean valid) {
             var schema = json("{\"pattern\":\"^https://[^/?#@\\\\s]+(/[^?#\\\\s]*)?$\"}");
