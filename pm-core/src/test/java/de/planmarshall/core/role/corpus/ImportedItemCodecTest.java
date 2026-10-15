@@ -289,4 +289,21 @@ class ImportedItemCodecTest {
         assertUnreadable(refusalOf(text),
                 "'answer_schema' is not one JSON value: the member 'type' is named twice");
     }
+
+    static Stream<Arguments> nonObjectAnswerSchemas() {
+        return Stream.of(Arguments.of("a string", "\"not-an-object\""),
+                Arguments.of("a number", "7"),
+                Arguments.of("a boolean", "true"),
+                Arguments.of("an array", "[ \"a\" ]"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonObjectAnswerSchemas")
+    @DisplayName("an answer_schema that is no object is refused naming the file")
+    void nonObjectAnswerSchema(String name, String value) {
+        var text = text(openItem()).replace("\"answer_schema\" : {\"type\": \"object\"}",
+                "\"answer_schema\" : " + value);
+
+        assertUnreadable(refusalOf(text), "'answer_schema' must be an object or null");
+    }
 }
