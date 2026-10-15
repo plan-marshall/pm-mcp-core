@@ -1,0 +1,33 @@
+= Several items per source row, and items graded by execution
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `corpus-overlay-extensions`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-core package `core.role.corpus` (`SourceOverlay`, `SourceOverlayCodec`, `ItemGenerator`, `ImportedItem`, `ImportedItemCodec`, the schema resources `source-overlay.schema.json` and `imported-item.schema.json`, `CorpusValidator`); the specification link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading]; developer documentation link:../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+The import of `corpus-sources` cannot express what the question corpus of link:../../../plan-marshall-mcp/doc/plans/question-corpus-public-datasets.adoc[`plan-marshall-mcp` / `question-corpus-public-datasets`] needs from HumanEvalComm. One row of that dataset is one HumanEval problem and holds the original description, every modified variant (`prompt1a`, `prompt1c`, `prompt1p`, `prompt2ac`, `prompt2ap`, `prompt2cp`), the solution and the tests. That corpus needs several items from one row (the modified task, its control, the answer applied), and an item whose answer is code and is graded by running the row's tests. This package adds both to the formats of link:../../pm-core/doc/adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001].
+
+* *Several items per row*: an overlay may select one source row from more than one of its rows. `SourceOverlay` refuses a row selected twice today; that refusal goes, and the refusal of an item id generated twice stays. Each overlay row still generates exactly one item; `provenance.origin` of every item names the same row's `path` and `line`.
+* *Grading by execution*: a fifth `grading.method`, `execution`. The answer is source code. The item names what runs it: `grading.entry_point` (the function the tests call), `grading.tests` (the test cases) and `grading.test_form` (how the cases are read; one form so far, `humanevalcomm-cases`, the Python literal list of `input`, `output` and `relation` that HumanEvalComm's `test_case` column holds, each `input` the argument expression of one call of the entry point). `entry_point` and `tests` are templates over the row's fields like `question` and `facts`, so the tests come from the pinned source and are never written into the overlay. An `execution` item has no `choices` and no rubric `items`.
+* *The specification of grading by execution*, in link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading]: the answer and the tests run in a confined job of the job runtime (no network, the job's working directory only, a time bound per item); the item passes when every case passes; an answer that does not compile, raises, or runs out of time fails the item; the interpreter is an enrolled host tool, and where it is not enrolled the item is left out of the grading and the qualification record names it, as it names a missed source. Running the grading itself is link:role-qualification.adoc[`role-qualification`]'s.
+* *Formats changed together*: record, codec and schema resource of the overlay and of the imported item, the validator's `imported_item` and `rubric_items` rules (an `execution` item needs no rubric), and an ADR of `core.role.corpus` that records both changes against ADR 001. The item schema of the corpus in plan-marshall-mcp adopts the same `grading` members in `question-corpus-public-datasets`; `ProductCorpusValidationTest` stays green on the product corpus before and after.
+
+Not in this package: a CSV file whose header names one field twice stays refused (`CsvRowReader`). `bouncerbench-lite/test.csv` names `input_quality` twice; the question corpus uses `input-bouncer` only, which holds the same labels.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+* Specification: link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading]; link:../specification/model-work/01-roles-and-configuration.adoc#qualification-topics[§ Qualification Topics]
+* Decisions: link:../../pm-core/doc/adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001 of `core.role.corpus`]
+* Watch: link:../implementation-watch/model-work.adoc[Model Work]
+
+== Done When
+
+`CorpusImportTest` imports a fixture source whose overlay selects one row three times into three items with distinct ids and the same origin line, and still fails a source whose overlay generates one id twice as `malformed`; `ItemGeneratorTest` generates an `execution` item whose `entry_point` and `tests` are filled from the row, and refuses one with `choices` or rubric items; the codec and schema tests cover the new members and `CorpusSchemaResourcesTest` keeps the resources in the keyword subset; the validator accepts an `execution` item without rubric; § Grading specifies grading by execution as above; the developer documentation and the new ADR describe both changes.

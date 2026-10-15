@@ -141,10 +141,16 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:operator-and-question-stores.adoc[`operator-and-question-stores`]; link:profile-loader.adoc[`profile-loader`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
+|link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
+|Several corpus items per source row, and items graded by execution
+|`open`
+|nothing
+|Milestone 4
+
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]; link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
 |Milestone 4
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
