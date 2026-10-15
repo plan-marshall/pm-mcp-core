@@ -20,7 +20,7 @@ Implement the work package `project-machine-store` of `doc/plans/project-machine
 The bullets of `doc/plans/project-machine-store.adoc` § What, in its words. A bullet that states what already exists or what follows in a later milestone is context, not a deliverable.
 
 1. The per-project machine store below `<PM_MCP_BASE>/projects/<project_id>/` and the state-free repository directory `.marshall/local/`.
-2. The project resolution rule that `pm-mcp enter` and every request rest on.
+2. The project resolution rule every request of a client that names a checkout path rests on.
 
 **Done when** (the package's own acceptance): Resolution fixtures: a worktree, a nested checkout, a moved checkout and an unenrolled directory each resolve as specified; nothing with state is written below the repository.
 
@@ -49,10 +49,10 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/project-machine-store.adoc` § What, Trace, Done When (origin/main at 7d99648)
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/project-machine-store.adoc exists at fa58b0d (presence checked, content not re-read)
+- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/project-machine-store.adoc` § What, Trace, Done When (origin/main at a8a4214, updated by cleanup on 2026-10-15)
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans package file re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: § What, Trace and Done When match the Deliverables above (corrected by cleanup where #70/#68/#72 changed them)
 - OBSERVED: the index gives this package the status `open` and the dependencies `store-substrate`, `enrolment-store`, `workspace-confinement` — read at `doc/plans/README.adoc` § Packages
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row of project-machine-store still reads open as claimed at fa58b0d; dependencies cell: link:store-substrate.adoc[`store-substrate`]; link:enrolment-store.adoc[`enrolment-store`]; link:workspace-confinement.adoc[`workspace-confinement`]
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: status and dependencies match the claim
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` exists and holds `ConfinementOutcome.java`, `PathConfinement.java`, `WorkspaceRoots.java`, `package-info.java` today, so the package is an extension of those declarations — directory listing on 2026-10-09
   - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/config/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09

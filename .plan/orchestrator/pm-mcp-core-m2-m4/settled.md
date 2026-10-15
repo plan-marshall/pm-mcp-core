@@ -88,3 +88,33 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
 
 - PLAN-24 `plan-instance`: code PR #67 merged (2ebec2a, 2026-10-14); documentation PR #73 open; no landing message yet — checked 2026-10-15.
 - Settled: documentation #73 merged (1eaa6c6) and the landing message `plan-24-plan-instance-001.md` was drained on 2026-10-15; `landings/PLAN-24.md`. The code/specification gap it left is a new watch in `epic.md`.
+
+<!-- moved by cleanup on 2026-10-15: corpus reconciled at a8a4214 -->
+
+## Defect: staged specs behind doc/plans/
+
+- **Staged specs behind `doc/plans/` (corpus reconciliation owed; run `cleanup`).** Between 7981d17 and
+  2ebec2a three pull requests outside this epic's plans changed the package corpus:
+  - #70 (017ed53) — the packages now implement the specification agreed in documentation #76: 19 packages
+    lost their "specification first" task, contradictions were fixed, and three packages are new
+    (`removed-concepts`, `worker-activity`, `process-and-overview`). `session-as-worker` is proposed for removal
+    and `blocked` on the operator's decision.
+  - #68 (4ab1f56) — the new package `corpus-sources`; `role-qualification` now depends on it.
+  - #67 (2ebec2a, PLAN-24) — the new package `lane-route-pruning`, added by operator exception.
+
+  Affected rows of this queue:
+  - staged: PLAN-15 `project-machine-store`, PLAN-28 `task-queue-and-protocol`, PLAN-33 `session-as-worker`
+    and PLAN-34 `role-qualification`;
+  - shipped: PLAN-12 `session-log-and-generations`, whose code `removed-concepts` now removes;
+  - parked: PLAN-42, 43, 45 to 53, 55 and 57 to 63.
+
+  The five new packages have no row. The staged specs were generated before these changes, so their
+  deliverables, dependencies and surfaces may be stale, and an emit from them could start a plan against
+  the old package text. Hold these rows until `cleanup` (Phase A, corpus reconciliation) re-grounds them —
+  source: `git diff 7981d17 origin/main -- doc/plans/` and the bodies of #67, #68 and #70, checked
+  2026-10-15.
+- Settled by cleanup (2026-10-15, at a8a4214, which also covers #72, #73 and #74):
+  - PLAN-15, 23, 28 and 34 were corrected, PLAN-33 was retired, and the 19 parked specs were regenerated.
+  - PLAN-64 to PLAN-68 were staged for the five new packages.
+  - `corpus-sources` was done by #74 outside the queue.
+  - See the queue annotation in `epic.md` and the cleanup decision in the decision log.

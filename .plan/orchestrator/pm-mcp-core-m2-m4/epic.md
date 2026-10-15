@@ -43,8 +43,29 @@ decision or a dependency outside this repository.
 - PLAN-24 — shipped as #67 (2ebec2a, documentation #73 1eaa6c6). It also touched `core.store` (`ScopeTransaction`,
   ADR core-store/028), which PLAN-14 must take into account. TASK-15 was split into the new package
   `lane-route-pruning`, and the code lags documentation #76 (see the watch).
-- Corpus moved under the queue on 2026-10-14 (see the Open Defect "Staged specs behind `doc/plans/`"):
-  re-ground PLAN-15, PLAN-28, PLAN-33 and PLAN-34 before emitting them.
+- Corpus reconciled by `cleanup` on 2026-10-15 at a8a4214, after #67, #68, #70, #72, #73 and #74:
+  - PLAN-15, PLAN-23, PLAN-28 and PLAN-34 corrected to their package files. PLAN-23 and PLAN-28 no longer depend
+    on PLAN-12, and PLAN-34 now also depends on `corpus-sources`.
+  - PLAN-33 `session-as-worker` is `retired` (#72 deleted the package).
+  - The 19 parked specs were regenerated from their package files, so their deliverables no longer carry the
+    "specification first" task. Their Expected Surface is still the old `Where` inference: re-derive it before
+    an emit.
+  - New rows:
+    - PLAN-64 `removed-concepts` (staged, ready). It removes PLAN-12's session log and session generations,
+      `FencedSessionGenerationsSweep`, `JobRefusal.operatorCommand` and the scenario directive
+      `expire_question`. It overlaps PLAN-14, 15, 20, 23 and 28 in `core.store`, `core.queue`, `runtime.start`
+      and `runtime.job`.
+    - PLAN-65 `lane-route-pruning` (staged, ready). Its § Discussion is decided with the operator before any
+      code.
+    - PLAN-66 `worker-activity` (staged).
+    - PLAN-67 `process-and-overview` and PLAN-68 `chat-plan-revision` (both parked).
+  - `corpus-sources` has no row: pm-mcp-core #74 (a8a4214) did it outside this queue.
+- PLAN-19 — still parked after the cleanup: the index row still names `pm-mcp-clients` / `profile-documents`
+  (`open` there on 2026-10-15).
+- Ready by the index on 2026-10-15: PLAN-14, PLAN-15, PLAN-20, PLAN-23, PLAN-64 and PLAN-65 (plus PLAN-40, which
+  has no package file). Of the code plans, only PLAN-65 is disjoint from the others; the rest share `core.store`.
+  Recommended order: PLAN-64 first, because it deletes code that PLAN-23 and PLAN-28 would otherwise read, and
+  shrinks `core.store` before PLAN-14 and PLAN-15 extend it.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
 - PLAN-38 — shipped as #24 on 2026-10-10; WS-09 closes with it.
@@ -458,28 +479,22 @@ decision or a dependency outside this repository.
     `doc/plans/`"). No emit until `cleanup` re-grounds the affected rows; the operator's hold on the store
     plans stands.
 
+- 2026-10-15 — `cleanup` reconciled the corpus at a8a4214 after #67, #68, #70, #72, #73 and #74:
+  - The specs follow their package files: four staged specs were corrected, the 19 parked specs regenerated, and
+    PLAN-64 to PLAN-68 staged for the new packages.
+  - PLAN-33 is `retired`, because #72 deleted `session-as-worker` and no successor carries it.
+  - `corpus-sources` gets no row, because #74 did it outside this queue.
+  - Declined:
+    - Re-deriving the parked specs' Expected Surface. It is still inferred from the `Where` line and is re-derived
+      when a row becomes ready.
+    - Regrouping the corpus (A5). The specs map one-to-one to package files by design.
+    - A row for the plan-instance alignment after documentation #76. No package file exists for it; writing one
+      is a direct pull request to `doc/plans/`, which is the operator's call.
+  - Emit hold of 2026-10-15 still stands.
+
 ## Open Defects
 
-- **Staged specs behind `doc/plans/` (corpus reconciliation owed; run `cleanup`).** Between 7981d17 and
-  2ebec2a three pull requests outside this epic's plans changed the package corpus:
-  - #70 (017ed53) — the packages now implement the specification agreed in documentation #76: 19 packages
-    lost their "specification first" task, contradictions were fixed, and three packages are new
-    (`removed-concepts`, `worker-activity`, `process-and-overview`). `session-as-worker` is proposed for removal
-    and `blocked` on the operator's decision.
-  - #68 (4ab1f56) — the new package `corpus-sources`; `role-qualification` now depends on it.
-  - #67 (2ebec2a, PLAN-24) — the new package `lane-route-pruning`, added by operator exception.
-
-  Affected rows of this queue:
-  - staged: PLAN-15 `project-machine-store`, PLAN-28 `task-queue-and-protocol`, PLAN-33 `session-as-worker`
-    and PLAN-34 `role-qualification`;
-  - shipped: PLAN-12 `session-log-and-generations`, whose code `removed-concepts` now removes;
-  - parked: PLAN-42, 43, 45 to 53, 55 and 57 to 63.
-
-  The five new packages have no row. The staged specs were generated before these changes, so their
-  deliverables, dependencies and surfaces may be stale, and an emit from them could start a plan against
-  the old package text. Hold these rows until `cleanup` (Phase A, corpus reconciliation) re-grounds them —
-  source: `git diff 7981d17 origin/main -- doc/plans/` and the bodies of #67, #68 and #70, checked
-  2026-10-15.
+> ↪ Relocated to `settled.md` § "Defect: staged specs behind doc/plans/" — reconciled by cleanup on 2026-10-15 at a8a4214
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
   - `TransactionJournal.FORMAT_VERSION = 3` (`pm-core/src/main/java/de/planmarshall/core/store/TransactionJournal.java`
@@ -524,7 +539,7 @@ decision or a dependency outside this repository.
 > ↪ Relocated to `settled.md` § "Watch: the log-holder PRs" — #64 merged 06:08:33Z (50827cf, SNAPSHOT deployed), doc #68 merged 06:20:45Z (d9d3e83)
 > ↪ Relocated to `settled.md` § "Watch: pm-mcp-server against the log-holder SNAPSHOT" — plan-marshall-mcp #76 merged 2026-10-14 (e34961b), assembly on `RuntimeLogMessages`
 > ↪ Relocated to `settled.md` § "Watch: doc #57 of PLAN-17" — #57 merged 2026-10-13T20:44:58Z (fff6552); PLAN-17 complete
-- plan-marshall-mcp still owes (after #76): from PLAN-17, `DefaultUnitInvariantTest` over the real default units and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal); taking its 16 log records over from `RuntimeLogMessages` into a holder of its own; wiring a `PeriodicSweep` with `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep` once the daemon runs the periodic sweep (new behaviour — the assembly never used `SweepStep`). Since #70 (2026-10-14) the package `removed-concepts` removes `FencedSessionGenerationsSweep` and gives the age sweep of pending entries to `start-from-clients`, so this sweep item is likely void — re-check at `cleanup` before carrying it to plan-marshall-mcp.
+- plan-marshall-mcp still owes (after #76): from PLAN-17, `DefaultUnitInvariantTest` over the real default units and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal); taking its 16 log records over from `RuntimeLogMessages` into a holder of its own; wiring a `PeriodicSweep` with `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep` once the daemon runs the periodic sweep (new behaviour — the assembly never used `SweepStep`). The sweep item is void: the package `removed-concepts` (PLAN-64) removes `FencedSessionGenerationsSweep`, and the age sweep of pending entries goes to `start-from-clients` (confirmed by cleanup against `doc/plans/removed-concepts.adoc` at a8a4214). Do not carry it to plan-marshall-mcp.
 
 > ↪ Relocated to `settled.md` § "Watch: pm-mcp-server and SweepStep.notImplemented" — refuted by #76: no use site in the assembly
 > ↪ Relocated to `settled.md` § "Watch: no production AuditSink or AuditChainVerification in pm-mcp-core" — PLAN-09 shipped `AuditLogSink` and `AuditVerification` (#69, 3236ed5)
