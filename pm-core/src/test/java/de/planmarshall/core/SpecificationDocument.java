@@ -10,7 +10,6 @@
 package de.planmarshall.core;
 
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -26,18 +25,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reads the JSON schemas the specification states, from the checkout of the documentation repository (test helper).
+ * Reads the JSON schemas the specification states, from {@code doc/specification} of this repository (test helper).
  * <p>
- * The checkout is named by the system property {@value #ROOT_PROPERTY}, which the build passes from the Maven
- * property of the same name (by default {@code ../plan-marshall-documentation} beside the repository; override it
- * with {@code -Dpm.documentation.root=<path>}). When the checkout is absent, the calling test is aborted through a
- * JUnit assumption whose message names the missing path, so it is reported as skipped and never passes unseen.
- * Inside a present checkout, a missing document or schema block is a failure.
+ * The repository root is named by the system property {@value #ROOT_PROPERTY}, which the build passes from the Maven
+ * property of the same name (by default the root of the multi-module build; override it with
+ * {@code -Dpm.specification.root=<path>}). The specification is part of the repository, so an unset property, a
+ * missing specification directory, document or schema block is a failure, never a skipped test.
  */
 public final class SpecificationDocument {
 
-    /** The system property naming the root of the documentation checkout. */
-    public static final String ROOT_PROPERTY = "pm.documentation.root";
+    /** The system property naming the root of the repository that holds {@code doc/specification}. */
+    public static final String ROOT_PROPERTY = "pm.specification.root";
 
     private static final String SPECIFICATION_DIRECTORY = "doc/specification";
     private static final String JSON_SOURCE_BLOCK = "[source,json]";
@@ -48,17 +46,18 @@ public final class SpecificationDocument {
     }
 
     /**
-     * @return the root of the documentation checkout
-     * @throws org.opentest4j.TestAbortedException if the property is unset or the checkout is absent
+     * @return the root of the repository that holds {@code doc/specification}
      */
     public static Path root() {
         var property = System.getProperty(ROOT_PROPERTY);
-        assumeTrue(property != null && !property.isBlank(),
-                "the documentation checkout is not configured: system property " + ROOT_PROPERTY + " is unset");
+        if (property == null || property.isBlank()) {
+            return fail("the specification root is not configured: system property " + ROOT_PROPERTY + " is unset");
+        }
         var root = Path.of(property).toAbsolutePath().normalize();
-        assumeTrue(Files.isDirectory(root.resolve(SPECIFICATION_DIRECTORY)),
-                () -> "the documentation checkout is absent: " + root.resolve(SPECIFICATION_DIRECTORY)
-                        + " does not exist (set -D" + ROOT_PROPERTY + "=<path>)");
+        if (!Files.isDirectory(root.resolve(SPECIFICATION_DIRECTORY))) {
+            return fail("the specification is absent: " + root.resolve(SPECIFICATION_DIRECTORY)
+                    + " does not exist (set -D" + ROOT_PROPERTY + "=<path>)");
+        }
         return root;
     }
 
@@ -69,7 +68,6 @@ public final class SpecificationDocument {
      * @param marker   the start of the line after which the block is searched, an anchor such as
      *                 {@code [#analysis-result]} or a heading such as {@code == Findings Ledger Record}
      * @return the content of the block
-     * @throws org.opentest4j.TestAbortedException if the documentation checkout is absent
      */
     public static String jsonBlockAfter(String document, String marker) {
         var file = root().resolve(SPECIFICATION_DIRECTORY).resolve(document);

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.audit;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.Serial;
@@ -31,7 +32,6 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.crypto.SecretKey;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.AuditCodec;

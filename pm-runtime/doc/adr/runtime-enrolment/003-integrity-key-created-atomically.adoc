@@ -36,5 +36,5 @@ Rationale not recorded.
 == Source
 
 * Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, section "Changes from the review rounds"
-* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
-* link:../../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-credentials-and-operator.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[CLI & Security § Enrolment, Lifecycle Gate & Release]

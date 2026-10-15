@@ -62,5 +62,5 @@ The operator decided to add the delete mode now (refine, question q1):
 
 * Operator decision q1 of the work package `session-log-and-generations` (refine)
 * `doc/plans/session-log-and-generations.adoc`
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

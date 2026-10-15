@@ -22,15 +22,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The journal roll-forward step of the per-project recovery over plan scopes in a test base, on the lock manager of

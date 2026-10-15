@@ -14,7 +14,7 @@ import java.util.OptionalLong;
 
 /**
  * The audit chain verification of the bounded verification, step 4 of the {@link StartupSequence}
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Startup Sequence, step 4.1; PM-ARCH-7, PM-SEC-6).
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Startup Sequence, step 4.1; PM-ARCH-7, PM-SEC-6).
  * The package {@code de.planmarshall.runtime.audit} implements it: it verifies the HMAC-anchored head
  * {@code logs/audit.head}, the rotation index and the {@code prev_hash} chain of {@code logs/audit.jsonl} from its
  * last checkpoint.

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -19,7 +20,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.ConfinementOutcome.Confined;

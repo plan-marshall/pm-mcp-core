@@ -12,6 +12,7 @@ package de.planmarshall.runtime.lsp;
 import static de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import static de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,8 +28,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
-
-import de.cuioss.tools.logging.CuiLogger;
 import org.eclipse.lsp4j.ClientCapabilities;
 import org.eclipse.lsp4j.DefinitionCapabilities;
 import org.eclipse.lsp4j.DefinitionParams;

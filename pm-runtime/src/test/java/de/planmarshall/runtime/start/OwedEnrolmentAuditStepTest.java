@@ -16,19 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.core.service.AuditEvent;
-import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
-import de.planmarshall.runtime.start.EnrolmentFixture.SinkMode;
-import de.planmarshall.runtime.start.RecoveryStep.Name;
-import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +30,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.start.EnrolmentFixture.SinkMode;
+import de.planmarshall.runtime.start.RecoveryStep.Name;
+import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 
 /**
  * Step 2 of the per-project recovery (PM-IMPL-7): the owed audit records of the project's enrolment writes are handed

@@ -56,5 +56,5 @@ What fenced a generation is derived when the record is read, not stored:
 == Source
 
 * `doc/plans/session-log-and-generations.adoc`
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session Generation Record]
-* link:../../../../../plan-marshall-documentation/doc/specification/model-work/02-task-protocol.adoc#leases-fencing[Model Work § Leases, Generations & Fencing]
+* link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session Generation Record]
+* link:../../../../doc/specification/model-work/02-task-protocol.adoc#leases-fencing[Model Work § Leases, Generations & Fencing]

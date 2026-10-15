@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Duration;
@@ -21,14 +22,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * Detects a relay whose version differs from the version of the runtime
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Upgrade). A relay of another version forwards
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Upgrade). A relay of another version forwards
  * normally; the runtime compares the relay's {@value #HEADER} header with its own version.
  * <p>
  * A mismatch is operator-only ({@code PM-DIST-4}): it is handed to the audit sink as a {@value #RELAY_VERSION_MISMATCH}

@@ -16,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,15 +37,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.runtime.start.ProjectRecovery.ProjectOutcome;
-import de.planmarshall.runtime.start.ProjectRecovery.Result;
-import de.planmarshall.runtime.start.ProjectRecovery.StepResult;
-import de.planmarshall.runtime.start.RecoveryStep.Name;
-import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,8 +45,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.runtime.start.ProjectRecovery.ProjectOutcome;
+import de.planmarshall.runtime.start.ProjectRecovery.Result;
+import de.planmarshall.runtime.start.ProjectRecovery.StepResult;
+import de.planmarshall.runtime.start.RecoveryStep.Name;
+import de.planmarshall.runtime.start.RecoveryStep.Outcome;
+
 /**
- * The per-project recovery (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery)
+ * The per-project recovery (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery)
  * with recording steps on an executor of the test.
  */
 @EnableTestLogger

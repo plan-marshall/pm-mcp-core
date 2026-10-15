@@ -1,0 +1,37 @@
+= Runtime Lifecycle Specification: Pausing a Plan & Stalled Plans
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../runtime-lifecycle.adoc[Runtime Lifecycle Specification] » Pausing a Plan & Stalled Plans
+
+[#plan-pause]
+== Pausing and Starting a Plan
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
+
+A plan that exists always runs until the operator pauses it: starting a plan, by the operator or by its epic, creates and runs it in one act, and an epic never creates a plan to wait. Beside its terminal states a plan's *activity* is one of `running`, `pausing` (running until the point its pause names), and `paused`; it is part of the plan's persisted state (link:../store-schemas/02-workflow-state-store.adoc[Store Schemas Specification, Workflow State Store]) and shown by both clients, never as a kind of `needs_operator` (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[What Needs the Operator]).
+
+* *Pause*: `POST /api/v1/plans/{plan_id}/pause` with the point where the plan holds, an operator act of either client:
+** *after the current task* (`after_task`, the default): what runs finishes and its result is kept; the engine starts no new task and no new job and takes no transition beyond the state the plan reaches, and the plan is `paused` once nothing of it runs.
+** *after the current phase* (`after_phase`): the phase sub-workflow on the plan's call stack runs to its return; the plan holds before the plan unit's next call, whatever it calls next, a loop-back to an earlier phase or a re-entry included.
+** *now* (`now`): the plan's running tasks are withdrawn as on a recycle (their workers ended and fenced, their attempts ended uncounted, the tasks kept for the start, `PM-WORK-2`), its running jobs are cancelled by the engine, and a server retry waiting for its backoff stops its clock; the plan is `paused` at once. A plan inside the rebase-to-merge critical section of the merge path holds when it leaves that section, so a pause never leaves a merge half done (link:../phase-workflows/06-finalize-re-entry-and-merge.adoc[Phase Workflows Specification, Finalize Re-Entry & Merge]).
+* *What a pause keeps*: the plan's operator waits stay open and can be answered, its holds keep their acts, and its leases stay with it except the slots: a paused plan holds no build or model slot and is offered no task. A plan of an epic keeps its place in the epic's `parallelization_scope`; to stop new starts of an epic the operator switches its automatic mode off (link:../model-work/08-epic-coordination.adoc#epic-informed[Model Work Specification, The Epic Is Told]). A paused plan is never `stalled` (<<stalled-plans>>).
+* *Start*: `POST /api/v1/plans/{plan_id}/start` resumes a paused plan from its current state: a withdrawn task is offered again, a job state whose job the pause cancelled enters its job again, and a retry backoff runs on from its persisted instant. On a pausing plan it withdraws the pause. Start and pause on a plan whose activity does not offer them are refused `act_not_available`, on an ended plan `plan_ended`.
+* *A pause survives a restart*: the pause and its point are part of the plan's state; after a restart of the runtime a paused plan stays paused, and a pausing plan holds at its point (link:01-startup-recovery-drain.adoc#per-project-recovery[Per-Project Recovery]).
+* Every pause and start is audited with its channel and announced (`activity.changed`, link:../../../../plan-marshall-documentation/doc/specification/runtime-model/06-event-catalogue.adoc[Event Catalogue]); the plan's epic is told by its inbox (link:../model-work/08-epic-coordination.adoc#epic-informed[Model Work Specification, The Epic Is Told]). Cancelling and abandoning a plan are specified in link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue Specification, Cancelling and Abandoning].
+
+[#stalled-plans]
+== Stalled Plans
+_Implementation watch: link:../../implementation-watch/runtime-lifecycle.adoc#PM-WATCH-RUN-2[PM-WATCH-RUN-2], link:../../implementation-watch/runtime-lifecycle.adoc#PM-WATCH-RUN-8[PM-WATCH-RUN-8]_
+
+The runtime continues every plan and epic itself, so a scope that does not move although nothing holds it is a fault of the supervision or of the environment, made visible to the operator, never to a model:
+
+* *Definition*: A non-terminal plan or epic is `stalled` when it is neither paused nor pausing, is in no operator wait and under no hold of another kind, has no pending condition, awaits no event (no running job, no task queued or leased within its budget, no open CI, merge-queue, or review-bot wait, no prerequisite wait), and its last transition or task progress is older than the compiled stalled threshold (link:../timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts & Budgets Specification]). A role the supervisor cannot serve stalls nothing: its tasks close `lost` with `role_unavailable` and their states take the conservative fallback, and the start-failure guard reports the harness's error text to the operator (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]). A scope under an integrity pause is held by that pause, not `stalled`. Stalled is derived from persisted state, the supervisor's records, and the audit log on read, never stored as workflow state.
+* *A hold*: a stalled scope is shown as the hold `stalled` with its acts (link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue Specification, Holds and Their Acts]); the hold clears by itself with the scope's next transition or task progress, and its event says so.
+* *Cause*: Every stalled scope names its cause; the closed cause set is `no_progress` (with the idle span).
+* *Visibility*: both clients, `pm-operator status`, and the epic's resource show `stalled` with its cause and count it in `needs_operator`; the runtime announces it on the event streams (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#event-streams[Events per Scope]). A scope in an operator wait is shown as waiting for the operator, never as `stalled`.
+* *Record*: The first time a scope is found stalled in an episode (an episode ends with the scope's next transition or task progress), the runtime appends one `plan_stalled` audit record with the scope and the cause; metrics count the gap as idle time.
+* *Minimality*: `stalled`, its cause, and `plan_stalled` never appear in a model-facing representation (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).

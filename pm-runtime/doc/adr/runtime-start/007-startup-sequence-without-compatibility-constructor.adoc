@@ -30,5 +30,5 @@ constructor is added. The repository is pre-1.0 and keeps no compatibility shims
 == Source
 
 * Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, section "Breaking change and open follow-ups"
-* Work package link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
-* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]

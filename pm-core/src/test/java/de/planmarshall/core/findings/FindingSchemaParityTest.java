@@ -37,9 +37,8 @@ import de.planmarshall.core.SpecificationDocument;
 /**
  * The finding record keeps parity with the schema {@code FindingRecord} of the specification (PM-IMPL-2): its record
  * components and those of its nested records are the schema's members in schema order, and every enumeration of
- * the record equals the schema's {@code enum} of its member. The schema is read from the documentation checkout
- * named by {@value SpecificationDocument#ROOT_PROPERTY}; without the checkout the tests are skipped with the missing
- * path named.
+ * the record equals the schema's {@code enum} of its member. The schema is read from the specification of this repository
+ * below {@value SpecificationDocument#ROOT_PROPERTY}.
  */
 @DisplayName("Finding schema parity")
 class FindingSchemaParityTest {

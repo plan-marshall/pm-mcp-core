@@ -48,7 +48,7 @@ HTTPS origin alone and can be replaced by a function, the extension point for a 
 
 == Source
 
-* Work package link:../../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
 * Plan `corpus-sources`, operator clarification "Git operations", and its pull request
 * Requirement PM-EXEC-5, `doc/requirements/06-execution.adoc` of plan-marshall-documentation
 * Developer documentation: link:../../developer/provider-git.adoc[`provider-git.adoc`]

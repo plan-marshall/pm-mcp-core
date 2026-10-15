@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
@@ -32,7 +33,6 @@ import de.planmarshall.runtime.job.JobRequest.Text;
 import de.planmarshall.runtime.job.JobRequest.Value;
 import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
 import de.planmarshall.runtime.job.VerifiedJob.TemplateSource;
-import lombok.experimental.UtilityClass;
 
 /**
  * Stage 3 of the pipeline, the argument check (PM-EXEC-1, PM-EXEC-2): the last stage, run only after the enrolment,

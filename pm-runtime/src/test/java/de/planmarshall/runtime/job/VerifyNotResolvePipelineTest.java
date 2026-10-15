@@ -20,6 +20,11 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,12 +34,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
-import de.cuioss.test.generator.Generators;
-import de.cuioss.test.generator.junit.EnableGeneratorController;
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
@@ -54,11 +59,6 @@ import de.planmarshall.runtime.job.JobRequest.Text;
 import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
 
 /**
  * Stages 0 and 1 of the verify-not-resolve pipeline (PM-EXEC-2, PM-SEC-2, PM-TEST-5) over a real enrolment store: a

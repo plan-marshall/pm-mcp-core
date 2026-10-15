@@ -1,0 +1,110 @@
+= State Catalogue: Decision
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Decision
+
+[#state-catalogue-decision]
+== Unit `decision`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+
+Declared in `decision.pmwf` (`scope subworkflow`, compiled only, never designable), called by every question state of a plan, an epic, a workspace, and an entry (xref:01-conventions-generic-conditions.adoc#_state_kinds[State Kinds, question state]) at its entry `deliver`; exit contract `answered` (`decision.closed`, result: the answer record) and `withdrawn` (`decision.withdrawn`, result: the operator's note or the reason); it never returns `stepped_out`. Its states have the phase of their caller and are named `decision.<state>`; its operator waits wait without a time limit and halt the calling scope only (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]). A question a worker asks and waits for within its task (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]) is delivered by the same unit, run as an instance hosted by the scope while the asking task state stays current.
+
+The decision is the question set of one creation: its id is the id of its first question, addressed across scopes as `<scope_id>/<question_id>`, and it carries a revision, a title and header, a description with its evidence, what it blocks, how reversible its outcome is, and its parts, each with its answer type, options with their support where a quorum voted, an optional dependency on another part's options, its recommendation, and whether own words and notes are allowed (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]). It is delivered to both clients of the operator, each of which announces it and answers it through the same scope-qualified answer endpoint; the first valid answer wins, and a later one, an answer to an older revision, and an answer to a part whose dependency is unanswered are refused. The runtime announces a decision opened, changed, answered, and closed on the event stream of its scope; nothing is decided by the passing of time.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-decision.open]]`decision.open`
+|the caller's phase value
+|`auto`
+|The question state's call (entry `deliver`), after the scope's adjudication of the new question set.
+|`auto decision.open`: a set the quorum decided is closed at once (its answers recorded with `channel: quorum`); otherwise the decision is assembled as the workflow made it (the evidence, what it blocks, its reversibility, its parts and options, the recommendation, the votes and dissent of a quorum as each option's support) and its `delivered_at` recorded.
+|`decided` -> `decision.closed`; `deliver` -> `decision.announce`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
+
+|[[state-decision.announce]]`decision.announce`
+|the caller's phase value
+|`auto`
+|`decision.open` (`deliver`); `decision.answer` (`later`).
+|Announces the decision on its scope's event stream and the runtime-wide stream (`needs_operator` kind `decision`), with its subject (the plan, the epic, the project's setup, or the entry) and what it blocks; every open client shows that it waits without taking the operator's focus, and an answer made before a client showed it is refused by its revision.
+|`announced` -> `decision.answer`.
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[Runtime & Interaction Model Specification, What Needs the Operator]
+
+|[[state-decision.answer]]`decision.answer`
+|the caller's phase value
+|`operator_wait`
+|`decision.announce`; `decision.read-back` (`confirm`, `choose`); `decision.interpret` (`unclear_bound`, `infeasible`, `lost`); `decision.chat` (`ended`); `decision.confirm` (`back`).
+|Per part: `answer` (the chosen options or the value, an optional note; a dependent part is offered once its dependency is answered, and changing the earlier answer reopens it), `own_words` (where the part allows it). For the whole decision: `chat` (with the role of the task that asked, or for a decision a server rule raised or a quorum escalated the subject's planning role; offered disabled with its reason where no planning role exists or no configuration of the role qualifies); `none_fits` (with a note; offered only where the decision names a role that can ask anew, or where a quorum is declared that can vote again); `later` (answers nothing). Every answer carries the revision it answers and is recorded with its channel (`web` with the paired device, or `cli`).
+|`answer` -> this state while a required part is open; `complete` (every required part answered) -> `decision.confirm` where the decision has more than one part or its reversibility is not `reversible`, otherwise `decision.record`; `own_words` -> `decision.interpret`; `chat` -> `decision.chat`; `none_fits` -> `decision.withdraw`; `later` -> `decision.announce`.
+|link:../store-schemas/14-plan-instance-waivers-questions.adoc#cli-answers[Store Schemas Specification, Answers from the Terminal Client]
+
+|[[state-decision.interpret]]`decision.interpret`
+|the caller's phase value
+|`job`
+|`decision.answer` (`own_words`); `decision.read-back` (`edit`); `decision.clarify` (`reply`); `decision.chat` (`proposed`: the answer the chat proposed, taken as the operator's own words).
+|`job llm interpret role <the role the decision's unit declares, by default interpret>`: the task receives the question, the options, and the words, never the recommendation or the votes, and submits a closed result (an option, an option with a condition, a new option in the operator's words, a delegation where the decision allows one, or unclear), each with the passages of the words it rests on. The runtime checks that the option exists and the quoted passages occur in the words; a result that fails the check counts as unclear. The progress of the task is shown while the operator waits.
+|`understood` -> `decision.read-back`; `unclear` (the unit's clarification bound left) -> `decision.clarify`; `unclear_bound` (the bound reached), `infeasible`, `lost` -> `decision.answer` (the part unanswered, the reason shown).
+|link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-decision.read-back]]`decision.read-back`
+|the caller's phase value
+|`operator_wait`
+|`decision.interpret` (`understood`).
+|"I understood: …": the result in one sentence beside the operator's words; nothing is recorded before the operator confirms it. Words that fit no option are offered as the operator's own option, in the operator's words, never as the closest option. `confirm`, `edit` (new words), `choose` (an option instead).
+|`confirm` -> `decision.answer` (the part answered: chosen, interpreted, or delegated); `edit` -> `decision.interpret`; `choose` -> `decision.answer`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-decision.clarify]]`decision.clarify`
+|the caller's phase value
+|`operator_wait`
+|`decision.interpret` (`unclear`).
+|One question of the interpreting role about the words. `reply` (the operator's reply, added to the words).
+|`reply` -> `decision.interpret`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-decision.chat]]`decision.chat`
+|the caller's phase value
+|`call`
+|`decision.answer` (`chat`).
+|`call chat` with the subject the decision's scope and the scope the decision (its question, why now, the evidence, what it blocks, its reversibility, its parts and options, the recommendation and the votes, which the chat may explain); the chat never answers. A revision of the plan it proposes goes through the guards of a plan's chat; the decision stays open, unless the applied revision removes the task or state that asked it, in which case the server closes it `withdrawn` with the reason. The transcript is kept with the decision (link:../state-catalogue.adoc#chat[Chat]).
+|`proposed` (an answer the operator took from the chat) -> `decision.interpret`; `ended` -> `decision.answer`.
+|link:../state-catalogue.adoc#chat[Chat]
+
+|[[state-decision.withdraw]]`decision.withdraw`
+|the caller's phase value
+|`auto`
+|`decision.answer` (`none_fits`); the applied revision of a chat that removed what asked the decision (an engine-owned transition).
+|Closes the decision `withdrawn` with the operator's note or the reason; the caller asks anew (the role that asked thinks again, or the quorum votes again), as a new decision.
+|`withdrawn` -> `decision.withdrawn`.
+|link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]
+
+|[[state-decision.confirm]]`decision.confirm`
+|the caller's phase value
+|`operator_wait`
+|`decision.answer` (`complete`, a decision of several parts or not `reversible`).
+|The whole answer, part by part, with what follows from it as the runtime composes it. `confirm`, `back`.
+|`confirm` -> `decision.record`; `back` -> `decision.answer`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
+
+|[[state-decision.record]]`decision.record`
+|the caller's phase value
+|`auto`
+|`decision.answer` (`complete`, a single reversible part); `decision.confirm` (`confirm`).
+|Validates and records the answer with its channel, its device, and the revision it answers; records an answer that changes the plan's intent as an amendment, and the decision record (chosen, interpreted and confirmed, or delegated, and whether it followed a chat; link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision Record]); the client that did not answer withdraws what it showed and says where and how it was answered.
+|`recorded` -> `decision.closed`.
+|link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision Record]
+
+|[[state-decision.closed]][[state-decision.withdrawn]]`decision.closed`, `decision.withdrawn`
+|the caller's phase value
+|`terminal`
+|`decision.record`, `decision.open` (`decided`); `decision.withdraw`.
+|Declared `terminal answered success` and `terminal withdrawn success`; the question records close `answered` or `withdrawn`.
+|The caller's `answered` and `withdrawn` transitions.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===

@@ -12,14 +12,22 @@ engine `pm-workflow`, the provider modules under `pm-providers`, and `pm-runtime
 
 The only listing of the repositories, the modules, their responsibilities and allowed dependencies is the Module
 Structure Specification of the product (`doc/specification/module-structure.adoc` in
-`plan-marshall/plan-marshall-mcp`, later in `plan-marshall/plan-marshall-documentation`); name modules from there and
-never repeat the listing here. The requirements, specifications, implementation watch, roadmap, concept, developer
-and user documentation live in the documentation repository `plan-marshall/plan-marshall-documentation`, except the
-developer documentation of a package and the architectural decision records (ADRs), which live in the module (section
-"Module Documentation"). The code documentation (Javadoc and `package-info.java`) and the work package files with
-their index below `doc/plans/` live here as well. A plan that changes what a specification or requirement states updates the documents concerned there directly,
-as part of its own work. Every concrete implementation follows the project skill `traced-implementation`, which
-lives there with `doc-review`; the skills of the same names here only point to them.
+`plan-marshall/plan-marshall-documentation`); name modules from there and
+never repeat the listing here. The specifications this repository implements live here, beside the code
+(ADR `doc/adr/007-specifications-of-the-engine-in-this-repository.adoc`): `doc/Specification.adoc` with
+`doc/specification/`, their implementation watch `doc/ImplementationWatch.adoc` with `doc/implementation-watch/`, and
+`doc/Traceability.adoc`, which records what each requirement implemented here is implemented by, verified by and
+documented in. The requirements, use cases, roadmap, the shared specifications (`module-structure.adoc` among them),
+`implementation-watch/cross-cutting.adoc`, and the concept and user documentation live in the documentation
+repository `plan-marshall/plan-marshall-documentation`; the developer documentation of a package and the architectural
+decision records (ADRs) live in the module (section "Module Documentation"). The code documentation (Javadoc and
+`package-info.java`) and the work package files with their index below `doc/plans/` live here as well. A plan changes
+the specification, watch and traceability here in its own pull request; it opens a pull request in the documentation
+only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there. Every concrete
+implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
+the same names here only point to them. Links here are relative, also into the documentation (sibling paths); check
+them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
+(`BROKEN LINKS 0`), which the workflow `links.yml` runs as well.
 
 ## Module Documentation
 
@@ -110,8 +118,8 @@ them with a fixture project below `src/guard-controls`:
   `WorkflowLogMessages` (`de.planmarshall.workflow.log`, `PM_WORKFLOW`), a provider `<X>LogMessages`
   (`de.planmarshall.provider.<x>.log`, `PM_PROVIDER_<X>`), created with its first record. Ranges in every holder:
   INFO 001–099, WARN 100–199, ERROR 200–299; a new record takes the next free identifier of its level. A module logs
-  only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` of the
-  documentation.
+  only through its own holder and that of `pm-core`. Each record is documented in `doc/LogMessages.adoc` (of this
+  repository).
 - JUnit 5 only (`@DisplayName`, `@Nested`, AAA, `@ParameterizedTest` for 3+ variants), on the JVM without Quarkus.
   Forbidden: Mockito, PowerMock, Hamcrest. Test data: cui-test-generator; log assertions: cui-test-juli-logger.
 - OS-specific behaviour (Secret Service, Keychain) is tested with `@EnabledOnOs`.
@@ -131,11 +139,12 @@ add a deployment target, without the user's explicit decision.
 
 The work of this repository is planned as work packages in `doc/plans/`, one file per package, with the index
 `doc/plans/README.adoc`, the only place that states the status of a package and what it depends on (also packages
-of the other repositories). A package is ready when it is open and everything it depends on is done; the roadmap milestone it serves says for which exit it
+of the other repositories). A package is ready when it is open and depends on no package still listed (in another repository: on none not done); the roadmap milestone it serves says for which exit it
 is needed, not when it may start. The plan files hold the tasks only: requirements, specifications and watch
-items stay in `plan-marshall-documentation` and are linked by relative paths that assume the repositories checked
-out beside each other. A package is worked in the usual plan-marshall flow of the section "Git Workflow" (branch,
-commits, pull request at finalize), and its row in the index is set to `done` within those commits.
+items are linked, those of this repository by relative paths, those of `plan-marshall-documentation` by relative
+paths that assume the repositories checked out beside each other. A package is worked in the usual plan-marshall flow
+of the section "Git Workflow" (branch, commits, pull request at finalize); within those commits its row leaves the
+index and its package file is deleted.
 
 ## Git Workflow
 

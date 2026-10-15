@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.enrolment;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
@@ -29,7 +30,6 @@ import java.util.UUID;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.SecretStore;

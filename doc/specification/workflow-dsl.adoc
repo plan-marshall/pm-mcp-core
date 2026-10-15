@@ -1,0 +1,78 @@
+= Workflow DSL & Engine Specification
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../Specification.adoc[Specification] » Workflow DSL & Engine (link:../Specification.adoc[Back to Main Specification])
+
+== Overview
+
+This document specifies the declarative Workflow Domain-Specific Language (DSL), Abstract Syntax Tree (AST) model, typed Java `Primitive<P, R>` execution contract, loop-back guard semantics, automated diagram generation, and the verification harnesses (including the out-of-band behavioural conformance harness for model-facing content) for *plan-marshall-mcp* (`PM-MCP`). The workflow engine and DSL reside in the plain-Java module `pm-workflow` on top of `pm-core`, with zero runtime framework dependencies, and are assembled into the native daemon by `pm-mcp-server` (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]).
+
+== Traceability
+
+_See Requirements:_
+
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7: Runtime & Relay Lifecycle, Crash Recovery & Job Drain]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1: Hypermedia State Representation (HATEOAS)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-2[PM-WF-2: Closed Link Relation Grammar & Link Forms]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-3[PM-WF-3: Capability Enforcement by Link Omission]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-4[PM-WF-4: Entity-Scoped Links & Fine-Grained Concurrency]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-6[PM-WF-6: Independent Server-Side Transition & Parameter Validation]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7: Remediation Policies, Loop-Back & Iteration Bounds]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States & Short-Circuit Failure Handling]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-3[PM-TEST-3: State-Machine Invariant, Property & McpAssured Protocol Verification]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4: End-to-End Scenario & Worker Supervision Testing]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-6[PM-TEST-6: Behavioural Conformance of Model-Facing Content]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1: Decoupled Plain-Java Core Engine & Quarkus Assembly]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-4[PM-WORK-4: Consultation through the Server]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17: Dynamic Re-Planning of a Running Plan]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-22[PM-WF-22: Designing a Process]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25: Plan Behaviour Axes & Plan Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Client Identity]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1: Single Version Authority & Embedded Client Bundles]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-3[PM-DIST-3: Worker MCP Connection per Launch]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-7[PM-EXT-7: Configuration Versioning, Validation & Zero-CoT Upgrades]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-11[PM-ARCH-11: The Operator's Two Clients & Their Contract]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+== Status: IN PROGRESS
+
+== Modules
+
+Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
+
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: all parts except the conformance harness
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: part 05: the `Primitive<P, R>` SPI
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-git[`pm-provider-git`]: part 06: the `git.*` operations of `git.commit_and_push`
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-conformance[`pm-conformance`]: part 07: the behavioural conformance harness
+
+== Parts
+
+* link:workflow-dsl/01-grammar.adoc[Grammar] — the formal EBNF grammar of the workflow DSL, including result guards, question clauses, the `job llm` task clause with its freely named role, its fan-out (`each`) and its `consult role` clauses, operator links, the sub-workflow exit contract, the phase of a state, the ends of a scope, the unit frontmatter with the unit types and the interface of entries and exits, and the machine scope with its onboarding unit
+* link:workflow-dsl/02-units-jobs-decisions.adoc[Workflow Units, Operator Waits, Implicit Links, Questions & Waivers] — workflow definition units (the plan unit as a workflow of six phase sub-workflows, the entity, bootstrap, and project onboarding units), waiting for the operator (the one definition of an operator wait, consent states), all interaction in the operator's two clients, the implicit links (`ack`, `consult:<role>`, `infeasible`, the operator's `step_out`), job state binding, task states with the conservative `lost` route, the compiled task protocol unit `worker-task`, question states and the decision unit, the designable adjudication unit, unit declarations (decision parameters within compiled bounds), and waivers, waiver requests, the operator's ends of a scope, and the integrity pause
+* link:workflow-dsl/03-reference-excerpt.adoc[Reference Workflow Excerpt] — the reference DSL excerpt of the finalize phase `phase-6-finalize.pmwf` with its default landing variant: entries and exits, settle commit, step states, a task state, remediation calls, restart of the watch, and the `handed_back` fallback
+* link:workflow-dsl/04-ast-node-model.adoc[AST Node Model] — the constraints on the implemented AST node model, guard results, condition overlays with their server self-remedies, static verification rules (operator links and model links apart, every named role exists), the designable units with their levels (project, machine, compiled default) and the compiled invariants, and designing a process (catalogue, validation with its dry run, placing and removing)
+* link:workflow-dsl/05-primitives.adoc[Primitive Interface & Transition Validation] — the `Primitive<P, R>` SPI contract (outcome classes, awaited events, waiver lookup), a concrete primitive example, and independent transition validation of a worker's call and of an operator's act
+* link:workflow-dsl/06-reusable-sub-workflows.adoc[Reusable Sub-Workflows] — call-stack execution, step-out and guided step-in, the canonical `git.commit_and_push` sub-workflow with its task states and exit contract, and the short landings `git.land-removal` and `git.land-unit`
+* link:workflow-dsl/07-loop-back-diagrams-verification.adoc[Loop-Back, Diagram Generation & Verification] — budget-bounded loop-backs, generated diagrams and the drift gate, property verification (task protocol included), scenario replay with fixture workers and worker faults, the conformance harness with the grading of role configurations, and state-name migration
+* link:workflow-dsl/08-remediation-units.adoc[Remediation Policy Units] — the `remediation.*` sub-workflow units: evidence, closed action set, decision roles, call sites and default budgets, the unit template (server `decide`, decision task, conservative fallback, the waiver wait as an operator wait), the `remediation.ci-failure` sketch, and the `INV-REM-*` invariants
+* link:workflow-dsl/09-plan-instance.adoc[Plan Instance] — the composed, versioned plan instance: composition events, position rule, instance header grammar, composition rules, the plan behaviour axes (landing, method, asking) with their three levels, the plan's overrides, and display

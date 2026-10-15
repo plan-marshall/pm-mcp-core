@@ -54,7 +54,7 @@ The operator decided that this package defines the three formats and plan-marsha
 
 == Source
 
-* Work package link:../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
 * Plan `corpus-sources`, operator clarification "Formats", and its pull request
 * Specification: `doc/specification/model-work/01-roles-and-configuration.adoc` § Role Qualification and
   § Qualification Topics of plan-marshall-documentation

@@ -11,9 +11,9 @@ package de.planmarshall.runtime.workspace;
 
 import static de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.util.Objects;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 import de.planmarshall.core.store.PathConfinement;

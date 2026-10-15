@@ -15,12 +15,12 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-
-import de.planmarshall.api.MachinePaths;
 import lombok.experimental.UtilityClass;
 
+import de.planmarshall.api.MachinePaths;
+
 /**
- * The keyring service name of an instance (doc/specification/cli-and-security/
+ * The keyring service name of an instance (plan-marshall-documentation/doc/specification/cli-and-security/
  * 02-credentials-and-operator.adoc, service-name rule; PM-CRED-2, PM-DIST-5):
  * {@code de.planmarshall.mcp} for the default {@code PM_MCP_BASE}, otherwise
  * {@code de.planmarshall.mcp/<instance_hash>} with the first 16 hex characters of the SHA-256 of the

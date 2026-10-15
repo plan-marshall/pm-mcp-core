@@ -1,4 +1,5 @@
 = Session Generations (`core.queue`) Developer Guide
+:spec: ../../../doc/specification
 :toc:
 :toclevels: 3
 :nofooter:
@@ -6,7 +7,7 @@
 :docs: ../../../../plan-marshall-documentation/doc
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5], link:{docs}/Requirements.adoc#PM-WORK-2[PM-WORK-2]_
+_Requirements: link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/Requirements.adoc#PM-WORK-5[PM-WORK-5], link:{docs}/Requirements.adoc#PM-WORK-2[PM-WORK-2]_
 
 Package `de.planmarshall.core.queue` of `pm-core` holds the task queue store of a project below
 `projects/<project_id>/queue/`. The work package `session-log-and-generations` added its first record, the session
@@ -17,11 +18,11 @@ a call of a fenced generation is refused. The queue task records come with the t
 The record is no store of a scope: it has no transaction journal and no digest sidecar, and it is written under the
 queue lock by one atomic write-and-rename
 (link:../adr/core-queue/001-generation-record-replaced-under-the-queue-lock.adoc[ADR 001]). The schema is
-link:{docs}/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session Generation
+link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session Generation
 Record].
 
 == Core Types
-_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
+_Requirements: link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
 
 [horizontal]
 `GenerationId`:: `sg-` and 16 lower-case hexadecimal digits, the key of an entry; a new id is drawn at random. A worker
@@ -45,7 +46,7 @@ in the project, or removed).
 `locks/queue.lock`, every read lock-free through `StoreSnapshot`.
 
 == Using the Store
-_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5], link:{docs}/Requirements.adoc#PM-WORK-2[PM-WORK-2]_
+_Requirements: link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/Requirements.adoc#PM-WORK-5[PM-WORK-5], link:{docs}/Requirements.adoc#PM-WORK-2[PM-WORK-2]_
 
 [cols="2,4"]
 |===
@@ -99,7 +100,7 @@ call carrying sg-… ──► check(id) ──► Current | Fenced (generation_
 ----
 
 == Fenced and Superseded
-_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
+_Requirements: link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
 
 A generation superseded by a `pm-mcp enter` is fenced as well; it is told apart because a request carrying it is
 answered at the transport with `generation_superseded` and the relay then binds again, while every other call of a
@@ -152,7 +153,7 @@ The writer drops the flag and the reader derives it again, so a record the store
 |===
 
 == Testing
-_Requirements: link:{docs}/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
+_Requirements: link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/Requirements.adoc#PM-WORK-5[PM-WORK-5]_
 
 [horizontal]
 `SessionGenerationCodecTest`:: The round trip, the refusals of the strict reader, and the derivation of what fenced a
@@ -162,15 +163,15 @@ fenced generation checks `Fenced`; one replaced by an `enter` checks `Superseded
 generation; a colliding id is drawn again; the removal of fenced entries older than an instant keeps the younger and
 the unfenced ones; a lock-free read.
 `SessionGenerationSchemaParityTest`:: The members, required members and enums of the codec against the schema of the
-specification, read from the documentation checkout named by `pm.documentation.root` (see the
-link:core-store.adoc[`core.store` guide], Testing).
+specification; removed together with the section of the specification it read (the
+work package `removed-concepts` removes the session generations).
 
 The store takes a `RandomGenerator` in a package-private constructor, so a test forces a collision.
 
 == Specification Tracing
 
-* Specification: link:{docs}/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas §
-  Session Generation Record], link:{docs}/specification/model-work/02-task-protocol.adoc#leases-fencing[Model Work §
+* Specification: link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas §
+  Session Generation Record], link:{spec}/model-work/02-task-protocol.adoc#leases-fencing[Model Work §
   Leases, Generations & Fencing], link:{docs}/specification/runtime-model/03-relay.adoc[Runtime Model § Relay]
 * Removal by the periodic sweep: link:../../../pm-runtime/doc/developer/runtime-start.adoc[Sweep Steps
   (`runtime.start`)]

@@ -39,5 +39,5 @@ Alternatives not recorded.
 == Source
 
 * Pull request #28, `test(providers): run HTTP tests on the mock web server, guard cui-http`
-* Work package link:../plans/http-baseline.adoc[`http-baseline`]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/http-baseline.adoc[`http-baseline`]
 * Epic `pm-mcp-core-m2-m4`, decision of 2026-10-09 (the operator's HTTP rules), in the orchestrator ledger

@@ -54,4 +54,4 @@ The operator decided to remove the factory in this pull request (outline, questi
 
 * Operator decision q-outline-2 of the work package `session-log-and-generations` (outline)
 * `doc/plans/runtime-lifecycle.adoc`, which introduced the named seams
-* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]

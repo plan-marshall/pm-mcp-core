@@ -5,13 +5,13 @@
 
 :docs: ../../../../plan-marshall-documentation/doc
 :req: ../../../../plan-marshall-documentation/doc/requirements
-:spec: ../../../../plan-marshall-documentation/doc/specification
+:spec: ../../../doc/specification
 :src: ../../src/main/java/de/planmarshall/runtime/start
 :test: ../../src/test/java/de/planmarshall/runtime/start
 
 == Purpose
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
 
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
 periodic sweep of the runtime; they are described in link:{docs}/developer/runtime-lifecycle.adoc[Developer Guide §
@@ -93,7 +93,7 @@ A run that removed records logs `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) 
 
 == The Fenced-Generation Step
 
-_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+_Requirements:_ link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 The evidence is a fence and its age: a current generation is never removed, and neither is one fenced at or after the
 instant. The removal is one write of the record under the queue lock
@@ -197,13 +197,13 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 == Specification Tracing
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{req}/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
 
-* Specification: link:{spec}/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
+* Specification: link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
   Sweep], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry Record
   Maximum Age], link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending
-  Entry Record], link:{spec}/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session
-  Generation Record], link:{spec}/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
+  Entry Record], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session
+  Generation Record], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
   Sequence] (step 4.1), link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition
   Audit Log] (hash chain)
 * Stores: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (delete mode, pending entry record),

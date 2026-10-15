@@ -13,7 +13,7 @@ import java.util.Objects;
 
 /**
  * One step of the per-project recovery ({@link ProjectRecovery}), in the order of
- * doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery.
+ * doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery.
  * <p>
  * Sweep rule, the contract of every step: a step selects candidates only from positive evidence of abandonment (a
  * dead owner identified by PID plus start instant, a terminal state, or an expired lease or retention period), never

@@ -46,7 +46,7 @@ import de.planmarshall.runtime.start.PosixModes;
 /**
  * The TLS material of the web listener in LAN mode: a self-signed ECDSA P-256 certificate whose subject
  * alternative names are the host name, {@code <hostname>.local}, the interface addresses at generation and
- * the loopback addresses (doc/specification/cli-and-security/03-web-server.adoc, Listener Exposure).
+ * the loopback addresses (plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc, Listener Exposure).
  * <p>
  * Key and certificate are kept as PEM in {@code <PM_MCP_BASE>/web/tls/} (directory {@code 0700}, files
  * {@code 0600}) and reused, so paired devices keep a stable fingerprint. The certificate is built with JDK

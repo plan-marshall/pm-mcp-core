@@ -1,0 +1,366 @@
+= Domain Extensions, Build Map & Configuration Split Specification: Architecture Enrichment & Project Setup State Machine
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../domain-extensions.adoc[Domain Extensions, Build Map & Configuration Split Specification] » Architecture Enrichment & Project Setup State Machine
+
+[#project-setup-state-machine]
+== Architecture Enrichment Judgment Links & Project Setup State Machine
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-3[PM-EXT-3: Module Discovery, Build Map & Architecture Enrichment]_
+
+Only semantic module enrichment (`responsibility`, `purpose`, and `key_packages` with their reasoning) requires model judgment. `PM-MCP` replaces `plan-marshall`'s `marshall-steward` first-run wizard (Steps 1–16) and its `upgrade` verb with one dedicated **`project-setup`** state machine (`classpath:/workflows/project-setup.pmwf`), a compiled sub-workflow run in the project's workspace scope as part of the project's onboarding (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]; link:../state-catalogue/15-project-onboarding.adoc#state-catalogue-project-onboarding[State Catalogue, Project Onboarding]); its state lives in `workspace/mcp/status.json` of the per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` (link:../filesystem-layout/03-project-store.adoc#workspace-home[Filesystem Layout Specification, Workspace Home]). The workspace scope exists once the project is enrolled: the onboarding's `project.enrol` (or the direct verb `pm-operator enrol`) creates the project's machine store, and the first run of the setup creates `.marshall/`. The enrolment therefore precedes the setup and is never a state of it; the project's operator values (the integration variant and credential of each provider, the commit identity, the model language, the allowed models, the role assignment, the method and asking axes) are the onboarding's `project.operator`, never a state of the setup; the credentials of the git and provider integrations are verified in `setup.verify-credentials`, and every other missing secret is handled by the credential check where the credential is used. The onboarding calls the setup at one of four entries: `first_run`, `integrations` (the first run continued after the project's operator values), `reconcile` (a later run of the whole setup), or `aspect` (one aspect alone, with the current values as the proposal: the team settings, the build map, the providers, the finalize steps, the qualification, the architecture). The start state `setup.entry`, an `auto` state, records the run type `setup_run: first_run | reconcile | aspect:<name>` in the workspace status and routes by it: without `.marshall/config/` a first run to `setup.prepare-workspace`, which creates `.marshall/config/` holding no copy of a workflow unit (the project takes the machine's or the default unit of every designable unit until its team places one, link:../workflow-dsl/04-ast-node-model.adoc#process-designer[Workflow DSL Specification, Designing a Process]) and no JSON defaults (the team files are sparse), a reconcile run to `setup.reconcile-config`, and an aspect run to the aspect's first state. Every later fork of the run follows the recorded `setup_run`, never the existence of `.marshall/config/` (which the first run creates at once), so an interrupted first run keeps its first-run path. The workflow unit `project-setup.pmwf` itself is compiled into the binary and is never designable: the setup must be able to repair a project whose units fail verification. The setup has no resting state of its own: every run ends in its terminal `setup.completed`, and the onboarding then rests in `project.completed`, whose links start the next run. The workspace scope is not a plan: the plan outcomes and their fallbacks do not apply to it, and every setup failure rests in one repair state with a path back into the run (<<setup-needs-repair>>). A project that also runs on `plan-marshall` starts from a clean slate like any other: `PM-MCP` imports nothing from its `.plan/` (`PM-MIG-2`), so its first setup run takes the first-run path; setup never reads or writes `.plan/`. Its states are catalogued in the link:../state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue, Project Setup: `setup`].
+
+[source,text]
+----
+                               setup.entry
+   (auto: records setup_run = first_run | reconcile | aspect:<name>, routes by it)
+         │ first_run                                   │ reconcile
+         ▼                                             ▼
+setup.prepare-workspace                        setup.reconcile-config
+  (auto: .gitignore entries; creates              (auto: config.validate - team files,
+   .marshall/config/, no unit copied)              local-config.json, the project's copies)
+         │                                             │ valid
+         ▼                                             │
+setup.check-operator-files  <──────────────────────────┘
+  (auto: validates the operator file
+   local-config.json and the effective role set; both runs;
+   first run: ends in setup.operator-values, the onboarding
+   shows project.operator, then calls the setup again at
+   the entry integrations)
+         │ reconcile run; entry integrations
+         ▼
+setup.probe-integration-variants  (auto: current -> setup.verify-credentials;
+         │                         needs_answer -> setup.operator-values: the
+         │                         onboarding shows project.operator)
+         ▼
+setup.verify-credentials  (auto: credential per native integration, enrolled host
+                           tool per CLI integration; refreshes network facts)
+         │ first_run                                   │ reconcile
+         ▼                                             │
+setup.project-settings                                 │
+  (operator wait: configure_project - sparse           │
+   team keys)                                          │
+         │                                             │
+         ▼                                             ▼
+setup.detect-domains  (auto: scans provides_file_globs & descriptors,
+                       derives domain activation; overrides from domains.json)
+         │
+         ▼
+setup.discover-modules  (job: descriptor parsers & enrolled discovery templates;
+                         reconcile run: rediscovery + pm://architecture/drift)
+         │
+         ▼
+setup.route-setup-run  (auto: reads setup_run and build-map.json)
+         │ seed: first_run, or reconcile               │ probe: reconcile with
+         │ without build-map.json                      │ build-map.json
+         ▼                                             ▼
+setup.seed-build-map                            setup.probe-build-map
+  (operator wait: confirm_build_map /             (auto: in_sync -> setup.probe-new-steps;
+   customize_routes; exit by setup_run:            drift -> setup.reseed-build-map, a
+   reconcile -> setup.probe-new-steps)             decision: reseed_build_map /
+         │ first_run                               keep_build_map)
+         ▼                                             │
+setup.select-providers                                 ▼
+  (operator wait: configure_providers -         setup.probe-new-steps
+   CI derived, ci_provider override,              (auto: current -> setup.probe-qualification;
+   analysis providers, review bots)                changed -> setup.offer-new-steps, a
+         │                                         decision, one part per changed copy:
+         ▼                                         adopt / decline, three-way diff)
+setup.configure-finalize                               │
+  (operator wait: configure_finalize; the              │
+   landing variant, validated against the              │
+   project; every lane:ask element answered)           │
+         │                                             │
+         ▼                                             │
+setup.probe-merge-queue                                │
+  (auto: enforced or not eligible ->                   │
+   setup.probe-qualification; otherwise                │
+   setup.merge-queue, a decision:                      │
+   recheck / skip)                                     │
+         │                                             │
+         ▼                                             ▼
+setup.probe-qualification  (auto: current -> setup.probe-enrichment;
+         │                  grade -> setup.qualify-consent: roles without a
+         │                  valid record on the local harness major.minor)
+         │
+         │   setup.qualify-consent  (consent model_cost: the expected tokens;
+         │     no -> skipped, owed) -> setup.qualify-roles  (composite_job:
+         │     grades every listed role through the model slots)
+         ▼
+setup.probe-enrichment  (auto: nothing_to_enrich -> setup.commit-changes;
+         │               enrich_unqualified -> setup.commit-changes;
+         │               enrich -> setup.enrich-consent (model_cost; no ->
+         │               setup.commit-changes, owed))
+         ▼
+setup.enrich-architecture  (job llm enrich-module role enrich
+                            each setup.enrichment-modules: one task per module for
+                            the workers of role enrich; first run: every unenriched
+                            module, reconcile run: modules in drift changed[] and
+                            modules still unenriched;
+                            exit by the outcome all_enriched)
+         │
+         ▼
+setup.commit-changes  (operator wait: land / leave; re-entered on stepped_out)
+         │ land                                          │ leave
+         ▼                                               │
+setup.land-changes  (call git.commit_and_push)           │
+         │ done                                          │
+         ▼                                               ▼
+setup.completed  (terminal: returns to project.setup; the project rests in
+                  project.completed)
+
+Failures: check-operator-files malformed / role_undefined, reconcile-config
+invalid / format_refused, verify-credentials failure, any non-succeeded fate
+of discover-modules, a cancelled qualify-roles, the declared fallback of
+enrich-architecture
+         ▼
+setup.needs-repair  (operator wait: retry -> the failed state; rewrite_config:<file>)
+----
+
+[#setup-operator-files]
+*Operator files* (`setup.check-operator-files`): An `auto` state that validates the operator file `<PM_MCP_BASE>/projects/<project_id>/local-config.json` (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]) and the project's effective role set, the shipped set overridden by the machine and project sets, with the role assignments of the machine and the project (role sets and assignments are operator files, link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]). Both runs pass it: the first run after `setup.prepare-workspace`, a reconcile run after `setup.reconcile-config` (`valid`), so a reconcile run checks the role set as well. In the first run its `valid` ends the setup in `setup.operator-values`: the onboarding shows the project's operator values (`project.operator`) and then calls the setup at the entry `integrations`, which starts at `setup.probe-integration-variants` with the recorded `setup_run` kept (link:../../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[UC-PRJ-1]); a reconcile run goes on to `setup.probe-integration-variants`. It fails closed: a malformed `local-config.json` exits `malformed`, and a role that a unit of the project names but the effective set does not define, an invalid artifact included, exits `role_undefined` naming the role and the state; both enter `setup.needs-repair`. It seeds nothing and writes no default; an unqualified role is no failure here, because its tasks take their conservative fallback where they arise (`PM-WORK-6`).
+
+[#setup-probe-states]
+*Probe states*: An operator wait rests until the operator acts, so no setup wait "passes without an act". Each setup state that asks only when something needs an answer is preceded by an `auto` probe state whose primitive decides, from server facts, whether the question arises: `setup.probe-integration-variants` (`current` -> `setup.verify-credentials`, `needs_answer` -> `setup.operator-values`, which returns to the onboarding's `project.operator`), `setup.probe-build-map` (`in_sync` -> `setup.probe-new-steps`, `drift` -> `setup.reseed-build-map`), `setup.probe-new-steps` (`current` -> `setup.probe-qualification`, `changed` -> `setup.offer-new-steps`), `setup.probe-merge-queue` (`not_needed`, the queue enforced or the project not eligible, and `skipped`, the answer `skip`, -> `setup.probe-qualification`, `needs_answer` -> `setup.merge-queue`), `setup.probe-qualification` (`current` -> `setup.probe-enrichment`, `grade` -> `setup.qualify-consent`, <<setup-qualification>>), and `setup.probe-enrichment` (`nothing_to_enrich` and `enrich_unqualified` -> `setup.commit-changes`, `enrich` -> `setup.enrich-consent`, <<setup-enrichment>>). A skipped question is therefore an audited probe outcome, never an implicit pass, and a question state is entered only when it has something to ask.
+
+_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-34[PM-WATCH-EXT-34]_
+
+[#setup-questions]
+*Setup choices by owner*: A choice is taken where the store it writes is owned, and always as an operator wait served to both clients, the first act winning; no session, model, or MCP elicitation relays it (link:../workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL Specification, All Interaction in the Operator's Clients]). The project's operator values (the integration variant and credential of each provider, the commit identity, the model language, the allowed models, the role assignment, the method and asking axes) are written to the operator's `local-config.json` and the project's stores in the onboarding's `project.operator`, never by the setup (link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]). A choice the team owns is an operator wait of the setup that writes the team configuration: `setup.project-settings`, `setup.seed-build-map`, `setup.select-providers`, `setup.configure-finalize` (the landing variant among it), and `setup.commit-changes`. A question the setup raises from server facts is a decision of the workspace scope (class `setup`, link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]) with server-owned options, created by the probe that routes to its question state (`setup.merge-queue`, `setup.reseed-build-map`, `setup.offer-new-steps`), which calls the unit `decision` (link:../state-catalogue/16-decision.adoc#state-catalogue-decision[State Catalogue, Decision]): it is announced in both clients with its project and shown in the project's running work, it waits without a time limit and holds the setup only, never a plan, and nothing is decided by time: the merge queue is skipped, the build map reseeded, and an offered change adopted or declined only by the operator's answer. A question the setup raised has no planning role, so its chat is offered disabled with that reason. In a reconcile run or an aspect run the setup's operator waits offer the implicit `step_out`, which returns to the onboarding's resting state with the changes already written left for the next `setup.commit-changes`.
+
+_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-33[PM-WATCH-EXT-33]_
+
+[#setup-integration-variants]
+*Integration variants* (`setup.probe-integration-variants`): Every git and provider operation is a contract of a provider module (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-1[PM-IMPL-1]) with two interchangeable implementations: the *native variant* (in-process JGit, respectively the GitHub, GitLab, or Forgejo client over `cui-http`, authenticated with the agent credential of the token lane) and the *CLI variant* (the enrolled `git`, `gh`, or `glab` host tool, acting with the operator's ambient authentication). The effective variant of each integration is the project's operator value where one is set, else the machine's provider default (`machine-config.json` `providers`, link:../store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas Specification, Machine Provider Defaults]), and otherwise derived from the enrolment: `cli` when the integration's host tool (`git`, `gh`, `glab`) is enrolled for the machine or the project, `native` when it is not. The operator enrols a tool as an operator act, so the operator's own identity acts only where the operator made its tool available; a set value serves the operator who wants the other identity (`native` beside an enrolled tool, so that the agent credential acts) or wants the variant pinned. A project's value is stored in `local-config.json` `integrations.<integration>.variant` (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]); the server never writes the derived variant into an operator file.
+
+* *Integrations*: `git` (the `git.*` contracts: repository, worktree, and transport operations, among them the working-tree digest `git.worktree-sha`, one operation with the same digest in both variants, link:../job-runtime/03-parsers-and-gates.adoc#worktree-sha[Job Runtime Specification, Working-Tree Hash]) and the CI provider integration `github`, `gitlab`, or `forgejo` (the `ci.*` contracts together with the provider's review-thread and code-scanning finding sources of the findings contract). The provider integration checked is the one the local derivation of `ci_provider` names (a known provider host of the push remote) or the team override `project.json` `ci_provider`; when neither names it, only `git` is checked here, and a provider integration named by an override that `configure_providers` sets later in the run is checked (variant and credential) by the next reconcile run. The analysis providers (behind the code-analysis contract, among them Sonar through `pm-provider-sonar`) have only a native variant and are not checked here. One variant holds for all operations of an integration; integrations may differ (for example `git` `cli` with `github` `native`), operations within one integration never do.
+* *Probe*: `setup.probe-integration-variants` reports `current` when every checked integration's effective variant is valid and the commit identity resolves, otherwise `needs_answer`. An effective `native` variant (derived or set) is invalid while the derived fact `git_native_capability` reports a used repository feature the native variant cannot serve (hooks, signing requirement, filter drivers, LFS, submodules, SHA-256 or partial or sparse repositories, an SSH-only remote), including a feature that appeared after an earlier run; a `cli` value is invalid while its host tool is not enrolled (`cli_tool_not_enrolled`). The variant is derived in this state and nowhere else: it is part of the effective configuration and its `config_hash`, so it is fixed for a running plan by the plan's configuration snapshot and changes only when a setup run finds a changed enrolment or value, which the run reports in its `facts` and in an audit record of the change, with both variants and the identity that acts from then on. No operation switches variant by itself: an operation whose variant cannot serve it fails with its outcome, and the server never starts a CLI job in place of a native operation or the reverse. Native support for these features is deferred (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#_l_3_native_support_for_repository_features_now_served_by_the_cli_variant[Later Improvements, L-3]).
+* *Operator choice*: on `needs_answer` the setup ends in `setup.operator-values`, and the onboarding shows `project.operator` with, per integration whose effective variant is invalid, the `git_native_capability` findings with their reasons, that enrolling the integration's host tool selects the CLI variant, and, for the CLI variant, that the operator's own ambient identity (credential helper, SSH agent, `gh`/`glab` login, signing key) will act for every operation of that integration. The operator may instead remove the feature from the repository. The commit author `commit_identity {name, email}` is the project's value, else the machine's `project_defaults.commit_identity`, else proposed from the operator's global git `user.name` and `user.email`, read once as a proposal and confirmed or edited by the operator (never re-read silently afterwards). After the operator's act the onboarding calls the setup again at the entry `integrations`, whose probe validates the value.
+* *Before a valid variant*: No git or provider operation runs for the project, in either variant, while the integration it belongs to has no valid effective variant: every such primitive refuses with `integration_variant_unset` naming the integration and the project's operator values, and the setup gate of a start refuses with `project_not_ready` and the same reason (a start's creation re-checks it). The derivation of `git_native_capability` itself is no git operation: the server reads the repository configuration and files directly (`extensions.*`, `core.hooksPath`, non-sample files under `.git/hooks/`, `.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`, `.gitattributes` drivers, `.gitmodules`, `lfs.url`, the remote URLs).
+* *Model-facing minimality*: The effective variants, the capability details, and the identity notice are rendered to the operator in the clients and served on demand by `pm://project/config` and the operator's views, never pushed into a model-facing `facts` (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
+
+_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-27[PM-WATCH-EXT-27], link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-28[PM-WATCH-EXT-28]_
+
+[#setup-verify-credentials]
+*Credential verification* (`setup.verify-credentials`): An `auto` state that checks, per checked integration, that its effective variant can act, then refreshes the network derived facts (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas Specification, Derived Facts]) with the effective variants; the checks of the machine's provider verification are repeated here only where they need the repository (permissions on it, check runs visible, link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]):
+
+* *Native `github`*: resolves the token-lane entry `github` (`PM-CRED-2`, project entry before global entry). For a GitHub App it mints the App JWT (RS256, JDK `Signature`), resolves the App's installation for the repository, mints an installation token restricted to the repository and a read-only permission set, and refreshes the App's user access token, which authors every write (both held in memory per `PM-CRED-5`, never persisted; a refused or expired user refresh token fails the check and names the credential to replace, link:../credentials-and-enrolment/01-provider-credentials.adoc#user-access-token[CLI, Coordination & Security Specification, User Access Token]); for a fine-grained or classic personal access token it calls `ci.whoami`. The check derives the network facts `agent_identity` (login, kind, permissions on the repository; operator-only) and `checks_visible`. A credential that cannot read check runs is accepted: the operator is told that `ci.checks` will report `completeness: incomplete`. A token without expiry is accepted and shown with the credential's status in the clients.
+* *Native `gitlab`*, *native `forgejo`*: resolves the entry `gitlab` (project access token, group access token, service-user or personal access token, or the operator's OAuth token, all accepted alike) or `forgejo` (with its host) and calls `ci.whoami`; an `expires_at` within the credential expiry warning window (link:../timeouts/02-runtime-leases-operator-web.adoc#credential-expiring-window[Timeouts & Budgets Specification]) is reported as `expiring`.
+* *Native `git`*: the transport credential is the provider's entry for a provider host and `git-https` for any other HTTPS host; the check resolves the effective push and fetch URLs (with `insteadOf` rewrites), requires `https` after the SSH mapping of known provider hosts and the origin of the credential entry's `url` (`remote_origin_mismatch`, audited), and reads the push remote's refs with `git.ls-remote`.
+* *CLI integrations*: no credential is read; the state verifies the enrolled host tool and records that the integration acts as `identity: operator_ambient` (audit record). The tool's verification command runs as a job, and a job has no session bus: on Linux a login that lives only in the Secret Service is therefore not usable by the CLI variant, the check fails with the tool's own authentication error, and the state reports the integration as not usable with that cause (link:../credentials-and-enrolment/01-provider-credentials.adoc#cli-variant-credentials[CLI, Coordination & Security Specification, Credentials of the CLI Variant]).
+* *Committer identity*: the committer of server commits is resolved from the verified agent credential (a GitHub App's `<slug>[bot]` noreply address, the token's user), else the fixed `plan-marshall-mcp` noreply identity; the author is the commit identity. Both variants produce the same author and committer metadata.
+* *Failure*: a missing credential or a failing check enters `setup.needs-repair`, whose `facts` name the credential and the act of the clients that enters or replaces it (the machine's settings, or the project's operator values); its `retry` re-runs the check. A failing check is never a fallback to another variant or credential.
+
+Exit: by `setup_run`, `setup.project-settings` on the first run, `setup.detect-domains` on the reconcile run; back to `setup.probe-integration-variants` (`variant_invalidated`) when the refreshed facts invalidate an effective `native` variant (for example the network fact `signed_commits_required`, an input of `git_native_capability`), at most once per setup run (link:../timeouts/01-job-budgets-and-waits.adoc#setup-reprobe-cap[Timeouts & Budgets Specification, Setup Variant Re-Probe Cap]); an invalidation after that re-probe is `reprobe_exhausted` and ends the setup in `setup.operator-values`, naming the integration.
+
+[#setup-merge-queue]
+*Merge-queue probe* (`setup.probe-merge-queue`, `setup.merge-queue`): The probe reads the derived network fact `merge_queue_enforced` (`{enforced, available, check_response_timeout}`, link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas Specification, Derived Facts Store]) for the base branch. The project is eligible when a CI provider integration is checked, the derived fact `push_remote` is non-empty, and `available` is not `no`. `available` is `no` only where the provider's answer is readable: GitHub, a repository owned by a user, or a private or internal repository whose organization plan is readable and is not Enterprise Cloud; GitLab, a tier below Premium when the tier is readable. An `indeterminate` or stale value counts as eligible. The probe reports `not_needed` when the queue is enforced or the project is not eligible. Otherwise it raises a decision of the workspace scope whose evidence names the provider setting that enables the queue (GitHub: the "Require merge queue" rule of a ruleset on the base branch; GitLab: merge trains with merged-results pipelines) and enters `setup.merge-queue`, which asks it with the options `recheck` (re-enters the probe, which re-derives the fact after the team changed the setting) and `skip` (<<setup-questions>>). The server never changes the setting and persists no key: administrative repository changes need admin scope, which the agent identity does not hold. *Deliberate change vs. `plan-marshall`*: `plan-marshall` provisions the queue (ruleset create or update, `merge_trains_enabled=true`) and persists a `use_merge_queue` opt-in.
+_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-30[PM-WATCH-EXT-30], link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-31[PM-WATCH-EXT-31]_
+
+[#setup-needs-repair]
+*Setup repair* (`setup.needs-repair`): One operator wait covers every setup failure, so every state keeps a path back into the run and no failure link sits on an `auto` state. It is entered from `setup.check-operator-files` (`malformed`, `role_undefined`), `setup.reconcile-config` (`invalid`, `format_refused`), `setup.verify-credentials` (a missing credential or a failing check), every fate of the plain `job` state `setup.discover-modules` other than `succeeded` (`failed`, `failed_unparsed`, `refused`, `timed_out`, `killed`, `indeterminate`, `cancelled`), `setup.qualify-roles` (`cancelled`, <<setup-qualification>>), and as the declared fallback of `setup.enrich-architecture` (<<setup-enrichment>>); a per-descriptor parse failure is a finding of a succeeded discovery, never a job failure. Its `facts` name the failed state, the file, the role, or the modules, and the finding, and for a failure the operator must repair, the act of the clients that repairs it (the project's operator values for the operator file, the role's assignment or artifact for a role, the machine's settings or the project's operator values for a credential). Links: `retry` re-enters the failed state; `rewrite_config:<file>`, offered for a team JSON file refused by format, writes the server-rendered rewrite at the current format (every key still valid carried over, every dropped key named, shown as a diff; xref:06-configuration.adoc#config-upgrades[Configuration Validation & Upgrades Before 1.0]) and re-enters `setup.reconcile-config`. The operator file is never rewritten by a link. `setup.discover-modules` exits on `succeeded` to the router `setup.route-setup-run`, which reads the recorded `setup_run` and whether `build-map.json` exists: `seed` (the first run, or a reconcile run without `build-map.json`) enters `setup.seed-build-map`, whose exit follows `setup_run` in turn; `probe` (a reconcile run with `build-map.json`) enters `setup.probe-build-map`.
+
+[#setup-qualification]
+*Role qualification at install* (`setup.probe-qualification`, `setup.qualify-consent`, `setup.qualify-roles`): The qualification records the release ships are the release's grading on the harness versions of its own test machine and only a starting point (link:../model-work/01-roles-and-configuration.adoc#qualification-records[Model Work Specification, Qualification Records]). Every setup run, the first included, computes the roles whose grading the machine lacks and grades them after the operator's consent to their expected tokens:
+
+* *Probe*: `setup.probe-qualification` computes the roles to grade: every role of the project's effective set that has no valid qualification record for its qualification digest (over its effective harness, model, and effort after the role assignments, and the enrolled harness major.minor of the machine; link:../model-work/01-roles-and-configuration.adoc#role-artifact[Model Work Specification, Role Artifact Schema]), a valid shipped record included, minus the roles the operator excluded in `qualification.skip_roles` of `local-config.json` (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]), and every quorum declaration that the adjudication unit in force uses (the project's or the machine's copy, else the default unit, which the question states of epics, the workspace, and the starts run) without a valid decision calibration record when `qualification.skip_decisions` is `false` (link:../model-work/10-decision-quorum.adoc#quorum-calibration[Model Work Specification, Quorum Calibration]); and the expected tokens of their grading. A shipped record graded on the harness major.minor the machine enrolls stays valid, so the first run grades the roles whose shipped record does not match the machine, and a reconcile run the roles whose record a change invalidated (a harness, model, effort, tools, class, skill, or harness major.minor change, an assignment change, or a new corpus revision). An empty list reports `current`; otherwise `grade`.
+* *Consent*: `setup.qualify-consent` asks the consent kind `model_cost` with the roles and the expected tokens (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]); `yes` enqueues the grading (`enqueuesJob()`, Rule 1), `no` skips it with its reason, records it as owed for a later run, and the setup goes on: the roles stay unqualified and the project is ready without the grading.
+* *Grading*: `setup.qualify-roles` is a `composite_job` that runs the grading for each listed role in turn (link:../model-work/01-roles-and-configuration.adoc#grading[Model Work Specification, Grading]) and writes its record to the project set, and, when quorum declarations are listed, calibrates them after the roles and writes their decision calibration records. Its constituents are the grading's worker jobs, those of the role `judge` included; they run through the machine's model slots like every model job, and their usage is recorded in the workspace scope's metrics. Its facts name each role with its item count and its state. It reports `graded` when every listed role was graded (whether or not it qualified), `incomplete` when a role's grading could not finish (its start-failure guard holds, or its workers were lost beyond the re-offer budget), and `cancelled`. `graded` and `incomplete` exit to `setup.probe-enrichment`; `cancelled` enters `setup.needs-repair`, whose `retry` re-enters `setup.probe-qualification`.
+* *Until graded*: A role without a valid record, skipped or not yet graded, is unqualified: its tasks take the conservative fallback (link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]). An unqualified role is no setup failure. Both clients list the unqualified roles; after a harness update changes the major.minor, the next reconcile run of the setup grades the affected roles again, and both clients name that run (the project's `reconcile`) until it has.
+
+[#setup-enrichment]
+*Architecture enrichment* (`setup.enrich-consent`, `setup.enrich-architecture`): A model state with fan-out, declared `job llm enrich-module role enrich each setup.enrichment-modules` over the server-computed list of the modules to enrich (link:../workflow-dsl/02-units-jobs-decisions.adoc[Workflow DSL Specification, Model States]), entered only after the operator's consent to the expected tokens of the enrichment (`setup.enrich-consent`, consent kind `model_cost`; `no` skips the description with its reason, lists the modules unenriched and owed for a later run, and the project is ready without it): it creates one task of the role `enrich` (class `read_only`, link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]) per module, each with its own entity `enrich-<module_id>`, a single-module repository included. All tasks are queued at once; the role's count and the machine's model slots bound how many workers serve them (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]), and the workers take them through the task protocol (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]). Each worker records its module through the single `submit` link of its entity kind on the entity `enrich-<module_id>`. The submission parameters mirror `plan-marshall`'s `architecture enrich module` and `architecture enrich package` commands (`manage-architecture/scripts/architecture.py`, purpose values from `manage-architecture/standards/architecture-persistence.md`), verified at plan-marshall commit `1d4a1da37`; re-verify against the latest `plan-marshall` version before implementing:
+
+[cols="2,1,5"]
+|===
+|Parameter |Required |Content
+
+|`responsibility`
+|Yes
+|Module description, 1–3 sentences.
+
+|`responsibility_reasoning`
+|No
+|Sources the responsibility was derived from (for example the README overview or a central type).
+
+|`purpose`
+|No
+|Module classification, closed enum `library` \| `extension` \| `deployment` \| `runtime` \| `parent` \| `bom` \| `integration-tests` \| `benchmark`.
+
+|`purpose_reasoning`
+|No
+|Signal the purpose was derived from (for example `packaging=jar`, no runtime dependencies).
+
+|`reasoning`
+|No
+|Shared rationale, applied to `responsibility_reasoning` and `purpose_reasoning` where the specific field is not supplied.
+
+|`key_packages`
+|No
+|List of `{package, description, components}`: `package` is a repository-relative path that must resolve to an existing location (the path is the identity key), `description` is 1–2 sentences and required, and `components` optionally names the package's key types. A dotted package identifier is rejected with `invalid_link_args` whose `detail` names `non_resolving_package_key` (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc#rejection-reasons[closed rejection reasons]); only the server-derived `packages` facts of `pm://architecture/modules/{module_id}` may carry dotted names.
+|===
+
+The reasoning fields carry the enrichment rationale required by `PM-EXT-3` and are persisted next to the values they justify. *Deliberate hardening vs. `plan-marshall`*: `purpose` is validated against the closed enum; `plan-marshall` documents the same eight values but its CLI accepts any string. Enrichment is model work, not a question: the modules to enrich are computed by `setup.probe-enrichment`, which leads to the consent and the state only when at least one module needs enrichment (first run: every module without a `responsibility`; reconcile run and the aspect `architecture`: the modules listed in `changed[]` of `pm://architecture/drift`, never a module listed in `indeterminate[]`, and every module still without a `responsibility`) and the role `enrich` has a valid qualification record. When modules need enrichment but `enrich` is unqualified, the probe reports `enrich_unqualified`: enrichment takes the conservative fallback like every role (link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]), no task is created, and the setup continues to `setup.commit-changes` and completes. The unenriched modules are named in both clients and in the architecture facts, where their `responsibility` is absent (`pm://architecture/modules/{module_id}`), and the next reconcile run offers their enrichment again once `enrich` qualifies, or once the operator consents to its tokens. The state completes when every entity has its required submission: its return evaluation reports `all_enriched` once every module of that set has a `responsibility`, which exits to `setup.commit-changes`. A task that ends without its `submit` submission (a `lost` worker included) is offered again by the server within the state's compiled self-remedy budget; a task that ends `asked` waits for its workspace decision and is offered again with the answer in its `facts` (link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Questions]). The state's declared fallback is `setup.needs-repair`, for failures of the qualified role: it is taken when a task is still without its submission after the budget, when a task ends `infeasible` (its evidence in the repair state's `facts`), and when the state settles `lost` for a role reason after the probe (the state offers no `retry` of its own). The repair state's `facts` name the unenriched modules, and its `retry` re-enters `setup.probe-enrichment`, which enters `setup.enrich-architecture` with tasks only for the modules still unenriched. No condition of this state waits for a model. The setup completes only when every module is enriched, or listed unenriched while `enrich` is unqualified or the operator declined its tokens (`PM-EXT-3`).
+
+*Landing*: `setup.commit-changes` is an operator wait offering `land` or `leave`; `land` enters the `call` state `setup.land-changes`, which runs `call git.commit_and_push (message_mode=step_or_fallback, push_mode=if_push_remote)` on the primary checkout with the setup staging set `.marshall/config/**` (team files and the units the team placed), `.gitignore`, and `.marshall/project-architecture/**` (link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]). Its `done` (whatever its result `{commit?, pushed, clean}`) enters `setup.completed`; `stepped_out` returns to `setup.commit-changes` with the changes uncommitted. `leave` enters `setup.completed` with the changes uncommitted, left to commit.
+
+=== Steward Wizard Step Mapping
+
+Every step of the `plan-marshall` first-run wizard and every stage sub-step and gate of its `upgrade` verb maps to exactly one disposition: a `project-setup` state, or *retired* with the reason. No wizard step or upgrade gate survives outside the `project-setup` workflow. The wizard steps mirror `marshall-steward/references/wizard-flow.md` and the upgrade stages and gates mirror `marshall-steward/scripts/upgrade.py` and `references/upgrade-flow.md`, verified at plan-marshall commit `1d4a1da37`; re-verify against the latest `plan-marshall` version before implementing.
+
+[cols="2,3,4"]
+|===
+|`plan-marshall` step or gate |`plan-marshall` action |`PM-MCP` disposition
+
+3+|*First-run wizard (`wizard-flow.md`)*
+
+|Step 1: Gitignore Setup
+|Writes the `.plan/` entries with tracked-file exceptions into `.gitignore` (`gitignore_setup.py`).
+|`setup.prepare-workspace` (writes the `.marshall/` partition into `.gitignore`).
+
+|Step 2: Update Project Documentation
+|Appends executor and temp-file conventions to the project's agent documentation (`determine_mode fix-docs`).
+|*Retired*: there is no executor or script-call convention to document; agent-facing guidance ships with the client bundle (`pm-operator client install`) and the `skill://` resources.
+
+|Step 3: Ensure Executor Permission
+|Consults, then widens the host allow-list for `execute-script.py`.
+|*Retired*: there is no executor. Host permissions for the MCP server are written by `pm-operator client install`.
+
+|Step 4: Generate Executor
+|Generates `.plan/execute-script.py`.
+|*Retired*: there is no executor; the runtime executes every primitive in-process or as a job.
+
+|Step 5: Initialize Marshal.json
+|Creates `.plan/marshal.json` with defaults (`manage-config init`).
+|`setup.prepare-workspace` (creates `.marshall/config/` holding no copy of a workflow unit; no JSON defaults are written, the team files are sparse; an existing `.plan/marshal.json` is never read, `PM-MIG-2`).
+
+|Step 5b: Effort Ladder & Pin Setup
+|Seeds and validates the machine-local effort ladder and materializes model pins (`effort_pins`).
+|*Retired*: there is no effort ladder and no model pin. Harness, model, and effort come from the role artifacts and the role assignments of the machine (its onboarding) and the project (its operator values), operator files kept outside the setup; `setup.check-operator-files` validates `local-config.json` and the effective role set and fails closed (<<setup-operator-files>>).
+
+|Step 6: Project Default Base Branch
+|Seeds `project.default_base_branch` from `origin/HEAD` (fallback `main`).
+|Derived (fact `base_branch_default`); `setup.project-settings` writes `project.json` `base_branch` only when the team chooses another branch.
+
+|Step 6b: Interaction Mode
+|Persists `interaction_mode` (`basic` \| `advanced` \| `expert`).
+|*Retired*: the server drives the interior of every plan, so no interaction mode exists to choose; how often a plan waits for the operator is its asking axis (Step 12).
+
+|Step 7: Discover and Activate Providers
+|Detects and activates VCS, CI, and other providers.
+|`setup.probe-integration-variants` (the project's operator value, else the machine's provider default, else the CLI variant where the integration's host tool is enrolled and the native variant otherwise; an invalid variant shown in the onboarding's `project.operator`) and `setup.select-providers` (derived CI provider, analysis providers such as Sonar, review bots).
+
+|Step 8: Project Architecture
+|Applies extension `config_defaults`, discovers modules, runs the LLM architectural analysis.
+|`setup.detect-domains` (domain activation; no `config_defaults` are written, domain defaults are compiled defaults), `setup.discover-modules` (discovery), `setup.enrich-architecture` (analysis).
+
+|Step 8b: Seed the Build Map
+|Seeds `build.map` after architecture discovery (write-once).
+|`setup.seed-build-map`.
+
+|Step 9: Configure Skill Domains
+|Activates the applicable skill domains and profiles from the architecture analysis.
+|`setup.detect-domains` (domain activation) together with the per-module Axis-A applicability evaluated in `setup.discover-modules`.
+
+|Step 10: Plan Phase Settings
+|Sets `branch_strategy`, `compatibility`, `commit_and_push`.
+|`setup.project-settings` (`compatibility`, `simplicity`, `minimum_lane` in `workflow.json`). `branch_strategy` and `commit_and_push` are *retired*: plans always work on a feature branch in a worktree, how a plan lands is the project's landing axis (`landing`: `landing.pull-request`, `landing.main`, or `landing.files`, chosen in `setup.configure-finalize`), and a local-only outcome is derived from the absence of a push remote (derived fact `push_remote`).
+
+|Step 11: Quality Pipeline Configuration
+|Selects `verification_steps` and finalize steps.
+|`setup.configure-finalize` (optional step lanes and parameters in `workflow.json`, and the landing variant, validated against the project; which steps exist is the finalize unit in force, whose mandatory steps cannot be removed).
+
+|Step 11b: Resolve Adversarial Infra Elements (`lane: ask`)
+|Mandatory, non-skippable answer for every `lane: ask` finalize element.
+|`setup.configure-finalize`: a `configure_finalize` answer that leaves a `lane: ask` element unanswered is refused, so the state does not advance; the operator answers it in either client (<<setup-questions>>).
+
+|Step 12: Review Gates
+|Sets the `*_without_asking` transition flags.
+|The plan's asking axis (`ask.every-phase`, `ask.key-points`, `ask.questions-only`; link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]): which phase transitions wait for the operator, whether the outline is reviewed, and whether the plan merges itself or hands back a ready pull request once the pre-merge barrier passes; the machine's default from its onboarding, the project's value among its operator values (`project.operator`), and a plan's own value in its settings. Content questions reach the operator as decisions in both clients, without a time limit.
+
+|Step 13: Detect CI Provider and Configure Credentials
+|Detects the CI provider, verifies its CLI, optionally configures credentials.
+|`setup.select-providers` (CI detection), `setup.probe-integration-variants` (variant per integration: the project's value or the machine's provider default, else `cli` where its host tool is enrolled for the machine or the project, `native` where not), and `setup.verify-credentials` (agent credential per native integration: GitHub App installation token or token `whoami`, GitLab or Forgejo token `whoami` with expiry; a missing or failing credential enters `setup.needs-repair`, whose `facts` name the credential and the act that enters or replaces it). *Deliberate change vs. `plan-marshall`*: no CLI is verified or required for a native integration.
+
+|Step 13.5: Merge-Queue Provisioning
+|Probes the platform merge queue and persists the `use_merge_queue` opt-in.
+|`setup.probe-merge-queue` reads the derived fact `merge_queue_enforced`; where a queue is available but not enforced, `setup.merge-queue` asks the operator (a decision of the workspace scope, `recheck` / `skip`) and names the provider setting that enables a queue; it never provisions one (<<setup-merge-queue>>). No opt-in is persisted, because whether a queue is enforced is derived from the provider and an enforced queue is never bypassed.
+
+|Step 14: Permission Setup
+|Grants standing host permissions for routine commands.
+|*Retired*: replaced by `pm-operator client install`; the MCP tool surface needs no per-command approvals.
+
+|Step 14b: OpenCode Enforcement Apply
+|Copies the permission block into `opencode.json` and places the guard plugin.
+|*Retired*: script-call enforcement is moot without an executor; the OpenCode host configuration is written by `pm-operator client install opencode`.
+
+|Step 15: Summary
+|Prints the wizard summary.
+|`setup.completed` (its facts, shown in the project's resting state `project.completed`).
+
+|Step 16: Step-Ordering + End-of-Run Landing Cycle
+|Runs `sync-defaults` and `steps-sort`, then lands the wizard-created artifacts.
+|Ordering: *retired* (sparse files hold no step maps to sync or sort; the step order is a descriptor property and the project's `phase-6-finalize.pmwf` unit). Landing: `setup.commit-changes` (`land` / `leave`) and `setup.land-changes`.
+
+3+|*`upgrade` verb (`upgrade.py`, `upgrade-flow.md`)*
+
+|Stage top-level gates (suppressed by `--integrate true`)
+|Prompts before each of the four stages.
+|*Retired*: each reconcile-path question is asked only when its probe finds something to ask; there is no stage grouping to confirm. A project that holds no copy of a unit takes the binary's changed default at once; for a unit the project holds a copy of, the change (including a newly shipped finalize step) is found by `setup.probe-new-steps` and offered as a three-way diff in `setup.offer-new-steps`, one part per changed copy (§ Configuration Validation & Upgrades Before 1.0).
+
+|Stage 1 `regenerate-target-tree` (meta project)
+|Regenerates the generated target tree.
+|*Retired*: no generated target tree; client bundles are compiled into the binary.
+
+|Stage 1 `regenerate-executor`
+|Regenerates `.plan/execute-script.py`.
+|*Retired*: there is no executor.
+
+|Stage 1 `cache-freshness-check` (consumer project)
+|Verifies the plugin cache is fresh.
+|*Retired*: there is no plugin cache; bundle and binary parity is reported by `pm-operator client status` and repaired by `pm-operator client update`.
+
+|Stage 1 `cache-retention-sweep` and nested gate `cache-retention-prune`
+|Sweeps and, on confirmation, prunes stale plugin-cache versions.
+|*Retired*: there is no plugin cache.
+
+|Stage 2 `reconcile-marshal-json`
+|Reconciles `marshal.json` (`sync-defaults`, `steps-sort`, key normalization).
+|`setup.reconcile-config` validates the team files, the operator file, and the project's copies of units; a team JSON file the binary refuses by format is offered as a rewrite in `setup.needs-repair` (`rewrite_config:<file>`); default sync, step sorting, and key normalization are *retired* (sparse files).
+
+|Stage 2 `review-held-defaults`
+|Asks the operator about each default step the `sync-defaults` report held back (`held_for_ask`, `re_added` across an operator removal) and adds an accepted one with `add-step`.
+|*Retired*: sparse files hold no step maps and therefore no held defaults; changes of the binary's default workflow units, newly shipped steps included, reach a project without a copy at once and are offered by `setup.offer-new-steps` for a copy the project holds.
+
+|Stage 2 `migrate-bot-lists`
+|Maps the retired `enabled_bots` knob onto `required_bots` / `optional_bots`.
+|*Retired*: no `plan-marshall` configuration is imported (`PM-MIG-2`), so the `enabled_bots` knob never exists in `.marshall/config/project.json`; `review.required_bots` / `review.optional_bots` are answered in `setup.select-providers`.
+
+|Stage 2 `validate-bot-lists`
+|Reports bot tokens that match no registered reviewer.
+|`setup.reconcile-config` (validation on read: every bot token resolves in the review-bot registry, `unregistered_kind`).
+
+|Stage 2 `migrate-architecture-descriptors`
+|Rewrites architecture descriptors (`discover --force --apply migration`) and checks for regression (`descriptor-regression-check`).
+|`setup.discover-modules` on the reconcile path (rediscovery plus the `pm://architecture/drift` regression report).
+
+|Stage 2 nested gate `build-map-reseed`
+|Compares `build.map` with the live derivation and, on confirmation, re-seeds (`build-map seed --force`).
+|`setup.probe-build-map` compares, and on drift `setup.reseed-build-map` asks the operator (a decision of the workspace scope, `reseed_build_map` / `keep_build_map`).
+
+|Stage 3 `executor-preflight`
+|Checks the regenerated executor.
+|*Retired*: there is no executor.
+
+|Stage 3 `content-drift-report` (meta project)
+|Reports drift between sources and the generated target tree.
+|*Retired*: no generated target tree.
+
+|Stage 4 `run-landing-cycle` and nested gates `land-leave`, `branch-reuse`
+|Lands the reconciled artifacts, asking whether to land or leave them and whether to reuse an existing branch.
+|`setup.commit-changes` (`land` / `leave`, an operator wait answered in either client) and `setup.land-changes` (branch handling by `git.commit_and_push`).
+|===

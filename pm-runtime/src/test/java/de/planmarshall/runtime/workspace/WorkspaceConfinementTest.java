@@ -16,18 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
-
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.core.store.ConfinementOutcome;
-import de.planmarshall.core.store.ConfinementOutcome.Confined;
-import de.planmarshall.core.store.ConfinementOutcome.Rejected;
-import de.planmarshall.core.store.WorkspaceRoots;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,6 +30,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.store.ConfinementOutcome;
+import de.planmarshall.core.store.ConfinementOutcome.Confined;
+import de.planmarshall.core.store.ConfinementOutcome.Rejected;
+import de.planmarshall.core.store.WorkspaceRoots;
 
 /**
  * The runtime entry of the path confinement (PM-SEC-2): the outcome of {@code pm-core} is passed on unchanged,

@@ -9,17 +9,17 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.enrolment.Enrolments;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * Step 2 of the per-project recovery, {@link RecoveryStep.Name#OWED_ENROLMENT_AUDIT}
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery; PM-IMPL-7): the audit
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery; PM-IMPL-7): the audit
  * records the project's enrolment writes still owe are handed over, under the project's enrolment lock
  * ({@link Enrolments#replayOwedAudit(String)}).
  * <p>

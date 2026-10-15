@@ -25,10 +25,10 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/module-structure.adoc} (Modules, {@code pm-core})</li>
+ * <li>{@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Modules, {@code pm-core})</li>
  * <li>{@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc}</li>
  * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc} (Leases, Integrity Invariants)</li>
- * <li>{@code doc/specification/cli-and-security/02-credentials-and-operator.adoc} (Enrolment Integrity; Enrolment,
+ * <li>{@code doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc} (Enrolment Integrity; Enrolment,
  * Lifecycle Gate &amp; Release)</li>
  * </ul>
  */

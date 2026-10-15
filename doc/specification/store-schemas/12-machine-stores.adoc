@@ -1,0 +1,980 @@
+= Store Schemas Specification: Machine Configuration, Credentials & Audit Stores
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../store-schemas.adoc[Store Schemas Specification] » Machine Configuration, Credentials & Audit Stores
+
+== Machine Configuration, Operator Files, Credentials & Security Audit Stores
+
+*Operator files and their revision*: The operator files of the machine (`machine-config.json`, `consents.json`, `role-assignments.json`, `model-catalogue.json`, `host-tools.json`, `explorer.json`) and of a project (`local-config.json`, `role-assignments.json`, `model-catalogue.json` in its machine store) are written only by the runtime, on an act of the operator in either client over the local API (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]), never by a model, a job, or a client process. Each carries `revision`, an integer the runtime increments with every write. A change names the revision it was made against; the first change wins, and a change against an older revision is refused with `conflict` (`409`), nothing merged and nothing overwritten unseen (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#two-channels[CLI, Coordination & Security Specification, Operator Choices in the Web App and the Terminal]). Every write is audited with its channel (`cli` or `web`) and, for a paired device, its `device_id` (<<audit-log>>).
+
+[#machine-config]
+=== Machine Configuration Store (`<PM_MCP_BASE>/machine-config.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
+
+Configures machine-wide build and worker concurrency limits, warm LSP pool sizing, the machine-level timeouts and budgets (drain timeout, escalation cap, progress wait bound, language server timeouts, audit rotation age, rotated audit file retention), the machine-wide connection overrides of the client profiles (`client_profiles.<client_id>.connection`, link:../client-profiles/01-profile-schema.adoc[Client Profiles Specification], Machine-Wide Operator Overrides), the outbound proxy (`proxy`), web access with its two listeners (`web`), the interface and model languages (`language`), the default harness (`harnesses.default`), the credential store (`credentials.store`), the provider defaults (`providers`, <<provider-defaults>>), the plan defaults (`plan_defaults`), how documents are taken as a source (`sources.documents_mode`), the cleanup durations (`cleanup`), the console preferences (`console`), and `project_defaults`, the machine's value of the per-project operator keys of `local-config.json` (xref:08-project-configuration-local.adoc#local-config[Operator Local Configuration (`<PM_MCP_BASE>/projects/<project_id>/local-config.json`)]). Every value the onboarding records here is the default of every project (xref:08-project-configuration-local.adoc#project-levels[Project Values over Machine Values]); only the interface language, the default harness, and the credential store are facts of the machine with no project value. The lock-wait report threshold is a compiled constant (link:../timeouts/02-runtime-leases-operator-web.adoc#runtime-lifecycle[Timeouts & Budgets Specification, Runtime Lifecycle]).
+
+Written only by the runtime under `locks/machine-config.lock`, on the operator's acts: the sub-workflows of the machine's onboarding and their later runs from the machine settings (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]), a value set or unset over the local API, `pm-operator config` and the direct verbs that run one aspect, and `pm-operator web enable|disable`, which take no port option. A key the machine's onboarding has not recorded yet is absent, and its compiled default applies where one exists; `credentials.store` has none (<<credential-store>>). `pm-operator` reads the file directly only for the drain timeout that bounds `pm-operator drain` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#cli-file-reads[CLI, Coordination & Security Specification, Direct File Reads]). The timeout values, their bounds, and their expiry behaviour are defined in link:../timeouts/03-retention-host-config.adoc#configuration-keys[Timeouts & Budgets Specification]; the `default`, `minimum`, and `maximum` values below equal them. The variants of the plan behaviour axes are the units of link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]; the machine's landing default is validated only against what the machine itself provides (a provider for `landing.pull-request`), never against a repository.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/machine-config.json",
+  "title": "MachineConfigStore",
+  "type": "object",
+  "required": ["format_version", "revision", "max_build_slots", "lsp_idle_timeout_seconds"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0, "description": "Settings revision, incremented by every write; a change against an older revision is refused with conflict." },
+    "max_build_slots": { "type": "integer", "minimum": 1, "maximum": 16, "default": 2 },
+    "model_slots": { "type": "integer", "minimum": 1, "maximum": 16, "default": 2, "description": "Machine cap of concurrently running workers (job kind llm), warm or fresh, across all projects and the machine scope (Machine Lease Stores, model-slots.json); a warm worker holds its slot for its whole generation, idle or not; per plan at most one of them is a writer worker." },
+    "lsp_idle_timeout_seconds": { "type": "integer", "minimum": 60, "default": 900 },
+    "lsp_start_timeout_seconds": { "type": "integer", "minimum": 10, "default": 120 },
+    "lsp_request_timeout_seconds": { "type": "integer", "minimum": 5, "default": 60 },
+    "max_lsp_instances": { "type": "integer", "minimum": 1, "maximum": 8, "default": 3 },
+    "drain_timeout_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 600,
+      "description": "How long running jobs may finish after SIGTERM/SIGINT, pm-operator drain, or the operator's stop with when drain, before their process groups are terminated and recorded killed (runtime-model.adoc, Drain, Stop & Upgrade; timeouts.adoc, Runtime Lifecycle); a stop with when now cuts it to zero. The runtime's drain reads an invalid value (negative, not an integer, or a file that is unreadable or not one JSON object) as the default, with a warning, and never fails for it."
+    },
+    "escalation_cap_seconds": {
+      "type": "integer",
+      "minimum": 330,
+      "default": 1800,
+      "description": "Cap C of the one-shot escalation budget E = max(t, min(2t, C)) after a timed_out job (timeouts.adoc, Job Budgets)."
+    },
+    "progress_wait_max_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 7200,
+      "default": 1800,
+      "description": "Upper bound of a progress wait (timeouts.adoc, Waits & Long-Polls)."
+    },
+    "audit_rotation": {
+      "type": "object",
+      "description": "Rotation thresholds of logs/audit.jsonl (checkpoint record, audit-index.jsonl entry); whichever is reached first rotates",
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes": { "type": "integer", "minimum": 1048576, "default": 67108864 },
+        "max_days": { "type": "integer", "minimum": 1, "default": 30 },
+        "retain_days": { "type": "integer", "minimum": 0, "default": 365, "description": "Age in days after which a rotated audit file is technical residue the periodic sweep removes (Evidence-Based Removal Sweeps); 0 keeps rotated files forever. Index entries are never removed." }
+      }
+    },
+    "client_profiles": {
+      "type": "object",
+      "description": "Machine-wide operator overrides of a client profile's connection settings; no other profile key can be overridden. An override passes the same profile validation as the compiled value (for a host whose progress_resets_timeout is false, bounded_wait_seconds at most idle_timeout_seconds - 30; timeouts.adoc, Host Integration).",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of a profile of the effective profile set, an operator-added one included (identifiers.adoc, client_id)." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["connection"],
+        "additionalProperties": false,
+        "properties": {
+          "connection": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "description": "Each present key replaces the profile's compiled value; an absent key keeps it.",
+            "properties": {
+              "bounded_wait_seconds": { "type": "integer", "minimum": 15, "maximum": 3600, "description": "Bounded wait window (timeouts.adoc, Bounded wait)." },
+              "idle_timeout_seconds": { "type": "integer", "minimum": 45, "maximum": 7200, "description": "Host tool-call idle timeout (timeouts.adoc, Host Integration)." },
+              "progress_resets_timeout": { "type": "boolean", "description": "Whether notifications/progress resets the host's tool-call timer." }
+            }
+          }
+        }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional outbound proxy, applied to every cui-http call (provider calls, the icon fetch, the release check and fetch) and to the JGit transport of the native git variant; never taken from a repository value or from the environment. Absent: direct connections.",
+      "properties": {
+        "https_proxy": { "type": "string", "format": "uri", "pattern": "^https?://[^/@]+/?$", "description": "Proxy URL (scheme, host, optional port) without embedded credentials; a URL with user information is refused. Authenticated proxies are not supported (later-improvements.adoc, L-8)." },
+        "no_proxy": { "type": "array", "uniqueItems": true, "description": "Hosts reached directly, without the proxy.", "items": { "type": "string", "minLength": 1, "maxLength": 253 } }
+      }
+    },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Web access of the runtime with its two listeners side by side (PM-SEC-7; CLI, Coordination & Security Specification, Loopback and LAN Listeners Side by Side). Absent: both closed. The runtime opens each listener at every start while its switch is true.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false, "description": "The loopback listener: plain HTTP on 127.0.0.1 at port. Written true by pm-operator web enable (also by a first pm-operator web pair, web open, or the terminal client's entry) and false by pm-operator web disable, which also writes lan false; paired devices survive false." },
+        "lan": { "type": "boolean", "default": false, "description": "The LAN listener: HTTPS on all interfaces at lan_port with the certificate in <PM_MCP_BASE>/web/tls/, beside the loopback listener. Written true by pm-operator web enable --lan or the entry's yes to other devices (both also write enabled true); written false by pm-operator web disable and by turning the network listener off from either client, which leaves enabled unchanged." },
+        "port": { "type": "integer", "minimum": 1024, "maximum": 65535, "default": 7420, "description": "TCP port of the loopback listener, used the next time it opens (an open listener is never re-bound)." },
+        "lan_port": { "type": "integer", "minimum": 1024, "maximum": 65535, "default": 7421, "description": "TCP port of the LAN listener, used the next time it opens; never equal to port. Each listener applies the occupied-port rule to its own port: an occupied port fails the verb that opens it and leaves that switch unchanged; at a runtime start it leaves that listener closed, reported in the runtime status, while the runtime and the other listener still start. Another port is never chosen." }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The two languages of Module Structure, Languages and Internationalisation.",
+      "properties": {
+        "interface": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{1,8})*$", "description": "The operator's interface language: a locale with a language pack. Absent: the locale of the client's request where a pack exists, else en; the runtime's own environment is never an input. A machine fact, with no project value." },
+        "model": { "type": "string", "pattern": "^(same|[a-z]{2,3}(-[A-Za-z0-9]{1,8})*)$", "default": "same", "description": "The machine's model language: same (the interface language) or a locale; a project's language.model of local-config.json overrides it." }
+      }
+    },
+    "harnesses": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of a worker-eligible harness of harnesses.json, written by harness.enrol of the onboarding and its later runs; the steward runs on it. A harness that is the default cannot be removed before another is chosen." }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "store": { "type": "string", "enum": ["os", "file"], "description": "The credential store the operator chose in the onboarding's store step or its verb (CLI, Coordination & Security Specification, Credential Store as an Operator Choice); no default: before it is recorded no credential can be entered. The runtime uses the recorded store and never another." }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "description": "The machine's provider defaults (Machine Provider Defaults).",
+      "propertyNames": { "enum": ["git", "github", "gitlab", "forgejo", "sonar"] },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["available"],
+        "additionalProperties": false,
+        "properties": {
+          "available": { "type": "boolean", "description": "true only once its verification passed, or false on the operator's word after a failed verification; a provider recorded false never serves a project." },
+          "variant": { "type": "string", "enum": ["native", "cli"], "description": "The default integration variant of a project that sets none; cli only for git, github, and gitlab." },
+          "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "The credential entry the provider uses where a project names none (identifiers.adoc, credential_key)." }
+        }
+      }
+    },
+    "plan_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The machine's variant of each plan behaviour axis (Workflow DSL Specification, Plan Behaviour Axes); a project's team or operator value and a plan's own override it; posture is no axis but resolves by the same levels.",
+      "properties": {
+        "landing": { "type": "string", "enum": ["landing.pull-request", "landing.main", "landing.files"], "default": "landing.pull-request" },
+        "method": { "type": "string", "enum": ["method.test-first", "method.tests-after"], "default": "method.tests-after" },
+        "asking": { "type": "string", "enum": ["ask.every-phase", "ask.key-points", "ask.questions-only"], "default": "ask.questions-only" },
+        "posture": { "type": "string", "enum": ["minimal", "standard", "full"], "description": "Optional, no default: the machine's execution posture, set in the machine's settings and never asked in the onboarding; while neither the machine nor the project sets it, a plan asks it in init.options (Workflow DSL Specification, Posture and base branch)." }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "documents_mode": { "type": "string", "enum": ["copy", "move", "ask"], "default": "ask", "description": "How the documents of a start are taken into its source directory (State Catalogue Specification, Documents as a Source); answering always in the start writes copy or move here." }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Durations of the one cleanup (Timeouts & Budgets Specification, One Cleanup): an item is due when its end is older than its duration; a project's local-config.json cleanup overrides the first three for its items.",
+      "properties": {
+        "plans_after_days": { "$ref": "#/$defs/cleanup_duration" },
+        "epics_after_days": { "$ref": "#/$defs/cleanup_duration" },
+        "logs_after_days": { "$ref": "#/$defs/cleanup_duration" },
+        "reports_after_days": { "$ref": "#/$defs/cleanup_duration", "description": "Read reports; machine only." },
+        "unenrolled_after_days": { "$ref": "#/$defs/cleanup_duration", "description": "Machine stores of unenrolled projects; machine only." },
+        "remind_after_days": { "type": "integer", "minimum": 1, "default": 3, "description": "After how many days a postponed cleanup asks again." }
+      }
+    },
+    "console": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Preferences of the terminal client.",
+      "properties": {
+        "notify": { "type": "boolean", "default": true, "description": "Whether the terminal client signals a new report or decision." },
+        "full_screen": { "type": "boolean", "default": false, "description": "Whether the terminal client opens in its full-screen view." }
+      }
+    },
+    "project_defaults": {
+      "description": "The machine's value of the per-project operator keys; each local-config.json key of $defs/settings falls back to this value, then to the compiled default (Operator Local Configuration).",
+      "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/local-config.json#/$defs/settings",
+      "unevaluatedProperties": false
+    }
+  },
+  "$defs": {
+    "cleanup_duration": {
+      "oneOf": [ { "type": "integer", "minimum": 7 }, { "type": "string", "const": "never" } ],
+      "default": 30,
+      "description": "Days, at least 7 so that no window of the system view (at most 7 days) loses data, or never."
+    }
+  }
+}
+----
+
+[#consent]
+=== Consent Before Acting (`<PM_MCP_BASE>/consents.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+The server asks before it looks at the machine or a checkout, runs a program it found, or spends model tokens on its own initiative. Every such action has a consent kind from the closed list below, and its state is preceded by a consent state, an operator wait (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]) named `<sub-workflow>.consent`, or `<sub-workflow>.<action>-consent` where a step asks several, with the operator links `yes`, `yes_remember` (only for a kind that can be remembered), and `no`. One consent state may ask several kinds, each answered separately. `no` records nothing and leaves the scope in the consent state, which offers the same links again; only an optional action (column _With no_) goes on without it. The server never takes the action without one of the two yes links, and a consent covers its kind and never a wider one: `scan_harnesses` runs no login or model probe. An act of the operator's own needs no consent: a secret the operator enters is stored on that act.
+
+[cols="2,4,2,2"]
+|===
+|Kind |What the operator allows |Remembered |With _no_
+
+|`scan_harnesses` |look for the executables of the profiles' harnesses and run their version probe |for the machine |stays
+|`fetch_icons` |download the makers' icons of the found harnesses once, through the runtime (<<icon-store>>) |for the machine |goes on with monograms
+|`probe_harness_login` |run the login probe of each chosen harness, its command or one minimal headless call with its token cost |for the machine |stays
+|`verify_harness_profile` |run a harness the binary does not know to verify its draft profile, with the token cost of its stages |never |stays
+|`probe_harness_models` |run the model probe of each enrolled harness |for the machine |stays
+|`model_advice` |a task of the steward with its expected tokens |for the machine |goes on without the advice
+|`check_credential_store` |write, read, and delete one test entry in the chosen OS credential store |for the machine |stays
+|`scan_providers` |look for the providers' CLI tools and the credentials already stored |for the machine |stays
+|`verify_providers` |call each chosen provider with its credential and run its CLI tool |for the machine |stays
+|`auto_run` |every consent of the harness, catalogue, store, and provider steps that an automatic onboarding run needs, listed in full, for that run only |never |back to `onboard.mode`
+|`inspect_checkout` |read a project's checkout and run the found host tools' version probes from the absolute directories of the login `PATH`; changes nothing |for the project |stays
+|`run_checkout_scripts` |run the named scripts of a project's checkout, each with its arguments, confined like a job |for the project and the digest of each script |goes on, what needs the scripts unknown
+|`model_cost` |a role task of the project setup whose expected tokens are shown first (the qualification of the roles, the enrichment of the modules) |for the project |the step is skipped with its reason and owed for a later run
+|`check_updates` |ask the organisation's registry for a release newer than the installed one |for the machine |goes on, no newer version known
+|===
+
+A grant is not a consent: reading another repository is a cross-repository read grant (xref:15-screening-and-grants.adoc#grant-record[Access Grant Record]).
+
+*The store*: `consents.json` is the only place a remembered consent lives; a project's enrolment holds none. The runtime writes it under `locks/consents.lock` in the transaction of the consent state answered `yes_remember`, and on the operator's withdrawal in the machine settings of either client (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope], `settings.withdraw`) or over the local API; a consent state whose kind (and, for a project kind, project and scripts) is remembered is passed without a question. Withdrawing changes nothing recorded with the consent; its state asks again the next time its action runs. Both a remembered and a withdrawn consent append an `operator` audit record (`consent_remembered`, `consent_withdrawn`, `details{kind, project_id}`). A consent of a project is asked before the project has its id in its onboarding: a `yes_remember` is held with the onboarding's entry and written here under the confirmed `project_id` in the transaction of `project.enrol`; an onboarding that does not reach its enrolment remembers nothing (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]). For `run_checkout_scripts` the entry lists every script it covers with its digest; a later run asks only for a script that is not listed or whose digest changed, and its `yes_remember` replaces the list. The entries of a project go with its machine store when the cleanup deletes it.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/consents.json",
+  "title": "ConsentStore",
+  "type": "object",
+  "required": ["format_version", "revision", "consents"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "consents": {
+      "type": "array",
+      "description": "At most one entry per (kind, project_id).",
+      "items": {
+        "type": "object",
+        "required": ["kind", "granted_at", "channel"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["scan_harnesses", "fetch_icons", "probe_harness_login", "probe_harness_models", "model_advice", "check_credential_store", "scan_providers", "verify_providers", "inspect_checkout", "run_checkout_scripts", "model_cost", "check_updates"], "description": "The rememberable kinds; verify_harness_profile and auto_run are never stored." },
+          "project_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Required for inspect_checkout, run_checkout_scripts, and model_cost; absent for every other kind." },
+          "scripts": {
+            "type": "array",
+            "description": "run_checkout_scripts only: each covered script.",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "description": "Relative to the project root." },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              }
+            }
+          },
+          "granted_at": { "type": "string", "format": "date-time" },
+          "channel": { "type": "string", "enum": ["cli", "web"] },
+          "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "The paired device for channel web; null for cli." }
+        },
+        "allOf": [
+          { "if": { "properties": { "kind": { "enum": ["inspect_checkout", "run_checkout_scripts", "model_cost"] } } }, "then": { "required": ["project_id"] }, "else": { "not": { "required": ["project_id"] } } },
+          { "if": { "properties": { "kind": { "const": "run_checkout_scripts" } } }, "then": { "required": ["scripts"] }, "else": { "not": { "required": ["scripts"] } } }
+        ]
+      }
+    }
+  }
+}
+----
+
+[#model-catalogue]
+=== Model Catalogue (`model-catalogue.json`, Machine and Project)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_ +
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
+
+Which models plans may use, per enrolled harness. The machine's catalogue `<PM_MCP_BASE>/model-catalogue.json` is written by the catalogue step of the machine's onboarding and its later runs: the models a harness lists through its profile's `headless.models_probe` (source `probe`, after the consent `probe_harness_models`), or, where the harness cannot list them, the model ids the operator enters in `catalogue.select` (source `operator`); the operator keeps or drops each (link:../client-profiles/01-profile-schema.adoc[Client Profiles Specification, Profile Schema]). A project may allow its own: `<PM_MCP_BASE>/projects/<project_id>/model-catalogue.json`, of the same schema, chosen in the project's operator values from the models the enrolled harnesses offer (xref:08-project-configuration-local.adoc#project-levels[Project Values over Machine Values]), replaces the machine's catalogue for that project as a whole; without one the machine's applies. The *effective catalogue* of a project is its own, else the machine's. Role validation refuses a role whose effective model is not allowed on its harness by the effective catalogue (`model_not_allowed`, link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]); the steward, which advises before the catalogue exists, is outside it (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]). The machine file is written under `locks/model-catalogue.lock`, the project file under the project's `locks/local-config.lock`. An entry of a harness that is no longer enrolled is ignored and dropped by the next write.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/model-catalogue.json",
+  "title": "ModelCatalogue",
+  "type": "object",
+  "required": ["format_version", "revision", "harnesses"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "harnesses": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of an enrolled harness." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["models"],
+        "additionalProperties": false,
+        "properties": {
+          "models": {
+            "type": "array",
+            "description": "The allowed models; a model not listed is not allowed on this harness.",
+            "items": {
+              "type": "object",
+              "required": ["model", "source", "recorded_at"],
+              "additionalProperties": false,
+              "properties": {
+                "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "source": { "type": "string", "enum": ["probe", "operator"] },
+                "recorded_at": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+[#role-assignments-store]
+=== Role Assignments (`role-assignments.json`, Machine and Project)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+
+The harness, model, and effort of a role, apart from its artifact (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment], which owns the resolution order). The machine's `<PM_MCP_BASE>/role-assignments.json` is written by the role step of the machine's onboarding (`roles.write`) and its later runs under `locks/role-assignments.lock`; a project's `<PM_MCP_BASE>/projects/<project_id>/role-assignments.json`, of the same schema, by the same sub-workflow run for that project under the project's `locks/local-config.lock`. A role the project file does not name keeps the machine's value. An assignment changes only these three fields of the artifact it lands on; the operator may still write whole artifacts into the role sets (link:../filesystem-layout/03-project-store.adoc#role-sets[Filesystem Layout Specification, Role Sets]).
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/role-assignments.json",
+  "title": "RoleAssignments",
+  "type": "object",
+  "required": ["format_version", "revision", "roles"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "roles": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "role name (identifiers.adoc)." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["harness", "model"],
+        "additionalProperties": false,
+        "properties": {
+          "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of an enrolled, worker-eligible harness." },
+          "model": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Allowed on that harness by the effective catalogue (model_not_allowed otherwise)." },
+          "effort": { "type": ["string", "null"], "description": "null: the profile's default effort." }
+        }
+      }
+    }
+  }
+}
+----
+
+[#provider-defaults]
+=== Machine Provider Defaults (`providers`, `<PM_MCP_BASE>/host-tools.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_ +
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-5[PM-EXEC-5: Git & Provider Operations: Native and CLI Variants]_
+
+The machine provides the providers every project starts from:
+
+* *`providers` of `machine-config.json`* (<<machine-config>>): per provider (`git`, `github`, `gitlab`, `forgejo`, `sonar`) whether it is available, its default variant, and the credential key it uses; written by the provider step of the machine's onboarding and its later runs. A provider is recorded available only after its checks passed (link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification], which keeps the last result and the check lines); one whose checks failed is recorded only on the operator's word, and then as not available.
+* *Machine host tools*: the CLI tools of the providers (`git`, `gh`, `glab`) are enrolled once for the machine in `host-tools.json`, with resolved absolute path, digest, and version, like a harness: the runtime resolves the path once (no `PATH` lookup at job time), runs the tool's version probe, and records path, digest, and version, and nothing else. Written only by the runtime under `locks/host-tools.lock` on the provider step and its verb, with an HMAC sidecar `host-tools.json.hmac` in the format of the harness enrolment's sidecar under the enrolment integrity key (xref:11-enrolment-store.adoc#harness-enrolment-store[Harness Enrolment Store]), verified before every use. A project's enrolment uses these tools unless it enrols its own (`host_tools[]`, xref:11-enrolment-store.adoc#enrolment-store[Project Enrolment Store]); a tool of either file is checked on every use like an enrolled host tool, and a changed digest refuses the job with the reason and the act that enrols it again.
+* *A project* still derives its CI provider from its remote (derived fact `ci_provider`, xref:09-derived-facts-and-build-timings.adoc#derived-facts[Derived Facts Store]); it takes the variant and the credential key from the machine's provider defaults unless its own operator values set them (xref:08-project-configuration-local.adoc#local-config[Operator Local Configuration]).
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/host-tools.json",
+  "title": "MachineHostTools",
+  "type": "object",
+  "required": ["format_version", "revision", "tools"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "tools": {
+      "type": "object",
+      "propertyNames": { "enum": ["git", "gh", "glab"] },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["executable_path", "sha256", "version", "enrolled_at"],
+        "additionalProperties": false,
+        "properties": {
+          "executable_path": { "type": "string", "minLength": 1, "description": "Resolved absolute path." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "version": { "type": "string", "minLength": 1, "description": "Printed by the version probe at enrolment; informational." },
+          "enrolled_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
+----
+
+[#icon-store]
+=== Harness Icon Store (`<PM_MCP_BASE>/icons/`)
+
+The icons of harnesses whose profile declares the `source` form (link:../client-profiles/01-profile-schema.adoc#harness-icons[Client Profiles Specification, Harness Icons]). The runtime fetches an icon once, on the consent `fetch_icons`, through its outbound HTTPS client and the `proxy` setting, and stores it as `icons/<client_id>.<ext>` (`svg` or `png`, mode `0600`) with `icons/index.json` (`format_version`, and per `client_id` the source URL, the SHA-256 and size of the file, the media type, and `fetched_at`), written under `locks/icons.lock`. It serves the file to both clients from its own origin; a browser never loads an icon from its maker. A harness without a stored or bundled icon is shown with the monogram of its client id. A file that differs from its index entry, or is larger than the compiled icon size bound, is not served and is fetched again only on a new consent. Whether a maker's icon may be shown at all is open (see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#harness-icons[Open Questions]); until it is settled, no shipped profile declares the `source` form and the store stays empty.
+
+[#explorer-store]
+=== The Operator's Projects (`<PM_MCP_BASE>/explorer.json`)
+
+The operator's favourite projects and their order, and per project when the operator last acted in it and how often over a rolling window, for the projects of the machine (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#project-explorer[Runtime & Interaction Model Specification, The Projects of the Machine]). Written by the runtime under `locks/explorer.lock` on the operator's acts in either client: a favourite set, moved, or removed; and, as activity, opening a project, starting a plan or an epic, answering a decision, and changing the project's configuration. An act counts on the UTC day it happened; days older than the compiled activity window are dropped by the next write. An entry of a project no longer enrolled is dropped by the next write. Explorer data is operator data only and never reaches a model.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/explorer.json",
+  "title": "ExplorerStore",
+  "type": "object",
+  "required": ["format_version", "revision", "favourites", "activity"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "favourites": { "type": "array", "uniqueItems": true, "description": "project_ids in the operator's order.", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" } },
+    "activity": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["last_at", "days"],
+        "additionalProperties": false,
+        "properties": {
+          "last_at": { "type": "string", "format": "date-time" },
+          "days": { "type": "object", "propertyNames": { "format": "date" }, "additionalProperties": { "type": "integer", "minimum": 1 }, "description": "Acts per UTC day within the window." }
+        }
+      }
+    }
+  }
+}
+----
+
+[#credential-store]
+=== Permission-Guarded File Credential Store (`<PM_MCP_BASE>/credentials/<credential_key>.json`, `PM-CRED-3`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-3[PM-CRED-3: Permission-Guarded File Credential Store]_
+
+The file store serves the Token-Lane credentials when the operator chose it (`credentials.store: file`, link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]); it is never a fallback. With `os` recorded, the OS store (service `de.planmarshall.mcp`) holds every entry, and an unavailable OS store makes the credentials unavailable (`credential_store_unavailable`) without a file being written in its place; before a store is recorded no credential is entered. The files are user-only `0600` JSON files inside `<PM_MCP_BASE>/credentials/` (`0700` directory; only `PM_MCP_BASE` relocates it), in `PM-MCP`'s own format with `format_version` and a closed schema (xref:01-format-and-session-log.adoc#format-versioning[Format Versioning & Atomic Write Discipline]); the naming keeps the project-scoped tier `<PM_MCP_BASE>/credentials/<project>/<credential_key>.json`, resolved before the global file, and files are named by credential key (`github`, `gitlab`, `forgejo`, `git-https` for the native git and provider integrations, `mcp-<server_id>` for an upstream MCP server, otherwise the key the operator's provider configuration names, for example `sonar`; `PM-CRED-1`, link:../identifiers/02-registry-stores-to-web.adoc#id-credential-key[Identifier Registry, `credential_key`]). No entry holds a harness's authentication: a harness CLI uses its own login, which `PM-MCP` neither stores nor exports.
+
+A credential file is written only by the runtime under `locks/credentials.lock`: on the operator's act of entering a secret (the `pm-operator credentials` verbs, the secret read from the terminal with echo disabled, or the credential form of a paired device on the loopback listener, never on the LAN listener), stored on that act without a consent; on the move between the stores, which the operator's change of `credentials.store` runs in either direction and which carries the enrolment integrity key last; and, for the rotated user refresh token of a `github_app` entry, in the token refresh (link:../credentials-and-enrolment/01-provider-credentials.adoc#user-access-token[CLI, Coordination & Security Specification, User Access Token]). The file is written atomically with mode `0600` and is never a template for hand editing. A file with a missing or different `format_version`, an undeclared field, or a field its `auth_type` does not allow is refused with a reason naming the file and the field, and holds only the step that needs the credential (`credentials_file_invalid`, held for the operator with the act that rewrites it). `PM-MCP` never reads `~/.plan-marshall/credentials/`, `PLAN_MARSHALL_CREDENTIALS_DIR`, or legacy keyring entries (`PM-MIG-2`).
+
+The allowed origin for a credential is the origin of the `url` of its operator-owned entry (`PM-CRED-5`), plus, for `github` and `gitlab`, the API origin the provider module derives from it by its compiled rule (`https://github.com` -> `https://api.github.com`; every other host: the `url` origin; link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[CLI, Coordination & Security Specification, Agent Credentials of the Native Variant]); the native git transport sends the credential only when the effective remote URL has that origin (`remote_origin_mismatch` otherwise). No team file names a credential or decides where a token is sent.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/credential-file.json",
+  "title": "CredentialFile",
+  "type": "object",
+  "required": ["format_version", "credential_key", "url", "auth_type", "written_at", "verified_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Equals the file name (identifiers.adoc, credential_key; PM-CRED-1)." },
+    "url": { "type": "string", "format": "uri", "pattern": "^https://", "description": "Operator-owned; its origin is the only origin the secret is sent to (PM-CRED-5)." },
+    "auth_type": { "type": "string", "enum": ["token", "basic", "github_app"], "description": "github_app only for credential_key github; basic only for git-https and non-provider keys." },
+    "token": { "type": "string", "minLength": 1 },
+    "token_kind": { "type": "string", "enum": ["github_fine_grained_pat", "github_classic_pat", "gitlab_project_token", "gitlab_group_token", "gitlab_personal_token", "gitlab_oauth_token", "forgejo_access_token"], "description": "token only, github, gitlab, and forgejo keys only; determined from the provider by set and verify (ci.whoami), never entered. Every kind is accepted (cli-and-security.adoc, Agent Credentials of the Native Variant)." },
+    "client_id": { "type": "string", "minLength": 1, "description": "github_app only: the App's client id, JWT issuer." },
+    "private_key": { "type": "string", "pattern": "^-----BEGIN (RSA )?PRIVATE KEY-----", "description": "github_app only: PKCS#1 PEM (BEGIN RSA PRIVATE KEY, the form GitHub issues) or PKCS#8 PEM (BEGIN PRIVATE KEY); the stored secret from which installation tokens are derived (never persisted themselves, PM-CRED-5)." },
+    "refresh_token": { "type": "string", "minLength": 1, "description": "github_app only: the App's user refresh token from the device flow; the stored secret of the user access token (never persisted itself, PM-CRED-5); replaced by its rotated successor in every refresh (cli-and-security.adoc, User Access Token)." },
+    "installation_id": { "type": "integer", "minimum": 1, "description": "github_app only, optional: else discovered per repository owner through GET /repos/{owner}/{repo}/installation." },
+    "expires_at": { "type": "string", "format": "date-time", "description": "Optional expiry of a token (for github_app: of the refresh_token, rewritten with it in every refresh): taken from the provider by set and verify where reported, else entered by the operator at set; absent means no known expiry, shown in the runtime status, never refused. The status reports expiring within the credential expiry warning window (timeouts.adoc#credential-expiring-window)." },
+    "username": { "type": "string", "minLength": 1 },
+    "password": { "type": "string", "minLength": 1 },
+    "header_name": { "type": "string", "minLength": 1, "default": "Authorization", "description": "token only." },
+    "header_value_template": { "type": "string", "pattern": "\\{token\\}", "default": "Bearer {token}", "description": "token only." },
+    "written_at": { "type": "string", "format": "date-time" },
+    "verified_at": { "type": ["string", "null"], "format": "date-time", "description": "Last successful verification of the credential." }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "auth_type": { "const": "token" } } },
+      "then": { "required": ["token"], "not": { "anyOf": [ { "required": ["username"] }, { "required": ["password"] }, { "required": ["client_id"] }, { "required": ["private_key"] }, { "required": ["installation_id"] }, { "required": ["refresh_token"] } ] } }
+    },
+    {
+      "if": { "properties": { "auth_type": { "const": "basic" } } },
+      "then": { "required": ["username", "password"], "not": { "anyOf": [ { "required": ["token"] }, { "required": ["token_kind"] }, { "required": ["header_name"] }, { "required": ["header_value_template"] }, { "required": ["client_id"] }, { "required": ["private_key"] }, { "required": ["installation_id"] }, { "required": ["refresh_token"] } ] } }
+    },
+    {
+      "if": { "properties": { "auth_type": { "const": "github_app" } } },
+      "then": { "required": ["client_id", "private_key", "refresh_token"], "properties": { "credential_key": { "const": "github" } }, "not": { "anyOf": [ { "required": ["token"] }, { "required": ["token_kind"] }, { "required": ["username"] }, { "required": ["password"] }, { "required": ["header_name"] }, { "required": ["header_value_template"] } ] } }
+    }
+  ]
+}
+----
+
+A file exists only for a complete credential: an empty secret is refused, so no placeholder state exists. The `auth_type` values `none` and `system` of `plan-marshall` have no file: a provider without authentication needs no credential, and the System Lane (the CLI variant of `git`, `github`, `gitlab`) uses the operator's ambient CLI authentication by design (link:../credentials-and-enrolment/01-provider-credentials.adoc#cli-variant-credentials[CLI, Coordination & Security Specification, Credentials of the CLI Variant]). A GitHub App installation token is derived from the `private_key`, and a user access token from the `refresh_token`, at run time; neither is stored in any backend (link:../credentials-and-enrolment/01-provider-credentials.adoc#derived-tokens[CLI, Coordination & Security Specification, Short-Lived Derived Tokens]).
+
+[#machine-state-records]
+=== Machine State Records (`install-records.json`, `runtime.json`, `upgrade.json`, `login-environment.json`)
+
+Four single-writer records in `<PM_MCP_BASE>/state/` (mode `0600`), each with `format_version` and a closed schema.
+
+*`state/install-records.json`*: written by the runtime on the requests of `pm-operator client install|update|remove` under `locks/install-records.lock` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#client-installer[CLI, Coordination & Security Specification, Client Bundle Installer]); read by the runtime (ownership and digest verification, link:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc#_ownership_digest_verification_on_installupdateremove[Client Profiles Specification]) and, read-only, by `pm-operator client status` for the drift checks `bundle_outdated` and `bundle_modified` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#bundle-drift-notice[CLI, Coordination & Security Specification, Bundle Drift Notice]). One install exists per `(client_id, scope, target_root)`; every owned file, key, and element carries the digest the drift checks compare.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/install-records.json",
+  "title": "InstallRecords",
+  "type": "object",
+  "required": ["format_version", "installs"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "installs": {
+      "type": "array",
+      "description": "At most one entry per (client_id, scope, target_root).",
+      "items": {
+        "type": "object",
+        "required": ["client_id", "scope", "target_root", "bundle_version", "installed_at", "files", "shared_configs"],
+        "additionalProperties": false,
+        "properties": {
+          "client_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "A client whose profile ships a bundle manifest." },
+          "scope": { "type": "string", "enum": ["user", "project"], "description": "The manifest section applied (client install --scope)." },
+          "target_root": { "type": "string", "minLength": 1, "description": "Absolute path of the user home or project root the bundle was installed into." },
+          "bundle_version": { "type": "string", "minLength": 1, "description": "Bundle version applied (the release version of the runtime that applied it); compared with the release version of pm-operator (bundle_outdated)." },
+          "installed_at": { "type": "string", "format": "date-time" },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256", "rendered"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "description": "Relative to target_root." },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+                "rendered": { "type": "boolean", "description": "Rendered from a template (true) or copied verbatim." }
+              }
+            }
+          },
+          "shared_configs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "owned_keys", "sha256", "owned_elements"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string", "minLength": 1, "description": "Relative to target_root." },
+                "owned_keys": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                "sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "Digest of the canonical serialization of the owned keys' values as written; null when the file carries no owned key." },
+                "owned_elements": {
+                  "type": "array",
+                  "description": "Array elements owned by exact normalized value; an element already present before install is never recorded here.",
+                  "items": {
+                    "type": "object",
+                    "required": ["kind", "array_path", "value", "sha256"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["permission_rule"] },
+                      "array_path": { "type": "string", "minLength": 1, "description": "Dotted key path of the shared array, e.g. permissions.deny." },
+                      "list": { "type": "string", "enum": ["deny", "ask", "allow"], "description": "permission_rule only." },
+                      "class": { "type": "string", "enum": ["enforcement", "convenience"], "description": "permission_rule only." },
+                      "value": { "type": "string", "minLength": 1, "description": "Normalized value as written: the rendered rule text." },
+                      "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the UTF-8 bytes of value." }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+*`state/runtime.json`*: written by the runtime once per start, when it binds the socket, under the runtime singleton lock (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime & Interaction Model Specification, Startup]); read by the job relays, `pm-operator drain`, and `pm-operator status`. An absent or unreadable record makes a relay fall back to the default socket path.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/runtime.json",
+  "title": "RuntimeRecord",
+  "type": "object",
+  "required": ["format_version", "pid", "start_instant", "version", "listener", "socket_path", "started_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "pid": { "type": "integer", "minimum": 1 },
+    "start_instant": { "type": "string", "format": "date-time", "description": "OS process start instant (ProcessHandle.info().startInstant()); with pid the liveness identity." },
+    "version": { "type": "string", "minLength": 1, "description": "Release version of the running binary." },
+    "listener": { "type": "string", "enum": ["domain_socket", "loopback_tcp", "jdk_socket"], "description": "Listener in use: the Quarkus domain socket, fallback (1) loopback TCP, or fallback (2) the own JDK socket listener (Runtime Model, Transport Endpoint); reported in the runtime status." },
+    "socket_path": { "type": "string", "minLength": 1, "description": "The socket path <PM_MCP_BASE>/run/runtime.sock, which has no alternative location (a path over the sun_path limit refuses the start); for listener loopback_tcp the address 127.0.0.1:<port>." },
+    "started_at": { "type": "string", "format": "date-time", "description": "Instant the socket was bound." }
+  }
+}
+----
+
+[[upgrade-record]]*`state/upgrade.json`*: the version state of the installation and the last upgrade (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime & Interaction Model Specification, The Runtime's Lifecycle]), written by the runtime under `locks/upgrade.lock` after every check for a newer release (under the consent `check_updates`, at most once a day while it is remembered, and on the operator's _check_) and at every step of an upgrade that changes the installation; the successor of an upgrade writes its result at its start. The runtime status serves it; it holds nothing secret and is never read by a model.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/upgrade.json",
+  "title": "UpgradeRecord",
+  "type": "object",
+  "required": ["format_version", "newest_known", "last_check", "last_upgrade", "way_back"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "newest_known": {
+      "type": ["object", "null"],
+      "required": ["version", "checked_at"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "checked_at": { "type": "string", "format": "date-time" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of the release archive of the machine's platform, as the registry states it." }
+      }
+    },
+    "last_check": {
+      "type": ["object", "null"],
+      "required": ["at", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "at": { "type": "string", "format": "date-time" },
+        "outcome": { "type": "string", "enum": ["ok", "failed"] },
+        "reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "failed only." }
+      }
+    },
+    "last_upgrade": {
+      "type": ["object", "null"],
+      "required": ["from_version", "to_version", "started_at", "step", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "from_version": { "type": "string", "minLength": 1 },
+        "to_version": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "format": "date-time" },
+        "step": { "type": "string", "enum": ["fetching", "verifying", "unpacking", "switched", "draining", "started"], "description": "The last step reached." },
+        "outcome": { "type": ["string", "null"], "enum": ["upgraded", "failed", "withdrawn", "rolled_back", null], "description": "null while it runs." },
+        "reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$" },
+        "channel": { "type": "string", "enum": ["cli", "web"] },
+        "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" }
+      }
+    },
+    "way_back": {
+      "type": ["object", "null"],
+      "required": ["version", "installation_dir"],
+      "additionalProperties": false,
+      "description": "The previous installation directory kept as the way back until the next upgrade removes it.",
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "installation_dir": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
+----
+
+[[login-environment-record]]*`state/login-environment.json`*: the operator's login environment as the terminal client last sent it with a request that needs it (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#client-environment[CLI, Coordination & Security Specification, What the Terminal Client Sends]), written by the runtime under `locks/login-environment.lock` whenever such a request carries one, replacing the previous record. A request from the web app that needs the environment (the harness scan, a project's onboarding) takes it from this record and shows its time. It is read only by the runtime, never by a job or a model; a variable matching the credential patterns of the job environment is never captured, so the record holds nothing secret (link:../job-runtime/02-confinement-and-environment.adoc#_job_environment_pm_sec_5[Job Runtime Specification, Job Environment]).
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/login-environment.json",
+  "title": "LoginEnvironment",
+  "type": "object",
+  "required": ["format_version", "captured_at", "path", "variables"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "captured_at": { "type": "string", "format": "date-time", "description": "When the terminal client captured the environment it sent." },
+    "path": { "type": "array", "items": { "type": "string", "pattern": "^/" }, "description": "The absolute directories of the login PATH, in order." },
+    "variables": { "type": "object", "additionalProperties": { "type": "string" }, "description": "The variables of the job environment with provenance enrolment, by name." }
+  }
+}
+----
+
+[#web-access-records]
+=== Runtime Token & Web Access Records (`run/runtime.token`, `state/web-devices.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-7[PM-SEC-7: Optional Web Access, Device Pairing & Browser Channel Hardening]_
+
+_Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/cli-and-security.adoc#PM-WATCH-CLI-16[PM-WATCH-CLI-16]_
+
+The records of local trust and browser access (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#runtime-token[Runtime & Interaction Model Specification, Runtime Token]; link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-server[CLI, Coordination & Security Specification, Web Access & Pairing]). None of their content reaches a model-facing representation (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
+
+*`run/runtime.token`*: not JSON and without `format_version`: the file content is exactly the runtime token, 43 base64url characters without padding and without a trailing newline (256 bits, link:../identifiers/02-registry-stores-to-web.adoc#id-runtime-token[Identifier Registry, runtime token]). Mode `0600` in the `0700` directory `<PM_MCP_BASE>/run/`; written atomically by the runtime at every start before the socket is bound, replacing the previous token; read by every local client after its owner, mode, and no-symlink check; outside every job's read set on Linux with Landlock ABI >= 2; on macOS and on Linux without Landlock a job can read it like any process of the user (link:../job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime Specification, Linux Filesystem Confinement]). A token file that is absent, of another length, or outside the alphabet makes a client refuse with a diagnostic naming the path, never guess.
+
+*`state/web-devices.json`*: the web device store, mode `0600`, written only by the runtime under `locks/web-devices.lock` (pairing, rename, revocation, idle expiry, and the `last_used_at` update at most once per write interval per device, link:../timeouts/02-runtime-leases-operator-web.adoc#device-last-used-granularity[Timeouts & Budgets Specification]). A device secret is never stored, only its SHA-256. A revocation ends the device's open event streams with its reason, which the web app shows (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]). An unreadable or invalid store authenticates no device and leaves every other function of the runtime unaffected; revoking every device rewrites it empty.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/web-devices.json",
+  "title": "WebDeviceStore",
+  "type": "object",
+  "required": ["format_version", "devices"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["device_id", "label", "paired_by", "paired_from", "secret_sha256", "created_at", "last_used_at"],
+        "additionalProperties": false,
+        "properties": {
+          "device_id": { "type": "string", "pattern": "^dev-[0-9a-f]{12}$", "description": "identifiers.adoc, device_id; unique in the store, never reused." },
+          "label": { "type": "string", "minLength": 1, "maxLength": 64, "description": "From the label given at pairing, else the device_id; local for a device paired through pm-operator web open; renamed by the operator in either client; display only." },
+          "paired_by": { "type": "string", "enum": ["pair", "open"], "description": "The verb that issued the redeemed pairing code (the terminal client's entry issues codes as pair does). While the store holds a device with open, pm-operator web open opens the app without pairing again (cli-and-security, web-open)." },
+          "paired_from": { "type": "string", "enum": ["loopback", "lan"], "description": "The listener the pairing was redeemed on." },
+          "secret_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the UTF-8 device secret (pmw_...); the secret itself is returned once at pairing and never stored." },
+          "created_at": { "type": "string", "format": "date-time" },
+          "last_used_at": { "type": "string", "format": "date-time", "description": "Last authenticated request, written at most once per write interval (timeouts.adoc#device-last-used-granularity); older than the device idle expiry (timeouts.adoc#device-idle-expiry) expires the device." }
+        }
+      }
+    }
+  }
+}
+----
+
+*Pairing code (in memory only)*: The open pairing is held in the runtime's memory, never persisted: the SHA-256 of the normalized code, the label, `expires_at` (issue plus the pairing code lifetime, link:../timeouts/02-runtime-leases-operator-web.adoc#pairing-code-ttl[Timeouts & Budgets Specification]), and the failure count (at most the pairing failed-attempt limit, link:../timeouts/02-runtime-leases-operator-web.adoc#pairing-attempt-limit[Timeouts & Budgets Specification]). At most one pairing is open; a new one replaces it, and a redemption or the failure that reaches the limit removes it, after which, while the terminal client is open, the runtime issues a fresh code that reaches only the terminal client (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#fresh-code[CLI, Coordination & Security Specification, A Fresh Code after a Redemption]). A runtime restart discards it, so a pairing code never survives a restart and nothing about it is recoverable from disk.
+
+*No process record*: The web listeners are part of the runtime and have no record and no lock of their own. Their setting is the `web` object of `machine-config.json` (<<machine-config>>); the live state of each (open or closed, port, and for the LAN listener the SHA-256 fingerprint of the DER certificate) is part of the runtime status (`GET /api/v1/status`, link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]), from which both clients take it.
+
+The generated certificate and its private key live in `<PM_MCP_BASE>/web/tls/` (`cert.pem`, `key.pem`; directory `0700`, files `0600`), written only by the runtime on the first opening of the LAN listener and reused afterwards.
+
+[#report-journal]
+=== Report Journal (`<PM_MCP_BASE>/state/reports.jsonl`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-21[PM-WF-21: Reports to the Operator]_
+
+The reports to the operator are records of the machine scope in one append-only journal (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator], which owns the catalogue of kinds, the endpoints, and the representation). The journal is locked directly as a leaf lock, like the audit log, and holds three events: `report` (a report sent), `read` (reports marked read, for every device of the machine), and `deleted` (read reports the cleanup deleted). A report's state, unread or read, is the fold of its events. A report is appended after the transition it reports has committed; one a transition owed when the runtime stopped is written at the next start, with that `sent_at`. `report_id` is store-assigned (`rep-NNNN`, never reused): the next id follows the highest id of the journal, which a `deleted` event carries in `last_report_id`. Unread reports never expire; a read one is deleted only by the cleanup (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]), by a journaled rewrite of the journal under its lock that drops the deleted reports' `report` and `read` events and appends one `deleted` event. `subject` and `body` are message keys with arguments; a reason the operator wrote, a provider's text, or a title is an argument, carried verbatim.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/report-event.json",
+  "title": "ReportEvent",
+  "type": "object",
+  "required": ["format_version", "event", "at"],
+  "additionalProperties": false,
+  "$defs": {
+    "text": { "type": "object", "required": ["key", "args"], "additionalProperties": false, "properties": { "key": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,127}$" }, "args": { "type": "object" } } },
+    "report_id": { "type": "string", "pattern": "^rep-[0-9]{4,}$" }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event": { "type": "string", "enum": ["report", "read", "deleted"] },
+    "at": { "type": "string", "format": "date-time" },
+    "report_id": { "$ref": "#/$defs/report_id", "description": "report only." },
+    "kind": { "type": "string", "enum": ["plan.started", "plan.ended", "plan.revised", "plan.hold_released", "epic.launchable", "epic.waits_overlap", "epic.overlap_found", "epic.recut_applied", "epic.through", "epic.ended", "project.onboarded", "project.released", "source.flagged", "decision.closed_elsewhere", "task.off_track", "system.cleanup_due"], "description": "report only; the catalogue of Reports to the Operator." },
+    "from": {
+      "type": "object",
+      "required": ["project_id"],
+      "additionalProperties": false,
+      "description": "report only.",
+      "properties": {
+        "project_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "null for a report of the machine itself." },
+        "epic_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" },
+        "plan_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }
+      }
+    },
+    "subject": { "$ref": "#/$defs/text", "description": "report only: one line." },
+    "body": { "$ref": "#/$defs/text", "description": "report only." },
+    "created_at": { "type": "string", "format": "date-time", "description": "report only: when it happened." },
+    "sent_at": { "type": "string", "format": "date-time", "description": "report only: when the clients could first read it." },
+    "detail": { "type": ["string", "null"], "description": "report only: the local-API path of its detail, null where there is none." },
+    "report_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/report_id" }, "description": "read and deleted." },
+    "channel": { "type": "string", "enum": ["cli", "web"], "description": "read only." },
+    "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "read only." },
+    "job_id": { "type": "string", "pattern": "^cln-[0-9]{4,}$", "description": "deleted only: the cleanup job." },
+    "last_report_id": { "$ref": "#/$defs/report_id", "description": "deleted only: the highest id ever allocated." }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "const": "report" } } }, "then": { "required": ["report_id", "kind", "from", "subject", "body", "created_at", "sent_at", "detail"] } },
+    { "if": { "properties": { "event": { "const": "read" } } }, "then": { "required": ["report_ids", "channel", "device_id"] } },
+    { "if": { "properties": { "event": { "const": "deleted" } } }, "then": { "required": ["report_ids", "job_id", "last_report_id"] } }
+  ]
+}
+----
+
+[#cleanup-journal]
+=== Cleanup Journal (`<PM_MCP_BASE>/state/cleanup.jsonl`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue]_
+
+The jobs of the one cleanup (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup], which owns the check, the decisions, and the deletion) in one append-only journal of the machine scope, locked directly as a leaf lock like the report journal. A cleanup job is no job of the job runtime: it starts no process and has no job record; it is identified by `job_id` (`cln-NNNN`, store-assigned, never reused). Its events: `job` (the job with its items, fixed from then on), `decided` (the first decision of the job; a later one is answered with it, unchanged), `deleted` and `delete_failed` per item, `kept` and `released` per item. A job's state (`open`, `postponed`, `deleting`, `done`) and the kept list are the fold of its events; a delete cut by a stop goes on after the next start from the journal.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/cleanup-event.json",
+  "title": "CleanupEvent",
+  "type": "object",
+  "required": ["format_version", "event", "job_id", "at"],
+  "additionalProperties": false,
+  "$defs": {
+    "item_ref": {
+      "type": "object",
+      "required": ["kind", "id", "project_id"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "type": "string", "enum": ["plan", "epic", "job_log", "report", "unenrolled_project"] },
+        "id": { "type": "string", "minLength": 1, "description": "plan_id, epic_id, job_id, report_id, or project_id." },
+        "project_id": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "null for a report." }
+      }
+    }
+  },
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event": { "type": "string", "enum": ["job", "decided", "deleted", "delete_failed", "kept", "released"] },
+    "job_id": { "type": "string", "pattern": "^cln-[0-9]{4,}$" },
+    "at": { "type": "string", "format": "date-time" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "description": "job only.",
+      "items": {
+        "type": "object",
+        "required": ["ref", "title", "outcome", "ended_at", "size_bytes", "duration_days", "duration_source"],
+        "additionalProperties": false,
+        "properties": {
+          "ref": { "$ref": "#/$defs/item_ref" },
+          "title": { "type": ["string", "null"], "maxLength": 200 },
+          "outcome": { "type": ["string", "null"], "description": "The plan outcome or the epic's terminal_reason; null otherwise." },
+          "ended_at": { "type": "string", "format": "date-time", "description": "Archiving, reading, the job's end, or unenrolment." },
+          "size_bytes": { "type": "integer", "minimum": 0 },
+          "duration_days": { "type": "integer", "minimum": 7 },
+          "duration_source": { "type": "string", "enum": ["project", "machine", "compiled_default"] }
+        }
+      }
+    },
+    "decision": { "type": "string", "enum": ["delete", "remind", "ignore"], "description": "decided only." },
+    "unchecked": { "type": "array", "items": { "$ref": "#/$defs/item_ref" }, "description": "decided with delete: the items kept for good." },
+    "remind_at": { "type": "string", "format": "date-time", "description": "decided with remind." },
+    "channel": { "type": "string", "enum": ["cli", "web"], "description": "decided, kept, and released." },
+    "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" },
+    "ref": { "$ref": "#/$defs/item_ref", "description": "deleted, delete_failed, kept, released." },
+    "reason": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "delete_failed, or deleted skipped as no longer due (no_longer_due)." }
+  },
+  "allOf": [
+    { "if": { "properties": { "event": { "const": "job" } } }, "then": { "required": ["items"] } },
+    { "if": { "properties": { "event": { "const": "decided" } } }, "then": { "required": ["decision", "channel", "device_id"] } },
+    { "if": { "properties": { "event": { "enum": ["deleted", "delete_failed", "kept", "released"] } } }, "then": { "required": ["ref"] } },
+    { "if": { "properties": { "event": { "const": "delete_failed" } } }, "then": { "required": ["reason"] } }
+  ]
+}
+----
+
+[[usage-aggregate]]*Usage aggregate (`<PM_MCP_BASE>/state/usage-aggregate.jsonl`)*: before the cleanup deletes a plan's metrics rows, the runtime appends what the plan used, one row per UTC day, project, model, and role, in the same journaled transaction as the deletion; the metrics of the runtime fill the models' figures at the start from these rows beside the metrics stores, so no figure goes down (link:../runtime-lifecycle/03-runtime-metrics.adoc#runtime-metrics[Runtime & Interaction Model Specification, The Runtime's Metrics]). Append-only under its own leaf lock; a reader folds rows of the same key. A row: `format_version` (`1`), `day` (date), `project_id`, `model`, `role`, `calls`, `tokens_in`, `tokens_out`, `total_tokens` (integers or `unmeasured`), `tasks`, `tasks_unmeasured`, `total_is_floor` (boolean), `plan_id` (the deleted plan), and `added_at`. It holds tokens only, never a cost.
+
+[#audit-log]
+=== Security & Transition Audit Log (`<PM_MCP_BASE>/logs/audit.jsonl`, `PM-SEC-6`)
+
+The record, the head and the index entry with the closed schemas below and their strict codec, the hash chain with its predecessor rule across a rotation, the append under the audit lock, the record of a torn tail of the log written into the log itself, and the production audit sink are implemented in `pm-core` (`PM-SEC-6`, `PM-IMPL-7`, link:../../../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide § The Audit Log]); the head under the HMAC of the enrolment integrity key, the rotation with its checkpoint record and the index, and the incremental and the full verification with the reasons below are implemented in `pm-runtime` (link:../../../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail Developer Guide]). Every record a scope transaction owes carries a `transaction_id` of its own, the key by which a reader drops a record handed over twice. Not implemented yet: the wiring of the sink and the verification into `pm-mcpd`, which today passes no verification and refuses every record, the verb `pm-operator audit verify`, the removal of rotated files by the periodic sweep, and the reading of the rotation limits from `machine-config.json`; until the last one the runtime rotates at the defaults.
+
+Every state transition, job execution, operator act (in either client), credential lookup, consent, and store deletion appends a structured JSONL record to `audit.jsonl` (with all Token-Lane secrets redacted):
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/audit-record.json",
+  "title": "AuditRecord",
+  "type": "object",
+  "required": ["format_version", "event_id", "prev_hash", "timestamp", "category", "event", "actor", "outcome"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "event_id": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 (lowercase hex) of the previous record's canonical line; 64 '0' characters for the first record of the log."
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "category": { "type": "string", "enum": ["transition", "job", "operator", "security", "credential", "store"] },
+    "event": { "type": "string" },
+    "scope_type": { "type": ["string", "null"], "enum": ["plan", "epic", "workspace", "entry", "project", "machine", null] },
+    "scope_id": { "type": ["string", "null"] },
+    "actor": { "type": "string", "description": "The operator's OS principal for an operator act, the role of a worker for a record its call caused, or the runtime for its own act." },
+    "outcome": { "type": "string", "enum": ["allowed", "refused", "succeeded", "failed", "warning"] },
+    "details": { "type": "object", "description": "Event-specific fields. A record of an operator act carries channel (cli or web) and, for web, device_id, and os_principal; a record caused by a worker's call carries job_id, role, harness, and generation_id; a machine-level record carries os_principal only; a checkpoint record carries the checkpoint fields." }
+  }
+}
+----
+
+*Identity*: No record carries an identity a client declared. An operator act is identified by its channel and device (`details{channel, device_id, os_principal}`), a worker's call by its job record (`details{job_id, role, harness, generation_id}`), and a machine-level record (runtime start, a sweep, a lease or audit-chain event) by `details.os_principal`.
+
+*Transition records*: Every committed state transition of a plan, an epic, the workspace scope, an entry, or the machine scope appends a `transition` record with `event: transitioned` and `details{from_state, to_state, link, instance_version}`, the link the operator, a worker, or the server took. It is the security mirror of the transition; the record a client reads of a plan's process is the plan's own history (xref:02-workflow-state-store.adoc#plan-history[The Plan's History]), and no view of the clients reads the audit log.
+
+*Checkpoint records*: A rotation appends a `security` record with `event: checkpoint`, `scope_type: machine`, and `details{record_count, head_hash, hmac}` (the number of records in the file before the checkpoint, the hash of the last canonical line before it, and the HMAC-SHA-256 over both under the enrolment integrity key).
+
+[#audit-head]
+*`logs/audit.head`* (written under the audit lock after every append, atomically replaced; the HMAC is over the canonical JSON of the other fields):
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/audit-head.json",
+  "title": "AuditHead",
+  "type": "object",
+  "required": ["format_version", "file", "record_count", "last_event_id", "head_hash", "index_head_hash", "hmac"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "file": { "type": "string", "const": "audit.jsonl", "description": "The current log file." },
+    "record_count": { "type": "integer", "minimum": 0 },
+    "last_event_id": { "type": ["string", "null"], "format": "uuid", "description": "null for an empty log." },
+    "head_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the last canonical line; 64 '0' characters for an empty log." },
+    "index_head_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the last line of audit-index.jsonl; 64 '0' characters before the first rotation." },
+    "hmac": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "HMAC-SHA-256 under the enrolment integrity key." }
+  }
+}
+----
+
+[#audit-index]
+*`logs/audit-index.jsonl`* (append-only, one line per rotated file, written under the audit lock at rotation, hash-chained like the log):
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/audit-index-entry.json",
+  "title": "AuditIndexEntry",
+  "type": "object",
+  "required": ["format_version", "prev_hash", "file", "first_event_id", "last_event_id", "record_count", "checkpoint_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "prev_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the previous index line; 64 '0' characters for the first." },
+    "file": { "type": "string", "pattern": "^audit-[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.jsonl$" },
+    "first_event_id": { "type": "string", "format": "uuid" },
+    "last_event_id": { "type": "string", "format": "uuid", "description": "The event_id of the file's checkpoint record." },
+    "record_count": { "type": "integer", "minimum": 1 },
+    "checkpoint_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "SHA-256 of the checkpoint record's canonical line." }
+  }
+}
+----
+
+*Enrolment records*: An enrolment HMAC mismatch appends a `security` record (`event: enrolment_tampered`), an operator re-baselining an `operator` record. An enrolment write that sets or clears `container_engine` appends an `operator` record (`event: container_engine_enabled` or `container_engine_disabled`, `details{project_id, engine}`), naming the Docker-group authority the operator confirmed. `pm-operator project unenrol` appends `project_unenrolled`, and the release of a project `project_released` (`operator`, `details{project_id, plans, epics}`).
+
+*Consent records*: A remembered and a withdrawn consent append an `operator` record (`event: consent_remembered` or `consent_withdrawn`, `details{kind, project_id}`, <<consent>>); a consent answered `yes` or `no` for one run is part of the transition record of its state.
+
+*Credential records*: Every refresh of a GitHub App user access token appends a `credential` record (`event: user_token_refreshed`, `details{credential_key, refresh_expires_at}`, never a token); a refresh that fails appends `event: user_token_refresh_failed` with the provider's reason, and the entry is `credential_check_failed` until the operator runs the device flow again. The choice and every move of the credential store append an `operator` record (`event: credential_store_chosen` or `credential_store_moved`, `details{from, to, entries}`).
+
+*Waiver records*: Every line of a plan's `waivers.jsonl` is mirrored as an `operator` record (`event: waiver_waived` or `waiver_revoked`, `details{plan_id, waiver_id, gate, mode, reason_class}`, xref:14-plan-instance-waivers-questions.adoc#waiver-record[Waiver Record]); the recurrence count of a gate across plans (link:../phase-workflows.adoc[Phase Workflows Specification], Artifact Gate) and the lessons-capture signal are derived from the `waiver_waived` records of the last 90 days by `gate` and `reason_class`, whatever the cleanup has deleted since. No separate exemption record exists.
+
+*Integration records*: Every git or provider operation, in-process (native variant) or as a job (CLI variant), appends a `job` record whose `details` carry `integration` (`git`, `github`, `gitlab`, `forgejo`, `sonar`), `variant` (`native` or `cli`), and `identity`: for the native variant the credential key that authenticated it (`github`, `gitlab`, `forgejo`, `git-https`, link:../identifiers/02-registry-stores-to-web.adoc#id-credential-key[Identifier Registry, `credential_key`]; never the secret or a derived token) and the resolved agent identity, for the CLI variant the value `operator_ambient` (link:../credentials-and-enrolment/01-provider-credentials.adoc#cli-variant-credentials[CLI & Security Specification, Credentials of the CLI Variant]). A native operation refused by the origin check appends a `security` record with `event: remote_origin_mismatch`, `outcome: refused`, and `details{integration, remote, effective_url_host, credential_origin}` (link:../credentials-and-enrolment/01-provider-credentials.adoc#native-confinement[CLI & Security Specification, Native Operation Confinement]). The operator's choice of a variant (a machine default, or a project's own value) is an `operator` record with `event: integration_variant_selected` and `details{integration, variant, project_id}`. These fields are operator and audit data only: they never appear in a model-facing representation, resource, or tool result (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
+
+*Worker, grant, and source records*: A request over a worker's connection carries `details.job_id`, `details.role`, `details.harness`, and `details.generation_id` in every record it causes. The supervisor appends a `job` record `worker_started` and `worker_ended` (`details{job_id, role, form, end_reason}`) per worker; a refused call of a fenced generation a `security` record `generation_fenced` (`details{generation_id, tool}`); a stop of a role's starts after repeated start failures a `job` record `worker_starts_stopped` (`outcome: warning`, `details{role, harness, start_failures, harness_error}`, the harness's own error text, redacted); a task that ended `lost` and sent its state to the conservative fallback a `transition` record `task_fallback` (`details{queue_task_id, role, reason}`, reason `attempts_spent`, `role_undefined`, `class_mismatch`, `role_unqualified`, or `role_unavailable`); and the load of an invalid role artifact an `operator` record `role_invalid` (`details{role, set, reason}`). A harness enrolment (`harness.enrol` of the onboarding or `pm-operator enrol-harness`) appends an `operator` record `harness_enrolled` (also when it re-baselines a tampered file), an accepted self-update an `operator` record `harness_updated`, and a failed HMAC check of `harnesses.json` or `host-tools.json` a `security` record `enrolment_tampered` naming the file (xref:11-enrolment-store.adoc#harness-enrolment-store[Harness Enrolment Store]). Every access grant is mirrored as an `operator` record `access_granted` with `details{plan_id, entry_id, project_id, target, access, reason}` (the scope the grant is recorded in, and `target` the `project_id`, `org`, or `repo` of the grant) (xref:15-screening-and-grants.adoc#grant-record[Access Grant Record]). The operator's acceptance of a source of a start flagged by the screener or left unscreened appends a `security` record `screen_accepted` with `details{entry_id, source_id, sha256, verdict, reason}` (`verdict` `suspicious` or `unscreened`). A refused re-check of a start's `start.create-scope` transaction is scope-less (no plan or epic exists yet): it appends a `transition` record `bootstrap_refused` (`scope_type: entry`, `details{entry_id, reason}`) and is never counted per plan.
+
+*Store deletions*: Every item the cleanup deletes appends one `store` record `cleanup_deleted` (`details{kind, id, project_id, job_id, channel, size_bytes}`, <<cleanup-journal>>); every removal of the periodic sweep one `store` record naming the residue and its evidence (xref:13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Evidence-Based Removal Sweeps]).
+
+*Web access records*: A successful pairing appends an `operator` record with `event: web_device_paired`, `outcome: succeeded`, and `details{device_id, label, paired_from}`; a failed redemption a `security` record with `event: web_pairing_failed`, `outcome: refused`, and `details{failures, pairing_invalidated}` (never the submitted code); a rename an `operator` record `web_device_renamed` (`details{device_id, label}`); a revocation an `operator` record with `event: web_device_revoked`, `outcome: succeeded`, and `details{device_id, reason}` (`reason`: `operator` for a revocation by the operator in either client, `idle_expired` for the device idle expiry, link:../timeouts/02-runtime-leases-operator-web.adoc#device-idle-expiry[Timeouts & Budgets Specification]), one record per device when several are revoked at once. An act taken through a paired device carries `details.channel: web` and `details.device_id`; one through `pm-operator` `details.channel: cli`. Opening and closing a listener (`pm-operator web enable|disable`, turning the LAN listener off from a device) has no record form of its own: like every act that changes `machine-config.json` it appends one machine-level `operator` record. No record carries a device secret, its hash, or the runtime token (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-server[CLI, Coordination & Security Specification, Web Access & Pairing]).
+
+*Runtime lifecycle records*: The operator's stop, its withdrawal, an upgrade, its withdrawal, and an update check append an `operator` record (`event: runtime_stop_requested`, `runtime_stop_withdrawn`, `runtime_upgrade_requested`, `runtime_upgrade_withdrawn`, `runtime_update_checked`, with `when`, `then`, or the version in `details`); an upgrade's result a `transition` record `runtime_upgraded` or `runtime_upgrade_failed` (`details{from_version, to_version, reason}`, <<upgrade-record>>).
+
+*Stall records*: A plan (or epic) that becomes stalled (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime & Interaction Model Specification]) appends one `transition` record per stall episode with `event: plan_stalled`, `outcome: warning`, `scope_type: plan` (or `epic` for a stalled epic), and `details{state, cause, idle_since, idle_seconds}` (`cause` from the closed set of link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime & Interaction Model Specification, Stalled Plans]: `no_progress`); the next transition of the scope ends the episode, and a later stall starts a new one. A scope in an operator wait or paused is never stalled. The record is operator and metrics data only and never appears in a model-facing representation.
+
+*Hash chain (`PM-SEC-6`)*: The canonical line of a record is its exact UTF-8 byte sequence in `audit.jsonl`, excluding the terminating newline. A writer appends only under the audit lock (`LockKey.auditLog`, the leaf of the lock order), after reading the current last line to compute `prev_hash`; the append goes through the JSONL append path, which releases the lock of the operating system with its channel after each append, so the in-process lock of the one runtime serializes the appends and the runtime lock excludes a second runtime. A line chains to the last complete line of the log, the first line of a log after a rotation to the checkpoint line that closed the rotated log, and only the first line of a log that was never rotated to the genesis value. The writer also maintains the HMAC-anchored head `logs/audit.head` (<<audit-head>>) and, on rotation, a `checkpoint` record plus an entry in the hash-chained index `logs/audit-index.jsonl` (<<audit-index>>; link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc#_security_audit_trail_three_tier_identity_verification[CLI, Coordination & Security Specification, Security Audit Trail]). The runtime verifies incrementally from the last checkpoint at startup; a mismatch, unparsable line, missing log, reset, truncation, or head mismatch is reported to the operator and recorded as an `audit_chain_broken` record (`category: security`, `details.reason` `link_broken | missing | reset | truncated | head_mismatch`, and `details.first_broken_line` for `link_broken`), and no complete record of the log is ever rewritten or repaired; only a torn tail after the anchored head is truncated by the next writer (xref:01-format-and-session-log.adoc#format-versioning[Format Versioning & Atomic Write Discipline] item 6).

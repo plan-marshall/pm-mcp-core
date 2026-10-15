@@ -36,6 +36,6 @@ _Rejected_: the operator chose the package path; it keeps the resource next to t
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules]
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules]
 * `doc/plans/plan-instance.adoc`; operator decision at outline (package path)

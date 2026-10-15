@@ -35,6 +35,6 @@ _Rejected_: the project copy can change while the plan runs; the specification r
 
 == Source
 
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Sub-Units
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Sub-Units
 * `doc/plans/plan-instance.adoc`; operator decision at outline review (sub-unit store added)
 * `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java`

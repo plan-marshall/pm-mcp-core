@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -34,10 +37,16 @@ import java.util.Map;
 import java.util.OptionalLong;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.AuditAnchor;
 import de.planmarshall.core.store.AuditCodec;
@@ -53,15 +62,6 @@ import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.start.AuditChainVerification;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.api.parallel.ResourceLock;
-import org.junit.jupiter.api.parallel.Resources;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The rotation of the audit log: checkpoint, index entry and rename under the audit lock, and the first record of the

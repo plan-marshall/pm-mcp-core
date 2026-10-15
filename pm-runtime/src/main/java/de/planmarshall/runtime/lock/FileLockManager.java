@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.lock;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
@@ -26,7 +27,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;

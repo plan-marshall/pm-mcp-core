@@ -14,6 +14,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.HostTool;
@@ -25,7 +26,6 @@ import de.planmarshall.runtime.job.JobRequest.HostToolBuild;
 import de.planmarshall.runtime.job.JobRequest.HostToolCall;
 import de.planmarshall.runtime.job.JobRequest.ProjectScriptCall;
 import de.planmarshall.runtime.job.JobRequest.WrapperBuild;
-import lombok.experimental.UtilityClass;
 
 /**
  * Stage 2 of the pipeline, the executable and its digest (PM-EXEC-1, PM-EXEC-2, PM-EXEC-3): answers the verified

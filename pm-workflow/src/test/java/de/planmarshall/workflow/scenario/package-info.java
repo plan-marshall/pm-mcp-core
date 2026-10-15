@@ -29,7 +29,7 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/module-structure.adoc} (Test Placement)</li>
+ * <li>{@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Test Placement)</li>
  * <li>{@code doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc}</li>
  * </ul>
  */

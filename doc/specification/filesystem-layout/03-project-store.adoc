@@ -1,0 +1,243 @@
+= Filesystem Layout Specification: Per-Project Machine Store, Resolution & Coexistence
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../filesystem-layout.adoc[Filesystem Layout Specification] » Per-Project Machine Store, Resolution & Coexistence
+
+[#machine-store]
+== Per-Project Machine Store (`<PM_MCP_BASE>/projects/<project_id>/`)
+
+All server-owned state of one project lives in its per-project machine store `<PM_MCP_BASE>/projects/<project_id>/`, where `<project_id>` is the project's enrolment identifier, the name of its enrolment file `<PM_MCP_BASE>/enrolments/<project_id>.json` (the same key that names project-scoped credentials, `PM-CRED-3`): proposed from the remote's name and confirmed by the operator at the enrolment, unique per machine, and identical for the main checkout and all its worktrees. The enrolment (`project.enrol` of the project's onboarding, or `pm-operator enrol`) creates the store and records its `project_root` and display name in `store.json` (link:../store-schemas/11-enrolment-store.adoc#project-store-identity[Store Schemas Specification, Project Store Identity]); the release of the project leaves it readable (<<coexistence-lifecycle>>), and the unenrolment leaves it in place and records `unenrolled_at`. Work history inside it (archived plans, archived epics' machine stores, the logs of ended jobs) and the store of an unenrolled project as a whole are deleted only by the one cleanup the operator confirms (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]); technical residue inside it is removed by the periodic sweep (link:../store-schemas/13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Store Schemas Specification, Evidence-Based Removal Sweeps]).
+
+[source,text]
+----
+~/.plan-marshall-mcp/projects/<project_id>/
+├── plans/                               # Every live plan directory (never moved before its archive)
+│   └── <plan_id>/
+│       ├── request.md                   # Its original input composed from the descriptions and a reference to each other source
+│       ├── outline.md
+│       ├── sources/                     # The plan's source directory, moved here from its entry at start.create-scope
+│       ├── instance/                    # Plan instance: immutable plan.v<N>.pmwf and <unit>.v<N>.pmwf versions, composition.jsonl
+│       ├── overrides.json               # The plan's own values (written only by the operator, in either client)
+│       ├── waivers.jsonl                # Append-only operator waivers (written only by the operator's acts)
+│       ├── waiver-consumptions.jsonl    # Append-only waiver consumptions (written only by waiver.lookup)
+│       ├── questions.jsonl              # Append-only question records of the plan scope
+│       ├── decisions.jsonl              # Append-only decision records of the plan scope (Store Schemas § Decision Records)
+│       ├── decision-facts/              # <facts_digest>.toon: immutable facts snapshots of judgment decisions
+│       ├── grants.jsonl                 # Append-only operator access grants (written only by the operator's acts)
+│       ├── screen-verdicts.jsonl        # Screen verdict cache of the plan scope (SHA-256 of cleaned text -> verdict)
+│       ├── chat/                        # Transcripts of the plan's chats, its entry's chat among them
+│       ├── landing-envelope.json        # Undelivered landing envelope (landing_delivery: pending)
+│       ├── evidence/                    # failures.jsonl (failure envelopes) and <evidence_id>.log excerpts (untrusted)
+│       ├── tasks/
+│       │   ├── TASK-001.json
+│       │   ├── TASK-002.json
+│       │   └── activity/                # <queue_task_id>.jsonl: activity journal of a task, written while its worker runs (untrusted)
+│       ├── findings.jsonl
+│       ├── analysis.jsonl               # Observations of the code analysis providers (gate result, issue counts)
+│       ├── assessments.jsonl            # Append-only component assessments (never findings)
+│       ├── review-participation.jsonl   # Per-round review-bot participation records
+│       ├── metrics.json                 # Task usage rows and phase measurements (record-metrics)
+│       ├── quality-report.json          # Post-run quality report (plan-retrospective)
+│       ├── change-ledger.jsonl          # Append-only worktree_sha-stamped build/change/job ledger
+│       ├── references.json
+│       └── mcp/
+│           ├── digests.json             # Store size/SHA-256 sidecar (out-of-band edit detection)
+│           ├── history.jsonl            # Append-only history of the plan's process (Store Schemas § The Plan's History)
+│           ├── mailbox.jsonl            # Append-only event log: messages from the parent epic (own leaf lock)
+│           ├── status.json              # Hypermedia FSM state, worktree_path, instance version, policy counters, gaps
+│           ├── transaction-journal.json # Transaction journal while a write is in flight
+│           └── units/                   # Bound copies of the verified sub-units the plan instance calls
+│               └── <digest>.pmwf        # Content-addressed by SHA-256, immutable, digest-covered
+│
+├── archive/                             # Ended plans, whatever their outcome
+│   └── <plan_id>/                       # Same layout as a plan directory; read-only, resolvable by plan_id
+│       └── deleted.json                 # Only a tombstone, once the plan was deleted (cleanup or delete-plan)
+│
+├── lessons/                             # Lesson store of the project
+│   ├── <lesson_id>.md                   # YAML front matter (revisions, claim, retirement), Markdown body; never moved
+│   ├── .digests.json                    # Lesson-store size/SHA-256 sidecar
+│   └── .transaction-journal.json        # Transaction journal while a lesson write is in flight
+│
+├── workspace/                           # Workspace scope home
+│   ├── change-ledger.jsonl              # Ledger rows of plan-less service calls (pm_build with plan_id NO_PLAN)
+│   ├── findings.jsonl                   # Findings of plan-less builds
+│   ├── metrics.json                     # Task and served-content rows of the workspace scope (phase null)
+│   ├── questions.jsonl                  # Question records of the workspace scope (decisions of the project setup)
+│   ├── decisions.jsonl                  # Decision records of the workspace scope, with decision-facts/ beside it
+│   ├── grants.jsonl                     # Grants given for the project (reads of another repository's issues and pull requests)
+│   ├── screen-verdicts.jsonl            # Screen verdict cache of the workspace scope and the project's pending entries
+│   ├── chat/                            # Transcripts of chats in the workspace scope, about ended work among them
+│   ├── tasks/activity/                  # Activity journals of the workspace scope's tasks
+│   └── mcp/
+│       ├── digests.json                 # Store size/SHA-256 sidecar (the pending entries' stores included)
+│       ├── status.json                  # FSM state of the project's onboarding after its enrolment and of project-setup
+│       └── transaction-journal.json     # Transaction journal while a write is in flight
+│
+├── epics/                               # Non-tracked state of the epics (the ledger itself is git-tracked)
+│   └── <epic_id>/
+│       ├── digests.json                 # Store size/SHA-256 sidecar
+│       ├── decomposition.json           # The decomposition's draft and its decisions until committed
+│       ├── review.json                  # An open review of the epic's registers and its dispositions until done
+│       ├── metrics.json                 # Task and served-content rows of the epic scope (phase null)
+│       ├── questions.jsonl              # Question records of the epic scope
+│       ├── decisions.jsonl              # Decision records of the epic scope, with decision-facts/ beside it
+│       ├── screen-verdicts.jsonl        # Screen verdict cache of the epic scope
+│       ├── chat/                        # Transcripts of the epic's chats, its entry's chat among them
+│       ├── tasks/activity/              # Activity journals of the epic's tasks
+│       ├── status.json                  # FSM epic state
+│       ├── transaction-journal.json     # Transaction journal while a write is in flight
+│       └── deleted.json                 # Only a tombstone, once the archived epic's store was deleted by the cleanup
+│
+├── pending/                             # Entries of not-yet-created plans and epics
+│   └── <entry_id>/                      # Opened by a client's start or by an epic starting a plan; never expires
+│       ├── entry.json                   # Pending entry record: kind, the start's state, the proposed title and id
+│       ├── sources/                     # The entry's source directory (see The Source Directory)
+│       ├── chat/                        # The transcript of a chat about the entry
+│       └── grants.jsonl                 # Grants given once, for this start
+│
+├── queue/                               # Task queue of the project (all scopes, all roles)
+│   └── <queue_task_id>.json             # Queue task record: role, entity, state, lease, attempts, consultations
+│
+├── profiles/                            # Project profile set: verified harness profiles of this project (mode 0700)
+│   ├── <client_id>.json                 # Client profile; replaces the machine or shipped profile as a whole for this project
+│   └── verification/<client_id>.json    # Verification record the profile is bound to, with its .hmac sidecar
+│
+├── roles/                               # Project role set: operator role artifacts (mode 0700)
+│   ├── <role>.json                      # Role artifact; replaces the machine or shipped artifact of the same name
+│   ├── qualification/<role>.json        # Qualification record of the role's effective configuration (every operator-made record)
+│   └── qualification/decisions/<declaration-digest>.json  # Decision calibration record of a quorum declaration
+│
+├── jobs/                                # Write-ahead job journal (crash recovery) and job logs
+│   ├── <job_id>.json                    # Job record (a worker's with its protocol state): written before spawn, replaced post-spawn (pid) and at fate
+│   └── <job_id>.log                     # Raw job output, next to its record; deleted only by the cleanup once the job has ended
+│
+├── daemons/                             # Build daemon store: the only job-writable place of the store (mode 0700)
+│   └── <write_set_digest>/              # mvnd/ and gradle/ daemon registries of the jobs with that write set; nothing the runtime reads
+│
+├── build-timings.json                   # Learned job budgets keyed by canonical budget key
+│
+├── locks/                               # Per-project transaction locks; acquired in this order
+│   ├── workspace.lock                   # 1. The project's workspace scope
+│   ├── plan-<plan_id>.lock              # 2. Plan locks, lexicographic by plan_id
+│   ├── epic-<epic_id>.lock              # 3. Epic locks, lexicographic by epic_id
+│   ├── epics-worktree.lock              # 4. Git operations on the shared epic worktree
+│   ├── lessons.lock                     # 5. Lesson id allocation and every lesson store write
+│   ├── local-config.lock                # 6. local-config.json, role-assignments.json, model-catalogue.json
+│   ├── derived-facts.lock               # 7. derived-facts.json
+│   ├── build-timings.lock               # 8. build-timings.json
+│   └── queue.lock                       # 9. queue/ and the worker job records
+│
+├── derived-facts.json                   # Cache of derived facts (Store Schemas § Derived Facts Store); deletable
+├── store.json                           # Store identity: project_id, project_root, display name, unenrolled_at
+├── local-config.json                    # The operator's values of this project (Store Schemas § Operator Local Configuration)
+├── role-assignments.json                # The project's role assignment, where it sets one (Store Schemas § Role Assignments)
+└── model-catalogue.json                 # The project's allowed models, where it sets them (Store Schemas § Model Catalogue)
+----
+
+* *Never Moved*: A plan directory is created by the `start.create-scope` transaction of a start, built complete in the sibling temporary directory `plans/.init-<entry_id>/` (with the entry's `sources/` and `chat/` moved into it) and published by one atomic rename to `plans/<plan_id>/` (link:../store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas Specification, Transaction Journal], Writes outside the scope), and stays there until it is archived (<<archives>>) or `delete-plan` removes it. No worktree creation, worktree removal, or finalize step moves it.
+* *Scope Directories*: The FSM state of a scope lives in its scope metadata directory: `plans/<plan_id>/mcp/`, `epics/<epic_id>/`, and `workspace/mcp/` (the machine scope's in `<PM_MCP_BASE>/machine/mcp/`, link:02-machine-runtime.adoc#machine-scope-home[Machine Scope & Onboarding Entries]). For an epic the metadata directory is `epics/<epic_id>/` itself; where the specifications name a scope's `mcp/` files (`mcp/status.json`, `mcp/digests.json`, `mcp/transaction-journal.json`), an epic's are these files in `epics/<epic_id>/`. The epic ledger (`epic.json`, queue, inbox, landings, spec, its sources) stays git-tracked in `.marshall/epics/<epic_id>/` of the shared epic worktree; `epics/<epic_id>/` holds only what is not tracked. Store paths in a scope's transaction journal, its digest sidecar, and `accept-edit` are relative to the scope directory of a plan or epic, and to the project store root `projects/<project_id>/` for the workspace scope, whose stores include the pending entries' `pending/<entry_id>/entry.json`, `sources/sources.json`, and `grants.jsonl`.
+* *Locks*: The scope locks live in `locks/`, outside the directories they protect (link:../store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas Specification, Transaction Locks]); the machine-wide store locks stay in `<PM_MCP_BASE>/locks/`.
+* *Writers*: Only the runtime writes the store (the operator's acts included, which reach it through the runtime's local API from either client), always through the stores' transactions; jobs never write it, and the model reaches it only through server links and resources (`pm://plan/…`, `pm://epic/…`, `pm://workspace/…`), never through file paths.
+
+[#source-directory]
+=== The Source Directory (`sources/`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_ +
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
+
+Every entry has a source directory, created by the server with the entry and holding what the work starts from, as it came in. The server gathers every source itself; the only model step of bringing one in is the screening of an external source, over its stored copy (link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]).
+
+[source,text]
+----
+sources/
+├── sources.json            the manifest: per source its id, kind, reference
+│                           (an issue's or a pull request's URL),
+│                           where it came from, trust, digest, size, added
+│                           at, and for an external one its screening verdict
+├── description-<n>.md      a description, as written
+├── documents/<n>/…         documents, as copied or moved; a directory with
+│                           its tree
+├── issues/<forge>-<owner>-<repo>-<number>/
+│   ├── issue.md            title and body, level-1 validated
+│   └── issue.json          labels, milestone, assignees, state, URL
+├── pull-request/           as an issue, with the changed files
+├── lesson-<id>.md          the lesson as claimed
+├── local-changes.json      the captured changes
+└── epic-row.md             the staged section of the epic's queue row,
+                            as read at the start
+----
+
+* *Where it lives*: created as `pending/<entry_id>/sources/` with the entry and moved with the creation, in the transaction of `start.create-scope`, into the plan (`plans/<plan_id>/sources/`, and with it into the plan's archive) or into the epic's ledger (`.marshall/epics/<epic_id>/sources/`, committed and landed with the ledger), so that another machine that adopts the epic, and every later decomposition, reads them; an epic's machine store keeps no source. Abandoning an entry deletes its directory, and the release of the project deletes the directories of its pending entries.
+* *The manifest is the record of the sources*: `sources.json` (`format_version`, `revision`, and per source its `source_id`, `kind` (`description`, `documents`, `issue`, `pr`, `lesson`, `local_changes`, `epic_row`), `reference` (for an issue or a pull request always its URL, a number resolved to the URL of the project's repository before anything is fetched), `origin` (where it came from), `trust` (`trusted` for what the operator wrote and what is on this machine, `untrusted` for what comes from outside it), `files` with the size and SHA-256 of each stored file, `added_at`, and for an external source its verdict `unscreened`, `clean`, `suspicious`, or `accepted` with the operator's reason). `origin` of the plan's `mcp/status.json` names the sources by their ids, each resolving here to its kind and reference (link:../store-schemas/02-workflow-state-store.adoc[Store Schemas Specification, Workflow State Store]), and the epic header lists them with kind, reference, and digest (link:../store-schemas/04-epic-and-change-ledger.adoc#epic-header[Store Schemas Specification, Epic Header]). `references.json` holds no source.
+* *Never changed once stored*: a source is written once and never changed; a source added later (a description during refine, a description a chat proposed and the operator read back) is a new entry of the manifest. The manifest is covered by the digest sidecar of its scope, and every file is verified against its digest in the manifest when it is read.
+* *Order for an external source*: fetched by a bounded job, passed through the level-1 validator, stored here marked `unscreened` in one transaction, then screened over the stored copy, with its verdict written into the manifest. No model but the screener reads it before its verdict is `clean` or the operator accepted it. The recovery after a stop between storing and screening finds the source `unscreened` and screens it again; it never treats it as screened.
+* *Documents*: copied or moved into `documents/<n>/` after the server checked them (regular files, readable, within the compiled bounds of size and count, no link followed out of a directory); a move deletes a file outside git where it was and removes a tracked file through the short landing `git.land-removal`, which runs on after the source is stored (link:../state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue Specification, Documents as a Source]). A refused source is answered with `not_found`, `not_readable`, `too_large`, or `outside_allowed`, and nothing is stored.
+* *An issue and a pull request*: title and body as text through the guard in `issue.md`; labels, milestone, assignees, state, and URL as structured fields in `issue.json`, never as text for a model to follow. A pull request's changed files are stored as its head and marked untrusted unless the operator authored it (link:../state-catalogue/09-bootstrap-and-lessons.adoc#issues[State Catalogue Specification, Issues by Number or URL]).
+* *`request.md`* keeps its sections; its original input is composed by the server from the descriptions and a reference to each other source, and the models of the plan read the sources here (link:../phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows Specification, Planning Phases 1–2]).
+
+[#workspace-home]
+=== Workspace Home (`<PM_MCP_BASE>/projects/<project_id>/workspace/`)
+
+Every enrolled project has exactly one workspace scope (`PM-ARCH-4`), addressed in a worker's tool call as `plan_id: NO_PLAN` (link:../identifiers/01-general-rules-and-registry.adoc#id-no-plan[Identifier Registry, `NO_PLAN`]) within the project of the worker's job record, and by a client's request by the project it names. Its home is `workspace/` in the project's machine store:
+
+* *No Worktree, No Archive*: The workspace scope has no worktree and no archive; its home stays in the machine store for the life of the store, and its technical rows older than `retention.workspace_rows_days` are residue the periodic sweep removes (link:../timeouts/03-retention-host-config.adoc#retention-days[Timeouts & Budgets Specification]).
+* *Contents*: `mcp/status.json` (the FSM state of the workflows the workspace hosts: the project's onboarding from its enrolment on and `project-setup` with the sub-workflows it calls, link:../domain-extensions.adoc[Domain Extensions Specification]; the pending entries keep their state in `pending/<entry_id>/entry.json`), `screen-verdicts.jsonl` (the screen verdict cache of the workspace scope and the project's pending entries), `grants.jsonl` (the grants given for the project), `chat/` (the transcripts of chats in the workspace scope: a setup decision's, and the read-only chats about ended plans and epics), `mcp/digests.json` (the store digest sidecar), `change-ledger.jsonl` (the ledger rows of plan-less service calls, `pm_build` with `plan_id: NO_PLAN`), `findings.jsonl` (the findings of plan-less builds), `metrics.json` (the task and served-content rows of the workspace scope and the `worker_idle` rows of the project's warm workers, link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]), `questions.jsonl` (the question records of the project setup's decisions), and `decisions.jsonl` with its facts snapshots `decision-facts/<facts_digest>.toon` (the decision records of the workspace scope, link:../store-schemas/18-decision-records.adoc#decision-record[Store Schemas Specification, Decision Record]). Build and job logs of the workspace scope lie in `jobs/` of the project's machine store, next to their records, and are addressed as `pm://workspace/builds/{job_id}/log`; `pm://workspace/status`, `pm://workspace/findings`, and `pm://workspace/questions` project the three stores (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools Specification]).
+* *Lock*: Every write to the workspace home takes `locks/workspace.lock` of the project's machine store, the first lock of the project in the one total order (workspace -> plan locks -> epic locks -> `epics-worktree` -> `lessons` -> `local-config` -> `derived-facts` -> `build-timings` -> `queue` -> machine store locks -> leaf locks, link:../store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas Specification]), and runs as a journaled transaction (`mcp/transaction-journal.json`, link:../store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas Specification, Transaction Journal]).
+
+[#role-sets]
+=== Role Sets & Task Queue
+
+* *Role Sets*: The effective role set of a project is built from three sets, each artifact replacing the artifact of the same name in a lower set as a whole (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]): the shipped set compiled into `pm-mcpd` (classpath `roles/<role>.json` with its qualification records `roles/qualification/<role>.json`), the machine set `<PM_MCP_BASE>/roles/`, and the project set `<PM_MCP_BASE>/projects/<project_id>/roles/`. A role's harness, model, and effort are then overlaid by the role assignments of the machine and the project and a plan's override (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]; link:../store-schemas/12-machine-stores.adoc#role-assignments-store[Store Schemas Specification, Role Assignments]). Every qualification record the operator makes (setup grading, `pm-operator roles qualify`) lies in the project set, whichever set holds the artifact it qualifies; a record is looked up in the project set first, then in the set of the artifact, and the machine set holds no qualification records (link:../model-work/01-roles-and-configuration.adoc#qualification-records[Model Work Specification, Qualification Records]). The decision calibration record of a quorum declaration that the project's adjudication unit or the binary's default unit uses is `<PM_MCP_BASE>/projects/<project_id>/roles/qualification/decisions/<declaration-digest>.json`, one per declaration digest, so identical declarations share one record; the subdirectory keeps it apart from the role records `qualification/<role>.json`. The release ships the calibration of the default unit's quorum declarations as `roles/qualification/decisions/<declaration-digest>.json` on the classpath, and the machine set holds none (link:../model-work/10-decision-quorum.adoc#quorum-calibration[Model Work Specification, Quorum Calibration]). All three sets are operator-owned or compiled; no role, harness, or model pin is ever read from the repository (`PM-EXT-6`).
+* *Skill Directories*: Extension skills (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#skill-extensions[MCP Tools Specification, Skill Extensions]) come from the machine skill directory `<PM_MCP_BASE>/skills/<name>/` (operator files) and the project skill directory `.marshall/skills/<name>/` of the enrolled project root (team-owned, git-tracked; never read from a plan worktree or the shared epic worktree), each skill one directory with its `SKILL.md` and supporting files; a project skill replaces a machine skill of the same name. The runtime reads both and writes neither.
+* *Task Queue*: `queue/` of the per-project machine store holds one queue task record per task of every scope of the project; the job records of the project's workers lie in `jobs/` beside every other job record. Both are written only under `locks/queue.lock` (link:../store-schemas/16-task-queue.adoc#task-queue[Store Schemas Specification, Task Queue]). The machine scope has a queue of its own (link:02-machine-runtime.adoc#machine-scope-home[Machine Scope & Onboarding Entries]).
+
+[#archives]
+=== Plan & Epic Archives
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_ +
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue]_
+
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-20[PM-WATCH-DISP-20], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-21[PM-WATCH-DISP-21], link:../../implementation-watch/filesystem-layout.adoc#PM-WATCH-FS-1[PM-WATCH-FS-1]_
+
+Ended work keeps its identity and stays readable by it (`PM-WF-13`) until the cleanup deletes it on the operator's word:
+
+* *Plan Archive*: Every plan that ends is archived, whatever its outcome: `merged`, `no_change`, `handed_back`, and `returned` by `archive-plan` (step `1100`) of its finalize or terminal path; `cancelled`, `abandoned`, `released`, and `aborted` (the integrity abort) by the end the operator, the release, or the integrity resolution took (link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue Specification, Cancelling and Abandoning Archive]). Archiving moves the plan directory from `plans/<plan_id>/` to `archive/<plan_id>/` of the project's machine store (a rename within the same store directory), with everything in it: its records, its history `mcp/history.jsonl`, its sources, its decisions and re-planning records, its chat transcripts, and its tasks' activity journals. A plan in `plans/` is therefore live, and an ended one is never among them (link:../state-catalogue/04-plan-finalize-terminal.adoc#running-work[State Catalogue Specification, Running Work]). The path carries no date. Archiving already lands machine-side, so there is no separate export: the archive never leaves the workstation (`PM-ARCH-2`).
+* *Epic Archive*: When an epic ends archived or aborted, the epic workflow (`epic.archive`) moves its directory inside the shared epic worktree from `.marshall/epics/<epic_id>/` to `.marshall/archived-epics/<epic_id>-<YY-MM-DD>/` (UTC archival date), commits the move (`epic.commit-ledger`, staging both roots), and lands it on the default branch through the epic landing before the epic reaches its terminal state (link:../state-catalogue/06-setup-epic-other.adoc#state-epic.archive[State Catalogue Specification, `epic.archive`]). The archived `epic.json` keeps `epic_id`; the dated suffix is never parsed for identity, and a title is never an identity. The epic's non-tracked `epics/<epic_id>/` stays in the machine store, read-only, with its chat transcripts. An epic ended by the release of its project (`terminal_reason: released`) is archived in the project's machine store only: `epics/<epic_id>/` records its end, and its ledger stays in `.marshall/epics/<epic_id>/` untouched, without `epic.archive`, a ledger commit, or an epic landing, so the release touches no repository (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]). The git-tracked epic archive is never deleted by the cleanup.
+* *Deletion and tombstones*: The cleanup deletes an archived plan with its whole archive entry (records, history, sources, decisions, transcripts, activity journals, metrics rows, and the workspace's metrics rows of the plan), and an archived epic's `epics/<epic_id>/`, item by item, each in its own journaled transaction with one audit record (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]). It leaves a tombstone in place: `archive/<plan_id>/deleted.json` (`format_version`, `plan_id`, `title`, `outcome`, `ended_at`, `deleted_at`, `job_id`), likewise `epics/<epic_id>/deleted.json` (`epic_id`, `title`, `terminal_reason`, `ended_at`, `deleted_at`, `job_id`). A tombstone keeps the id from being allocated again (link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_id_derivation_phantom_id_refusal_guard[Phase Workflows Specification, Plan ID Derivation]); the listing of ended work leaves it out, and what refers to it (a report's detail) resolves to its deletion with the date. `delete-plan` leaves the same tombstone (link:../store-schemas/13-leases-integrity-testing.adoc#plan-deletion-lessons[Store Schemas Specification, Plan Deletion and Lesson Claims]). An archived plan with an undischarged owed item (a retained capture ref) is never due.
+* *Enumeration*: Every enumeration of epics (the listing of the local API, sibling-epic enumeration, re-grounding reads) covers the active root `.marshall/epics/` and, where it reads history, the archived root and the machine-side ends of released epics, and reports per root `root`, `exists`, `listed`, `entries_scanned`, and `unreadable`, so "zero epics" is distinguishable from "root not scanned". Sibling-epic enumeration excludes every archived snapshot whose `epic_id` equals the enumerating epic's own. The listing of a project's ended work (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#ended-work[Runtime & Interaction Model Specification, Ended Work]) reads `archive/` and the epics' ends, newest first, and leaves tombstones out.
+* *Read-Only Access by ID*: An archived record answers read requests by its id, its process and history as it ended among them; mutating calls are rejected with its terminal representation. A read-only chat about an ended plan or epic reads the archived record through this access, runs in the project's workspace scope, and keeps its transcript beside the archived record (`archive/<plan_id>/chat/`, an epic's in `epics/<epic_id>/chat/`), never in a ledger. A project reads only its own machine store; a plan reads another project's archived plans only under an operator access grant (link:../store-schemas/15-screening-and-grants.adoc#grant-record[Store Schemas Specification, Access Grant Record]; `PM-SEC-2`).
+
+[#plan-worktree-resolution]
+=== Plan & Worktree Resolution
+_Implementation watch: link:../../implementation-watch/filesystem-layout.adoc#PM-WATCH-FS-2[PM-WATCH-FS-2], link:../../implementation-watch/filesystem-layout.adoc#PM-WATCH-FS-3[PM-WATCH-FS-3], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-1[PM-WATCH-STORE-1]_
+
+[[project-resolution]]
+*Project Resolution Rule*: One rule maps a checkout path a client of the operator names (the terminal client's working directory, a project's checkout at its onboarding) to a project (`PM-SEC-2`); no other resolver exists:
+
+. Run `git rev-parse --show-toplevel` and `git rev-parse --git-common-dir` in the directory and canonicalise both (`Path.toRealPath()`); outside a git work tree the directory is refused as `project_not_enrolled`.
+. The main checkout is the directory that contains the common git directory (the parent of `--git-common-dir`). It must equal the `project_root` of exactly one enrolment file (link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas Specification, Project Enrolment Store]); that file names the `project_id`. No match is refused as `project_not_enrolled` (the onboarding of a new project takes that answer as its start); a match of a tampered or unreadable enrolment file is refused with that file's reason.
+. If the toplevel equals the main checkout, the path lies in the `main_checkout`. If the toplevel is `<project_root>/.marshall/local/worktrees/<x>/`, it lies in a `worktree` of `<x>` (a `plan_id`, or `_epics` for the shared epic worktree); a baseline scratch worktree (`baseline-<plan_id>-<sha12>`, xref:01-repository-workspace.adoc#worktree-lifecycle[Worktree Lifecycle]) resolves to no project. Any other toplevel (a git worktree outside `.marshall/local/worktrees/`, or a nested repository) is refused as unenrolled.
+
+The resolved `project_id` is recorded with what the request created (an entry, a plan); no record holds the path.
+
+* *Deterministic Location*: A plan has exactly one directory, so its resolution has no candidates to arbitrate:
+** The project is the one a client's request names or, for a worker, the project of its job record; the plan is looked up only in that project's machine store. The client profile of a worker's call comes from its job record. The main checkout is the enrolled `project_root`; no scope record stores a path to it.
+** If `plans/<plan_id>/mcp/status.json` exists, the plan is live. Its worktree is the recorded `worktree_path`, re-canonicalised and confinement-checked on every read; a recorded path that is not a live git worktree of `branch_name` is reconciled as described in xref:01-repository-workspace.adoc#worktree-lifecycle[Worktree Lifecycle], never followed.
+** Otherwise, if `archive/<plan_id>/` exists, the plan has ended: `pm_state` returns its terminal representation (empty `links`, read-only), `pm://plan/{plan_id}/*` resources, the local API, and the report and corpus readers serve the archived stores, and every mutating call is rejected; a tombstone answers that the plan was deleted, with its date.
+** Otherwise the plan does not exist (`scope_not_found`).
+* *Missing Is Not Empty*: Every path and record resolver distinguishes `absent` (the path does not exist) from an existing empty directory or file, and a metadata reader that finds nothing it can parse reports `unreadable`, never an empty record; neither is ever answered as a successful empty result.
+* *Enumeration*: Every enumeration of live plans (the listings of the local API, dedup gates, sibling reads) lists the directories `plans/*` of the project's machine store that hold `mcp/status.json`, one directory (a temporary init directory `plans/.init-*` is never listed), and reports `could_not_look` for an unreadable store, distinct from an empty one.
+* *Stateless Client Scope*: Neither the model nor an MCP client ever passes filesystem paths (`PM-ARCH-4`, `PM-SEC-2`). A worker passes only `plan_id` (a plan id, or `NO_PLAN` for the workspace scope) or `epic_id`. The daemon dynamically resolves the canonical real path (`Path.toRealPath()`) and verifies confinement to the project's machine store or workspace before any file I/O.
+
+[#coexistence-lifecycle]
+== Coexistence with plan-marshall, Enrolment & Release (`PM-MIG-1`, `PM-MIG-2`, `PM-MIG-5`)
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-2[PM-WATCH-DISP-2]_
+
+`PM-MCP` is built out in parallel to `plan-marshall` and shares no state tree with it:
+
+1. *Separate State Trees (`PM-MIG-2`)*: `PM-MCP` owns `.marshall/` per repository and `<PM_MCP_BASE>` (with the per-project machine stores) per machine; `plan-marshall` keeps `.plan/` and `~/.plan-marshall/`. Both may be installed on one machine and used in the same repository. `PM-MCP` runs no `plan-marshall` script, holds no lock of its trees, and never reads or writes them, without exception; `plan-marshall` never reads or writes the `PM-MCP` trees.
+2. *Clean Slate & Enrolment (`PM-MIG-1`, `PM-MIG-2`)*: `PM-MCP` imports nothing from `plan-marshall`: no configuration, lessons, `project-architecture/`, credentials, or learned build timeouts. The enrolment creates the project's machine store and its workspace scope; the first run of the project setup workflow creates `.marshall/` and `.marshall/config/` and copies no workflow unit into them. Plans and epics of `plan-marshall` are never taken over; they finish in `plan-marshall`. The plan lifecycle is offered in an enrolled project once the lifecycle gate is open, a compiled constant of the release (`PM-MIG-4`); while it is closed, only in a project enrolled as a pilot (`pm-operator enrol --pilot`, link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[CLI, Coordination & Security Specification, Lifecycle gate]).
+3. *Release (`PM-MIG-5`)*: the release of a project is the operator's switch-off for the `PM-MIG-5` triggers, an act of either client confirmed with what it ends (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]). It records `released_at` on the enrolment (link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas Specification, Project Enrolment Store]), ends every plan of the project with the outcome `released` and archives it (<<archives>>), ends every epic with the `terminal_reason` `released` and archives it machine-side only, deletes the project's pending entries with their sources, and ends a running onboarding of the project; it touches no repository, and their branches stay. A later enrolment of the project clears `released_at`. The project can continue on `plan-marshall`, whose `.plan/` `PM-MCP` never touched.

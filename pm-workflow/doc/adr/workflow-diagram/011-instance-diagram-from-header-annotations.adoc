@@ -41,6 +41,6 @@ _Rejected_: a note attaches to a state; the values belong to the instance, not t
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
 * `doc/plans/plan-instance.adoc`; operator decision at outline (all three forms)
 * `pm-workflow/src/main/java/de/planmarshall/workflow/diagram/WorkflowDiagramGenerator.java`

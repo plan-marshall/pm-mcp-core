@@ -45,7 +45,7 @@ resolver, the binding of `pm_state` and `pm_do`, turns a refusal into a tool res
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
-* link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
+* link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
   Rules 6 and 7
 * link:../../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc#protocol-errors-vs-domain-workflow-failure-states[MCP Tools § Protocol Errors]
 * `doc/plans/entity-addressing.adoc`; outline of PLAN-21

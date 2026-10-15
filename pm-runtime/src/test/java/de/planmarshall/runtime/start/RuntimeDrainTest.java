@@ -17,6 +17,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -33,12 +36,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.api.MachinePaths;
-import de.planmarshall.runtime.test.TestBases;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,8 +43,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.api.MachinePaths;
+import de.planmarshall.runtime.test.TestBases;
+
 /**
- * The drain of the runtime (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade)
+ * The drain of the runtime (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade)
  * with fake participants on a fixed clock, after a real start of steps 1 to 5 on a test base.
  */
 @EnableTestLogger

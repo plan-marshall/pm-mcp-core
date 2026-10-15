@@ -45,4 +45,4 @@ member, and the code follows the corrected schema.
 
 * `doc/plans/workflow-engine.adoc`, deliverables 2 and 3
 * Operator decision on PM-WATCH-STORE-57 (`persist_now`)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]

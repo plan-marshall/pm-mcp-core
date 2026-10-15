@@ -49,9 +49,9 @@ Alternatives not recorded.
 
 == Source
 
-* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log],
-  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-head[§ Audit Head],
-  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
+* The pull request of the work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log],
+  link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-head[§ Audit Head],
+  link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
 * Related: link:../../../../pm-runtime/doc/adr/runtime-audit/001-audit-trail-in-its-own-package.adoc[`runtime-audit` ADR 001],
   link:../../../../pm-runtime/doc/adr/runtime-audit/003-head-keyed-by-the-enrolment-integrity-key.adoc[`runtime-audit` ADR 003]

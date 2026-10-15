@@ -19,9 +19,9 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/module-structure.adoc} (Modules, {@code pm-runtime})</li>
+ * <li>{@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Modules, {@code pm-runtime})</li>
  * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc}</li>
- * <li>{@code doc/specification/runtime-model/01-processes-and-transport.adoc} (In-Process Lock Manager)</li>
+ * <li>{@code plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc} (In-Process Lock Manager)</li>
  * </ul>
  */
 package de.planmarshall.runtime.lock;

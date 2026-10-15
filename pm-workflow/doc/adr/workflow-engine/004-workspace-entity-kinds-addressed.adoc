@@ -48,7 +48,7 @@ bootstraps alone or every entity kind the workspace scope hosts. The operator an
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4],
   link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1]
-* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan],
-  link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap-epic[§ Bootstrap of an Epic],
-  link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-lessons[§ Lesson Maintenance]
+* link:../../../../doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan],
+  link:../../../../doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap-epic[§ Bootstrap of an Epic],
+  link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-lessons[§ Lesson Maintenance]
 * `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q1

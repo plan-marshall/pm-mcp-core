@@ -16,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,10 +26,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.queue.GenerationCheck;
 import de.planmarshall.core.queue.SessionGeneration;
 import de.planmarshall.core.queue.SessionGenerationStore;
@@ -34,10 +38,6 @@ import de.planmarshall.core.store.ScopeSessionRow.Client;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The fenced-generation step of the periodic sweep over the session generation record of a project in a test base,

@@ -31,7 +31,7 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/module-structure.adoc} (Findings &amp; Code-Analysis Contracts, Packages)</li>
+ * <li>{@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Findings &amp; Code-Analysis Contracts, Packages)</li>
  * <li>{@code doc/specification/store-schemas/03-findings-and-review-records.adoc} (Analysis Result Record)</li>
  * <li>{@code doc/specification/phase-workflows/04-finalize-step-bands.adoc}</li>
  * <li>{@code doc/specification/hypermedia-format/03-composite-wait-and-encoder.adoc} ({@code analysis_status})</li>

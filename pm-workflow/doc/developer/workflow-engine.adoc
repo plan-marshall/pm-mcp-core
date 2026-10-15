@@ -1,4 +1,5 @@
 = Workflow Engine (`workflow.engine`) Developer Guide
+:spec: ../../../doc/specification
 :toc:
 :toclevels: 3
 :nofooter:
@@ -233,7 +234,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-2[PM-WF-2], link:{docs}/Requi
 
 Implements item 2 of link:{dsl}/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
 and the bindings `active_job`, `active_jobs` and `active_tasks` of
-link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store].
+link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store].
 
 Entering a resting state parks it in the same status write:
 
@@ -284,13 +285,13 @@ Not implemented in this package:
 == Entity Addressing
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1]_
 
-Implements the engine side of link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules]
-6 and 7, the identifier rows link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-entity-id[`entity`],
-link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-entry-id[`entry_id`],
-link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-queue-task-id[`queue_task_id`] and
-link:{docs}/specification/identifiers/01-general-rules-and-registry.adoc#id-no-plan[`NO_PLAN`], the bootstraps of
-link:{docs}/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
-and link:{docs}/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap-epic[§ Bootstrap of an Epic],
+Implements the engine side of link:{spec}/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules]
+6 and 7, the identifier rows link:{spec}/identifiers/01-general-rules-and-registry.adoc#id-entity-id[`entity`],
+link:{spec}/identifiers/01-general-rules-and-registry.adoc#id-entry-id[`entry_id`],
+link:{spec}/identifiers/01-general-rules-and-registry.adoc#id-queue-task-id[`queue_task_id`] and
+link:{spec}/identifiers/01-general-rules-and-registry.adoc#id-no-plan[`NO_PLAN`], the bootstraps of
+link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
+and link:{spec}/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap-epic[§ Bootstrap of an Epic],
 and the `entity` argument of `pm_state` and `pm_do` in
 link:{docs}/specification/mcp-tools/01-core-workflow-tools.adoc[MCP Tools § Core Workflow Tools].
 

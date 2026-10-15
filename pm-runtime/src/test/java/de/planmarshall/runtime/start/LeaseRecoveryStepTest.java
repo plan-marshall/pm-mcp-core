@@ -26,6 +26,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LeaseStore;
@@ -33,10 +37,6 @@ import de.planmarshall.core.store.LockKey;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The lease step of the per-project recovery over a real build-slot lease store on the lock manager of the runtime.

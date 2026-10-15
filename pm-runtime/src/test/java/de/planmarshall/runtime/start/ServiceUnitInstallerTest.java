@@ -17,19 +17,14 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import de.cuioss.test.juli.LogAsserts;
-import de.cuioss.test.juli.TestLogLevel;
-import de.cuioss.test.juli.junit5.EnableTestLogger;
-import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
-import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
-import de.planmarshall.runtime.start.RecordingProcessCall.Call;
-import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -38,6 +33,11 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.start.RecordingProcessCall.Call;
+import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 
 /**
  * Install and uninstall of the per-user service (PM-ARCH-7) in a temporary home, with the real service managers

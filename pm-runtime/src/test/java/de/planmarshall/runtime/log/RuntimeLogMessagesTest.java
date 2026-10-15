@@ -15,15 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.tools.logging.LogRecord;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Stream;
-
-import de.cuioss.tools.logging.LogRecord;
-import de.planmarshall.core.log.CoreLogMessages;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,6 +29,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import de.planmarshall.core.log.CoreLogMessages;
 
 /**
  * The holder numbers every message of {@code pm-runtime} once (PM-IMPL-1): two messages with one identifier cannot be

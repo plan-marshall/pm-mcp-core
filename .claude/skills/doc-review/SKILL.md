@@ -14,4 +14,7 @@ If the documentation repository is not checked out, clone it beside this one fir
 (`gh repo clone plan-marshall/plan-marshall-documentation ../plan-marshall-documentation`).
 
 Work in that repository: its traceability checker (`.claude/skills/doc-review/scripts/trace.py`) and every path the
-skill names are relative to its root.
+skill names are relative to its root. The specifications, watch documents and traceability of this repository
+(`doc/Specification.adoc`, `doc/specification/`, `doc/ImplementationWatch.adoc`, `doc/implementation-watch/`,
+`doc/Traceability.adoc`) are in its scope too: the checker reads this checkout beside it, and an edit of these
+documents is made on a branch of this repository.

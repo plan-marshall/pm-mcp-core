@@ -30,6 +30,6 @@ _Rejected_: it would need an MCP library, which the dependency rules of this rep
 
 == Source
 
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Header
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Header
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
 * `doc/plans/plan-instance.adoc`; operator decision at refine (resource URI bindings in `pm-mcp-server`)

@@ -30,6 +30,11 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LeaseRecord;
@@ -38,11 +43,6 @@ import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.CopyReconciler;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
 import de.planmarshall.runtime.test.TestBases;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 /**
  * The implemented recovery steps after a runtime killed with {@code SIGKILL} in the middle of the work each step

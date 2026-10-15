@@ -38,7 +38,7 @@ Alternatives not recorded.
 
 == Source
 
-* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+* The pull request of the work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
   decision q4
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store] (`audit_rotation`),
-  link:../../../../../plan-marshall-documentation/doc/specification/timeouts/03-retention-host-config.adoc#configuration-keys[Timeouts & Budgets § Configuration Keys]
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#machine-config[Store Schemas § Machine Configuration Store] (`audit_rotation`),
+  link:../../../../doc/specification/timeouts/03-retention-host-config.adoc#configuration-keys[Timeouts & Budgets § Configuration Keys]

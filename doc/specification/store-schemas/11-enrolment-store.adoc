@@ -1,0 +1,130 @@
+= Store Schemas Specification: Project Enrolment Store
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../store-schemas.adoc[Store Schemas Specification] » Project Enrolment Store
+
+[#enrolment-store]
+== Project Enrolment Store (`<PM_MCP_BASE>/enrolments/<project_id>.json`)
+
+The project enrolment store is implemented: one file per enrolled project with its closed, typed schema, its strict reading and canonical writing, the integrity sidecar record with the HMAC under the operator-lane key, the per-use checks, the enrolment check whose refusal blocks only its project, and the runtime's writes of `enrol`, `unenrol` and the re-baseline (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-2[PM-EXEC-2], link:../../../../plan-marshall-documentation/doc/concepts/enrolment.adoc[Concepts § Enrolment], link:../../../../plan-marshall-documentation/doc/developer/enrolment-store.adoc[Developer Guide § Enrolment Store]). The schema is the type `ProjectEnrolment` and its codec `EnrolmentCodec` (link:../../../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]). This section keeps what is not implemented yet.
+
+* *Operator Channel*: The file is written only by the runtime on an act of the operator: the state `project.enrol` of a project's onboarding, which either client drives (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]), and the direct verb `pm-operator enrol`, a later run of the onboarding's identity and enrolment states with its arguments as the answers (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[CLI, Coordination & Security Specification]); no client process writes a store. What the enrolment records was found by the onboarding's detection after the operator's consent `inspect_checkout`, the scripts' facts only after `run_checkout_scripts` (xref:12-machine-stores.adoc#consent[Consent Before Acting]); no remembered consent is held in the enrolment.
+* *Verification Points*: The runtime verifies a project's file before serving the project for the first time after start and before every verify-not-resolve check (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-integrity[CLI, Coordination & Security Specification, Enrolment Integrity]). The project's recovery runs the check as its first step, which is implemented (link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#per-project-recovery[Concepts § Per-Project Recovery]), and so does the verify-not-resolve check, as its stage 0 (link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/job/VerifyNotResolvePipeline.java[VerifyNotResolvePipeline]); the other verification points are not wired yet. The re-baseline verb is `pm-operator accept-edit enrolment <project_id>`, which shows the recorded and current size and SHA-256 from the sidecar record before confirmation (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-accept-edit[CLI, Coordination & Security Specification, Accept-Edit]).
+* *Audit Replay at Recovery*: An enrolment write owes its audit record in `enrolments/<project_id>.json.audit-intent` before the write, as a record of outcome `failed` with the reason `not_confirmed` that the completed write replaces by the record of outcome `succeeded`, and hands it over after it (link:../../../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#audit-delivery[Concepts § Store Integrity, Audit Records of a Store Change]); a record a refused or stopped hand-over left owed is handed over by the project's recovery, as the outcome it had reached: a write that failed or stopped before its completion was recorded is never handed over as `succeeded`. The replay is implemented and wired into the recovery: step 2 of the project's recovery hands over what the project owes (`Enrolments.replayOwedAudit(projectId)`), and its background pass what projects no longer enrolled owe (`Enrolments.replayOwedAuditOfUnenrolledProjects()`): the records of a project without an enrolment file, including one that an interrupted `unenrol` left with a sidecar, are handed over by the background pass, which also removes that sidecar; it continues past a project whose intent file is refused (unreadable, another format version) or fails on I/O (it cannot be read, rewritten or removed), keeps that file and reports the first failure after the last project.
+* *Refused at Enrolment*: Of the values refused at enrolment (<<enrolment-field-semantics>>), the runtime checks before it signs an enrolment, at `enrol` and at the re-baseline, and refuses as `enrolment_invalid`: a placeholder other than `{module}` in an argument vector, or `{module}` outside its module-argument group; an absolute write path that is, lies below or contains `<PM_MCP_BASE>`, judged by the real path of its longest existing ancestor with the names that do not exist yet appended, so a symbolic link into `<PM_MCP_BASE>` is caught for a path that does not exist yet, and refused as well when it holds a `..` below that ancestor or cannot be resolved; a credential-pattern build environment name (`*_TOKEN`, `*_PASSWORD`, `*_SECRET`, `*_KEY`) and `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR`, `MVND_DAEMON_STORAGE` (link:../../../../plan-marshall-documentation/doc/concepts/enrolment.adoc#policy[Concepts § Enrolment, Policy Before Signing]). Not checked yet, because this specification does not define them concretely: the shell metacharacters of an argument vector, whether the forbidden free flags apply to enrolled templates, the credential patterns beyond the four listed, a write path that is not absolute, and the unique root below.
+* *Pair Write*: A write stages the enrolment file and its sidecar completely before it renames them into place, and a stopped write is completed or discarded by the project's recovery or the next write of the project (link:../../../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#store[Developer Guide § Enrolment Store, The Store]).
+* *Unique Root*: `project_root`, the canonical absolute path of the repository main checkout resolved at enrolment, is unique across all enrolment files; the operator CLI checks it at every enrolment write and the runtime at start, and a duplicate root blocks both projects with `enrolment_root_conflict` until the operator resolves it.
+* *Templates Decide What Runs*: A build job runs the canonical template of its build system and verb (`build.canonical_templates`), or the compiled default when none is enrolled; there is no goal allowlist per wrapper. The typed placeholder `{module}`, the only one, is validated at job time; a verb that needs a build profile names it literally in its template (for example `"integration-tests": ["verify", "-Pintegration-tests", "-pl", "{module}"]`) (link:../domain-extensions/06-configuration.adoc#enrolled-argument-templates[Domain Extensions Specification, Tier 2]).
+
+[#enrolment-field-semantics]
+=== Field Semantics Beyond the Schema
+
+What the enrolment verb and the job runtime do with the fields of an enrolment:
+
+* `pilot`: set and cleared only by the operator's enrolment act (`pm-operator enrol` with or without `--pilot`); clearing it affects only later `start.create-scope` calls, live plans and epics continue (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[CLI, Coordination & Security Specification, Lifecycle gate]).
+* `container_engine`: set only by `pm-operator enrol --container-engine docker` after the operator confirmed that the project's jobs then hold the authority of the Docker group (audited `container_engine_enabled`), and cleared by re-running enrol without the option (`container_engine_disabled`). `null`: no job receives `DOCKER_HOST`, `DOCKER_CONFIG`, or `TESTCONTAINERS_*`, and the engine's socket paths are outside the read set. `docker`: build jobs receive the captured container variables and every process job of the project records `confinement: partial(container_engine)` (link:../job-runtime/02-confinement-and-environment.adoc#container-engine[Job Runtime Specification, Container Engine]).
+* `released_at`: written by the release of the project, an operator act of either client (`pm-operator project release <id>` in the terminal; audited), and cleared by a new enrolment of a released project (audited). While set, a request that opens a plan's or an epic's start refuses with `lifecycle_closed`, and so does `start.create-scope` (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]).
+* Argument vectors (`build`, `providers`): shell metacharacters and the forbidden free flags are refused at enrolment; the placeholder `{module}`, only inside the module-argument group, which a whole-tree job omits, is validated at job time (link:../domain-extensions.adoc[Domain Extensions Specification, Optional Module-Argument Group]). An absent entry of `build.canonical_templates` or `build.discovery_templates` means the compiled default template (link:../job-runtime.adoc[Job Runtime Specification, Canonical Build Verb Set]; link:../domain-extensions.adoc[Domain Extensions Specification, Server-Owned Module Discovery]); an absent entry of `providers` means the compiled provider verification.
+* `wrappers[].pinned_files`: the files that decide which tool runs and with which flags (wrapper jar and properties, `.mvn/maven.config`, `.mvn/jvm.config`, `gradle.properties`, where present at enrolment); a listed path with `sha256: null` must stay absent.
+* `host_tools[]`: the host tools of this project; a provider's CLI tool not listed here is taken from the machine's `host-tools.json` (xref:12-machine-stores.adoc#provider-defaults[Machine Provider Defaults]). `executable_path` is resolved at enrolment from the absolute directories of the operator's login `PATH`, with no `PATH` lookup at runtime; for a host tool that is a script, the job starts its `interpreter` (`ruby` for `asciidoctor`) with the script as its first argument, never the script's shebang; `version` is the version printed at enrolment and informational.
+* `project_scripts`: the `interpreter`'s own digest is verified from `host_tools`; the `argument_schema` (draft 2020-12 subset: `type`, `properties`, `required`, `additionalProperties` false, `enum`, `pattern`, `minimum`, `maximum`, `maxLength`) is validated as a schema at enrolment and applied to every job request; `max_timeout_seconds` is the budget of every run of the script, with no learning and no escalation (link:../timeouts.adoc[Timeouts & Budgets Specification, Job Budgets]).
+* `command_budgets`: operator budgets in seconds per budget key (`<build_system>:<verb>[@<module_id>]`, `git:<operation>`, `ci:<operation>`, `llm:<role>`), clamped up to the engine or role floor, may exceed the escalation cap, recorded as `budget_derivation` `operator` (link:../timeouts.adoc[Timeouts & Budgets Specification, Job Budgets]).
+* `write_paths`: build toolchain cache directories added to the Linux Landlock write set of this project's jobs (link:../job-runtime.adoc[Job Runtime Specification, Linux Filesystem Confinement]); never under `<PM_MCP_BASE>`.
+* `build_environment`: the operator's login environment as the terminal client captured and sent it, never the runtime's own environment; an enrolment from the web app takes the environment the terminal client last captured on the machine and says so (link:../job-runtime.adoc[Job Runtime Specification, Job Environment]); credential-pattern variable names, `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR`, and `MVND_DAEMON_STORAGE` are refused; the container variables are passed only while `container_engine` is `docker`.
+
+[#project-store-identity]
+=== Project Store Identity (`<PM_MCP_BASE>/projects/<project_id>/store.json`)
+_Implementation watch: link:../../implementation-watch/credentials-and-enrolment.adoc#PM-WATCH-CLI-23[PM-WATCH-CLI-23]_
+
+The per-project machine store records the main checkout it belongs to, the project's display name, and its unenrolment. The enrolment writes `store.json` when it creates the store, under the project's workspace lock (`locks/workspace.lock`); `project_id` and `project_root` never change afterwards. The operator renames the project in either client (`display_name`); `pm-operator project unenrol <id>` and the unenrol act of either client remove only the enrolment file and its sidecar, leave the store in place, and record `unenrolled_at`; from then on the store is an item of the cleanup, deleted whole once it has been unenrolled longer than `cleanup.unenrolled_after_days` (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]), and never a candidate of the periodic sweep. Enrolling the same `project_id` again removes `unenrolled_at` and reuses the store only when the new `project_root` equals the recorded one; otherwise the enrolment is refused (`project_store_root_mismatch`), naming both roots. After the cleanup deleted the store, an enrolment starts a new one.
+
+*Display name* (xref:02-workflow-state-store.adoc#titles[Titles and Names]): proposed at enrolment from the remote's owner and name (`<owner>/<name>`), changed by the operator before the enrolment or later; display only, never an identifier.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/project-store.json",
+  "title": "ProjectStoreIdentity",
+  "type": "object",
+  "required": ["format_version", "project_id", "project_root", "display_name", "created_at", "unenrolled_at"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "project_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Equals the store directory name; proposed from the remote's name, valid by the identifier grammar and unique on the machine, confirmed by the operator." },
+    "project_root": { "type": "string", "minLength": 1, "description": "Canonical absolute path of the main checkout at the enrolment that created the store." },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The project's name for the operator." },
+    "created_at": { "type": "string", "format": "date-time" },
+    "unenrolled_at": { "type": ["string", "null"], "format": "date-time", "description": "Set by unenrol, removed by a new enrolment." }
+  }
+}
+----
+
+[#harness-enrolment-store]
+== Harness Enrolment Store (`<PM_MCP_BASE>/harnesses.json`)
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-33[PM-WATCH-DISP-33]_
+
+One machine-wide file holds the harness CLIs that may run workers (job kind `llm`, xref:10-job-and-lesson-records.adoc#job-record[Job Record]). A harness is enrolled per machine, not per project, by `harness.enrol` of the machine's onboarding, which records a candidate of the harness scan or a harness the operator added with a verified profile (link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]), or by `pm-operator enrol-harness <client_id>` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]): the runtime resolves the executable path once (no `PATH` lookup at job time), runs the profile's version probe, and records path, digest, and version, and the usage report of its profile, and nothing else: the file holds no environment value, no variable name, and no credential, because `PM-MCP` never stores or exports a harness's authentication (the harness uses its own login). Written only by the runtime on those acts and on an accepted self-update, under `locks/harnesses.lock`, with an HMAC sidecar `harnesses.json.hmac` in the format of the sidecar of a project enrolment: a closed, versioned record with exactly `format_version` (`1`), `size` (the byte length of the canonical file), `sha256` (its lowercase-hex SHA-256) and `hmac` (the lowercase-hex HMAC-SHA-256 over its exact canonical bytes), under the same enrolment integrity key, verified before every worker spawn (link:../../../../plan-marshall-documentation/doc/concepts/enrolment.adoc#integrity[Concepts § Enrolment, Integrity]).
+
+* *Self-Update Within Range*: Harness CLIs update themselves. At every spawn the runtime re-probes the version and re-digests the executable; a changed digest or version inside the client profile's supported version range (`headless.supported_versions`, link:../client-profiles.adoc[Client Profiles Specification]) is accepted: in the accepting transaction the runtime, the file's only writer, rewrites `harnesses.json` and its HMAC sidecar under `locks/harnesses.lock` with the new version and digest, and an `operator` audit record `harness_updated` names the old and new version and digest. A version outside the range, or a harness not enrolled, refuses the worker launch before spawn (fate `refused`, reason `harness_version_unsupported` or `harness_not_enrolled`); the refusal counts as a start failure of the role on that harness, and at the start-failure guard the role is held for the operator with the reason and the act that resolves it, a new enrolment of the harness (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]).
+* *Tampered File*: An HMAC mismatch refuses every worker launch of that file before spawn (fate `refused`, reason `harness_tampered`, with a `security` audit record `enrolment_tampered`); each refusal counts as a start failure of the role on that harness, so the start-failure guard holds the role for the operator with `harness_tampered` and the act of a new enrolment (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]). A new enrolment is the re-baseline: after showing path, version, and digest of the named client for confirmation it rewrites the file and its sidecar with the named client only; entries of other clients in a file that failed its check are not carried over, and each of those clients must be enrolled again. There is no pause and no `accept-edit` form for this file; at the guard the queued tasks of the affected roles close `lost` with `role_unavailable` and take their conservative fallback (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]).
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/harnesses.json",
+  "title": "HarnessEnrolmentStore",
+  "type": "object",
+  "required": ["format_version", "harnesses"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "harnesses": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of a worker-eligible profile of the effective profile set with a headless template, a shipped or an operator-added one; a profile marked headless null or worker.eligible false is never enrolled." },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["executable_path", "sha256", "version", "enrolled_at", "updated_at", "usage_report"],
+        "additionalProperties": false,
+        "properties": {
+          "executable_path": { "type": "string", "minLength": 1, "description": "Resolved absolute path." },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of the executable at the last accepted probe." },
+          "version": { "type": "string", "minLength": 1, "description": "Version printed by the profile's version probe at the last accepted probe." },
+          "enrolled_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time", "description": "Last accepted self-update (equals enrolled_at before the first)." },
+          "usage_report": {
+            "type": "object",
+            "required": ["source", "figures"],
+            "additionalProperties": false,
+            "description": "What the harness reports of its usage (Client Profiles Specification, Tokens, Not Money), shown in the harness list as complete, partial (naming what is missing), or not_reported.",
+            "properties": {
+              "source": { "type": "string", "enum": ["declared", "verified"], "description": "declared: from the profile's usage pointers; verified: from the usage stage of the profile's verification." },
+              "figures": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "input": { "$ref": "#/$defs/figure" },
+                  "output": { "$ref": "#/$defs/figure" },
+                  "cache_read": { "$ref": "#/$defs/figure" },
+                  "cache_creation": { "$ref": "#/$defs/figure" },
+                  "reasoning": { "$ref": "#/$defs/figure" },
+                  "tool_uses": { "$ref": "#/$defs/figure" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "figure": { "type": "string", "enum": ["reported", "not_applicable", "missing"] }
+  }
+}
+----

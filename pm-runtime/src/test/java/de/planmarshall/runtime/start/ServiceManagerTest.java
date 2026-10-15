@@ -19,13 +19,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
-
-import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.runtime.start.ServiceUnitFile.Platform;
 
 /**
  * The service managers of the service-managed start mode (PM-ARCH-7): the exact {@code launchctl} and

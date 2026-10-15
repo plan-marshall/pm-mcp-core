@@ -47,5 +47,5 @@ matches no transition or two, is the internal fault `undeclared_outcome`.
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1] (only verified units run)
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]
 * `doc/plans/workflow-engine.adoc`, deliverable 4

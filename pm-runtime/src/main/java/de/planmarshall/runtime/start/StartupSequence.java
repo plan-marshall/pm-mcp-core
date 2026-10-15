@@ -9,13 +9,13 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -24,7 +24,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * Steps 1 to 5 of the runtime's startup sequence, run before the HTTP server binds the socket
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Startup Sequence).
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Startup Sequence).
  * <ol>
  * <li>Acquire the singleton lock; a runtime that loses writes nothing.</li>
  * <li>Remove a stale {@code run/runtime.sock} and {@code state/runtime.json}, only while holding the lock.</li>

@@ -50,8 +50,8 @@ _Rejected_: it loses the record contract (the components, `equals`, `hashCode` a
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events items 2 and 3
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Invariants per Version and Position Rule
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events items 2 and 3
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Invariants per Version and Position Rule
 * `doc/plans/plan-instance.adoc`
 * `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java`
 * Pull request #67, CodeRabbit finding 11e8e3 on `PlanInstanceStore.java` (the write-once check of a version)

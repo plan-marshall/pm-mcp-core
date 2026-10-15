@@ -10,7 +10,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 Package `de.planmarshall.workflow.finalize` describes the steps of the finalize pipeline of a plan and checks a roster of them against the static rules of the pipeline.
 It holds the descriptor of a step and the validator, and no table of the default steps: the default roster lives in the assembly in `plan-marshall-mcp`, and the validator takes every roster as input (link:../adr/workflow-finalize/001-descriptor-and-validator-only.adoc[ADR 001]).
 
-The descriptor and the rules are specified in link:../../../../plan-marshall-documentation/doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[the Phase Workflows specification, part 05]; the decisions are recorded in `pm-workflow/doc/adr/workflow-finalize/`.
+The descriptor and the rules are specified in link:../../../doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[the Phase Workflows specification, part 05]; the decisions are recorded in `pm-workflow/doc/adr/workflow-finalize/`.
 
 == Architecture and Core Types
 
@@ -76,5 +76,5 @@ Set<String> filingSteps = FinalizePipelineValidator.findingSources(roster);
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* Specification: link:../../../../plan-marshall-documentation/doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[Phase Workflows specification, part 05]
+* Specification: link:../../../doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc[Phase Workflows specification, part 05]
 * Decisions: `pm-workflow/doc/adr/workflow-finalize/` ADRs 001 to 003

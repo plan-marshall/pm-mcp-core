@@ -23,15 +23,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.AuditIndexEntry;
 import de.planmarshall.core.store.TransactionId;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The audit index: append-only and hash-chained, so an edited or removed entry breaks its chain.

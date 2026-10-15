@@ -32,6 +32,10 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.AuditCodec;
 import de.planmarshall.core.store.AuditIndexEntry;
@@ -41,10 +45,6 @@ import de.planmarshall.runtime.credentials.SecretStoreException;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
 import de.planmarshall.runtime.start.AuditChainVerification.BreakReason;
 import de.planmarshall.runtime.start.AuditChainVerification.Outcome;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The verification of the audit trail, the acceptance of the package: every tamper case of the work package is

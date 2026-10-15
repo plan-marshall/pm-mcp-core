@@ -15,7 +15,7 @@ A project load returns either every verified project unit or every finding, each
 A load with findings returns the `config_invalid` refusal (`UnitLoadResult.refusal()`), and no default unit ever stands in for a refused project unit.
 The assembly (`pm-mcp-server` in plan-marshall-mcp) calls the loader and applies that refusal to the plan lifecycle at plan start and at resume; nothing in this repository calls the loader on a lifecycle path.
 
-The specification of the project-owned units is link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants]; the merge is specified in link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units].
+The specification of the project-owned units is link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants]; the merge is specified in link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units].
 The decisions are recorded in `pm-workflow/doc/adr/workflow-unit/`.
 
 == Architecture and Core Types
@@ -191,5 +191,5 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]
+* Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]
 * Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 004

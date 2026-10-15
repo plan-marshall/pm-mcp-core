@@ -39,6 +39,6 @@ _Rejected_: the version would commit apart from the state change of the server e
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Storage and Composition Log
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Storage and Composition Log
 * `doc/plans/plan-instance.adoc`; operator decision at refine (persistence in `workflow.plan`, no `pm-core` change), revised by the operator decision of 2026-10-14 on CodeRabbit finding 11e8e3 of pull request #67 (`ScopeTransaction.create`)
 * `pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java`

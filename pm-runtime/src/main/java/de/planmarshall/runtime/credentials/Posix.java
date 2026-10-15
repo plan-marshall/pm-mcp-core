@@ -13,7 +13,6 @@ import static java.lang.foreign.ValueLayout.JAVA_INT;
 
 import java.lang.foreign.FunctionDescriptor;
 import java.lang.foreign.Linker;
-
 import lombok.experimental.UtilityClass;
 
 /**

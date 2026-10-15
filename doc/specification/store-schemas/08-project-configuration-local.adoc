@@ -1,0 +1,348 @@
+= Store Schemas Specification: Project Configuration (domains.json, build-map.json, local-config.json)
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../store-schemas.adoc[Store Schemas Specification] » Project Configuration (domains.json, build-map.json, local-config.json)
+
+[#config-domains-json]
+== Team File `domains.json`
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/config-domains.json",
+  "title": "DomainsConfigFile",
+  "description": "Sparse team file .marshall/config/domains.json: overrides only where the derived domain detection (setup.detect-domains) is wrong for the repository.",
+  "type": "object",
+  "required": ["format_version"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "domains": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": { "type": "boolean", "description": "Forced activation; absent = derived. Server rule: a known compiled or project-local domain." },
+          "always_on": { "type": "boolean", "description": "Absent = the descriptor's always_on." },
+          "file_globs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "description": "Replaces the descriptor's detection globs. Server rule: parses in the detection dialect; a glob matching no tracked file is a warning finding."
+          },
+          "disabled_profiles": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "enum": ["implementation", "module_testing", "integration_testing", "quality", "documentation", "security"] },
+            "description": "Profiles never activated for this domain; active profiles are otherwise derived per module."
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+[#config-build-map-json]
+== Team File `build-map.json`
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/config-build-map.json",
+  "title": "BuildMapConfigFile",
+  "description": "Team file .marshall/config/build-map.json: the seeded, then curated file-to-build route table; read fail-closed (build_map_invalid, build_map_unseeded).",
+  "type": "object",
+  "required": ["format_version", "routes"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "routes": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["glob", "role", "build_class"],
+          "additionalProperties": false,
+          "properties": {
+            "glob": { "type": "string", "minLength": 1, "maxLength": 256, "description": "fnmatch dialect; never **." },
+            "role": { "type": "string", "enum": ["production", "test", "config"] },
+            "build_class": { "type": "string", "enum": ["compile", "module-tests", "verify", "none"] }
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+[#local-config]
+== Operator Local Configuration (`<PM_MCP_BASE>/projects/<project_id>/local-config.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
+
+_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-29[PM-WATCH-EXT-29]_
+
+The operator's values of one project and its machine-local bindings, written only by the runtime under the project's `locks/local-config.lock` on the operator's acts in either client: the operator values of the project's onboarding and setup (`project.operator`) and their later runs, a value set or unset over the local API, and `pm-operator config --project <project_id>`; never by a model. Sparse like the team files: a key holds only the project's own value, and accepting the machine's value as the proposal records nothing. The file carries `revision` like every operator file (xref:12-machine-stores.adoc#machine-config[Machine Configuration Store], Operator files and their revision). Which value of which level wins is <<project-levels>>.
+
+* *Shared keys* (`$defs/settings`): each falls back to the same key of `machine-config.json` `project_defaults` and then to the compiled default; `$defs/settings` is the schema of both (xref:12-machine-stores.adoc#machine-config[Machine Configuration Store (`<PM_MCP_BASE>/machine-config.json`)]). Among them the commit author identity `commit_identity {name, email}`, the author of every server commit (the operator, who is responsible for the change); the committer is the agent identity resolved from the provider credential (derived fact `agent_identity`), else the fixed `plan-marshall-mcp` noreply identity (link:../domain-extensions/04-setup-state-machine.adoc#setup-verify-credentials[Domain Extensions Specification, Credential Verification]). Where neither the project nor the machine holds one, `project.operator` proposes the operator's global git identity, and accepting it records it for the project, since no level holds it; while no effective value exists, a commit refuses with `identity_missing`. The `commit_trailer` stays a separate key.
+* *Aspect keys*: the project's value of an aspect the machine's onboarding records falls back to that aspect's machine value, never to `project_defaults`: `language.model` to the machine's `language.model`; `plan_defaults.method` and `plan_defaults.asking` to the machine's `plan_defaults` (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]); `plan_defaults.posture` to the machine's `plan_defaults.posture`, an optional key with no compiled default at either level: while neither sets it, a plan asks the posture in `init.options` (link:../workflow-dsl/09-plan-instance.adoc#plan-posture[Workflow DSL Specification, Posture and base branch]); `integrations.<integration>` to the machine's `providers.<integration>` (xref:12-machine-stores.adoc#provider-defaults[Machine Provider Defaults]); and `cleanup.plans_after_days`, `cleanup.epics_after_days`, `cleanup.logs_after_days` to the machine's `cleanup`. The landing axis of a project is no operator key: it is the team's (`workflow.json` `landing`, xref:07-project-configuration.adoc#config-workflow-json[Team File `workflow.json`]).
+* *Integration variant and credential*: `integrations.<integration>` holds the project's `variant` (`native` or `cli`, for `git`, `github`, and `gitlab`) and its `credential_key`. The effective variant is the project's value, else the machine's default variant, else derived: `cli` where the integration's host tool is enrolled (in the project's enrolment or the machine's `host-tools.json`), `native` where not. A choice of the operator is required only while the effective variant is invalid (a `native` variant and a feature the derived fact `git_native_capability` reports): it is an operator wait of `project.operator` (link:../domain-extensions/04-setup-state-machine.adoc#setup-integration-variants[Domain Extensions Specification, Integration Variants]), never a question record and never an answer a model relays. One value holds for every operation of the integration; there is no per-operation override. While the choice is required and absent, every operation of that integration refuses with `integration_variant_unset`. A `cli` value requires the integration's host tool enrolled for the project or the machine (`cli_tool_not_enrolled` otherwise). Sonar and Forgejo have only the native variant and take only a `credential_key`. The effective value carries its origin (`project` for the project's value, `machine` for the machine's default variant, `derived` otherwise), enters `config_hash`, and is served to the operator in both clients and in `pm://project/config`, never pushed into a representation or tool result (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
+* *`upstream_mcp`*: the upstream MCP allowlist of the project (`PM-SVC-3`, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#_selective_upstream_mcp_proxy_meta_provenance_pm_svc_3[MCP Tools Specification, Selective Upstream MCP Proxy]): per `server_id` the server's HTTPS `url`, its credential key `mcp-<server_id>` where the server is authenticated, the tools the server may call, and the call timeouts. Upstream tools are called server-side only; no worker reaches one. Its only writer is the operator verb `pm-operator upstream allow|deny`; a plain set does not change it, and repository content never adds a server or a tool. Upstream servers are remote HTTPS servers reached through `cui-http`; there is no `stdio` subprocess variant. Absent means no upstream server.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/local-config.json",
+  "title": "OperatorLocalConfig",
+  "type": "object",
+  "required": ["format_version", "revision"],
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0, "description": "Settings revision, incremented by every write; a change against an older revision is refused with conflict." },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The project's integration variant and credential; absent: the machine's provider defaults, then the derived variant.",
+      "properties": {
+        "git":     { "$ref": "#/$defs/integration_with_variant" },
+        "github":  { "$ref": "#/$defs/integration_with_variant" },
+        "gitlab":  { "$ref": "#/$defs/integration_with_variant" },
+        "forgejo": { "$ref": "#/$defs/integration_native" },
+        "sonar":   { "$ref": "#/$defs/integration_native" }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string", "pattern": "^(same|[a-z]{2,3}(-[A-Za-z0-9]{1,8})*)$", "description": "The project's model language: same (the interface language) or a locale; absent: the machine's language.model." }
+      }
+    },
+    "plan_defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The project's method and asking axes and its posture; absent: the machine's plan_defaults.",
+      "properties": {
+        "method": { "type": "string", "enum": ["method.test-first", "method.tests-after"] },
+        "asking": { "type": "string", "enum": ["ask.every-phase", "ask.key-points", "ask.questions-only"], "description": "Which phase transitions wait for the operator, among them the outline review and whether a plan stops before its merge (Plan Behaviour Axes)." },
+        "posture": { "type": "string", "enum": ["minimal", "standard", "full"], "description": "The project's execution posture; absent: the machine's plan_defaults.posture, and while that is absent too, asked in init.options of every plan (Workflow DSL Specification, Posture and base branch)." }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The project's own cleanup durations of its plans, epics, and logs; absent: the machine's (Timeouts & Budgets Specification, One Cleanup).",
+      "properties": {
+        "plans_after_days": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/machine-config.json#/$defs/cleanup_duration" },
+        "epics_after_days": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/machine-config.json#/$defs/cleanup_duration" },
+        "logs_after_days": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/machine-config.json#/$defs/cleanup_duration" }
+      }
+    },
+    "upstream_mcp": {
+      "type": "object",
+      "required": ["servers"],
+      "additionalProperties": false,
+      "description": "Upstream MCP allowlist of the project (PM-SVC-3); written only on pm-operator upstream allow|deny; absent means no upstream server.",
+      "properties": {
+        "servers": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9]{0,15}$", "description": "server_id (identifiers.adoc)" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["url", "tools"],
+            "additionalProperties": false,
+            "properties": {
+              "url": { "type": "string", "format": "uri", "pattern": "^https://", "description": "Remote HTTPS endpoint of the upstream server, called through cui-http; the only transport." },
+              "credential_key": { "type": "string", "pattern": "^mcp-[a-z][a-z0-9]{0,15}$", "description": "Present for an authenticated server and then equal to mcp-<server_id> (identifiers.adoc, credential_key); absent: the server is called without a credential." },
+              "tools": { "type": "array", "uniqueItems": true, "description": "The upstream tools the server may call; a tool not listed is not reachable.", "items": { "type": "string", "pattern": "^[a-z0-9_]{1,44}$" } },
+              "connect_timeout_seconds": { "type": "integer", "minimum": 1, "default": 10, "description": "timeouts.adoc, Outbound HTTPS and upstream MCP call timeouts." },
+              "read_timeout_seconds": { "type": "integer", "minimum": 1, "default": 60, "description": "timeouts.adoc, Outbound HTTPS and upstream MCP call timeouts." }
+            }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [ { "$ref": "#/$defs/settings" } ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "integration_with_variant": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "variant": { "type": "string", "enum": ["native", "cli"] },
+        "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }
+      }
+    },
+    "integration_native": {
+      "type": "object",
+      "required": ["credential_key"],
+      "additionalProperties": false,
+      "properties": {
+        "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "commit_identity": {
+          "type": "object",
+          "required": ["name", "email"],
+          "additionalProperties": false,
+          "description": "Author of server commits (the operator); the committer is resolved from the agent credential.",
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^<>\\r\\n]+$" },
+            "email": { "type": "string", "maxLength": 254, "pattern": "^[^<>\\s@]+@[^<>\\s@]+$" }
+          }
+        },
+        "epic": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Values a new epic takes into its header (Store Schemas, Epic Header); never asked at an epic's start.",
+          "properties": {
+            "auto_start": { "type": "boolean", "default": true, "description": "Whether the epic starts its launchable rows by itself (Model Work Specification, An Epic Runs by Itself)." },
+            "overlap_max_files": { "type": "integer", "minimum": 0, "maximum": 20, "default": 0, "description": "Files a launchable row may share with a running plan of the epic before it waits with reason overlap; the maximum is the compiled upper bound." },
+            "parallelization_scope": { "type": "integer", "minimum": 1, "default": 1, "description": "Upper limit of an epic's running plans; raised by the operator through the epic's next plan or the project's settings." }
+          }
+        },
+        "qualification": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The operator's level for role qualification (PM-WORK-6; Task Queue & Qualification Records, Role Qualification Record).",
+          "properties": {
+            "agreement_level": { "type": "integer", "minimum": 0, "maximum": 100, "default": 80, "description": "Percent of a role's topic items (review status draft or confirmed) a configuration must answer right; read at every validity check, so a changed level applies to existing records." },
+            "allowed_gap": { "type": "integer", "minimum": 0, "maximum": 100, "default": 5, "description": "Largest allowed warm-fresh gap in percentage points for the warm form; read at every validity check." },
+            "skip_roles": { "type": "array", "uniqueItems": true, "default": [], "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" }, "description": "Roles the setup run does not grade (setup.probe-qualification); such a role stays unqualified unless a valid record exists. Names roles only; the quorum calibration has its own key skip_decisions." },
+            "skip_decisions": { "type": "boolean", "default": false, "description": "When true the setup run does not calibrate the quorum declarations of the adjudication unit (setup.probe-qualification); a quorum declaration without a valid calibration record does not decide, and its decisions are the operator's, in an operator wait." }
+          }
+        },
+        "commit_trailer": {
+          "type": "object",
+          "required": ["name", "email"],
+          "additionalProperties": false,
+          "description": "Co-Authored-By trailer of server commits; compiled default plan-marshall <noreply@cuioss.de>.",
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^<>\\r\\n]+$" },
+            "email": { "type": "string", "maxLength": 254, "pattern": "^[^<>\\s@]+@[^<>\\s@]+$" }
+          }
+        },
+        "envelope_budget_tokens": {
+          "type": "integer",
+          "minimum": 10000,
+          "description": "Override of the per-envelope packing budget derived from the client profile's context budget (compiled fallback 400000)."
+        },
+        "derivation_resolvers": {
+          "type": "object",
+          "description": "Axis-C resolver enablement; an absent entry means enabled, only an explicit false disables a resolver. The resolver project-script has no entry: the enrolment of an edge_resolver project script is its enablement.",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,31}$", "not": { "const": "project-script" } },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["enabled"],
+            "additionalProperties": false,
+            "properties": { "enabled": { "type": "boolean" } }
+          }
+        },
+        "retention": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Retention of technical residue in days, removed by the periodic sweep (timeouts.adoc, Retention & Rotation); work history is the cleanup's, never retention.",
+          "properties": {
+            "task_records_days": { "type": "integer", "minimum": 0, "default": 5, "description": "Age after which an ended queue task record, and the record of an ended job of the workspace scope or of a worker, is residue." },
+            "retired_lesson_bodies_days": { "type": "integer", "minimum": 0, "default": 0, "description": "Age after which the body of a retired lesson is residue, whatever the retirement's verdict; its front matter is kept." },
+            "arch_constraint_quiet_days": { "type": "integer", "minimum": 0, "default": 90, "description": "Quiet window of the arch-constraint retirement of pm-operator sweep --apply." },
+            "workspace_rows_days": { "type": "integer", "minimum": 0, "default": 90, "description": "Age after which closed or ended technical rows of the workspace scope's stores are residue (Evidence-Based Removal Sweeps); never the metrics rows of a plan." }
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+*Remediation Budgets Are Not Configuration*: `retry_budget`, `fix_budget`, and the allowed `decide` actions of a remediation policy are call arguments of the project-owned phase units (link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Workflow Units]), bound with their source in the plan instance (xref:14-plan-instance-waivers-questions.adoc#plan-instance[Plan Instance]) and capped by the compiled hard limits (link:../timeouts/01-job-budgets-and-waits.adoc#remediation-budgets[Timeouts & Budgets Specification, Remediation Budgets]); no JSON configuration file holds them, and the operator raises one only by a `raise` waiver for one plan.
+
+*Decision Parameters Are Not Configuration Keys*: The decision declarations (`ask` or a quorum with its listed roles and score per decision kind), the vote wait, and the calibration level of the question adjudication, and the trigger thresholds, budget, and prerequisite wait of the re-planning, are declarations of the units `adjudicate-decisions.pmwf` and `replan.pmwf` within compiled bounds (link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL Specification, Unit Declarations]). Whether a decision is taken by a quorum or by the operator is said only by its declaration; a decision the operator takes is an operator wait without a time limit (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]), and no key of this file changes who decides or how long a decision waits.
+
+*Roles Are Not Configuration Keys*: The harness, model, and effort of a role are the effective values of its artifact overlaid by the role assignments of the machine and the project and a plan's override (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]; xref:12-machine-stores.adoc#role-assignments-store[Role Assignments]); its form, count, and recycling belong to the role artifacts of the operator's role sets (`<PM_MCP_BASE>/roles/`, `<PM_MCP_BASE>/projects/<project_id>/roles/`, link:../filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout Specification, Per-Project Machine Store]). Neither this file nor `project_defaults` holds a key for them.
+
+[#project-levels]
+== Project Values over Machine Values
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_ +
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
+
+The machine sets defaults, not final values. Every value the machine's onboarding records is the default of every project, and a project may set its own; one rule decides for every key and aspect: *the nearest level wins, and a level that says nothing defers to the next*. The levels, from the farthest: the compiled default, the derived value (xref:09-derived-facts-and-build-timings.adoc#derived-facts[Derived Facts Store]), the machine's value, the team's value (`.marshall/config/`), the project's operator value, and a plan's own value (link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]). A key belongs to the team or to the operator, never to both, so the team and the project's operator level never compete for one key.
+
+[cols="2,3,3,2"]
+|===
+|Aspect |Machine value |Project value |Owner
+
+|Model language
+|`machine-config.json` `language.model`
+|`local-config.json` `language.model`
+|operator
+
+|Allowed models
+|`<PM_MCP_BASE>/model-catalogue.json`
+|`projects/<project_id>/model-catalogue.json`, replacing the machine's as a whole (xref:12-machine-stores.adoc#model-catalogue[Model Catalogue])
+|operator
+
+|Role assignment
+|`<PM_MCP_BASE>/role-assignments.json`
+|`projects/<project_id>/role-assignments.json`, per role (xref:12-machine-stores.adoc#role-assignments-store[Role Assignments])
+|operator
+
+|Method and asking axes
+|`machine-config.json` `plan_defaults.method`, `.asking`
+|`local-config.json` `plan_defaults`
+|operator
+
+|Posture (optional at both levels, never asked in the onboarding)
+|`machine-config.json` `plan_defaults.posture`
+|`local-config.json` `plan_defaults.posture`
+|operator
+
+|Landing axis
+|`machine-config.json` `plan_defaults.landing`
+|`workflow.json` `landing`, chosen in `setup.configure-finalize` and validated against the project there
+|team
+
+|Integration variant and credential of a provider
+|`machine-config.json` `providers` (xref:12-machine-stores.adoc#provider-defaults[Machine Provider Defaults])
+|`local-config.json` `integrations`
+|operator
+
+|Commit identity and the other shared keys (`$defs/settings`)
+|`machine-config.json` `project_defaults`
+|`local-config.json`
+|operator
+
+|Cleanup durations of plans, epics, and logs
+|`machine-config.json` `cleanup`
+|`local-config.json` `cleanup`
+|operator
+
+|Providers' declaration (the CI provider override, the code analysis providers, the review bots)
+|—
+|`project.json`, chosen in `setup.select-providers`
+|team
+|===
+
+The interface language, the enrolled harnesses with the default harness, the credential store, the duration of read reports and of unenrolled projects, and the machine's host tools are facts of the machine and have no project value.
+
+* *Where the project sets them*: the project's onboarding and setup show the operator's values of the project in one step, `project.operator`: every aspect above that is the operator's, each with the machine's value as its proposal (the integration variant and credential from the machine's provider defaults, the commit identity from `project_defaults.commit_identity`, else the global git identity). Accepting a proposal records nothing for the project; a changed value is recorded in `local-config.json` or in the project's own store (its role assignment, its model catalogue). The step takes over the operator's choices of `setup.select-integration-variants` and the operator posture of `setup.project-settings` (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]). The team's values stay in the setup and in `.marshall/config/`. A later run of one aspect runs only that aspect's states with the current values as the proposal.
+* *A machine value that does not fit*: a machine default that does not fit a project (`landing.main` on a protected base branch, `landing.pull-request` without a provider) is refused for that project, with the reason, at its setup or at a plan's start, and the project or the plan chooses another; the machine default itself is never validated against a repository.
+* *Effective configuration*: the server computes every value with its source level and what it overrides, publishes it as `pm://project/config` and to both clients over the local API, and sets and unsets a value per key and level there (xref:07-project-configuration.adoc#project-configuration-store[Project Configuration], items 4 and 5). Every project and plan that follows the machine's value uses a changed machine value from its next read; a plan holds the values bound at its start in its plan instance (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]).

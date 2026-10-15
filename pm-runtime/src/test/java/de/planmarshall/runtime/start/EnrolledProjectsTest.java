@@ -19,13 +19,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
-
-import de.planmarshall.core.store.EnrolmentStore;
-import de.planmarshall.core.store.TransactionId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.TransactionId;
 
 /**
  * The enrolled projects as the enrolment store lists them: the population of the recovery and the periodic sweep.

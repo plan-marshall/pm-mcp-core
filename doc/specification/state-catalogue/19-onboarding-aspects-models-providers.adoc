@@ -1,0 +1,333 @@
+= State Catalogue: Onboarding Aspects: Models, Roles, Credential Store, Providers & Plan Defaults
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Onboarding Aspects: Models, Roles, Credential Store, Providers & Plan Defaults
+
+[#state-catalogue-onboarding-aspects-2]
+== Onboarding Aspects: Models, Roles, Credential Store, Providers & Plan Defaults
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_
+
+The remaining aspects of the machine's onboarding, under the conventions of xref:14-machine-onboarding.adoc#state-catalogue-onboarding-aspects[The Onboarding's Aspects].
+
+[#state-catalogue-catalogue]
+=== Models for the Work: `catalogue`
+
+Run for the machine from `onboard.models`, and for a project from its onboarding's operator values with the level `project` (the project's catalogue, `<PM_MCP_BASE>/projects/<project_id>/model-catalogue.json`).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-catalogue.consent]]`catalogue.consent`
+|`machine`
+|`operator_wait`
+|`onboard.models`, `project.models` (entry state).
+|Two consents in one state, each answered on its own and each shown with its tokens: `probe_harness_models` (run the model probes of the enrolled harnesses) and `model_advice` (a task of the steward), optional.
+|`yes` to the probes -> `catalogue.models` (the advice's answer kept); `no` to the probes stays.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-catalogue.models]]`catalogue.models`
+|`machine`
+|`composite_job`
+|`catalogue.consent`.
+|The models each enrolled harness offers, from its `headless.models_probe`, or none where it cannot list them.
+|`advice` (the advice consented) -> `catalogue.advise`; `no_advice` -> `catalogue.select`.
+|link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]
+
+|[[state-catalogue.advise]]`catalogue.advise`
+|`machine`
+|`job`
+|`catalogue.models` (`advice`).
+|`job llm catalogue-advice role steward`: on the default harness, which models suit which kind of work, with their limits and a recommendation (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]).
+|`submitted` -> `catalogue.select` (the recommendation preselected); `infeasible`, `lost` -> `catalogue.select` (without a recommendation).
+|link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]
+
+|[[state-catalogue.select]]`catalogue.select`
+|`machine`
+|`operator_wait`
+|`catalogue.models` (`no_advice`), `catalogue.advise`.
+|The models to allow per harness, the recommendation preselected; model ids typed for a harness that cannot list them. `set`.
+|`set` -> `catalogue.record`.
+|link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]
+
+|[[state-catalogue.record]]`catalogue.record`
+|`machine`
+|`auto`
+|`catalogue.select` (`set`).
+|Records the allowed models per harness, each with its source (`probe` or `operator`) and when, at the run's level.
+|`recorded` -> `catalogue.done`.
+|link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]
+|===
+
+[#state-catalogue-roles]
+=== Role Assignment: `roles`
+
+Run for the machine from `onboard.assign-roles`, and for a project from its onboarding's operator values with the level `project` (`<PM_MCP_BASE>/projects/<project_id>/role-assignments.json`). The steward is not among the roles assigned here.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-roles.load]]`roles.load`
+|`machine`
+|`auto`
+|`onboard.assign-roles`, `project.roles` (entry state).
+|The roles with their class, tools, and form, and the effective catalogue.
+|`loaded` -> `roles.default`.
+|link:../model-work/01-roles-and-configuration.adoc#role-sets[Model Work Specification, Role Sets]
+
+|[[state-roles.default]]`roles.default`
+|`machine`
+|`auto`
+|`roles.load`.
+|Applies the shipped default assignment to the catalogue: per role the tier's model on the preferred harness when it is enrolled, else the first enrolled harness that runs the role's class, and the effort, each with its advisory; a role whose default cannot be met is shown without a value.
+|`applied` -> `roles.review`.
+|link:../model-work/01-roles-and-configuration.adoc#default-assignment[Model Work Specification, Default Role Assignment]
+
+|[[state-roles.review]]`roles.review`
+|`machine`
+|`operator_wait`
+|`roles.default`; `roles.consent` (`no`); `roles.propose`; `roles.validate` (`invalid`).
+|The overview: the default applied to every role, grouped, with what departs from it and each advisory beside it; the steward's departures marked, each to accept or reject; after a refused validation the role and the reason. `accept`; `change` (single roles or groups: harness, model, effort); `ask_steward`.
+|`accept` -> `roles.validate`; `change` -> this state; `ask_steward` -> `roles.consent`.
+|link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
+
+|[[state-roles.consent]]`roles.consent`
+|`machine`
+|`operator_wait`
+|`roles.review` (`ask_steward`).
+|Consent kind `model_advice`, with the tokens the steward's task is expected to use. Optional: `no` returns unchanged.
+|`yes`, `yes_remember` -> `roles.propose`; `no` -> `roles.review`.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-roles.propose]]`roles.propose`
+|`machine`
+|`job`
+|`roles.consent` (`yes`, `yes_remember`).
+|`job llm role-proposal role steward`: departures from the defaults, each with its reason, never a replacement of the advisory.
+|`submitted` -> `roles.review` (the departures marked); `infeasible`, `lost` -> `roles.review` (unchanged).
+|link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]
+
+|[[state-roles.validate]]`roles.validate`
+|`machine`
+|`auto`
+|`roles.review` (`accept`).
+|Each role: its harness enrolled and eligible, its class runnable, its model allowed by the effective catalogue (`model_not_allowed` otherwise), its effort supported.
+|`valid` -> `roles.write`; `invalid` -> `roles.review`.
+|link:../model-work/01-roles-and-configuration.adoc#role-validation[Model Work Specification, Role Validation]
+
+|[[state-roles.write]]`roles.write`
+|`machine`
+|`auto`
+|`roles.validate` (`valid`).
+|Writes per role only `harness`, `model`, and `effort` into the role assignment of the run's level; the qualification of a changed role becomes stale per project.
+|`written` -> `roles.done`.
+|link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
+|===
+
+[#state-catalogue-store]
+=== Credential Store: `store`
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-store.detect]]`store.detect`
+|`machine`
+|`auto`
+|`onboard.credential-store` (entry state); `store.unavailable` (`recheck`).
+|Which stores the machine offers now: macOS Keychain, Linux Secret Service (session bus reachable, collection unlocked), files.
+|`detected` -> `store.choose`; `move_interrupted` (a move an earlier run began is not complete) -> `store.confirm-move`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-store.choose]]`store.choose`
+|`machine`
+|`operator_wait`
+|`store.detect`; `store.unavailable` (`choose_another`).
+|Each offered store with what protects a secret in it and what does not; the recommendation preselected (the OS store where one is available, else files). `choose`.
+|`os` -> `store.consent`; `os_unavailable` (an OS store not available now) -> `store.unavailable`; `file` -> `store.check` (no consent: the file store lies in the machine's own directory).
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-store.unavailable]]`store.unavailable`
+|`machine`
+|`operator_wait`
+|`store.choose` (`os_unavailable`); `store.check` (`failed`); `store.move` (`failed`, the old store kept).
+|Names why (a locked collection, no session bus over SSH) and the fix. `recheck`, `choose_another`.
+|`recheck` -> `store.detect`; `choose_another` -> `store.choose`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-store.consent]]`store.consent`
+|`machine`
+|`operator_wait`
+|`store.choose` (`os`).
+|Consent kind `check_credential_store`: write, read, and delete one test entry in the chosen OS store.
+|`yes`, `yes_remember` -> `store.check`; `no` stays.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-store.check]]`store.check`
+|`machine`
+|`auto`
+|`store.consent`, `store.choose` (`file`).
+|Writes, reads, and deletes a test entry; each step a line ending in ✓ or ✗ with its cause.
+|`passed` with no store recorded -> `store.record`; `passed` with another store recorded -> `store.confirm-move`; `failed` -> `store.unavailable`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-store.confirm-move]]`store.confirm-move`
+|`machine`
+|`operator_wait`
+|`store.check` (`passed`, another store recorded); `store.detect` (`move_interrupted`).
+|The count of the entries to move from the recorded store to the new one. `move`, `back`.
+|`move` -> `store.move`; `back` -> `store.choose`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-store.move]]`store.move`
+|`machine`
+|`auto`
+|`store.confirm-move` (`move`).
+|Moves the store as link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[CLI, Coordination & Security Specification, The move] states: copies every entry into the new store and reads each back, copies the enrolment integrity key last and verifies the HMAC sidecars under it, switches `credentials.store`, and only then deletes the entries from the old store; an interrupted move is resumed by the next run from its record, so a secret is never in neither store and, once the move completes, in one only. A failed copy or read-back stops the move: the copies are deleted from the new store, the old store stays the recorded one, and the failure is reported with its cause (`credential_store_failed`).
+|`moved` -> `store.record`; `failed` -> `store.unavailable`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-store.record]]`store.record`
+|`machine`
+|`auto`
+|`store.check` (`passed`), `store.move` (`moved`).
+|Records `credentials.store` (`os` or `file`) in `machine-config.json`, last.
+|`recorded` -> `store.done`.
+|link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]
+|===
+
+[#state-catalogue-providers]
+=== Providers: `providers`
+
+Entries: `start` (`onboard.providers`) and `verify` (`settings.verify-providers`, over the providers a changed credential serves, or over every chosen provider on the operator's request). No model task runs here.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-providers.consent]]`providers.consent`
+|`machine`
+|`operator_wait`
+|`onboard.providers` (entry `start`).
+|Consent kind `scan_providers`: look for the providers' CLI tools and the credentials already stored.
+|`yes`, `yes_remember` -> `providers.scan`; `no` stays.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-providers.scan]]`providers.scan`
+|`machine`
+|`composite_job`
+|`providers.consent`.
+|The CLI tools found (`git`, `gh`, `glab`, …) with their versions and the credentials already stored.
+|`scanned` -> `providers.select`.
+|link:../store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas Specification, Machine Provider Defaults]
+
+|[[state-providers.select]]`providers.select`
+|`machine`
+|`operator_wait`
+|`providers.scan`.
+|The providers available on the machine (git hosting and CI among them `github`, `gitlab`, `forgejo`; code analysis; review bots), each with its variant (native or CLI) proposed. `set`.
+|`set` -> `providers.credentials`.
+|link:../store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas Specification, Machine Provider Defaults]
+
+|[[state-providers.credentials]]`providers.credentials`
+|`machine`
+|`operator_wait`
+|`providers.select`; `providers.failed` (`fix_credential`).
+|Each missing credential, entered by the operator only and stored on that act, without a consent, never through a model; in the web app only on the loopback listener. `set:<key>`, `continue` (every selected provider has its credential or needs none).
+|`continue` -> `providers.verify-consent`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-credentials[CLI, Coordination & Security Specification, Credentials in the Web App]
+
+|[[state-providers.verify-consent]]`providers.verify-consent`
+|`machine`
+|`operator_wait`
+|`providers.credentials` (`continue`); entry `verify`.
+|Consent kind `verify_providers`: call each selected provider with its credential, and run its CLI tool.
+|`yes`, `yes_remember` -> `providers.verify`; `no` stays.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-providers.verify]]`providers.verify`
+|`machine`
+|`composite_job`
+|`providers.verify-consent`; `providers.failed` (`check_again`).
+|Every selected provider, one line per check, each ending in ✓ or ✗ with its cause: the origin reachable; the credential authenticates (`ci.whoami`) and as whom; its permissions and expiry; for the CLI variant the tool's version and that it is logged in as the same identity. Checks that need a repository stay in the project setup.
+|`all_passed` -> `providers.record`; `failed` -> `providers.failed`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]
+
+|[[state-providers.failed]]`providers.failed`
+|`machine`
+|`operator_wait`
+|`providers.verify` (`failed`).
+|The failed checks with the provider's answer and the fix. `fix_credential`, `check_again`, `continue_without` (the provider recorded as not available; it never serves a project in that state).
+|`fix_credential` -> `providers.credentials`; `check_again` -> `providers.verify`; `continue_without` -> `providers.record`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]
+
+|[[state-providers.record]]`providers.record`
+|`machine`
+|`auto`
+|`providers.verify` (`all_passed`), `providers.failed` (`continue_without`).
+|Records the machine's provider defaults (`machine-config.json` `providers`: per provider whether it is available, its default variant, the credential key) and the machine's host tools (`host-tools.json`, path and digest), with the last verification's result and time.
+|`recorded` -> `providers.done`.
+|link:../store-schemas/12-machine-stores.adoc#provider-defaults[Store Schemas Specification, Machine Provider Defaults]
+|===
+
+[#state-catalogue-defaults]
+=== Plan Defaults: `defaults`
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-defaults.load]]`defaults.load`
+|`machine`
+|`auto`
+|`onboard.plan-defaults` (entry state).
+|The plan behaviour axes, each with its variants and the shipped default preselected; a variant that needs a provider the machine lacks is marked.
+|`loaded` -> `defaults.review`.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-defaults.review]]`defaults.review`
+|`machine`
+|`operator_wait`
+|`defaults.load`; `defaults.validate` (`invalid`).
+|One line per axis with what each variant means: landing (`landing.pull-request`, `landing.main`, `landing.files`), method (`method.test-first`, `method.tests-after`), asking (`ask.every-phase`, `ask.key-points`, `ask.questions-only`); after a refused validation the axis and why. In a run from the machine's settings, never in the onboarding's first run, also the optional posture (`plan_defaults.posture`: `minimal`, `standard`, `full`), unset by default, so that a plan asks it while no level sets it. `accept`; `change`.
+|`accept` -> `defaults.validate`; `change` -> this state.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-defaults.validate]]`defaults.validate`
+|`machine`
+|`auto`
+|`defaults.review` (`accept`).
+|What the machine itself provides for each chosen variant (a provider for `landing.pull-request`), ✓ or ✗ with the cause; never checked against a repository.
+|`valid` -> `defaults.record`; `invalid` -> `defaults.review`.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-defaults.record]]`defaults.record`
+|`machine`
+|`auto`
+|`defaults.validate` (`valid`).
+|Records `plan_defaults` of `machine-config.json`.
+|`recorded` -> `defaults.done`.
+|link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]
+|===
+
+[#state-catalogue-aspect-terminals]
+=== Terminals of the Aspects
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-language.done]][[state-harness.done]][[state-catalogue.done]][[state-roles.done]][[state-store.done]][[state-providers.done]][[state-defaults.done]]`language.done`, `harness.done`, `catalogue.done`, `roles.done`, `store.done`, `providers.done`, `defaults.done`
+|`machine`
+|`terminal`
+|The aspect's recording state.
+|Declared `terminal done success`.
+|The caller's `done` transition.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===

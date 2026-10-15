@@ -68,7 +68,7 @@ create exactly the drift alternative 1 rejected. The decision is amended:
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
-* link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
+* link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#general-rules[Identifiers § General Rules],
   Rule 6
 * `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q2
 * Amendment: `pm-core/src/main/java/de/planmarshall/core/store/EntryId.java`, added by pm-mcp-core#51 (commit

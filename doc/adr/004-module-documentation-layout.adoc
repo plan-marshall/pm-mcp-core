@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted, amended by ADR link:007-specifications-of-the-engine-in-this-repository.adoc[007] (the specifications of the engine live in this repository)
 
 == Date
 
