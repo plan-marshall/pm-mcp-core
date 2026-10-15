@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -73,8 +74,11 @@ public final class CorpusValidator {
     /** The attribution of the sources, relative to the corpus root. */
     public static final String ATTRIBUTION = "ATTRIBUTION.md";
 
-    /** What a transient tool, stage or local path looks like, as {@code validate.py} defines it. */
-    public static final Pattern TRANSIENT = Pattern.compile(
+    /**
+     * What a transient tool, stage or local path looks like, as {@code validate.py} defines it, with the meaning
+     * Python gives its {@code \b} and {@code \d} ({@link PythonRegex}).
+     */
+    public static final Pattern TRANSIENT = PythonRegex.compile(
             "fixtures/|\\.plan/|pull\\.py|judge\\.py|corpus\\.py|test-pull|\\bStage \\d\\b|\\bE\\d{1,2}\\b"
                     + "|\\bV\\d{1,2}\\b|Part A");
 
@@ -377,8 +381,8 @@ public final class CorpusValidator {
                 var heading = "## " + name;
                 var sections = lines.stream().filter(line -> line.strip().equals(heading)).count();
                 if (sections != 1) {
-                    add(ATTRIBUTION, Rule.ATTRIBUTION, "the section '%s' appears %d times, not once"
-                            .formatted(heading, sections));
+                    add(ATTRIBUTION, Rule.ATTRIBUTION, String.format(Locale.ROOT,
+                            "the section '%s' appears %d times, not once", heading, sections));
                 }
             }
         }

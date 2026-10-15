@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -521,7 +522,9 @@ class CorpusImportTest {
                 Arguments.of("no scheme", "example.org/o/r"));
     }
 
+    /** Runs under a default locale with non-Latin digits, so every number a detail names must be ASCII digits. */
     @Nested
+    @ExtendWith(NonLatinDigits.class)
     @DisplayName("a source that does not yield its items")
     class Malformed {
 

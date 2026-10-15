@@ -72,9 +72,11 @@ public final class CoreLogMessages {
                 .build();
 
         /**
-         * Logged when the import of the corpus misses a source: its repository or LFS endpoint did not answer, its
-         * pinned commit, a file or an object is absent at the pin, or its overlay does not yield its items. None of
-         * the source's items is written, and the import is not complete.
+         * Logged when the import of the corpus misses a source for any reason but a hash mismatch: its repository or
+         * LFS endpoint did not answer or its pinned commit, a file or an object is absent at the pin (the import is
+         * then partial), or its manifest, its overlay or the source file does not yield the selected items (the
+         * source is missed all the same, and the import fails: no role is qualified on it). None of the source's
+         * items is written; the items of the other sources are.
          */
         public static final LogRecord CORPUS_SOURCE_MISSED = LogRecordModel.builder()
                 .prefix(PREFIX)

@@ -122,7 +122,7 @@ public final class SourceFetch {
 
     @Override
     public String toString() {
-        return "SourceFetch[%s, %d bytes, %s]".formatted(outcome, content.length, detail);
+        return "SourceFetch[" + outcome + ", " + content.length + " bytes, " + detail + "]";
     }
 
     private static String redact(String detail) {

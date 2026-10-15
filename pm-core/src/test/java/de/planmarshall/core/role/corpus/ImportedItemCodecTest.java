@@ -22,10 +22,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -44,8 +46,10 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * An imported item (PM-WORK-6): the corpus item format, tightened, written deterministically in the order of the
- * schema and read back in exactly that shape; a refusal names the file.
+ * schema and read back in exactly that shape; a refusal names the file. Every test runs under a default locale with
+ * non-Latin digits, so the numbers of a document and of a refusal must be ASCII digits.
  */
+@ExtendWith(NonLatinDigits.class)
 @DisplayName("Imported item codec")
 class ImportedItemCodecTest {
 
@@ -203,7 +207,12 @@ class ImportedItemCodecTest {
         @Test
         @DisplayName("a document that is no JSON is refused")
         void notJson() {
-            assertUnreadable(refusalOf(text(closedItem()).replace("\"topic\" :", "\"topic\" ::")), "line");
+            var refusal = refusalOf(text(closedItem()).replace("\"topic\" :", "\"topic\" ::"));
+
+            assertAll(
+                    () -> assertUnreadable(refusal, "line"),
+                    () -> assertTrue(Pattern.compile("\\(line [0-9]+, column [0-9]+\\)").matcher(refusal.getMessage())
+                            .find(), refusal::getMessage));
         }
     }
 
@@ -225,6 +234,8 @@ class ImportedItemCodecTest {
                 Arguments.of("a repository with user information", "https://github.com/example/sample-set",
                         "https://user@gitlab.com/example/sample-set", "'repository'"),
                 Arguments.of("a short commit", COMMIT, "0123456", "'commit'"),
+                Arguments.of("a title longer than 120 characters", "\"title\" : \"sample question\"",
+                        "\"title\" : \"" + "t".repeat(121) + "\"", "'title' is longer than 120 characters"),
                 Arguments.of("a line 0", "\"line\" : 2", "\"line\" : 0", "'line' must be at least 1"),
                 Arguments.of("a missing line", ",\n      \"line\" : 2", "", "field 'line' of the origin is missing"),
                 Arguments.of("an id outside its topic", "\"id\" : \"screening/sample-set/q-1\"",

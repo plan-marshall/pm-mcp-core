@@ -140,7 +140,7 @@ public final class LfsBatchClient implements LfsObjectSource {
             return SourceFetch.pinMissing("the repository has no LFS endpoint: %s answered 404".formatted(batch));
         }
         if (status < 200 || status > 299) {
-            return SourceFetch.unreachable("the batch API %s answered %d".formatted(batch, status));
+            return SourceFetch.unreachable(String.format(Locale.ROOT, "the batch API %s answered %d", batch, status));
         }
         var step = action(answer.response().body(), pointer);
         return step.failure() != null ? step.failure() : fetchObject(step.download(), pointer);
@@ -194,7 +194,8 @@ public final class LfsBatchClient implements LfsObjectSource {
             return SourceFetch.unreachable("refused: the download URL of %s is not https".formatted(pointer.oid()));
         }
         if (pointer.size() > MAX_OBJECT_SIZE) {
-            return SourceFetch.unreachable("the object of %d bytes is too large to hold".formatted(pointer.size()));
+            return SourceFetch.unreachable(
+                    String.format(Locale.ROOT, "the object of %d bytes is too large to hold", pointer.size()));
         }
         var location = withoutQuery(download.uri());
         var answer = send(download.uri(), download.headers(), null, info -> new BoundedBody(pointer.size() + 1));
@@ -203,10 +204,10 @@ public final class LfsBatchClient implements LfsObjectSource {
         }
         var status = answer.response().statusCode();
         if (status == 404 || status == 410) {
-            return SourceFetch.pinMissing("the download %s answered %d".formatted(location, status));
+            return SourceFetch.pinMissing(String.format(Locale.ROOT, "the download %s answered %d", location, status));
         }
         if (status < 200 || status > 299) {
-            return SourceFetch.unreachable("the download %s answered %d".formatted(location, status));
+            return SourceFetch.unreachable(String.format(Locale.ROOT, "the download %s answered %d", location, status));
         }
         var body = answer.response().body();
         if (body.length != pointer.size() || !Sha256.matches(body, pointer.oid())) {
@@ -292,9 +293,14 @@ public final class LfsBatchClient implements LfsObjectSource {
         return URI.create(repository.getScheme() + "://" + repository.getRawAuthority() + path + BATCH_PATH);
     }
 
-    private static String batchRequest(LfsPointer pointer) {
-        return "{\"operation\":\"download\",\"transfers\":[\"basic\"],\"objects\":[{\"oid\":\"%s\",\"size\":%d}],"
-                .formatted(pointer.oid(), pointer.size()) + "\"hash_algo\":\"sha256\"}";
+    /**
+     * @param pointer the pointer whose object is asked for
+     * @return the JSON body of the batch request; the size in ASCII digits whatever the default locale
+     */
+    static String batchRequest(LfsPointer pointer) {
+        return String.format(Locale.ROOT,
+                "{\"operation\":\"download\",\"transfers\":[\"basic\"],\"objects\":[{\"oid\":\"%s\",\"size\":%d}],"
+                        + "\"hash_algo\":\"sha256\"}", pointer.oid(), pointer.size());
     }
 
     private static Optional<JsonValue> member(JsonValue value, String name) {

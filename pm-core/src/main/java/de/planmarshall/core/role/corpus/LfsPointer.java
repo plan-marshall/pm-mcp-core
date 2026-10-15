@@ -67,8 +67,9 @@ public record LfsPointer(String oid, long size) {
         }
     }
 
-    /** @return the pointer file as git-lfs writes it */
+    /** @return the pointer file as git-lfs writes it, the size in ASCII digits whatever the default locale */
     public byte[] toBytes() {
-        return "%s\noid sha256:%s\nsize %d\n".formatted(VERSION, oid, size).getBytes(StandardCharsets.US_ASCII);
+        return (VERSION + "\noid sha256:" + oid + "\nsize " + size + "\n")
+                .getBytes(StandardCharsets.US_ASCII);
     }
 }

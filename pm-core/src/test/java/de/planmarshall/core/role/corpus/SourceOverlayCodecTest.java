@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -40,8 +41,10 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The overlay of a corpus source (PM-WORK-6): one format version, every declared field exactly once, no undeclared
- * field, every value in its format, rows selected once each; a refusal names the file.
+ * field, every value in its format, rows selected once each; a refusal names the file. Every test runs under a default
+ * locale with non-Latin digits, so the numbers of a document and of a refusal must be ASCII digits.
  */
+@ExtendWith(NonLatinDigits.class)
 @DisplayName("Source overlay codec")
 class SourceOverlayCodecTest {
 
@@ -294,7 +297,7 @@ class SourceOverlayCodecTest {
                 Arguments.of("a slug with a slash", "id", "\"a/b\"", "'id'"),
                 Arguments.of("a topic with upper case", "topic", "\"Screening\"", "'topic'"),
                 Arguments.of("a title longer than 120 characters", "title", "\"" + "t".repeat(121) + "\"",
-                        "'title'"),
+                        "'title' is longer than 120 characters"),
                 Arguments.of("one choice", "choices", "[\"only\"]", "'choices'"),
                 Arguments.of("an undeclared grading method", "grading",
                         "{\"method\":\"vote\",\"judge\":null,\"pass_threshold\":null}", "'method'"),

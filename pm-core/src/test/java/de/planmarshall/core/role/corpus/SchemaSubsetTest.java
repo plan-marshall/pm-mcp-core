@@ -19,11 +19,14 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.role.corpus.JsonValue.JsonString;
 import de.planmarshall.core.role.corpus.JsonValue.MalformedJson;
 
 /**
@@ -82,6 +85,64 @@ class SchemaSubsetTest {
         assertAll(
                 () -> assertEquals(List.of(), validate(passing, schema), "passing " + passing),
                 () -> assertEquals(List.of(violation), validate(failing, schema), "failing " + failing));
+    }
+
+    /**
+     * {@code pattern} as {@code re.search} of {@code validate.py} evaluates it, pinned against Python 3: {@code $}
+     * matches at the end or before one final {@code \n}, never before another line terminator.
+     */
+    @Nested
+    @DisplayName("pattern, as Python's re.search")
+    class PythonPattern {
+
+        private static final String COMMIT = "{\"pattern\":\"^[0-9a-f]{7,40}$\"}";
+
+        @ParameterizedTest(name = "terminator {index}")
+        @ValueSource(strings = {"\r", "\u0085", " ", " ", "\r\n", "\n\n", "\u000b", "\f"})
+        @DisplayName("an anchored pattern refuses a value ending in a terminator other than one final line feed")
+        void otherTerminator(String terminator) {
+            var errors = SchemaSubset.validate(new JsonString("abc1234" + terminator), json(COMMIT));
+
+            assertEquals(List.of("$: does not match ^[0-9a-f]{7,40}$"), errors);
+        }
+
+        @Test
+        @DisplayName("an anchored pattern accepts a value ending in one line feed, as re.search does")
+        void finalLineFeed() {
+            assertEquals(List.of(), SchemaSubset.validate(new JsonString("abc1234\n"), json(COMMIT)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @CsvSource(delimiter = '|', value = {
+            "https://example.org/a|true",
+            "https://exa\u001cmple.org/a|false",
+            "https://exa mple.org/a|false",
+            "https://example.org/a b|false"})
+        @DisplayName("\\s of the repository pattern is Python's whitespace, \\x1c to \\x1f and Unicode spaces included")
+        void unicodeSpace(String value, boolean valid) {
+            var schema = json("{\"pattern\":\"^https://[^/?#@\\\\s]+(/[^?#\\\\s]*)?$\"}");
+
+            assertEquals(valid, SchemaSubset.validate(new JsonString(value), schema).isEmpty());
+        }
+    }
+
+    @Nested
+    @ExtendWith(NonLatinDigits.class)
+    @DisplayName("under a default locale with non-Latin digits")
+    class NonLatin {
+
+        @Test
+        @DisplayName("the path of an array element is written in ASCII digits")
+        void elementPath() {
+            assertEquals(List.of("$[1]: expected [string]"),
+                    validate("[\"a\",2]", "{\"items\":{\"type\":\"string\"}}"));
+        }
+
+        @Test
+        @DisplayName("an escaped character is written in ASCII hexadecimal digits")
+        void escape() {
+            assertEquals("\"\\u00e9\\u0661\"", json("\"\\u00e9\\u0661\"").toJson());
+        }
     }
 
     @Nested

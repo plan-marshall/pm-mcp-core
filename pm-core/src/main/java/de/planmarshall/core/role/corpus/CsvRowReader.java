@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
@@ -90,8 +91,8 @@ public final class CsvRowReader {
             var start = line;
             var values = record();
             if (values.size() != header.size()) {
-                throw new MalformedSource(start, "the record has %d fields, the header %d".formatted(values.size(),
-                        header.size()), null);
+                throw new MalformedSource(start, String.format(Locale.ROOT, "the record has %d fields, the header %d",
+                        values.size(), header.size()), null);
             }
             var fields = new LinkedHashMap<String, String>();
             for (var index = 0; index < header.size(); index++) {

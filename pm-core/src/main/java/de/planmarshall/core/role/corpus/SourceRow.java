@@ -46,7 +46,7 @@ public record SourceRow(int line, Map<String, String> fields) {
          * @param cause  the failure that found it; {@code null} if there is none
          */
         public MalformedSource(int line, String detail, Throwable cause) {
-            super("line %d: %s".formatted(line, Objects.requireNonNull(detail, "detail")), cause);
+            super("line " + line + ": " + Objects.requireNonNull(detail, "detail"), cause);
             this.line = line;
         }
 

@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,8 +31,10 @@ import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
 
 /**
  * The rows of a JSON Lines source file (PM-WORK-6): one object per line, strings kept as strings and every other
- * value as its JSON text, a blank last line allowed, any other malformed line refused with its number.
+ * value as its JSON text, a blank last line allowed, any other malformed line refused with its number. Every test runs
+ * under a default locale with non-Latin digits, so the line a refusal names must be ASCII digits.
  */
+@ExtendWith(NonLatinDigits.class)
 @DisplayName("JSON Lines row reader")
 class JsonlRowReaderTest {
 

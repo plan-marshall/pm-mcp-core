@@ -10,6 +10,7 @@
 package de.planmarshall.core.role.corpus;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
@@ -66,8 +67,8 @@ public class ItemGenerator {
                 + "source %s.";
         var provenance = new Provenance(overlay.created(),
                 new Origin(manifest.repository(), manifest.commit(), overlay.file(), line),
-                List.of(history.formatted(overlay.created(), line, overlay.file(), manifest.repository(),
-                        manifest.commit(), manifest.name())));
+                List.of(String.format(Locale.ROOT, history, overlay.created(), line, overlay.file(),
+                        manifest.repository(), manifest.commit(), manifest.name())));
         return new ImportedItem(row.itemId(), row.topic(), row.role(), row.title(), row.tags(),
                 new Input(fill(row.question(), fields, line), fill(row.facts(), fields, line), choices), target,
                 row.grading(), provenance, row.review(), CANARY);
@@ -99,7 +100,8 @@ public class ItemGenerator {
                 var name = template.substring(index + 1, end);
                 if (name.isEmpty() || name.indexOf(OPEN) >= 0 || !fields.containsKey(name)) {
                     throw new IllegalArgumentException(
-                            "the row at line %d has no field '%s' the template names".formatted(line, name));
+                            String.format(Locale.ROOT, "the row at line %d has no field '%s' the template names", line,
+                                    name));
                 }
                 text.append(fields.get(name));
                 index = end + 1;

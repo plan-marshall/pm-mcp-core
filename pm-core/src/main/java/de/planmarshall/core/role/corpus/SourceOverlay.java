@@ -79,7 +79,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
             Objects.requireNonNull(title, "title");
             if (title.codePointCount(0, title.length()) > ImportedItem.TITLE_MAX_LENGTH) {
                 throw new IllegalArgumentException(
-                        "'title' is longer than %d characters".formatted(ImportedItem.TITLE_MAX_LENGTH));
+                        "'title' is longer than " + ImportedItem.TITLE_MAX_LENGTH + " characters");
             }
             tags = List.copyOf(Objects.requireNonNull(tags, "tags"));
             Objects.requireNonNull(question, "question");

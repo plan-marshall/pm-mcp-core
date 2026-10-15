@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,6 +57,15 @@ class LfsPointerTest {
 
         assertArrayEquals(VALID.getBytes(StandardCharsets.US_ASCII), pointer.toBytes());
         assertEquals(Optional.of(pointer), LfsPointer.parse(pointer.toBytes()));
+    }
+
+    @Test
+    @ExtendWith(NonLatinDigits.class)
+    @DisplayName("a pointer is written with its size in ASCII digits under a locale with non-Latin digits")
+    void asciiSize() {
+        var pointer = new LfsPointer(OID, 12345);
+
+        assertArrayEquals(VALID.getBytes(StandardCharsets.US_ASCII), pointer.toBytes());
     }
 
     static Stream<Arguments> notPointers() {

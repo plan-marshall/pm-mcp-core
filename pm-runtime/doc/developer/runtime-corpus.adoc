@@ -23,7 +23,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06
 
 `object(repository, pointer)` sends two requests, each through its own `cui-http` `HttpHandler`:
 
-. The batch request, `POST <repository>.git/info/lfs/objects/batch` (`batchUri` appends `.git` unless the path ends with it and drops a trailing slash), with `Accept` and `Content-Type` `application/vnd.git-lfs+json` (`MEDIA_TYPE`) and the body `{"operation":"download","transfers":["basic"],"objects":[{"oid","size"}],"hash_algo":"sha256"}`.
+. The batch request, `POST <repository>.git/info/lfs/objects/batch` (`batchUri` appends `.git` unless the path ends with it and drops a trailing slash), with `Accept` and `Content-Type` `application/vnd.git-lfs+json` (`MEDIA_TYPE`) and the body `{"operation":"download","transfers":["basic"],"objects":[{"oid","size"}],"hash_algo":"sha256"}`, its size written with `Locale.ROOT` in ASCII digits whatever the default locale.
 . The download, `GET` of the `href` of the answer's `actions.download`, with the string values of its `header` object. These values may carry a token; they are sent but never logged, and the query of the URL is cut from every detail.
 A header the request builder refuses (a value with a control character, a restricted name) ends the fetch before anything is sent; the detail names the header (its name when that is an HTTP token, otherwise a fixed text) and never its value, and no exception message is carried, since the JDK's message quotes the value.
 
@@ -71,6 +71,7 @@ The client under test is built with the loopback admitted, a connect timeout of 
 * A repository that is not `https`, and one with user information: refused with nothing sent.
 * A repository URL without scheme or host (a relative path, `mailto:`, `https:/path`, `file:///`, `//host/path`): `UNREACHABLE` with nothing sent and the WARN logged, never an exception.
 * `batchUri` for the URL forms of a repository.
+* Under the default format locale `fa-IR`, whose digits are not ASCII: the batch request body exactly, its size in ASCII digits, and a status in a detail in ASCII digits.
 * Within `CorpusImport`, with a manifest whose `https` repository is redirected to the mock web server: the delivered object yields the item, and bytes with another SHA-256, fewer bytes or more bytes fail the run with `hash_mismatch`.
 
 == Pitfalls
@@ -81,6 +82,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06
 2. **Do not refuse delivered bytes here**: returning `PIN_MISSING` for a mismatch would turn a failed run into a partial one.
 3. **Keep the read bounded**: do not read the download into memory with an unbounded body handler.
 4. **Every request through `cui-http`**: no other HTTP client, and the timeouts stay compiled.
+5. **Numbers in ASCII digits**: `%d` of `String.formatted` takes the digits of the default format locale; under `fa-IR` the batch body would be no JSON. Format with `Locale.ROOT` or concatenate.
 
 == Specification Tracing
 

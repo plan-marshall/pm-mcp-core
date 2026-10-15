@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.MatchResult;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -594,6 +596,32 @@ class CorpusValidatorTest {
                     () -> assertEquals(1, violations.size(), () -> report(violations)),
                     () -> assertEquals(subject, violations.getFirst().subject(), () -> report(violations)),
                     () -> assertEquals(rule, violations.getFirst().rule(), () -> report(violations)));
+        }
+    }
+
+    @Test
+    @DisplayName("the transient pattern finds what validate.py's finds, with Python's \\b and \\d")
+    void transientPatternAsPython() {
+        var found = CorpusValidator.TRANSIENT.matcher("Stage ١, éE12 xE1 -V7").results()
+                .map(MatchResult::group).toList();
+
+        assertEquals(List.of("Stage ١", "V7"), found);
+    }
+
+    @Nested
+    @ExtendWith(NonLatinDigits.class)
+    @DisplayName("under a default locale with non-Latin digits")
+    class NonLatin {
+
+        @Test
+        @DisplayName("the count of an attribution section is written in ASCII digits")
+        void attributionCount() throws Exception {
+            fixture.write(CorpusValidator.ATTRIBUTION, "## alpha\n\none\n\n## alpha\n\ntwo\n");
+
+            var violations = validate();
+
+            assertEquals(List.of("the section '## alpha' appears 2 times, not once"),
+                    violations.stream().map(CorpusViolation::detail).toList(), () -> report(violations));
         }
     }
 

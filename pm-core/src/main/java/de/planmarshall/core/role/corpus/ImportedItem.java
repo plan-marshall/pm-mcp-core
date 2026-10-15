@@ -311,7 +311,7 @@ Target target, Grading grading, Provenance provenance, Review review, String can
         Objects.requireNonNull(role, "role");
         Objects.requireNonNull(title, "title");
         if (title.codePointCount(0, title.length()) > TITLE_MAX_LENGTH) {
-            throw new IllegalArgumentException("'title' is longer than %d characters".formatted(TITLE_MAX_LENGTH));
+            throw new IllegalArgumentException("'title' is longer than " + TITLE_MAX_LENGTH + " characters");
         }
         tags = List.copyOf(Objects.requireNonNull(tags, "tags"));
         Objects.requireNonNull(input, "input");

@@ -17,8 +17,11 @@ import java.util.Objects;
  * The result of one import of the corpus sources (PM-WORK-6, PM-TEST-6): which sources it covered with how many items,
  * which it missed and why, and the verdict that follows.
  * <p>
- * The verdict is {@link Verdict#FAILED} as soon as one source fails its hash or does not yield its items from its
- * overlay: the items of the other sources are still generated, but no role is qualified on a failed import. Otherwise
+ * A source that cannot be fetched, fails its hash or does not yield its items is missed: it is named with its
+ * {@link Reason}, and none of its items is generated. The verdict is
+ * {@link Verdict#FAILED} as soon as one source fails its hash or its manifest, overlay or source file does not yield
+ * the selected items: the items of the other sources are still generated, but no role is qualified on a failed
+ * import. Otherwise
  * a source whose repository did not answer, or whose pin is absent, makes it {@link Verdict#PARTIAL}, with the missed
  * sources named. An import that missed nothing is {@link Verdict#COMPLETE}.
  *
@@ -38,7 +41,7 @@ public record ImportResult(List<CoveredSource> covered, List<MissedSource> misse
         COMPLETE,
         /** A source could not be fetched; the corpus lacks its items, and a qualification on it is partial. */
         PARTIAL,
-        /** A source failed its hash or its overlay; no role is qualified on the import. */
+        /** A source was missed for a failing reason; no role is qualified on the import. */
         FAILED
     }
 

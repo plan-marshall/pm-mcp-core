@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -29,8 +30,10 @@ import de.planmarshall.core.role.corpus.SourceRow.MalformedSource;
 /**
  * The rows of a CSV source file as RFC 4180 defines it (PM-WORK-6): a header naming the fields, quoted fields with
  * doubled quotes and line breaks, CRLF and LF line ends, an optional byte order mark; a malformed record refused with
- * the line it starts on.
+ * the line it starts on. Every test runs under a default locale with non-Latin digits, so the numbers of a refusal
+ * must be ASCII digits.
  */
+@ExtendWith(NonLatinDigits.class)
 @DisplayName("CSV row reader")
 class CsvRowReaderTest {
 

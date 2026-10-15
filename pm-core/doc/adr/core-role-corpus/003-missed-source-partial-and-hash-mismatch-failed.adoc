@@ -36,7 +36,8 @@ which is a mismatch, not an unavailable object. Only an object the endpoint cann
 answer, a timeout, a malformed or refusing batch answer) is `unreachable` or `pin_missing`.
 
 `malformed` is a fourth reason the outline did not name: a manifest, overlay or source file that does not yield the
-selected items is a defect of the corpus, so it fails the run like a mismatch.
+selected items is a defect of the corpus. Its source is missed like any other (named with the reason, its items left
+out, WARN `PM_CORE-102`), and, like a mismatch, it fails the run.
 
 A corpus with no sources is not a corpus that could not be read. A corpus root that exists without a `sources/`
 directory, or whose `sources/` holds no source, is `COMPLETE` with no source: the corpus of the product has none yet.

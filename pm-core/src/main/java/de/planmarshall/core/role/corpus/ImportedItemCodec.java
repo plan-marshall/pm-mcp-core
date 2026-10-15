@@ -39,6 +39,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
 
@@ -266,7 +267,7 @@ public class ImportedItemCodec {
             throw unreadable("'schema_version' is missing");
         }
         if (found != SCHEMA_VERSION) {
-            throw unreadable("'schema_version' %d is not %d".formatted(found, SCHEMA_VERSION));
+            throw unreadable(String.format(Locale.ROOT, "'schema_version' %d is not %d", found, SCHEMA_VERSION));
         }
     }
 
@@ -480,7 +481,7 @@ public class ImportedItemCodec {
     /** Names where the document stops being JSON, without the source excerpt the parser may append. */
     private static String describe(IOException e) {
         if (e instanceof JsonProcessingException malformed && malformed.getLocation() != null) {
-            return "%s (line %d, column %d)".formatted(malformed.getOriginalMessage(),
+            return String.format(Locale.ROOT, "%s (line %d, column %d)", malformed.getOriginalMessage(),
                     malformed.getLocation().getLineNr(), malformed.getLocation().getColumnNr());
         }
         return String.valueOf(e.getMessage());

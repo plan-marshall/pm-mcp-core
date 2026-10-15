@@ -28,6 +28,7 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -103,7 +104,9 @@ class ItemGeneratorTest {
         }
 
         @Test
-        @DisplayName("names the row it was generated from in a fetched provenance")
+        @ExtendWith(NonLatinDigits.class)
+        @DisplayName("names the row it was generated from in a fetched provenance, its line in ASCII digits under any "
+                + "locale")
         void provenance() {
             var provenance = generate(overlay().rows().getFirst(), fields()).provenance();
 
@@ -160,7 +163,8 @@ class ItemGeneratorTest {
     class MissingField {
 
         @Test
-        @DisplayName("in the question is refused, naming the field and the line")
+        @ExtendWith(NonLatinDigits.class)
+        @DisplayName("in the question is refused, naming the field and the line in ASCII digits under any locale")
         void question() {
             var fields = fields();
             fields.remove("question");

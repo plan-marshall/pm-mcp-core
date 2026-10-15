@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,6 +31,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -39,6 +41,7 @@ import mockwebserver3.Dispatcher;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -128,10 +131,10 @@ class LfsBatchClientTest {
 
     /** The batch answer naming the download of the object at the mock web server, with an action header. */
     private String batchAnswer() {
-        return """
+        return String.format(Locale.ROOT, """
                 {"transfer":"basic","objects":[{"oid":"%s","size":%d,"actions":{"download":{"href":"%s",\
-                "header":{"Authorization":"%s"}}}}]}"""
-                .formatted(POINTER.oid(), POINTER.size(), base() + OBJECT_PATH, ACTION_SECRET);
+                "header":{"Authorization":"%s"}}}}]}""", POINTER.oid(), POINTER.size(), base() + OBJECT_PATH,
+                ACTION_SECRET);
     }
 
     private void serves(byte[] object) {
@@ -157,6 +160,54 @@ class LfsBatchClientTest {
     private static void assertUnavailableLogged() {
         LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                 WARN.CORPUS_LFS_OBJECT_UNAVAILABLE.resolveIdentifierString());
+    }
+
+    @Nested
+    @DisplayName("under a default locale with non-Latin digits")
+    class NonLatinDigits {
+
+        private static final Locale PERSIAN = Locale.forLanguageTag("fa-IR");
+
+        private Locale previous;
+
+        @BeforeEach
+        void persianDigits() {
+            previous = Locale.getDefault(Locale.Category.FORMAT);
+            Locale.setDefault(Locale.Category.FORMAT, PERSIAN);
+            assertNotEquals("1", "%d".formatted(1), "the locale formats digits of its own, so the test can fail");
+        }
+
+        @AfterEach
+        void restore() {
+            Locale.setDefault(Locale.Category.FORMAT, previous);
+        }
+
+        @Test
+        @DisplayName("the batch request writes the size in ASCII digits, so the body stays JSON")
+        void batchBody() throws Exception {
+            serves(OBJECT);
+
+            var fetch = client.object(repository(), POINTER);
+
+            assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail);
+            var batch = nextRequest();
+            assertNotNull(batch.getBody(), "the batch request carries a body");
+            assertEquals("{\"operation\":\"download\",\"transfers\":[\"basic\"],\"objects\":[{\"oid\":\"" + POINTER.oid()
+                    + "\",\"size\":" + Long.toString(POINTER.size()) + "}],\"hash_algo\":\"sha256\"}",
+                    batch.getBody().utf8());
+        }
+
+        @Test
+        @DisplayName("a status in a detail is written in ASCII digits")
+        void statusDetail() {
+            on("POST", BATCH, lfsJson(503, "{}"));
+
+            var fetch = client.object(repository(), POINTER);
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome()),
+                    () -> assertTrue(fetch.detail().endsWith("answered 503"), fetch::detail));
+        }
     }
 
     @Nested

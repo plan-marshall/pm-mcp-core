@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -266,8 +267,8 @@ public final class CorpusImport {
         var matches = rows.stream().filter(candidate -> row.key().equals(candidate.fields().get(overlay.keyField())))
                 .toList();
         if (matches.size() != 1) {
-            throw missed(name, Reason.MALFORMED, overlay.file(), "the file has %d rows whose field '%s' is '%s'"
-                    .formatted(matches.size(), overlay.keyField(), row.key()));
+            throw missed(name, Reason.MALFORMED, overlay.file(), String.format(Locale.ROOT,
+                    "the file has %d rows whose field '%s' is '%s'", matches.size(), overlay.keyField(), row.key()));
         }
         return matches.getFirst();
     }

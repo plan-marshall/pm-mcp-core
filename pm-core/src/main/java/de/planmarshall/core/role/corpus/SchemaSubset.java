@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import lombok.experimental.UtilityClass;
 
@@ -34,7 +33,9 @@ import de.planmarshall.core.role.corpus.JsonValue.JsonString;
  * <p>
  * The evaluation follows {@code validate.py}: a value of a type the schema does not admit is reported once and not
  * looked into further; a boolean is never a {@code number} nor an {@code integer}, and an {@code integer} is a number
- * written without fraction or exponent; {@code pattern} matches anywhere in the string unless anchored;
+ * written without fraction or exponent; {@code pattern} matches anywhere in the string unless anchored, with the
+ * meaning Python's {@code re.search} gives it ({@link PythonRegex}: {@code $} matches at the end or before a final
+ * {@code \n} only, {@code \d}, {@code \w} and {@code \s} are Python's Unicode classes);
  * {@code maxLength} counts code points; two numbers are equal by value, and a boolean equals no number. Each violation
  * is reported as a message that starts with the path of the value, {@code $} for the document.
  *
@@ -138,7 +139,7 @@ public class SchemaSubset {
     private static void checkString(String value, JsonObject schema, String path, List<String> errors) {
         if (schema.get("pattern").orElse(null) instanceof JsonString pattern) {
             try {
-                if (!Pattern.compile(pattern.value()).matcher(value).find()) {
+                if (!PythonRegex.compile(pattern.value()).matcher(value).find()) {
                     errors.add("%s: does not match %s".formatted(path, pattern.value()));
                 }
             } catch (PatternSyntaxException e) {
@@ -170,7 +171,7 @@ public class SchemaSubset {
         var items = schema.get("items");
         if (items.isPresent()) {
             for (var index = 0; index < value.elements().size(); index++) {
-                check(value.elements().get(index), items.get(), "%s[%d]".formatted(path, index), errors);
+                check(value.elements().get(index), items.get(), path + "[" + index + "]", errors);
             }
         }
     }

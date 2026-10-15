@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -56,5 +57,14 @@ class SourceFetchTest {
         assertAll(
                 () -> assertEquals("https://github.com/example/alpha has no commit", fetch.detail()),
                 () -> assertFalse(fetch.detail().contains("ss@"), fetch::detail));
+    }
+
+    @Test
+    @ExtendWith(NonLatinDigits.class)
+    @DisplayName("the size in the text of an outcome is written in ASCII digits")
+    void textUnderNonLatinDigits() {
+        var fetch = SourceFetch.fetched(new byte[12], "twelve bytes");
+
+        assertEquals("SourceFetch[FETCHED, 12 bytes, twelve bytes]", fetch.toString());
     }
 }
