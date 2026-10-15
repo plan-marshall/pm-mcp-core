@@ -9,13 +9,13 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.queue.SessionGenerationStore;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
@@ -25,7 +25,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 /**
  * The step {@link SweepStep.Name#FENCED_SESSION_GENERATIONS} of the periodic sweep: the entries of the project's
  * session generation record {@code queue/session-generations.json} fenced before the instant the step is given are
- * removed under the queue lock (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Periodic Sweep).
+ * removed under the queue lock (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Periodic Sweep).
  * <p>
  * The evidence is a fence and its age: a current generation is never removed, and neither is one fenced at or after
  * the instant. The removal is one write of the record ({@link SessionGenerationStore#removeFencedOlderThan(Instant)});

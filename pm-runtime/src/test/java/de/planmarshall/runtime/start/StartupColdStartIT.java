@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -32,14 +33,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import de.cuioss.tools.logging.CuiLogger;
-import de.planmarshall.api.MachinePaths;
-import de.planmarshall.runtime.test.TestBases;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import de.planmarshall.api.MachinePaths;
+import de.planmarshall.runtime.test.TestBases;
 
 /**
  * The JVM guard of {@code PM-TECH-3}: steps 1 to 5 of the startup sequence do work whose cost does not grow with the

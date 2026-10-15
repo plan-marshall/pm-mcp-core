@@ -1,0 +1,124 @@
+= State Catalogue: Project Onboarding
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Project Onboarding
+
+[#state-catalogue-project-onboarding]
+== Project Onboarding: `project`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_
+
+Declared in `project-onboarding.pmwf` (compiled only, never designable), the one process from a checkout to a project in which plans and epics run (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]; link:../../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[UC-PRJ-1]). It runs in a scope of its own per project being onboarded, so that several projects are onboarded at once and the machine scope is never touched: an entry from `POST /api/v1/project-onboardings` (body: the checkout path), addressed at the top level as `/api/v1/entries/{entry_id}` with its events, until `project.enrol`, which moves it into the new project's workspace scope, whose resident unit it then is: it has no terminal state there and rests in `project.completed`, from which every later run of the project starts. It starts only while the machine's onboarding is complete (otherwise the request is refused with `machine_not_onboarded`). Its choices are operator waits served to both clients, the first act winning; no coding-agent session drives it. The project's operator values are proposed from the machine's: accepting a proposal records nothing for the project, which keeps following the machine, and only a changed value is recorded (link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]); a change carries the revision it was made against and is refused with `conflict` against a newer one. After the enrolment it runs the project setup as its sub-workflow (xref:06-setup-epic-other.adoc#state-catalogue-setup[Project Setup]) in the order of the use case: the setup's first states up to `setup.check-operator-files`, then the project's operator values (`project.operator`), then the rest of the setup from `setup.probe-integration-variants`. `pm-operator enrol` stays the direct verb: a run of `project.identity` to `project.enrol` with its arguments as the answers; a project enrolled that way continues at `project.setup`, its first run. The release of the project ends a running onboarding where it stands: the workspace scope returns to `project.completed`, and the next run starts afresh (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-project.checkout]]`project.checkout`
+|— (`entry`)
+|`operator_wait`
+|The entry's creation (the unit's start state).
+|The checkout of the repository: a path, proposed from the request (a client started in a checkout proposes it). `set`, `abandon`.
+|`set` -> `project.consent`; `abandon` -> `project.abandoned`.
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+
+|[[state-project.consent]]`project.consent`
+|— (`entry`)
+|`operator_wait`
+|`project.checkout` (`set`).
+|Consent kind `inspect_checkout`: read the checkout (git configuration, build wrappers, host tools, language servers, scripts) and run the host tools' version probes from the absolute directories of the login `PATH`; changes nothing. `yes`, `yes_remember` (held with the entry and written to `consents.json` under the project's confirmed `project_id` at `project.enrol`), `no` (stays), `abandon`.
+|`yes`, `yes_remember` -> `project.detect`; `abandon` -> `project.abandoned`.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-project.detect]]`project.detect`
+|— (`entry`)
+|`composite_job`
+|`project.consent`.
+|Detection, a check line for each: the remote and its owner and name, the base branch, the build wrappers with their pinned files (a wrapper's version read from its pinned properties), the host tools the project uses (only those found on the operator's `PATH` run their version probe, as confined jobs), the language servers, the project scripts. The login environment is the one the terminal client sent.
+|`detected` -> `project.identity`; `scripts_needed` (something of the checkout must run to be known) -> `project.run-consent`.
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+
+|[[state-project.run-consent]]`project.run-consent`
+|— (`entry`)
+|`operator_wait`
+|`project.detect` (`scripts_needed`).
+|Consent kind `run_checkout_scripts`: run these scripts of the checkout, each named with its arguments, confined like a job. `yes`, `yes_remember` (for the project and the digest of each script, in `consents.json`, never in the enrolment), `no` (goes on without them, what needs them unknown; not asked again in this run).
+|`yes`, `yes_remember` -> `project.probe`; `no` -> `project.identity`.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-project.probe]]`project.probe`
+|— (`entry`)
+|`composite_job`
+|`project.run-consent` (`yes`, `yes_remember`).
+|The named scripts as jobs through the job launcher, with the confinement of a job, never in the runtime's own process (link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement]).
+|`probed` -> `project.identity`.
+|link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement & Environment]
+
+|[[state-project.identity]]`project.identity`
+|— (`entry`)
+|`operator_wait`
+|`project.detect` (`detected`), `project.run-consent` (`no`), `project.probe`; `project.enrolment` (`back`).
+|The project's id, proposed from the remote's name, valid by the identifier grammar and unique on the machine; its display name, proposed from the remote's owner and name; while the release keeps the plan lifecycle closed (the lifecycle gate), whether the project is a pilot and what that means. `set`, `abandon`.
+|`set` -> `project.enrolment`; `abandon` -> `project.abandoned`.
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+
+|[[state-project.enrolment]]`project.enrolment`
+|— (`entry`)
+|`operator_wait`
+|`project.identity` (`set`).
+|Everything to be enrolled, each with where it comes from (detected, the machine, the default): wrappers and their pinned files, host tools (the machine's enrolled tools used unless the project enrols its own), language servers, scripts, the build environment (the operator's login environment as the terminal client captured and sent it; from the web app the one the terminal client last captured on the machine, said so, and without one the terminal command that captures it); the container engine only as a separate choice with its warning. `enrol`, `back`, `abandon`.
+|`enrol` -> `project.enrol`; `back` -> `project.identity`; `abandon` -> `project.abandoned`.
+|link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas Specification, Enrolment Store]
+
+|[[state-project.enrol]]`project.enrol`
+|— (`entry`)
+|`auto`
+|`project.enrolment` (`enrol`); `pm-operator enrol` (its arguments the answers).
+|Writes the enrolment and the project's machine store (`store.json` with the project's `display_name`), writes the remembered consents under the project's `project_id`, and moves the onboarding from its entry into the project's new workspace scope. A project enrolled again from the same checkout finds its store and archive again; from another checkout it is refused (`project_store_root_mismatch`).
+|`enrolled` -> `project.setup` (`first_run`); `refused{reason}` -> `project.enrolment`.
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[CLI, Coordination & Security Specification, Enrolment, Lifecycle Gate & Release]
+
+|[[state-project.operator]]`project.operator`
+|`workspace`
+|`operator_wait`
+|`project.setup` (`operator_values`: in the first run after `setup.check-operator-files`, and whenever an integration needs the operator); `project.models`, `project.roles` (`done`); `project.completed` (`aspect:operator_values`).
+|The operator's values of the project, each with the machine's value as the proposal and marked so: the model language, the allowed models, the role assignment, the method and asking axes, in a run from the project's settings (`aspect:operator_values`) also the optional posture (`plan_defaults.posture`, unset unless set, never asked in the first run), the integration variant and credential of each provider (proposed from the machine's provider defaults), and the commit identity (the machine's `project_defaults.commit_identity`, else the operator's global git identity, read once as a proposal), and the cleanup durations of its plans, epics, and logs (proposed from the machine's `cleanup`, link:../timeouts/03-retention-host-config.adoc#cleanup-durations[Timeouts & Budgets Specification, Cleanup durations]); after `setup.operator-values` the integrations whose variant or credential needs the operator, with their findings. Links: `set` (values; only a changed value is recorded, in `local-config.json`); `models`; `roles`; `continue`.
+|`set` -> this state; `models` -> `project.models`; `roles` -> `project.roles`; `continue` -> `project.setup` (`integrations`; in an aspect run of the operator values: `project.completed`).
+|link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]
+
+|[[state-project.models]][[state-project.roles]]`project.models`, `project.roles`
+|`workspace`
+|`call`
+|`project.operator` (`models`, `roles`).
+|`call catalogue`, `call roles` at the level `project`: the project's allowed models (replacing the machine's for the project) and the project's role assignment (a role it does not name keeps the machine's value) (xref:19-onboarding-aspects-models-providers.adoc#state-catalogue-catalogue[Models for the Work]; xref:19-onboarding-aspects-models-providers.adoc#state-catalogue-roles[Role Assignment]).
+|`done`, `stepped_out` -> `project.operator`.
+|link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]; link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]
+
+|[[state-project.setup]]`project.setup`
+|`workspace`
+|`call`
+|`project.enrol` (`enrolled`); `project.operator` (`continue`); `project.completed` (`reconcile`, `aspect:<name>`).
+|`call setup` at the entry `first_run` (after the enrolment, also for a project enrolled by `pm-operator enrol`), `integrations` (after the operator values of the first run, or after an integration needed the operator), `reconcile`, or `aspect` (xref:06-setup-epic-other.adoc#state-catalogue-setup[Project Setup]).
+|`done` -> `project.completed`; `operator_values` -> `project.operator`; `stepped_out` (a later run left) -> `project.completed`.
+|link:../domain-extensions/04-setup-state-machine.adoc#project-setup-state-machine[Domain Extensions Specification, Project Setup State Machine]
+
+|[[state-project.completed]]`project.completed`
+|`workspace`
+|`operator_wait`
+|`project.setup` (`done`, `stepped_out`), `project.operator` (`continue` in an aspect run); the release of the project (a running onboarding ended where it stands).
+|The workspace scope's resting state: its facts name what comes next (an epic, a plan, the project's running work) and whether the project is ready; the first time a run reaches it, a report `project.onboarded` is written. Links: `reconcile` (a later run of the whole setup); `aspect:<name>` (one aspect alone, with the current values as the proposal: `operator_values`, `team_settings`, `build_map`, `providers`, `finalize`, `qualification`, `architecture`); `rename` (the display name).
+|`reconcile` -> `project.setup` (`reconcile`); `aspect:operator_values` -> `project.operator`; every other `aspect` -> `project.setup` (`aspect`); `rename` -> this state.
+|link:../../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[UC-PRJ-1]
+
+|[[state-project.abandoned]]`project.abandoned`
+|— (`entry`)
+|`terminal`
+|The `abandon` links of the waits before the enrolment.
+|`links: []`. Declared `terminal abandoned failure`; the entry is deleted, nothing is enrolled, and nothing is remembered.
+|—
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+|===

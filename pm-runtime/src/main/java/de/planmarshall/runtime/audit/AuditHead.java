@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.audit;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -23,7 +24,6 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.SecretKey;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.AuditAnchor;

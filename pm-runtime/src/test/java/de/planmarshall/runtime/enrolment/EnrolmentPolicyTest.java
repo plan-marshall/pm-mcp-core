@@ -20,13 +20,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
-import de.planmarshall.core.store.ProjectEnrolment;
-import de.planmarshall.core.store.ProjectEnrolment.Argv;
-import de.planmarshall.core.store.ProjectEnrolment.Build;
-import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
-import de.planmarshall.core.store.ProjectEnrolment.Provider;
-import de.planmarshall.core.store.ProjectEnrolment.ProviderVerification;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +29,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.core.store.ProjectEnrolment.Argv;
+import de.planmarshall.core.store.ProjectEnrolment.Build;
+import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
+import de.planmarshall.core.store.ProjectEnrolment.Provider;
+import de.planmarshall.core.store.ProjectEnrolment.ProviderVerification;
 
 /**
  * The enrolment policy (PM-EXEC-1, PM-EXEC-2): the three rules the specification states in concrete terms, checked on

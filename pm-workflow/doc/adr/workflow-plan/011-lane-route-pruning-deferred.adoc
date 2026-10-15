@@ -47,7 +47,7 @@ _Rejected_: it needs engine support that does not exist, and a new event in the 
 
 == Source
 
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events (`outline`)
-* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.route-rework[State Catalogue, `outline.route-rework`], link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.light-regate[`outline.light-regate`]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model], compiled invariant `INV-INIT-2`
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events (`outline`)
+* link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.route-rework[State Catalogue, `outline.route-rework`], link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.light-regate[`outline.light-regate`]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model], compiled invariant `INV-INIT-2`
 * `doc/plans/plan-instance.adoc`; follow-up `doc/plans/lane-route-pruning.adoc`; operator decision during execution (split into a follow-up work package)

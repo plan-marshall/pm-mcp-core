@@ -42,7 +42,7 @@ Alternatives not recorded.
 
 == Source
 
-* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+* The pull request of the work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
   decision q1
-* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup Sequence] (step 4.1)
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup Sequence] (step 4.1)
 * Related: link:../../../../pm-core/doc/adr/core-store/026-audit-formats-in-core-store-keyed-anchor-in-the-runtime.adoc[`core-store` ADR 026]

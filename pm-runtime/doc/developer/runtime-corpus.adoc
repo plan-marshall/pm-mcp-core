@@ -1,10 +1,11 @@
 = Git LFS Download of the Corpus Sources (`runtime.corpus`) Developer Guide
+:docs: ../../../../plan-marshall-documentation/doc
 :toc:
 :toclevels: 3
 :nofooter:
 
 :req: ../../../../plan-marshall-documentation/doc/requirements
-:spec: ../../../../plan-marshall-documentation/doc/specification
+:spec: ../../../doc/specification
 :src: ../../src/main/java/de/planmarshall/runtime/corpus
 :test: ../../src/test/java/de/planmarshall/runtime/corpus
 
@@ -89,5 +90,5 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
 
-* Specification: link:{spec}/module-structure.adoc[Module Structure], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification]
+* Specification: link:{docs}/specification/module-structure.adoc[Module Structure], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification]
 * Decisions: link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006], link:../../../pm-core/doc/adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[`core-role-corpus` ADR 003]

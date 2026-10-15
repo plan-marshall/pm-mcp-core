@@ -14,7 +14,7 @@
  * Specification:
  * <ul>
  * <li>{@code doc/specification/client-profiles/01-profile-schema.adoc}</li>
- * <li>{@code doc/specification/client-profiles/02-placeholders-and-detection.adoc}</li>
+ * <li>{@code doc/specification/client-profiles/02-placeholders.adoc}</li>
  * </ul>
  */
 package de.planmarshall.core.profile;

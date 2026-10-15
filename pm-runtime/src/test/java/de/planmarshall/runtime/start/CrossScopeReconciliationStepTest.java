@@ -26,6 +26,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.store.CrossScopeReconciler;
 import de.planmarshall.core.store.CrossScopeReconciler.Reconciliation;
@@ -34,10 +38,6 @@ import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.CopyReconciler;
 import de.planmarshall.runtime.start.RecoveryStepFixtures.RecordingAuditSink;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The cross-scope reconciliation step of the per-project recovery with test reconcilers over plan scopes in a test

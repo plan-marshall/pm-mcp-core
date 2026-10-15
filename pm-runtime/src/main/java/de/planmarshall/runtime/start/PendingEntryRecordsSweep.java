@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -18,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
@@ -34,7 +34,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 /**
  * The step {@link SweepStep.Name#PENDING_ENTRY_RECORDS} of the periodic sweep: every pending entry record
  * {@code pending/<entry_id>.json} of the project's workspace scope created before the instant the step is given is
- * removed (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Periodic Sweep).
+ * removed (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Periodic Sweep).
  * <p>
  * The step follows the sweep rule. Its only evidence is the age: the creation instant a record states, read under the
  * workspace lock. A file of {@code pending/} whose name does not parse as an entry id is never an entry and is never

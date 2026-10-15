@@ -50,7 +50,7 @@
  * Specification:
  * <ul>
  * <li>{@code doc/specification/store-schemas/11-enrolment-store.adoc} (Project Enrolment Store)</li>
- * <li>{@code doc/specification/cli-and-security/02-credentials-and-operator.adoc} (Enrolment Integrity; Enrolment,
+ * <li>{@code doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc} (Enrolment Integrity; Enrolment,
  * Lifecycle Gate &amp; Release)</li>
  * </ul>
  *

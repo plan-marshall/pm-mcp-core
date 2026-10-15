@@ -127,7 +127,7 @@ A task state shows its task label and its outcome transitions, never a link of i
 [#instance-forms]
 === Instance forms
 
-_Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]_
+_Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]_
 
 A plan instance version, a `PlanInstance` of `workflow.plan`, is rendered in the same three forms (see link:../adr/workflow-diagram/011-instance-diagram-from-header-annotations.adoc[ADR 011]):
 
@@ -246,4 +246,4 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Workflow DSL § Automated Mermaid, AsciiDoc Table, and ASCII Diagram Generation]; link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]
+* Specification: link:../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Workflow DSL § Automated Mermaid, AsciiDoc Table, and ASCII Diagram Generation]; link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#_display[Workflow DSL § Plan Instance, Display]

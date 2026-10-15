@@ -11,9 +11,9 @@ package de.planmarshall.runtime.lock;
 
 import java.time.Instant;
 import java.util.Optional;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.HolderInstance;
-import lombok.experimental.UtilityClass;
 
 /**
  * Whether the runtime instance that serves a lease is still alive (PM-IMPL-7). The operating system reuses process

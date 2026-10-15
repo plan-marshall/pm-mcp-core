@@ -16,7 +16,7 @@ import de.planmarshall.core.store.EnrolmentStore;
 
 /**
  * The ids of the enrolled projects, the population of the per-project recovery ({@link ProjectRecovery}) and of the
- * periodic sweep (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery). Only
+ * periodic sweep (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery). Only
  * enrolled projects are recovered and swept: the machine store an unenrolled project left behind is not touched.
  * <p>
  * The enrolment store fills this seam ({@link #of(EnrolmentStore)}); {@link #NONE} names no project and stays the

@@ -29,7 +29,7 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/module-structure.adoc} (Findings &amp; Code-Analysis Contracts, Packages, Dependency
+ * <li>{@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Findings &amp; Code-Analysis Contracts, Packages, Dependency
  * Rules)</li>
  * <li>{@code doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc}</li>
  * <li>{@code doc/specification/store-schemas/03-findings-and-review-records.adoc} (Findings Ledger Record)</li>

@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,14 +22,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The periodic sweep of the runtime over the enrolled projects
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery): every {@link #INTERVAL} it
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery): every {@link #INTERVAL} it
  * runs each {@link SweepStep} for each project of {@link EnrolledProjects}, with the pending entry records older than
  * {@link #PENDING_ENTRY_MAX_AGE} and the session generations fenced longer ago as the ones to remove
  * ({@link PendingEntryRecordsSweep}, {@link FencedSessionGenerationsSweep}). Both durations are compiled constants and

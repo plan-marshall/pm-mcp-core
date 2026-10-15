@@ -1,10 +1,11 @@
 = Cache Repository Operations (`provider.git`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
 :toc:
 :toclevels: 3
 :nofooter:
 
 :req: ../../../../../plan-marshall-documentation/doc/requirements
-:spec: ../../../../../plan-marshall-documentation/doc/specification
+:spec: ../../../../doc/specification
 :src: ../../src/main/java/de/planmarshall/provider/git
 :test: ../../src/test/java/de/planmarshall/provider/git
 
@@ -96,5 +97,5 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6], link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 
-* Specification: link:{spec}/module-structure.adoc[Module Structure], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification]
+* Specification: link:{docs}/specification/module-structure.adoc[Module Structure], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification]
 * Decisions: link:../adr/provider-git/001-cache-repository-operations-on-the-shared-git-contract.adoc[ADR 001], link:../../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]

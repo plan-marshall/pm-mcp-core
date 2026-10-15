@@ -5,7 +5,7 @@
 
 :docs: ../../../../plan-marshall-documentation/doc
 :req: ../../../../plan-marshall-documentation/doc/requirements
-:spec: ../../../../plan-marshall-documentation/doc/specification
+:spec: ../../../doc/specification
 :src: ../../src/main/java/de/planmarshall/runtime/audit
 :test: ../../src/test/java/de/planmarshall/runtime/audit
 
@@ -438,8 +438,8 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/01-ar
 * Specification: link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit
   Log] (checkpoint records, hash chain), link:{spec}/store-schemas/12-machine-stores.adoc#audit-head[§ Audit Head],
   link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index],
-  link:{spec}/cli-and-security/02-credentials-and-operator.adoc#_security_audit_trail_three_tier_identity_verification[CLI
-  & Security § Security Audit Trail], link:{spec}/runtime-model/02-startup-recovery-drain.adoc#_startup_sequence[Runtime
+  link:{spec}/credentials-and-enrolment/03-audit-and-outbound-https.adoc#_security_audit_trail_three_tier_identity_verification[CLI
+  & Security § Security Audit Trail], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime
   Model § Startup Sequence] (step 4.1)
 * Chain and sink: link:../../../pm-core/doc/developer/core-store.adoc#_audit_log[`core.store` § The Audit Log]
 * Seam of the start: link:runtime-start.adoc#_the_audit_chain_seam[`runtime.start` § The Audit Chain Seam]

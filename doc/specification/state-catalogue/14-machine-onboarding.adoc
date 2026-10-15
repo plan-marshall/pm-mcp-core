@@ -1,0 +1,377 @@
+= State Catalogue: Machine Onboarding & the Machine's Settings
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Machine Onboarding & the Machine's Settings
+
+[#state-catalogue-onboarding]
+== Machine Onboarding: `onboard` (machine)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_
+
+Declared in `onboarding.pmwf` (`scope machine`, compiled only, frontmatter type `system` without entries and exits), the unit of the machine's one scope, whose state is `<PM_MCP_BASE>/machine/mcp/status.json` (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]); phase value `machine`. Like the project's workspace unit it is resident: it has no terminal state and rests in `onboard.completed`, which every state reaches and to which every state reached from it returns. Each aspect of the machine (the languages, the harnesses, the model catalogue, the role assignment, the credential store, the providers, the plan defaults) is a compiled sub-workflow, called in the first run with `onboard_run: first_run` and called again alone from `settings.choose` with `onboard_run: reconfigure` and its current values as the proposal; the first run and a later change are one process (link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-1[UC-ONB-1]). Every choice is an operator wait served to both clients, the first act winning; a change of a recorded value carries the revision it was made against and is refused with `conflict` against a newer one (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#two-channels[CLI, Coordination & Security Specification, Operator Choices in the Web App and the Terminal]). Every action that looks at the machine or acts on it is preceded by a consent state of its kind (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]); an act of the operator's own, such as a typed credential, needs none. No state before `onboard.models` starts a role task, since no harness is enrolled before it; a role task of the machine scope runs on an enrolled harness like any worker task. In a later run the aspect units' operator waits offer the implicit `step_out`, which returns to `settings.choose` with nothing more recorded; the first run offers none, and the operator who leaves a state finds it again at the next entry.
+
+*The halt*: the onboarding's wait is the one operator wait that halts the system: while the onboarding is not complete, the setup gate of every start and of every project onboarding refuses with the reason `machine_not_onboarded`, naming the terminal client and the web app, while the onboarding itself and the operator's verbs work (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]).
+
+*The automatic run* (`onboard_run: auto`, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]): after the one consent of `auto.consent`, each aspect runs with its proposal accepted: an operator wait whose proposal is complete is answered by the server with it, recorded with its reason (detected, default, the only option), and its consent is covered by the run's one consent; a wait without a complete proposal (a login, a secret, no harness found, the model ids of a harness that cannot list them, a failed check) waits for the operator as in the guided run, and the run continues after it. The run starts no role task, and `auto.result` ends it with every value, its reason, and the check that confirmed it.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-onboard.entry]]`onboard.entry`
+|`machine`
+|`auto`
+|The machine scope's creation at the runtime's first start (the unit's start state).
+|Records the first run; a run left unfinished resumes at the state where it stopped, in either client.
+|`first_run` -> `onboard.mode`.
+|link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]
+
+|[[state-onboard.mode]]`onboard.mode`
+|`machine`
+|`operator_wait`
+|`onboard.entry`; `onboard.auto` (`declined`).
+|`guided`, `automatic`.
+|`guided` -> `onboard.language`; `automatic` -> `onboard.auto`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-1[UC-ONB-1]
+
+|[[state-onboard.auto]]`onboard.auto`
+|`machine`
+|`call`
+|`onboard.mode` (`automatic`).
+|`call auto` at its entry `consent`.
+|`consented` (`onboard_run: auto`) -> `onboard.language`; `declined` (nothing was done) -> `onboard.mode`.
+|<<state-catalogue-auto>>
+
+|[[state-onboard.language]][[state-onboard.harnesses]][[state-onboard.models]][[state-onboard.assign-roles]][[state-onboard.credential-store]][[state-onboard.providers]][[state-onboard.plan-defaults]]`onboard.language`, `onboard.harnesses`, `onboard.models`, `onboard.assign-roles`, `onboard.credential-store`, `onboard.providers`, `onboard.plan-defaults`
+|`machine`
+|`call`
+|`onboard.mode` (`guided`), `onboard.auto` (`consented`), and `onboard.next` (the next aspect of the run, or the aspect `settings.choose` or `auto.result` asked for).
+|`call language`, `call harness`, `call catalogue`, `call roles`, `call store`, `call providers`, `call defaults` (the last five in xref:19-onboarding-aspects-models-providers.adoc#state-catalogue-onboarding-aspects-2[Onboarding Aspects, Part 2]), with the run's `onboard_run` and, for a later run, the current values as the proposal.
+|`done` -> `onboard.next`; `stepped_out` (a later run left) -> `settings.choose`.
+|<<state-catalogue-onboarding-aspects>>
+
+|[[state-onboard.next]]`onboard.next`
+|`machine`
+|`auto`
+|Every aspect call state (`done`); `onboard.auto-result` (`change`, with the aspect).
+|Router: `auto onboard.next` reads `onboard_run` and the aspect that returned. The first run and the automatic run take the aspects in the fixed order language, harnesses, models, role assignment, credential store, providers, plan defaults. A _change_ on `auto.result` calls that one aspect as a later run (`onboard_run: reconfigure`, its current values as the proposal), and its return leads back to the result.
+|The next aspect's call state (first or automatic run, or the aspect a _change_ on `auto.result` opened); `completed` (the first run's last aspect) -> `onboard.completed`; `result` (the automatic run's last aspect, or the aspect a _change_ on `auto.result` ran) -> `onboard.auto-result`; `settings` (a later run) -> `settings.choose`.
+|link:../workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL Specification, Routing by Fact]
+
+|[[state-onboard.auto-result]]`onboard.auto-result`
+|`machine`
+|`call`
+|`onboard.next` (`result`).
+|`call auto` at its entry `result`.
+|`done` -> `onboard.completed`; `change` (the operator opens a step to change it: a later run of that aspect) -> `onboard.next`.
+|<<state-catalogue-auto>>
+
+|[[state-onboard.completed]]`onboard.completed`
+|`machine`
+|`operator_wait`
+|`onboard.next` (`completed`), `onboard.auto-result` (`done`); `settings.choose` (`done`).
+|The machine scope's resting state; its facts name the next step (enrol and set up a project) and every recorded aspect. `settings` opens the machine's settings.
+|`settings` -> `settings.choose`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-1[UC-ONB-1]
+|===
+
+[#state-catalogue-settings]
+=== The Machine's Settings: `settings`
+
+States of `onboarding.pmwf`, reached from `onboard.completed` once the onboarding has completed (link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-10[UC-ONB-10]). Every change is audited with its channel and device and applies to every project and plan that follows the machine's value from its next read; an aspect a project sets for itself is changed in that project's onboarding, never here.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-settings.choose]]`settings.choose`
+|`machine`
+|`operator_wait`
+|`onboard.completed` (`settings`); every aspect call state (`stepped_out`) and `onboard.next` (`settings`); `settings.withdraw` (`keep`), `settings.remove-consent`, `settings.record`, `settings.verify-providers`.
+|`facts`: what the machine recorded per aspect, the remembered consents, the documents mode, the cleanup's durations, the credentials with their status (an expired one, and the plans it holds), and the paired devices. Links: `reconfigure:<aspect>`; `withdraw:<consent>`; `documents_mode`; `cleanup_durations`; `credential:<key>`; `verify_providers` (check the providers again on request, link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]); `done`. The paired devices are acted on through their own endpoints (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]).
+|`reconfigure` -> the aspect's call state (`onboard_run: reconfigure`); `withdraw` -> `settings.withdraw`; `documents_mode` -> `settings.documents-mode`; `cleanup_durations` -> `settings.cleanup-durations`; `credential` -> `settings.credential`; `verify_providers` -> `settings.verify-providers`; `done` -> `onboard.completed`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-10[UC-ONB-10]
+
+|[[state-settings.withdraw]]`settings.withdraw`
+|`machine`
+|`operator_wait`
+|`settings.choose` (`withdraw`).
+|The remembered consent and where it will be asked again. `keep`, `withdraw`.
+|`keep` -> `settings.choose`; `withdraw` -> `settings.remove-consent`.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-settings.remove-consent]]`settings.remove-consent`
+|`machine`
+|`auto`
+|`settings.withdraw` (`withdraw`).
+|Removes the consent from `consents.json`, audited; nothing recorded with it changes, and its consent state is asked again the next time its action runs.
+|`removed` -> `settings.choose`.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-settings.documents-mode]]`settings.documents-mode`
+|`machine`
+|`operator_wait`
+|`settings.choose` (`documents_mode`).
+|`set` (`copy`, `move`, or `ask`) of the machine's `sources.documents_mode`.
+|`set` -> `settings.record`.
+|xref:09-bootstrap-and-lessons.adoc#documents-source[Documents as a Source]
+
+|[[state-settings.cleanup-durations]]`settings.cleanup-durations`
+|`machine`
+|`operator_wait`
+|`settings.choose` (`cleanup_durations`).
+|`set` of the machine's `cleanup.*` durations, one per kind, and the reminder's days (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]).
+|`set` -> `settings.record`.
+|link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]
+
+|[[state-settings.record]]`settings.record`
+|`machine`
+|`auto`
+|`settings.documents-mode`, `settings.cleanup-durations` (`set`).
+|Writes the machine setting against the revision the change was made against, audited.
+|`recorded` -> `settings.choose`; `conflict` (a newer revision: the current value shown, the change not written) -> `settings.choose`.
+|link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]
+
+|[[state-settings.credential]]`settings.credential`
+|`machine`
+|`operator_wait`
+|`settings.choose` (`credential`).
+|`rotate` (a new secret for the entry, its other fields kept) or `replace` (a new entry, another kind of credential), entered by the operator only and stored on that act, without a consent; in the web app only on the loopback listener, the LAN listener's form naming the terminal command (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-credentials[CLI, Coordination & Security Specification, Credentials in the Web App]).
+|`rotate`, `replace` -> `settings.store-credential`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-credential-cli[CLI, Coordination & Security Specification, Credentials]
+
+|[[state-settings.store-credential]]`settings.store-credential`
+|`machine`
+|`auto`
+|`settings.credential`.
+|Writes the secret into the recorded credential store and drops every token derived from the old secret; refused with `credential_store_unavailable` while the recorded store is not available.
+|`stored` -> `settings.verify-providers`.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+
+|[[state-settings.verify-providers]]`settings.verify-providers`
+|`machine`
+|`call`
+|`settings.store-credential` (`stored`); `settings.choose` (`verify_providers`).
+|`call providers` at its entry `verify`, over every provider that uses the credential, or on request over every chosen provider.
+|`done` -> `settings.choose` (a plan held by the old credential goes on once its hold's retry observes the new one).
+|xref:19-onboarding-aspects-models-providers.adoc#state-catalogue-providers[Providers]
+|===
+
+[#state-catalogue-onboarding-aspects]
+== The Onboarding's Aspects
+
+Each aspect is a compiled sub-workflow of the machine scope (`scope subworkflow`, phase value `machine`; `workspace` where a project's onboarding calls `catalogue` or `roles` for the project), with the entry `start`, the exit `done` (its terminal `<unit>.done`, `terminal done success`), and in a later run the operator's `stepped_out`. A consent state is an operator wait with `yes`, `yes_remember` where the kind can be remembered, and `no`; `no` leaves the scope in the state, except where the row names the optional action it skips (link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#consents[Consents]).
+
+[#state-catalogue-auto]
+=== Automatic Onboarding: `auto`
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-auto.consent]]`auto.consent`
+|`machine`
+|`operator_wait`
+|`onboard.auto` (entry `consent`).
+|One consent for everything the automatic run does, listed in full: the consents of the harness scan, the icons, the login probes (with the token cost of the minimal headless call of a harness without an `auth_probe`), the model probes, the credential store check, the provider scan and verification, for this run only and never remembered, and that it starts no role task. `yes`, `no`.
+|`yes` -> `auto.run`; `no` -> `auto.declined`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]
+
+|[[state-auto.run]]`auto.run`
+|`machine`
+|`auto`
+|`auto.consent` (`yes`).
+|Records the automatic run (`onboard_run: auto`) with the consents it covers, valid for this run only.
+|`started` -> `auto.started`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]
+
+|[[state-auto.result]]`auto.result`
+|`machine`
+|`operator_wait`
+|`onboard.auto-result` (entry `result`).
+|Every value the run decided, per step, with its reason (detected, default, the only option) and the check that confirmed it, from the closed list of reasons and the item schema of `auto.result` (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]). `done`; `change:<aspect>` opens that step to change it.
+|`done` -> `auto.finished`; `change` -> `auto.change`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]
+
+|[[state-auto.started]][[state-auto.declined]][[state-auto.finished]][[state-auto.change]]`auto.started`, `auto.declined`, `auto.finished`, `auto.change`
+|`machine`
+|`terminal`
+|`auto.run`; `auto.consent` (`no`); `auto.result` (`done`, `change`).
+|Declared `terminal consented success`, `terminal declined success`, `terminal done success`, `terminal change success` (with the aspect).
+|The caller's matching transition.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===
+
+[#state-catalogue-language]
+=== Languages: `language`
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-language.detect]]`language.detect`
+|`machine`
+|`auto`
+|`onboard.language` (entry state).
+|The locale the client sends (its `LANG`, the browser's languages) and the language packs shipped.
+|`detected` -> `language.choose`.
+|link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#i18n[Module Structure Specification, Languages and Internationalisation]
+
+|[[state-language.choose]]`language.choose`
+|`machine`
+|`operator_wait`
+|`language.detect`.
+|Two choices, each preselected from the locale where a pack exists: the interface language (every text the system shows the operator) and the model language (what a model is told to write and is given to read: `same`, following the interface language, or a locale), with why they are separate. `set`.
+|`set` -> `language.record`.
+|link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#i18n[Module Structure Specification, Languages and Internationalisation]
+
+|[[state-language.record]]`language.record`
+|`machine`
+|`auto`
+|`language.choose` (`set`).
+|Writes `language.interface` and `language.model` of `machine-config.json`; every later text is in the interface language.
+|`recorded` -> `language.done`.
+|link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]
+|===
+
+[#state-catalogue-harness]
+=== Harnesses: `harness`
+
+The scan, the probes, and a verification run the found programs as jobs, through the job launcher with the confinement of a job, never in the runtime's own process (link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]). The step cannot finish without one usable harness; a later run scans again, offers a harness found and not enrolled, shows an enrolled one no longer found as missing and offers its removal, and refuses to remove the default before another is chosen or a harness roles use before they are reassigned.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-harness.consent]]`harness.consent`
+|`machine`
+|`operator_wait`
+|`onboard.harnesses` (entry state).
+|Consent kind `scan_harnesses`: look for the executables of the harnesses the profiles know and run their version probe.
+|`yes`, `yes_remember` -> `harness.scan`; `no` stays.
+|link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
+
+|[[state-harness.scan]]`harness.scan`
+|`machine`
+|`composite_job`
+|`harness.consent`; `harness.none` (`recheck`).
+|One scan: the `headless.executable` of every profile of the effective profile set, in the directories of the operator's login `PATH` (as the client sent it) and in the profile's `headless.install_locations`; only the version probe runs on what it finds.
+|`found` -> `harness.icons-consent`; `none_found` -> `harness.none`.
+|link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]
+
+|[[state-harness.none]]`harness.none`
+|`machine`
+|`operator_wait`
+|`harness.scan` (`none_found`); `harness.probe` (`all_failed`).
+|No usable harness: names how to install a known one (each profile's install hint) and offers to add another. `recheck`, `add`; the onboarding rests here until the operator acts.
+|`recheck` -> `harness.scan`; `add` -> `harness.add`.
+|link:../client-profiles/01-profile-schema.adoc#unknown-harness[Client Profiles Specification, Unknown Harness]
+
+|[[state-harness.icons-consent]]`harness.icons-consent`
+|`machine`
+|`operator_wait`
+|`harness.scan` (`found`).
+|Consent kind `fetch_icons`: fetch the makers' icons of the found harnesses once, through the runtime. Optional: `no` goes on with monograms.
+|`yes`, `yes_remember` -> `harness.fetch-icons`; `no` -> `harness.choose`.
+|link:../client-profiles/01-profile-schema.adoc#harness-icons[Client Profiles Specification, Harness Icons]
+
+|[[state-harness.fetch-icons]]`harness.fetch-icons`
+|`machine`
+|`composite_job`
+|`harness.icons-consent` (`yes`, `yes_remember`).
+|Each icon of the `source` form fetched once through the outbound proxy and stored in `<PM_MCP_BASE>/icons/`; a failed fetch leaves the monogram.
+|`fetched` -> `harness.choose`.
+|link:../client-profiles/01-profile-schema.adoc#harness-icons[Client Profiles Specification, Harness Icons]
+
+|[[state-harness.choose]]`harness.choose`
+|`machine`
+|`operator_wait`
+|`harness.icons-consent` (`no`), `harness.fetch-icons`; `harness.blocked` (`choose_again`); `harness.install-profile`; `harness.add` (`known`).
+|Every found harness with its version, supported or not, worker-eligible or not (a profile with `headless: null` or `worker.eligible: false` shown and never offered as a worker or the default), and what it reports of its token usage (`complete`, `partial` naming what is missing, `not_reported`); the harnesses listed in the order of their `client_id`; every supported worker-eligible one preselected, the first of them in that order the default. `choose` (the chosen ones, one the default); `add`.
+|`choose` -> `harness.probe-consent`; `add` -> `harness.add`.
+|link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles Specification, Harness Scan]; link:../client-profiles/01-profile-schema.adoc#token-usage[Tokens, Not Money]
+
+|[[state-harness.probe-consent]]`harness.probe-consent`
+|`machine`
+|`operator_wait`
+|`harness.choose` (`choose`).
+|Consent kind `probe_harness_login`: run each chosen harness's login probe, its `headless.auth_probe` command, or one minimal headless call with its token cost.
+|`yes`, `yes_remember` -> `harness.probe`; `no` stays.
+|link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]
+
+|[[state-harness.probe]]`harness.probe`
+|`machine`
+|`composite_job`
+|`harness.probe-consent`; `harness.blocked` (`recheck`).
+|Per chosen harness: its version in the supported range, logged in; each check a line ending in ✓ or ✗ with its cause.
+|`all_passed` -> `harness.confirm`; `one_failed` -> `harness.blocked`; `all_failed` -> `harness.none`.
+|link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]
+
+|[[state-harness.blocked]]`harness.blocked`
+|`machine`
+|`operator_wait`
+|`harness.probe` (`one_failed`).
+|Names the harness, the cause, and the fix (`logged_out`: the harness's login command). `recheck`; `leave_out` (not the last chosen harness); `choose_again`.
+|`recheck` -> `harness.probe`; `leave_out` -> `harness.confirm`; `choose_again` -> `harness.choose`.
+|link:../client-profiles/01-profile-schema.adoc#login-probe[Client Profiles Specification, Login Probe]
+
+|[[state-harness.confirm]]`harness.confirm`
+|`machine`
+|`operator_wait`
+|`harness.probe` (`all_passed`), `harness.blocked` (`leave_out`).
+|Per harness the path, version, and digest to be recorded, the default marked. `confirm`, `back`.
+|`confirm` -> `harness.enrol`; `back` -> `harness.choose`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]
+
+|[[state-harness.enrol]]`harness.enrol`
+|`machine`
+|`auto`
+|`harness.confirm` (`confirm`).
+|Writes the harness enrolments (absolute path and digest, as `enrol-harness` does) and the default `harnesses.default` of `machine-config.json`.
+|`enrolled` -> `harness.done`.
+|link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]
+
+|[[state-harness.add]]`harness.add`
+|`machine`
+|`operator_wait`
+|`harness.none`, `harness.choose` (`add`); `harness.verify-profile` (`stage_failed`).
+|The draft profile as a form: the executable, a client id and name, and the interface statements profile verification needs (headless arguments, environment, MCP configuration, output and usage format, version probe), prefilled from the profile of the known harness the operator picks as the closest; after a failed stage, the stage, its finding, and the draft field to fix. A known harness not found where it is looked for is pointed at by its path, and its shipped profile is used. `submit`, `known`.
+|`submit` -> `harness.add-consent`; `known` -> `harness.choose`.
+|link:../client-profiles/01-profile-schema.adoc#unknown-harness[Client Profiles Specification, Unknown Harness]
+
+|[[state-harness.add-consent]]`harness.add-consent`
+|`machine`
+|`operator_wait`
+|`harness.add` (`submit`).
+|Consent kind `verify_harness_profile`, never remembered: run the harness to verify its draft, with the stages and their token cost. `yes`, `no`.
+|`yes` -> `harness.verify-profile`; `no` stays.
+|link:../client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles Specification, Profile Verification]
+
+|[[state-harness.verify-profile]]`harness.verify-profile`
+|`machine`
+|`composite_job`
+|`harness.add-consent` (`yes`).
+|Profile verification, one line per stage (the stages `events` and `usage` included), each ending in ✓ or ✗ with its finding.
+|`all_passed` -> `harness.add-confirm`; `stage_failed` -> `harness.add`.
+|link:../client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles Specification, Profile Verification]
+
+|[[state-harness.add-confirm]]`harness.add-confirm`
+|`machine`
+|`operator_wait`
+|`harness.verify-profile` (`all_passed`).
+|The verified profile to be installed, worker-eligible only if the verification shows it. `install`, `back`.
+|`install` -> `harness.install-profile`; `back` -> `harness.add`.
+|link:../client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles Specification, Profile Sets]
+
+|[[state-harness.install-profile]]`harness.install-profile`
+|`machine`
+|`auto`
+|`harness.add-confirm` (`install`).
+|Installs the profile into the machine profile set, with its verification's `usage_report`.
+|`installed` -> `harness.choose` (the added harness among the found ones).
+|link:../client-profiles/01-profile-schema.adoc#profile-sets[Client Profiles Specification, Profile Sets]
+|===

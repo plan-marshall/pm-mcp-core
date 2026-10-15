@@ -9,13 +9,12 @@
  */
 package de.planmarshall.runtime.credentials;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-
-import com.fasterxml.jackson.core.JsonFactory;
 
 /**
  * Writes the figures a verification IT measured to {@code target/verification-results/<item>.json}.

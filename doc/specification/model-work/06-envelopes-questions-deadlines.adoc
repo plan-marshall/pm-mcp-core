@@ -1,0 +1,441 @@
+= Model Work Specification: Envelope Tasks, Questions & Decisions
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../model-work.adoc[Model Work Specification] » Envelope Tasks, Questions & Decisions
+
+== Task Envelope Bin-Packing & Sequential Task Yield
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
+
+During Phase 4 (`plan`), the workflow engine does not create a task of model work per plan task. Instead, it sizes each plan task, packs compatible plan tasks into budget-bounded envelopes (`envelope-1`, `envelope-2`, ...), and Phase 5 queues one *envelope task* per envelope: one task of the writer role the execute state names (`implement` in the default units), served by a worker of that role (xref:04-worker-launch.adoc#model-job-launch[Worker Launch]).
+
+[#cost-sizing]
+=== Cost Sizing (`derive-cost-size`), Envelope Budget & Minimum Task Work
+
+The cost model (size rubric, size-to-token table, and Next-Fit packing under the budget) is `plan-marshall`'s (`manage-tasks/scripts/_tasks_cost.py`, `manage-tasks/scripts/_tasks_envelope.py`, the defaults in `manage-config/scripts/_config_defaults.py`, and `extension-api/standards/dispatch-granularity.md` § 1.2), verified at commit `88fcfc9ef`; re-verify against the latest `plan-marshall` version before implementing. `plan-marshall`'s packer packs on the budget alone; envelope sharing by module and role (item 5) and the below-minimum merge (item 6) are deliberate changes. It predicts the token consumption of a task's work (generation, reasoning, and in-context skill loads), not wall-clock time; the build count is deliberately not a signal, because a build is token-cheap whatever its duration. The dominant cost of an envelope task is the per-plan-task work, not the envelope's re-establishment overhead, so bundling tasks amortises only that minor share.
+
+1. *Size Rubric*: For every plan task $t$, `TaskCostEstimator` (the `derive-cost-size` function) computes a deterministic weighted score from four signals of the task record (link:../store-schemas/06-task-and-references.adoc#_task_record_schema_taskstask_nnn_json[Store Schemas Specification, Task Record]):
++
+$$\text{score}(t) = 10 \cdot N_{\text{steps}}(t) + W_{\text{profile}}(t) + 3 \cdot N_{\text{skills}}(t) + 4 \cdot N_{\text{files}}(t)$$
++
+where $N_{\text{steps}}(t)$ is the number of the task's `steps` (the dominant term), $N_{\text{skills}}(t)$ the number of its `skills[]`, $N_{\text{files}}(t)$ the number of its distinct `target_files`, and $W_{\text{profile}}(t)$ the weight of its `profile`: `implementation` `12`, `module_testing` `12`, `verification` `4`, and the default weight `8` for every other member of the task profile enum (`integration_testing`, `documentation`), as `plan-marshall` weights a profile it does not list. There is no per-profile base cost.
+2. *Six Sizes*: The score maps to `cost_size` through monotone bands, so raising any signal never lowers the size:
++
+[cols="1,2,2"]
+|===
+|`cost_size` |Score band |Default `predicted_cost_tokens`
+
+|`XS` |$\text{score} < 30$ |`5K`
+|`S` |$30 \le \text{score} < 60$ |`25K`
+|`M` |$60 \le \text{score} < 150$ |`60K`
+|`L` |$150 \le \text{score} < 300$ |`130K`
+|`XL` |$300 \le \text{score} < 700$ |`260K`
+|`XXL` |$\text{score} \ge 700$ |`520K`
+|===
+3. *Size-to-Token Table*: `predicted_cost_tokens(t)` is defined as the value of the task's `cost_size` in the size-to-token table; it is a table lookup, never a per-task computation. The table is derived, never configured: its compiled defaults are the column above, and a hand-set table could only be less accurate than the calibration (*deliberate change vs. `plan-marshall`*: `PM-MCP` has no counterpart of `plan-marshall`'s configurable `plan.phase-5-execute.cost_size_token_table`). The table's values are labelled `uncalibrated` until the server recalibrates them from a measured `metrics.json` population (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]: per envelope task the summed `predicted_cost_tokens` beside the measured token components); a recalibrated table carries `basis: calibrated` with its population count and is kept as the derived fact `cost_calibration` of the project's `derived-facts.json` (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas Specification, Derived fact kinds]), and every figure derived from a table (`predicted_cost_tokens`) carries the basis of the table it used.
+4. *Envelope Budget*: Envelopes are packed Next-Fit under a per-envelope budget derived from the context budget of the envelope role's artifact (`context_budget_tokens`, xref:01-roles-and-configuration.adoc#role-artifact[Roles & Configuration, Role Artifact Schema]), because it depends on the model's context window, which the artifact names; where the artifact does not set it, the harness fallback of the client profile of its harness applies (`headless.context_budget_tokens`, link:../client-profiles/01-profile-schema.adoc[Client Profiles Specification, Profile Schema]), and without either the compiled fallback `400K`; the operator may override it per project (`envelope_budget_tokens` in `local-config.json`, link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]); a team file never sets it. The budget is a plan-time packing bound over summed `predicted_cost_tokens`, never a runtime comparand: a worker cannot measure its own context use mid-turn, and a worker that runs short of context leaves through `yield:envelope-M` (link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]). A task whose predicted cost alone exceeds the budget (an `XXL` task under the defaults) is placed alone in its envelope.
+5. *Envelope Sharing*: Plan tasks share an envelope only when they target the same module and the execute unit names the same role for them; the execution profile is not a sharing criterion, so a deliverable's `implementation` and `module_testing` tasks share one envelope. *Deliberate change vs. `plan-marshall`*: its packer (`_tasks_envelope.py`) closes an envelope only on the budget and has no module or role compatibility, so one envelope could mix modules and roles under a single configuration.
+6. *Minimum Task Work (10K)*: `10K` tokens is the minimum judgement work that justifies an envelope task of its own (`plan-marshall`'s `dispatch-granularity.md` § 1.2), not an envelope ceiling. An envelope whose summed `predicted_cost_tokens` stays below `10K` (for example a lone `XS` task) is merged by the server into its adjacent envelope of the same module and role, the preceding one first; without such a neighbour it stays alone, and the plan representation lists it in the fact `below_minimum_task`. Every such merge produces an envelope over the budget: Next-Fit closes an envelope only on an incompatible task or on the budget, so two adjacent compatible envelopes were split by the budget alone, and a merge only enlarges envelopes. The minimum task work therefore takes precedence over the budget by design. *Deliberate change vs. `plan-marshall`*: its packer has no below-minimum merge; an envelope below `10K` is dispatched alone.
+
+The rubric prices a byte when it enters a context and ignores how long it stays resident. Isolating work in a separate envelope is justified only when re-creating the envelope's starting context (created bytes bill 1.25) costs less than the residency it removes (read bytes bill 0.1 per remaining turn); this condition is evaluated per split, never assumed. The server supplies both inputs: `record-metrics` publishes per envelope the `predicted_cost_tokens` beside the measured token components, and per envelope split (`yield:envelope-M`) the re-creation and residency terms, or `not_derivable` when a component is unmeasured.
+
+=== Deterministic Envelope Packing Algorithm (`EnvelopePacker`)
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-1[PM-WATCH-DISP-1]_
+
+Given the ordered sequence of plan tasks $T = [t_1, t_2, \dots, t_n]$ produced during Phase 4 (`plan`), each stamped with its `predicted_cost_tokens` (<<cost-sizing>>), `EnvelopePacker` runs automatically in-process upon `plan.describe-tasks` submission to partition $T$ into an ordered list of envelopes, each a contiguous slice of $T$, so topological dependency order is preserved. The packer never re-derives a task's cost; it only sums the stamped values:
+
+[source,java]
+----
+package de.planmarshall.workflow.envelope;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+public final class EnvelopePacker {
+
+    /** Minimum predicted work that justifies an envelope task of its own (dispatch-granularity § 1.2). */
+    public static final long MIN_JOB_TOKENS = 10_000;
+
+    public enum CostSize { XS, S, M, L, XL, XXL }
+
+    public record PlannedTaskSummary(
+            String taskId,
+            String moduleId,
+            String role,
+            Set<String> skillUris,
+            CostSize costSize,
+            long predictedCostTokens,
+            List<String> dependsOnTaskIds
+    ) {}
+
+    public record PackedEnvelope(
+            String envelopeId,
+            String moduleId,
+            String role,
+            List<String> taskIds,
+            List<String> unionSkillUris,
+            long totalPredictedCostTokens
+    ) {}
+
+    /**
+     * @param orderedTasks         topological order over depends_on, ties broken by task_id
+     * @param envelopeBudgetTokens the configured per-envelope budget (default 400K)
+     */
+    public List<PackedEnvelope> packEnvelopes(List<PlannedTaskSummary> orderedTasks, long envelopeBudgetTokens) {
+        List<List<PlannedTaskSummary>> groups = new ArrayList<>();
+        List<PlannedTaskSummary> current = new ArrayList<>();
+        long currentTotal = 0;
+
+        // Next-Fit in task order: close the open envelope when the next task is
+        // incompatible or would push it past the budget; a task over budget sits alone.
+        for (PlannedTaskSummary task : orderedTasks) {
+            boolean fits = !current.isEmpty()
+                    && canShareEnvelope(current.getFirst(), task)
+                    && currentTotal + task.predictedCostTokens() <= envelopeBudgetTokens;
+            if (!fits && !current.isEmpty()) {
+                groups.add(current);
+                current = new ArrayList<>();
+                currentTotal = 0;
+            }
+            current.add(task);
+            currentTotal += task.predictedCostTokens();
+        }
+        if (!current.isEmpty()) {
+            groups.add(current);
+        }
+
+        mergeBelowMinimum(groups);
+
+        List<PackedEnvelope> envelopes = new ArrayList<>();
+        for (List<PlannedTaskSummary> group : groups) {
+            envelopes.add(sealEnvelope(envelopes.size() + 1, group));
+        }
+        return List.copyOf(envelopes);
+    }
+
+    private boolean canShareEnvelope(PlannedTaskSummary first, PlannedTaskSummary candidate) {
+        // Same module and same role; the execution profile is not a criterion
+        return first.moduleId().equals(candidate.moduleId())
+                && first.role().equals(candidate.role());
+    }
+
+    private void mergeBelowMinimum(List<List<PlannedTaskSummary>> groups) {
+        // An envelope below the minimum task work joins its adjacent compatible
+        // envelope (preceding first); adjacent compatible envelopes were split only by
+        // the budget, so every merge yields an over-budget envelope. Contiguity is kept.
+        for (int i = 0; i < groups.size(); i++) {
+            List<PlannedTaskSummary> small = groups.get(i);
+            if (total(small) >= MIN_JOB_TOKENS) {
+                continue;
+            }
+            int target = -1;
+            if (i > 0 && canShareEnvelope(groups.get(i - 1).getFirst(), small.getFirst())) {
+                target = i - 1;
+            } else if (i + 1 < groups.size() && canShareEnvelope(groups.get(i + 1).getFirst(), small.getFirst())) {
+                target = i + 1;
+            }
+            if (target < 0) {
+                continue; // stays alone; reported in the fact below_minimum_task
+            }
+            if (target < i) {
+                groups.get(target).addAll(small);
+            } else {
+                groups.get(target).addAll(0, small);
+            }
+            groups.remove(i);
+            i--;
+        }
+    }
+
+    private static long total(List<PlannedTaskSummary> group) {
+        return group.stream().mapToLong(PlannedTaskSummary::predictedCostTokens).sum();
+    }
+
+    private PackedEnvelope sealEnvelope(int index, List<PlannedTaskSummary> group) {
+        PlannedTaskSummary head = group.getFirst();
+        List<String> taskIds = group.stream().map(PlannedTaskSummary::taskId).toList();
+        List<String> skills = group.stream()
+                .flatMap(t -> t.skillUris().stream())
+                .distinct()
+                .sorted()
+                .toList();
+        return new PackedEnvelope("envelope-" + index, head.moduleId(), head.role(), taskIds, skills, total(group));
+    }
+}
+----
+
+*Dependency Order*: The ordered input $T$ is the topological order of the task graph persisted in each task's `depends_on` (link:../store-schemas/06-task-and-references.adoc#_task_record_schema_taskstask_nnn_json[Store Schemas Specification, Task Record]; Kahn's algorithm, ties broken by `task_id`), and `PlannedTaskSummary.dependsOnTaskIds` is that field, so no envelope places a task before one of its dependencies. The same field governs execution: a plan task is yielded only when every plan task in its `depends_on` is `completed`, and an envelope task is queued only when its first plan task is yieldable (link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]); a plan task whose dependency ended `infeasible` or `removed` is never yielded.
+
+=== Sequential Task Yield Within an Envelope
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-1[PM-WATCH-DISP-1]_
+
+When Phase 5 queues the envelope task of an envelope (`entity = "envelope-N"`), a worker of the envelope role serves it, bound by its job token to the task entities leased to its generation (xref:04-worker-launch.adoc#job-token[Job Token, Generation & Connection Binding]). Its launch prompt or offer carries the envelope's skills and contract but never the plan task bodies; the server yields the plan tasks one at a time as hypermedia state representations of the entity:
+
+[source,text]
+----
+Workflow engine (pm-mcpd)                          Worker l-01 (role implement, fresh)
+──────────┬──────────────                          ───────────────┬───────────────────
+          │ execute.envelope-ready:                               │
+          │ queue task qt-01 (envelope-1), lease to l-01,         │
+          │ start l-01 with its contract envelope ───────────────►│ harness CLI started
+          │◄──────────────────────────────────────────────────────│ pm_state(entity="envelope-1")
+          │ [records connected_at] offer: link ack                 │
+          │──────────────────────────────────────────────────────►│
+          │◄──────────────────────────────────────────────────────│ pm_do(entity="envelope-1", link="ack")
+          │ TASK-1 state + submit:TASK-1                           │
+          │──────────────────────────────────────────────────────►│
+          │◄──────────────────────────────────────────────────────│ pm_do(…, link="submit:TASK-1", args={…})
+          │ [persists TASK-1] TASK-2 state + submit:TASK-2         │
+          │──────────────────────────────────────────────────────►│
+          │◄──────────────────────────────────────────────────────│ pm_do(…, link="submit:TASK-2", args={…})
+          │ [persists TASK-2, seals envelope-1]                    │
+          │ envelope.completed (links: []), task qt-01 submitted ─►│
+          │◄──────────────────────────────────────────────────────│ job-result; exit
+          │ fate and usage parsed; return evaluation on records    │
+          │ next envelope task or verification                     │
+----
+
+The diagram abbreviates identifiers: `l-01` stands for a full `job_id` such as `l-3f9a2c417e0d8b65`, `qt-01` for a full `queue_task_id`, and `TASK-1` for `TASK-001` (link:../identifiers/01-general-rules-and-registry.adoc#id-job-id[`job_id`], link:../identifiers/01-general-rules-and-registry.adoc#id-task-id[`task_id`]). A warm worker of the role receives the same entity as the answer to its `pm_wait`; the exchange after the acknowledgement is identical (xref:02-task-protocol.adoc[Task Protocol]).
+
+1. *Initial Yield*: After the acknowledgement the server returns the state representation for the first uncompleted plan task $t_1$ (`state: "envelope.task.active"`, `facts.task_id: "TASK-001"`). The representation offers four exits from a plan task: `submit:TASK-001` (complete the plan task), `ask:TASK-001` (a task question, <<task-questions>>), `yield:envelope-N` (give back the envelope's remaining plan tasks, for example when the context runs short), and `infeasible:TASK-001` (the plan task is impossible as specified, with evidence); link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution] defines what the server does on each. A change to files beyond the plan task's declared footprint inside the plan's worktree needs no link and no question: the server records it as an unplanned change with its provenance and lists it in the pull-request body and the landing record; only a boundary breach (outside the worktree, the main checkout, a protected path) is refused by the non-waivable guards.
+2. *Sequential Advancement on `submit`*: When the worker completes plan task $t_i$ and invokes `pm_do(plan_id="<plan_id>", entity="envelope-N", link="submit:TASK-i", args={...})`, the engine atomically persists $t_i$'s result in the plan store and advances the envelope cursor to $t_{i+1}$. If $i < k$ and $t_i$ is not a chain tail, the `pm_do` call immediately returns the representation for $t_{i+1}$.
+3. *Terminal Envelope Completion*: When the final plan task $t_k$ in `envelope-N` is submitted, `pm_do` transitions the entity to the terminal state `envelope.completed` with an empty `links` array (`links: []`), and the envelope task ends `submitted`. A fresh worker then ends with its `job-result` (xref:09-completion-usage-and-spend.adoc#job-result-schema[Worker Result & Usage Parsing]), and the plan's return evaluation runs on the persisted records (xref:09-completion-usage-and-spend.adoc#return-evaluation[Return Evaluation]).
+4. [[envelope-early-end]]*Early End of an Envelope Task*: Four exits end the entity before $t_k$, each moving it to `envelope.completed` with its required records persisted and handing the remaining plan tasks to the next envelope task `envelope-(N+1)`. The `submit` of a chain-tail plan task (the last plan task of a deliverable) and `yield:envelope-N` end the task `submitted`, with the `yield_reason` the server records from the exit taken, from the closed enumeration `chain_tail | question | context | off_track` (the `yield` link has no free parameter): after a chain tail (`chain_tail`) the plan commits the deliverable and runs its module build before the next envelope task; after a yield (`context`) and after the yield the server took for an off-track signal (`off_track`, xref:03-supervision-and-recycling.adoc#worker-off-track[A Worker Off Track]) the next envelope task follows at once. `ask:TASK-i` keeps the envelope task open where it continues (<<continuation>>): the entity rests in `envelope.task.awaiting_answer` and returns to `envelope.task.active` for the same plan task with the answer. Where it does not continue, `ask:TASK-i` ends the task `asked` (`yield_reason: question`): the remaining plan tasks, the asking plan task included, form `envelope-(N+1)`, queued once the decision is closed and carrying the answer in its facts. `infeasible:TASK-i` ends the task `infeasible` with its evidence, judged by the re-planning of the trigger `infeasible` (`execute.replan`, link:../phase-workflows/08-dynamic-re-planning.adoc#dynamic-re-planning[Phase Workflows Specification, Dynamic Re-Planning]) once nothing runnable is left. Only a held continuation keeps a worker and its model slot while a decision is open, within the role's hold limit.
+5. *Serial Envelope Tasks*: At most one envelope task of a plan is served at a time, by the one-writer rule of the model slots (xref:04-worker-launch.adoc#model-slots[Model Slots & One Writer per Plan]), because the envelopes share one worktree, one chain-tail commit, and one module build. The plan state moves only when the envelope task ends, evaluated by `execute.evaluate-envelope-return` (xref:09-completion-usage-and-spend.adoc#return-evaluation[Return Evaluation]).
+
+[#decision-evidence]
+== Evidence in Facts
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+
+A model decides only from the evidence it is given: every model of the evaluation judged a case wrongly whose facts showed the claim to be judged but not the evidence that refutes it, and rightly once that evidence was added (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#limits[Evaluation Reference, Limits]). The server therefore composes the facts of every task and every question that asks for a judgment with the evidence the judgment rests on, not only the claim:
+
+* a review comment or a finding with the code it refers to at the commit it was made against, and the current code where it differs;
+* a build or CI failure with the log lines that name the failure, from the job's own output;
+* a decision a standing record already settles (an ADR, an accepted waiver, an earlier answer of the plan) with that record;
+* the definitions of the decision's options, as the representation carries them (link:../hypermedia-format/01-representation-and-link-forms.adoc[Hypermedia Format Specification, Representation & Link Forms]).
+
+Evidence too large for `facts` is named by its `pm://` resource URI with the anchor of the relevant part, which the worker reads within its tool set; a `zero_tool` worker receives it in-band. A fact primitive that cannot produce the evidence of a judgment (an unreadable log, a commit no longer reachable) states that in the facts (`evidence: unavailable` with the reason), and the role's skill directs the worker to the conservative option of the decision.
+
+[#question-records]
+== Question Records & Decisions
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+_Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/mcp-tools.adoc#PM-WATCH-TOOL-14[PM-WATCH-TOOL-14]_
+
+Every content question of a scope (an init classifier's question, a refine or outline clarification, the outline review where the plan's asking axis leaves it open, a Phase 5 task question, a question a worker asks before one of its judgments, a team-configuration choice of the workspace setup) is a server-owned *question record*, and the questions of one creation form one *decision* (<<decision-structure>>). A question is never an operator override: overrides (waivers, ending a plan or an epic, the integrity resolutions) are operator acts of their own, and a waiver request is its own record, never a question record. A worker never prompts a human: it asks only through its task's `ask` links, and the server delivers. Whether the asking worker waits for the answer is decided by the server from the state, the role, and the harness (<<continuation>>); where it does not, asking ends its task `asked` (xref:02-task-protocol.adoc[Task Protocol]), and no worker and no model slot is held while the decision is open. A decision the quorum does not decide is an operator wait of its scope (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]): it has no time limit and no default, and nothing decides it but the operator or a quorum. A record lives in the scope's store and survives every restart.
+
+[#question-record-creation]
+=== Record, Store & Creation
+
+Question records are appended to `questions.jsonl` of the scope's store (plan, epic, workspace, or entry; link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]), one line per event, each with its time `at`: the `asked` line with the part below and the decision's fields, the `adjudicated` line (link:10-decision-quorum.adoc#adjudication-record[Ask or Quorum, Record]), the `delivered` line when the decision reaches the clients (`delivered_at`), the `answered` line with the answer (<<answers-and-amendments>>), and the closing lines `cancelled` and `withdrawn`. A record is closed by exactly one `answered`, `cancelled`, or `withdrawn` line. Records are created in three ways:
+
+1. *The `ask` link*: a task entity whose state declares `ask` in its `job llm` clause (link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States (`job llm`), item 8]; never a state of a `zero_tool` role or a vote task) offers `ask` (`decision:schema[decision-envelope]`, link:../hypermedia-format/01-representation-and-link-forms.adoc#question-waiver-and-exit-links[Hypermedia Format Specification, Question, Waiver-Request & Exit Links]); the worker asks before it takes a judgment; unless the task continues (<<continuation>>), the task ends `asked`, and the engine enters the state's engine-made question state `<state>.asked`, which calls the decision sub-workflow (<<decision-unit>>) and, once the decision closes, re-enters the asking state, which queues a new task of the role with the answer in its facts.
+2. *A task's submission*: a refine or outline authoring task completes its draft on best judgment and carries its open questions in the optional `decision` of its one `submit` (`decision:schema[decision-envelope]?`), each part becoming a record (class `clarification`); an envelope task's `ask:TASK-NNN` creates one decision (class `task`) and ends the task where it does not continue (<<task-questions>>).
+3. *A server primitive*: the init classifiers (sibling collision, domain choice), the outline review, and the workspace setup choices that write team configuration raise decisions with server-owned options and fields (`origin: server`, classes `init`, `review`, and `setup`). Setup choices that write operator configuration are operator waits of the setup with links of their own, never decisions.
+
+*Server-owned fields*: `question_id`, `class`, `origin`, `source_entity`, the asking role and phase, and the revision are assigned by the server when it persists a decision, never by the model. `question_id` is the next value of a scope-wide counter of the plan, epic, workspace, or entry (link:../identifiers/01-general-rules-and-registry.adoc#id-question-id[Identifier Registry, `question_id`]), never reused; `origin` and `source_entity` (with `plan_task_id` for class `task`) are defined by the link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]. A payload that carries a server-owned field is rejected with `invalid_link_args`.
+
+[#decision-structure]
+=== The Decision Structure
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
+
+The questions of one creation (one `ask` or `ask:TASK-NNN`, one `submit` with its `decision`, or one server primitive) are one *decision*. A decision is addressed by the `question_id` of its first question, which is no new identifier kind, and across scopes as `<scope_id>/<question_id>` (`fix-relay/Q-007`); the name _decision record_ (`D-NNNN`, xref:11-decision-records.adoc[Decision Records]) keeps its meaning, the record of a decision taken. A decision has:
+
+* *Revision*: an integer, `1` at creation, incremented by the server whenever it changes what the operator is shown: a new adjudication after _none fits_ (link:10-decision-quorum.adoc#adjudication[Ask or Quorum, Adjudication]). Only the server revises a decision; neither a worker nor the operator does. Every answer names the revision it answers.
+* *Title and header*: a title (`3` to `80` characters) and a short header (at most `200`) of what is decided.
+* *Description and evidence*: why the decision is needed now (at most `4000` characters), and its evidence as `pm://` URIs of files, diffs, findings, and records of the scope (<<decision-evidence>>), each readable by the clients over the local API (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]).
+* *What it blocks*: `plan`, `task`, or `nothing`, set by the asker for a worker's question and declared per class for a server-raised one (`init`, `review`, and `setup` block the scope, `plan`).
+* *How reversible it is*: `reversible`, `costly`, or `irreversible`, set the same way (a server class declares `reversible`, except the outline review, `costly`).
+* *Parts*: each question of the decision is one part, with:
+** its id (its `question_id`), its question (`10` to `500` characters), and its `decision_kind` (link:10-decision-quorum.adoc#decision-kinds[Ask or Quorum, Decision Kinds]);
+** its *answer type*: `one` (one option), `several` (one or more options), or `value` (a value of a declared `value_schema`: a text of at most `500` characters, an integer with bounds, or a key of a closed list);
+** its *options* (two to five for `one` and `several`, none for `value`), each with a stable key (`branch_key`), a short label, a description of its trade-off, its consequences, an optional preview (a diff or a text of at most `4000` characters, or a `pm://` URI), and, where a quorum voted, its *support* (below);
+** an optional *dependency* on options of another part of the decision: the part is answered only when that part was answered with one of the named options;
+** its *recommendation*, a field of the part and never part of an option's label: the recommended option, its confidence (`0` to `100`), its rationale, and who recommends it (the asking role, or the server rule of a server-raised question; link:10-decision-quorum.adoc#recommendation-score[Ask or Quorum, Recommendation Score]);
+** whether the operator's own words are allowed (`own_words`), whether a note is allowed (`note`), and whether a delegation ("you decide") is allowed (`delegation`).
+* *Support*: per option of a part a quorum voted on, derived by the runtime from the adjudication's votes, never supplied by a model: how many votes chose it, from which roles and models, the band of their confidences (lowest and highest), and the dissent, each vote that chose otherwise with its rationale. A quorum casts at most three votes (link:10-decision-quorum.adoc#decision-declarations[Ask or Quorum, Decision Declarations]). A self-reported confidence stays a detail of each vote; the clients never present it as the probability that an option is right.
+* *The asking role and phase*: recorded with the decision, so that a chat routes to the role that asked (link:../state-catalogue.adoc#chat[State Catalogue, Chat]).
+
+*None fits*: _none fits_ is offered for a decision only where a role can ask anew or a quorum can vote again: where the decision names a role that asked it (a worker's question), which then asks anew: the decision closes with the answer `none_fits`, and the task that continues the work carries it in `facts.answers` with its `ask` link offered again within the question bound (<<question-bound>>); or where a quorum is declared for a decision a server rule raised or a quorum escalated, which then votes again on a new revision. Otherwise it is not offered and the decision stays open. _Later_ leaves the decision open and changes nothing.
+
+[[question-envelope-schema]]*The model-supplied schema*: a worker supplies a decision as the named parameter schema `decision-envelope` (link:../hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Hypermedia Format Specification, Named Parameter Schemas]), whose parts take the named schema `question-envelope`; neither carries a server-owned field. Every part a model supplies states its recommendation, exactly one recommended option for the answer types `one` and `several`, else the payload is rejected with `invalid_link_args`; a server-raised decision carries the same fields from its primitive.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decision-envelope-v1.json",
+  "title": "DecisionEnvelope",
+  "type": "object",
+  "required": ["title", "header", "description", "evidence", "blocks", "reversibility", "parts"],
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 3, "maxLength": 80 },
+    "header": { "type": "string", "minLength": 3, "maxLength": 200 },
+    "description": { "type": "string", "minLength": 10, "maxLength": 4000, "description": "Why the decision is needed now." },
+    "evidence": { "type": "array", "maxItems": 20, "items": { "type": "string", "pattern": "^pm://", "maxLength": 512 } },
+    "blocks": { "type": "string", "enum": ["plan", "task", "nothing"] },
+    "reversibility": { "type": "string", "enum": ["reversible", "costly", "irreversible"] },
+    "revisits": { "type": ["string", "null"], "pattern": "^D-[0-9]{4,7}$", "description": "Optional: the standing decision of the scope the decision reopens; its choice must be one option of the first part, and an answer that chooses another option appends a correction to it (model-work/11, Corrections)." },
+    "parts": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/question-envelope-v1.json" } }
+  }
+}
+----
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/question-envelope-v1.json",
+  "title": "QuestionEnvelope",
+  "type": "object",
+  "required": ["question_text", "decision_kind", "answer_type", "options", "recommendation", "own_words", "note", "delegation"],
+  "additionalProperties": false,
+  "properties": {
+    "part_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "A key the dependency of another part of the same envelope names; replaced by the question_id when the server persists the part." },
+    "question_text": { "type": "string", "minLength": 10, "maxLength": 500 },
+    "decision_kind": {
+      "type": "string",
+      "enum": ["interpretation", "approach", "granularity", "placement", "test_strategy", "scope", "product_behaviour", "assurance", "external_fact"],
+      "description": "What the question decides (model-work/10, Decision Kinds)."
+    },
+    "answer_type": { "type": "string", "enum": ["one", "several", "value"] },
+    "value_schema": {
+      "type": ["object", "null"],
+      "description": "For answer_type value only: {type: text, max_length} | {type: integer, minimum, maximum} | {type: key, keys[]}; null otherwise."
+    },
+    "options": {
+      "type": "array",
+      "maxItems": 5,
+      "description": "Two to five for one and several, none for value.",
+      "items": {
+        "type": "object",
+        "required": ["branch_key", "label", "description", "consequences"],
+        "additionalProperties": false,
+        "properties": {
+          "branch_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$", "description": "Deterministic enum key bound to a state transition or parameter assignment." },
+          "label": { "type": "string", "minLength": 2, "maxLength": 80 },
+          "description": { "type": "string", "minLength": 5, "maxLength": 240, "description": "The option's trade-off." },
+          "consequences": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "preview": { "type": ["string", "null"], "maxLength": 4000, "description": "A diff, a text, or a pm:// URI." }
+        }
+      }
+    },
+    "depends_on": {
+      "type": ["object", "null"],
+      "required": ["part_key", "options"],
+      "additionalProperties": false,
+      "properties": {
+        "part_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
+        "options": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" } }
+      }
+    },
+    "recommendation": {
+      "type": ["object", "null"],
+      "required": ["branch_key", "confidence", "rationale"],
+      "additionalProperties": false,
+      "properties": {
+        "branch_key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
+        "confidence": { "type": "integer", "minimum": 0, "maximum": 100, "description": "The asker's confidence that the recommended option is right." },
+        "rationale": { "type": "string", "minLength": 10, "maxLength": 500, "description": "Why the recommended option, naming the evidence." }
+      },
+      "description": "Required for one and several; null for value."
+    },
+    "own_words": { "type": "boolean" },
+    "note": { "type": "boolean" },
+    "delegation": { "type": "boolean" }
+  }
+}
+----
+
+[#question-delivery]
+=== Delivery to the Operator
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-29[PM-WATCH-DISP-29]_
+
+*Adjudication first*: Every new decision first passes the adjudication `adjudicate.decisions` (link:10-decision-quorum.adoc#adjudication[Ask or Quorum, Adjudication]), which acts as the decision declarations of the adjudication unit say: where every part's kind is declared `quorum` and its quorum agrees, the decision is answered with `channel: quorum`; otherwise it is delivered to the operator with the votes. Whether a quorum runs is said only by the declarations; there is no question mode.
+
+*Delivered to both clients*: A decision the adjudication escalated is an operator wait of its scope (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]), delivered to both clients of the operator, the web app and the terminal client, which are the only places of the operator (link:../workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL Specification, All Interaction in the Operator's Clients]); no harness, session, or model relays it, and MCP elicitation is never used. The runtime records `delivered_at` and announces the decision opened, changed (a new revision), answered, and closed, with its id and revision, on the event streams of its plan, epic, workspace, or entry (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#event-streams[Runtime & Interaction Model Specification, Events per Scope]); the open decisions across all scopes, each with since when it waits, are part of what needs the operator (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[Runtime & Interaction Model Specification, What Needs the Operator]). Each client shows the decision with its title, header, description and evidence, what it blocks, how reversible it is, and per part the recommendation with its confidence and rationale and the options with their support.
+
+* *Answered through one endpoint*: both clients answer through the same scope-qualified answer endpoint of the local API, validated the same way (<<answers-and-amendments>>); the first valid answer wins, and a later one, from the other client or another device, is refused `already_answered`. The runtime tells the channels apart by the request: an answer on the runtime's socket with the runtime token is `cli`, an answer of a paired device through the web listener is `web` with that device's `device_id`. Each client says when a decision was answered in the other one, or withdrawn, and withdraws what it showed (the report `decision.closed_elsewhere`, link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]).
+* *A content answer, never an override*: an answer in either client is a content answer; a waiver request is answered only by `waive` or `decline` (link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Store Schemas Specification, Waiver Request Record]), offers no chat and no own words, and is never a decision.
+* *Chat before answering*: `decision.answer` offers _chat_ beside the options, own words, _none fits_, and _later_, to ask back before answering; the chat never answers (link:../state-catalogue.adoc#chat[State Catalogue, Chat]).
+
+[#decision-unit]
+*The decision sub-workflow*: Every question state of a plan, an epic, the workspace scope, and an entry calls the compiled-only unit `decision` (link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Workflow Units]; its rows: link:../state-catalogue.adoc[State Catalogue]), whose operator states are operator waits:
+
+* `decision.open` (server) persists the decision and runs the adjudication; a decided decision goes to `decision.record`.
+* `decision.announce` (server) records `delivered_at` and announces it.
+* `decision.answer` (operator wait) offers per part the options, the value, own words, a note, and for the whole decision _none fits_ where offered, _later_, and _chat_.
+* `decision.interpret`, `decision.read-back`, and `decision.clarify` handle the operator's own words (<<own-words>>).
+* `decision.withdraw` (server) closes a decision whose asking task or state a revision of the plan removed, with the closure `withdrawn` and the reason.
+* `decision.confirm` (operator wait), asked when the decision has more than one part or its reversibility is not `reversible`, shows what follows from the answer, composed by the runtime from the chosen options' consequences and the transitions they lead to, with _confirm_ and _change_.
+* `decision.record` (server) appends the `answered` line and the decision record (xref:11-decision-records.adoc#question-decisions[Decision Records, Question Decisions & Quorum]); `decision.closed` is its terminal.
+
+While the interpreting role works, the decision shows its progress (`interpreting`) to both clients. The decision unit takes no answer by time and has no fallback: a decision closes only by an answer, by `withdrawn`, or `cancelled` when its scope ends.
+
+[#own-words]
+=== Answers in the Operator's Own Words
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+
+Where a part allows them (`own_words`), the operator answers in own words instead of choosing an option.
+
+* *Interpretation*: the decision enters `decision.interpret`, which serves one task of the role the decision unit declares (`interpret_role`, the shipped `read_only` role `interpret`, xref:01-roles-and-configuration.adoc#default-roles[Default Role Set]). Its facts carry the part's question, its options with their descriptions and consequences, and the operator's words as quoted data, never the recommendation and never the votes. Its closing link `submit:interpretation` carries a closed result: `option` (an existing `branch_key`), `option_with_condition` (an existing `branch_key` and the condition, in the operator's words), `own_option` (a new option in the operator's words), `delegation`, or `unclear`, each with `passages`, the passages of the words it rests on (each a verbatim substring of at most `500` characters), and a one-sentence `reading`.
+* *Checked by the server*: before it is shown, the runtime checks that a named option exists in the part and that every passage occurs verbatim in the words; a result that fails a check, a `delegation` on a part that allows none, and a task that ends without a result are shown as `unclear`.
+* *Read-back*: `decision.read-back` (operator wait) shows the result in one sentence beside the operator's words, with _confirm_, _edit_ (new words, interpreted again), and _choose_ (an option instead, back to `decision.answer`); nothing is recorded before the operator confirms it. `unclear` leads to `decision.clarify`, which asks the operator one question and interprets again, at most as often as the unit declares (`clarify_max`, compiled default `2`, bound `0` to `3`), then back to the choice of an option.
+* *Never the closest option*: words that fit no option are recorded as the operator's own option, in the operator's words; the interpretation never substitutes the closest option. A delegation is recorded as such, and only where the part allows one, and the recommendation is then taken as the answer.
+* *A chat's proposed answer*: an answer a chat proposed enters as the operator's own words once the operator takes it, and passes `decision.interpret` and `decision.read-back` unchanged, the interpretation still never seeing the recommendation or the votes.
+* *Trusted and quoted*: the operator's words are the operator's own and never screened (xref:07-untrusted-text-screening.adoc#local-trusted[What Is on This Machine Is Trusted]); a model that reads them later (the task that continues the work, a re-planning) gets them as quoted data in its facts, never as instructions of the system.
+* *Qualified like every role*: `interpret` is qualified on its corpus topic `own_words` (xref:01-roles-and-configuration.adoc#qualification-topics[Corpus Topics of a Role]); while no configuration of it qualifies, own words are offered disabled with that reason.
+
+The decision record names how the answer was taken: `chosen`, `interpreted` (with the interpretation's task and result), `own_option`, or `delegated` (xref:11-decision-records.adoc#decision-record-content[Decision Records, Content]).
+
+[#answers-and-amendments]
+=== Answers & Amendments
+
+An answer names the decision, the revision it answers, and per part the chosen options or the value, the operator's own words where given, and a note where the part allows one (named parameter schema `question-answer`); the runtime adds the channel (`web` with the `device_id`, `cli`, or `quorum`). Every channel passes the same validation, refused over the local API with its error codes (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]): an unknown option, a value that fails the part's `value_schema`, or a part answered against its answer type is refused `invalid_answer`; an answer to an older revision is refused `conflict`, carrying the current revision; an answer to a part whose dependency is unanswered, or answered with an option the dependency does not name, is refused `dependency_unanswered`; a second answer or an answer to a closed decision is refused `already_answered`. A worker's vote in an adjudication is a submit over MCP and is refused `invalid_link_args` instead (link:10-decision-quorum.adoc#blind-input[Decision Quorum, Blind Input]). An answer creates an `amendments[]` entry (with its `question_id`) only when it changes the plan's intent; refine answers still go into `request.md`. The amendment `source` is `user` (an answer of the operator on the `web` or `cli` channel), `quorum` (an answer a quorum decided), or `refutation` (a refuted lesson premise, carried from the lesson source of the plan's start); answered questions and amendments are listed in the pull-request body, the landing record, and the retrospective, each with the `decision_id` of the decision taken. Every closed question has its decision record (link:11-decision-records.adoc#question-decisions[Decision Records, Question Decisions & Quorum]).
+
+[#answer-in-next-task]
+*The Answer in the Next Task*: Where the asking task does not continue (<<continuation>>), it ended `asked`, its worker took the next task or ended, and the work continues in a new task of the role, served by whichever generation the queue offers it to. That task carries the closed questions it continues from in `facts.answers` (question, the chosen options or value, the operator's own words as quoted data, the note, and whether it was chosen, interpreted, delegated, decided by a quorum, or answered _none fits_; link:../hypermedia-format/01-representation-and-link-forms.adoc#answers-facts[Hypermedia Format Specification, `facts.answers`]), beside the persisted records of the work done so far (the submitted plan tasks of an envelope, the worktree), so that a fresh worker continues from the facts alone. A continued task receives the same field with its answer. Its worker may ask again, within the question bound.
+
+[#question-bound]
+*Question Bound*: The `ask` link is offered to the tasks of one entry of a state at most the compiled `3` times, whichever way each question was continued (re-entries through `<state>.asked` continue the entry), and `ask:TASK-NNN` at most `3` times per plan task over all its envelope tasks (link:../timeouts/01-job-budgets-and-waits.adoc#question-bound[Timeouts & Budgets Specification, Question Bound]). After that the link is not offered: the worker decides on its own judgment, stating it in its submission, or reports the task infeasible. Without the bound a worker that keeps asking would, where quorums decide its decisions, be answered and asked again without the operator between the rounds.
+
+*Lifecycle Rules*: A plan scope has at most one question state at a time (phases are serial), and a waiver request arises only inside a remediation unit, which is never entered while a question state is current, so a decision and a waiver request of one plan never wait at once. A paused plan keeps its open decisions open and answerable. Ending the plan (cancelling, abandoning, or releasing it, link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue, Cancelling and Abandoning]), the integrity abort, and `delete-plan` close every open record `cancelled`.
+
+[#phase-question-states]
+=== Phase Question States (`refine.awaiting_answers`, `outline.awaiting_answers`)
+
+When the return evaluation of a refine or outline authoring task finds that the task's submission created a decision, it enters the phase's question state (`refine.awaiting_answers` or `outline.awaiting_answers`), which calls the decision sub-workflow and advances once the decision is closed; at most one refine task is served again for the answers. A Q-Gate remediation pass of `refine.analyze` never opens a new question round: its questions and a below-threshold confidence are recorded as `low_confidence_manual_review`.
+
+[#continuation]
+=== Continuing after a Question (Resumability)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+
+A worker that asks has usually done work whose context the answer needs: an envelope task in the middle of a plan task, a judgment resting on what it has read. Ending its task and starting the work again in a new task discards that context and the tokens spent on it. Where its state, its role, and its harness allow it, the asking task therefore stays open, and the worker that asked, or its stored session, continues once the answer is there. This is the task's *continuation*; ending the task `asked` (<<answer-in-next-task>>) is its fallback. The question itself does not change: its record, its adjudication (a quorum may answer it while the worker holds), its delivery, its answer, and its bound are the same whichever way the task continues.
+
+*Two forms*, each a capability of the harness (`headless.resumability`, link:../client-profiles/01-profile-schema.adoc#headless-resumability[Client Profiles Specification, Resumability]):
+
+* *Hold*: the task stays leased to the asking generation and moves to `awaiting_answer` (xref:02-task-protocol.adoc#worker-states[Worker States]); its representation offers only `pm_wait`, held in windows with progress frames where the host needs them, as for a consultation (xref:05-consultation.adoc#consult-answer[Consultation, The Answer through the Next Wait]). The worker keeps its model slot, is never silent, and is not idle. When the record closes, its pending or next `pm_wait` is answered with the task's representation, `facts.answers` carrying the answer, whose only link is `ack`: the worker acknowledges that it received the answer and continues, within its host's acknowledgement deadline, and only then are the task's links offered again (<<answer-acknowledgement>>). A hold lasts at most the role's `questions.hold_seconds`.
+* *Resume*: the worker ends after asking with its harness session stored, and the task moves to `suspended`: its lease is released, and no worker and no model slot is held. The launch of a role that may resume omits the harness's no-persistence flag and reads the session id from the worker's structured result (xref:04-worker-launch.adoc[Worker Launch]). When the record closes, the server starts a new generation of the role from the harness's resume command on the stored session, leases the task to it, and offers it with `facts.answers`; the session holds the work done so far. The offer is acknowledged like every offer, which is the resumed worker's answer acknowledgement. A suspension lasts at most the role's `questions.resume_within_seconds`, never longer than the harness's `max_age_seconds`.
+
+*Order*: After an `ask` the server holds while the hold limit lasts, then suspends where the task may resume, and falls back when neither is allowed or the answer did not come within the limit of the form in force: the task closes `asked`, the worker's stored session is dropped, and the work continues in a new task (<<answer-in-next-task>>). An answer that arrives during a hold or a suspension continues the task; the scope shows the task waiting for its answer as in its question state, never as stalled.
+
+*Who decides*: The form is the server's, from three sources, and the model never chooses it: the state (an `ask` state continues unless it declares `ask fresh`, link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States]; an envelope task may always continue), the role artifact (`questions`, xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]; absent: no continuation), and the harness (a form its profile does not declare as verified counts as absent). A role names the model, so the same harness may continue for one model and not for another.
+
+*Resume refused*: A resume falls back, with the reason recorded on the task, when the stored session is missing or older than its limit, the role's configuration digest or the enrolled harness version changed since the suspension, the resumed generation does not acknowledge within its deadline, or the plan's worktree is no longer at the head it had at the suspension.
+
+[[answer-acknowledgement]]*Answer acknowledgement*: A worker that waited may have stopped while it waited: a host that ended its held call, a model request that never returned. The acknowledgement of the answer is therefore the health check of a continuation, the same check an offer has (xref:02-task-protocol.adoc#ack[Task Protocol, Acknowledge]): `ack` on the representation carrying the answer, within `worker.ack_deadline_seconds` of the worker's host from the answer's delivery. A missing acknowledgement ends the worker as lost (xref:03-supervision-and-recycling.adoc#detection[Supervision & Recycling, Detection]); the task is then resumed where it may resume and the session was stored, else offered again with `facts.answers`. Where the host's acknowledgement is informational, silence alone decides, as for an offer. After the acknowledgement every call is a heartbeat as before. The role's task-protocol skill tells the worker to acknowledge an answer before anything else.
+
+*Fencing and restarts*: A holding generation that is fenced releases the task, which is offered again within its re-offer budget; the answer reaches the successor in `facts.answers` once the record closes, as for a fenced asker of a consultation (xref:05-consultation.adoc#consult-answer[Consultation]). A runtime restart keeps a `suspended` task suspended, since its session lies with the harness, and ends a hold as every held task ends at a restart.
+
+*Accounting*: The usage of a hold's wake-ups and of a resumed generation is accounted to the task, marked `continuation`, so that the metrics compare continuation with the fallback per role and harness (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]). The hold time does not count toward the worker budget; the budget runs again with the answer (link:../timeouts/01-job-budgets-and-waits.adoc#model-job-budget[Timeouts & Budgets Specification, Worker Budget]).
+
+[#task-questions]
+=== Task Questions (Phase 5)
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-28[PM-WATCH-DISP-28]_
+
+A task question is an ordinary decision of class `task`. The worker of an envelope task follows `ask:TASK-NNN` (`decision:schema[decision-envelope]`, its parts each with its recommendation) on `envelope.task.active` when a plan task cannot proceed without an answer (for example a contradictory interface contract); the server persists the record naming the envelope and the plan task (link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]). Where the envelope task continues (<<continuation>>), the decision is adjudicated, delivered, and answered from the task's `awaiting_answer` state, and the same worker or its resumed session continues the plan task with the answer; nothing below applies unless the continuation falls back. Otherwise the envelope task ends `asked` (<<envelope-early-end>>). The plan's return evaluation yields `question_pending` and enters `execute.task-question` on the plan scope, which calls the decision sub-workflow (<<decision-unit>>). As for every answer, the server records an `amendments[]` entry only when the answer changes the plan's intent, and lists that entry in the pull-request body and the landing record (*Answers & Amendments* above). The remaining plan tasks, the asking plan task included, form the next envelope task `envelope-(N+1)`, queued with the answer in its facts. No further envelope task is queued while the decision is open.

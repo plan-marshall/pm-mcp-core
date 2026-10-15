@@ -1,0 +1,243 @@
+= Timeouts & Budgets Specification: Retention, Host Integration & Configuration
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts & Budgets Specification] » Retention, Host Integration & Configuration
+
+[#retention]
+== Retention & Rotation
+
+[cols="2,3,2,2,2,3,2"]
+|===
+|Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
+
+|[[audit-rotation-age]]Audit log rotation age
+|`30` days since the first record of the current `audit.jsonl` (rotation also on `max_bytes`, whichever comes first).
+|`audit_rotation.max_days` in `machine-config.json`
+|minimum `1` day
+|`<PM_MCP_BASE>/logs/audit.jsonl`
+|Checkpoint record, rename to `audit-<first_event_id>.jsonl`, index entry.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security] (Security Audit Trail); link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas, Audit Log]
+
+|[[retention-days]]Retention of residue
+|Compiled defaults: `task_records_days` `5`, `retired_lesson_bodies_days` `0`, `arch_constraint_quiet_days` `90`, `workspace_rows_days` `90`. The governed stores are machine-local, so retention is operator posture, never team configuration. Work history (archived plans, archived epics' machine stores, the logs of ended work, read reports, the stores of unenrolled projects) has no retention period: it goes only through the cleanup (<<cleanup>>).
+|`retention.{task_records_days, retired_lesson_bodies_days, arch_constraint_quiet_days, workspace_rows_days}` in `<PM_MCP_BASE>/projects/<project_id>/local-config.json`, machine-wide defaults in `machine-config.json` `project_defaults.retention`
+|minimum `0`
+|ended queue task records (`task_records_days`); retired lesson bodies, whatever the retirement's verdict (`retired_lesson_bodies_days`); quiet-window retirement of `arch-constraint` lessons (`arch_constraint_quiet_days`); the workspace scope's technical rows older than the period: closed findings, the metrics rows of its own tasks (never a plan's), closed decisions whose facts are no longer referenced (with their facts snapshots), and screen verdicts (`workspace_rows_days`)
+|Removed by the periodic sweep by itself, one audit record each, under the evidence rules of the removal sweeps; `pm-operator sweep` lists what the next pass would remove and runs it at once with `--apply`. The quiet-window retirement (verdict `obsolete`) is a verdict on a lesson, not residue: it runs only by `pm-operator sweep --apply`.
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model, Periodic Sweep]; link:../store-schemas/13-leases-integrity-testing.adoc#evidence-based-removal-sweeps[Store Schemas, Evidence-Based Removal Sweeps]; link:../store-schemas.adoc[Store Schemas] (Lesson Store); link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]
+
+|[[rotated-audit-files]]Rotated audit files
+|`365` days since the file's checkpoint record; `0` keeps rotated files forever.
+|`audit_rotation.retain_days` in `machine-config.json`
+|minimum `0`
+|`logs/audit-*.jsonl`
+|Removed by the periodic sweep by itself, as whole files, one audit record each; `pm-operator sweep --machine` lists them and runs the removal at once with `--apply`; their index entries in `audit-index.jsonl` are never removed.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security] (Security Audit Trail)
+|===
+
+[#cleanup]
+== One Cleanup
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue]_
+
+Work history is the operator's and goes only on the operator's word, through one cleanup the operator confirms in either client; technical residue needs no judgement and goes by itself (<<retention-days>>; link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model, Periodic Sweep]).
+
+* *Work history*: an archived plan with its whole archive entry (records, history, decisions, transcripts, metrics rows, and the workspace's metrics rows of the plan); an archived epic's machine store `epics/<epic_id>/`; the logs of ended work (the logs of ended jobs and the worker logs of archived plans; a job record stays with its plan); read reports (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime Model, Reports to the Operator]); and the machine store of an unenrolled project, whole. No sweep and no retention period ever removes it.
+
+[cols="2,3,2,2,2,3,2"]
+|===
+|Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
+
+|[[cleanup-durations]]Cleanup durations
+|In days, each `30` by default: `cleanup.plans_after_days` (archived plans), `cleanup.epics_after_days` (archived epics' machine stores), `cleanup.logs_after_days` (logs of ended work), `cleanup.reports_after_days` (read reports), `cleanup.unenrolled_after_days` (stores of unenrolled projects). An item is due when its end (its archiving, its reading, the project's unenrolment) is older than its duration.
+|machine values in `machine-config.json` `cleanup`; a project's own value of the first three in its `local-config.json` `cleanup`, which wins for its items; reports and unenrolled projects belong to the machine only (link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas, Project Values over Machine Values])
+|an integer of at least `7`, or `never`; the floor keeps every window of the system view (at most seven days) untouched by a deletion
+|the work history above
+|Not an expiry: a due item joins the next cleanup job, and nothing is deleted before the operator decides it.
+|this section
+
+|[[cleanup-remind]]Cleanup reminder
+|`3` days after a _remind_.
+|`cleanup.remind_after_days` in `machine-config.json`
+|at least `1`
+|a postponed cleanup job
+|A new job of the same items opens with a new report.
+|this section
+|===
+
+* *Never due*: live work, a pending entry, an unread report, an archived plan with an undischarged owed item (a retained capture ref, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-drop-capture[CLI & Security, Capture Ref Removal]), a kept item, and an item of an open or postponed job.
+* *The check*: the first pass of the periodic sweep after the start and the first of each new UTC day compute the items due. When there are items not yet in a job and no job is open or postponed, they form a new job, fixed from then on, and the runtime writes one report `system.cleanup_due` (`from` the machine) with the counts per kind, whose detail is the job; one report per job, never one per item. Items that become due while a job is open or postponed wait for the next job.
+* *The journal*: one append-only journal of the machine scope, `<PM_MCP_BASE>/state/cleanup.jsonl` (link:../filesystem-layout/02-machine-runtime.adoc#machine-layout[Filesystem Layout, Machine-Wide Runtime Layout]), with its own leaf lock like `state/reports.jsonl`. Its events: `job` (the job with its items: kind, id, project, title, outcome, ended at, size, the duration and its source), `decided` (`delete` with the unchecked items, `remind` with when it comes back, or `ignore`; the channel, the device, and when), `deleted` and `delete_failed` per item (with the reason), and `kept` and `released` per item. A job's state (`open`, `postponed`, `deleting`, `done`) and the kept list are the fold of its events. A job is identified by its `job_id`, store-assigned `cln-NNNN` and never reused (link:../identifiers/02-registry-stores-to-web.adoc#id-cleanup-job-id[Identifier Registry, Cleanup Job Identifier]); it is no job of the job runtime: it starts no process and has no job record.
+* *The decisions*, operator acts of either client: _delete_ deletes the checked items and keeps the unchecked ones for good; _remind_ deletes nothing and, after the reminder, opens a new job of the same items with a new report; _ignore_ deletes nothing and keeps every item for good. The first decision of a job is the one taken; a later one on a decided job is answered with the decision taken, unchanged. A released kept item is due again at the next check.
+* *Deleting*: item by item, each in its own journaled transaction with one audit record `cleanup_deleted` (category `store`; the kind, the id, the project, `job_id`, the channel, the size, link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas, Audit Log]). An archived plan's directory `archive/<plan_id>/` is replaced by a tombstone `archive/<plan_id>/deleted.json` (its `plan_id`, title, outcome, when it ended, `deleted_at`, `job_id`), so its id is never allocated again, ended work leaves it out, and its reports' detail resolves to "deleted" with the date; an archived epic's `epics/<epic_id>/` likewise by `epics/<epic_id>/deleted.json` (link:../filesystem-layout/03-project-store.adoc#archives[Filesystem Layout, Archives]). Read reports leave `state/reports.jsonl` by a journaled rewrite under its lock; their ids are never reused. An unenrolled project's store goes as a whole; enrolling the project again starts a new store. Before a plan's metrics rows go, what it used is added to the machine's usage aggregate `<PM_MCP_BASE>/state/usage-aggregate.jsonl` (per day, project, model, and role, in tokens with their coverage), from which the system view's figures are filled at the start beside the metrics stores, so no figure goes down (link:../runtime-lifecycle/03-runtime-metrics.adoc#runtime-metrics[Runtime Model, The Runtime's Metrics]). An item no longer due (a project enrolled again) is skipped and named; a failure keeps the item with its reason for the next job. A deletion cut by a stop goes on after the next start from the journal.
+* *Unenrolment*: `pm-operator project unenrol <project_id>` (or the same act of the web app) records `unenrolled_at` in the store's `store.json` (link:../store-schemas/11-enrolment-store.adoc#project-store-identity[Store Schemas, Project Store Identity]); enrolling again removes it. The store is a cleanup item from then on, never residue.
+* *Local API*: `GET /api/v1/system/cleanup` answers the open or postponed job (its summary with the counts per kind and the space it frees, its items by project, each linked read-only to its ended view), the durations with their sources, the count of kept items, and what the automatic pass of the periodic sweep removed and when; `POST /api/v1/system/cleanup/{job_id}/delete` with the unchecked items, `…/remind`, and `…/ignore` decide the job; `GET /api/v1/system/cleanup/kept` lists the kept items and `PUT /api/v1/system/cleanup/kept` writes the list, an item left out being released. Each write is privileged (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-channel-isolation[CLI & Security, Operator Channel Isolation]), accepted from `pm-operator` (`pm-operator cleanup [--delete|--remind|--ignore] [--yes]`) and from a paired device, and audited with its channel. The runtime-wide stream announces `cleanup.job_opened`, `cleanup.decided`, `cleanup.progress`, and `cleanup.done` (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/06-event-catalogue.adoc[Runtime Model, Event Catalogue]).
+* *Recurring waivers* are counted over the `waiver_waived` records of the audit log of the last 90 days, whatever has been deleted since (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc[Phase Workflows, Planning Lanes & Phases 3–4], Recurring Waivers).
+
+[#host-integration]
+== Host Integration
+
+[cols="2,3,2,2,2,3,2"]
+|===
+|Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
+
+|[[host-idle-timeout]]Host tool-call idle timeout
+|Per harness, compiled into its client profile: the harness's tool-call timeout threshold and whether `notifications/progress` resets it (`PM-IMPL-4`), measured for `claude`, `opencode`, and `antigravity` (link:../client-profiles/01-profile-schema.adoc#worker-block[Client Profiles Specification, Worker Block]; link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#worker-parameters[Evaluation Reference]) and _provisional_ for `codex` until it is measured.
+|`connection.idle_timeout_seconds` of the client profile; operator override in `machine-config.json` (`client_profiles.<client_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store])
+|`45`..`7200`
+|every tool call of a worker's harness
+|Harness-side: the harness abandons the call; the runtime completes and persists the transition anyway (only the response is lost).
+|link:../client-profiles/01-profile-schema.adoc#_normative_client_profile_json_schema[Client Profiles, Normative Schema]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_failure_semantics[Runtime Model, Failure Semantics]
+
+|[[progress-resets-timer]]Progress resets the host timer
+|Capability flag per harness, not a duration; selects xref:01-job-budgets-and-waits.adoc#progress-wait[Progress wait] over xref:01-job-budgets-and-waits.adoc#bounded-wait[Bounded wait] for a `pm_build`, holds a `pm_wait` through its bounded window with progress frames, and exempts the bounded wait from the bound `connection.idle_timeout_seconds − 30`, which applies only where it is false.
+|`connection.progress_resets_timeout` of the client profile; operator override in `machine-config.json` (`client_profiles.<client_id>.connection`)
+|—
+|waits
+|—
+|link:../client-profiles/01-profile-schema.adoc#_normative_client_profile_json_schema[Client Profiles, Normative Schema]
+
+|[[outbound-http-timeouts]]Outbound HTTPS and upstream MCP call timeouts
+|Connect `10`, read `60` for every `cui-http` call (Sonar REST, credential verification, upstream MCP servers, which are remote HTTPS servers only). Requests of native `git` and `ci` operations use the same values as the xref:01-job-budgets-and-waits.adoc#http-request-timeout[Http request timeout]. An operator `proxy` (`machine-config.json`) changes the route of these calls, never their timeouts.
+|Per upstream server in the project's `local-config.json` (`upstream_mcp.servers.<server_id>.connect_timeout_seconds`, `read_timeout_seconds`); fixed for Sonar and credential verification
+|minimum `1`
+|outbound calls
+|A Sonar step records the call as `indeterminate` (never clean); a server-side upstream call ends `upstream_timeout`, which its workflow step routes; a credential verification reports `unverified`.
+|link:../../../../plan-marshall-documentation/doc/specification/cli-and-security.adoc[CLI & Security] (Outbound HTTPS Security); link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (Upstream MCP Proxy)
+
+|[[github-app-jwt-window]]GitHub App JWT validity window
+|`iat` back-dated `60` against clock skew; `exp` at most `600` after signing.
+|fixed
+|`exp` ≤ `600` (GitHub's maximum)
+|RS256 JWTs signed for a `github_app` credential entry to mint installation tokens
+|A JWT is signed per mint and never reused; GitHub refuses an expired one, and the next mint signs a new one.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[CLI & Security, Agent Credentials] (Installation tokens)
+
+|[[derived-token-reuse-margin]]Derived token reuse margin
+|An installation token (validity set by GitHub, one hour) is reused until `300` before its `expires_at`.
+|fixed
+|—
+|in-memory GitHub App installation tokens, keyed by installation and permission set
+|Within the margin the token is no longer used; a new one is minted for the next request.
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#derived-tokens[CLI & Security, Short-Lived Derived Tokens]
+
+|[[user-token-refresh-margin]]User token refresh margin
+|A GitHub App user access token (validity set by GitHub, 8 hours) is refreshed by the first write operation that finds it within `600` of its expiry, or absent after a runtime start; the refresh rotates the stored refresh token (validity set by GitHub, about six months).
+|fixed
+|—
+|in-memory GitHub App user access tokens, keyed by credential entry
+|The write waits for the one refresh of its entry and uses the new token; a refused or expired refresh token makes the entry `credential_check_failed`, and the operator runs the device flow again (`pm-operator credentials set github`). The refresh token's expiry is the entry's `expires_at`, reported `expiring` within the xref:02-runtime-leases-operator-web.adoc#credential-expiring-window[credential expiry warning window].
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#user-access-token[CLI & Security, User Access Token]
+|===
+
+[#derived-fact-validity]
+== Derived Facts
+
+[cols="2,3,2,2,2,3,2"]
+|===
+|Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour on expiry |Defined for
+
+|[[local-derivation-currency]]Local derivation currency
+|No time bound: a local derivation (inputs read from the repository or the machine) is recomputed whenever its `input_digest` changes.
+|fixed
+|—
+|`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json` entries of local kinds
+|—
+|link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]
+
+|[[network-derivation-validity]]Network derivation validity period
+|`86400` since `derived_at`; additionally refreshed by the project-setup reconcile and by the start of a plan in the project. The network kinds are `merge_methods_allowed`, `merge_queue_enforced`, `branch_up_to_date_required`, `required_checks`, `signed_commits_required`, `checks_visible`, and `agent_identity`, plus `ci_provider` and `base_branch_default` in the entries a provider probe or confirmation contributed to (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]).
+|fixed
+|—
+|`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json` entries of network kinds
+|The next read that needs the fact refreshes it; a failed refresh keeps the last value with `state: stale`, and every gate that depends on the fact evaluates `indeterminate`, never pass.
+|link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]
+|===
+
+[#size-limits]
+== Worker Input Size Limits
+
+Two compiled size bounds and one per-harness limit shape what a worker receives in-band. The two compiled bounds are _provisional_ until calibrated against the context windows of the supported harnesses; the measured basis so far is a task input of 128 000 characters completed on `claude` and of 32 000 characters on `opencode`. This table is the one place the calibrated values are recorded. The table uses the columns above; a size bound has no expiry, so that column states what happens above the bound.
+
+[cols="2,3,2,2,2,3,2"]
+|===
+|Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour above the bound |Defined for
+
+|[[prompt-in-band-bound]]Prompt in-band skill bound
+|Provisional `262144` bytes of rendered skill content per prompt file (UTF-8), counted in composition order.
+|fixed
+|—
+|The launch prompt of every worker except the screener, and the skills an offer carries
+|The remaining skills are rendered as their section index with the URIs that `pm_skill` serves; the worker is never refused for size, and a submit before it has loaded every required skill is rejected `skills_not_loaded` with the missing URIs (link:../model-work/04-worker-launch.adoc#skill-delivery[Model Work Specification, Skill Delivery Record]).
+|link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]
+
+|[[screening-split-bound]]Screening split bound
+|Provisional `65536` bytes of level-1-cleaned item text per screener part (UTF-8, delimiters included); a single item above the bound forms a part of its own.
+|fixed
+|—
+|Screener tasks (role `screener`) over a `batch-v1` batch
+|The batch's uncached items are split into consecutive parts in item order, one screener task each: the screener state is a fan-out `job llm` state (`job llm screen role screener each screen.batch-parts`, over the server-computed list of parts), which completes when every part has its verdict.
+|link:../model-work/07-untrusted-text-screening.adoc[Model Work Specification, Screener]
+
+|[[tool-result-limit]]Harness tool-result limit
+|`headless.tool_result_limit_chars` of the worker's client profile: the largest tool result the harness passes to its model whole. `opencode`: provisional `32000` characters (the harness cuts a larger result and keeps the full text in a file a restricted worker cannot read; the exact threshold lies between 32 000 and 128 000 characters and is not measured, so the value stays the largest size the harness completed until the threshold is pinned); `claude`: `null` (no limit; 128 000 characters completed).
+|client profile (compiled)
+|minimum `4000`
+|Every tool result the server returns to a worker of that harness: the offer answering `pm_wait`, entity representations, skills, and resource reads
+|The result carries its identifiers and links first and names the remaining content as parts, each below the limit, which the worker reads as resources; nothing is cut and no task is refused for size.
+|link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]; link:../client-profiles/01-profile-schema.adoc#headless-tool-result-limit[Client Profiles, Tool-Result Limit]
+|===
+
+[#view-bounds]
+== Bounds of Activity & Views
+
+Compiled bounds of what the runtime records for the operator's views. None is configurable; the table uses the columns above, and a size bound states what happens above it.
+
+[cols="2,3,2,2,2,3,2"]
+|===
+|Name |Value / derivation |Configurable? |Floor / cap |Applies to |Behaviour above the bound |Defined for
+
+|[[activity-journal-bounds]]Activity journal bounds
+|`2000` characters per `text` entry; `5000` entries per task journal.
+|fixed (compiled constant)
+|—
+|The activity journal of every queue task
+|A longer text is cut to the bound; an append beyond the entry bound rewrites the journal without its oldest `text` entries, never a server entry.
+|link:../store-schemas/16-task-queue.adoc#activity-journal[Store Schemas, Activity Journal]
+
+|[[explorer-usage-window]]Explorer usage window
+|`30` days, counted back from the read.
+|fixed (compiled constant)
+|—
+|How often the operator worked in a project (`explorer.json`)
+|Acts older than the window no longer count toward a project's _most used_; its _last used_ stays.
+|link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#project-explorer[Runtime Model, The Projects of the Machine]
+
+|[[icon-size-bound]]Harness icon size bound
+|`262144` bytes (256 KiB) per icon file.
+|fixed (compiled constant)
+|—
+|Every harness icon fetched into `<PM_MCP_BASE>/icons/`
+|A larger file is not stored or served; the clients show the harness's monogram.
+|link:../client-profiles/01-profile-schema.adoc#harness-icons[Client Profiles, Harness Icons]; link:../store-schemas/12-machine-stores.adoc[Store Schemas, Machine Stores]
+|===
+
+[#configuration-keys]
+== Configuration Keys
+
+The configurable values above, by store:
+
+* `machine-config.json` (the operator's acts in either client, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas, Machine Configuration Store]): `drain_timeout_seconds`, `escalation_cap_seconds`, `model_slots`, `progress_wait_max_seconds`, `lsp_idle_timeout_seconds`, `lsp_start_timeout_seconds`, `lsp_request_timeout_seconds`, `audit_rotation.max_days`, `audit_rotation.retain_days`, `client_profiles.<client_id>.connection.{bounded_wait_seconds, idle_timeout_seconds, progress_resets_timeout}` (machine-wide overrides of the compiled client profile values), `project_defaults.retention.*` (machine-wide defaults of the per-project retention keys), and `cleanup.*` (the cleanup durations and the reminder, <<cleanup>>). The `proxy` and `web` objects of the same file hold no timeout.
+* `<PM_MCP_BASE>/projects/<project_id>/local-config.json` (the operator's acts in either client, link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas, Operator Local Configuration]): `retention.*`, the project's own `cleanup.plans_after_days`, `cleanup.epics_after_days`, and `cleanup.logs_after_days`, and, per upstream server, `upstream_mcp.servers.<server_id>.connect_timeout_seconds` and `read_timeout_seconds` (written by the operator's act `pm-operator upstream allow` or its form in the web app, link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools Specification, Upstream MCP Proxy]; <<host-integration>>, Outbound HTTPS and upstream MCP call timeouts).
+* Project-owned phase units `.marshall/config/*.pmwf` (team, link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Units]): the remediation call arguments `retry_budget` and `fix_budget`, within the compiled hard caps (xref:01-job-budgets-and-waits.adoc#remediation-budgets[Remediation Budgets]); a plan's effective ceiling is raised only by a `raise` waiver. The declarations of `replan.pmwf` (re-planning thresholds, budget, prerequisite wait) and `adjudicate-decisions.pmwf` (the decision declarations, `ask` or a quorum per decision kind, the vote wait, and the calibration level), within their compiled bounds (link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL Specification, Unit Declarations]).
+* `enrolments/<project_id>.json` (the operator's acts, link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas, Project Enrolment Store]): `command_budgets` (operator budgets per budget key, `llm:<role>` of workers included), `project_scripts.<project_script_id>.max_timeout_seconds`.
+* Client profile (compiled; the operator override is the `client_profiles` object of `machine-config.json` above, for the `connection` keys only): `connection.bounded_wait_seconds`, `connection.idle_timeout_seconds`, `connection.progress_resets_timeout`, and the worker values `worker.ack_deadline_seconds`, `worker.ack_informational`, `worker.silence_grace_seconds`, `worker.idle_wakeups` (xref:01-job-budgets-and-waits.adoc#worker-supervision[Worker Supervision & Recycling]).
+* Role artifacts (operator files of the role sets, link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]): `budget_floor_seconds` (xref:01-job-budgets-and-waits.adoc#model-job-budget[Worker budget]), `recycling.idle_wakeups`, `recycling.token_budget`, `recycling.tasks_per_generation`, and the lowered thresholds of the off-track signals (xref:01-job-budgets-and-waits.adoc#off-track-thresholds[Off-track signal thresholds]).
+
+No team configuration file (`.marshall/config/*.json`) holds a timeout, wait, threshold, or retention value; the remediation budgets are unit call arguments, not configuration keys. Tuning values that calibrate server algorithms are compiled constants (`fixed` above, and in the owning specification: the lane prune thresholds, the refine confidence threshold `95`, the iteration caps, the step wait timeouts, the preference recurrence threshold, the untrusted raw-input byte cap, the review rate-window floor `3600`, the re-review completion allowance `600`, the default review attempt ceiling `6`, the provider re-poll cadence `30`, the merge-queue stall fallback `3600`, the native request timeouts, the attempt caps of `git.commit_and_push` (xref:01-job-budgets-and-waits.adoc#commit-attempt-caps[Commit sub-process attempt caps], xref:01-job-budgets-and-waits.adoc#commit-fix-change-set-cap[`git.commit-fix` change-set cap]), the language server restart cap (xref:02-runtime-leases-operator-web.adoc#lsp-restart-cap[Language server restart cap]), the compiled minimum of the role floors (xref:01-job-budgets-and-waits.adoc#model-job-budget[Worker budget]), the start-failure guard, the task re-offer budget, the hard caps of the remediation budgets, the condition budget, the watch restart budget, the failed-step re-fire, the release landing wait, the off-track thresholds as caps, the event buffer, the metrics event interval, and the update check interval); per-project tuning would make metrics incomparable across projects (`PM-MIG-5` triggers).
+
+A value outside its floor or cap is never used: the runtime clamps it to the bound and reports the configured value, the used value, and the source (`machine_config`, `local_config`, `enrolment`, `profile_override`, `compiled_default`, `invalid`, or `unreadable`) in the runtime status and in the record of the affected job (`clamped_values`, link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas, Job Record]) or wait, never in its facts: the model cannot change an operator value.

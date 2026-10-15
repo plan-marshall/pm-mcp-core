@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.lsp;
 
+import com.google.gson.Gson;
 import java.io.File;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -16,8 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
-import com.google.gson.Gson;
 import org.eclipse.lsp4j.DefinitionParams;
 import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.DidChangeConfigurationParams;

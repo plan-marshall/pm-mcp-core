@@ -10,7 +10,6 @@
 package de.planmarshall.runtime.lsp;
 
 import java.io.Serial;
-
 import lombok.Getter;
 
 /**

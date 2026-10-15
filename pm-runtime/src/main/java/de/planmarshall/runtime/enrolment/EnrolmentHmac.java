@@ -17,10 +17,10 @@ import java.util.HexFormat;
 import java.util.Objects;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.StoreDigest;
-import lombok.experimental.UtilityClass;
 
 /**
  * The HMAC of an enrolment file (PM-EXEC-2, PM-SEC-5): the lowercase-hex HMAC-SHA-256 over the exact canonical bytes

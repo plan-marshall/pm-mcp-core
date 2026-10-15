@@ -9,20 +9,20 @@
  */
 package de.planmarshall.runtime.lock;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
+import lombok.experimental.UtilityClass;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.LeaseRecord;
 import de.planmarshall.core.store.LeaseStore;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
-import lombok.experimental.UtilityClass;
 
 /**
  * The sweep of one lease store at a runtime start (PM-IMPL-7). A lease is owned by its scope and only served by a

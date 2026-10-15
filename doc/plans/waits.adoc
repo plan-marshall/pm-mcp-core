@@ -14,11 +14,11 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-4[PM-IMPL-4], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-8[PM-WF-8], link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits]; link:../../../plan-marshall-documentation/doc/specification/hypermedia-format/03-composite-wait-and-encoder.adoc[Hypermedia Format § Composite Wait]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-5[PM-WATCH-JOB-5]; link:../../../plan-marshall-documentation/doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-30[PM-WATCH-JOB-30]; link:../../../plan-marshall-documentation/doc/implementation-watch/hypermedia-format.adoc[Hypermedia Format]
+* Specification: link:../specification/timeouts/01-job-budgets-and-waits.adoc#waits[Timeouts § Waits]; link:../specification/hypermedia-format/03-composite-wait-and-encoder.adoc[Hypermedia Format § Composite Wait]
+* Watch: link:../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-5[PM-WATCH-JOB-5]; link:../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-30[PM-WATCH-JOB-30]; link:../implementation-watch/hypermedia-format.adoc[Hypermedia Format]
 
 == Done When
 

@@ -1,0 +1,76 @@
+= ADR 007: The Specifications of the Engine in This Repository
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-15
+
+== Context
+
+The specifications, the implementation watch and the traceability of the requirements lived in
+`plan-marshall-documentation`. Every work package of this repository therefore made two pull requests: the code here
+and the documents there (the deletion of the implemented specification sections and watch items, the
+`Implementation:`, `Verified by:` and `Documentation:` lines of the requirements, corrections of the specification).
+The two pull requests had to be merged in order, and the schema parity tests of `pm-core` read the specification from
+a checkout of the documentation that the build of this repository does not have, so they were skipped in CI. The
+operator decided to end these multi-repository pull requests.
+
+== Decision
+
+The specifications that the modules of this repository implement live here, beside the code:
+
+* `doc/Specification.adoc` and `doc/specification/`: the specifications of the engine, with the names they had in the
+  documentation. Those that were shared with other repositories were split; the engine parts became
+  `runtime-lifecycle` (of `runtime-model`), `credentials-and-enrolment` (of `cli-and-security`) and the core part of
+  `client-profiles`, whose host detection and bundle manifest stay in the documentation as `host-integration`.
+* `doc/ImplementationWatch.adoc` and `doc/implementation-watch/`: the watch documents of those specifications, the
+  identifiers of the items unchanged.
+* `doc/Traceability.adoc`: what each requirement implemented here is implemented by, verified by and documented in.
+
+The requirements, use cases and roadmap, the specifications of the other repositories and those every repository
+shares (`module-structure.adoc` among them), `implementation-watch/cross-cutting.adoc` and the concept and user
+documentation stay in `plan-marshall-documentation`. A work package of this repository is one pull request here: code,
+tests, developer documentation and ADRs, the deletion of the implemented specification sections and watch items, and
+its traceability lines. It changes the documentation only when it corrects a requirement, changes `cross-cutting.adoc`
+or a specification that stays there; the concept and user documentation of the engine and the roadmap check-offs are
+written there once per milestone exit. A done work package leaves the index of `doc/plans/` and its file is deleted.
+
+Links between the documents of this repository are relative; a link into the documentation is a relative sibling path,
+and the documentation links here with absolute `https://github.com/plan-marshall/pm-mcp-core/blob/main/doc/...` URLs.
+`trace.py` of the documentation checks both trees, and the workflow `links.yml` runs it here as well as there. The
+schema parity tests read the specification of this repository (`pm.specification.root`).
+
+This ADR amends ADR link:004-module-documentation-layout.adoc[004], which kept the specifications in the
+documentation.
+
+== Alternatives Considered
+
+1. *Keep only the specifications in the documentation and batch the document pull requests per milestone.* Rejected:
+   the specification would describe code that is already on `main` until the milestone exit, and the parity tests
+   would still read another repository.
+2. *Keep the per-package documentation pull request, made smaller.* Rejected: it keeps the ordering of two pull
+   requests for every package.
+3. *Move only the specifications implemented by this repository alone, and leave the shared registries
+   (`identifiers`, `timeouts`, `state-catalogue`, `job-runtime`) in the documentation.* Rejected by the operator: this
+   repository implements them, and its packages link them most.
+
+== Consequences
+
+* The specification and the code of a package change in one pull request, and the schema parity tests run in CI.
+* The other repositories (`pm-mcp-clients`, `plan-marshall-mcp`) link the specifications of the engine with relative
+  sibling paths into this repository; the design of the clients in `pm-mcp-clients` is the precedent.
+* A change here that breaks a link of the documentation fails the check `links` here, and the other way round.
+* The project skill `traced-implementation` of the documentation states the single-pull-request flow for this
+  repository.
+
+== Source
+
+* Operator request of 2026-10-15 to move the specification of this repository here, with its decisions on the shared
+  specifications, the traceability, the link check and the links of the other repositories
+* link:../../CLAUDE.md#project[`CLAUDE.md`, section Project]
+* link:../Specification.adoc[The Specification of `pm-mcp-core`] and link:../Traceability.adoc[Traceability]
+* link:../plans/README.adoc#how[Work packages, How to Work a Package]

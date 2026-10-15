@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,14 +23,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The drain of the runtime, which the assembly calls on {@code SIGTERM}/{@code SIGINT} and on the stop endpoint
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade; PM-ARCH-7). In order:
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade; PM-ARCH-7). In order:
  * <ol>
  * <li>{@link DrainParticipant#stopAdmitting()} and {@link DrainParticipant#endIdle()} on every participant;</li>
  * <li>{@link DrainParticipant#awaitQuiet(java.time.Instant)} up to the drain timeout ({@link DrainTimeout}); a

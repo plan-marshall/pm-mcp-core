@@ -1,0 +1,153 @@
+= State Catalogue
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../Specification.adoc[Specification] » State Catalogue (link:../Specification.adoc[Back to Main Specification])
+
+== Overview
+
+This document is the central catalogue of every workflow state of *plan-marshall-mcp* (`PM-MCP`). Every state identifier used anywhere in the requirements, the specifications, the roadmap, or the implementation watch is defined here exactly once, in one row of one table, with its phase value, its kind, where it is entered from, what it offers, where it exits to, and the section that specifies its behaviour. Other documents describe behaviour; they name a state only by its identifier and link to its row here (anchor `state-<state id>`, xref:state-catalogue/01-conventions-generic-conditions.adoc#_state_identifier_grammar[State Identifier Grammar]).
+
+The catalogue is normatively equal to the state table that the diagram generator produces from the workflow definitions (`renderAsciiDocTables`, link:workflow-dsl/07-loop-back-diagrams-verification.adoc#_automated_mermaid_asciidoc_table_and_ascii_diagram_generation[Workflow DSL Specification, Diagram Generation], `PM-IMPL-5`). Once the `*.pmwf` definitions exist, a build test (`StateCatalogueDriftTest`) compares the generated columns (state identifier, phase, kind, entered from, offered links and outcomes, exits to) with this catalogue and fails the build when they differ, beside the `WorkflowDiagramDriftTest` (link:workflow-dsl/07-loop-back-diagrams-verification.adoc#_build_time_drift_gate[Workflow DSL Specification, Build-Time Drift Gate]). The *Defined in* column is maintained by hand; the same test verifies that every link in it resolves. Until the definitions exist, this catalogue is the reference the definitions are written against: a state that is not in the catalogue does not exist, and a new state is added here before any other document uses it.
+
+*Default units*: The phase units, the sub-workflow units `git.commit_and_push`, `remediation.*`, `replan`, and `adjudicate.decisions`, and the variants of the plan behaviour axes (`landing.*`, `method.*`, `ask.*`) are designable: each resolves by level, the project's copy (`.marshall/config/<unit>.pmwf`) over the machine's copy (`<PM_MCP_BASE>/workflows/<unit>.pmwf`) over the compiled default, a missing copy resolving to the next level, and a project holds a copy only of the units its team placed or changed (link:workflow-dsl/04-ast-node-model.adoc#process-designer[Workflow DSL Specification, Designing a Process]). Every other unit is compiled only, never designable, and calls the binary's default sub-workflows: the plan unit, the machine onboarding with its aspects and settings, the project onboarding and the setup, the starts with their source units and the recipe choice, the epic units (`epic`, `decomposition`, `review`), `decision`, `chat`, the short landings `git.land-removal` and `git.land-unit`, the entity units, and the task-protocol unit `worker-task`. This catalogue documents the *default* units the binary ships, and `StateCatalogueDriftTest` compares it with the default units only. A machine's or a project's copy may differ within the compiled invariants (for example by omitting an optional finalize step or adding a project step's state); its states are published with the project's effective configuration (`pm://project/config`, `units[]` with the level of each unit), never added to this catalogue. A recipe's workflow (a unit of type `recipe`) is documented with its recipe (link:domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]).
+
+The server drives every scope: each state is server logic, a task of a named role (`job llm`), or an operator wait, defined once in the workflow language (link:workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]); the kind `link` exists only on the entity states of a task, which its worker follows. The operator acts only in the two clients, the terminal client and the web app, over the operator endpoints of the local API: a harness is a worker only and never relays the operator's words or choices (link:workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL Specification, All Interaction in the Operator's Clients]). An operator wait halts its own scope and nothing else, and has no time limit; the machine's onboarding is the one wait that halts the system. Every blocking situation of a plan that needs no operator has a bounded self-remedy and a defined fallback to the plan outcomes `handed_back` or `returned` (link:state-catalogue/01-conventions-generic-conditions.adoc#exits-and-fallbacks[Exits, Step-Outs & Fallbacks]); what holds a scope without a decision is a hold, which both clients show with its acts (link:state-catalogue/01-conventions-generic-conditions.adoc#holds[Holds and Their Acts]). Every row is fully specified; a behaviour without a specification is not catalogued.
+
+== Traceability
+
+_See Requirements:_
+
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1: Hypermedia State Representation (HATEOAS)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7: Remediation Policies, Loop-Back & Iteration Bounds]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17: Dynamic Re-Planning of a Running Plan]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-24[PM-WF-24: Chatting with the Planning Role]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25: Plan Behaviour Axes & Plan Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-26[PM-WF-26: Machine Onboarding & the Machine Scope]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-3[PM-EXT-3: Module Discovery, Build Map & Architecture Enrichment]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-4[PM-MIG-4: Stage Exit Criteria & Lifecycle Gate]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-11[PM-ARCH-11: The Operator's Two Clients & Their Contract]_
+
+== Status: PLANNED
+
+== Modules
+
+Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
+
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: the workflow units the catalogue lists and its drift test
+
+== Parts
+
+* link:state-catalogue/01-conventions-generic-conditions.adoc[Conventions, Generic States, Conditions & Holds] — state identifier conventions, state kinds, exits and fallbacks, the generic per-phase states, the condition overlays, the holds and their acts, and the operator flows that are no workflow units
+* link:state-catalogue/02-plan-phases-1-3.adoc[Plan Workflow: Phases 1–3] — plan workflow states of phases 1–3 (`init`, `refine`, `outline`)
+* link:state-catalogue/03-plan-phases-4-5-land.adoc[Plan Workflow: Phase 4, Phase 5 & Land Lane] — plan workflow states of phase 4 (`plan`), phase 5 (`execute`), and the land lane
+* link:state-catalogue/04-plan-finalize-terminal.adoc[Plan Workflow: Finalize Steps, Wait Region, Fallbacks & Terminal States] — phase 6 (`finalize`) from the settle commit through the concurrent wait region, the fallback states `plan.return` and `finalize.hand-back`, the plan terminal states, cancelling and abandoning, and running work
+* link:state-catalogue/05-git-commit-and-push.adoc[Sub-Workflow git.commit_and_push] — states of the `git.commit_and_push` sub-workflow and its role tasks
+* link:state-catalogue/06-setup-epic-other.adoc[Setup & Epic] — states of the project setup and of the epic workflow
+* link:state-catalogue/07-plan-finalize-merge-post-run.adoc[Plan Workflow: Finalize Merge Path & Post-Run Band] — phase 6 (`finalize`) from the ADR step through the merge path, the post-run band, the landing, and the archive
+* link:state-catalogue/08-remediation-units.adoc[Remediation Units] — the generic remediation states, the `decide` rules (offered remedies, decision task, conservative fallback), and the states of `remediation.ci-failure`, `remediation.analysis`, `remediation.review-findings`, and `remediation.build-failure`
+* link:state-catalogue/09-bootstrap-and-lessons.adoc[Starts & Source Units] — the starts of a plan and an epic that create every plan and epic, the recipe choice, and the source units
+* link:state-catalogue/10-entity-units.adoc[Entity Units & Task Protocol] — the entity units of tasks (single-submit, multi-submit, and task envelope) and the task-protocol unit `worker-task`
+* link:state-catalogue/11-remediation-units-merge-qgate-spend.adoc[Remediation Units: Merge Conflict & Q-Gate Findings] — the states of `remediation.merge-conflict` and `remediation.qgate-findings`
+* link:state-catalogue/12-re-planning.adoc[Re-Planning] — the re-planning checkpoint `execute.replan-check`, the call states `execute.replan` and `finalize.replan`, and the states of the re-planning unit `replan`
+* link:state-catalogue/13-question-adjudication.adoc[Question Adjudication] — the states of the adjudication unit `adjudicate.decisions` that every question state runs for a new question set before it is delivered
+* link:state-catalogue/14-machine-onboarding.adoc[Machine Onboarding & the Machine's Settings] — the machine scope's onboarding unit, its settings, and its aspects `auto`, `language`, and `harness`
+* link:state-catalogue/19-onboarding-aspects-models-providers.adoc[Onboarding Aspects: Models, Roles, Credential Store, Providers & Plan Defaults] — the onboarding's aspects `catalogue`, `roles`, `store`, `providers`, and `defaults`, and the terminals of every aspect
+* link:state-catalogue/15-project-onboarding.adoc[Project Onboarding] — the project onboarding unit, from the checkout to the project's resting state
+* link:state-catalogue/16-decision.adoc[Decision] — the unit `decision` every question state calls
+* link:state-catalogue/17-epic-decomposition-and-review.adoc[Epic Decomposition & Review] — the epic's sub-workflows `decomposition` and `review`
+* link:state-catalogue/18-plan-unit-axes-short-landings.adoc[Plan Unit, Axis Variants & Short Landings] — the plan unit `phases`, the variants of the plan behaviour axes, and the short landings `git.land-removal` and `git.land-unit`
+* <<chat>> — the unit `chat` (below)
+
+[#chat]
+== Chatting with the Planning Role: `chat`
+_See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-24[PM-WF-24: Chatting with the Planning Role]_
+
+[[chat-unit]]One compiled sub-workflow `chat` (`chat.pmwf`, compiled only, never designable) lets the operator talk over a plan, an epic, the decomposition's draft, an epic's register or one of its items, a decision, a start's entry, or an ended plan or epic with the role that plans it, and steers the work only through changes the operator accepts (link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1]). It runs in one of two ways:
+
+* *Called by a state that offers it*, on the call stack, with the caller's subject and scope: `decision.chat` (a decision), `start.chat` and `start-epic.chat` (a start's entry), `decomposition.chat` (the draft), `review.chat` (one item or the whole register). Its exits are `ended` and `proposed`: an accepted proposal is carried to the caller, whose own path applies it (an answer as the operator's own words, a description as a new source, a change into the draft and its checks, an item's disposition or rewrite). It has the phase of its caller.
+* *Hosted by its subject scope*, opened by the operator's act _chat_ on a plan or an epic in every state, and on an ended plan or epic: an instance with its own state, like a task entity, that never moves the subject's current state and never stands on its call stack; one chat at a time per subject. An accepted change is applied by `chat.apply`. A chat of a plan has the phase of the phase sub-workflow on the plan's call stack; a chat about ended work runs in the project's workspace scope. The server never starts a chat.
+
+*Routing*: the chat goes to the subject's planning role: for a plan `replan`, whose facts are those of a re-planning task without a trigger (the outline's deliverables with their state, the plan tasks with their status, the declared and the realized footprint); for an epic, its decomposition, and its review `decompose`; for a decision a worker asked, the role of the task that asked, and for one a server rule raised or a quorum escalated, the subject's planning role; for a workspace decision a worker asked, that role, while a question the setup's workflow raised has no planning role and _chat_ is offered disabled with that reason; for a start `refine` (a plan's entry) or `decompose` (an epic's); for ended work `replan` for a plan and `decompose` for an epic. Every caller and every subject offers _chat_ disabled with its reason while no configuration of the routed role qualifies.
+
+*Data, never instructions*: `chat.open` gives the role the facts of the scope as data, an untrusted item still marked untrusted; the operator's messages are not interpreted, the role answers them. Nothing changes without the operator's acceptance of each proposed change in a read-back (link:model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]).
+
+*Apply paths*: an accepted change goes through the caller's own path and its checks:
+
+* *A plan*: a revision through the guards of a first plan (the outline validation, the derivation dry-run, the task graph, the Q-Gate's mechanical checks), applied at the plan's next task boundary (what runs finishes, the revision is applied, the plan runs on) as `replan.apply` applies one (`replan.apply-revision`), composing a plan instance version of the event `replan` whose re-planning record names the operator's chat as who decided (link:phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Apply, Re-Entry & Instance Version]; link:store-schemas/17-re-planning.adoc#replan-record[Store Schemas Specification, Re-Planning Record]). The revision is the operator's own act: it does not spend `replan_budget`, and re-planning still never asks the operator mid-plan (`PM-WF-17`). A question never touches the plan. An epic is told of a revision of a plan it started (inbox record `revised`, link:model-work/08-epic-coordination.adoc#epic-informed[Model Work Specification, The Epic Is Told]).
+* *An epic*: staged rows through the epic's checks (surfaces disjoint, dependencies without a cycle); a chat changes only staged rows, never a plan that runs.
+* *A decision*: the chat never answers; an answer it proposes is offered as the operator's own words and passes `decision.interpret` and `decision.read-back` unchanged, the interpretation never seeing the recommendation or the votes, which the chat may explain. A revision of the plan it proposes goes through the plan's path; the decision stays open, unless the applied revision removes the task or state that asked it, which closes it `withdrawn` with the reason. The scope waits during the chat as for any decision; an answer in another channel closes the decision and ends the chat. A waiver request offers no chat.
+* *A start*: the one change is a description, a rewrite of one or an addition, stored as a new source; starting never waits for the chat.
+* *Ended work*: read-only over the archived record (outcome, reason, history, decisions, re-planning records, events), read through the archive's read access by id; it never changes the archive. Its one proposal is a follow-up plan: a description that, once read back, opens the start of a new plan in the project with that description stored and the ended plan or epic named in it, from where the operator goes on at `start.sources` (xref:state-catalogue/09-bootstrap-and-lessons.adoc#state-start.open[`start.open`], `follow_up`).
+
+*Transcript*: kept turn by turn with its subject for the audit and sent nowhere else: a plan's in `plans/<plan_id>/chat/`, an epic's in `epics/<epic_id>/chat/`, a decision's with the decision, an entry's in `pending/<entry_id>/chat/` (moved into the plan's or the epic's machine store at its creation, deleted with an abandoned entry), ended work's beside the archived record (`archive/<plan_id>/chat/`, an epic's `epics/<epic_id>/chat/`); never in a ledger, and never read by a model of the plan as a source.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-chat.open]]`chat.open`
+|the caller's or the subject's phase value
+|`auto`
+|A calling state's call, or the operator's act _chat_ on a plan, an epic, or ended work (the unit's start state).
+|`auto chat.open`: resolves the routed role (refused with the reason where it does not qualify or none exists) and assembles the facts of the scope as data, an untrusted item still marked.
+|`opened` -> `chat.turn`.
+|<<chat>>
+
+|[[state-chat.turn]]`chat.turn`
+|the caller's or the subject's phase value
+|`operator_wait`
+|`chat.open`; `chat.reply` (`answered`, `infeasible`, `lost`); `chat.read-back` (`reject`); `chat.apply`.
+|The transcript so far. `message` (`text[1..8000]`, the operator's message, not interpreted); `end`.
+|`message` -> `chat.reply`; `end` -> `chat.end`.
+|<<chat>>
+
+|[[state-chat.reply]]`chat.reply`
+|the caller's or the subject's phase value
+|`job`
+|`chat.turn` (`message`).
+|`job llm chat-reply role <the routed role>`: the role answers from the facts and the transcript and may propose changes of the closed form of the scope (a revision of the plan, staged rows, a change of the draft, a disposition or rewrite of an item, an answer to the decision, a description, a follow-up plan); for ended work only the follow-up.
+|`answered` -> `chat.turn`; `proposed` -> `chat.read-back`; `infeasible`, `lost` -> `chat.turn` (the reason shown).
+|<<chat>>
+
+|[[state-chat.read-back]]`chat.read-back`
+|the caller's or the subject's phase value
+|`operator_wait`
+|`chat.reply` (`proposed`).
+|Each proposed change in one sentence beside the operator's message. `accept`, `reject`.
+|`accept` -> `chat.apply` (a hosted chat) or `chat.carried` (a called chat); `reject` -> `chat.turn`.
+|link:model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-chat.apply]]`chat.apply`
+|the subject's phase value
+|`auto`
+|`chat.read-back` (`accept`, a hosted chat).
+|Applies the accepted change through the subject's path: a plan's revision validated and queued for the plan's next task boundary; an epic's staged rows through the staging checks; ended work's follow-up start opened.
+|`applied` -> `chat.turn`; `refused` (a check failed, its finding shown) -> `chat.turn`.
+|<<chat>>
+
+|[[state-chat.end]][[state-chat.carried]]`chat.end`, `chat.carried`
+|the caller's or the subject's phase value
+|`terminal`
+|`chat.turn` (`end`), or the server's end of the chat (the decision answered in another channel, the entry created or abandoned, the subject ended); `chat.read-back` (`accept`, a called chat).
+|Declared `terminal ended success` (the transcript closed) and `terminal proposed success` (the accepted proposal returned to the caller).
+|The caller's `ended` and `proposed` transitions; a hosted instance ends.
+|<<chat>>
+|===

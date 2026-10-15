@@ -56,4 +56,4 @@ The operator decided the key list as corrected in the specification and implemen
 
 * Operator decision on the retry key list, work package `workflow-engine`
 * `doc/plans/workflow-engine.adoc`, deliverable 2 (survey of the state catalogue)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]

@@ -16,14 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalLong;
-
-import de.planmarshall.runtime.start.AuditChainVerification.BreakReason;
-import de.planmarshall.runtime.start.AuditChainVerification.Outcome.Broken;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+
+import de.planmarshall.runtime.start.AuditChainVerification.BreakReason;
+import de.planmarshall.runtime.start.AuditChainVerification.Outcome.Broken;
 
 @DisplayName("The audit chain verification seam")
 class AuditChainVerificationTest {

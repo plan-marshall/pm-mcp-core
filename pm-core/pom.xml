@@ -19,8 +19,8 @@
         <maven.jar.plugin.automatic.module.name>de.planmarshall.core</maven.jar.plugin.automatic.module.name>
         <!-- Not managed by the parent; the JSON Schema validator (draft 2020-12) of the schema tests -->
         <version.json-schema-validator>1.5.8</version.json-schema-validator>
-        <!-- The checkout of plan-marshall-documentation the schema tests read; override with -Dpm.documentation.root -->
-        <pm.documentation.root>${maven.multiModuleProjectDirectory}/../plan-marshall-documentation</pm.documentation.root>
+        <!-- The root of this repository, whose doc/specification the schema tests read; override with -Dpm.specification.root -->
+        <pm.specification.root>${maven.multiModuleProjectDirectory}</pm.specification.root>
         <!-- The checkout of plan-marshall-mcp whose corpus the validator test reads; override with -Dpm.product.root -->
         <pm.product.root>${maven.multiModuleProjectDirectory}/../plan-marshall-mcp</pm.product.root>
     </properties>
@@ -83,7 +83,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
-                        <pm.documentation.root>${pm.documentation.root}</pm.documentation.root>
+                        <pm.specification.root>${pm.specification.root}</pm.specification.root>
                         <pm.product.root>${pm.product.root}</pm.product.root>
                     </systemPropertyVariables>
                 </configuration>

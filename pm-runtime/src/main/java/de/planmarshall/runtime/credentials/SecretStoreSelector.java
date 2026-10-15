@@ -13,10 +13,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.runtime.credentials.dbus.DbusConnection;
-import lombok.experimental.UtilityClass;
 
 /**
  * Chooses the one active credential backend at runtime start (PM-CRED-2): the macOS Keychain on

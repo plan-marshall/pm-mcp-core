@@ -15,7 +15,7 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/cli-and-security/02-credentials-and-operator.adoc}</li>
+ * <li>{@code doc/specification/credentials-and-enrolment/01-provider-credentials.adoc}</li>
  * <li>{@code doc/specification/phase-workflows/04-finalize-step-bands.adoc}</li>
  * <li>{@code doc/specification/job-runtime/03-parsers-and-gates.adoc}</li>
  * </ul>

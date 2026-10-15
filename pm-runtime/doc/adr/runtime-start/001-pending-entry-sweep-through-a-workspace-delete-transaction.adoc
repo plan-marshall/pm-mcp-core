@@ -62,5 +62,5 @@ core-store/007]) a store of a scope can be removed as a target of a `ScopeTransa
 
 * Operator decision q1 of the work package `session-log-and-generations` (refine): the sweep steps are wired in
   `pm-runtime`
-* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic Sweep]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

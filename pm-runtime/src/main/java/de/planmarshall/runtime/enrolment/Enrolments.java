@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.enrolment;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.Serial;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
@@ -19,7 +20,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.crypto.SecretKey;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.LiveWork;

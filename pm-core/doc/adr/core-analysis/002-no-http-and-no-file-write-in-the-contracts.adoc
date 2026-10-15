@@ -34,5 +34,5 @@ Alternatives not recorded.
 == Source
 
 * Pull request #31, `feat(core): add code analysis base and settle the findings registry key`
-* Work package link:../../../../doc/plans/code-analysis-base.adoc[`code-analysis-base`] (PLAN-36)
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/code-analysis-base.adoc[`code-analysis-base`] (PLAN-36)
 * link:../../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#findings-analysis-contracts[Module Structure § Findings & Code-Analysis Contracts]

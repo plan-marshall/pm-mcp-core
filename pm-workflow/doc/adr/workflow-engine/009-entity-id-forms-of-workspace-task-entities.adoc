@@ -56,11 +56,11 @@ link:../workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[workflo
 
 == Source
 
-* link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#id-entity-id[Identifiers § `entity`],
-  link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#id-queue-task-id[§ `queue_task_id`],
-  link:../../../../../plan-marshall-documentation/doc/specification/identifiers/01-general-rules-and-registry.adoc#id-entry-id[§ `entry_id`],
-  link:../../../../../plan-marshall-documentation/doc/specification/identifiers/02-registry-stores-to-web.adoc#id-module-id[§ `module_id`]
-* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project Setup],
-  link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-lessons[§ Lesson Maintenance]
+* link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-entity-id[Identifiers § `entity`],
+  link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-queue-task-id[§ `queue_task_id`],
+  link:../../../../doc/specification/identifiers/01-general-rules-and-registry.adoc#id-entry-id[§ `entry_id`],
+  link:../../../../doc/specification/identifiers/02-registry-stores-to-web.adoc#id-module-id[§ `module_id`]
+* link:../../../../doc/specification/state-catalogue/06-setup-epic-other.adoc#state-catalogue-setup[State Catalogue § Project Setup],
+  link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-lessons[§ Lesson Maintenance]
 * link:../workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[workflow-verify ADR 012]
 * `doc/plans/entity-addressing.adoc`; outline of PLAN-21

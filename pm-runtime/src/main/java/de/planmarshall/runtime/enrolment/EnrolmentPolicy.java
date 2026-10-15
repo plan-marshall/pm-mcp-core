@@ -24,11 +24,11 @@ import java.util.SortedMap;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
-import lombok.experimental.UtilityClass;
 
 /**
  * The enrolment policy (PM-EXEC-1, PM-EXEC-2): the rules the runtime applies to an enrolment before it signs it, at
@@ -53,7 +53,7 @@ import lombok.experimental.UtilityClass;
  * does not parse.</li>
  * <li>Build environment names: credential-pattern variable names, {@code DBUS_SESSION_BUS_ADDRESS},
  * {@code XDG_RUNTIME_DIR} and {@code MVND_DAEMON_STORAGE} are refused (job-runtime/02-confinement-and-environment.adoc,
- * "Job Environment"; cli-and-security/02-credentials-and-operator.adoc). A credential variable is a name that ends with
+ * "Job Environment"; credentials-and-enrolment/01-provider-credentials.adoc). A credential variable is a name that ends with
  * {@code _TOKEN}, {@code _PASSWORD}, {@code _SECRET} or {@code _KEY}, the patterns the specification lists; its list
  * ends with an ellipsis, and only the listed patterns are applied.</li>
  * </ol>

@@ -52,4 +52,4 @@ The operator decided to make both public API of `core.store` (outline, question 
 == Source
 
 * Operator decision q-outline-1 of the work package `session-log-and-generations` (outline)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline]

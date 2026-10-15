@@ -19,13 +19,13 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
-import de.planmarshall.runtime.test.TestBases;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+
+import de.planmarshall.runtime.test.TestBases;
 
 /**
  * The relay version-mismatch detection under a runtime killed with {@code SIGKILL} after it recorded a mismatch. The

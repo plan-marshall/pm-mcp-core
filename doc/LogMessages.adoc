@@ -1,0 +1,152 @@
+= Log Messages
+:toc: left
+:toclevels: 3
+:nofooter:
+
+Every module that logs has one holder of its messages, in its own `log` package and with its own prefix. A module logs only through its own holder and that of `pm-core`. A provider module gets a holder `de.planmarshall.provider.<x>.log.<X>LogMessages` with the prefix `PM_PROVIDER_<X>` with its first message.
+Identifier ranges in every holder: INFO 001-099, WARN 100-199, ERROR 200-299; a new message takes the next free identifier of its level.
+The messages the assembly `pm-mcp-server` logs, and no module of `pm-mcp-core`, are held by `RuntimeLogMessages` until the assembly takes them over; their Component names a class of the assembly.
+
+== `pm-core`: `CoreLogMessages` (`PM_CORE`)
+
+Holder: `de.planmarshall.core.log.CoreLogMessages`.
+
+=== INFO Level (001-099)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_CORE-1 |EnrolmentStore |Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s' |Logged when the recovery of the enrolment pair (`EnrolmentStore.recoverPair`, run by step 1 of the project's recovery and by the next write of the project) completes a write that was stopped after the enrolment file and its sidecar were staged completely; names the project and the transaction of the write. The new pair is in place; the owed audit record of the write stays the unconfirmed one
+|===
+
+=== WARN Level (100-199)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_CORE-100 |OwedAuditEvents |Audit record '%s' with transaction id '%s' not handed over, kept owed in '%s': %s |Logged when the audit sink refuses the record of a completed store mutation (a roll-forward, a JSONL tail repair, a reconciliation or an enrolment write); names the event, the transaction id of the record, which names that one record and is the deduplication key of the audit log, not the transaction that owes it, and the durable intent that keeps it owed (the transaction journal, `<store>.audit-intent`, or for an enrolment write `enrolments/<project_id>.json.audit-intent`). The data outcome is unchanged, and the next recovery or repair, or for an enrolment write the next enrolment operation of the project or `Enrolments.replayOwedAudit()`, hands the record over again
+|PM_CORE-101 |EnrolmentStore |Incomplete staged write of the enrolment of project '%s' discarded, the enrolment is as it was before the write: %s |Logged when the recovery of the enrolment pair discards the staged files of a write that was stopped before the enrolment file and its sidecar were staged completely, or whose staged sidecar is torn, unreadable or does not match the file it stands for; names the project and the reason. The enrolment is as it was before the write; a staged sidecar whose file was already replaced is deleted and the file left to the check
+|PM_CORE-102 |CorpusImport |Corpus source '%s' missed, its items are left out: %s |Logged when the import of the corpus sources misses a source: a fetch step did not answer (`unreachable`), the pinned commit, a file or an LFS object is absent (`pin_missing`), or the manifest, the overlay or the source file does not yield the selected items (`malformed`); names the source and the reason with its detail, never a credential. None of the source's items is written and the other sources are imported; a source missed as `unreachable` or `pin_missing` makes the import's verdict `PARTIAL`, one missed as `malformed` makes it `FAILED`, so no role is qualified on it. A hash mismatch, which also misses the source and fails the import, is logged as `PM_CORE-200` instead
+|===
+
+=== ERROR Level (200-299)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_CORE-200 |CorpusImport |Corpus source '%s' fails its hash: file '%s' expected %s, found %s |Logged when a file of a corpus source, its LFS pointer oid or the LFS object delivered for it does not have the SHA-256 its manifest pins; names the source, the file, the expected hash and what was found. The source is missed (`hash_mismatch`): none of its items is written, and the import's verdict is `FAILED`, so no role is qualified on it
+|===
+
+== `pm-runtime`: `RuntimeLogMessages` (`PM_RUNTIME`)
+
+Holder: `de.planmarshall.runtime.log.RuntimeLogMessages`.
+
+=== INFO Level (001-099)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_RUNTIME-1 |HelloTool |Hello tool invoked for '%s' |Logged when the `hello` MCP tool is called
+|PM_RUNTIME-2 |SocketBinding |Runtime ready on socket '%s' (pid %s) |Logged when the Unix socket is bound, restricted to mode `0600` and recorded in `state/runtime.json` (startup step 7)
+|PM_RUNTIME-3 |WebListener |Web listener open on %s:%s (lan: %s) |Logged when the web listener has opened on its address and port
+|PM_RUNTIME-4 |WebListener |Web listener on port %s closed |Logged when the web listener has closed (web access disabled, or the runtime stops)
+|PM_RUNTIME-5 |RuntimeApiResource |Runtime stop requested through the local API |Logged when `POST /api/v1/runtime/stop` is accepted; the runtime exits with code `0` shortly after
+|PM_RUNTIME-6 |CoreTools |Core tools registered: %s |Logged at start with the core tools registered with their flat input schemas
+|PM_RUNTIME-7 |WebListener |Web listener open requested on %s:%s (lan: %s), cause: %s |Logged for every request to open the web listener, also one that finds it open, with the address, the requested port (`0` for any free port), the exposure and what asked for it (`PUT /api/v1/web`)
+|PM_RUNTIME-8 |WebListener |Web listener on port %s closing, cause: %s |Logged before the web listener closes, with what caused the close (`PUT /api/v1/web` or `runtime shutdown`)
+|PM_RUNTIME-9 |SecretStoreProducer |Credential store '%s' active, service name '%s' |Logged at start with the one active credential backend (`keychain`, `secret-service` or `file`) and the keyring service name of the instance
+|PM_RUNTIME-10 |LspClient |Language server '%s' started (pid %s, position encoding %s) |Logged when a language server of the LSP pool answered `initialize`; names the executable, its process id and the negotiated position encoding
+|PM_RUNTIME-11 |StaleLeaseSweep |Stale lease sweep of '%s' finished: %s kept, %s orphaned, %s removed |Logged when the stale lease sweep of a lease store has finished, with the store and how many leases it kept, marked orphaned and removed
+|PM_RUNTIME-12 |ServiceUnitInstaller |Service unit '%s' installed for daemon '%s' |Logged when `pm-operator runtime install` has written the per-user service unit and the service manager has loaded it; names the unit file and the daemon it starts
+|PM_RUNTIME-13 |ServiceUnitInstaller |Service unit '%s' uninstalled |Logged when `pm-operator runtime uninstall` has removed the per-user service unit and the service manager has unloaded it, also when no unit was present; names the unit file. Not logged when the unload ended the runtime that the service had started
+|PM_RUNTIME-14 |StartupSequence |Bounded verification finished: audit chain %s |Logged when the bounded verification (startup step 4) has finished; names the outcome of the audit chain verification (`intact`, `broken (reason '<reason>', first broken line <line>): <diagnostic>` or `not verified (<reason>)`); the diagnostic names the file the line is counted in
+|PM_RUNTIME-15 |RuntimeDrain |Runtime drain started, drain timeout %s seconds |Logged when the drain of the runtime starts, before any drain participant is called; names the drain timeout in seconds
+|PM_RUNTIME-16 |RuntimeDrain |Runtime drained: %s ended, %s terminated, exit code %s |Logged when the drain has removed the runtime record, the token and the socket and released the singleton lock; names the participants that got quiet within the drain timeout, what was terminated after it, and the exit code `0`
+|PM_RUNTIME-17 |ProjectRecovery |Recovery of project '%s' finished: %s |Logged when the per-project recovery of a project has finished, also a failed one; names the project id and either the number of steps done or the step it failed in
+|PM_RUNTIME-18 |PeriodicSweep |Periodic sweep finished: %s projects swept, %s skipped, %s failed |Logged after each run of the periodic sweep; names how many enrolled projects every step ran for without a failure, how many were skipped because their recovery has not finished or failed, and how many had a failing step
+|PM_RUNTIME-19 |Enrolments |Enrolment of project '%s' written (pilot: %s) |Logged when `enrol` has written a project's enrolment file and its sidecar record under the project's enrolment lock; names the project and whether it was enrolled as a pilot of the lifecycle gate. Its `enrolment_written` audit record was owed in `enrolments/<project_id>.json.audit-intent` before the write as an unconfirmed record, confirmed after the write and handed over, or stays owed there (`PM_CORE-100`, `PM_RUNTIME-119`)
+|PM_RUNTIME-20 |Enrolments |Enrolment of project '%s' removed, its project store kept |Logged when `unenrol` has removed a project's enrolment file and its sidecar; the project's machine store below `projects/<project_id>/` is untouched. Not logged when the project had no enrolment. Its `enrolment_removed` audit record was owed in `enrolments/<project_id>.json.audit-intent` before the removal as an unconfirmed record, confirmed after the removal and handed over, or stays owed there (`PM_CORE-100`, `PM_RUNTIME-119`)
+|PM_RUNTIME-21 |Enrolments |Enrolment of project '%s' re-baselined |Logged when the re-baseline of `accept-edit enrolment` has rewritten the sidecar record of a project's enrolment file over its current bytes. Its `enrolment_rebaselined` audit record was owed in `enrolments/<project_id>.json.audit-intent` before the write as an unconfirmed record, confirmed after the write and handed over, or stays owed there (`PM_CORE-100`, `PM_RUNTIME-119`)
+|PM_RUNTIME-22 |Enrolments |Owed audit record '%s' of transaction '%s' for project '%s' handed over after an earlier refusal or stop |Logged when a record that an earlier enrolment write owed (its hand-over was refused or stopped) is handed over by a later enrolment operation or by the recovery sweep (`Enrolments.replayOwedAudit()`); names the event, its transaction id and the project. A record handed over again after a stop carries the same transaction id, by which the audit store drops the duplicate. An unconfirmed record (outcome `failed`) handed over this way is logged `PM_RUNTIME-119` as well. Also logged for the records a recovery sweep hands over before it throws for a project whose intent file was refused or failed on I/O: the sweep continues past that project, so the records of the others are handed over and logged
+|PM_RUNTIME-23 |PendingEntryRecordsSweep |Periodic sweep removed %s pending entry records of project '%s' |Logged when the pending-record step of the periodic sweep has removed the pending entry records of a project created before the pending entry record maximum age, all in one transaction of the workspace scope; names how many records it removed and the project. Each removed record has one `pending_entry_removed` audit record, owed by that transaction. Not logged for a run that removed nothing
+|PM_RUNTIME-24 |FencedSessionGenerationsSweep |Periodic sweep removed %s fenced session generations of project '%s' |Logged when the fenced-generation step of the periodic sweep has removed the entries of a project's session generation record fenced before the pending entry record maximum age, in one write under the queue lock; names how many entries it removed and the project. Not logged for a run that removed nothing
+|PM_RUNTIME-25 |AuditRotation |Audit log rotated to '%s' with %s records |Logged when the audit log was rotated under the audit lock: closed by its `checkpoint` record, named by an entry of the audit index `logs/audit-index.jsonl` and renamed; names the rotated file `audit-<first_event_id>.jsonl` and its number of records, the checkpoint included. Also logged when the next append completes a rotation a stop interrupted after its checkpoint
+|===
+
+=== WARN Level (100-199)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_RUNTIME-100 |SocketBinding |Socket '%s' had mode %s after the bind and was set to 0600 |Logged when Vert.x created the socket under the process umask; the runtime restricts it right after the bind
+|PM_RUNTIME-101 |CoreTools |Core tool '%s' not registered: the name is already registered |Logged when another component registered a core tool name first
+|PM_RUNTIME-102 |WebListener |Web listener could not open on port %s: %s |Logged when the web listener cannot bind its port (answered `web_listener_conflict`), for each candidate port it rejects while choosing a port for port `0`, or when it cannot close cleanly
+|PM_RUNTIME-103 |WebListener |Web listener on port %s: connection failed before a request (TLS handshake or connection setup): %s |Logged when a connection to the web listener fails before its first request, a failed TLS handshake included; one line with the class and message of the failure and no stack trace, since a client can cause it at will
+|PM_RUNTIME-104 |SecretStoreProducer |No OS keyring usable, the file credential store serves: %s |Logged at start when neither the macOS Keychain nor the Secret Service is usable; the reason names the backend and why
+|PM_RUNTIME-105 |LspClient |Language server (pid %s) did not end cleanly, terminating it: %s |Logged when `shutdown`/`exit` fails or the process does not end within the request timeout; the process is then terminated
+|PM_RUNTIME-106 |WorkspaceConfinement |Project path refused with outcome '%s': %s |Logged when a project path is refused by the workspace confinement (`PM-SEC-2`); names the outcome code `path_traversal_rejected` and the reason of the refusal (`UNPARSEABLE_PATH`, `PARENT_NAME_AFTER_MISSING_PART`, `CANONICALIZATION_FAILED` or `OUTSIDE_WORKSPACE`), never the path
+|PM_RUNTIME-107 |StaleLeaseSweep |Lease '%s' in '%s' orphaned: its holder (pid %s) is no longer alive |Logged for each lease the stale lease sweep marks orphaned because the runtime that served it is no longer alive; names the lease key, the lease store and the process id of the dead holder
+|PM_RUNTIME-108 |StartupSequence |Audit chain broken (reason '%s', first broken line %s): %s; the start goes on |Logged when the bounded verification (startup step 4) finds the audit chain broken; names the reason by its wire name (`link_broken`, `missing`, `reset`, `truncated` or `head_mismatch`), the first broken line (`none` for every reason other than `link_broken`) and the diagnostic, which names the file the line is counted in (current log, audit index or a rotated log), never a key or a hash secret. The chain is not repaired, an `audit_chain_broken` record is handed to the audit sink, and the start goes on
+|PM_RUNTIME-109 |RuntimeDrain |Drain timeout of %s seconds expired, terminating what still runs |Logged when a drain participant has not got quiet within the drain timeout (at once for a timeout of `0`); the drain then terminates what still runs
+|PM_RUNTIME-110 |DrainTimeout |drain_timeout_seconds in '%s' is invalid (%s), using the default of %s seconds |Logged when `drain_timeout_seconds` of `machine-config.json` is negative, not an integer or larger than 3153600000 (100 years), or the file cannot be read or does not parse as one JSON object; names the file, the reason and the default of `600` seconds that applies instead
+|PM_RUNTIME-111 |ProjectRecovery |Recovery of project '%s' not finished within %s, answering runtime_recovering |Logged when a call waited the project recovery wait (10 seconds) for the recovery of its project in vain; the call is answered `runtime_recovering` and the recovery continues
+|PM_RUNTIME-112 |RelayVersionCheck |Relay version '%s' differs from runtime version '%s', recommended: pm-operator drain |Logged once per distinct relay version per runtime instance when the `PM-MCP-Relay-Version` header of a relayed request names a version other than the runtime's; a `relay_version_mismatch` audit record is handed over with it
+|PM_RUNTIME-113 |StartupSequence |Record of the broken audit chain not handed over to the audit sink: %s |Logged when the audit sink refuses the `audit_chain_broken` record of the bounded verification; names the failure. The start goes on
+|PM_RUNTIME-114 |RuntimeDrain |Drain participant '%s' failed in %s: %s |Logged when a drain participant fails in a drain phase (`stopAdmitting`, `endIdle`, `awaitQuiet`, `terminateRemaining` or `close`), with a checked or an unchecked exception; names the participant, the phase and the failure. The drain goes on, records the failure in its outcome, and still removes the runtime files and releases the singleton lock
+|PM_RUNTIME-115 |PeriodicSweep |Periodic sweep of project '%s' failed in step '%s': %s |Logged when a step of the periodic sweep fails for a project, or throws instead of reporting its failure; names the project id, the step and the reason. The run goes on with the other steps and projects
+|PM_RUNTIME-116 |EnrolmentCheck |Enrolment of project '%s' refused with outcome 'enrolment_tampered': %s |Logged when the enrolment check refuses a project's enrolment because it does not match its sidecar record; names the project and the reason (`size or SHA-256 differs from the sidecar record`, `HMAC differs from the sidecar record`, `the integrity key does not exist`, `sidecar without its enrolment file`, `enrolment file without its sidecar`), never the key or an HMAC. Only that project is blocked; an `enrolment_tampered` audit record follows
+|PM_RUNTIME-117 |EnrolmentCheck |Enrolment of project '%s' refused with outcome 'enrolment_insecure': %s |Logged when a project's enrolment file or its sidecar fails a per-use check, in the enrolment check or in the re-baseline (`accept-edit enrolment`) of the file; names the project and the reason (a symbolic link, a foreign owner, a mode broader than `0600`, a file replaced or changed while it was read). Only that project is blocked, never the runtime start; an `enrolment_insecure` audit record follows in both cases
+|PM_RUNTIME-118 |Enrolments |Unenrol of project '%s' refused with outcome 'scope_active', live work: %s |Logged when `unenrol` is refused because the project has live work; names the project and every item of it (`plan <plan_id>`, `epic <epic_id>`, `job <job_id>`). Nothing is removed; an `unenrol_refused` audit record follows. The refusal is thrown even when that audit append fails; the failure is attached to it
+|PM_RUNTIME-119 |Enrolments |Audit record '%s' of transaction '%s' for project '%s' handed over as not confirmed: the write did not complete or its completion was not recorded |Logged when the owed audit record of an enrolment write that was started and not confirmed complete is handed over: the mutation failed, or the process stopped before or after it took effect. The record is handed over by a later enrolment operation of the project or `Enrolments.replayOwedAudit()` as outcome `failed` with the reason `not_confirmed`; the message names the event, its transaction id and the project. The record is never handed over as `succeeded`. The enrolment file and its sidecar show what became of the write (link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#audit-delivery[Concepts § Store Integrity, Audit Records of a Store Change])
+|PM_RUNTIME-120 |EnrolmentCheck |Enrolment of project '%s' refused with outcome 'enrolment_invalid': %s |Logged when the runtime refuses to sign or use an enrolment that violates the enrolment rules; only its project is blocked. Logged for a refusal of `enrol` or the re-baseline by the enrolment policy (the reasons name the vector and placeholder, the write path, or the environment name), nothing written, owed or created; and for a refused strict read of the sidecar or the file in the enrolment check, with the reason `<outcome code> in <file name>`, the refusal keeping its own outcome. An `enrolment_invalid` audit record follows
+|PM_RUNTIME-121 |OwedEnrolmentAuditStep |Replay of the owed audit records of unenrolled projects failed: %s |Logged when the background pass of the recovery (`OwedEnrolmentAuditStep.unenrolledPass()`), which hands over the audit records of projects that are no longer enrolled, meets an intent it cannot read or hand over; names the failure, with the exception. The intent is kept and the records of the other projects are handed over
+|PM_RUNTIME-122 |VerifyNotResolvePipeline |Job of project '%s' refused with reason '%s': %s |Logged once when the verify-not-resolve pipeline refuses a job; names the project, the refusal reason (`not_enrolled`, `enrolment_invalid`, `path_traversal_rejected`, `executable_not_enrolled`, `executable_digest_mismatch`, `build_config_changed`, `argument_rejected` or `verb_not_supported`) and its detail with the changed paths of a changed build configuration, never a value of the argument vector or a secret. A refusal of the enrolment that the enrolment check has logged itself (`PM_RUNTIME-116`, `PM_RUNTIME-117`, `PM_RUNTIME-120` for a refused strict read) is not logged again
+|PM_RUNTIME-123 |AuditHead |Audit head not written, the record stays appended: %s |Logged when the head `logs/audit.head` cannot be written after an append, because the enrolment integrity key cannot be read or the head cannot be written; names the reason code of the key's failure, `head_unwritable` (the head cannot be read or written), `head_unverifiable` (the head file exists but does not parse or verify, so the damaged head stays and the next verification reports `head_mismatch`), or `anchored_line_missing` (the log no longer holds the line the previous head anchored, so the previous head stays and the next verification reports the truncation), never the key. The record stays appended, and the next verification reports the head that does not match. Not logged while no key exists (no enrolment yet)
+|PM_RUNTIME-124 |AuditHead, AuditRotation |Audit log rotation not carried out, the log goes on: %s |Logged when a due rotation of the audit log cannot be carried out before its checkpoint is written (the log or the index cannot be read, an intent file is unreadable, the checkpoint cannot be appended), or when a due rotation is refused because the head does not vouch for the current log (`anchored_line_missing`, `head_unverifiable`), or because the due log is already entered in the audit index while records follow its checkpoint (left by a torn tail written behind the checkpoint outside the audit trail's own code); names the failure or the reason. The record is appended to the current log, and the next append retries the rotation; a refused rotation is refused again until the cut or the damaged head is dealt with
+|PM_RUNTIME-125 |AuditHead |Audit log rotation pending after its checkpoint, the record is not appended: %s |Logged when a rotation has written its checkpoint but its index entry or the rename fails, or when a pending rotation is not completed because its checkpoint does not verify under the integrity key or the key cannot be read (`checkpoint_unverifiable`); names the failure or the reason. The record is not appended (the producer keeps what it owes, as for any refusal of the audit sink), and the next append completes the pending rotation with exactly one index entry once its checkpoint verifies
+|PM_RUNTIME-126 |LfsBatchClient |LFS object '%s' of '%s' not downloaded: %s |Logged when the Git LFS object of a corpus source is not downloaded: the endpoint did not answer, timed out or answered an error status, refused the object in its batch answer, or does not have it; names the oid, the repository without user information and the detail, never a credential, a header value of the download action or the query of a download URL. Bytes the endpoint delivers are not logged here; the import checks them against the pinned SHA-256 (`PM_CORE-200`)
+|===
+
+=== ERROR Level (200-299)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_RUNTIME-200 |SocketBinding |Socket '%s' could not be secured or recorded, exiting with code 77 |Logged when the bound socket cannot be set to mode `0600` or `state/runtime.json` cannot be written; the runtime exits with code `77`
+|PM_RUNTIME-201 |CredentialsResource |Credential store '%s' failed: %s |Logged when a request of `/api/v1/credentials/{key}` fails in the backend (locked keyring, insecure or invalid credential file, keyring error); never contains the secret
+|PM_RUNTIME-202 |FileLockManager |Lock order violation: '%s' requested while holding %s |Logged when a lock is requested against the total lock order; the request is refused with the internal fault `lock_order_violation`, nothing is acquired, and a `lock_order_violation` audit record is written
+|PM_RUNTIME-203 |ServiceUnitInstaller |Service manager command '%s' failed: %s |Logged when a step of the service manager fails during install or uninstall of the per-user service unit; names the step (`load`, `disable` or `unload`) and the failure (the command with its exit code and output, or why it could not run), never an environment value; the failure is reported to the caller
+|PM_RUNTIME-204 |ProjectRecovery |Recovery of project '%s' failed in step '%s': %s |Logged when a step of the per-project recovery fails, or throws instead of reporting its failure; names the project id, the step and the reason. A recovery the executor rejects is recorded under the first step, a failure after the last step under the last one. The recovery of that project stops there; other projects are unaffected
+|PM_RUNTIME-205 |PeriodicSweep |Periodic sweep run failed, the next run takes place at the interval: %s |Logged when a scheduled run of the periodic sweep fails outside its steps (reading the enrolled projects, the recovery state of a project, the clock); names the failure. The schedule stays alive and the next run takes place at the interval
+|PM_RUNTIME-206 |EnrolmentKey |Enrolment integrity key unavailable from '%s': %s |Logged when the enrolment integrity key exists and cannot be read, or cannot be created: an insecure or malformed key file, or a failing credential store; names the source (the key file `state/enrolment-hmac.key`, or the credential store with the account `enrolment-integrity-key`) and the reason code, never the key. The read or the write that needed the key fails
+|===
+
+== `pm-workflow`: `WorkflowLogMessages` (`PM_WORKFLOW`)
+
+Holder: `de.planmarshall.workflow.log.WorkflowLogMessages`.
+
+=== INFO Level (001-099)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_WORKFLOW-1 |ProjectUnitLoader |Units of project '%s' verified: %s units |Logged when a load of a project's units from `.marshall/config/` found no finding (`PM-IMPL-5`); names the project id and the number of verified units, the merged plan unit counting as one
+|PM_WORKFLOW-2 |PlanInstanceStore |Plan instance version %s of plan '%s' recorded for the event '%s' |Logged when a composed version of a plan instance is staged in the caller's scope transaction (`PM-IMPL-5`), together with its line of `instance/composition.jsonl` and the texts of the sub-units it is the first version to name; names the version, the plan id and the composition event. The files are written when the caller commits the transaction
+|===
+
+=== WARN Level (100-199)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_WORKFLOW-100 |ProjectUnitLoader |Project unit '%s' refused at line %s by '%s', the plan lifecycle is refused with 'config_invalid' |Logged once for every finding of a load of a project's units (`PM-IMPL-5`); names the file below the project (for example `.marshall/config/finalize.pmwf`), the line (`0` for a file that could not be read) and the code of the finding (the parser refusal or verification rule, the wire id of an invariant such as `INV-GEN-1`, `format_newer`, `declaration_invalid`, a pipeline rule, `project_step_unbound`, `unit_missing` or `path_traversal_rejected`). The load returns no unit; no default unit stands in for the refused one
+|PM_WORKFLOW-101 |PlanInstanceStore |Composition '%s' of plan '%s' refused with '%s', the version in force is kept |Logged when a refused composition attempt is recorded in `instance/composition.jsonl` (`PM-IMPL-5`); names the composition event, the plan id and the refusal (`position_not_contained` or `invariant_failed`). No version file is written; the version in force stays
+|===
+
+=== ERROR Level (200-299)
+
+[cols="1,1,2,2", options="header"]
+|===
+|ID |Component |Message |Description
+|PM_WORKFLOW-200 |DefaultUnitLoader |Default unit '%s' refused at line %s by '%s' |Logged once for every finding of a load of the default units from the classpath (`PM-IMPL-5`); names the resource (for example `workflows/init.pmwf`), the line (`0` for a resource that is missing or cannot be read) and the code of the finding (`unit_missing`, `unit_unreadable`, the parser refusal or the verification rule). A default unit that does not verify is a defect of the build
+|===

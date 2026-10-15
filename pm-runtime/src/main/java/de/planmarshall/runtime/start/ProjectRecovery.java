@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.start;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,7 +28,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.runtime.enrolment.EnrolmentCheck;
@@ -37,7 +37,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
- * The per-project recovery of the runtime (doc/specification/runtime-model/02-startup-recovery-drain.adoc,
+ * The per-project recovery of the runtime (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc,
  * Per-Project Recovery; PM-ARCH-7). It never runs before the socket is bound: nothing is recovered at construction,
  * only by one of two triggers.
  * <ul>

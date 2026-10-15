@@ -36,5 +36,5 @@ Alternatives not recorded.
 == Source
 
 * Pull request #18, `feat(core): primitive SPI, registry and content validators`
-* Work package link:../../../../doc/plans/primitive-spi-and-validators.adoc[`primitive-spi-and-validators`]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/05-primitives.adoc[Workflow DSL § Primitives]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/primitive-spi-and-validators.adoc[`primitive-spi-and-validators`]
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc[Workflow DSL § Primitives]

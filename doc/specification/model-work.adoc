@@ -1,0 +1,82 @@
+= Model Work Specification
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../Specification.adoc[Specification] » Model Work (link:../Specification.adoc[Back to Main Specification])
+
+== Overview
+
+This document specifies how *plan-marshall-mcp* (`PM-MCP`) gets model work done inside the plans and epics it drives. Every state that needs a model creates a task of a role; a worker of that role does it through the task protocol. A worker is a headless harness process that the runtime launches as a job of kind `llm`, supervises, watches for the off-track signals, recycles, and replaces; a harness is a worker only and never a channel of the operator, who acts only in the two clients.
+
+The parts specify the role artifacts, the role sets, the role assignment and the default assignment, the one model caller, role qualification and the conservative fallback; the task protocol (`pm_wait`, offer, acknowledgement, submit, leases per generation, fencing, the `worker-task` sub-workflow); supervision, the off-track signals, and recycling; the launch of a worker and the output read while it runs; consultation between roles through the server; task envelopes, evidence in facts, and the decisions the operator answers, in own words where allowed; the recommendation score of questions and their adjudication by declarations per decision kind (`ask` or a quorum of roles); the uniform decision records of every decision point and their export as corpus items; the trust of local content and the screening of untrusted text; epic coordination with its review, its actions, and its registers; and task completion, usage in tokens, and spend classes. The measurements behind the values are recorded in the link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference]; the principles in the link:../../../plan-marshall-documentation/doc/concepts/harness-as-worker/README.adoc[Harness as Worker] concept.
+
+== Traceability
+
+_See Requirements:_
+
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-5[PM-ARCH-5: Worktree-Bound Plan Execution & Main-Bound Epic Location]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-1[PM-TOOL-1: Core Workflow Verb Set (pm_state, pm_do)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-4[PM-SKILL-4: Skill Delivery to Workers & State through Representations]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SKILL-5[PM-SKILL-5: Skill Extensions]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-4[PM-SEC-4: Local Transport Isolation, Operator-Gated Network Exposure & Stream Hygiene]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Client Identity]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-3[PM-DIST-3: Worker MCP Connection per Launch]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4: End-to-End Scenario & Worker Supervision Testing]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-4[PM-IMPL-4: Bounded Long-Poll & Progress-Reset Waiting Primitives]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-7[PM-IMPL-7: Data Store Invariants, Footprint Reconciliation & Lock Ordering]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-4[PM-WORK-4: Consultation through the Server]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-21[PM-WF-21: Reports to the Operator]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-24[PM-WF-24: Chatting with the Planning Role]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25: Plan Behaviour Axes & Plan Overrides]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17: Dynamic Re-Planning of a Running Plan]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-19[PM-WF-19: Uniform Decision Records & Corpus Export]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-4[PM-MIG-4: Stage Exit Criteria & Lifecycle Gate]_
+
+== Status: PLANNED
+
+== Modules
+
+Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
+
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-core[`pm-core`]: part 01 (the role artifact schema, the shipped, machine, and project role sets with their override, the role assignments and the default assignment, validation against the client profiles and the model catalogue, and the qualification records) and part 02 (the task queue store: queue task records, task leases)
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: parts 01 (the one model caller, the composition check, and the conservative fallback), 02 (the task protocol unit `worker-task`: offers, acknowledgement, leases and fencing, task outcomes and re-offers), 05, 06, 07, 08, 09, 10, and 11: the model states, their tasks and return evaluation, question records and their adjudication, decision records, consultation, screening and triage states, the decision and epic sub-workflows (`decision`, `decomposition`, `review`), epic coordination, and usage reporting with its spend classes
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-runtime[`pm-runtime`]: the supervisor of part 03 with the off-track signals, and the worker launch of part 04 beside the job runner (harness templates, job token and generation, launch prompt, model slots, the output read while a worker runs)
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-mcp-server[`pm-mcp-server`]: the serving of `pm_wait` of part 02 and the per-request binding of the job token and generation of part 04
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-relay[`pm-relay`]: parts 02 and 04: the job relay `pm-mcp serve --job` a worker connects back through, which carries the worker's generation
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-operator[`pm-operator`]: part 01: the verbs `pm-operator roles list`, `show`, and `qualify`; part 11: the verb `pm-operator decisions export`
+
+== Parts
+
+* link:model-work/01-roles-and-configuration.adoc[Roles & Configuration] — the role artifact and its schema, the shipped, machine, and project role sets and their precedence, the role assignment and its resolution order, validation against the client profile and the model catalogue, the configuration and qualification digests over the effective values, the composition check (`role_undefined`, `class_mismatch`), the one model caller, the default role set with the grading judge, the interpreting role, and the steward, the default role assignment with its tiers and advisories, qualification records and grading on the operator's consent, the conservative fallback, and `pm-operator roles`
+* link:model-work/02-task-protocol.adoc[Task Protocol] — queue tasks, `pm_wait`, offer, acknowledgement, execute and submit validation, closed task outcomes and a task withdrawn by a pause, re-offer within the self-remedy budget, leases per generation, fencing, exactly-once redelivery, worker states, and the `worker-task` sub-workflow
+* link:model-work/03-supervision-and-recycling.adoc[Supervision & Recycling] — the supervisor per project and role, the values per host and role, detection, a worker off track (its signals, thresholds, and actions), recycling of warm workers, ending a worker, the start-failure guard, starts of one harness, and model slots of warm workers
+* link:model-work/04-worker-launch.adoc[Worker Launch] — the launch contract, harness eligibility and launch refusals, model and effort from the effective values, agent composition per harness, tool sets, the job token and generation, working directory and screener isolation, model slots, the launch prompt and contract envelope, skill delivery, the output read while the worker runs, environment, and budget
+* link:model-work/05-consultation.adoc[Consultation] — the `consult role` declaration, the `consult:<role>` link, serving a consultation, the answer through the next wait, the submit reference, and accounting
+* link:model-work/06-envelopes-questions-deadlines.adoc[Envelope Tasks, Questions & Decisions] — cost sizing, deterministic envelope packing, sequential task yield, evidence in facts, question records, the decision structure, the delivery of a decision to both clients as an operator wait, the decision sub-workflow, answers in the operator's own words, answers and amendments, and continuing after a question
+* link:model-work/07-untrusted-text-screening.adoc[Untrusted Text Batches, Screening & Batched Triage] — the two-level guard, what is on this machine is trusted, a source screened once stored and failing closed, the `batch-v1` format, the screener, and batched triage
+* link:model-work/08-epic-coordination.adoc[Epic Coordination] — the epic workflow and its tasks, the decomposition's review, the epic told of the operator's acts, an epic's actions and how it ends, its automatic mode and overlap admission, its findings and watches with their review, server-started plans, surface disjointness, the git-distributed epic ledger, and epic landing
+* link:model-work/09-completion-usage-and-spend.adoc[Task Completion, Usage & Spend] — the worker job record, task completion and the `job_incomplete` condition, return evaluation and entity units, usage parsing in five token components, post-completion invariants, usage reporting in tokens without limits, and spend classes
+* link:model-work/10-decision-quorum.adoc[Recommendation Score & Decisions: Ask or Quorum] — the recommendation, confidence, rationale, and decision kind of every question, the question set and its score, the decision kinds, the decision declarations (`ask` or `quorum(<role>, ..., <score>)`) of the adjudication unit and the roles they list, availability, qualification, and validation (`quorum_invalid`, `quorum_not_diverse`), the adjudication `adjudicate.decisions` with its blind input and decision rule, the adjudication record with its votes and escalation reasons, and the quorum calibration on the corpus
+* link:model-work/11-decision-records.adoc[Decision Records & Corpus Export] — the decision record of every decision point (decider, evidence, options, confidence or measured values against thresholds with their sources, choice, rationale), the closed decision points, the decision confidence of a task, question decisions and their votes, the facts snapshot, append-only corrections, thresholds as calibrated defaults, and the corpus export with its mapping per decision point

@@ -1,0 +1,985 @@
+= Client Profiles & Bundle Manifest Specification: Client Profile Schema
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles & Bundle Manifest Specification] » Client Profile Schema
+
+== Normative Client Profile JSON Schema
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TOOL-5[PM-TOOL-5: Tool Schema Stability & Context Budget Discipline]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
+
+A client profile is the one configuration document of a harness: `classpath:/profiles/<client_id>.json`, a resource of `pm-api` (`claude.json`, `opencode.json`, `antigravity.json`, `codex.json`), and every profile the operator installed for the machine or a project (<<profile-sets>>). Everything the system knows about a harness is in its profile and nowhere else (<<harness-as-data>>). Every profile is validated against the following JSON Schema (Draft 2020-12):
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/client-profile-v1.json",
+  "title": "ClientProfile",
+  "description": "Declarative runtime profile governing on-the-fly skill rendering, worker launch, the machine's harness scan and probes, activity and usage mapping, and bundle generation.",
+  "type": "object",
+  "$defs": {
+    "signal": {
+      "type": "object",
+      "properties": {
+        "variable": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+        "equals": { "type": ["string", "null"], "description": "null: the variable is present with any value; a string: it has exactly this value." }
+      },
+      "required": ["variable", "equals"],
+      "additionalProperties": false
+    },
+    "pointer_or_na": {
+      "type": ["string", "null"],
+      "description": "A JSON Pointer (RFC 6901) into a line of the output stream; null: the harness does not report the figure; the string not_applicable: the figure does not exist for this harness by design."
+    },
+    "tool_class": {
+      "type": ["object", "null"],
+      "properties": {
+        "args": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Argument templates appended for this class, with the slots of argv." },
+        "tool_set": {
+          "type": "string",
+          "enum": ["enforced", "advisory"],
+          "description": "enforced: the harness limits the worker to the tools of its role. advisory: the harness cannot limit a worker's tools; the worker runs with every tool of the harness, and the role's tool set only tells it which to use."
+        }
+      },
+      "required": ["args", "tool_set"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Version of the client profile schema."
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "Canonical identifier of the client runtime; equal to the file name of the profile. The set of clients is the set of profiles."
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "icon": {
+      "type": ["object", "null"],
+      "description": "The harness's icon (Harness Icons below); null: the generated monogram.",
+      "properties": {
+        "form": { "type": "string", "enum": ["source", "bundled"] },
+        "source": { "type": ["string", "null"], "pattern": "^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/-]+\\.(svg|png)$", "description": "For form source: the URL of the maker's official icon file, fetched once by the runtime on the operator's consent." },
+        "bundled": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{0,31}$", "description": "For form bundled: the name of an icon shipped in the binary." }
+      },
+      "required": ["form", "source", "bundled"],
+      "additionalProperties": false
+    },
+    "min_daemon_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?$"
+    },
+    "tools": {
+      "type": "object",
+      "description": "Mapping of abstract host capabilities to runtime-specific tool names and parameter idioms.",
+      "properties": {
+        "read_file": { "type": "string" },
+        "write_file": { "type": "string" },
+        "edit_file": { "type": "string" },
+        "search_code": { "type": "string" },
+        "find_files": { "type": "string" },
+        "run_shell": { "type": "string" },
+        "ask_user": { "type": "string" },
+        "idioms": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "disposition": { "type": "string", "enum": ["rewrite", "preserve", "omit"] },
+              "replacement": { "type": "string" }
+            },
+            "required": ["disposition"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "read_file",
+        "write_file",
+        "edit_file",
+        "search_code",
+        "find_files",
+        "run_shell",
+        "ask_user"
+      ],
+      "additionalProperties": false
+    },
+    "skill_loading": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["tool_call", "mcp_resource", "view_file"],
+          "description": "Primary mechanism used by the model to load vocabulary skills."
+        },
+        "load_directive_template": {
+          "type": "string",
+          "description": "Template rendered when a skill references another skill (e.g. 'pm_skill(uri=\"{{uri}}\", <scope>)')."
+        },
+        "schema_residency": {
+          "type": "string",
+          "enum": ["resident", "on_demand"]
+        },
+        "skills_extension": {
+          "type": "boolean",
+          "description": "true once the host's support of the MCP Skills Extension (io.modelcontextprotocol/skills) is verified; the bundle of such a host installs no shim skill (03-bundle-manifest.adoc, Shim Skill)."
+        }
+      },
+      "required": ["mode", "load_directive_template", "schema_residency", "skills_extension"],
+      "additionalProperties": false
+    },
+    "headless": {
+      "type": ["object", "null"],
+      "description": "Launch contract of the harness's headless CLI for workers (job kind llm); null for a harness without a headless run, which is shown and never enrolled as a worker host. Nothing is installed: the server composes every launch per worker.",
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Name of the harness CLI; the operator enrols its absolute path per machine (the onboarding's harness.enrol, or pm-operator enrol-harness), never looked up through PATH at launch."
+        },
+        "install_locations": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "pattern": "^(~|\\{app_dir\\}|/)[A-Za-z0-9_./ -]*$" },
+          "description": "Directories the harness scan searches for the executable beside the directories of the operator's login PATH; ~ is the home directory, {app_dir} the platform's application directories (Harness Scan below)."
+        },
+        "install_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9._-]*$",
+          "description": "Message key of the text that tells the operator how to install the harness, shown where the scan did not find it."
+        },
+        "auth_probe": {
+          "type": ["object", "null"],
+          "description": "The login probe (Login Probe below); null: the harness is probed by one minimal headless call of its launch, whose token cost is shown before it runs.",
+          "properties": {
+            "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "logged_in_exit_codes": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+            "logged_out_exit_codes": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+            "login_command": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "description": "The harness's own login command, shown to the operator when logged out; never run by the runtime." }
+          },
+          "required": ["argv", "logged_in_exit_codes", "logged_out_exit_codes", "login_command"],
+          "additionalProperties": false
+        },
+        "models_probe": {
+          "type": ["object", "null"],
+          "description": "The models probe (Model Tiers below); null: the harness cannot list its models, and the operator enters their ids.",
+          "properties": {
+            "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "format": { "type": "string", "enum": ["lines", "json"] },
+            "pointer": { "type": ["string", "null"], "description": "For format json: the JSON Pointer to the array of model ids; null for lines." }
+          },
+          "required": ["argv", "format", "pointer"],
+          "additionalProperties": false
+        },
+        "model_tiers": {
+          "type": "object",
+          "description": "The model each tier of the shipped default assignment maps to on this harness (Model Tiers below); null: the harness has no model of that tier.",
+          "properties": {
+            "frontier": { "type": ["string", "null"], "maxLength": 128 },
+            "standard": { "type": ["string", "null"], "maxLength": 128 },
+            "fast": { "type": ["string", "null"], "maxLength": 128 }
+          },
+          "required": ["frontier", "standard", "fast"],
+          "additionalProperties": false
+        },
+        "supported_versions": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Version range of the harness CLI (for example '>=2.1.0 <3.0.0'), probed with identity.version_probe; a self-updated harness inside the range is accepted and audited, outside it every worker launch is refused harness_version_unsupported."
+        },
+        "agent_mode": {
+          "type": "string",
+          "enum": ["inline", "flags"],
+          "description": "inline: the server renders a per-worker named agent definition into the {{agent}} slot (claude: --agents JSON; opencode: agent in OPENCODE_CONFIG_CONTENT); flags: the launch is composed by per-call flags only (codex)."
+        },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Argument-vector template after the executable. Each item is a literal or contains typed slots of the closed set {{prompt_file}}, {{model}}, {{effort}}, {{mcp_config}}, {{result_schema}}, {{tools}}, {{cwd}}, {{agent}}; a slot whose value is absent for the job removes its item."
+        },
+        "mcp_config": {
+          "type": "object",
+          "description": "How a worker of this harness receives the MCP configuration that starts its job relay.",
+          "properties": {
+            "delivery": {
+              "type": "string",
+              "enum": ["slot", "file"],
+              "description": "slot: the server renders the configuration into the {{mcp_config}} slot of argv or env. file: the server writes it to path before the launch, and no template uses the slot."
+            },
+            "path": {
+              "type": ["string", "null"],
+              "pattern": "^[A-Za-z0-9_.][A-Za-z0-9_./-]*$",
+              "description": "For delivery file: the file the harness reads, relative to the worker's working directory (antigravity: .agents/mcp_config.json); null for delivery slot."
+            },
+            "exclusive": {
+              "type": "boolean",
+              "description": "true: the harness connects to no MCP server but the one of this configuration. false: it also connects to the servers of its own configuration files."
+            }
+          },
+          "required": ["delivery", "path", "exclusive"],
+          "additionalProperties": false
+        },
+        "classes": {
+          "type": "object",
+          "description": "What the harness can run per role class (Role Classes below). A class that is null is not runnable on this harness: a role artifact of that class naming it is invalid with reason harness_class_not_runnable.",
+          "properties": {
+            "writer": { "$ref": "#/$defs/tool_class" },
+            "read_only": { "$ref": "#/$defs/tool_class" },
+            "zero_tool": {
+              "type": ["object", "null"],
+              "description": "The class of the screener and the judge. Non-null only for a harness that can be started with no tool at all, no MCP connection, and its project and user settings off.",
+              "properties": {
+                "args": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Argument templates appended for this class, with the slots of argv." }
+              },
+              "required": ["args"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["writer", "read_only", "zero_tool"],
+          "additionalProperties": false
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Environment variables the launch sets, with the same slots (for example OPENCODE_CONFIG_CONTENT: '{{agent}}'); PM_MCP_JOB_TOKEN and PM_MCP_JOB_ID are set by the server and never declared here. Never a harness authentication variable: the harness uses its own login."
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["result_schema", "ephemeral", "usage_fields", "cost_field", "exit_reliable", "project_settings_control"]
+          },
+          "description": "Declared capabilities of the headless run that the server adapts to (result parsing, session residue, usage and cost recording, exit handling, settings control). None of them decides whether a role class is runnable; classes does."
+        },
+        "model_efforts": {
+          "type": "object",
+          "description": "Effort values the harness accepts per model, in ascending order; key * applies to every model without its own entry; an empty list means the model takes no effort flag. A role artifact's effort is checked against it on load (model-work/01-roles-and-configuration.adoc).",
+          "additionalProperties": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "format": { "type": "string", "enum": ["json", "stream_json", "jsonl"] },
+            "result_pointer": {
+              "type": ["string", "null"],
+              "description": "JSON Pointer to the structured result in the final output; null: the result is parsed from the final message against the result schema, fail-closed."
+            }
+          },
+          "required": ["format", "result_pointer"],
+          "additionalProperties": false
+        },
+        "usage": {
+          "type": "object",
+          "description": "JSON Pointers into the harness output for each usage figure, read per turn (Tokens, Not Money below); null: not reported by the harness (recorded unmeasured, reason not_reported_by_harness); not_applicable: the figure does not exist for this harness by design (recorded not_applicable, counted 0). Each pointer fills the metrics-row column of the same name, except cache_read -> cache_read_input_tokens, cache_creation -> cache_creation_input_tokens, and reasoning -> reasoning_tokens. There is no pointer for the total: total_tokens is derived (the sum of the five token components, a not-applicable one counting 0, when every applicable one is measured, otherwise unmeasured). input_tokens and output_tokens are never not_applicable.",
+          "properties": {
+            "input_tokens": { "type": ["string", "null"] },
+            "output_tokens": { "type": ["string", "null"] },
+            "cache_read": { "$ref": "#/$defs/pointer_or_na" },
+            "cache_creation": { "$ref": "#/$defs/pointer_or_na" },
+            "reasoning": { "$ref": "#/$defs/pointer_or_na" },
+            "cost_usd": { "type": ["string", "null"], "description": "Recorded data only: never shown, never summed into a figure the operator sees, never read by a rule." },
+            "tool_uses": { "type": ["string", "null"] }
+          },
+          "required": ["input_tokens", "output_tokens", "cache_read", "cache_creation", "reasoning", "cost_usd", "tool_uses"],
+          "additionalProperties": false
+        },
+        "events": {
+          "type": ["object", "null"],
+          "description": "The mapping of a line of the output stream onto the closed activity kinds (What a Worker Does below); null: the harness's output gives no event stream (output.format json), and its tasks show only the server's own entries.",
+          "properties": {
+            "kind_pointer": { "type": "string", "description": "JSON Pointer to the field that tells a line's kind." },
+            "kinds": {
+              "type": "object",
+              "description": "Per activity kind the values of kind_pointer that map to it, with the pointers of its fields.",
+              "properties": {
+                "text": { "type": ["object", "null"], "properties": { "match": { "type": "array", "items": { "type": "string" } }, "text": { "type": "string" } }, "required": ["match", "text"], "additionalProperties": false },
+                "tool_call": { "type": ["object", "null"], "properties": { "match": { "type": "array", "items": { "type": "string" } }, "tool": { "type": "string" }, "target": { "type": "array", "maxItems": 4, "items": { "type": "string" }, "description": "Pointers tried in order for the target: a path, a command line, a server link with its id; never the whole arguments." } }, "required": ["match", "tool", "target"], "additionalProperties": false },
+                "tool_result": { "type": ["object", "null"], "properties": { "match": { "type": "array", "items": { "type": "string" } }, "size": { "type": "string" }, "is_error": { "type": ["string", "null"] } }, "required": ["match", "size", "is_error"], "additionalProperties": false },
+                "file_changed": { "type": ["object", "null"], "properties": { "match": { "type": "array", "items": { "type": "string" } }, "path": { "type": "string" } }, "required": ["match", "path"], "additionalProperties": false },
+                "turn": { "type": ["object", "null"], "properties": { "match": { "type": "array", "items": { "type": "string" } } }, "required": ["match"], "additionalProperties": false, "description": "Its usage is read through the usage pointers." }
+              },
+              "required": ["text", "tool_call", "tool_result", "file_changed", "turn"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["kind_pointer", "kinds"],
+          "additionalProperties": false
+        },
+        "writable_paths": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^~/[A-Za-z0-9_./-]+$" },
+          "description": "Home-relative sub-paths a headless harness must write to run (its login or credential file, caches, the session directory, its own state file), added to the write set of a worker. Never a harness home as a whole and never a settings, skill, or command file that the bundle manifest manages; profile validation refuses such an entry. Empty for a harness whose writes all go to its per-worker data home."
+        },
+        "data_home": {
+          "type": ["object", "null"],
+          "description": "Per-worker data home, for a harness whose local state is one per-user store shared by all its processes; null: the harness needs none. The runtime points variable at the worker's own data directory below its job-private directory and copies login_file into it (job-runtime, Per-Worker Data Home).",
+          "properties": {
+            "variable": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$", "description": "The environment variable that relocates the harness's data directory (opencode: XDG_DATA_HOME); never a credential-pattern name." },
+            "login_file": { "type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$", "description": "The harness's own login file, relative to the data directory the variable relocates (opencode: opencode/auth.json); copied byte for byte with mode 0600, never parsed, stored, or logged." }
+          },
+          "required": ["variable", "login_file"],
+          "additionalProperties": false
+        },
+        "tool_result_limit_chars": {
+          "type": ["integer", "null"],
+          "minimum": 4000,
+          "description": "The largest tool result, in characters, the harness passes to its model whole; null: no limit known. The server returns no larger tool result to a worker of this harness: it sends identifiers and links first and the rest as parts read as resources (model-work, Offer). A non-null value requires a non-empty resource_tools."
+        },
+        "resource_tools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Names of the harness's tools that list and read MCP resources; the server adds them to the tool set of the writer and read_only classes, never of zero_tool. Empty: the harness offers none, and its jobs read no resources."
+        },
+        "session_residue": {
+          "type": "string",
+          "enum": ["ephemeral", "persisted"],
+          "description": "ephemeral: the launch always passes the harness's no-persistence flag; persisted: the harness keeps session files, reported in both clients."
+        },
+        "resumability": {
+          "type": "object",
+          "description": "Whether a worker of this harness can continue after its question (Resumability below); set only from profile verification, every form not measured is false or null.",
+          "required": ["hold", "resume"],
+          "additionalProperties": false,
+          "properties": {
+            "hold": { "type": "boolean", "description": "A worker holds its task in pm_wait until the answer and continues in the same context." },
+            "max_hold_seconds": { "type": ["integer", "null"], "minimum": 60, "maximum": 3600, "description": "The longest hold measured on the harness; a role's hold_seconds above it is cut to it. null when hold is false." },
+            "resume": {
+              "type": ["object", "null"],
+              "description": "A worker ends with its session stored and a new generation resumes it with the answer; null: not possible or not measured.",
+              "required": ["argv", "session_id", "max_age_seconds"],
+              "additionalProperties": false,
+              "properties": {
+                "argv": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "The launch arguments that resume a stored session; exactly one item holds {{session_id}}. The rest of the launch (env, mcp_config, the class's args) is the role's normal launch without the no-persistence flag." },
+                "session_id": { "type": "string", "pattern": "^/", "description": "JSON Pointer into the worker's structured result to its session id." },
+                "max_age_seconds": { "type": "integer", "minimum": 600, "maximum": 604800, "description": "The oldest stored session measured to resume with its context." }
+              }
+            }
+          }
+        },
+        "context_budget_tokens": {
+          "type": "integer",
+          "minimum": 10000,
+          "description": "Harness fallback of the context budget of a worker, used only for a role artifact that does not set context_budget_tokens (Model Work, Role Artifact Schema); the per-envelope packing budget is derived from the effective value (Model Work, Envelopes), compiled fallback 400000 when neither sets it, operator override envelope_budget_tokens in local-config.json."
+        }
+      },
+      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "model_tiers", "supported_versions", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "writable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
+      "additionalProperties": false
+    },
+    "connection": {
+      "type": "object",
+      "properties": {
+        "transport": {
+          "type": "string",
+          "const": "stdio"
+        },
+        "idle_timeout_seconds": {
+          "type": "integer",
+          "minimum": 45,
+          "maximum": 7200
+        },
+        "bounded_wait_seconds": {
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 3600
+        },
+        "progress_resets_timeout": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "transport",
+        "idle_timeout_seconds",
+        "bounded_wait_seconds",
+        "progress_resets_timeout"
+      ],
+      "additionalProperties": false
+    },
+    "worker": {
+      "type": "object",
+      "description": "Worker parameters and eligibility of the host (Worker Block below). While eligible is false, every value other than eligible is null or a value measured on the host, and none of them has an effect.",
+      "properties": {
+        "eligible": {
+          "type": "boolean",
+          "description": "Whether the harness may host workers; true only after its worker behaviour has been measured on it under the target conditions with every fault of the fault matrix passed, and only with a non-null headless block."
+        },
+        "restricted_models": {
+          "type": ["array", "null"],
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Model identifiers of this harness that accept an enforced tool set; * stands for every model, <provider>/* for every model of that provider. A role of a class whose tool_set is enforced naming another model of this harness is invalid; null on a harness with no enforced class."
+        },
+        "ack_deadline_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 600,
+          "description": "Time from an offer to its acknowledgement after which the supervisor ends the worker; with ack_informational it equals the silence limit."
+        },
+        "ack_informational": {
+          "type": ["boolean", "null"],
+          "description": "true: a missing acknowledgement ends no worker; silence alone decides."
+        },
+        "silence_grace_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 5,
+          "maximum": 600,
+          "description": "Time beyond the bounded wait without an open wait call or any other call after which the supervisor ends the worker."
+        },
+        "idle_wakeups": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Consecutive wait answers without a task after which a warm worker is recycled."
+        }
+      },
+      "required": ["eligible", "restricted_models", "ack_deadline_seconds", "ack_informational", "silence_grace_seconds", "idle_wakeups"],
+      "additionalProperties": false
+    },
+    "detection": {
+      "type": ["object", "null"],
+      "description": "How the operator checks of pm-operator recognise a coding agent's environment (Host Integration Table); null for a harness whose environment carries no signal. Read by the profile reader of pm-api.",
+      "properties": {
+        "precedence": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Position in the fixed detection order when the primary signals of several hosts are present and no process marker decides; lower wins. Unique across the profiles."
+        },
+        "primary_signals": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/signal" },
+          "description": "Any one of them present detects the host."
+        },
+        "secondary_signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal" },
+          "description": "Signals that support a detection and never establish one."
+        },
+        "process_markers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+          "description": "Variables holding a process id of the host; among several detected hosts the one whose marker names the nearest ancestor process wins (Nested hosts)."
+        },
+        "ai_agent_prefixes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Prefixes of AI_AGENT (before the first _ or @) that map to this host, as a secondary signal."
+        },
+        "reaches": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["command", "serve"] },
+          "description": "The processes that see the signals: command (a command the host runs through its shell tool, such as pm-operator) and serve (an MCP server the host starts)."
+        }
+      },
+      "required": ["precedence", "primary_signals", "secondary_signals", "process_markers", "ai_agent_prefixes", "reaches"],
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "description": "The version probe of the harness (Host Identity Probes), run by the harness scan, the enrolment, a worker's spawn, and the profile verification. With detection it forms the host-detection table of pm-api.",
+      "properties": {
+        "version_probe": {
+          "type": ["array", "null"],
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "description": "Argument vector printing the exact host build; run without a shell and with a bounded timeout; null when the host offers none."
+        },
+        "version_pattern": {
+          "type": ["string", "null"],
+          "description": "Regular expression with one capture group extracting the harness version from the probe's standard output; null iff version_probe is null."
+        }
+      },
+      "required": ["version_probe", "version_pattern"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "client_id",
+    "display_name",
+    "min_daemon_version",
+    "icon",
+    "tools",
+    "skill_loading",
+    "headless",
+    "connection",
+    "worker",
+    "detection",
+    "identity"
+  ],
+  "additionalProperties": false
+}
+----
+
+[#harness-as-data]
+=== The Profile Is the Harness
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
+
+A harness exists for the system as its profile document and as nothing else. The code reads profiles through one generic reader and holds no harness by name: no constant, no `switch`, no class, and no test fixture of production code names `claude`, `opencode`, or any other client. What the code implements are the mechanisms the schema names (a slot, a delivery mode, a signal match, a class with an enforced or an advisory tool set); which of them a harness uses is data.
+
+* *One document, two readers*: the documents are resources of `pm-api`. Its reader parses the `detection` and `identity` objects with the streaming API of `jackson-core` and skips the rest; these two objects of all profiles are the host-detection table (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/01-host-detection.adoc#host-detection-table[Host-Detection Table]) that `pm-operator` uses for its operator checks. The profile loader of `pm-core` reads the whole document from the same resource and validates it against the schema above.
+* *A new or changed harness is a changed document*: a new harness is a new profile; a new measurement, a new harness version, or a corrected value is a change of its profile. The document is produced by the profile verification (<<profile-verification>>), on the release's reference machines for a shipped profile and on the operator's machine for a machine profile (<<profile-sets>>). Neither needs a change of Java code, as long as the harness needs no mechanism the schema lacks; a new mechanism is a change of the schema and of the reader, made once for all harnesses.
+* *Validation*: profile validation runs when the runtime loads the profiles and as a build test over every shipped profile. Beside the schema it checks that `client_id` equals the file name, that the `detection.precedence` values are pairwise different, and the rules stated with each block below. A profile that fails is refused as a whole, with the document and the JSON Pointer of the failing value; the runtime never runs on a part of a profile.
+* *Unknown values fail closed*: a profile value the reader does not know (a delivery mode, a capability, a tool-set kind of a newer schema) refuses the profile; it is never ignored.
+
+[#role-classes]
+=== Role Classes of a Harness
+
+`headless.classes` states, per role class, whether the harness can run it and how far it holds a worker to the tools of its role.
+
+* *The screener needs a harness without tools*: `zero_tool` is the class of the screener and the judge, which read untrusted or ungraded text (link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener]). It is the one class for which the harness must restrict the worker, and the restriction is total: no tool, no MCP connection, project and user settings off. A harness that cannot be started that way declares `zero_tool: null`, and no screener or judge role may name it. This is the only class restriction the system depends on.
+* *For the other classes a restriction is welcome and not required*: `writer` and `read_only` workers act on text that has passed the screener, inside the confinement of the job launcher, and the server limits what they can reach of `PM-MCP` on every request (link:../model-work/04-worker-launch.adoc#job-tool-sets[Model Work Specification, Tool Sets]). `tool_set: enforced` means the harness also limits the worker to the tools of its role; `tool_set: advisory` means it cannot, the worker runs with every tool of the harness, and the role's tool set only tells it which to use. Both are runnable. `pm-operator roles show <role>` reports an advisory tool set, so the operator sees which roles run unrestricted.
+* *Rules*, checked by profile validation: a non-null `zero_tool` requires `capabilities` to hold `project_settings_control`; a profile whose `mcp_config.exclusive` is `false` declares `zero_tool: null`, since such a harness cannot be kept from connecting; `worker.restricted_models` is non-null exactly when a class is `enforced`.
+
+[cols="2,2,2,2,3"]
+|===
+|Harness |`writer` |`read_only` |`zero_tool` |`mcp_config`
+
+|`claude`
+|`enforced`
+|`enforced`
+|runnable
+|`slot`, exclusive
+
+|`opencode`
+|`enforced`
+|`enforced`
+|`null` _(not measured)_
+|`slot`, exclusive
+
+|`antigravity`
+|`advisory`
+|`advisory`
+|`null`: `agy` has no start without tools
+|`file` `.agents/mcp_config.json`, not exclusive
+
+|`codex`
+|_(provisional)_
+|_(provisional)_
+|_(provisional)_
+|_(provisional)_
+|===
+
+`antigravity` declares its `headless` block with these values and stays `worker.eligible: false` until its fault matrix has passed with confined workers (link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]).
+
+[#headless-block]
+`headless` is the harness's launch contract for workers; the host never starts a sub-agent. How the server composes a worker's launch from the role artifact and this block, the tool sets of the role classes (`writer`, `read_only`, `zero_tool`), the composition per `agent_mode`, the harness enrolment, and the working directory are specified in link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]. A role artifact of a class its harness cannot run (<<role-classes>>) is invalid on load and counts as undefined (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]). A profile with `headless: null` is shown in the harness lists, marked, and never offered as a worker host or as the default harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisional)_ like the other host facts.
+
+[#headless-usage]
+*Usage pointers*: Usage is read from the harness output through `headless.usage`, never asked from a model; the pointers, the value `"not_applicable"`, the five token components, and the recording are specified in <<token-usage>>. The same per-turn figures give the supervisor a warm worker's context size for its token budget (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]).
+
+[#headless-writable-paths]
+*Writable paths*: `headless.writable_paths` extends only the Landlock write set of workers. It lists the sub-paths a headless harness must write to run: its login or credential file, its caches, its session directory, and its own state file. Profile validation refuses an entry that equals, contains, or lies inside a settings, command, or skill file or directory the client's bundle manifest manages, and any shared configuration file in which the bundle owns an `enforcement` element (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]), so a harness home as a whole (`~/.claude`) is never an entry and a worker cannot rewrite the host's deny rules or the shim skill. The operator's own use of the harness and the bundle installer, which runs in `pm-mcpd`, are not restricted by it. The compiled entries:
+
+[cols="1,4,2"]
+|===
+|Profile |`headless.writable_paths` |Basis
+
+|`claude`
+|`~/.claude.json`, `~/.claude/backups`, `~/.claude/.credentials.json`, `~/.claude/projects`, `~/.claude/sessions`, `~/.cache/claude`, `~/.cache/claude-cli-nodejs`, `~/.local/state/claude`, `~/.local/share/claude`
+|`~/.claude.json` (a file rule; the home directory itself is not needed) and the cache and state directories are measured with confined writer workers. The sub-paths below `~/.claude` are _(provisional)_ (the backups of `~/.claude.json` were observed in an unconfined run): the measured run granted `~/.claude` as a whole and observed writes of the session transcript and of synced plugin and skill manifests, so the set is confirmed only by a confined run with exactly these entries.
+
+|`opencode`
+|`~/.cache/opencode`, `~/.local/state/opencode`
+|Every write of the harness's data directory goes to its per-worker data home (<<headless-data-home>>), so no path of `~/.local/share/opencode` and none of `~/.config/opencode` is writable. The cache (the model catalogue) and state (locks, prompt history, model choice) directories are declared and not exercised: the measured confined runs wrote only the per-worker data home and `/tmp`.
+
+|`codex`
+|`~/.codex/auth.json`, `~/.codex/sessions` _(provisional)_
+|Not measured.
+|===
+
+[[claude-state-file]]*The `claude` state file*: `~/.claude.json` holds the harness's own state, which a headless run rewrites. The bundle owns nothing in it (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc#bundle-content[Bundle Manifest, Bundle Content]), and a worker's own MCP configuration is the per-call one of its launch (`--strict-mcp-config`), so a worker that rewrites the file changes neither its own connection nor anything the bundle installed; the file stays in the write set, because the harness cannot run headless without rewriting it. _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
+
+[[headless-data-home]]*Per-worker data home*: `headless.data_home` is declared for a harness whose local state is one per-user store that all its processes share, so that a stalled worker cannot hold that store's lock against every other worker and against the operator's own sessions. `opencode` declares `{"variable": "XDG_DATA_HOME", "login_file": "opencode/auth.json"}`: every worker gets its own data directory below its job-private directory, with the harness's login file copied in, and the directory is removed when the job settles (link:../job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime Specification, Per-Worker Data Home]). Profile validation refuses a `variable` that matches a credential pattern or that the job environment already sets. `claude` and `codex` declare `null`. _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-60[PM-WATCH-DISP-60]_
+
+[[headless-tool-result-limit]]*Tool-result limit*: `headless.tool_result_limit_chars` is the largest tool result the harness passes to its model whole. A harness that cuts a larger result keeps the full text where a worker restricted to the server's tools cannot read it, so the worker would lose the task's identifiers. The server therefore returns no tool result above the limit to a worker of that harness: identifiers and links come first, and the remaining content is named as parts below the limit, read through the harness's resource tools (link:../model-work/02-task-protocol.adoc#offer[Model Work Specification, Offer]; value and basis: link:../timeouts/03-retention-host-config.adoc#tool-result-limit[Timeouts & Budgets Specification, Harness Tool-Result Limit]). `opencode` declares the provisional `32000`, `claude` `null`. Profile validation refuses a non-null limit on a profile without `resource_tools`. _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-12[PM-WATCH-CLIENT-12]_
+
+[[headless-resumability]]*Resumability*: `headless.resumability` says whether a worker of the harness can continue after it asked a question, in which form, and how long (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). `hold` is the worker holding its task in `pm_wait` until the answer and continuing in the same context, up to `max_hold_seconds`; `resume` is the worker ending with its harness session stored and a later generation resuming that session with the answer, through `argv` (with the session id read from the structured result at `session_id`), for sessions up to `max_age_seconds` old. A role uses a form only where its harness declares it and the role artifact asks for it; the harness capability alone never makes a worker wait. Every value comes from the stage `resumability` of the profile verification (<<profile-verification>>), and a form it did not measure is `false` or `null`. Profile validation refuses a `resume` whose `argv` holds `{{session_id}}` not exactly once, and a `resume` on a profile with `session_residue: ephemeral` and no way to launch without the flag. A resumable worker keeps its session files like `session_residue: persisted`, reported in both clients. The shipped values:
+
+[cols="1,1,1,3"]
+|===
+|Profile |`hold` |`resume` |Basis
+
+|`claude`
+|`false` (candidate `true`)
+|`null` (candidate `--resume {{session_id}}`, `/session_id`)
+|A held wait of a consultation (286 s) and four hours of sparse waits were measured (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], E3, E5), and a stored session resumed in 3 to 13 s (V4); a hold for an answer and a resume with an answer and the earlier context were not measured, so both forms stay off until the stage has run.
+
+|`opencode`
+|`false` (candidate `true`)
+|`null` (candidate)
+|As for `claude`; its per-worker data home (<<headless-data-home>>) is removed when the job settles, so a resume needs it kept while the task is suspended.
+
+|`antigravity`, `codex`
+|`false`
+|`null`
+|Not measured.
+|===
+
+*No harness credentials*: `PM-MCP` never stores or exports a harness's authentication, and a profile declares no authentication variable. The harness CLI must already be logged in by its own login, cached under its home; a harness that is not logged in fails its worker's start (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, start failures]).
+
+*Resource tools*: `headless.resource_tools` names the harness's tools that list and read MCP resources (a harness may have one tool for each). They enter the tool allowlist of the `writer` and `read_only` classes, never of `zero_tool`, because `resources/read` and `resources/list` work on a job connection (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc#job-bound-connections[MCP Tools Specification, Job-Bound Connections]).
+
+`connection.idle_timeout_seconds`, `connection.bounded_wait_seconds`, and `connection.progress_resets_timeout` are the host's timing facts; their bounds and the rule relating the bounded wait to the host idle timeout (enforced by profile validation for the compiled profile and every override) are defined in link:../timeouts/03-retention-host-config.adoc#host-integration[Timeouts & Budgets Specification, Host Integration] and link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Bounded Wait Window]; the compiled values are listed in <<worker-block>>.
+
+[#worker-block]
+=== Worker Block
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-10[PM-WATCH-CLIENT-10], link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]_
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
+
+The `worker` block holds the per-host values of the task protocol and of supervision. The supervisor and the task protocol read them from the profile of the worker's harness, which its role's effective configuration names (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol], link:../model-work/03-supervision-and-recycling.adoc[Supervision & Recycling]); the token budget and the other recycling rules come from the role artifact (link:../model-work/01-roles-and-configuration.adoc[Roles & Configuration]). The compiled values below are the measured ones (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#parameters[Evaluation Reference, Substantiated Values]):
+
+[cols="3,2,2,2,2"]
+|===
+|Value |`claude` |`opencode` |`antigravity` |`codex`
+
+|`worker.eligible` |`true` |`true` |`false` |`false`
+|`worker.restricted_models` |`["*"]` |`["opencode-go/muse-spark-1.3-contributor"]` |`null` |`null`
+|`worker.ack_deadline_seconds` |`15` |`270` |`null` |`null`
+|`worker.ack_informational` |`false` |`true` |`null` |`null`
+|`worker.silence_grace_seconds` |`30` |`30` |`null` |`null`
+|`worker.idle_wakeups` |`3` |`3` |`null` |`null`
+|`connection.idle_timeout_seconds` |`1800` |`60` |`180` |_(provisional)_
+|`connection.bounded_wait_seconds` |`240` |`240` |`150` |_(provisional)_
+|`connection.progress_resets_timeout` |`true` |`true` |`false` |_(provisional)_
+|===
+
+Rules of the block, checked by profile validation:
+
+* *Eligibility*: `eligible: true` requires a non-null `headless` block. A host is eligible only after its worker behaviour has been measured on it under the target conditions (the real relay, confined writer workers) and every fault of the fault matrix passed (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]; exit detection within the link:../timeouts/01-job-budgets-and-waits.adoc#exit-detection-bound[exit detection bound]). `claude` is eligible. `opencode` is eligible with its per-worker data home (<<headless-data-home>>), without which a stalled worker blocks every other process of the harness, and with its tool-result limit (<<headless-tool-result-limit>>); Antigravity (its fault matrix passed only as a smoke run with unconfined workers) and Codex (not measured) are not eligible. The operator assigns the roles of an ineligible host to an eligible harness. A role whose effective configuration names a harness that is not eligible is invalid (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]).
+* *Restricted models*: a worker of a class whose `tool_set` is `enforced` runs with a restricted tool set, so a model that refuses a restricted agent cannot host one. An entry `*` stands for every model of the harness, an entry `<provider>/*` for every model of that provider. The free OpenCode models refuse a restricted agent and are not listed; of the OpenCode Go models only the measured `opencode-go/muse-spark-1.3-contributor` is listed (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference]), and another one is listed once it is measured.
+* *Informational acknowledgement*: with `ack_informational: true`, `ack_deadline_seconds` equals the silence limit, `connection.bounded_wait_seconds` plus `silence_grace_seconds` (`240 + 30 = 270` measured on `opencode`, where a provider stall of 120.8 s left a live worker's task unacknowledged), and a missing acknowledgement ends no worker: silence alone decides. The supervisor applies the silence limit of the effective connection values, so an operator override of the bounded wait moves both.
+* *Bounded wait and idle timeout*: on a host whose progress resets its timeout, a worker's `pm_wait` is always held with progress frames, so its bounded wait may exceed the host idle timeout (`opencode`: `240` against `60`); on any other host the bounded wait stays below the idle timeout by the margin of link:../timeouts/01-job-budgets-and-waits.adoc#bounded-wait[Timeouts & Budgets Specification, Bounded Wait Window].
+* *Values of an ineligible host*: while `eligible` is `false`, no other value of the block has an effect, and each is `null` unless it was measured on the host; the extrapolated Antigravity values of the evaluation are entered only once they are measured.
+* *A worker that does not continue*: an `opencode` process stopped while a model request is open may never continue after it is resumed, and the harness sets no timeout on that request. The supervisor ends such a worker by silence at its silence limit and never earlier (link:../model-work/03-supervision-and-recycling.adoc#detection[Model Work Specification, Detection]), so the limitation costs one silence limit before the task is offered again; it does not affect eligibility.
+
+The relay and the server need no other host value for workers: identity, role, and generation travel in the worker's environment, never in the profile (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification, Relay]).
+
+[#model-tiers]
+=== Model Tiers & Models of a Harness
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+
+* *Tiers*: `headless.model_tiers` maps each tier of the closed list `frontier`, `standard`, `fast` to the concrete model the harness takes for it, so the shipped default assignment, which names a tier per role, holds on any harness (link:../model-work/01-roles-and-configuration.adoc#default-assignment[Model Work Specification, Default Role Assignment]). A tier the harness has no model for is `null`; a role whose tier resolves to `null` on its harness is shown unresolved, and the operator chooses its model. The `steward` takes the model of the tier `standard` of the machine's default harness (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]). The values of a shipped profile are those the release graded; a mapped model must appear in `worker.restricted_models` where the class of a role assigned to it is `enforced`, which profile validation checks.
+* *Models probe*: `headless.models_probe` is an argument vector whose output lists the models the harness offers (one id per line, or a JSON array at its pointer), run without a shell, as a probe job (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]) of the onboarding's `catalogue` sub-workflow on the operator's consent (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent]); its result fills the models the operator chooses from in `catalogue.select`, each recorded with the source `probe` in the model catalogue (link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]). A harness that cannot list its models declares `null`, and the operator enters the model ids, recorded with the source `operator`.
+
+[#harness-scan]
+=== Harness Scan
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1: Wrapper-First Execution & Enrolled Host Tools], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+The machine's onboarding finds the harnesses installed on the machine itself (link:../workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL Specification, Machine Scope]):
+
+* *Where it looks*: `harness.scan` looks for the `headless.executable` of every profile in the effective profile set (shipped and machine profiles, <<profile-sets>>) in the directories of the operator's login `PATH`, which the terminal client sends with its request because the runtime's own environment is never an input (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#runtime-environment[Runtime & Interaction Model Specification, Environment]), and in the profile's `headless.install_locations` (paths with `~` and the platform's application directories). It runs only after the consent `scan_harnesses` (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent]).
+* *What it runs*: nothing but the profile's version probe (`identity.version_probe`, without a shell, with a bounded timeout) on what it finds, as a probe job (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]); a found executable is a candidate, with its path, its version, and whether the version lies in `headless.supported_versions`. Only `harness.enrol` records a candidate's absolute path and SHA-256 digest in the harness enrolment, as `pm-operator enrol-harness` does (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]).
+* *What it shows*: every profile of the set with its result: found (path, version), found outside the supported range, or not found with the profile's `install_hint`, rendered in the operator's interface language. A profile with `headless: null` or `worker.eligible: false` is shown and marked, never offered for enrolment as a worker host or as the default.
+* *The default harness*: `harness.enrol` records the default harness in `machine-config.json` as `harnesses.default` (a client id of `harnesses.json`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration]); a harness that is the default cannot be removed before another is chosen. The steward runs on it (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]).
+* *No closed list of harnesses*: the scan, the enrolment, the role validation, and every view take the harnesses from the effective profile set; no closed list of client ids refuses a harness the operator added (<<unknown-harness>>).
+
+[#login-probe]
+=== Login Probe
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+A harness is logged in through its own login, never through `PM-MCP` (*No harness credentials* above), and the onboarding checks it before the first worker starts:
+
+* *The probe*: `headless.auth_probe` is an argument vector with the exit codes that mean logged in and logged out and the harness's own login command. `harness.probe` runs it, without a shell and with a bounded timeout, as a probe job of the enrolled executable (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]), after the consent `probe_harness_login` of `harness.probe-consent`. Logged in lets the onboarding go on; logged out leads to `harness.blocked`, an operator wait that shows the login command for the operator to run in a terminal and offers _probe again_; any other exit code is shown as unknown with the harness's error text and the same choice.
+* *Without a probe*: a harness whose profile declares `auth_probe: null` is probed by one minimal headless call of its `launch` form (one turn, no tool, no MCP connection, a fixed prompt), whose expected tokens are shown in the consent before it runs; its success means logged in, and a start failure is shown with the harness's error text like a logged-out probe.
+* A harness that is logged out later makes its workers fail before their first call, which the start-failure guard reports (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]).
+
+[#harness-icons]
+=== Harness Icons
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+A harness is shown where the harness itself is shown (the harness lists, a role's assignment) by its icon, never as the product's own mark, in a heading, or anywhere that suggests that its maker endorses `PM-MCP`.
+
+* *Two forms*: the profile's `icon` names either `source`, the URL of the maker's official icon file, or `bundled`, the name of an icon shipped in the binary, which only an icon whose maker gave written permission to ship it may use.
+* *Fetched by the runtime, never by the browser*: an icon of the form `source` is fetched by the runtime, once, from its URL, through the proxy settings of the runtime's outbound requests, on the operator's consent `fetch_icons`, asked in `harness.icons-consent` after the scan; with _no_ the monograms are shown and the step goes on. The fetched file (SVG or PNG, at most `256` KiB, an SVG stripped of scripts, external references, and event attributes) is stored in the machine store `<PM_MCP_BASE>/icons/<client_id>.<ext>` (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]) and served to the web app from the runtime's own origin (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-security-headers[CLI, Coordination & Security Specification, Request Validation & Security Headers]). A browser never loads it from the maker's server, which would send the operator's address to that server on every view and break the content security policy.
+* *Monogram*: without a fetched or bundled icon, a harness is shown by a generated monogram, the initials of its `display_name` on a colour derived from its `client_id` (the first bytes of its SHA-256 as a hue), the same in both clients. The monogram is the icon of every harness until the open point below is settled; a profile gains its `source` icon only once its maker's terms or a confirmation allow it.
+
+Whether a maker's icon may be shown at all, and which icons may be bundled, is open: see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#harness-icons[Open Questions].
+
+[#token-usage]
+=== Tokens, Not Money
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14: Task Envelopes, Model Slots & Usage per Task]_
+
+Usage is read from the harness output through `headless.usage`, never asked from a model, recorded as the harness reports it, and shown in tokens, never in money.
+
+* *Recorded as reported*: each pointer is a JSON Pointer into a turn line and fills the column of the same name in the task's metrics row (link:../store-schemas/05-metrics-and-quality-report.adoc#metrics-store[Store Schemas Specification, Metrics Store]), except `cache_read` (`cache_read_input_tokens`), `cache_creation` (`cache_creation_input_tokens`, the cache write), and `reasoning` (`reasoning_tokens`, the reasoning or thinking tokens a harness reports apart from its output). A harness whose output figure already contains its reasoning declares `reasoning` `"not_applicable"`, so nothing is counted twice. The pointer `cost_usd`, the capability `cost_field`, and the column `cost_usd` stay as recorded data: never shown, never summed into a figure the operator sees, and never read by a rule.
+* *Not reported or not applicable*: a pointer `null` means the harness does not report the figure (recorded `unmeasured`, reason `not_reported_by_harness`); `"not_applicable"` means the figure does not exist for this harness by design, such as Antigravity's cache creation, recorded as `"not_applicable"` and counted `0`, so that the harness is still measured. `"not_applicable"`, `unmeasured`, and a measured `0` are three distinct values. Profile validation refuses `"not_applicable"` for `input_tokens` and `output_tokens`.
+* *One figure*: `headless.usage` has no pointer for the total: `total_tokens` is the sum of the five token components, a not-applicable one counting `0`, when every applicable one is measured, otherwise `unmeasured`, unweighted and the same for every harness (link:../model-work/09-completion-usage-and-spend.adoc#job-result-schema[Model Work Specification, Worker Result & Usage Parsing]); the views derive its split, `tokens_in` (input, cache read, cache creation) and `tokens_out` (output, reasoning), and show it as `1.24 M tokens (1.10 M in · 0.14 M out)` with its coverage, in the number format of the client.
+* *Usage report of a harness*: the harness lists of the onboarding and of the machine's settings show per enrolled harness and version what it reports of its usage: `complete` (every token figure reported or not applicable), `partial` (naming what is missing), or `not_reported`, from the profile's declaration and, for a verified profile, from the `usage_report` of its verification (<<profile-verification>>), kept with the harness enrolment (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]).
+* *Measured per version*: recorded outputs of each harness and version are parsing fixtures, so a changed output format fails a test; the usage measurement of the evaluation is repeated for every new harness and harness version before its figures are trusted (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#host-values[Evaluation Reference, Hosts as Relay Starters and Workers]).
+
+The shipped declarations per harness:
+
+[cols="2,1,1,1,1,1,1,3"]
+|===
+|Profile |`input_tokens` |`output_tokens` |`cache_read` |`cache_creation` |`reasoning` |`cost_usd` |Basis
+
+|`claude`
+|pointer |pointer |pointer |pointer |`"not_applicable"` |pointer
+|All four token components and a cost per turn (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], V7); its output figure contains the thinking tokens.
+
+|`opencode`
+|pointer |pointer |pointer |pointer |pointer |`null`
+|Input, output, cache read, cache write, and reasoning tokens, no cost (Gate 13).
+
+|`antigravity`
+|pointer |pointer |pointer |`"not_applicable"` |pointer |`null`
+|Input, output, thinking, cache-read, and total tokens; no cache-creation figure by design and no cost (Gate 13).
+
+|`codex`
+4+|_(provisional)_ |_(provisional)_ |_(provisional)_
+|Not measured.
+|===
+
+[#worker-activity]
+=== What a Worker Does
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_
+
+The runtime starts every worker itself and receives its output as a structured stream (`headless.output.format` `stream_json` or `jsonl`), which it reads while the worker runs (link:../model-work/04-worker-launch.adoc#worker-output[Model Work Specification, Output Read While the Worker Runs]). The operator sees what a worker does from it:
+
+* *Events, mapped per harness*: `headless.events` maps a line of the output stream onto one closed, harness-neutral list of activity kinds: `text` (what the model wrote, cut to the compiled bound), `tool_call` (the tool's name and its target: a path, a command line, a server link with its id, never its whole arguments), `tool_result` (its size and whether it failed, never its content), `file_changed` (a path of the worktree), and `turn` (its usage, read through the usage pointers). A line that matches no mapping is counted, not shown. The server adds the entries it knows itself (the links the worker followed, its questions and answer acknowledgements, and the off-track signals and actions, link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work Specification, A Worker Off Track]). The runtime never scrapes a terminal and never reads the harness's session transcript, since a worker runs without session persistence: a harness whose output gives no event stream (`output.format: json`, one result at its end) declares `headless.events: null`, and its tasks show only the server's entries.
+* *Activity record*: per task an append-only activity journal in the store of the task's scope, written while the worker runs, masked, bounded, archived with the plan and deleted with it; its entries, the server's own kinds, and its bounds are defined by link:../store-schemas/16-task-queue.adoc#activity-journal[Store Schemas Specification, Activity Journal].
+* *Untrusted*: the activity is untrusted data, shown as plain text and never read by a model as instructions (link:../model-work/07-untrusted-text-screening.adoc#two-level-guard[Model Work Specification, Two-Level Guard]).
+* *Served to the clients*: the local API serves a task's activity from a cursor and as a live stream that a client opens only while it shows the task, below the plan or the epic (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]); the plan's process names, per leaf, its tasks with a link to their activity (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#process-resource[Runtime & Interaction Model Specification, Process Resource]).
+* *Verified per harness*: the stage `events` of the profile verification checks that every mapping resolves and every expected kind appears, and records per kind `reported` or `missing` (<<profile-verification>>); recorded outputs of each harness version are parsing fixtures. Whether Antigravity's output streams its steps at all is measured there first (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#limits[Evaluation Reference, Limits]).
+
+The shipped declarations: `claude` maps its `stream-json` events (`assistant` text and `tool_use` blocks, `user` `tool_result` blocks, the `result` and per-message usage as `turn`); `opencode` maps its `jsonl` events the same way _(provisional until its stage `events` has run)_; `antigravity` and `codex` declare `null` until measured.
+
+[#profile-sets]
+=== Profile Sets
+
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy]_
+
+[cols="1,3,3"]
+|===
+|Set |Profile documents |Written by
+
+|Shipped
+|`classpath:/profiles/<client_id>.json`, compiled into the release, each with its verification record `classpath:/profiles/verification/<client_id>.json`
+|The release, from the output of the profile verification (<<profile-verification>>) on the release's reference machines
+
+|Machine
+|`<PM_MCP_BASE>/profiles/<client_id>.json`, each with its verification record `<PM_MCP_BASE>/profiles/verification/<client_id>.json`
+|`pm-operator profile install`, or the onboarding's `harness.verify-profile` for a harness added from a draft (<<unknown-harness>>), from a candidate the profile verification wrote on this machine; never by hand and never by a model (the directory lies below `<PM_MCP_BASE>`, which no job can write)
+
+|Project
+|`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`, each with its verification record `…/profiles/verification/<client_id>.json`
+|`pm-operator profile install --project`, the same way; it lies in the per-project machine store, never in the repository, so no commit and no pull request can change how a harness is started (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6])
+|===
+
+* *Whole documents, nearest set wins*: the effective profile of a `client_id` for a project is the document of the project set, else of the machine set, else of the shipped set, always as a whole; documents are never merged. A machine profile of a `client_id` the release does not ship adds a harness.
+* *A project profile changes how a harness works, not which harness it is*: a project profile exists only for a `client_id` that the machine or the shipped set defines, and its `detection`, `identity`, and `headless.executable` equal those of that profile; validation refuses it otherwise. Detection and the operator checks are therefore the same in every project of the machine.
+* *Bound to its verification*: a machine or project profile is valid only together with a verification record whose `profile_digest` equals the SHA-256 of the canonical JSON (RFC 8785) of the profile document, and whose HMAC sidecar (`<client_id>.json.hmac`, written with the key of the enrolment store) verifies. A profile without such a record, one edited after its verification, or a record that fails its HMAC is refused as `profile_unverified`, and the profile of the next set stays in force; the refusal is reported in both clients and by `pm-operator profile show`.
+* *Bound to the harness that was measured*: the record names the harness by executable name, exact version, and the SHA-256 of the executable file. When the enrolled harness reports a version outside `headless.supported_versions`, the launch refusal `harness_version_unsupported` applies as for a shipped profile; when its version or digest differs from the record of a machine or project profile inside that range, launches go on and both clients report the profile as `verified_on_other_build` until it is verified again.
+* *Read by the operator CLI*: `pm-operator` reads the `detection` objects of the machine profiles beside those of the shipped ones (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#cli-file-reads[CLI, Coordination & Security Specification, Direct file reads]), so a harness the operator added counts for the operator checks. A machine profile the runtime refuses is ignored by it as well.
+
+[#profile-verification]
+=== Profile Verification
+
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
+
+`pm-operator profile verify <client_id>` tests a harness on this machine and emits its profile. It is the only way a profile comes into being: the shipped profiles are its output on the release's reference machines, and the values of the link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc[Evaluation Reference] are its measurements.
+
+*What the operator gives and what the tool finds out.* A harness's command line cannot be discovered, so the operator supplies a *draft*: a profile document in which only the statements about the harness's interface are filled in (`headless.executable`, `argv`, `env`, `mcp_config`, the `args` of each class to be tested, `output`, `usage`, `events`, `auth_probe`, `models_probe`, `model_tiers`, `install_locations`, `identity.version_probe`, `tools`, `skill_loading`). In the onboarding the draft is entered as a form (<<unknown-harness>>). Without `--draft` the effective profile of the `client_id` is the draft, which is how a profile is verified again after a harness update. Everything else the tool measures, and every statement of the draft it can test, it tests.
+
+[source,text]
+----
+pm-operator profile verify <client_id> [--draft <file>] [--executable <path>]
+                                       [--stage <stage>]... [--trials <n>]     [op]
+pm-operator profile install <client_id> [--project]                             [op]
+pm-operator profile show <client_id> [--candidate] [--project]
+pm-operator profile remove <client_id> [--project]                              [op]
+----
+
+*How it runs.* The verb is a request to the runtime, which runs the stages as jobs of its own: the real job launcher, the real job relay `pm-mcp serve --job`, and the real supervisor, with compiled probe tasks in place of a plan. No project is involved: every probe worker runs in a workspace of its own that the runtime creates in the user's temporary directory (`pm-mcp-probe-<run_id>/`, mode `0700`) and removes afterwards; it lies outside `<PM_MCP_BASE>`, which no job may read or write, and it is the only project root in the worker's write set. The harness uses the operator's own login, so a run costs model tokens; the verb prints the stages, the number of worker starts, and the trials before it starts and asks for confirmation. A probe worker is confined like every job where the platform has a confinement.
+
+*Stages* (a closed list; `--stage` selects, default all in this order; a stage whose prerequisite failed is `not_run`):
+
+[cols="1,4,3"]
+|===
+|Stage |What it does |Profile values it settles
+
+|`identity`
+|Runs `identity.version_probe` without a shell and matches `version_pattern`.
+|`identity`, the harness version of the record
+
+|`detection`
+|Starts the harness with a probe MCP server and a task to run, through its shell tool, the probe command the stage writes into the probe workspace. Each of the two records the *names* of its environment variables, never a value. Compared with the environment the harness was started in, the names the harness added are the candidate signals.
+|`detection.primary_signals` as proposals the operator confirms at install; `detection.reaches`, measured
+
+|`launch`
+|Starts one worker from the draft's `argv`, `env`, and `mcp_config`: it connects through the job relay, takes the base task, and submits it. Checks that the structured result parses, that every line of the output has the declared format, and that the worker exits on `SIGTERM` during a held wait without leaving a relay behind; runs the draft's `auth_probe` and `models_probe` and checks their exit codes and output format.
+|`headless.argv`, `env`, `mcp_config.delivery` and `path`, `output`, `capabilities` (`result_schema`, `usage_fields`, `cost_field`, `exit_reliable`, `ephemeral`), `session_residue`, `auth_probe`, `models_probe`
+
+|`events`
+|Only for a draft whose `headless.events` is not `null`. Runs the base task and a task that calls a tool, fails one call, changes a file, and asks, and checks that every mapping of `headless.events` resolves on the real output and every expected activity kind appears (<<worker-activity>>).
+|`headless.events`, recorded per activity kind as `reported` or `missing`
+
+|`isolation`
+|Starts a worker beside a decoy MCP server entered in a harness configuration file of the probe workspace, and a decoy instruction file of the project. Records whether the worker listed or called a decoy tool and whether it followed the decoy instruction.
+|`mcp_config.exclusive`, `capabilities` (`project_settings_control`)
+
+|`classes`
+|For each class with `args` in the draft. `writer` and `read_only`: the task asks for one tool inside the role's tool set and one outside it; the tool set is `enforced` when the outside call is refused or the tool is absent, `advisory` when it succeeds. `zero_tool`: the task text asks the worker to read a canary file, to run a command, and to call a tool of the probe server; the class is runnable only when the output shows no tool call, the probe server saw no connection, the decoy instruction was not followed, and the answer does not contain the canary.
+|`headless.classes`, `worker.restricted_models` (the models the stage ran with)
+
+|`limits`
+|Offers task inputs of 8,000, 32,000, and 128,000 characters and checks that the submitted result names the identifier at the end of each.
+|`headless.tool_result_limit_chars`, `resource_tools`
+
+|`paths`
+|Only where the platform confines jobs. Runs the base task with the write set of the draft's `writable_paths` and reports every write the confinement denied and every declared path that was not written.
+|`headless.writable_paths`, `data_home`
+
+|`resumability`
+|Only for a harness whose draft declares a form. A worker on a probe task asks through the `ask` link after it has read a canary of the probe workspace. *Hold*: the stage answers after one, two, and the longest bounded-wait windows the operator chose, and checks that the same generation continues, applies the answer, and names the canary without reading it again. *Resume*: the worker ends, and after the chosen delays a generation started from `resume.argv` on the session id read from the result continues, applies the answer, and names the canary; a resume of a missing session and of a session older than the chosen limit must fail at once, never hang. Records the usage of every wake-up and resume.
+|`headless.resumability`
+
+|`faults`
+|The fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4] with `--trials` trials per fault (default and minimum for eligibility: `10`), two workers at once: exactly-once submit, exit detection, stall detection by silence, fencing of late calls, and the acknowledgement latency.
+|`worker.eligible`, `ack_deadline_seconds`, `ack_informational`, `silence_grace_seconds`, `idle_wakeups`; `connection` timing values
+
+|`usage`
+|Over the worker output of the `launch` stage: checks that every declared usage pointer resolves on the real output; a declared pointer that does not resolve fails the stage (<<token-usage>>).
+|`headless.usage`, recorded per figure as `reported`, `not_applicable`, or `missing`; the result is the harness's `usage_report`
+|===
+
+*Output.* The run writes a candidate profile `<PM_MCP_BASE>/profiles/candidates/<client_id>.json` and its verification record beside it, and changes nothing that is in force.
+
+[source,json]
+----
+{
+  "format_version": 1,
+  "client_id": "antigravity",
+  "profile_schema_version": 1,
+  "profile_digest": "sha256:9f2c…",
+  "verified_at": "2026-10-08T08:36:00Z",
+  "tool": { "version": "0.4.0", "commit": "02ffcbd22b43de8d673b3b6abe77f755a1442398" },
+  "harness": {
+    "executable": "agy",
+    "version": "1.3.1",
+    "executable_sha256": "sha256:41d0…",
+    "models": ["gemini-3.8-flash-low"]
+  },
+  "platform": { "os": "linux", "arch": "x86_64", "confinement": "landlock", "landlock_abi": 8 },
+  "stages": {
+    "identity":  { "status": "passed" },
+    "detection": { "status": "passed" },
+    "launch":    { "status": "passed" },
+    "events":    { "status": "passed", "results": { "text": "reported", "tool_call": "reported", "tool_result": "reported", "file_changed": "missing", "turn": "reported" } },
+    "isolation": { "status": "passed" },
+    "classes":   { "status": "passed" },
+    "limits":    { "status": "passed" },
+    "paths":     { "status": "passed" },
+    "faults":    { "status": "passed", "trials": 10 },
+    "usage":     { "status": "passed", "results": { "input_tokens": "reported", "output_tokens": "reported", "cache_read": "reported", "cache_creation": "not_applicable", "reasoning": "reported", "tool_uses": "reported" } }
+  },
+  "values": [
+    { "pointer": "/headless/classes/zero_tool", "status": "measured", "code": "launch_without_tools_refused" },
+    { "pointer": "/headless/classes/writer/tool_set", "status": "measured", "code": "outside_call_succeeded" },
+    { "pointer": "/detection/primary_signals", "status": "confirmed", "code": "added_for_commands_only" },
+    { "pointer": "/worker/silence_grace_seconds", "status": "measured", "code": "stall_detected", "figures": { "min_ms": 50050, "max_ms": 50090, "trials": 10 } }
+  ]
+}
+----
+
+* `stages.<stage>.status` is `passed`, `failed`, or `not_run`. `values` holds one entry per profile value a stage settles, with `status` `measured` (the tool determined it), `confirmed` (a proposal of the tool the operator confirmed at install), `declared` (taken from the draft, because the tool cannot test it), or `not_measured` (its stage failed or did not run).
+* *Kept with the enrolment*: the per-kind result of `events` and the per-figure result of `usage` (the `usage_report`) are kept with the harness's enrolment when the verified profile is installed for an enrolled harness (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]) and shown wherever the enrolled harnesses are listed (<<token-usage>>). Recorded outputs of each harness and version, taken by these stages, are parsing fixtures of the build, so that a changed output format fails a test.
+* *What ran is tracked exactly*: `tool` names the release and the commit of the `pm-mcpd` that ran the verification, taken from the binary and never from an argument; `harness` names the executable by its name, the exact version its version probe printed, the SHA-256 of the executable file the run started, and every model a stage ran with; `platform` names operating system, architecture, and confinement. The record holds no path, no host name, no user name, no environment value, and no model output.
+* *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), and the `results` of the stages `events` and `usage` hold, under the closed activity kinds and usage figures, one of `reported`, `missing`, and (for a usage figure) `not_applicable`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
+* *The candidate claims only what was measured*:
+** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement; otherwise it is `false`, whatever the draft says.
+** `headless.classes.zero_tool` is non-null only when the `classes` stage passed it and `isolation` measured an exclusive configuration with settings control; otherwise `null`.
+** A `writer` or `read_only` class is non-null when its base task passed, with the `tool_set` the stage measured.
+** `tool_result_limit_chars` is the largest size that passed when a larger one failed, else `null`.
+** A value whose stage did not run keeps the draft's value with `status: declared` where the schema requires one, and the three claims above fall back to their closed side.
+* *Install*: `pm-operator profile install <client_id>` shows the candidate against the effective profile value by value, lists every value that is `declared` or `not_measured`, asks the operator to confirm the proposed detection signals, and on confirmation moves candidate and record into the machine set (<<profile-sets>>) under the lock of the machine store. The runtime loads it for workers started afterwards; running workers keep the profile of their job record.
+* *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on; a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers.
+
+[#unknown-harness]
+=== Unknown Harness
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Client Identity], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+A machine whose harness has no shipped or installed profile can still be onboarded: the onboarding's `harness.add` offers it beside the found harnesses as a secondary choice, and directly when the scan found none.
+
+* *The draft as a form*: `harness.add` takes the draft in either client as a form instead of a file: the executable (its absolute path), a client id and a display name, and the interface statements the verification needs from the operator (the headless arguments, the environment, the MCP configuration, the output and usage format, the version probe, and where known the login probe, the models probe, and the tiers), prefilled from the profile of the known harness the operator picks as the closest. The form validates every field as profile validation does (<<profile-hardening>>) before anything runs.
+* *Verified, stage by stage*: `harness.verify-profile` runs the profile verification (<<profile-verification>>) as a sub-workflow of the onboarding, after the consent `verify_harness_profile` of `harness.add-consent`, which states the expected tokens of the run; both clients show each stage as a line with ✓ or ✗, and a failed stage names the draft field it concerns, back to the form.
+* *Installed and enrolled*: the verified profile is installed into the machine profile set (<<profile-sets>>) and its harness enrolled like a found harness (<<harness-scan>>); it is eligible as a worker host only where the verification shows it, and otherwise shown and marked like every ineligible harness.
+* *No closed list refuses it*: no closed list of client ids (the scan, the enrolment, the role validation, the profile sets, the views) refuses a harness the operator added; a client id is valid where it matches the pattern of `client_id` and names a profile of the effective set. A client bundle exists only for the hosts the release ships a bundle for (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/02-bundle-manifest.adoc[Bundle Manifest]); an added harness runs as a worker without one, since the runtime composes every worker's launch itself.
+
+[#profile-hardening]
+=== A Profile Is Untrusted Input
+
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-13[PM-WATCH-CLIENT-13]_
+
+A profile starts a process and puts text in front of a model, and a profile may come from somewhere else than the machine that uses it (a draft the operator received, a profile offered for a later release, link:../../../../plan-marshall-documentation/doc/later-improvements.adoc[Later Improvements]). The reader therefore treats every profile, draft, and verification record as hostile data. The rules below are part of profile validation in every set, the shipped one included, and each has a refusing fixture.
+
+[cols="1,4"]
+|===
+|Rule |Content
+
+|Closed shape
+|Every object of the profile and of the record refuses unknown members, every enumeration is closed, and every array has an upper bound (64 items; `argv` and each `args` 128). A document is at most 64 KiB and is parsed with the streaming reader, bounded in depth (16) and in string length before any value is used.
+
+|Strings
+|Every string is NFC, a single line, without control characters, and at most 256 characters (an `argv`, `args`, or `env` item 1,024). A value that names something is matched against the pattern of its kind: identifiers, variable names, tool names (`^[A-Za-z0-9_.:-]{1,64}$`), model identifiers, JSON Pointers (RFC 6901), home-relative paths.
+
+|Text a model reads
+|`display_name`, the tool names of `tools`, the `replacement` of an idiom, and `skill_loading.load_directive_template` are rendered into skills and representations. Each is limited to the characters of an identifier, a command name, or a call expression (letters, digits, and `_ . : / - $ = , ( ) " { } < >` and the space), with the closed placeholders as the only `{{…}}`; none can carry a sentence, a line break, or markup.
+
+|Launch
+|`headless.executable` is a bare name; its path comes only from the harness enrolment, which the operator made with the path, version, and digest shown. `argv`, `args`, and `env` values are passed without a shell. They may hold only literals and the closed set of slots; an item that names a URL, an absolute path, or a home path outside `writable_paths` is refused, since a launch reaches files and servers only through its slots. `env` may set no variable of the loader, of an interpreter, or of the job environment (`PATH`, `HOME`, `LD_*`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `JAVA_TOOL_OPTIONS`, `PM_MCP_*`) and none that matches a credential pattern.
+
+|Paths
+|`writable_paths`, `mcp_config.path`, and `data_home.login_file` are relative, hold no `..` and no symbolic-link traversal out of their root, and never name a harness home as a whole, a settings, skill, or command file a bundle manages, or anything below `<PM_MCP_BASE>`.
+
+|Patterns
+|`identity.version_pattern` is the only regular expression. It is at most 128 characters, uses no backreference and no look-around, has exactly one capture group, and is applied to at most 4 KiB of probe output under a time bound.
+
+|Claims
+|No value of a profile is believed because the profile says so: `worker.eligible`, a runnable `zero_tool` class, and an `enforced` tool set count only with the stages of the bound record `passed` on the runtime's platform (<<profile-verification>>), and a record is believed only from the verification of this machine or of the release.
+|===
+
+*Install shows what will run*: `pm-operator profile install` prints the executable, the complete `argv`, the `args` of every class, and the `env` of the candidate before it asks for confirmation, because no rule can decide whether a harness flag is harmless.
+
+[#profile-override-hierarchy]
+=== Profile Override Hierarchy
+
+The runtime resolves a client profile from four layers in order of increasing precedence:
+
+1. *Compiled Binary Baseline* (`classpath:/profiles/<client_id>.json`): The profile documents compiled into the binaries (<<harness-as-data>>).
+2. *Machine Profile* (`<PM_MCP_BASE>/profiles/<client_id>.json`): A verified profile the operator installed on the machine; it replaces the compiled document of the same `client_id` as a whole (<<profile-sets>>).
+3. *Project Profile* (`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`): A verified profile the operator installed for one project; it replaces the machine or compiled document as a whole for that project's workers (<<profile-sets>>).
+4. *Machine-Wide Operator Overrides* (`machine-config.json`, the closed object `client_profiles.<client_id>.connection`, link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration]): Optional override of the connection settings `bounded_wait_seconds`, `idle_timeout_seconds`, and `progress_resets_timeout` across all repositories on the workstation, set with `pm-operator config`. No other profile key can be overridden: the `worker` block, the `headless` block, and the `detection` and `identity` objects that form the host-detection table (xref:../../../../plan-marshall-documentation/doc/specification/host-integration/01-host-detection.adoc#host-detection-table[Host-Detection Table]) are never touched by an override.
+
+Harness, model, and effort of a worker come only from the operator's role configuration, the role's effective values (its artifact, the role assignments, and the plan's override; link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]), operator files, rendered into the `{{model}}` and `{{effort}}` slots of `headless`; a profile carries no model choice beyond the map of the default assignment's tiers (<<model-tiers>>). A change of the role configuration applies to the next worker of the role; nothing is re-installed. No git-tracked configuration carries client profile overrides, role sets, or model pins (`PM-WORK-1`, `PM-EXT-6`); the closed team schemas admit no such key, so a `client_profiles` block in a team file is the finding `unknown_config_key` (`config_invalid`).

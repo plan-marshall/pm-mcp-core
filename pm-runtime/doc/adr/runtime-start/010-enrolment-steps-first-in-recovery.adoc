@@ -34,6 +34,6 @@ Alternatives not recorded.
 == Source
 
 * Pull request #30, `feat(core): add enrolment store, lifecycle gate and integrity`, sections "Changes", "Changes from the review rounds" and "Follow-ups" (item 4)
-* Work package link:../../../../doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
-* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc#per-project-recovery[Runtime Model § Per-Project Recovery]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/enrolment-store.adoc[`enrolment-store`] (PLAN-11)
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Model § Per-Project Recovery]
 * Related: link:../runtime-enrolment/001-integrity-hmac-in-the-runtime.adoc[`runtime-enrolment` ADR 001], link:../../../../pm-core/doc/adr/core-store/022-audit-record-owed-before-the-mutation.adoc[`core-store` ADR 022]

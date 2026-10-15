@@ -20,7 +20,7 @@ import de.planmarshall.runtime.enrolment.EnrolmentCheck;
 
 /**
  * Step 1 of the per-project recovery, {@link RecoveryStep.Name#ENROLMENT_INTEGRITY}
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery; PM-SEC-5): the enrolment
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery; PM-SEC-5): the enrolment
  * integrity verification before the project is first served.
  * <p>
  * In one transaction under the project's enrolment lock it first settles a stopped write of the enrolment pair

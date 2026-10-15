@@ -51,5 +51,5 @@ The operator decided that the log append writes it (refine, question q3):
 == Source
 
 * Operator decision q3 of the work package `session-log-and-generations` (refine)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session Log], Identity Changes
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal], Audit delivery
+* link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session Log], Identity Changes
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal], Audit delivery

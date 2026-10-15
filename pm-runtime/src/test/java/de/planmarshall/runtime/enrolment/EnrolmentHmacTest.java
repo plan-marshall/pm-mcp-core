@@ -21,12 +21,12 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-
-import de.planmarshall.core.store.StoreDigest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+
+import de.planmarshall.core.store.StoreDigest;
 
 /**
  * The HMAC of an enrolment file (PM-EXEC-2, PM-SEC-5): HMAC-SHA-256 in lowercase hex over the exact bytes, compared in

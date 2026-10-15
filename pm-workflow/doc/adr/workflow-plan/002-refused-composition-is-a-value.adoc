@@ -36,6 +36,6 @@ _Rejected_: the log schema names two refusals; the violation lines already say w
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Position Rule and Composition Log
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Position Rule and Composition Log
 * Watch item PM-WATCH-STORE-41 (Store Schemas), implemented by this package
 * `doc/plans/plan-instance.adoc`

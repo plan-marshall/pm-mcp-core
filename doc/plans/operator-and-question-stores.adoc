@@ -10,16 +10,19 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* The append-only stores of waivers, waiver requests and question records of the plan, epic and workspace scopes.
+* The append-only stores of waivers and waiver consumptions of a plan (`waivers.jsonl`, `waiver-consumptions.jsonl`), and of question records of the plan, epic, and workspace scopes and of an entry (`pending/<entry_id>/questions.jsonl`, moved into the new scope at its creation).
+* Waiver requests are no store of their own: they are read and written as `waiver_requests[]` of the scope's `mcp/status.json` through the workflow state store, with the closed outcomes `waived`, `raised`, `declined`, and `cancelled` and the `answered` act; no request has a time limit or an `expired` outcome.
+* The question record: a decision is a set of questions named by its first `question_id`; the events `asked`, `revised`, `adjudicated`, `delivered`, `answered`, `withdrawn`, and `cancelled`; the `decision` member on the first question of the set; a `revised` line per question of the set for a change, each line naming its revision; the channels `web`, `cli`, and `quorum`; no deadline and no expiry member. The store holds the record's own invariants: a question is closed by exactly one `answered`, `withdrawn`, or `cancelled` line, a further answer is refused `already_answered`, and an answer to an older revision `conflict`; the validation of an answer's content against its part is the engine's.
+* The module of the question store is settled in the trace matrix: this package names pm-core `core.store`, the Javadoc of the engine port `QuestionRecordReader` names pm-runtime, and the module structure places the question records in pm-workflow `workflow.question`.
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-2[PM-IMPL-2], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers & Questions]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+* Specification: link:../specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers & Questions]
+* Watch: link:../implementation-watch/store-schemas.adoc[Store Schemas]
 
 == Done When
 
-Round-trip and append-only tests per store; a changed record is a new line and the last readable line of its key is current.
+Round-trip and append-only tests per store; a changed record is a new line and the last readable line of its key is current; a revision appends a `revised` line for every question of its set; a second closing line is refused `already_answered` and an answer to an older revision `conflict`; an entry's question file is moved into the new scope at its creation and read there; a waiver request round-trips through `waiver_requests[]` with each outcome.

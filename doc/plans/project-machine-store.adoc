@@ -15,11 +15,11 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-1[PM-ARCH-1], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-2[PM-SEC-2], link:../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-7[PM-IMPL-7]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout § Per-Project Machine Store]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/03-project-store.adoc#project-resolution[§ Project Resolution]; link:../../../plan-marshall-documentation/doc/specification/filesystem-layout/01-repository-workspace.adoc[§ Repository & Workspace]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/filesystem-layout.adoc[Filesystem Layout]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+* Specification: link:../specification/filesystem-layout/03-project-store.adoc#machine-store[Filesystem Layout § Per-Project Machine Store]; link:../specification/filesystem-layout/03-project-store.adoc#project-resolution[§ Project Resolution]; link:../specification/filesystem-layout/01-repository-workspace.adoc[§ Repository & Workspace]
+* Watch: link:../implementation-watch/filesystem-layout.adoc[Filesystem Layout]; link:../implementation-watch/store-schemas.adoc[Store Schemas]
 
 == Done When
 

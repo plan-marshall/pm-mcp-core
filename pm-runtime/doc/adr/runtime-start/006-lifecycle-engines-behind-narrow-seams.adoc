@@ -43,6 +43,6 @@ Alternatives not recorded.
 == Source
 
 * Pull request #29, `feat(runtime): add drain, recovery, sweep and version check`, sections "Changes" and "Intent"
-* Work package link:../../../../doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
-* link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/02-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]
-* link:../../../../../plan-marshall-documentation/doc/specification/timeouts/02-runtime-leases-operator-web.adoc#runtime-lifecycle[Timeouts § Runtime Lifecycle]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/runtime-lifecycle.adoc[`runtime-lifecycle`]
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Model § Startup, Recovery & Drain]
+* link:../../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#runtime-lifecycle[Timeouts § Runtime Lifecycle]

@@ -11,7 +11,7 @@ A unit has one of the scopes of `WorkflowScope`: `plan`, `epic`, `workspace`, `e
 The package also holds the compiled invariants every project-owned unit satisfies and the compiled bounds of the declarations a unit may change (<<_compiled_invariants>>); the loader of the project-owned units in `workflow.unit` runs both.
 
 This guide states what the code checks of Rules 1 to 12 and names, with its ADR, every part of those rules that it does not check (a _seam_); the role and skill checks of Rules 13 and 14 are not part of the verifier (link:../adr/workflow-verify/016-left-out-rules-tracked-as-an-open-package.adoc[ADR 016]).
-The rules themselves are defined by the specification, link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]; the decisions are recorded in `pm-workflow/doc/adr/workflow-verify/`.
+The rules themselves are defined by the specification, link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]; the decisions are recorded in `pm-workflow/doc/adr/workflow-verify/`.
 
 == Architecture and Core Types
 
@@ -143,7 +143,7 @@ Seam (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 0
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
 
 A project may own a copy of the plan workflow and of the sub-workflows `adjudicate.decisions`, `replan`, `git.commit_and_push` and `remediation.*`, and change it within the compiled invariants: whatever it changes, the guarantees of the default unit hold.
-The invariants are specified in link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants] and, for the remediation units, link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units].
+The invariants are specified in link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants] and, for the remediation units, link:../../../doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units].
 
 === Types
 
@@ -242,5 +242,5 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
-* Specification: link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules], link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../../plan-marshall-documentation/doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units]
+* Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules], link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units]
 * Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 025

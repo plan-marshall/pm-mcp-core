@@ -57,5 +57,5 @@ depth.
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16],
   link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
 * `doc/plans/workflow-engine.adoc`, deliverable 4

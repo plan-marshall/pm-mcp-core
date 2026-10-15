@@ -60,6 +60,6 @@ written, and after that a create is completed exactly as a replace.
 
 * Pull request #67, `feat(workflow): compose plan instances with versions and composition log`, CodeRabbit finding
   11e8e3 on `PlanInstanceStore.java`, and the operator decision of 2026-10-14 to fix it in that pull request
-* Work package link:../../../../doc/plans/plan-instance.adoc[`plan-instance`] (PLAN-24)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/plan-instance.adoc[`plan-instance`] (PLAN-24)
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal]
 * `pm-core/src/main/java/de/planmarshall/core/store/ScopeTransaction.java`

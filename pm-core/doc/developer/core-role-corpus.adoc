@@ -4,7 +4,7 @@
 :nofooter:
 
 :req: ../../../../plan-marshall-documentation/doc/requirements
-:spec: ../../../../plan-marshall-documentation/doc/specification
+:spec: ../../../doc/specification
 :src: ../../src/main/java/de/planmarshall/core/role/corpus
 :res: ../../src/main/resources/de/planmarshall/core/role/corpus
 :test: ../../src/test/java/de/planmarshall/core/role/corpus

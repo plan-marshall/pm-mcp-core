@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.BooleanValue;
@@ -28,7 +29,6 @@ import de.planmarshall.runtime.job.JobRequest.JsonNull;
 import de.planmarshall.runtime.job.JobRequest.Numeric;
 import de.planmarshall.runtime.job.JobRequest.Text;
 import de.planmarshall.runtime.job.JobRequest.Value;
-import lombok.experimental.UtilityClass;
 
 /**
  * Validates the arguments of a project script job against the script's enrolled argument schema (PM-EXEC-1,

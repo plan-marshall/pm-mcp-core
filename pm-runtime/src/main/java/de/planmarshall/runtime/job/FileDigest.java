@@ -26,7 +26,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
-
 import lombok.experimental.UtilityClass;
 
 /**

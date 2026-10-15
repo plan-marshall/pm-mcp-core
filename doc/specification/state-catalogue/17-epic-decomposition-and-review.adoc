@@ -1,0 +1,215 @@
+= State Catalogue: Epic Decomposition & Review
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Epic Decomposition & Review
+
+[#state-catalogue-decomposition]
+== Decomposition: `decomposition`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
+
+Declared in `decomposition.pmwf` (`scope subworkflow`, compiled only), called by `epic.decompose` (xref:06-setup-epic-other.adoc#state-catalogue-epic[Epic Workflow]) for the epic's first decomposition, for the operator's _decompose again_ with its instruction, and for a re-cut that adds, drops, or re-scopes a plan, with the re-cut's proposal; exits `done` (the decomposition committed) and `held` (its drafting role failed). Its states have the phase value `epic`. The draft and the operator's decisions on it are kept in the epic's machine store (`epics/<epic_id>/decomposition.json`) until committed, so leaving and a restart resume the review where it stopped, in either client; nothing is committed before the operator agrees and every check passes, and the epic starts no plan before its first decomposition is committed. A later run keeps what shipped, what runs, and what is paused: it changes only staged rows and shows each change against the staged row it replaces. Every change a model proposes reaches the draft only through the operator's read-back (link:../model-work/08-epic-coordination.adoc#decomposition-review[Model Work Specification, The Decomposition Is Reviewed]).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-decomposition.draft]]`decomposition.draft`
+|`epic`
+|`job`
+|`epic.decompose` (entry state); `decomposition.review` (`draft_again`, with the operator's instruction).
+|`job llm decompose role decompose` over the epic's stored sources (on a later run also the ledger: what shipped, what runs, what is paused, the operator's instruction or the re-cut's proposal): the multi-submit entity `decompose` (xref:10-entity-units.adoc#state-entity-multi.active[`entity-multi.active`]) offers `submit workstream`, `submit spec_section` (its claim sections parsed by the submit's content validator, which refuses the payload with `invalid_link_args` and the `detail` code `claim_section_unreadable` or `section_too_large`), and `submit stage` (per staged plan its objective, deliverables, expected surface, dependencies, and order; refusals `surface_overlap`, `surface_undeclared`), each written into the draft, and the closing `submit:decompose`, refused (`detail: decomposition_not_ready`) until at least one row is staged and every staged row's section parses.
+|`submitted` -> `decomposition.check`; `infeasible`, `lost` -> `decomposition.held`.
+|link:../model-work/08-epic-coordination.adoc#decomposition-review[Model Work Specification, The Decomposition Is Reviewed]
+
+|[[state-decomposition.check]]`decomposition.check`
+|`epic`
+|`auto`
+|`decomposition.draft` (`submitted`); `decomposition.read-back` (`accept`); `decomposition.chat` (`proposed`); `decomposition.review` (`keep`, `drop`).
+|`auto decomposition.check`: the surfaces of plans that may run together are disjoint, the dependencies form no cycle, every plan has a workstream; each finding with its plan.
+|`checked` -> `decomposition.review`.
+|link:../model-work/08-epic-coordination.adoc#epic-surface-disjointness[Model Work Specification, Staging-Time Surface Disjointness]
+
+|[[state-decomposition.review]]`decomposition.review`
+|`epic`
+|`operator_wait`
+|`decomposition.check`; `decomposition.read-back` (`discard`); `decomposition.rewrite` (`infeasible`, `lost`); `decomposition.chat` (`ended`); `decomposition.commit` (`stepped_out`).
+|The workstreams and their plans as a tree, with the checks and, on a later run, each change against the row it replaces. Per plan: `keep`, `edit`, `drop`; `add` (a plan in the operator's words); `chat` (with the role `decompose`, over the draft; offered disabled with its reason while no configuration of the role qualifies); `draft_again` (with an instruction); `agree` (refused while a check fails, naming the plans concerned).
+|`keep`, `drop` -> `decomposition.check`; `edit`, `add` -> `decomposition.instruct`; `chat` -> `decomposition.chat`; `draft_again` -> `decomposition.draft`; `agree` -> `decomposition.commit`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-6[UC-STA-6]
+
+|[[state-decomposition.instruct]]`decomposition.instruct`
+|`epic`
+|`operator_wait`
+|`decomposition.review` (`edit`, `add`); `decomposition.read-back` (`instruct_again`).
+|The operator's words for the plan, never interpreted: the role works from them. `instruct`.
+|`instruct` -> `decomposition.rewrite`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-6[UC-STA-6]
+
+|[[state-decomposition.rewrite]]`decomposition.rewrite`
+|`epic`
+|`job`
+|`decomposition.instruct` (`instruct`).
+|`job llm decomposition-rewrite role decompose`: drafts or rewrites the one plan from the operator's words (objective, deliverables, surface, dependencies).
+|`submitted` -> `decomposition.read-back`; `infeasible`, `lost` -> `decomposition.review` (the reason shown).
+|link:../model-work/08-epic-coordination.adoc#decomposition-review[Model Work Specification, The Decomposition Is Reviewed]
+
+|[[state-decomposition.read-back]]`decomposition.read-back`
+|`epic`
+|`operator_wait`
+|`decomposition.rewrite` (`submitted`).
+|Old against new. `accept` (the plan written into the draft), `instruct_again`, `discard`.
+|`accept` -> `decomposition.check`; `instruct_again` -> `decomposition.instruct`; `discard` -> `decomposition.review`.
+|link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-decomposition.chat]]`decomposition.chat`
+|`epic`
+|`call`
+|`decomposition.review` (`chat`).
+|`call chat` with the subject the epic and the scope the draft, role `decompose` (link:../state-catalogue.adoc#chat[Chat]).
+|`proposed` (an accepted change, written into the draft) -> `decomposition.check`; `ended` -> `decomposition.review`.
+|link:../state-catalogue.adoc#chat[Chat]
+
+|[[state-decomposition.commit]]`decomposition.commit`
+|`epic`
+|`call`
+|`decomposition.review` (`agree`).
+|`call git.commit_and_push (message_mode=step_or_fallback, push_mode=never)` in the shared epic worktree on the fixed epic branch, staging only `.marshall/epics/**`: the workstreams and the staged rows written to the ledger (with the epic's sources on the first run), the draft cleared; the ledger is landed by `epic.landing`.
+|`done` -> `decomposition.done`; `stepped_out` -> `decomposition.review` (the draft kept; agreeing commits again).
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]
+
+|[[state-decomposition.done]][[state-decomposition.held]]`decomposition.done`, `decomposition.held`
+|`epic`
+|`terminal`
+|`decomposition.commit` (`done`); `decomposition.draft` (`infeasible`, `lost`).
+|Declared `terminal done success` and `terminal held failure` (the decomposition `held` with the task's reason, shown as the hold `held`).
+|The caller's `done` and `held` transitions (`epic.decompose`).
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===
+
+[#state-catalogue-review]
+== Review: `review`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
+
+Declared in `review.pmwf` (`scope subworkflow`, compiled only), called by `epic.review` over one of the epic's registers, findings (a problem no plan owns yet) or watches (an observation to check again, with its trigger) (link:../model-work/08-epic-coordination.adoc#findings-watches[Model Work Specification, An Epic's Findings and Watches]); exit `done`. Its states have the phase value `epic`. Its tasks are those of the epic's planning role `decompose`; every change a model proposes reaches the register only through the operator's read-back, and the planning role reads the items as data, an item that came from outside the machine still marked untrusted. The dispositions made so far are kept in the epic's machine store (`epics/<epic_id>/review.json`) until committed, so leaving resumes the review where it stopped, in either client; they are written to the ledger in one write, and a promoted item stages a row under the same surface checks as the decomposition (link:../model-work/08-epic-coordination.adoc#epic-review[Model Work Specification, The Review]).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-review.open]]`review.open`
+|`epic`
+|`auto`
+|`epic.review` (entry state, the register).
+|The items of the register, open ones first, each with its statement, its rules (what makes a watch fire, what a finding requires), its origin (a landing, a plan's message, an observation), since when, and the proposal the epic's task recorded for it when it added the item.
+|`opened` -> `review.item`.
+|link:../model-work/08-epic-coordination.adoc#findings-watches[Model Work Specification, An Epic's Findings and Watches]
+
+|[[state-review.item]]`review.item`
+|`epic`
+|`operator_wait`
+|`review.open`; `review.keep`, `review.drop`; `review.confirm-plan` (`staged`, `back`); `review.read-back` (`accept`, `discard`); `review.rewrite`, `review.draft-plan` (`infeasible`, `lost`); `review.chat`; `review.commit` (`stepped_out`).
+|Per item: `keep` (as a finding, or as a watch), `drop` (with the operator's reason), `promote`, `edit`, `chat` (with `decompose`, over the item or the whole register); `accept_remaining` (the proposal for every item not decided yet, after one confirmation that lists them); `finish`.
+|`keep` -> `review.keep`; `drop` -> `review.drop`; `promote` -> `review.draft-plan`; `edit` -> `review.instruct`; `chat` -> `review.chat`; `accept_remaining` -> this state; `finish` -> `review.commit`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-3[UC-CTL-3]
+
+|[[state-review.keep]][[state-review.drop]]`review.keep`, `review.drop`
+|`epic`
+|`auto`
+|`review.item` (`keep`, `drop`).
+|Records the disposition: kept as a finding or as a watch (moved to the other register where the kind changes), or dropped with the reason.
+|`recorded` -> `review.item`.
+|link:../model-work/08-epic-coordination.adoc#epic-review[Model Work Specification, The Review]
+
+|[[state-review.draft-plan]]`review.draft-plan`
+|`epic`
+|`job`
+|`review.item` (`promote`).
+|`job llm review-plan-draft role decompose`: a staged plan drafted from the item (objective, deliverables, surface, dependencies).
+|`submitted` -> `review.confirm-plan`; `infeasible`, `lost` -> `review.item` (the reason shown).
+|link:../model-work/08-epic-coordination.adoc#epic-review[Model Work Specification, The Review]
+
+|[[state-review.confirm-plan]]`review.confirm-plan`
+|`epic`
+|`operator_wait`
+|`review.draft-plan` (`submitted`); `review.read-back-plan` (`accept`, `discard`); `review.redraft-plan` (`infeasible`, `lost`).
+|The drafted plan, and after a refused staging the check's finding with its plan. `stage` (staged through the surface checks of the decomposition), `edit`, `back`.
+|`staged` -> `review.item` (the item promoted, the staged row its disposition); `check_failed` -> this state; `edit` -> `review.instruct-plan`; `back` -> `review.item`.
+|link:../model-work/08-epic-coordination.adoc#epic-surface-disjointness[Model Work Specification, Staging-Time Surface Disjointness]
+
+|[[state-review.instruct-plan]]`review.instruct-plan`
+|`epic`
+|`operator_wait`
+|`review.confirm-plan` (`edit`); `review.read-back-plan` (`instruct_again`).
+|What to change in the drafted plan, in the operator's words. `instruct`.
+|`instruct` -> `review.redraft-plan`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-3[UC-CTL-3]
+
+|[[state-review.redraft-plan]]`review.redraft-plan`
+|`epic`
+|`job`
+|`review.instruct-plan` (`instruct`).
+|`job llm review-plan-draft role decompose`: the plan drafted again from the operator's words.
+|`submitted` -> `review.read-back-plan`; `infeasible`, `lost` -> `review.confirm-plan` (the draft before).
+|link:../model-work/08-epic-coordination.adoc#epic-review[Model Work Specification, The Review]
+
+|[[state-review.read-back-plan]]`review.read-back-plan`
+|`epic`
+|`operator_wait`
+|`review.redraft-plan` (`submitted`).
+|The plan, old against new. `accept`, `instruct_again`, `discard`.
+|`accept` -> `review.confirm-plan` (the new draft); `instruct_again` -> `review.instruct-plan`; `discard` -> `review.confirm-plan` (the draft before).
+|link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-review.instruct]]`review.instruct`
+|`epic`
+|`operator_wait`
+|`review.item` (`edit`); `review.read-back` (`instruct_again`).
+|What to adapt or add to the item's statement and rules, in the operator's words. `instruct`.
+|`instruct` -> `review.rewrite`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-3[UC-CTL-3]
+
+|[[state-review.rewrite]]`review.rewrite`
+|`epic`
+|`job`
+|`review.instruct` (`instruct`).
+|`job llm review-rewrite role decompose`: the item's statement and rules rewritten from the operator's words.
+|`submitted` -> `review.read-back`; `infeasible`, `lost` -> `review.item` (the reason shown).
+|link:../model-work/08-epic-coordination.adoc#epic-review[Model Work Specification, The Review]
+
+|[[state-review.read-back]]`review.read-back`
+|`epic`
+|`operator_wait`
+|`review.rewrite` (`submitted`).
+|The change, old against new. `accept`, `instruct_again`, `discard`.
+|`accept` -> `review.item` (the change applied); `instruct_again` -> `review.instruct`; `discard` -> `review.item` (the item unchanged).
+|link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]
+
+|[[state-review.chat]]`review.chat`
+|`epic`
+|`call`
+|`review.item` (`chat`).
+|`call chat` with the subject the epic and the scope one item or the whole register, role `decompose` (link:../state-catalogue.adoc#chat[Chat]).
+|`proposed` (an accepted change, recorded as the item's disposition or rewrite), `ended` -> `review.item`.
+|link:../state-catalogue.adoc#chat[Chat]
+
+|[[state-review.commit]]`review.commit`
+|`epic`
+|`call`
+|`review.item` (`finish`).
+|`call git.commit_and_push (message_mode=step_or_fallback, push_mode=never)` in the shared epic worktree, staging only `.marshall/epics/**`: the dispositions in one ledger write, a promoted item a staged row; the ledger is landed by `epic.landing`.
+|`done` -> `review.done`; `stepped_out` -> `review.item` (the dispositions kept).
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]
+
+|[[state-review.done]]`review.done`
+|`epic`
+|`terminal`
+|`review.commit` (`done`).
+|Declared `terminal done success`.
+|The caller's `done` transition (`epic.review`).
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===

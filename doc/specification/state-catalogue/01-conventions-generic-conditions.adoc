@@ -1,0 +1,324 @@
+= State Catalogue: Conventions, Generic States, Conditions & Holds
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Conventions, Generic States, Conditions & Holds
+
+== Conventions
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-1[PM-WF-1: Hypermedia State Representation (HATEOAS)]_
+
+=== State Identifier Grammar
+
+* *Form*: A state identifier is `<unit>.<name>`: the workflow unit it belongs to, a dot, and the state name. Both parts follow the DSL `identifier` production (lowercase letter first, then lowercase letters, digits, `_`, `-`; link:../workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL Specification, EBNF]). State names are kebab-case (`finalize.concurrent-wait`). The dialogue name `awaiting_answers` keeps its established snake-case form. A question state is named by its question (`init.sibling-collision`), never by the unit `decision` it calls.
+* *Units*: The unit of a plan-workflow state is its phase sub-workflow (`phase-1-init.pmwf` … `phase-6-finalize.pmwf`, unit ids `phase-1-init` … `phase-6-finalize`, equal to the phase value), whose states carry the phase's short name as prefix (`init`, `refine`, `outline`, `plan`, `execute`, `finalize`), or the land lane's sub-workflow `land`, called within the phase `execute` (link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]); the plan unit itself (`plan.pmwf`, unit id `plan`), which calls the phases, gives its call states the prefix `phases` (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]). A state of a variant of a plan behaviour axis carries the prefix of the phase whose call site calls it (`finalize.land-main`), because the variant takes over a part of that phase. A sub-workflow state carries the sub-workflow's family prefix: `git` for `git.commit_and_push`; `git-land-removal` and `git-land-unit` for the short landings; `remediation-<class>` for the remediation unit `remediation.<policy>` (for example `remediation-ci` for `remediation.ci-failure`, xref:08-remediation-units.adoc#state-catalogue-remediation[Remediation Units]); the unit's own name for a source unit (`source-issue`, xref:09-bootstrap-and-lessons.adoc#state-catalogue-source[Source Units]), for the re-planning unit `replan` (xref:12-re-planning.adoc#state-catalogue-replan[Re-Planning]), the decision unit `decision` (xref:16-decision.adoc#state-catalogue-decision[Decision]), the chat unit `chat` (link:../state-catalogue.adoc#chat[Chat]), the epic's `decomposition` and `review` (xref:17-epic-decomposition-and-review.adoc#state-catalogue-decomposition[Decomposition & Review]), the recipe choice `recipe`, the asking and method variants (`ask-every-phase`, `ask-key-points`, `ask-questions-only`, `method-test-first`, `method-tests-after`), and the onboarding's aspects (`auto`, `language`, `harness`, `catalogue`, `roles`, `store`, `providers`, `defaults`, xref:14-machine-onboarding.adoc#state-catalogue-onboarding[Machine Onboarding]); `adjudicate` for the adjudication unit `adjudicate.decisions` (xref:13-question-adjudication.adoc#state-catalogue-adjudicate[Question Adjudication]). Every other top-level unit has its own prefix: `onboard` and `settings` for `onboarding.pmwf` (the machine scope), `project` for `project-onboarding.pmwf` (xref:15-project-onboarding.adoc#state-catalogue-project-onboarding[Project Onboarding]), `setup` for `project-setup.pmwf`, `epic` for `epic.pmwf`. The start units of a plan and an epic have the prefixes `start` (`bootstrap-plan.pmwf`) and `start-epic` (`bootstrap-epic.pmwf`, xref:09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[Starts]); an entity state carries its entity unit (`envelope`, `entity`, `entity-multi`); a state of the task-protocol unit `worker-task` the prefix `task` (xref:10-entity-units.adoc#state-catalogue-worker-task[Task Protocol Unit]).
+* *Exits across phases*: A row whose exit names a state of another phase, `plan.return`, or a plan terminal (`init.ready` `deep` -> `refine.baseline-reconcile`) states an exit of its phase sub-workflow with the outcome of that transition: the phase returns it to the plan unit, whose call state calls the named phase at the entry the target state stands for (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]). "Phase set back to `phase-3-outline`" means the plan unit calls the phase `outline` again; the land lane's states are entered through the phase `execute`, and a lane's skipped phases are pruned calls.
+* *Exceptions*: The plan's non-abort terminal states are the bare plan outcome names `completed` (plan `outcome` `merged`, or `no_change` for an empty harvest; the declared outcome id `merged` of the terminal is nominal), `handed_back`, and `returned` (`PM-WF-1` admits both bare and phase-qualified terminal identifiers). The plan's abort terminal `plan.aborted` and its Phases 1–4 fallback state `plan.return` carry the scope type as prefix, the same text as the prefix of the Phase 4 states but declared in the plan unit `plan` like the terminals; the epic's abort terminal is `epic.aborted`. Entity states may carry a third segment (`envelope.task.active`), and so does the question state of a task's `ask`, named by the asking state and `.asked` (`<state>.asked`); no other state does.
+* *Anchors*: Every catalogued state carries the anchor `state-<state id>` (for example `link:04-plan-finalize-terminal.adoc#state-finalize.hand-back[finalize.hand-back]`); a generic state `<phase>.x` carries `state-phase.x`, a generic remediation state `remediation-<class>.x` carries `state-remediation.x`, a generic state of a source unit `source-<kind>.x` carries `state-source.x`, and the engine-made question state `<state>.asked` carries `state-state.asked`. A condition overlay carries `condition-<kind>` (for example `link:01-conventions-generic-conditions.adoc#condition-footprint_violation[footprint_violation]`); a condition that covers a generic state also carries that state's anchor on its row. Each unit table carries the anchor named in its heading.
+* *Not states*: Primitive identifiers share the dotted form (`primitive_id = identifier "." identifier`) but are never states: `review.check-structural-caps`, `finalize.watch-ci-and-bots`, `finalize.retry-emit-landing`, `finalize.landing-status`, `finalize.wait-status`, `execute.evaluate-envelope-return` (the return-evaluation primitive of the envelope task), `plan.allocate-remediation-tasks`, `findings.triage`, `lane.budget-check`, `merge.gate-entry`, `merge.sync-base`, `merge.evaluate-barrier`, `merge.dispatch`, `waiver.lookup`, `start.create-scope`, the remediation primitives (`remediation.check-budgets`, `remediation.gather-<class>-evidence`, `remediation.request-waiver`, `remediation.offer-actions`, `remediation.conservative-retry`, `remediation.conservative-end`, `remediation.rerun-checks`, `remediation.rescan`, `remediation.retrigger-bots`, `remediation.rerun-build`, `remediation.continue-integration`), the epic primitives (`epic.await-event`, `epic.pending-messages`, `epic.unanalyzed-landings`, `epic.stage-plan`, `epic.ingest-message`, `epic.land-ledger`, `epic.archive-ledger`, `epic.check-through`), the re-planning primitives (`replan.detect`, `replan.gather-trigger`, `replan.conservative-fallback`, `replan.apply-revision`, `replan.rebase-onto-base`), `git.pre-commit-verify-freshness`, `git.push-barrier-decision`, `git.branch-sync-state`, `git.rebase-onto-upstream`, `git.rebase-continue`, `build.enqueue-verification`, `build.verify-worktree`, `consent.check-remembered`, and the other `do`, `auto`, `job`, `facts`, and `predicate:` targets of the DSL excerpts. Where a state and its primitive share a name (`git.inspect-worktree`, `git.detect-artifacts`, `git.resolve-message`, `git.stage-and-commit`, `git.evaluate-push-policy`, `finalize.adopt-pr`, `finalize.restart-watch`, `finalize.hand-back`, `finalize.archive-plan`, `plan.return`, `outline.assume-change-type`, `git.template-message`, `finalize.adopt-blocked`, `finalize.merge-lease-interrupted`, `finalize.archive-unobserved`, `git.push-retry-wait`, `finalize.open-pr`, `epic.next-work`, `start.create`, and every router state such as `outline.route-rework`), the catalogue row is the state. Configuration keys (`landing`, `epic.auto_start`), file names (`outline.md`, `phase-1-init.pmwf`), and role names (`implement`, `triage-ci`) are not states either.
+* *Other status vocabularies*: The following closed vocabularies are record statuses, not workflow states, and are defined where their record is defined: the plan's activity (`running`, `pausing`, `paused`; link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]); the hold kinds (`stalled`, `condition`, `integrity_pause`, `held`, `landing_failed`; <<holds>>); task statuses of plan tasks (`pending` .. `removed`, link:../store-schemas/06-task-and-references.adoc#_task_record_schema_taskstask_nnn_json[Store Schemas Specification, Task Record]), the worker states (`waiting` .. `ended`) and the task outcomes (`submitted`, `asked`, `infeasible`, `lost`) of a queue task (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]), job record statuses (a queue task waiting for a worker is `queued`) and job fates (`PM-EXEC-4`, link:../store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas Specification, Job Record]), per-bot participation states and `bot_status` / `ci_status` / `analysis_status` (link:../hypermedia-format/03-composite-wait-and-encoder.adoc#_closed_status_enumerations_in_finalize_concurrent_wait[Hypermedia Format Specification, Closed Status Enumerations]), the epic queue row vocabulary (link:../model-work/08-epic-coordination.adoc[Model Work Specification, Epic Coordination]), question record closures (`answered`, `withdrawn`, `cancelled`, link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]), waiver request outcomes (`waived`, `raised`, `declined`, `cancelled`), the cleanup job's states (`open`, `postponed`, `deleting`, `done`, link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]), and finding statuses.
+
+=== Phase Value vs State Identifier
+
+A plan's phase is the phase sub-workflow on its call stack: a state of a phase sub-workflow, and every state of a sub-workflow called within that phase (a remediation unit, `git.commit_and_push`, `replan`, the adjudication, `decision`, `chat`, the land lane, an axis variant), has that phase. The *phase value* is the `phase` member of the scope's `mcp/status.json` (link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]), derived from the call stack and never declared by a state; the hypermedia `phase` field uses the short names of the same values. A sub-workflow, entity, or task state takes the value of the scope position that called it or owns its task.
+
+[cols="3,2,2"]
+|===
+|States |`status.json` `phase` |Hypermedia `phase`
+
+|`init.*` and what it calls; `phases.init`
+|`phase-1-init`
+|`init`
+
+|`refine.*` and what it calls; `phases.refine`
+|`phase-2-refine`
+|`refine`
+
+|`outline.*` and what it calls; `phases.outline`
+|`phase-3-outline`
+|`outline`
+
+|`plan.*` (except `plan.return`, `plan.aborted`) and what it calls; `phases.plan`, `phases.ask-*` before the phase they precede
+|`phase-4-plan`
+|`plan`
+
+|`execute.*`, `land.*`, and what they call; `phases.execute`
+|`phase-5-execute`
+|`execute`
+
+|`finalize.*` (the landing variants' states included), `plan.return`, and what they call; `phases.finalize`
+|`phase-6-finalize`
+|`finalize`
+
+|`completed`, `handed_back`, `returned`, `epic.archived`
+|`completed`
+|`completed`
+
+|`plan.aborted`, `epic.aborted`
+|`aborted`
+|`aborted`
+
+|`epic.*` (except `epic.archived`, `epic.aborted`), `decomposition.*`, `review.*`, and a `chat` of the epic
+|`epic`
+|`epic`
+
+|`project.*` once the project is enrolled, `setup.*`, `git-land-removal.*`, `git-land-unit.*`, a `chat` about ended work
+|`workspace`
+|`workspace`
+
+|`onboard.*`, `settings.*`, and the onboarding's aspect units
+|`machine`
+|`machine`
+
+|`start.*`, `start-epic.*`, `source-<kind>.*`, `recipe.*`, and `project.*` before the enrolment (an entry, which keeps no `status.json`)
+|—
+|`entry`
+
+|`envelope.*`, `entity.*`, `entity-multi.*`, `task.*`
+|the value of the scope that owns the task (an entity scope keeps no `phase` of its own)
+|the value of the scope that owns the task
+|===
+
+The plan outcome of a terminal plan (`merged`, `handed_back`, `returned`, `no_change`, and through `plan.aborted` `cancelled`, `abandoned`, `released`, `aborted`) is recorded as `outcome` beside the phase value and carried by the landing record (link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Plan Outcomes]).
+
+=== State Kinds
+
+Every state has exactly one kind, which `StateCatalogueDriftTest` derives from the AST. The kinds follow the DSL `state_body` alternatives; `overlay` is the kind of a condition, which is not a state.
+
+Every scope is driven by the server. A state is server logic (`auto`, `job`, `composite_job`, `call`), a task of a named role (`job llm`), or an operator wait. The kind `link` exists only on the entity states of a task, whose worker follows its links; the operator's links of an operator wait are operator endpoints of the local API served to the operator's two clients (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]), never part of a model-facing representation, and a plan or epic representation is otherwise a view whose `links` list is empty.
+
+[cols="1,4"]
+|===
+|Kind |Meaning
+
+|`auto`
+|Runs one primitive in the same transaction (`auto` clause) and follows its outcome; never a resting state (the epic rests in its watch `composite_job` `epic.active`).
+
+|`operator_wait`
+|Waits for the operator, as the workflow language defines it once (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]): it offers its declared operator links to both clients, holds no worker and no model slot, has no time limit, and ends only by an act of the operator through one of its links or by an override that ends the scope. It halts its own scope only. A row names the links and what each does; it never names a wait, a deadline, a mode, or a fallback of its own. A consent state is an operator wait with the links `yes`, `yes_remember` (only where the consent kind can be remembered), and `no` (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]): `no` leaves the scope in the state and records nothing, except where the row names the optional action it skips; a consent remembered for its kind passes the state without a question (`consent.check-remembered`). An operator wait of a sub-workflow offers the implicit `step_out` (`reason: text[1..2000]`) where its row says so: in the source units, and in a later run of the setup and of the onboarding's aspects.
+
+|`link`
+|Offers declared links (`link` clauses) to the worker of a task: only on an entity state of a task's entity unit (xref:10-entity-units.adoc#state-catalogue-other[Entity Units]).
+
+|`job`
+|Runs one asynchronous job (`job` clause) and rests until it settles; its completion is an engine event, never a link a model follows, and its outcomes are exactly the closed job outcome set of `PM-EXEC-4`, including `cancelled` (a cancel by the server or the operator). A *model state* (`job llm <entity_kind> role <role> [each <primitive_id>]`, link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Model Job States]) is the exception: entering it creates one queue task for the named role, run through the task-protocol unit `worker-task` (xref:10-entity-units.adoc#state-catalogue-worker-task[Task Protocol Unit]) and served to a worker of that role, which works on the task's entity unit; the state's outcomes are those of the entity kind's return-evaluation primitive over the persisted records, plus the reserved outcome `lost`. With `each <primitive_id>` it creates one task per element of a server-computed list, each with its own entity, and completes when every entity has its required submission (`setup.enrich-architecture`, the screener states). A state may declare `consult role <role>`, which offers its task's worker one `consult:<role>` link (link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]). The closed task outcomes route as follows: `submitted`, `asked`, and `infeasible` take the return evaluation, whose outcomes include the state's question state `<state>.asked` (for `asked`, only on a state that declares `ask`: `job llm <entity_kind> role <role> [ask]`, <<state-state.asked>>) and the infeasible exit the row names (link:../model-work/09-completion-usage-and-spend.adoc#return-evaluation[Model Work Specification, Return Evaluation]). An attempt that ends without the required submission is offered again within the state's self-remedy budget (`job_incomplete`, <<condition-job_incomplete>>). A task closes `lost` when its re-offers are spent or when it is closed without an attempt because its role is undefined, unqualified (`PM-WORK-6`), or unavailable; the state routes `lost` to its conservative fallback, recorded with the task's reason (link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]). A row names the fallback it takes; a plan-scope state whose row names none takes the fallback of the position (<<exits-and-fallbacks>>). The screener (`job llm screen role screener each screen.batch-parts`) has no entity: its evaluation validates the structured `screen-verdict` output of every batch part, fail-closed, with the outcomes `clean` and `suspicious`.
+
+|`composite_job`
+|Runs several jobs, or one observation with domain outcomes, as one composite wait (`composite_job` clause) whose identifier equals the state identifier; its completion is an engine event. Its primitive declares its own closed outcomes and how a constituent `killed`, `timed_out`, or `indeterminate` fate maps to them.
+
+|`call`
+|Invokes a sub-workflow (`call` clause) at one of the entries its frontmatter declares; never a resting state itself. The call makes the sub-workflow's entry state current, and the representation shows the call path. The call site routes every outcome of the sub-workflow's exit contract: `done` with a typed result record, or its domain outcomes, and the control outcome `stepped_out` where the unit can return it (link:../workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL Specification, Rule 6]). A *question state* is a `call` state of the compiled unit `decision` (xref:16-decision.adoc#state-catalogue-decision[Decision]): entering it runs the scope's adjudication `adjudicate.decisions` of the new question set first (xref:13-question-adjudication.adoc#state-catalogue-adjudicate[Question Adjudication]); a set the quorum decides resolves the call `answered` (`channel: quorum`) without delivering it, and an escalated set is delivered by the call to both clients of the operator as one decision. The unit returns `answered` with the answer record, or `withdrawn` (the operator's _none fits_, or a chat's revision that removed what asked), and never `stepped_out`. Every `answered` enters one target: a re-entrant `auto` state that reads the answer and decides (`init.classify`, `outline.route-review`, `setup.probe-merge-queue`), or the single continuation of the state; an `ask` question state returns to its asking state, whose next task shows the answer in `facts`. A `withdrawn` decision is asked anew by its caller: a question state a worker's question created returns to the asking state, whose next task asks again with the operator's note in `facts`; a question state the server raised re-enters itself, whose adjudication votes again. The question states are closed: `init.sibling-collision`, `init.domain-choice`, `refine.awaiting_answers`, `outline.awaiting_answers`, `outline.review`, `execute.task-question`, `setup.merge-queue`, `setup.reseed-build-map`, `setup.offer-new-steps`, and the engine-made `<state>.asked` of every task state that declares `ask` (<<state-state.asked>>). A new question state is catalogued before any document uses it.
+
+|`overlay`
+|Not a state: an engine-owned condition recorded on the scope (`pending_condition` in `mcp/status.json`) while the current state and `call_stack` stay unchanged. While it is set, the current state's representation keeps `state` and names the condition in the field `condition`. Conditions are catalogued in <<state-catalogue-conditions>>, never in a state table, and are never declared in a DSL unit (link:../workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL Specification, Condition Overlays]).
+
+|`terminal`
+|No outgoing transition; `links: []`. Every terminal state declares `terminal <outcome_id> <outcome_class>` (link:../workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL Specification, EBNF]); a sub-workflow terminal state's outcome is the one returned to its caller. The plan's terminals are `completed`, `handed_back`, and `returned`, each entered only through the phase `finalize` after the post-run band, and `plan.aborted` (class `failure`), entered only by the operator's cancel or abandon, the integrity abort, the release of the project, or `delete-plan` (xref:04-plan-finalize-terminal.adoc#plan-end[Cancelling and Abandoning Archive]). The epic's terminals are `epic.archived` and `epic.aborted`. The workspace scope and the machine scope have no terminal state: they rest in `project.completed` and `onboard.completed`.
+|===
+
+[#exits-and-fallbacks]
+=== Exits, Step-Outs & Fallbacks
+
+A scope halts only in an operator wait, which halts that scope and nothing else, in a pause the operator set on a plan, or in an integrity breach (link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Plan Outcomes, Fallback Routes & Remediation Policies]). Every other blocking situation of a plan has a bounded self-remedy and then a defined fallback:
+
+* *Task outcomes*: No task ends a plan, and no model-facing link of a plan or epic offers a `hand_back` or `step_out`. A task ends only in its closed outcomes; a plan leaves its course early only through a server rule (a spent budget, a server step-out, a task closed `lost`) or through a closed decision a task submits where its state offers one (`return` of `refine.hypothesis-refuted`, `hand_back` of `replan.review`). A task that ends `infeasible` or closes `lost` takes the exit its row names, by default the fallback of the position.
+* *Fallback of the position*: `plan.return` in Phases 1–4 (which forwards a plan branch with commits beyond the base to `finalize.hand-back`), `finalize.hand-back` in Phase 5, the land lane, and Phase 6 before the merge. After the merge no fallback exists: a failing post-merge step is retried within its budget and otherwise completes `failed` with an owed item, and a post-run task that cannot be done completes its step `skipped`. The epic, the workspace, and the machine scopes have no fallback.
+* *`step_out`*: Inside a sub-workflow of a plan or epic the server steps out: `stepped_out {by: server, cause, reason}` when an attempt cap or a bounded retry of the unit is spent (`git.stepped-out`); the caller routes it once, to a fallback state or to its own recovery state. The implicit `step_out (reason: text[1..2000])` link exists only on the operator waits whose rows offer it (the source units; the setup's and the onboarding's aspects in a later run): it unwinds one frame and returns `stepped_out {by: operator, cause: step_out, reason}`. A server step-out of cause `condition` (a spent condition budget) unwinds every frame at once to the fallback of the plan-scope position, and no recovery state of a caller routes it (<<state-catalogue-conditions>>). An interrupted rebase is aborted by the server before the frame unwinds. A step-out consumes no budget and writes no waiver.
+* *Fallback states*: `plan.return` and `finalize.hand-back` (xref:04-plan-finalize-terminal.adoc#state-catalogue-fallback[Plan Fallbacks & Terminal States]) compose a post-run-only plan instance version, in force from the transition that enters them for the rest of their chain, and continue into the post-run band; the transaction entering them, or `plan.aborted`, records every begun, unsettled step `failed`.
+* *Operator influence*: The operator influences a plan only by operator acts of the two clients: answering its operator waits; waivers (`waive`, `unwaive`, `decline`), read at gate evaluation and by the waiver wait of a remediation unit; pausing and starting it (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]); cancelling or abandoning it, and the integrity abort, engine-owned scope-wide transitions into `plan.aborted` in the next transaction (xref:04-plan-finalize-terminal.adoc#plan-end[Cancelling and Abandoning Archive]); a revision accepted in a chat (link:../state-catalogue.adoc#chat[Chat]); and the plan's own settings, which compose a new instance version (composition event `override`, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]). The operator acts on an epic (next plan, decompose again, automatic on or off, a review, archive, cancel) are operator endpoints of the epic resource that settle its watch `epic.active` (link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]); the release of a project ends its plans and epics (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]). None of these engine-owned transitions is a DSL transition of a catalogued state.
+
+=== Generic Per-Phase States
+
+A generic state is written `<phase>.x` and stands for one concrete state per unit in which it occurs: `<phase>` is replaced by the unit prefix (`refine.awaiting_answers`, `execute.remediate-build`). A generic state is defined once in <<state-catalogue-generic>>, including its per-unit exits; its expansion table lists the units where it occurs. A unit table repeats a concrete expansion only where that expansion has behaviour beyond the generic definition (`refine.awaiting_answers`, `outline.awaiting_answers`). A generic state is a real state that a DSL transition targets; what the engine raises on any state of any unit (an integrity breach, a footprint violation, an incomplete task, configuration drift, an unmet precondition, a guard that could not be evaluated) is a condition overlay (<<state-catalogue-conditions>>), not a generic state. `*.x` in other documents means the same as `<phase>.x`. The engine-made question state `<state>.asked` of a task state that declares `ask` is catalogued once in the same table as a pattern row; it is never declared in a unit and never a DSL transition target.
+
+[#state-catalogue-generic]
+== Generic Per-Phase States
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-phase.awaiting_answers]]`<phase>.awaiting_answers`
+|the unit's phase value
+|`call`
+|The unit's authoring model state (first pass only) whose task's `submit` carried open questions in its optional `decision`; its parts form one decision of class `clarification`.
+|`call decision` (xref:16-decision.adoc#state-catalogue-decision[Decision]): the clarifications as one decision, asked in a single batch.
+|`answered` -> the authoring state's single second task: `refine.analyze`, `outline.deep`; `withdrawn` -> the authoring state's second task as well, with the operator's note in `facts` instead of answers.
+|link:../model-work/06-envelopes-questions-deadlines.adoc[Model Work Specification, Envelopes & Questions]; link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]
+
+|[[state-state.asked]]`<state>.asked`
+|the asking state's phase value
+|`call`
+|The asking task state `<state>` (`asked`: its task followed the entity's `ask` link and did not continue after it, link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). Engine-made once per task state that declares `ask`, never declared in a unit (link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States], item 8). The default units declare `ask` on no task state: the refine and outline authoring tasks ask through the optional `decision` of their `submit` (<<state-phase.awaiting_answers>>), an envelope task through `ask:TASK-NNN` (`execute.task-question`), and the re-planning, vote, and `zero_tool` tasks never ask; a project-owned unit may declare it.
+|`call decision` over the question record of class `ask` the task created.
+|`answered`, `withdrawn` -> `<state>` (re-entered: a new task of the role with the answer, or the operator's note, in `facts.answers`; its `ask` link is offered within the link:../timeouts/01-job-budgets-and-waits.adoc#question-bound[question bound]).
+|link:../model-work/06-envelopes-questions-deadlines.adoc#question-record-creation[Model Work Specification, Record, Store & Creation]; link:../phase-workflows/07-questions-waivers-operator-influence.adoc#questions-waivers-operator-influence[Phase Workflows Specification, Questions, Waivers & Operator Influence]
+
+|[[state-phase.remediate-qgate]]`<phase>.remediate-qgate`
+|the unit's phase value
+|`call`
+|The unit's `<phase>.qgate` (`blocking`); for `outline` also `outline.gate` (`findings_pending`) and `plan.derive-tasks` (`derivation_failed`, the plan unit calling the phase `outline` again).
+|`call remediation.qgate-findings (retry_budget=0, fix_budget=3, actions=[fix])` (xref:11-remediation-units-merge-qgate-spend.adoc#state-catalogue-remediation-qgate[`remediation.qgate-findings`]).
+|`resolved`, `waived` (the findings accepted by waiver) -> the phase exit: `refine.ready`, `outline.gate`, `execute.worktree-init` (the phase `execute`). `fix_requested` (the findings in `facts.qgate_findings`) -> the unit's rework entry: `refine.analyze` (a remediation pass: no second-task count, no question round, a below-threshold score is recorded `low_confidence_manual_review`), `outline.route-rework` (which routes by lane), `plan.revise-tasks`. `exhausted`, `stepped_out` -> `plan.return`.
+|link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]; link:../phase-workflows/01-planning-phases-1-2.adoc#_remediation_policy_calls[Remediation Policy Calls]
+
+|[[state-phase.remediate-build]]`<phase>.remediate-build`
+|the unit's phase value
+|`call`
+|`execute.deliverable-build` (every fate but `succeeded`, `remediation_cause: deliverable`), `execute.verify-sweep` (`red`, `cancelled`, `remediation_cause: sweep`); `land.verify-sweep` (`red`, `cancelled`); `finalize.pre-push-quality-gate` (`red`, `no_verdict`, `cancelled`).
+|`call remediation.build-failure (retry_budget=1, fix_budget=3, actions=[retry,fix])`; the composition binds a `land` plan's call to `fix_budget=0` and `actions=[retry]` (xref:08-remediation-units.adoc#state-catalogue-remediation-build[`remediation.build-failure`]).
+|`resolved` -> `execute`: `execute.route-build-cause`, which routes by the persisted `remediation_cause`; `land` -> `land.verify-sweep`; `finalize` -> `finalize.settle-commit` (`completes default:pre-push-quality-gate as done`). `fix_requested` -> `execute.allocate-remediation`, `finalize.allocate-remediation`; pruned for `land` (reason `land_lane`). `exhausted` -> `execute.replan` or `finalize.replan` (trigger `ceiling`; `land` -> `land.handed-back`); `stepped_out` -> `finalize.hand-back` (`land` -> `land.handed-back`).
+|link:../phase-workflows/03-q-gate-and-execute.adoc#_whole_tree_verification_gates_triage_required_routing[Phase Workflows Specification, Whole-Tree Verification Gates]; link:../phase-workflows/01-planning-phases-1-2.adoc#_remediation_policy_calls[Remediation Policy Calls]
+|===
+
+Expansion of the generic states to the units where they occur (`x` = occurs; `-` = does not occur); `<state>.asked` is not expanded, it exists once per task state that declares `ask`:
+
+[cols="3,1,1,1,1,1,1,1"]
+|===
+|Generic state |`init` |`refine` |`outline` |`plan` |`execute` |`land` |`finalize`
+
+|`<phase>.awaiting_answers`
+|-
+|x
+|x
+|-
+|-
+|-
+|-
+
+|`<phase>.remediate-qgate`
+|-
+|x
+|x
+|x
+|-
+|-
+|-
+
+|`<phase>.remediate-build`
+|-
+|-
+|-
+|-
+|x
+|x
+|x
+|===
+
+In Phases 3–6 the question states are closed: `outline.awaiting_answers`, the outline review `outline.review`, the task question `execute.task-question`, and the `ask` question `<state>.asked` of a state that declares `ask`; an answer that changes intent is recorded in `amendments[]` with its `question_id` (link:../phase-workflows/07-questions-waivers-operator-influence.adoc#phase-question-envelope[Phase Workflows Specification, Question Envelope Schema]). A task's own question (`ask`, rel `submit`, on the entity of a state declaring it) creates a record of class `ask`; unless the task continues after it (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]), it ends the task `asked` and enters the state's question state `<state>.asked`, which returns to the asking state; its next task decides, with the answer in `facts`.
+
+[#state-catalogue-conditions]
+== Conditions (Overlays)
+
+A condition is raised by the engine, not by a DSL transition, on whatever state the scope is in, in any unit, including a sub-workflow state and an `auto` state whose primitive raised it. It is recorded in `mcp/status.json` as `pending_condition` (`kind`, `facts`, `raised_at`, the self-remedy attempts; link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]) while `state`, `phase`, and `call_stack` stay unchanged. While it is set, the representation keeps `state` as the current state id, names the condition in the field `condition` (link:../hypermedia-format/01-representation-and-link-forms.adoc#canonical-top-level-fields[Hypermedia Format Specification, Canonical Top-Level Fields]), and carries the condition's `facts`; no task of the current state is served. A scope carries at most one condition. Conditions are never declared in a DSL unit and are never a transition target (link:../workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL Specification, Condition Overlays]). A condition whose clearing needs an act of the operator is also a hold of the scope (kind `condition`, or `integrity_pause` for an integrity breach), which both clients show with its acts (<<holds>>).
+
+*Bounded self-remedy*: Every condition except `integrity_breach` runs its self-remedy: the server retries where a retry can clear it (after the compiled condition retry delay, link:../timeouts/01-job-budgets-and-waits.adoc#server-retry-backoff[Timeouts & Budgets Specification, Server Retry Backoff]), and where clearing it needs work, it creates a task of the role whose work raised it. Each attempt counts against a compiled budget of `3` attempts per condition instance (link:../timeouts/01-job-budgets-and-waits.adoc#condition-budget[Timeouts & Budgets Specification, Condition Budget]); the operator may remove the cause at any time, through the acts of the hold, and the next attempt observes it. On a plan scope a spent budget takes the fallback of the current position (<<exits-and-fallbacks>>) with the condition recorded as the gap (`cause: condition`); inside a sub-workflow the engine steps out of every frame at once (`stepped_out {by: server, cause: condition}`) to that fallback, and no caller's recovery state routes it. Where the fallback itself lacks what is missing (no push credential), `handed_back` degrades to the local branch with the gap stated in the landing record. On the epic, the workspace, and the machine scopes, which have no fallback, the server retries continue without a budget at the condition retry delay, and the condition stays held for the operator in both clients until it is repaired or, for an epic, the epic is cancelled; a setup failure of the workspace scope enters `setup.needs-repair` instead. A task's re-offers are bounded on every scope (`job_incomplete`).
+
+[cols="1,3,2,2,3,2"]
+|===
+|Condition kind |Raised by |Self-remedy |Cleared by |Outcome routing |Defined in
+
+|[[condition-integrity_breach]]`integrity_breach`
+|`kind: store_tampered`: a digest mismatch of a plan, epic, workspace, or lesson store, or of a pending entry record, decided by a locked reader after journal recovery (that scope pauses; for a lesson, the lesson source of every start fails with the reason). `kind: enrolment_tampered`: an enrolment file of the project whose HMAC sidecar does not verify (every running plan of the project pauses; a tampered `harnesses.json` pauses nothing and raises no condition: it refuses worker launches with `harness_tampered`, link:../model-work/04-worker-launch.adoc#harness-selection[Model Work Specification, Launch Refusals]). `facts`: `kind`, `store`, the path, `recorded_size`, `current_size`, `recorded_digest`, `current_digest`. Replaces any other condition of the scope; shown as the hold `integrity_pause`.
+|None: every `pm_do` is rejected with `integrity_paused`, and no task of the scope is offered. Unbounded and without fallback; an operator wait of the scope stays open and cannot be answered until the pause ends.
+|The act `accept` of the hold (`accept-edit` with the store's address: `plan <plan_id> <store>`, `epic <epic_id> <store>`, `workspace <store>`, `lesson <lesson_id>`, `entry <entry_id>`, or `enrolment <project_id>`), which shows the file with its recorded and current size and SHA-256 before confirmation (no diff and no restore: the prior content is not kept) and re-baselines the digest; the engine re-verifies before clearing. For a plan or an epic also the hold's cancel, which is the integrity abort; for a pending entry also its abandonment.
+|`accept`: the current state continues; state and `call_stack` are untouched. Integrity abort: `plan.aborted` with the outcome `aborted` / `epic.aborted` with the `terminal_reason` `cancelled`. Abandoning the entry: `start.abandoned` / `start-epic.abandoned`.
+|link:../store-schemas/13-leases-integrity-testing.adoc#_store_digest_verification_against_out_of_band_edits[Store Schemas Specification, Store Digest Verification]; link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Integrity Pause]
+
+|[[condition-precondition_unmet]]`precondition_unmet`
+|An operator-side precondition of the current step fails, with `facts.reason`: `credential_missing`, `credential_check_failed` (the check of a resolved credential against its provider fails), `credential_store_unavailable` (the recorded credential store is not available, with its cause, link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]), `credentials_file_insecure`, `credentials_file_invalid` (`PM-CRED-3`, `PM-CRED-4`); `config_changed` (the `.marshall/config/` Recovery Guard of a planning transition: a team file or workflow unit changed since `entry_baseline`); `ledger_unreadable` (a ledger read of an epic state: the unreadable ledger files or rows and the parse diagnostic); `format_outdated`, `format_newer` (a scope store written by another binary version, link:../store-schemas/01-format-and-session-log.adoc[Store Schemas Specification, Format Versioning]); `grant_missing` (an access to another project without the operator's grant record, link:../store-schemas/15-screening-and-grants.adoc#grant-record[Store Schemas Specification, Grant Record]); `push_remote_indeterminate` (the derived fact `push_remote` of `git.evaluate-push-policy` could not be derived); `role_undefined`, `class_mismatch`, `skill_unresolved` (the composition of a plan instance version at a server event was refused by Rule 13 or Rule 14, link:../workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL Specification, Plan Instance]). The step that met it is not executed. A refused worker launch is not a condition: `harness_not_enrolled`, `harness_version_unsupported`, `harness_tampered` (with a `security` audit record `enrolment_tampered`), and `prompt_composition_failed` end the worker job with fate `refused`, which counts as a start failure of the role on that harness (a `zero_tool` role's task closes `lost` uncounted); at the start-failure guard the role's tasks close `lost` with `role_unavailable` and take their conservative fallback, and both clients show the harness's re-enrolment in the machine's settings (link:../model-work/04-worker-launch.adoc#harness-selection[Model Work Specification, Launch Refusals]; link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Start-Failure Guard]). A role whose harness lacks a capability its class needs is an invalid role (`harness_class_not_runnable`, link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]), not a condition.
+|Server `retry`: the interrupted check runs again after the condition retry delay (link:../timeouts/01-job-budgets-and-waits.adoc#server-retry-backoff[Timeouts & Budgets Specification, Server Retry Backoff]). The hold `condition` names the act that removes the cause: entering or replacing the credential (the machine's settings, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-credential-cli[CLI, Coordination & Security Specification, Credentials]), committing or restoring the configuration file, granting the access, or raising a budget; each a dialogue of both clients.
+|A retry whose check passes; a failing check keeps the condition with refreshed `facts` and counts one attempt.
+|Clearing continues the interrupted step. A spent budget takes the fallback (plan scope). On the epic scope the retries continue; an unreadable ledger ends only when it reads again or by the epic's cancel. Setup failures of the workspace scope enter `setup.needs-repair` instead.
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Recovery Guard]; link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc[CLI, Coordination & Security Specification, Credentials]; link:../model-work/08-epic-coordination.adoc[Model Work Specification, Epic Coordination]
+
+|[[condition-footprint_violation]][[state-phase.footprint-violation]]`footprint_violation`
+|A boundary breach, never a change inside the plan's worktree beyond the declared footprint (that is recorded as an unplanned change): the footprint check that `git.stage-and-commit` runs first for every caller (a path outside the plan's worktree, a pinned build file or protected path, a main-checkout change since `entry_baseline`); the same check on a task `submit:TASK-*` link; the Clean Main Checkout Guard of any plan transition. The link or primitive that met the violation is not executed; no commit is made. Not waivable.
+|For offending paths inside the plan's worktree: a `fix` task of the plan's writer role `implement`, whose `facts` carry the offending files, reverts them and submits. A main-checkout change since `entry_baseline` is never the plan's to revert (`baseline_dirty`): the server re-checks it on each attempt, and the operator removes the cause.
+|An attempt after which the footprint check passes; a failing check keeps the condition with refreshed `facts`.
+|Clearing continues the interrupted step. A spent budget takes the fallback.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL Specification, Stage 4]; link:../workflow-dsl/05-primitives.adoc#independent-transition-validation[Transition Validation item 6]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Clean Main Checkout Guard]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/04-errors-and-testing.adoc#_normative_classification_matrix[MCP Tools Specification, Classification Matrix]
+
+|[[condition-job_incomplete]]`job_incomplete`
+|An attempt of a task ended without the submission its entity requires (for an entity of the multi-submit unit: its closing submit): its worker was lost or ended while holding the task (`PM-WORK-3`); the server observes the end itself. A task withdrawn by the operator's pause `now` is no attempt that ended: it is offered again when the plan starts (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]). On a fan-out state (`each`) the condition covers every unfinished entity. `facts`: the attempt's end and the worker's job fate, the entity's recorded progress (on a fan-out state per unfinished entity).
+|The server offers the task again as a new attempt, to exactly one worker per attempt, within the re-offer budget (link:../model-work/02-task-protocol.adoc#re-offer[Model Work Specification, Re-Offer]): the lease is released, the successor starts with an empty context, and a multi-submit entity continues from what its repeatable submits persisted; on a fan-out state only the unfinished entities are offered again. No link is offered.
+|An attempt whose entity records its required submission.
+|The return-evaluation outcome is taken. A spent budget closes the task `lost`, which the state routes to its conservative fallback (<<_state_kinds>>); on every scope the `lost` route is the state's declared one.
+|link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Model Job States]; link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
+
+|[[condition-config_drift]][[state-phase.config-drift]]`config_drift`
+|A phase entry in Phases 2–6 whose current `config_hash` differs from the one in the header of the plan instance version in force and whose candidate instance version differs in effect (the phase handshake, not a DSL transition); a changed unit of the machine level reaches a plan this way like a changed project unit.
+|Server decision in the raising transaction: `adopt` when the candidate contains the current state and every `call_stack` state (the candidate becomes a new instance version, composition event `config_adopted`), otherwise `keep` (the plan continues on the version in force). `facts`: the instance diff and the decision.
+|The decision, recorded in `audit.jsonl` and `instance/composition.jsonl`.
+|The interrupted phase entry continues in the current state on the adopted or the kept version.
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Outside-World Invariants]; link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Plan Instance]
+
+|[[condition-guard_indeterminate]]`guard_indeterminate`
+|A guard of the current state (built-in, `predicate:`, or one reading a `depends_on_config` key) evaluated to `COULD_NOT_EVALUATE(reason)`; the result is never folded into held or not held. The freshness gate of the Phase 5 exit barrier (`execute.exit-barrier`, `land.exit-barrier`) raises it for an `undecidable` verdict no verification sweep clears (`stale_reason` `unrecognized_build_notation`, `ledger_unreadable`, `worktree_sha_unavailable`).
+|Server `retry`: the state's guards are evaluated again after the condition retry delay (link:../timeouts/01-job-budgets-and-waits.adoc#server-retry-backoff[Timeouts & Budgets Specification, Server Retry Backoff]). `facts`: the guard, the transition it gates, the reason.
+|A retry in which every guard of the state evaluates to `HELD` or `NOT_HELD`; a repeated `COULD_NOT_EVALUATE` keeps the condition with refreshed `facts`.
+|Clearing continues the current state with the transitions whose guards hold. A spent budget takes the fallback.
+|link:../workflow-dsl/04-ast-node-model.adoc#guard-results[Workflow DSL Specification, Three-Valued Guard Results]
+|===
+
+[#holds]
+== Holds and Their Acts
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
+
+[[holds-definition]]What holds a plan, an epic, or a project's landing without a decision is a *hold*: a record of the scope that both clients show with the acts that resolve it. A hold is never a workflow state and never an operator wait: it is derived from the scope's records (its condition, its stall, its held items, a failed landing) and kept on read with the scope; a paused plan is no hold, it shows by its activity (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]). The closed list of hold kinds is also the list of the holds among the kinds of `needs_operator` (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[Runtime & Interaction Model Specification, What Needs the Operator]).
+
+* *Record*: `kind`, `cause` (a reason of a closed list per kind, with its facts), `since`, what was tried (the self-remedy attempts with their outcomes), and `acts`: each act an operator endpoint of both clients with its name, its arguments, whether it is confirmed first (an act that cannot be undone), and, where an act cannot run now, the reason it is offered disabled. No hold carries an operator command as relay text.
+* *Kinds and their acts*:
+** `stalled`: a plan or an epic whose progress the runtime judged stalled (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime & Interaction Model Specification, Stalled Plans]); acts `retry_now` (the scope's next server step runs at once) and `recycle_worker` (the worker of the stalled task is ended and the task offered again within its re-offer budget).
+** `condition`: a condition of <<state-catalogue-conditions>> other than `integrity_breach` whose clearing needs an act of the operator (`precondition_unmet`, and a footprint violation of `baseline_dirty`); its acts are the ones its reason names (enter or replace a credential, grant the access, raise a budget, commit or restore a configuration file), each a dialogue of the clients; the condition's own server retries go on meanwhile.
+** `integrity_pause`: an `integrity_breach`; the act `accept` shows the tampered file with its recorded and current size and digest and accepts it as it is (<<condition-integrity_breach>>); no diff and no restore is offered.
+** `held`: an item of an epic held after its task closed `lost` or ended `infeasible` (xref:06-setup-epic-other.adoc#state-catalogue-epic[Epic Workflow]), or a row held because a plan it depends on ended without landing; acts `retry` (the item is served again by `epic.next-work`) and the item's own acts (for a row: re-stage or drop it).
+** `landing_failed`: a failed landing of an epic's ledger (`epic.landing`) or of a project's short landing (`git-land-removal.failed`, `git-land-unit.failed`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-short-landings[Short Landings]); act `retry`, and for the removal of moved documents also `give_up` (the files stay tracked in git; the source keeps its copy).
+* *Cancel*: every hold of a plan or an epic also offers the scope's cancel (xref:04-plan-finalize-terminal.adoc#plan-end[Cancelling and Abandoning Archive]; link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]); for an `integrity_pause` the cancel is its resolution _abort_, which ends a plan with the outcome `aborted` and an epic with the `terminal_reason` `cancelled`.
+* *End*: an act is validated like every operator act, audited with its channel and device, and answered with the hold as it stands then: released, or still held with its cause. A hold that clears by itself (a provider back, a ledger readable again, a stall resolved) ends its record without an act; its end is announced on the scope's event stream, and a report `plan.hold_released` tells the operator (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]).
+
+[#operator-flows]
+== Operator Flows That Are Not Workflow Units
+
+The use cases name the steps of some operator flows like states. They are no workflow units and have no catalogued states: each is a sequence of operator acts over the local API, answered synchronously with the resource as it stands, or a client's own rendering. The step names map as follows:
+
+[cols="2,3"]
+|===
+|Step names |What they are
+
+|`entry.*` (link:../../../../plan-marshall-documentation/doc/use-cases/02-entry.adoc#UC-ENT-1[UC-ENT-1])
+|The terminal client's own flow without a verb, over the pairing and listener endpoints (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#start[CLI, Coordination & Security Specification, The Terminal Client as the Entry]).
+
+|`devices.*` (link:../../../../plan-marshall-documentation/doc/use-cases/02-entry.adoc#UC-ENT-2[UC-ENT-2]); the `devices` act of `settings.choose`
+|The acts on paired devices (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]).
+
+|`plan.actions`, `plan.pause-when`, `plan.pausing`, `plan.paused`, `plan.start`, `plan.confirm-end`, `plan.end`, `plan.archived`, `plan.inform-epic` (link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1])
+|The plan's operator acts and its activity (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Pausing and Starting a Plan]; xref:04-plan-finalize-terminal.adoc#plan-end[Cancelling and Abandoning Archive]); `plan.archived` is the archive of a plan that ended through `plan.aborted`.
+
+|`plan-settings.*` (link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-5[UC-CTL-5])
+|The plan's overrides written by an operator act (link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]).
+
+|`epic.actions`, `epic.auto`, `epic.raise-scope`, `epic.confirm-cancel`, `epic.cancel` (link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-2[UC-CTL-2])
+|The epic's operator acts, which settle its watch `epic.active` (link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]); the states they lead to (`epic.next-work`, `epic.review-completion`, `epic.archive-check`, `epic.archive`) are catalogued in xref:06-setup-epic-other.adoc#state-catalogue-epic[Epic Workflow].
+
+|`hold.*` (link:../../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-4[UC-CTL-4])
+|A hold and its acts (<<holds>>).
+
+|`designer.*` (link:../../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-3[UC-PLN-3])
+|The designer's endpoints (link:../workflow-dsl/04-ast-node-model.adoc#process-designer[Workflow DSL Specification, Designing a Process]); placing a project unit starts the short landing `git.land-unit`.
+
+|`reports.*` (link:../../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-6[UC-PLN-6])
+|The reports and their reading (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]).
+
+|`project.release-confirm`, `project.release-wait`, `project.release` (link:../../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-3[UC-PRJ-3])
+|The release and unenrolment acts (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]).
+
+|`runtime.*`, `system.*` (link:../../../../plan-marshall-documentation/doc/use-cases/07-system.adoc#UC-SYS-1[UC-SYS-1], link:../../../../plan-marshall-documentation/doc/use-cases/07-system.adoc#UC-SYS-2[UC-SYS-2])
+|The runtime's lifecycle acts and its metrics (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime & Interaction Model Specification, The Runtime's Lifecycle]; link:../runtime-lifecycle/03-runtime-metrics.adoc#runtime-metrics[The Runtime's Metrics]); the consent `runtime.update-consent` is the consent of the endpoint `upgrade/check`.
+
+|`cleanup.*` (link:../../../../plan-marshall-documentation/doc/use-cases/07-system.adoc#UC-SYS-3[UC-SYS-3])
+|The cleanup job, a journal of the machine scope whose states are the fold of its events (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]).
+|===

@@ -40,10 +40,11 @@ Run from the root of the repository:
 The integration tests include `BuildGuardsIT`, which proves the dependency rules of the build with the fixture
 projects below `src/guard-controls`. The commands for the whole repository are in `CLAUDE.md`.
 
-The tests read two sibling checkouts, each named by a Maven property that is passed to Surefire as the system
-property of the same name: `pm.documentation.root` (default `../plan-marshall-documentation`) for the schema tests and
-`pm.product.root` (default `../plan-marshall-mcp`) for `ProductCorpusValidationTest`, which validates the corpus of
-plan-marshall-mcp. A test whose checkout is absent is skipped with the path named. In a worktree whose defaults do not
+The schema tests read the specification of this repository (`doc/specification`), whose root the Maven property
+`pm.specification.root` names (default: the root of the build); a missing schema fails them. `ProductCorpusValidationTest`,
+which validates the corpus of plan-marshall-mcp, reads a sibling checkout named by `pm.product.root` (default
+`../plan-marshall-mcp`); both properties are passed to Surefire as system properties of the same name. A test whose
+checkout is absent is skipped with the path named. In a worktree whose defaults do not
 resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshall-mcp`.
 
 == Developer Documentation

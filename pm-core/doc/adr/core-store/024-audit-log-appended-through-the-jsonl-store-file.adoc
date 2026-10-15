@@ -49,8 +49,8 @@ operator decided the point as decision q2 of the work package.
 
 == Source
 
-* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
+* The pull request of the work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09), operator
   decision q2
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log] (Hash chain)
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log] (Hash chain)
 * Related: link:018-jsonl-tail-repair-of-the-last-line-only.adoc[ADR 018],
   link:027-torn-tail-of-the-audit-log-recorded-in-the-log.adoc[ADR 027]

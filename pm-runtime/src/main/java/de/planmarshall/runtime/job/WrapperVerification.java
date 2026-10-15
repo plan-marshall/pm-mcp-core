@@ -13,11 +13,11 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Objects;
+import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.WrapperName;
 import de.planmarshall.runtime.job.JobRefusal.Reason;
-import lombok.experimental.UtilityClass;
 
 /**
  * The check of a build wrapper in stage 2 of the pipeline (PM-EXEC-1, PM-EXEC-2): the wrapper is verified by its

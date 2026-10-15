@@ -45,4 +45,4 @@ the specification by name when the script is read, with its line and the work pa
 
 * Default of the refine pass that stood (decision log), work package `scenario-replay-harness`
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]
+* link:../../../../doc/specification/workflow-dsl/07-loop-back-diagrams-verification.adoc#_deterministic_scenario_replay_harness_pm_scenario_pm_test_4[Workflow DSL § Deterministic Scenario Replay Harness]

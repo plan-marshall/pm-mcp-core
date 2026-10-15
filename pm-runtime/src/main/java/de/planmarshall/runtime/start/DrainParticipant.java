@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * A component that joins the {@link RuntimeDrain}: jobs, workers, the LSP pool and the web listener
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade). The drain calls every
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Drain, Stop &amp; Upgrade). The drain calls every
  * participant in the order of the specification:
  * <ol>
  * <li>{@link #stopAdmitting()} and {@link #endIdle()} on every participant;</li>

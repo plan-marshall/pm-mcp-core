@@ -37,5 +37,5 @@ _Rejected_: the specification forbids duplicated facts; the header names them by
 
 * link:../../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
 * link:../../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
-* link:../../../../../plan-marshall-documentation/doc/specification/domain-extensions/06-configuration.adoc[Domain Extensions § Configuration]
+* link:../../../../doc/specification/domain-extensions/06-configuration.adoc[Domain Extensions § Configuration]
 * `doc/plans/plan-instance.adoc`; operator decision at refine (facts, configuration and waivers as input values)

@@ -36,7 +36,7 @@ _Rejected_: a header read back from a file must be checked as fully as one being
 
 == Source
 
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], header schema and Header
-* link:../../../../../plan-marshall-documentation/doc/specification/workflow-dsl/09-plan-instance.adoc#instance-header-grammar[Workflow DSL § Instance Header Grammar]
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], header schema and Header
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#instance-header-grammar[Workflow DSL § Instance Header Grammar]
 * Watch item PM-WATCH-STORE-41 (Store Schemas), implemented by this package
 * `doc/plans/plan-instance.adoc`; operator decision at refine (full header schema check)

@@ -10,18 +10,20 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* The role artifact schema, the shipped, machine and project sets with their override, validation against the client profiles, and the composition checks.
-* The one model caller that turns a `job llm` state into queue tasks from the artifact of the role it names.
-* The shipped set is read from `classpath:/roles/`, which the assembly supplies; tests use fixture roles.
+* The role artifact schema (the members `off_track`, whose thresholds may only lower the compiled ones, and `questions`, cut to the harness's `headless.resumability`, both invalid on a `zero_tool` role; `harness` an open `client_id` pattern), the shipped, machine and project sets, validation against the client profiles, and the composition checks.
+* *The effective configuration*: the harness, model, and effort of a role taken from the shipped artifact, the machine artifact, the machine's `role-assignments.json`, the project artifact, the project's `role-assignments.json`, and the plan's override, each later level overriding only what it names; both digests computed over the effective values; read at every composition, task creation, and offer. The assignment stores, the plan's `overrides.json`, and the model catalogues are written by link:machine-onboarding-unit.adoc[`machine-onboarding-unit`], link:project-onboarding-unit.adoc[`project-onboarding-unit`], and link:plan-and-epic-control.adoc[`plan-and-epic-control`]; this package reads them through a port, its tests through fixture stores.
+* *Validation* against the effective values: the reason `model_not_allowed` against the effective model catalogue (the project's, else the machine's; never for the `steward`), no `session_first_not_permitted`, and `schema_invalid` for an `off_track` threshold above the compiled one or an `off_track` or `questions` member on a `zero_tool` role.
+* The one model caller that turns a `job llm` state into queue tasks: *Resolve* reads the effective configuration; the `judge` and the `steward` skip *Qualify*; the steward's harness comes from `harnesses.default` of `machine-config.json` and its model from that harness's tier `standard` (`headless.model_tiers`), never from its artifact; *Serve* has no session path.
+* The shipped set (the `interpret` and `steward` roles among them) is read from `classpath:/roles/`, which the assembly supplies; tests use fixture roles. The default assignment and its resolution `roles.default` are link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]'s.
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-1[PM-WORK-1], link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../plan-marshall-documentation/doc/requirements/13-client-profiles.adoc#PM-CLIENT-2[PM-CLIENT-2]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/01-roles-and-configuration.adoc[Model Work § Roles & Configuration]; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#role-classes[Client Profiles § Role Classes of a Harness]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]; link:../../../plan-marshall-documentation/doc/implementation-watch/module-structure.adoc[Module Structure]
+* Specification: link:../specification/model-work/01-roles-and-configuration.adoc[Model Work § Roles & Configuration]; link:../specification/client-profiles/01-profile-schema.adoc#role-classes[Client Profiles § Role Classes of a Harness]; link:../specification/store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas § Model Catalogue]
+* Watch: link:../implementation-watch/model-work.adoc[Model Work]; link:../implementation-watch/client-profiles.adoc[Client Profiles]; link:../../../plan-marshall-documentation/doc/implementation-watch/module-structure.adoc[Module Structure]
 
 == Done When
 
-The validation table of the specification row by row, each reason with a refusing fixture; a role of a class its harness cannot run is `harness_class_not_runnable`.
+The validation table of the specification row by row, each reason with a refusing fixture; a role of a class its harness cannot run is `harness_class_not_runnable`; a valid artifact whose effective model the catalogue does not allow is `model_not_allowed`, a `steward` never; each level of the effective configuration overrides only what it names, and a changed assignment or plan override changes both digests; a task of the `judge` and of the `steward` is queued without a qualification record.

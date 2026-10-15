@@ -36,5 +36,5 @@ Alternatives not recorded.
 == Source
 
 * Pull request #25, `feat(runtime): add per-user service unit for launchd and systemd`, sections "Changes" and "Intent"
-* Work package link:../../../../doc/plans/service-unit.adoc[`service-unit`]
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/service-unit.adoc[`service-unit`]
 * link:../../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime Model § Start Modes]

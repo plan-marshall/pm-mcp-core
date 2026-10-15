@@ -41,7 +41,7 @@ _Rejected_ for this slice: the rule language reads one fact per rule, and Sonar 
 
 == Source
 
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules], Shipped Rules
-* link:../../../../../plan-marshall-documentation/doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#plan-instance-composition[Phase Workflows § Plan Instance Composition], Prune Predicates and Floor Immunity
-* link:../../../../../plan-marshall-documentation/doc/specification/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Finalize Step Bands]
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules], Shipped Rules
+* link:../../../../doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#plan-instance-composition[Phase Workflows § Plan Instance Composition], Prune Predicates and Floor Immunity
+* link:../../../../doc/specification/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Finalize Step Bands]
 * `doc/plans/plan-instance.adoc`; operator decisions during execution (families get content by specification correction; targets kept as derived, the Sonar-only provider check a known limit)

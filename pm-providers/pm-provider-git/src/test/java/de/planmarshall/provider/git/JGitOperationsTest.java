@@ -23,11 +23,16 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Optional;
-
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.URIish;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.provider.git.GitOperations.CommitInfo;
 import de.planmarshall.provider.git.GitOperations.CommitInput;
@@ -37,13 +42,6 @@ import de.planmarshall.provider.git.GitOperations.PushInput;
 import de.planmarshall.provider.git.GitOperations.RemoteInput;
 import de.planmarshall.provider.git.GitOperations.Worktree;
 import de.planmarshall.provider.git.GitOperations.WorktreeAddInput;
-
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 @DisplayName("JGitOperations (native git variant)")
 class JGitOperationsTest {

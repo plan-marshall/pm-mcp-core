@@ -45,6 +45,6 @@ would run the repair again while the intent still exists. `JsonlStoreFile` stays
 
 == Source
 
-* The pull request of the work package link:../../../../doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline] (item 6),
-  link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/12-machine-stores.adoc#audit-log[§ Security & Transition Audit Log] (Hash chain)
+* The pull request of the work package link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/audit-trail.adoc[`audit-trail`] (PLAN-09)
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#format-versioning[Store Schemas § Format Versioning & Atomic Write Discipline] (item 6),
+  link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[§ Security & Transition Audit Log] (Hash chain)

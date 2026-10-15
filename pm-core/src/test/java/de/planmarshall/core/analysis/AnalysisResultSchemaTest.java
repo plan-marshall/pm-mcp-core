@@ -38,8 +38,7 @@ import de.planmarshall.core.findings.FindingScope;
 
 /**
  * Every line {@link AnalysisResultCodec} writes is valid against the schema {@code AnalysisResult} of the
- * specification (PM-IMPL-2), read from the documentation checkout named by {@value SpecificationDocument#ROOT_PROPERTY}.
- * Without the checkout the tests are skipped with the missing path named.
+ * specification (PM-IMPL-2), read from the specification of this repository below {@value SpecificationDocument#ROOT_PROPERTY}.
  */
 @DisplayName("Analysis result schema")
 class AnalysisResultSchemaTest {

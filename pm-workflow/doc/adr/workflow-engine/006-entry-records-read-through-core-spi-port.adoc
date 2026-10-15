@@ -68,8 +68,8 @@ is amended:
 == Source
 
 * link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]
-* link:../../../../../plan-marshall-documentation/doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
+* link:../../../../doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue § Bootstrap of a Plan]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
 * `doc/plans/entity-addressing.adoc`; refinement of PLAN-21, question q3
 * Amendment: `pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java` and `EntryId.java`, added by
   pm-mcp-core#51 (commit `d7b622d`); operator decision of 2026-10-13 in the finalize of PLAN-21 to rework the

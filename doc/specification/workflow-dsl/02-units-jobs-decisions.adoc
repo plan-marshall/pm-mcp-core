@@ -1,0 +1,345 @@
+= Workflow DSL & Engine Specification: Workflow Units, Operator Waits, Implicit Links, Questions & Waivers
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../workflow-dsl.adoc[Workflow DSL & Engine Specification] » Workflow Units, Operator Waits, Implicit Links, Questions & Waivers
+
+[#workflow-definition-units]
+== Workflow Definition Units
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
+
+_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-27[PM-WATCH-DSL-27]_
+
+A workflow is defined in units, one `.pmwf` file per unit and one unit per file. Every file opens with its frontmatter, whose type says which of the kinds below it is (`workflow` for the plan unit and the epic unit, `recipe`, `subworkflow` for the phases, the variants of the plan behaviour axes, and every other unit a unit calls, `system` for the runtime's own flows, `task` for `worker-task` and the entity units, `instance` for a plan instance; xref:01-grammar.adoc#unit-types[Unit Types]) and whose entries and exits are the unit's interface (xref:01-grammar.adoc#interface-rules[Interface Rules]):
+
+* *Plan unit and phases*: The plan unit `plan.pmwf` (unit id `plan`, `scope plan`, type `workflow`, neither entries nor exits) is a workflow of phases: each of the six phases is a sub-workflow it calls, `phase-1-init.pmwf`, `phase-2-refine.pmwf`, `phase-3-outline.pmwf`, `phase-4-plan.pmwf`, `phase-5-execute.pmwf`, and `phase-6-finalize.pmwf` (unit ids `phase-1-init` to `phase-6-finalize`, which name the plan's phase while the phase is on its call stack, xref:01-grammar.adoc#state-phase[Phase of a State]; the phases are called `init`, `refine`, `outline`, `plan`, `execute`, and `finalize` for short). A phase declares an entry for every point at which it is entered (for `phase-6-finalize`: `start` at `finalize.settle-commit`, entered after the execute phase and after a fix; `adopt` at `finalize.adopt-pr`, for the `adopt` lane; `hand_back` at `finalize.hand-back`, the fallback after the execute phase and from `plan.return` where the plan branch has commits beyond the base; `post_run` at `finalize.next-step`, from `plan.return` and a recipe's empty harvest, which run only the post-run band) and an exit for every outcome on which the plan unit continues differently; the phase's outcome decides the plan unit's next call. No transition crosses from one phase into another: a loop-back is the plan unit calling an earlier phase again through one of its entries, and a re-entry from finalize into execute is the finalize phase ending with that outcome. A lane is the plan unit's choice of the phases it calls, never a phase of its own: the states of the `land` lane form the sub-workflow `land` (`land.pmwf`), which the execute phase calls, and the `adopt` lane calls `phase-1-init` and then `phase-6-finalize`. The plan unit's own states, which carry the prefix `phases` (`phases.<phase>` for a call of a phase at one of its entries, `phases.ask`, `phases.route`), are its phase calls, the call of the bound variant of the asking axis between two phases (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]), its router, its fallback `plan.return`, and its terminals (xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar], Ends of a scope). The entries, exits, and routes of each phase are specified in link:../phase-workflows/01-planning-phases-1-2.adoc#plan-unit-phases[Phase Workflows Specification, The Plan Unit as a Workflow of Phases], and the records that carry a phase in link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas Specification, Phases as Sub-Workflows]. `CallFrame.callerWorkflowId` (`status.json` `call_stack[].caller_workflow_id`) is the id of the unit that made the call: `plan` for a phase call, the phase's id for a call made within the phase.
+* *Plan instance*: A plan never executes its templates directly. It executes its *plan instance*, composed by the server from the plan unit, the phase sub-workflows and axis variants it calls, the sub-units they call, the composition rules, and the plan's facts, and versioned per composition event (xref:09-plan-instance.adoc#plan-instance[Plan Instance]). Every rule of this document applies to each instance version as to the templates.
+* *Other top-level workflows*: Every other unit of `scope epic`, `workspace`, `machine`, or `entity` that the server starts is a top-level unit of its own: `epic.pmwf` (`scope epic`), `project-setup.pmwf` (`scope workspace`), `onboarding.pmwf` (`scope machine`, xref:01-grammar.adoc#machine-scope[Machine Scope]), the envelope units, the two generic entity units, the bootstrap units, and the project onboarding unit.
+* *Entity units*: The states a worker sees after it acknowledged a task are those of the entity unit of the task's kind (`scope entity`, compiled only). `entity.pmwf` (`entity.active`, which offers the closing link of the entity kind its task works on, or the kind's alternative closing links where it declares several, the `infeasible` link, the `ask` link where the task's state declares `ask`, and the terminals `entity.completed` declared `terminal submitted success`, `entity.infeasible` declared `terminal infeasible failure`, and `entity.asked` declared `terminal asked unsettled`) serves every entity kind that submits once (for example refine and outline authoring, Q-Gate validation, triage groups, enrichment, re-grounding, commit messages, and the remediation decision kind `remediation-decision`, whose alternative closing links are the remedies, xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]). `entity-multi.pmwf` (`entity-multi.active`, which offers the kind's repeatable submit links, each validated and persisted on its own while the entity stays active, and the kind's one closing submit, the `infeasible` and `ask` links like `entity.active`, and the terminals `entity-multi.completed` declared `terminal submitted success`, `entity-multi.infeasible`, and `entity-multi.asked`) serves the kinds that submit several times: the epic decomposition draft (`workstream`, `spec_section`, `stage`; closing `submit:decompose`), the task revision, the pull-request body, the epic inbox message (closing `submit:message`), and the epic completion (closing `submit:completion`). An entity state has the phase of the task state whose task works on the entity; no entity state waits on a question (an `ask` ends the task with the outcome `asked`, and a task envelope's `ask:TASK-NNN` ends the envelope task). A kind's links, their schemas, and its return-evaluation primitive are registered with the kind (link:../model-work/09-completion-usage-and-spend.adoc#return-evaluation[Model Work Specification, Return Evaluation]); the guards of a kind's links are evaluated in the call frame of the task state that created the task.
+* *Task protocol unit*: `worker-task.pmwf` (`scope subworkflow`, compiled only) is the protocol of one task (<<worker-task-unit>>). Every `job llm` state runs it once per task; no unit redefines or calls it.
+* *Bootstrap units*: Every plan and epic scope is created by a bootstrap unit of its kind: `bootstrap-plan.pmwf` and `bootstrap-epic.pmwf` (`scope entity`, compiled only) are entity units hosted by the project's workspace scope, one instance per pending entry record, whose instance id is the `entry_id` and whose state lives in the pending entry record (link:../store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas Specification, Pending Entry Record]). The operator opens an entry and makes its choices in either client: its choice states are operator waits (<<operator-wait>>), addressed over the local API as `/api/v1/entries/{entry_id}` (link:../state-catalogue/09-bootstrap-and-lessons.adoc#start-from-clients[State Catalogue, Starting from the Clients]); a worker whose task belongs to the entry (the screener of an external source) addresses its task entity with `plan_id: "NO_PLAN"`. The plans the server starts for an epic run their bootstrap without an operator wait (source `epic_row`, link:../model-work/08-epic-coordination.adoc[Model Work Specification, Epic Coordination]). Each source is a sub-workflow unit the entry calls (`source-issue`, `source-lesson` with the lesson's premise check, `source-documents`, `source-pr`, `source-local-changes`, `source-epic-row`), whose exit contract is `done` with its source record or `stepped_out`; a new kind of source is one more unit and one more choice, never a tool parameter. A recipe is no source: starting a recipe creates a plan whose process is the recipe's own workflow (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]). The entry's `create` link (`start.ready`, `start-epic.ready`) runs the primitive `start.create-scope`, whose transaction creates the plan or epic scope atomically from the gathered record and re-checks the creation preconditions (identifier free, the machine's onboarding complete, lifecycle gate open or the project enrolled as a pilot, configuration state, every role the composed workflow names defined): `created` enters the terminal `start.committed` or `start-epic.committed`; a failing re-check (`refused`) re-enters `start.ready` or `start-epic.ready` instead, with the reason in `facts`, and creates nothing. The unit's other terminals end the entry without a scope; the terminal transaction deletes the pending record (link:../state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[State Catalogue, Bootstrap]).
+* *Project onboarding unit*: `project-onboarding.pmwf` (type `system`, `scope entity`, compiled only) runs one instance per project being onboarded, addressed like every entry at the top level as `/api/v1/entries/{entry_id}`, so that several projects are onboarded at once and the machine scope is never touched; it starts only while the machine's onboarding is complete. Its states run from the checkout to `project.enrol`, which creates the project's workspace scope, where the project setup continues (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]); its choices are operator waits.
+* *Sub-workflows*: Every `scope subworkflow` file is a separately scoped definition: the phase sub-workflows and the `land` lane's sub-workflow `land`, the variants of the plan behaviour axes (`landing.*`, `method.*`, `ask.*`, xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]), `git-commit-and-push.pmwf`, the remediation policy units `remediation-*.pmwf` (xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]), the re-planning unit `replan.pmwf` (exit contract `done`, `reentered`, `reauthor`, `hand_back`, `stepped_out`; link:../phase-workflows/08-dynamic-re-planning.adoc#dynamic-re-planning[Phase Workflows Specification, Dynamic Re-Planning]), the adjudication unit `adjudicate-decisions.pmwf` (run by every question state, <<question-adjudicate-unit>>), the task protocol unit `worker-task.pmwf`, and the compiled-only units: the decision unit `decision.pmwf` (<<question-states>>), the chat unit `chat.pmwf` (link:../state-catalogue.adoc#chat[State Catalogue, Chatting with the Planning Role]), the short landings `git-land-removal.pmwf` and `git-land-unit.pmwf` (xref:06-reusable-sub-workflows.adoc#short-landings[Short Landings]), the source units `source-*.pmwf`, and the aspect sub-workflows of the machine's onboarding (xref:01-grammar.adoc#machine-scope[Machine Scope]). Its states are never merged into a caller's definition and are reachable only through `call` (or, for `worker-task`, through a `job llm` state, and for `adjudicate.decisions` through a question state); transitions inside a sub-workflow may target only states of the same sub-workflow, and transitions outside it may never target a sub-workflow state.
+
+The same unit rules apply to the default units of the binary and to the machine's and a project's copies of the designable units (xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]).
+
+All static verification rules (xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules (Build Time & Every Unit Load)]) run over each definition unit: state identifiers must be unique within the unit, transition targets must exist in the unit, every state must be reachable from the unit's starting point or one of its entries under every combination of the configuration keys its guards declare, outcome coverage is exhaustive per state, and link identifier patterns are unique within their state.
+
+[#operator-wait]
+== Waiting for the Operator
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
+
+Waiting for the operator is a normal behaviour of a state, in every unit and every scope. This section defines it once: every specification that has a state waiting for the operator refers to it and keeps only what is its own (the links, the facts), never a wait, a deadline, a mode, or a fallback of its own.
+
+1. *What an operator wait is*: A state is an *operator wait* when nothing but an act of the operator ends it. There are three forms: a *link state*, whose `link` clauses are the operator's links (xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar]); the operator states of the compiled decision unit `decision`, which every question state calls (<<question-states>>); and the *waiver wait* of a remediation unit, which awaits the operator's waiver verbs (<<waivers-and-integrity>>). Decisions, waiver requests, consents, the options of a plan asked where the plan first needs them (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]), the phase transitions the plan's asking variant waits at, the decomposition's review, a chat's turns, and the choices of a start, of a project's onboarding and setup, and of the machine's onboarding are operator waits.
+2. *Served to both clients*: An operator wait offers its links as operator endpoints of the local API to the operator's two clients, the web app and the terminal client (<<clients-only>>; the representation of a state for a client and the endpoints of its links: link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#two-channels[CLI, Coordination & Security Specification, Operator Choices in the Web App and the Terminal], link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]). Whichever client acts first wins; the act of the other is refused with the reason that the state has moved on, and both learn the new state from the scope's events. An operator link is never rendered in a model-facing representation, and no worker's `pm_do` reaches it (Rule 10, xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules]).
+3. *It holds nothing*: An operator wait holds no worker and no model slot, except a worker that holds its task for the answer to its own question, within its role's hold limit (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]).
+4. *No time limit*: An operator wait has no deadline and no timer, and nothing in it is decided by the passing of time. It ends only by an act of the operator through one of its links, or by an engine-owned transition that ends the scope (xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar], Ends of a scope). The operator's scope-wide acts (pausing and starting a plan, link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]; cancelling and abandoning it, link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue, Cancelling and Abandoning]; a chat, link:../state-catalogue.adoc#chat[State Catalogue, Chatting with the Planning Role]; the plan's own settings, xref:09-plan-instance.adoc#plan-overrides[Plan Overrides]) are engine-owned, offered in every state of their scope, and never declared in a unit.
+5. *Who decides*: A decision is taken either by a quorum that decides as its declaration says (link:../model-work/10-decision-quorum.adoc#decision-declarations[Model Work Specification, Decision Declarations]) or by the operator in an operator wait; nothing is decided by the passing of time, and nothing by a rule that asks no one. A quorum that escalates delivers its decision as an operator wait.
+6. *What halts*: An operator wait halts its own scope and nothing else: a plan or an epic waits, and every other plan, epic, and project keeps running. The scope's status shows it as waiting for the operator, never as stalled (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime & Interaction Model Specification, Stalled Plans]). The one wait that halts the system is the machine scope's: while the machine's onboarding is not complete, no plan, epic, or project onboarding starts (xref:01-grammar.adoc#machine-scope[Machine Scope]).
+7. *Consent states*: An action that looks at the machine or at a checkout, runs a program the server found, or spends model tokens is preceded by a consent state, an operator wait named `<sub-workflow>.consent`, or `<sub-workflow>.<action>-consent` where a sub-workflow asks several. Its links are `yes`, `yes_remember` (only where the consent kind can be remembered), and `no`. `no` records nothing and leaves the scope in the consent state, which offers the same links again; only for an optional action does the process go on without it. The server never takes the action without one of the two yes links, and a consent covers its kind and never a wider one. A remembered consent passes its consent state without a question. An act of the operator's own needs no consent. The closed list of consent kinds, whether each can be remembered and is optional, and the store of the remembered consents are specified in link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting].
+8. *Awaited events*: An operator wait is a resting state. A link state awaits `OPERATOR_ACT`, the decision unit's operator states await `OPERATOR_ACT` and `QUESTION_ANSWER`, and the waiver wait awaits `OPERATOR_WAIVER` (Rule 11b; xref:05-primitives.adoc#primitive-spi-contract[`Primitive<P, R>` SPI Contract]).
+
+[#clients-only]
+== All Interaction in the Operator's Clients
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-11[PM-ARCH-11: The Operator's Two Clients & Their Contract]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1: Harnesses as Workers & Client Identity]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-1[PM-DIST-1: Single Version Authority & Embedded Client Bundles]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-DIST-3[PM-DIST-3: Worker MCP Connection per Launch]_
+
+* *The two clients are the operator's only place*: The web app and the terminal client are the only places of interaction with the operator. Everything the operator is asked, chooses, or answers is an operator wait served to them (<<operator-wait>>), and every act of the operator (an operator link, an answer, a waiver, a scope-wide act) arrives over the local API with its channel, `web` or `cli`, and the device it came from (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#two-channels[CLI, Coordination & Security Specification, Operator Choices in the Web App and the Terminal]; link:../store-schemas/14-plan-instance-waivers-questions.adoc#cli-answers[Store Schemas Specification, Answers from the Terminal Client]).
+* *A harness is a worker only*: The runtime runs a harness for the tasks of a role, connected through the job relay `pm-mcp serve --job` (link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]); it never acts for the operator. No harness, session, or model relays the operator's words or choices, and no unit is driven from outside the server: a state's links are either the links of a task entity, which only the worker holding the task follows, or the operator links of an operator wait, which only the operator follows.
+* *Every start in the clients*: Every way to start work runs in the clients: a plan and an epic from an entry (link:../state-catalogue/09-bootstrap-and-lessons.adoc#start-from-clients[State Catalogue, Starting from the Clients]), a recipe from its start (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]), a project's onboarding and setup through the project onboarding unit (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]), and the machine through its onboarding (xref:01-grammar.adoc#machine-scope[Machine Scope]).
+* *Own words are no relaying*: The interpretation of the operator's own words in a decision is no relaying: the operator wrote them in a client and confirms there what was understood (link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]).
+* *No elicitation*: MCP elicitation is never used. The channel of an answer is `web`, `cli`, or `quorum` (a decision a quorum took).
+
+[#implicit-job-links]
+== Implicit Links
+
+The engine offers the following links without a declaration in DSL source. Each counts as offered for every check that compares link identifiers against the workflow definitions (for example the vocabulary-skill link check), and a DSL link whose identifier pattern collides with one fails validation (Rule 3).
+
+[cols="2,1,1,2,4"]
+|===
+|Link |`rel` |`form` |Offered on, and to whom |Semantics
+
+|`ack`
+|`next`
+|`noop`
+|a task entity in `task.offered`, to the worker generation that holds its lease
+|The worker's acknowledgement of the offer (<<worker-task-unit>>); returns the task entity in the first state of its entity unit.
+
+|`consult:<role>`
+|`consult`
+|`submit`
+|a task entity in `task.executing`, once per `consult role <role>` clause of the task state, to the worker
+|`question: text[1..4000]`. Moves the task to `task.consulting` and creates a task of the named role (link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]); never offered on a consultation task.
+
+|`infeasible`
+|`submit`
+|`submit`
+|a task entity after the acknowledgement, except the consultation entity, to the worker
+|`evidence: text[1..2000]`, no `confidence`. Ends the entity in its `infeasible` terminal and the task `infeasible`; the task state routes the outcome (<<model-job-states>> item 8).
+
+|`step_out`
+|`abort`
+|`submit`
+|every operator wait of a sub-workflow that a workspace, machine, or entry unit calls (a start's source units, the aspects of the machine's onboarding, the sub-workflows of a project's onboarding and setup), to the operator
+|`reason: text[1..2000]`. Unwinds exactly one call frame and returns the control outcome `stepped_out {by: operator, cause: step_out, reason}` to the caller (xref:01-grammar.adoc#sub-workflow-exits[Sub-Workflow Exit Contract]). Never guarded, never charged to a budget, never writes a waiver; before the frame unwinds the engine undoes an interrupted in-flight operation of the frame. Never offered on `auto`, `job`, `composite_job`, or `job llm` states, never in `decision` or `chat`, which end by their own links, and never in a sub-workflow a plan or an epic calls, which the server leaves.
+|===
+
+No link waits on or cancels a job: a job's completion is an engine event, and a plan or epic view shows its progress. Every `job` and `composite_job` primitive's outcome enumeration contains `cancelled`, the outcome of a cancellation by the engine (an engine-owned end of the scope, the short-circuit of a composite), so every such state declares an explicit `cancelled -> <state>` outcome transition; Rule 2 (exhaustive outcome coverage) enforces it. A `job` state's outcome enumeration is exactly the closed job outcome set of `PM-EXEC-4` (`succeeded`, `failed`, `failed_unparsed` for build jobs only, `refused`, `cancelled`, `timed_out`, `killed`, `indeterminate`); a state that runs several jobs or routes domain outcomes is a `composite_job`, whose primitive declares its own closed workflow outcomes (`PM-WF-8`). A `job llm` state routes the outcomes of its entity kind's return evaluation and the reserved `lost` instead (<<model-job-states>>).
+
+[#job-state-binding]
+== Job State Entry & Binding (`JobStep`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7: Runtime & Relay Lifecycle, Crash Recovery & Job Drain]_
+
+A `job` state is a resting state over exactly one job. The engine binds it as follows (normative for `StateBehavior.JobStep`):
+
+1. *One job per entry*: Entering a `job` state starts exactly one job through the state's primitive, unless a job id is already bound for the state. A job id is bound when the entering transition carries one (item 3) or when `active_job` already names this state.
+2. *`active_job` in the state transaction*: `mcp/status.json` records `active_job {state_id, job_id}` (link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]) in the journaled transaction of the state change that enters the state (link:../store-schemas/01-format-and-session-log.adoc#transaction-journal[Transaction Journal]); the job record in `jobs/` lies outside the scope and is written after it, as a transaction of its own store (the fixed write order, `active_job` authoritative for which job the state owns). A crash between the two leaves a binding without a job record, which the startup recovery settles `killed` (the job never started) and the state routes like every `killed` (item 5); a job is therefore never running without a binding (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime & Interaction Model Specification, Per-Project Recovery]).
+3. *Enqueued by a preceding primitive*: A primitive that enqueues a job for the following state (an `auto` state or a `do` link action, for example `build.enqueue-verification` before `git.freshness-build-running`, or `finalize.restart-watch` before `finalize.concurrent-wait` or `finalize.merge-evidence-wait`) declares `enqueuesJob()` and returns the job's id as its primitive result (`PrimitiveResult.spawnedJobId`) with its job-starting outcome: `started`, or for `finalize.restart-watch` `concurrent_restarted` and `evidence_restarted`, which name the restarted wait (its third outcome `exhausted` enqueues nothing and takes the fallback). The job-starting transition enters the `job` (or `composite_job`) state, which binds that id and starts nothing itself. Rule 1 (xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules (Build Time & Every Unit Load)]) verifies the binding: every job-starting outcome of an `enqueuesJob()` primitive targets a `job` or `composite_job` state, and no other outcome of such a primitive does.
+4. *Re-entry never restarts*: A read of a job state whose bound job is `queued` or `running`, and the engine's recovery after a runtime restart, observe the bound job; neither starts a second job.
+5. *Killed jobs are routed, never restarted*: A bound job that the runtime recorded `killed` (for example an orphaned `running` job marked on restart, `PM-ARCH-7`) settles the state with the outcome `killed`, which every `job` state routes explicitly (Rule 2). The engine never re-enqueues a job on its own (no blind re-execution); a new job starts only when a declared transition enters a job state again, for example through a `retry` link or the bounded `auto` restart `finalize.restart-watch`.
+6. *Leaving clears the binding*: The transition that leaves the state (on the job's outcome, or on its cancellation by the engine) clears `active_job` in the same transaction.
+7. *Composite constituents*: A `composite_job` state follows the same rules with its composite identifier (the state identifier) as the bound id; its constituent jobs are recorded in `active_jobs`. Its primitive declares how every constituent fate other than success maps onto its closed outcomes (`killed`, `timed_out`, `indeterminate`, and `refused` or `failed` where they are no domain result); the watches of the finalize wait region map them to `watch_interrupted {constituent, fate}`, while a cancellation of the composite by the engine settles it `cancelled` (xref:03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Reference Workflow Excerpt]). A timer constituent (a retry backoff, a review bot's rate window) keeps its persisted deadline, so a restart never extends the wait.
+
+[#model-job-states]
+== Task States (`job llm`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
+_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-20[PM-WATCH-DSL-20], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-26[PM-WATCH-DSL-26], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-27[PM-WATCH-DSL-27], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-32[PM-WATCH-DSL-32]_
+
+A state declared `job llm <entity_kind> role <role> [each <primitive_id>]` with its `consult role <role>` clauses (`StateBehavior.ModelJob`, xref:04-ast-node-model.adoc#_ast_node_model[AST Node Model]) is a task state: the model work it needs is a task of the named role, done by a worker of that role (a supervised headless harness process, a job of kind `llm`, link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]). The rules of <<job-state-binding>> apply with the queue task in place of the job, with these additions:
+
+1. *Entry*: Entering the state allocates the entity (for a task envelope `envelope-M`) in the state transaction and then creates one queue task of the role for it, a write of the task queue in the fixed order after the scope's `active_tasks` (link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]; link:../store-schemas/16-task-queue.adoc#task-queue[Store Schemas Specification, Task Queue], Two Authorities); the state binds its own state id in `active_job` and records the task, keyed by its entity, in `active_tasks` (link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]); the engine runs the task through `worker-task` (<<worker-task-unit>>). A worker of the role receives the task as the answer to its `pm_wait`; the plan's view shows the task's progress and offers no link. No harness launches a sub-agent.
+2. *Completion is the awaited event*: When the task ends, the engine runs the return-evaluation primitive the entity kind registers on the persisted entity, plan task, question, and findings records (never on the worker's own report) in the transaction that records the task's outcome, and takes the transition of its outcome (Rule 11b: `TASK_SETTLED`; link:../model-work/09-completion-usage-and-spend.adoc#job-completion[Model Work Specification, Task Completion]). The zero-tool screener kind `screen` has no connection and no entity unit; its return evaluation validates the worker's structured `screen-verdict` output, fail-closed.
+3. *Re-offer*: An attempt that ends without the required submission (its worker lost or ended while holding the task) is offered again by the server, as a new attempt of the same task, within the compiled task re-offer budget (link:../timeouts/01-job-budgets-and-waits.adoc#task-reoffer-budget[Timeouts & Budgets Specification, Task Re-Offer Budget]); the re-offers are recorded as the `job_incomplete` condition of the state, which the view shows and which offers no link (xref:04-ast-node-model.adoc#condition-overlays[Condition Overlays]). For an entity of the multi-submit unit `entity-multi.pmwf` (<<workflow-definition-units>>) the required submission is the closing submit; what its repeatable submits persisted stays, and the next attempt continues from it.
+4. *Conservative fallback (`lost`)*: A task that closes `lost` (its re-offers spent, or closed without an attempt because its role is undefined, unqualified, or has no startable worker, link:../model-work/01-roles-and-configuration.adoc#conservative-fallback[Model Work Specification, Conservative Fallback]) settles the state with the reserved outcome `lost` (class `INDETERMINATE`), with the task's reason recorded as the gap. A state routes `lost` to the fallback it declares: a conservative `auto` state of its unit (a remediation unit's `conservative`, which takes the unit's single `retry` once and otherwise `exhausted`), a server step-out of its sub-workflow, or, for an optional step, the continuation that completes the step `skipped` (`work_performed=false`, the gap recorded; Rule 9) and continues at the step's dispatch hub. A state of a plan-scope unit (the plan unit, a phase, or a sub-workflow only plan-scope units call) that declares no `lost` transition takes the phase's fallback: the engine unwinds in one transaction every call frame above the phase's frame with the server step-out `stepped_out {by: server, cause: lost, reason}` and enters the phase's fallback, like a spent condition budget (xref:01-grammar.adoc#sub-workflow-exits[Sub-Workflow Exit Contract]); the gap names `cause: exhausted` with the task's `queue_task_id` and `task_reason`. A state of an epic, workspace, machine, or bootstrap unit, and of a sub-workflow such a unit calls, declares its `lost` transition (Rule 2). An epic task state routes `lost`, and `infeasible` likewise, to the epic's watch state `epic.active` with its item marked `held` (link:../model-work/08-epic-coordination.adoc[Model Work Specification, Epic Coordination]); `epic.next-work` skips a held item, so no task is created for it, until the watch settles on a change of the effective role set (an assignment or artifact edit, a new valid qualification record, or a cleared start-failure guard) or an operator act on the epic, after which the item's state is entered again. No `lost` route reaches the operator.
+5. *Leaf*: A worker's connection reaches only the task entities leased to its generation; no entity unit and no consultation task contains a task state, offers a link into one, or offers a `consult` link (Rule 4). A consultation is a task of the consulted role created by the server, never a model a worker starts (`PM-WORK-4`).
+6. *Fan-out (`each <primitive_id>`)*: A state that declares `each` runs one task per element of a server-computed list. Entering it runs the named list primitive (registered and read-only, Rule 1), allocates one entity per element (for the zero-tool kind `screen`, which has no entity, one batch part per element), and creates one task per element, each with its own entity; workers of the role take them within the role's `count` and the machine's model slots. The state binds like a composite (<<job-state-binding>> item 7): the bound identifier is the state identifier in `active_job`, and the tasks are recorded in `active_tasks`, one per entity. Items 2 to 5 and Rules 2, 4, and 11b apply per task: every task's end runs the kind's return evaluation on that task's entity, and the state completes, taking the transition of the evaluation's outcome over the whole list, once every task has ended. An entity whose task closed `lost` after its re-offers is passed to the evaluation as missing (for `screen` a missing or unparseable verdict counts as `suspicious`); the state settles `lost` only when its role is undefined, unqualified, or has no startable worker. The re-offers cover only the unfinished entities. An empty list completes the state in the entering transaction. The fan-out states of the default units are `setup.enrich-architecture` (one task per module to enrich) and the screener states (one task per part of a batch; a batch above the screening split bound has several parts, link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener]).
+7. *Workers only*: Every task is done by a worker of its role that the runtime's supervisor started; nothing else takes a task, and a task reaches the operator only through the question it asks (item 8).
+8. *Ask and infeasible*: Every task entity except the consultation entity (link:../model-work/05-consultation.adoc#consult-serving[Model Work Specification, Serving the Consultation]) offers the `infeasible` link (its evidence required), which ends the entity in its `infeasible` terminal and the task `infeasible`; the state routes `infeasible` among the outcomes of its return evaluation. A state that declares `ask` (`job llm … [ask]`, xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar]) also offers the `ask` link, which records a question record of class `ask` and ends the entity in its `asked` terminal and the task `asked`; the engine then enters the state's engine-made question state `<state>.asked` (`question ask`, kind `awaiting_user`), which waits on that record (<<question-states>>) and, once it is answered, re-enters the asking state, whose new task of the role carries the answer in `facts`. Where the task continues after its question (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]), it does not end `asked`, and `<state>.asked` is entered only when the continuation falls back; `ask fresh` declares that the state's tasks never continue, for a judgment that is to be taken again from the answer by a worker that did not form the first view. The unit declares neither the state nor its transitions (Rule 2). A state of a `zero_tool` role and the vote state of `adjudicate.decisions` never declare `ask` (Rules 1 and 13). The states of the default units that declare `ask` are listed once in link:../state-catalogue/01-conventions-generic-conditions.adoc#state-state.asked[State Catalogue, `<state>.asked`].
+
+[#worker-task-unit]
+=== Task Protocol Unit (`worker-task.pmwf`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
+
+The protocol of one task is the compiled sub-workflow unit `worker-task`; its semantics, leases, generations, and fencing are specified in link:../model-work/02-task-protocol.adoc#worker-task-unit[Model Work Specification, The `worker-task` Sub-Workflow]. A `job llm` state runs one instance per task in the task's own frame, recorded in the queue task record and never on the scope's `call_stack`, so the tasks of a fan-out state run side by side. The engine binds the role, the entity, and the consultation roles of the calling state; no unit calls `worker-task` with `call`, and no machine or project unit can replace it.
+
+[source,text]
+----
+---
+name: Task Protocol
+description: The protocol of one task: offered to a worker of its role, leased, worked, and settled.
+type: task
+exit: submitted
+exit: asked
+exit: infeasible
+exit: lost
+modification_date: 2026-10-14
+version: 1.0.0
+author: plan-marshall
+---
+workflow worker-task version 1 format 1
+scope subworkflow
+start task.queued
+
+state task.queued
+  auto task.call-model                      # the model caller: role, artifact, qualification, re-offer budget
+    queued          -> task.waiting
+    closed          -> task.lost            # role_undefined, class_mismatch, role_unqualified, role_unavailable, attempts_spent
+
+state task.waiting
+  composite_job task.await-offer            # a pm_wait of a worker of the role; the offer leases the task
+    offered         -> task.offered
+    released        -> task.queued          # the role's workers were stopped (start-failure guard)
+    cancelled       -> task.lost
+
+state task.offered
+  composite_job task.await-ack              # the link ack within the harness's acknowledgement deadline
+    acknowledged    -> task.executing
+    released        -> task.queued          # worker lost, deadline missed, or offer withdrawn
+    cancelled       -> task.lost
+
+state task.executing
+  composite_job task.await-entity           # the entity unit of the kind runs; its links are the task's links
+    submitted       -> task.submitted
+    asked           -> task.asked
+    infeasible      -> task.infeasible
+    consulting      -> task.consulting
+    released        -> task.queued          # worker lost or ended without the required submission
+    cancelled       -> task.lost
+
+state task.consulting
+  composite_job task.await-consultation     # a task of the consulted role; the answer through the next pm_wait
+    answered        -> task.executing
+    released        -> task.queued          # the answer reaches the successor in the task's facts
+    cancelled       -> task.lost
+
+state task.submitted terminal submitted success
+
+state task.asked terminal asked unsettled
+
+state task.infeasible terminal infeasible failure
+
+state task.lost terminal lost indeterminate
+----
+
+Every transition of the unit is an engine event or an `auto` primitive. The only links a worker follows are `ack`, the links of the task's entity unit, and the `consult:<role>` links of the calling state; the unit offers no `step_out` and no link that ends a scope. Every cycle passes a `composite_job` state that awaits a worker's call or the time of a deadline (Rule 11b), and `task.call-model` closes the task `lost` once the re-offer budget is spent, so the unit always ends. `cancelled` is the engine's cancellation when the scope ends by an engine-owned transition or the state is left otherwise; the task's record names the cause. A pause of the plan that withdraws a running task releases it (`released`), so the task is offered again when the plan is started (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]).
+
+[#question-states]
+== Question States & Decisions
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20: Waiting for the Operator]_
+
+Every content question is a server-owned question record (link:../store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas Specification, Question Record]). A worker creates one through the `ask` link of a task whose state declares it (`decision:schema[decision-envelope]`; the task ends `asked` unless it continues after the question, link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]), through `ask:TASK-NNN` on a task envelope (which ends the envelope task under the same condition), or through the optional `decision` of a refine or outline `submit` (`decision:schema[decision-envelope]?`), each part of which becomes a record; a server primitive creates the questions whose options it owns (init classifiers, the outline review where the plan's asking variant asks it, workspace setup choices that write team configuration). The question set one creation makes is one *decision* (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]). Waivers, the operator's scope-wide acts, consents, and the choices that write operator configuration are never question records: they are operator acts or the operator waits of their own states.
+
+A *question state* is a state whose body starts with `question <class>` (xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar]; `StateBehavior.QuestionWait`, xref:04-ast-node-model.adoc#_ast_node_model[AST Node Model]). Entering it runs the adjudication of the scope's new question set (<<question-adjudicate-unit>>) before anything is delivered; a `decided` set resolves the state like an answer. A set the adjudication escalates is a decision for the operator: the question state calls the compiled decision unit `decision` with the set, and rests in its operator waits until the decision is answered and recorded (or closed `withdrawn` by a revision that removes the asking task or state). It then takes the outcome transition of the resolution. Every resolution outcome enters a re-entrant `auto` state that reads the answer from the record and decides, as `init.classify` does, or returns to the asking task state; the choice between the options of an answer is routed there, never by the question clause. An `ask` question state (`<state>.asked`) returns to the asking task state, which creates a new task with the answer in its `facts`. The catalogue kind `awaiting_user` is derived from this clause, so the kind stays derivable from the AST.
+
+* *The decision unit*: `decision` (type `system`, `scope subworkflow`, compiled only, never designable) has the states `decision.open`, `decision.announce`, `decision.answer`, `decision.interpret`, `decision.read-back`, `decision.clarify`, `decision.withdraw`, `decision.confirm`, `decision.record`, and `decision.closed`; every question state of a plan, an epic, a workspace, and an entry calls it, and its operator states are operator waits (<<operator-wait>>). `decision.answer` offers the chosen options or a value per part, the operator's own words where the part allows them, _none fits_ where offered, _later_, and _chat_; own words pass `decision.interpret` (a task of the role the unit declares in `interpret_role`, the shipped `read_only` role `interpret`) and `decision.read-back` before anything is recorded, and `decision.clarify` asks the operator at most as often as the unit declares in `clarify_max` (shipped `2`, bounds `0` to `3`); the unit is compiled only, so its declarations keep their shipped values (<<unit-declarations>>); `decision.confirm` is asked when the decision has more than one part or its reversibility is not `reversible`. Its structure, answers, interpretation, and records are specified in link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure] and link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Answers in the Operator's Own Words], its states in the link:../state-catalogue.adoc[State Catalogue]; a chat from `decision.answer` is the unit `chat` (link:../state-catalogue.adoc#chat[State Catalogue, Chatting with the Planning Role]).
+* *Delivery*: A decision is delivered to both clients of the operator as an operator wait, announced on the event streams of its plan, epic, and workspace; whichever client answers first wins, and the answer records its channel (`web` or `cli`) and device; a decision a quorum took records the channel `quorum`. There is no other channel and no question mode: whether a quorum runs is said only by the decision declarations of `adjudicate.decisions`.
+* *No deadline*: A decision has no deadline and no fallback by time; it stays open until the operator answers it, the server closes it `withdrawn`, or the scope ends by an engine-owned transition, which closes every open record `cancelled`.
+* *Resolution outcomes*: Each class has a closed outcome set, which a question clause must route exactly (Rule 2):
++
+[cols="1,2,3"]
+|===
+|Class |Outcomes |Routed to
+
+|`init`
+|`answered`
+|The re-entrant `init.classify`, which reads the answer.
+
+|`clarification`
+|`answered`
+|The asking authoring state, whose new task carries the answers as clarifications.
+
+|`review`
+|`approve`, `revise`
+|The continuation of the reviewed artifact, or its re-authoring with the operator's revision text.
+
+|`task`
+|`answered`
+|The envelope state, whose next envelope task carries the answer.
+
+|`setup`
+|`answered`
+|The re-entrant setup state that reads the answer.
+
+|`ask`
+|`answered`
+|The asking task state, whose new task carries the answer.
+|===
++
+An answer _none fits_ resolves the state `answered` with that answer: the asking role, re-entered, asks anew, or a decision a quorum escalated goes to the quorum again (link:../model-work/10-decision-quorum.adoc#adjudication[Model Work Specification, Ask or Quorum]); where neither applies, _none fits_ is not offered.
+* *Answer validation*: Both clients' answers pass the same validation over the local API (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]): an option, value, or own words the part does not allow is refused with `invalid_answer`, an answer to a part whose dependency is unanswered with `dependency_unanswered`, an answer to an older revision of the decision with `conflict` (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]), and a second answer with `already_answered`; a quorum's vote is a worker's submission and is refused with `invalid_link_args`. An answer is accepted for content questions only, never for an override (`PM-WF-12`).
+* *Awaited events*: A question state rests in the decision unit's operator waits, which await `OPERATOR_ACT` and `QUESTION_ANSWER` (Rule 11b, xref:05-primitives.adoc#primitive-spi-contract[`Primitive<P, R>` SPI Contract]).
+
+[#question-adjudicate-unit]
+=== Adjudication Unit (`adjudicate-decisions.pmwf`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
+
+The adjudication of a question set is the sub-workflow unit `adjudicate.decisions`, designable like the phase units (xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants], item 1); its rules, the decision declarations, the blind input, the decision rule, and the record are specified in link:../model-work/10-decision-quorum.adoc#adjudication[Model Work Specification, Ask or Quorum]. Every question state runs one instance for the scope's new question set when it is entered, in its own frame, recorded on the set's question records and never on the scope's `call_stack`, like `worker-task` in a `job llm` state; no unit calls it with `call`, and no unit can omit it. A question state of a plan runs the copy the plan instance binds (resolved by level); a question state of a workspace, machine, or entry unit runs the binary's default unit. The engine binds the set; the unit reads its own decision declarations and declarations (<<unit-declarations>>), the role artifacts, the decision calibration records, and the records. A copy differs from the default unit only in its declarations (`INV-ADJ-1`). Its exit contract is `decided` and `escalated`; the engine routes the control outcome `stepped_out` like `escalated`, so a set the unit cannot finish is delivered to the operator.
+
+[source,text]
+----
+---
+name: Adjudicate Decisions
+description: Decides a question set by quorum where its decision kinds allow it, and escalates it to the operator otherwise.
+type: subworkflow
+exit: decided
+exit: escalated
+modification_date: 2026-10-14
+version: 1.0.0
+author: plan-marshall
+---
+workflow adjudicate.decisions version 1 format 1
+scope subworkflow
+decide interpretation -> quorum(quorum-a, quorum-b, 90)
+decide approach -> quorum(quorum-a, quorum-b, 90)
+decide granularity -> quorum(quorum-a, quorum-b, 90)
+decide placement -> quorum(quorum-a, quorum-b, 90)
+decide test_strategy -> quorum(quorum-a, quorum-b, 90)
+decide scope -> ask
+decide product_behaviour -> ask
+decide assurance -> ask
+decide external_fact -> ask
+declare vote_wait_seconds = 900
+declare max_false_auto_percent = 5
+declare kind_sibling_collision = scope
+declare kind_domain_choice = placement
+declare kind_outline_review = scope
+start adjudicate.check
+
+state adjudicate.check
+  auto adjudicate.check                     # per question: kind declared quorum, valid, calibrated,
+                                            #   listed roles available and qualified, a listed asker at the score
+    eligible        -> adjudicate.vote
+    ineligible      -> adjudicate.escalated # reason kind_ask, quorum_invalid, calibration_failed,
+                                            #   role_unavailable, role_unqualified, below_score
+
+state adjudicate.vote
+  job llm vote role each adjudicate.vote-roles  # one blind vote task per listed role other than the asker
+    collected       -> adjudicate.decide
+    lost            -> adjudicate.escalated # no vote task could be served: the set goes to the operator
+
+state adjudicate.decide
+  auto adjudicate.decide-agreement          # the decision rule over the votes of every question
+    agreed          -> adjudicate.decided
+    not_agreed      -> adjudicate.escalated
+
+state adjudicate.decided terminal decided success
+
+state adjudicate.escalated terminal escalated success
+----
+
+The state `adjudicate.vote` is the one task state whose roles come from the unit's configuration (`role each <primitive_id>`, xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar]): the read-only primitive `adjudicate.vote-roles` returns the listed roles of the set's quorum declarations other than the asking role, and the state creates one task per role, each with its own entity of the kind `vote` covering the questions whose declaration lists the role, which a fresh worker of that role does through `worker-task`. The return evaluation of the kind records each vote, per option of every part, and settles `collected` once every task has ended. The declared vote wait is the deadline of the vote tasks, a bound on model work and never on the operator (link:../timeouts/01-job-budgets-and-waits.adoc#vote-wait[Timeouts & Budgets Specification, Vote Wait]): a vote task still open when it passes closes `lost`, so the state awaits only `TASK_SETTLED` (Rule 11b); a task without a valid vote is passed to `adjudicate.decide` as a missing vote, and the state settles `lost` only when no task of the list was served. When the asking role is the only listed role, the list is empty and the state settles `collected` at once. The transaction of each terminal writes the set's decision records and `adjudicated` lines with the outcome and its reason and, for `decided`, the answers. The unit never asks anyone: every path ends in a terminal without a link, a question, or a waiver, and an `escalated` set is delivered to the operator through the decision unit (<<question-states>>).
+
+[#unit-declarations]
+== Unit Declarations (Decision Parameters)
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17: Dynamic Re-Planning of a Running Plan], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25: Plan Behaviour Axes & Plan Overrides]_
+
+A decision a unit takes is shaped by the unit itself: the parameters of a decision (which roles, how many must agree, which threshold, which budget) are *declarations* in the unit's header, `declare <param_name> = <value>` (xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar]), never operator keys. Remediation budgets stay call arguments of the calling phase units, because they differ per call site (xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]); a declaration holds one value for every use of its unit.
+
+* *Declaration schema, decision declarations, and bounds*: The compiled declaration schemas of `adjudicate.decisions`, `replan`, the decision unit `decision` (`interpret_role`, `clarify_max`; compiled only, so only its shipped values occur), and the variants of the method and asking axes (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]) (names, types, shipped values, and bounds that admit the shipped value and, for `adjudicate.decisions` and `replan`, stricter ones only), the `decide` lines of `adjudicate.decisions` (each kind at most once, `ask` or a quorum of `1` to `3` distinct roles with a score of `50` to `100`), and the finding `declaration_invalid` naming the file, the line of the offending `declare` or `decide` line, and the bound, which refuses the plan lifecycle of every project the unit reaches like every unit finding, are implemented, for `adjudicate.decisions` and `replan`, by link:../../../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[`DeclarationBounds`] (link:../../../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds]); the schemas of the axis variants are not implemented yet. An undeclared decision kind is `ask`, and a quorum declaration decides only while its calibration meets the declared level (link:../model-work/10-decision-quorum.adoc#quorum-calibration[Model Work Specification, Quorum Calibration]), so a declaration the corpus does not support escalates to `ask`; no declaration can name a role outside the composition check (`INV-ADJ-1`, `INV-REPLAN-1`).
+* *Binding*: A plan instance binds the `adjudicate-decisions.pmwf`, `replan.pmwf`, and axis variants in force, each resolved by level, by id and digest like every sub-unit it calls (xref:09-plan-instance.adoc#plan-instance[Plan Instance]); the declarations in force are those of the bound digest, and an edited unit reaches a running plan only through the adoption of a new instance version (`config_adopted`). Scopes that run compiled-only units use the declarations of the binary's default units.
+* *Source*: A decision that applies a declared value records it with the source `unit`, the key `<unit_id>.<name>` (`adjudicate.decisions.decide.<kind>` for a decision declaration), the bound unit digest, and the level the unit was resolved from; a default unit's declaration is recorded with the source `compiled` (link:../model-work/11-decision-records.adoc#decision-record-content[Model Work Specification, Decision Records, Content]). The effective declarations of every unit, with their bounds and levels, are published in `pm://project/config` (`units[]`).
+
+[#waivers-and-integrity]
+== Waivers, Waiver Requests & the Integrity Pause
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides]_
+_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-18[PM-WATCH-DSL-18]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
+
+The process enforces itself: every blocking condition gets a bounded self-remedy, mostly a remediation policy unit (xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]), and then a defined fallback end, and no setting and no answer of the operator passes a gate its evidence does not pass. The operator influences a running plan only by operator acts: waivers, read by primitives; pausing and starting the plan; cancelling or abandoning it; a revision accepted in a chat; and the plan's own settings (xref:09-plan-instance.adoc#plan-overrides[Plan Overrides]). Waiting for the operator is the operator wait (<<operator-wait>>); the DSL has no other decision construct (no decision registry, no escalation action or form).
+
+* *Waiver record*: `waive <gate>` declares a waivable gate met (`mode: met`), `waive --raise <budget>=N` raises a budget ceiling (`mode: raise`), and `unwaive` revokes an unconsumed waiver, each with its reason and given in either client (link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-record[Store Schemas Specification, Waiver Record]; link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI, Coordination & Security Specification, Waivers]). The gate identifiers form a closed list: `review_evidence[:<bot_kind>]`, `ci_check:<check_name>`, `analysis_gate:<provider>`, `findings:<class>` and `findings:<provider>`, and `qgate_findings:<phase>`; the raisable budgets are `fix_budget:<policy>` and `retry_budget:<policy>`. A waiver is plan-scoped, settable at any time until the gate's fallback is taken, and applies to every later evaluation of its gate; after the fallback it is refused (`plan_ended`). Every waiver composes a new plan instance version (event `waiver`), which marks the gate waived with the waiver id or carries the raised ceiling with its source.
+* *Reading a waiver*: A waivable gate admits a failure only through `waiver.lookup(gate)` (read-only in `WorkflowExecutionContext`), which appends a consumption naming `HEAD` and the covered items; the PR comment and the landing record list every consumption. A primitive may look up only the gate identifiers it declares in `waivableGates()` (xref:05-primitives.adoc#primitive-spi-contract[`Primitive<P, R>` SPI Contract]), and no primitive can write a waiver (`INV-GEN-2`, xref:04-ast-node-model.adoc#project-owned-units[Compiled Invariants]). In the DSL a waived path is visible only as the `waived` terminal of a remediation unit.
+* *Waiver requests*: The `request_waiver (rationale: text[1..2000])` closing link (rel `escalate`, form `submit`) of a remediation unit's decision task files a request record (`waiver_requests[]`, announced to both clients and in an idempotent PR comment), and the unit enters its waiver wait (`remediation.await-waiver`), an operator wait like a decision (<<operator-wait>>): it has no time limit and ends by the operator's `waive` (`waived`), a `raise` (`raised`, the unit re-checks its budgets with the new ceiling), or `decline`, which records the request's outcome `declined` and lets the unit take its next transition (`exhausted`). A waiver request offers no chat: a waiver is an override, never a content answer.
+* *Operator-initiated ends*: The operator's cancel and abandon of a plan (link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue, Cancelling and Abandoning]), the cancel of an integrity pause, the release of the plan's project (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]), and `delete-plan` (which records the fixed reason `plan_deleted`) are engine-owned, scope-wide transitions into `plan.aborted` in the next transaction, under the on-entry rule (every begun, unsettled step recorded `failed`), with the plan's outcome `cancelled` (a cancel, and `delete-plan` with its reason), `abandoned`, `released`, or `aborted` (the cancel of an integrity pause, the only abort); they close open question records `cancelled` and pending waiver requests `cancelled`. An epic's cancel and its project's release end the epic as the epic's acts define (link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]), in `epic.aborted` through the epic unit's single declared transition into its abort terminal (`abort_landed` of `epic.next-work`, link:../state-catalogue/06-setup-epic-other.adoc#state-catalogue-epic[State Catalogue, Epic Workflow]); they leave the epic's running child plans untouched: each runs to its own outcome, its epic linkage resolving to `detached` once the epic is terminal (link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store], Origin and Epic Linkage). No unit declares any other transition into an abort terminal (xref:01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Formal EBNF Grammar], Ends of a scope).
+* *Integrity pause*: The condition overlay `integrity_breach {kind: store_tampered | enrolment_tampered, store, recorded_digest, current_digest}` (xref:04-ast-node-model.adoc#condition-overlays[Condition Overlays (Engine-Owned)]) pauses its scope: every `pm_do` of the paused scope is rejected with `integrity_paused`, and no transition of the scope is taken while it is set. Both clients show it as the hold `integrity_pause` (link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue, Holds and Their Acts]) with the tampered file and its recorded and current size and digest, and its two acts: accept the edit, after which the engine re-verifies the digests before it clears the condition, or cancel, which ends a plan `aborted` and an epic `cancelled` through the engine-owned transition into its abort terminal. Nothing is restored and no difference is computed. It has no bound and no fallback, because a tampered store cannot be trusted to write a hand-back.

@@ -13,6 +13,6 @@
  * identifier is numbered once per prefix (PM-IMPL-1); a module never logs through another module's holder except
  * this one.
  * <p>
- * Specification: {@code doc/specification/module-structure.adoc} (Modules, {@code pm-core}).
+ * Specification: {@code plan-marshall-documentation/doc/specification/module-structure.adoc} (Modules, {@code pm-core}).
  */
 package de.planmarshall.core.log;

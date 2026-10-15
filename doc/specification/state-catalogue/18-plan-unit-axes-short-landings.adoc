@@ -1,0 +1,154 @@
+= State Catalogue: Plan Unit, Axis Variants & Short Landings
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Plan Unit, Axis Variants & Short Landings
+
+[#state-catalogue-plan-unit]
+== Plan Unit: `phases`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+
+The plan unit (`plan.pmwf`, unit id `plan`, `scope plan`, its call states prefixed `phases`) is a workflow of the six phases `init`, `refine`, `outline`, `plan`, `execute`, and `finalize`, each a sub-workflow it calls (`phase-1-init.pmwf` … `phase-6-finalize.pmwf`) (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas Specification, Phases as Sub-Workflows]; link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]). Each phase declares in its frontmatter an entry for each point at which it is entered and an exit for each outcome the plan unit continues on differently; the plan unit has neither: it starts at its starting point and ends in its stop points, the plan's terminals and `plan.aborted` (xref:04-plan-finalize-terminal.adoc#state-catalogue-terminal[Plan Terminal States]). A lane is the plan unit's choice of the phases it calls: the land lane calls `init` and `execute` at its entry `land`, then `finalize`; the adopt lane calls `init` and then `finalize` at its entry `adopt`; a phase a plan's lane skips is a pruned call, with its reason. A loop-back is the plan unit calling a phase again; a re-entry from `finalize` into `execute` is the phase `finalize` ending with that outcome. The entries and exits of the phases are those of the call states below: the entries `start` (every phase), `rework` (`outline`), `land` (`execute`), `reentry` (`execute`), `adopt`, `hand_back`, and `post_run` (`finalize`); the exits `deep`, `light`, `land`, `adopt`, `returned` (`init`), `ready`, `returned` (`refine`), `passed`, `escalate_to_deep`, `returned` (`outline`), `ready`, `loop_back_outline`, `returned` (`plan`), `exit`, `loop_back_outline`, `hand_back` (`execute`), and `merged`, `no_change`, `handed_back`, `returned`, `reenter_execute`, `loop_back_outline` (`finalize`). A plan's phase is the phase sub-workflow on its call stack. A recipe's plan runs the recipe's workflow in place of this unit, its phases its own where it differs and these where it does not (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-phases.call]][[state-phases.init]][[state-phases.refine]][[state-phases.outline]][[state-phases.outline-rework]][[state-phases.plan]][[state-phases.execute]][[state-phases.execute-land]][[state-phases.execute-reentry]][[state-phases.finalize]][[state-phases.finalize-adopt]][[state-phases.finalize-hand-back]][[state-phases.finalize-post-run]]`phases.<phase>`: `phases.init`, `phases.refine`, `phases.outline`, `phases.outline-rework`, `phases.plan`, `phases.execute`, `phases.execute-land`, `phases.execute-reentry`, `phases.finalize`, `phases.finalize-adopt`, `phases.finalize-hand-back`, `phases.finalize-post-run`
+|the phase it calls
+|`call`
+|`phases.init`: the plan's creation (the unit's start state). Every other: `phases.route` (its outcome), and for a loop-back, a re-entry, a hand-back, or the post-run band the phase exit or `plan.return` that names it.
+|`call <phase>` at the entry the state's name gives (`start`, or `rework`, `land`, `reentry`, `adopt`, `hand_back`, `post_run`); the phase's entry state becomes current.
+|The phase's exits: a forward continuation records the next call and -> `phases.ask` (`init`: `deep` -> refine, `light` -> outline, `land` -> execute-land, `adopt` -> finalize-adopt; `refine`: `ready` -> outline; `outline`: `passed` -> plan, `escalate_to_deep` -> refine; `plan`: `ready` -> execute; `execute`: `exit` -> finalize); a loop-back or re-entry -> the call directly (`loop_back_outline` of `plan`, `execute`, and `finalize` -> `phases.outline-rework`; `finalize` `reenter_execute` -> `phases.execute-reentry`); `hand_back` (`execute`) -> `phases.finalize-hand-back`; `returned` (Phases 1–4) -> `plan.return`; the end of `finalize`: `merged`, `no_change` -> `completed`, `handed_back` -> `handed_back`, `returned` -> `returned`.
+|link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]
+
+|[[state-phases.ask]]`phases.ask`
+|the phase that ended
+|`call`
+|Every forward continuation of a phase call state.
+|The call site of the asking axis: `call ask.<variant>` with the boundary (the phase that ended, its result, and the call to come), the variant the plan instance binds (the others pruned with reason `plan_default`; <<state-catalogue-axes>>).
+|`continue` -> `phases.route`.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-phases.route]]`phases.route`
+|the phase that ended
+|`auto`
+|`phases.ask` (`continue`).
+|Router: `auto phases.route` reads the recorded next call.
+|One outcome per call state: -> `phases.refine`, `phases.outline`, `phases.plan`, `phases.execute`, `phases.execute-land`, `phases.finalize`, `phases.finalize-adopt`.
+|link:../workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL Specification, Routing by Fact]
+|===
+
+[#state-catalogue-axes]
+== Axis Variants
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25: Plan Behaviour Axes & Plan Overrides]_
+
+Each plan behaviour axis is a call site of the plan workflow and each of its variants a designable sub-workflow whose name's prefix names its axis; a variant is changed, never added (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]). The plan instance binds the variant of each axis where the plan first needs it, from the plan's own value, else the project's, else the machine's, and prunes the others with the reason `plan_default`, so the process in force shows the choice; a later change composes a new instance version. The asking axis decides which phase transitions wait for the operator: `ask.every-phase` waits after the phases `init`, `refine`, `plan`, and `execute` (declared `wait_after`; not after `outline`, whose review it asks), asks the outline review (xref:02-plan-phases-1-3.adoc#state-outline.gate[`outline.gate`]), and leaves the merge to the operator (prune reason `merge_by_operator`, xref:07-plan-finalize-merge-post-run.adoc#state-finalize.merge-barrier[`finalize.merge-barrier`]); `ask.key-points` waits at no boundary, asks the outline review, and leaves the merge to the operator; `ask.questions-only` waits at no boundary, asks no outline review, and merges itself. The method axis orders each deliverable's implementing and testing tasks (call site `plan.order-tasks`). The landing axis is a call site inside the phase `finalize` (xref:04-plan-finalize-terminal.adoc#landing-call-site[The Landing Axis]); the states of `landing.pull-request` are the finalize steps of orders `11`, `20`, `22..40`, and `70` catalogued in parts 4 and 7, and the states of the other two variants run at order `70` with the prefix of the phase that calls them.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-ask-every-phase.confirm]]`ask-every-phase.confirm`
+|the caller's phase value
+|`operator_wait`
+|`phases.ask` (entry state of `ask.every-phase`).
+|The phase that ended with its result and the phase to come. `continue`; the plan's other acts (pause, cancel, chat, settings) stay offered on the plan.
+|`continue` -> `ask-every-phase.done`.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-ask-key-points.pass]][[state-ask-questions-only.pass]]`ask-key-points.pass`, `ask-questions-only.pass`
+|the caller's phase value
+|`auto`
+|`phases.ask` (entry state of `ask.key-points`, `ask.questions-only`).
+|No wait at a phase boundary; the variant's key points are read where they arise (the outline review, the merge).
+|`continue` -> `ask-key-points.done`, `ask-questions-only.done`.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-method-test-first.order]][[state-method-tests-after.order]]`method-test-first.order`, `method-tests-after.order`
+|`phase-4-plan`
+|`auto`
+|`plan.order-tasks` (entry state of `method.test-first`, `method.tests-after`).
+|Records the order of each deliverable's tasks: its testing tasks before its implementing tasks (`method.test-first`), or after them (`method.tests-after`); the task descriptions and the envelope packing follow it.
+|`ordered` -> `method-test-first.done`, `method-tests-after.done`.
+|link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]
+
+|[[state-finalize.land-main]]`finalize.land-main`
+|`phase-6-finalize`
+|`composite_job`
+|`finalize.next-step` (step `default:branch-cleanup`, order `70`, the variant `landing.main` bound); `finalize.remediate-merge-conflict` (`resolved`, `landing.main`).
+|`composite_job landing.base-push`, after the checks and reviews of the phase, under the Cross-Plan Merge Mutex: runs Phase-Exit Completeness; before it rebases, `replan.detect` evaluates `base_advanced` and a trial merge (`merge_conflict`); it rebases the plan branch onto `origin/<base_branch>` where the base is not an ancestor of `HEAD`, evaluates the Dependency Delta Check and Predicate 1 of the Pre-Merge Review Barrier (Predicate 2 does not apply without a pull request), and through `git.commit_and_push` commits the plan's change from the base to `HEAD` as one commit (the message from `status.metadata.pr_title` and the server sections) and pushes it onto the base branch through the push freshness gate with the explicit lease of the observed base commit, never as a force push; a base that moved since refuses the lease, and the step rebases and evaluates again within the compiled server-rule retry budget. On success it captures the realized footprint, removes the worktree and the plan branch, releases the lease, and records the merge record with `merge_mechanism: base_push`, `merge_state: landed`, and `review_state: not_applicable`.
+|`landed` (the remote base branch observed at the commit) -> `finalize.next-step` (`completes default:branch-cleanup as done`; `merge_outcome: merged`); `incomplete{missing_steps}` -> `finalize.next-step`; `replan` (a trigger raised; the lease released) -> `finalize.replan`; `conflict` (a rebase conflict; the lease released) -> `finalize.remediate-merge-conflict`; `findings_untriaged`, `evidence_missing` -> `finalize.remediate-barrier`; `local_only` (no push remote) -> `finalize.hand-back` (local form, gap `cause: local_only`; `completes default:branch-cleanup as done`); `refused` (the provider refused the push, not waivable) -> `finalize.hand-back` (local form, gap `cause: provider_refused`); `retry_spent` -> `finalize.hand-back` (local form, gap `cause: exhausted`); `stepped_out` (the commit) -> `finalize.hand-back`.
+|link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#landing-variants[Phase Workflows Specification, Landing Variants]
+
+|[[state-finalize.land-files]]`finalize.land-files`
+|`phase-6-finalize`
+|`auto`
+|`finalize.next-step` (step `default:land-files`, order `70`, the variant `landing.files` bound).
+|`auto landing.write-files`: commits nothing to the project; it writes the plan's changes (the tree difference of the plan branch from its merge base) into the main checkout's working tree as uncommitted changes, in one transaction that records the written paths with their digests in `entry_baseline`, only where every path of the difference is unmodified in the main checkout and equals its content at the plan's merge base; otherwise it writes nothing. After writing it removes the worktree and keeps the plan branch as the recovery point, whose removal is the operator's.
+|`written` -> `finalize.next-step` (`completes default:land-files as done`; the plan ends `handed_back` with `merge_outcome: no_pr`, its landing record naming the written paths, without entering `finalize.hand-back`); `not_applicable` (a path modified in the main checkout) -> `finalize.hand-back` (local form, gap `cause: files_not_applicable` with the conflicting paths; `completes default:land-files as done`).
+|link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#landing-variants[Phase Workflows Specification, Landing Variants]
+
+|[[state-ask-every-phase.done]][[state-ask-key-points.done]][[state-ask-questions-only.done]][[state-method-test-first.done]][[state-method-tests-after.done]]`ask-every-phase.done`, `ask-key-points.done`, `ask-questions-only.done`, `method-test-first.done`, `method-tests-after.done`
+|the caller's phase value
+|`terminal`
+|The variant's last state.
+|Declared `terminal continue success` (asking) and `terminal done success` (method).
+|The caller's transition (`phases.ask`, `plan.order-tasks`).
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===
+
+[#state-catalogue-short-landings]
+== Short Landings: `git.land-removal`, `git.land-unit`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-16[PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push]_
+
+A short landing lands one change of a project by one commit, through the project's landing: `git.land-removal` the removal from git of documents moved into a source directory (xref:09-bootstrap-and-lessons.adoc#documents-source[Documents as a Source]), `git.land-unit` a workflow unit or a recipe's workflow placed or removed at project level (link:../workflow-dsl/04-ast-node-model.adoc#process-designer[Workflow DSL Specification, Designing a Process]). Both are compiled sub-workflows, run as instances hosted by the project's workspace scope, so the work that started them goes on while they run; phase value `workspace`. Until it has landed, a short landing shows in the project's running work, and a failed one waits for the operator as the hold `landing_failed` (xref:01-conventions-generic-conditions.adoc#holds[Holds and Their Acts]). The release of the project lets a running short landing finish first, within its compiled bound. A generic state `git-land-<kind>.x` stands for one concrete state per unit (anchor `state-git-land.x`).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-git-land.prepare]]`git-land-<kind>.prepare`
+|`workspace`
+|`auto`
+|The instance's start (the unit's start state); `git-land-<kind>.failed` (`retry`).
+|Reads the project's landing in force and prepares the change: for `landing.files` in the primary checkout (the moved files deleted from the working tree, the unit written or deleted under `.marshall/config/` or `.marshall/recipes/`), otherwise in a short-lived worktree of the base branch.
+|`files` -> `git-land-<kind>.left`; `commit` -> `git-land-<kind>.commit`.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL Specification, Reusable Sub-Workflows]
+
+|[[state-git-land.commit]]`git-land-<kind>.commit`
+|`workspace`
+|`call`
+|`git-land-<kind>.prepare` (`commit`).
+|`call git.commit_and_push (message_mode=step_or_fallback, push_mode=always)`, staging only the change: for `landing.pull-request` pushed to its own branch, for `landing.main` onto the base branch.
+|`done` -> `git-land-<kind>.await-merge` (`landing.pull-request`) or `git-land-<kind>.landed` (`landing.main`); `stepped_out` -> `git-land-<kind>.failed`.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_site_reuse_matrix_across_workflows[Workflow DSL Specification, Call-Site Reuse Matrix]
+
+|[[state-git-land.await-merge]]`git-land-<kind>.await-merge`
+|`workspace`
+|`job`
+|`git-land-<kind>.commit` (`done`, `landing.pull-request`).
+|One pull request with the change, its required CI checks only, merged as the project merges (`ci.merge` or `ci.enqueue` bound to the expected head SHA); waits for `merged`, `ejected`, `closed`, or `timed_out` with the stall-based queue bound of `finalize.merge-queue-wait`.
+|`succeeded` (observed `merged`) -> `git-land-<kind>.landed`; `failed` and every other job outcome -> `git-land-<kind>.failed`.
+|link:../model-work/08-epic-coordination.adoc#epic-landing[Model Work Specification, Epic Landing]
+
+|[[state-git-land.failed]]`git-land-<kind>.failed`
+|`workspace`
+|`operator_wait`
+|`git-land-<kind>.commit` (`stepped_out`), `git-land-<kind>.await-merge` (`failed`).
+|Shown as the hold `landing_failed` with its cause. `retry`; for `git.land-removal` also `give_up` (the files stay tracked in git; the source keeps its copy).
+|`retry` -> `git-land-<kind>.prepare`; `give_up` -> `git-land-<kind>.given-up`.
+|xref:01-conventions-generic-conditions.adoc#holds[Holds and Their Acts]
+
+|[[state-git-land.landed]][[state-git-land.left]][[state-git-land.given-up]]`git-land-<kind>.landed`, `git-land-<kind>.left`, `git-land-<kind>.given-up`
+|`workspace`
+|`terminal`
+|`git-land-<kind>.commit`, `git-land-<kind>.await-merge`; `git-land-<kind>.prepare` (`files`); `git-land-<kind>.failed` (`give_up`).
+|Declared `terminal landed success`, `terminal left success` (the change uncommitted in the checkout, left to the operator), `terminal given_up success`.
+|— (the instance ends; its end is announced on the workspace scope's event stream).
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL Specification, Reusable Sub-Workflows]
+|===

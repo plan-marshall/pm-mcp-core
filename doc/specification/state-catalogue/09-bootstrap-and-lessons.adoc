@@ -1,0 +1,478 @@
+= State Catalogue: Starts & Source Units
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Starts & Source Units
+
+[#state-catalogue-bootstrap]
+== Start of a Plan: `bootstrap-plan`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+[[start-from-clients]]Every plan is created by a start; there is no creation tool. The operator opens a start in either client of a project with `POST /api/v1/projects/{project_id}/entries` (kind `plan`); the entry is then addressed at the top level by its `entry_id` (`/api/v1/entries/{entry_id}`, its events at `/api/v1/entries/{entry_id}/events`, link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#event-streams[Runtime & Interaction Model Specification, Events per Scope]). The entry is a directory of the project's machine store, `pending/<entry_id>/` with its record `entry.json`, its source directory `sources/`, and the transcript of a chat about it, `chat/` (link:../store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas Specification, Pending Entry Record]; link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout Specification, The Source Directory]). `bootstrap-plan.pmwf` (state prefix `start`) is a compiled-only unit run on the entry: one instance per entry, its state kept in the record; its operator waits are served to both clients, the first valid act wins, and no harness, session, or model relays the operator's choices (link:../workflow-dsl/02-units-jobs-decisions.adoc#clients-only[Workflow DSL Specification, All Interaction in the Operator's Clients]). An entry never expires: it has no time limit, is never discarded by time, and stays among the project's open entries, offered to continue in both clients, until it is started, abandoned, or deleted with the release of its project. Nothing exists under `plans/` before `start.create` succeeds, so an abandoned entry leaves no scope; abandoning deletes the entry with its sources and its transcript. A breach of an entry's record (`integrity_breach`) ends only by `accept-edit` or by abandoning the entry.
+
+The start gathers the plan's sources into its source directory: the operator adds them one by one, each through its source unit, which stores it and, for an external one, screens the stored copy (<<state-catalogue-source>>), and removes any of them; the start itself stores a description (`start.store-description`), since it needs nothing gathered. Only the kinds that combine with those already in the list are offered: a pull request or the local changes only with descriptions and documents, never both, and the local changes not while the project's landing in force is `landing.files`, whose reason names the project's setting `landing`. A recipe is no source: choosing one starts a plan whose process is the recipe's own workflow (`recipe`, <<state-catalogue-recipe>>). Once a source is stored and every external one screened, `start.sources` offers a chat about the entry with the role `refine` (link:../state-catalogue.adoc#chat[Chat]); its one change is a description, stored after its read-back, and starting never waits for it. A plan of an epic is started by the epic itself: the server opens its entry with `from_epic` when it starts the epic's row (`epic.next-work`) and runs the start without an operator, from `start.open` through `start.source-epic-row` to `start.launch`.
+
+[[options-when-needed]]*Asked when needed*: The start asks only what the plan starts from, and its title and id, proposed from the sources. The landing is not asked at the start (a project whose landing in force is `landing.files` is not offered the local changes as a source). Every other option of the plan is an operator wait at the state that first needs it, with its proposal, and is not asked at all where the plan's own settings, the project, or the machine set it (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]): the posture where the plan's lane is chosen and the base branch before the plan's base stamp, in `init.options` (xref:02-plan-phases-1-3.adoc#state-init.options[`init.options`]); the outline review where the outline is ready, by the plan's asking variant (xref:02-plan-phases-1-3.adoc#state-outline.gate[`outline.gate`]). A value the operator sets in the plan's settings before it is asked is the same plan value (composition event `override`). An epic's `parallelization_scope` is never asked: a new epic takes the project's `epic.parallelization_scope` (machine default `1`), and the operator raises it through the epic's _next plan_, which offers to raise it by one when the scope is full, or in the project's settings; a raise of an epic is a ledger write of its header (link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]). An epic's automatic mode and `overlap_max_files` are taken from the project likewise and shown, never asked.
+
+*Creation*: `start.create` writes outside the entry, so it never claims one transaction over several stores: each write is journaled in its own store (link:../store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas Specification, Transaction Journal, Writes outside the scope]) in a fixed order: the new plan scope first, the authoritative write, into which the entry's source directory moves (`plans/<plan_id>/sources/`) together with the transcript of a chat about the entry (`plans/<plan_id>/chat/`, after a chat still open was ended, its transcript complete; no source and read by no model of the plan); then the epic queue row (`running`, `started_at`) of a plan of an epic; then the lesson claim of a plan from a lesson; and last the deletion of the entry. A crash between the writes is completed by the startup recovery from the existing plans: a plan with `origin.epic_id` whose row is not `running` sets it, a plan created from a lesson whose lesson is unclaimed claims it, and an entry whose plan exists is deleted (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime & Interaction Model Specification, Per-Project Recovery]). `origin` of the plan's `mcp/status.json` names the sources by their ids in the manifest, and `request.md` composes its original input from the descriptions and a reference to each other source.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-start.open]]`start.open`
+|— (`entry`)
+|`auto`
+|The entry's creation (the unit's start state).
+|`auto start.open`: the setup gate (the machine's onboarding complete, the project enrolled, set up, and its configuration valid, `.marshall/config/` clean, every checked integration with a valid variant); the facts the start offers from: the recipes of the project's domains, of the machine, and of the project (a project's recipe in place of one of the same key), the project's unclaimed lessons, whether the checkout has local changes and whether they are offered. Issues and pull requests are named by the operator, never listed.
+|`ready` -> `start.choose`; `follow_up` (an entry opened from a chat about ended work, its description stored) -> `start.sources`; `epic_row` (an entry the server opened with `from_epic`) -> `start.source-epic-row`; `refused{reason}` (the gate does not hold: `machine_not_onboarded` naming the machine's onboarding, `project_not_ready` naming the project's onboarding) -> `start.refused`; `launch_refused` (an entry with `from_epic` whose gate does not hold: the row is marked `held` with the reason) -> `start.abandoned`.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]
+
+|[[state-start.choose]]`start.choose`
+|— (`entry`)
+|`operator_wait`
+|`start.open` (`ready`); `start.recipe` (`stepped_out`).
+|`sources` (a plan from sources), `recipe` (a recipe), `abandon`.
+|`sources` -> `start.sources`; `recipe` -> `start.recipe`; `abandon` -> `start.abandoned`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[UC-STA-1]
+
+|[[state-start.sources]]`start.sources`
+|— (`entry`)
+|`operator_wait`
+|`start.choose` (`sources`); `start.open` (`follow_up`); `start.store-description` (`stored`); `start.chat` (`ended`); every `start.source-<kind>` (`done`, `stepped_out`); `start.recipe` (`request_scoped`); `start.ready` (`back`).
+|`facts`: the sources gathered so far, each with its kind, reference, and state (stored, screened, flagged, unscreened, failed with its cause), and the kinds offered now, each disabled one with its reason. Links: `add_description` (`text[1..32768]`); `add_documents`; `add_issue` (`ref`: a number or a URL); `add_lesson`; `add_local_changes`; `add_pr` (`ref`); `remove:<source_id>`; `chat` (offered once a source is stored and every external one screened, never for a recipe, and disabled with its reason while no configuration of `refine` qualifies); `start` (refused while a source is not stored, or an external one neither screened clean nor accepted); `abandon`.
+|`add_description` -> `start.store-description`; `add_documents`, `add_issue`, `add_lesson`, `add_local_changes`, `add_pr` -> the matching `start.source-<kind>`; `remove` -> this state (the source and its manifest entry deleted); `chat` -> `start.chat`; `start` -> `start.ready`; `abandon` -> `start.abandoned`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[UC-STA-1]; link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout Specification, The Source Directory]
+
+|[[state-start.store-description]]`start.store-description`
+|— (`entry`)
+|`auto`
+|`start.sources` (`add_description`); `start.chat` (`proposed`: the description the chat proposed and the operator accepted).
+|`auto start.store-description`: writes the description as `description-<n>.md` into the source directory and its manifest entry (trusted: the operator's own words, never screened); a description rewritten in a chat is a new entry, since a stored source never changes.
+|`stored` -> `start.sources`.
+|link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout Specification, The Source Directory]
+
+|[[state-start.chat]]`start.chat`
+|— (`entry`)
+|`call`
+|`start.sources` (`chat`).
+|`call chat` with the subject the entry, the scope its stored sources and descriptions (an untrusted source still marked), and the role `refine` (link:../state-catalogue.adoc#chat[Chat]).
+|`proposed` -> `start.store-description`; `ended` -> `start.sources`.
+|link:../state-catalogue.adoc#chat[Chat]
+
+|[[state-start.source]][[state-start.source-documents]][[state-start.source-issue]][[state-start.source-lesson]][[state-start.source-local-changes]][[state-start.source-pr]][[state-start.source-epic-row]]`start.source-<kind>`: `start.source-documents`, `start.source-issue`, `start.source-lesson`, `start.source-local-changes`, `start.source-pr`, `start.source-epic-row`
+|— (`entry`)
+|`call`
+|`start.sources` (the matching `add_<kind>` link, with its argument); `start.open` (`epic_row`, `start.source-epic-row` only).
+|`call source-<kind>` (<<state-catalogue-source>>); the unit's entry state becomes current.
+|`done` (the source stored, or nothing added) -> `start.sources`; `stepped_out` (the operator removed it) -> `start.sources`. `start.source-epic-row`: `done` -> `start.launch`; `stepped_out` (a server step-out naming the refusal) -> `start.abandoned`, the row marked `held` with the reason.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]
+
+|[[state-start.recipe]]`start.recipe`
+|— (`entry`)
+|`call`
+|`start.choose` (`recipe`).
+|`call recipe` at its entry `choose` (<<state-catalogue-recipe>>).
+|`chosen` -> `start.ready`; `request_scoped` (the recipe takes the sources of a request) -> `start.sources`; `stepped_out` -> `start.choose`.
+|link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]
+
+|[[state-start.ready]]`start.ready`
+|— (`entry`)
+|`operator_wait`
+|`start.sources` (`start`); `start.recipe` (`chosen`); `start.create`, `start.recipe-create` (`refused`).
+|`facts`: what the plan starts from (the sources, or the recipe with its parameters), the title proposed from the sources, the derived `plan_id` and whether it is free (a recipe's plan id `recipe-{recipe_key}-{yyyy-mm-dd-hh-mm-ss}` and a pull request's are not changeable), and after a refused creation the fact `commit_refused` (`reason`, `detail`; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/01-core-workflow-tools.adoc#bootstrap-commit-recheck[MCP Tools Specification, Bootstrap Commit Re-Check]). Links: `create` (`title?`, `plan_slug?`); `back`; `abandon`.
+|`create` -> `start.create` (no recipe bound) or `start.recipe-create` (a recipe bound); `back` -> `start.sources`; `abandon` -> `start.abandoned`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[UC-STA-1]
+
+|[[state-start.create]]`start.create`
+|— (`entry`)
+|`auto`
+|`start.ready` (`create`).
+|`auto start.create-scope`, which re-checks before its first write what could change since the choice: the setup gate; the identifier free; the lifecycle gate (while it is closed only a project enrolled as a pilot creates scopes, otherwise `lifecycle_closed`); the configuration state (`config_dirty`, except for a plan from local changes, whose capture includes it); every source still stored and every external one screened or accepted; a lesson still unclaimed; a pull request's head; a non-empty local-changes capture and a landing that commits (`landing.files` refused for a plan from local changes). It creates the plan in the fixed write order above, composes instance version 1 (composition event `start`), claims the lesson, and captures the local changes as a snapshot commit.
+|`created` (the plan scope exists at `init.classify`) -> `start.committed`; `refused{reason}` -> `start.ready`.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]; link:../store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas Specification, Pending Entry Record]
+
+|[[state-start.recipe-create]]`start.recipe-create`
+|— (`entry`)
+|`call`
+|`start.ready` (`create`, a recipe bound).
+|`call recipe` at its entry `create` (<<state-catalogue-recipe>>), with the title of `start.ready`.
+|`created` -> `start.committed`; `refused` -> `start.ready`.
+|link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]
+
+|[[state-start.launch]]`start.launch`
+|— (`entry`)
+|`auto`
+|`start.source-epic-row` (`done`).
+|`auto start.create-scope` for a plan the server launches for its epic, without the operator and without a link: the same writes, in the same order, and the same re-checks as `start.create` (identifier free, the lifecycle gate or the project's pilot enrolment, configuration state, the epic row still launchable); the row's staged section is the plan's source of kind `epic_row` (`epic-row.md`), the `plan_id` is the row's, and the plan's options come from the project and the machine.
+|`created` (the plan scope exists at `init.classify` with `origin.epic_id` and the source `epic_row`, the epic row set `running`) -> `start.committed`; `refused{reason}` -> `start.abandoned` (the row marked `held` with the reason).
+|link:../model-work/08-epic-coordination.adoc#server-started-plans[Model Work Specification, Server-Started Plans]
+
+|[[state-start.committed]][[state-start.abandoned]][[state-start.refused]]`start.committed`, `start.abandoned`, `start.refused`
+|— (`entry`)
+|`terminal`
+|`start.create`, `start.recipe-create`, `start.launch` (`created`); the `abandon` links, `start.open` (`launch_refused`), `start.source-epic-row` (`stepped_out`), and `start.launch` (`refused`); `start.open` (`refused`).
+|`links: []`. Declared `terminal committed success`, `terminal abandoned failure`, `terminal refused failure`. `start.committed` names the plan, which both clients then show in Running Work while the server drives it; `start.abandoned` and `start.refused` delete the entry with its sources and transcript in the transaction that enters them, and the refusal of `start.open` answers the entry's creation with its reason, naming where to fix it.
+|—
+|link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]
+|===
+
+[#state-catalogue-recipe]
+=== Recipe Choice: `recipe` (sub-workflow)
+
+Declared in `recipe.pmwf` (`scope subworkflow`, compiled only), called by `start.recipe` at its entry `choose` (exits `chosen`, `request_scoped`, and the operator's `stepped_out`) and by `start.recipe-create` at its entry `create` (exits `created`, `refused`). A recipe is a workflow of its own (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]); this unit only chooses it, gathers its parameters before the plan exists, and creates the plan whose process is the recipe's workflow.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-recipe.choose]]`recipe.choose`
+|— (`entry`)
+|`operator_wait`
+|`start.recipe` (entry `choose`).
+|`facts`: the recipes offered in the project (its domains', the machine's, the project's, a project's recipe in place of one of the same key), each with what it does and whether it takes parameters or the sources of a request. Links: `choose:<recipe_key>`; implicit `step_out`.
+|`parameters` (the recipe declares a `parameters_schema`) -> `recipe.parameters`; `no_parameters` -> `recipe.chosen`, or `recipe.request-scoped` for a recipe that takes the sources of a request.
+|link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]
+
+|[[state-recipe.parameters]]`recipe.parameters`
+|— (`entry`)
+|`operator_wait`
+|`recipe.choose` (`parameters`); itself (a refused `set`).
+|`facts`: the `parameters_schema` with the server-resolved option lists of its `x-pm-options` enums (`domains`, `profiles`, `skills:<domain>` for every domain, `modules`, `base_branches`) and a proposal per parameter; a parameter without an option is shown with its reason, and the recipe cannot run. Links: `set` (`recipe_params`, validated by the server against the schema and the resolved options, `invalid_link_args` on a mismatch); implicit `step_out`.
+|`valid` -> `recipe.chosen`, or `recipe.request-scoped` for a recipe that takes the sources of a request.
+|link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-parameters[Domain Extensions Specification, Recipe Parameters]
+
+|[[state-recipe.create]]`recipe.create`
+|— (`entry`)
+|`auto`
+|`start.recipe-create` (entry `create`).
+|`auto start.create-scope` for a recipe's plan: the re-checks of `start.create`, and that the recipe still exists unchanged in the project; the plan id is `recipe-{recipe_key}-{yyyy-mm-dd-hh-mm-ss}`. It creates the plan whose plan unit is the recipe's workflow with the parameters given, and the sources a request-scoped recipe gathered.
+|`created` -> `recipe.created`; `refused{reason}` (the recipe gone or changed, the identifier taken, a gate no longer holding) -> `recipe.refused`.
+|link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]
+
+|[[state-recipe.chosen]][[state-recipe.request-scoped]][[state-recipe.created]][[state-recipe.refused]]`recipe.chosen`, `recipe.request-scoped`, `recipe.created`, `recipe.refused`
+|— (`entry`)
+|`terminal`
+|`recipe.choose`, `recipe.parameters`; `recipe.create`.
+|Declared `terminal chosen success` and `terminal request_scoped success` (result: the recipe and its parameters, recorded in the entry), `terminal created success`, `terminal refused failure` (with the reason).
+|The caller's matching transition.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===
+
+[#state-catalogue-source]
+=== Source Units
+
+A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks one source of a start before any scope exists; its exit contract is `done {source record | none}` (`none`: nothing added, for example a retired lesson) or `stepped_out` (the operator's _remove_, the implicit `step_out` of its operator waits; for `source-epic-row`, which the server runs without an operator, the server step-out of `source-epic-row.refused`). The server gathers every source; a model works with a source only once it is stored, and an external one only once it is screened. *One order for every external source* (an issue, a pull request): a bounded job fetches it, the deterministic level-1 validator cleans its text (every change reported), it is stored in the source directory marked untrusted and unscreened, and then the screener reads the stored copy, one `batch-v1` batch built from the stored files per firing; the verdict is written into the manifest (link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]). The screening fails closed: a screener that fails, or a role `screener` without a qualified configuration, leaves the source unscreened with the cause, and no model reads it until it is screened again or the operator accepts it explicitly as untrusted, recorded with its reason like an accepted flagged source. What is on this machine (the operator's description, documents the operator chose, a lesson, the local changes, an epic's row) is trusted and never screened (link:../model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work Specification, What Is on This Machine Is Trusted]). A source is never changed once stored. A new way to start is one more source unit and one more link of `start.sources`.
+
+[[documents-source]]*Documents* (`source-documents`, source kind `documents`): the operator picks files or a directory of the checkout or of the operator's home directory, the checkout's files first: the web app through a listing of the server confined to those two roots, the terminal client by paths resolved against its working directory. The listing, a move, and the choice of documents outside the checkout are accepted only from the terminal client and from a browser on the loopback listener, never from a device on the network. The server checks each (a regular file, readable, within the compiled bounds of size and count, no link followed out of a chosen directory; refusals `not_found`, `not_readable`, `too_large`, `outside_allowed`) and copies or moves them into `sources/documents/<n>/`, a directory with its tree, recording each with where it came from, its size, and its digest. Copy or move follows the machine key `sources.documents_mode` (`copy`, `move`, or `ask`, by default `ask`; link:../store-schemas/12-machine-stores.adoc#machine-config[Store Schemas Specification, Machine Configuration Store]); with `ask` the choice is an operator wait with _copy_ preselected, whose _always_ stores the answer as the machine's value. A copy is not managed: nothing keeps it and its original in step. A move deletes a file outside git where it was and removes a file git tracks from git by the short landing `git.land-removal`, started once the source is stored and running on while the work starts (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-short-landings[Short Landings]); a move is the only deletion of the operator's files the runtime makes, and only on the operator's choice.
+
+[[issues]]*Issues by number or URL* (`source-issue`, source kind `issue`): the operator names a number (the project's own repository) or a URL; the server resolves the forge (GitHub, GitLab, or a Forgejo forge such as Codeberg), the repository, the provider, and the credential from it, and a number becomes the issue's URL in the project's repository before anything is fetched. The URL is the issue's reference in the manifest, in `origin`, and wherever the issue is named later; the same holds for a pull request. Another repository is read only under the operator's grant, once or for the project, recorded like the cross-repository reads (link:../credentials-and-enrolment/01-provider-credentials.adoc#cross-repository-reads[CLI, Coordination & Security Specification, Cross-Repository Reads]), with the credential of that forge, or without one for a public issue. The fetch is a bounded `ci.issue-view` of the forge's provider: title and body as text through the guard, labels, milestone, assignees, state, and URL as structured fields in `issue.json`, never as text for a model to follow; links to the issue's own forge keep their targets, because the level-1 allowlist gains the origin of the source's forge. A fetch the forge refuses for its rate limit fails with the cause `rate_limited` and the time the limit resets (`resets_at`); it is not retried by itself. Writing back (`ci.issue-comment`: the clarified request after Phase 2, the approved outline after Phase 3) goes only to an issue of the project's own repository and only where the team key `issues.write_back` enables it (link:../store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas Specification, Project Configuration]).
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-source-documents.pick]]`source-documents.pick`
+|— (`entry`)
+|`operator_wait`
+|`call` (entry state); `source-documents.check` (`failed`).
+|`facts`: the listing of the checkout and the home directory (from the loopback listener and the terminal client only, outside the checkout), and after a failed check the cause per file. Links: `pick` (`paths`, files or one directory); implicit `step_out`.
+|`pick` -> `source-documents.check`.
+|<<documents-source>>
+
+|[[state-source-documents.check]]`source-documents.check`
+|— (`entry`)
+|`auto`
+|`source-documents.pick` (`pick`).
+|`auto source-documents.check`: each path a regular file, readable, within the bounds of size and count; a directory listed with what it holds, its links that lead out not followed.
+|`copy`, `move` (`sources.documents_mode` sets it) -> `source-documents.store`; `ask` -> `source-documents.mode`; `failed` (with the cause per file) -> `source-documents.pick`.
+|<<documents-source>>
+
+|[[state-source-documents.mode]]`source-documents.mode`
+|— (`entry`)
+|`operator_wait`
+|`source-documents.check` (`ask`).
+|`copy` (preselected) or `move`, each with `always` (stores the answer as the machine's `sources.documents_mode`, audited); a move is offered only from the terminal client and the loopback listener.
+|`copy`, `move` -> `source-documents.store`.
+|<<documents-source>>
+
+|[[state-source-documents.store]]`source-documents.store`
+|— (`entry`)
+|`auto`
+|`source-documents.check` (`copy`, `move`); `source-documents.mode`.
+|`auto source-documents.store`: copies or moves the documents into `sources/documents/<n>/` and writes their manifest entries (origin, size, digest, trusted); for a move it deletes the files outside git where they were and starts the short landing `git.land-removal` for the files git tracks.
+|`stored` -> `source-documents.done`.
+|<<documents-source>>
+
+|[[state-source-issue.name]]`source-issue.name`
+|— (`entry`)
+|`operator_wait`
+|`call` (entry state, unless the caller passed the reference).
+|`name` (`ref`: a number or a URL); implicit `step_out`.
+|`name` -> `source-issue.resolve`.
+|<<issues>>
+
+|[[state-source-issue.resolve]]`source-issue.resolve`
+|— (`entry`)
+|`auto`
+|`source-issue.name`; `call` with the reference passed; `source-issue.failed` (`retry` of a resolution).
+|`auto source-issue.resolve`: the forge, the repository, the provider, and the credential; a number becomes the issue's URL in the project's repository.
+|`resolved` (the project's own repository, a granted one, or a public read without a credential) -> `source-issue.fetch`; `not_granted` (another repository without a grant) -> `source-issue.grant`; `unknown_forge` -> `source-issue.failed`.
+|<<issues>>
+
+|[[state-source-issue.grant]]`source-issue.grant`
+|— (`entry`)
+|`operator_wait`
+|`source-issue.resolve` (`not_granted`).
+|May the server read the issues of `<owner/repo>`? `once`, `for_project` (the grant recorded with the grants), `no`.
+|`once`, `for_project` -> `source-issue.fetch`; `no` -> `source-issue.failed` (`not_granted`).
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#cross-repository-reads[CLI, Coordination & Security Specification, Cross-Repository Reads]
+
+|[[state-source-issue.fetch]]`source-issue.fetch`
+|— (`entry`)
+|`composite_job`
+|`source-issue.resolve` (`resolved`), `source-issue.grant`; `source-issue.failed` (`retry`).
+|A bounded `ci.issue-view` through the forge's provider module: title, body, labels, milestone, assignees, state, URL.
+|`fetched` -> `source-issue.store`; `not_found`, `not_readable`, `no_credential` (the issue is not public and the forge has no credential, naming the credential to add), `rate_limited` (with `resets_at`), `provider_unavailable`, `cancelled` -> `source-issue.failed`.
+|<<issues>>
+
+|[[state-source-issue.store]]`source-issue.store`
+|— (`entry`)
+|`auto`
+|`source-issue.fetch` (`fetched`).
+|The level-1 validator over title and body (every change reported); `issue.md` and `issue.json` stored under `sources/issues/<forge>-<owner>-<repo>-<number>/` with the manifest entry (the URL as reference), marked untrusted and unscreened.
+|`stored` -> `source-issue.screen`.
+|<<issues>>; link:../job-runtime/03-parsers-and-gates.adoc#ingestion-validator[Job Runtime Specification, Ingestion Validator]
+
+|[[state-source-pr.name]]`source-pr.name`
+|— (`entry`)
+|`operator_wait`
+|`call` (entry state, unless the caller passed the reference).
+|`name` (`ref`: a number or the URL of a pull request of the project's own repository; stored as its URL); implicit `step_out`.
+|`name` -> `source-pr.observe`.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts (`pr`)]
+
+|[[state-source-pr.observe]]`source-pr.observe`
+|— (`entry`)
+|`composite_job`
+|`source-pr.name`; `call` with the reference passed; `source-pr.failed` (`retry`).
+|A bounded `ci.pr-view`: the pull request must be open and its head branch writable by the agent identity; its title, body, and changed files. The head is observed again by `start.create`.
+|`observed` -> `source-pr.store`; `pr_not_open`, `head_not_writable`, `not_found`, `rate_limited` (with `resets_at`), `provider_unavailable`, `cancelled` -> `source-pr.failed`.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts (`pr`)]
+
+|[[state-source-pr.store]]`source-pr.store`
+|— (`entry`)
+|`auto`
+|`source-pr.observe` (`observed`).
+|Title and body level-1 validated and stored unscreened under `sources/pull-request/`; the changed files stored as the pull request's head, marked untrusted unless the operator authored the pull request, never read by a model as instructions.
+|`stored` -> `source-pr.screen`.
+|link:../model-work/07-untrusted-text-screening.adoc#local-trusted[Model Work Specification, What Is on This Machine Is Trusted]
+
+|[[state-source-lesson.choose]]`source-lesson.choose`
+|— (`entry`)
+|`operator_wait`
+|`call` (entry state); `source-lesson.resolve` (`unavailable`).
+|`facts`: the project's unclaimed lessons, newest first, and after an unavailable one its cause. Links: `choose:<lesson_id>`; implicit `step_out`.
+|`choose` -> `source-lesson.resolve`.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts (`lesson`)]
+
+|[[state-source-lesson.resolve]]`source-lesson.resolve`
+|— (`entry`)
+|`auto`
+|`source-lesson.choose` (`choose`).
+|Resolves the lesson (active, unclaimed; refused while the lesson store has an unresolved integrity breach), then runs the premise check against the current `HEAD`: do the files and symbols it cites still exist?
+|`valid` -> `source-lesson.store`; `premise_resolved`, `premise_invalid` -> `source-lesson.premise`; `unavailable` (claimed, retired, or a store breach) -> `source-lesson.choose`.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts (`lesson`)]
+
+|[[state-source-lesson.premise]]`source-lesson.premise`
+|— (`entry`)
+|`operator_wait`
+|`source-lesson.resolve` (`premise_resolved`, `premise_invalid`).
+|`facts`: the premise evidence. `use` (the evidence goes into the plan as an `amendments[]` entry, `source: refutation`); `retire` (verdict `obsolete`, written to the lesson store under the lesson lock; nothing added, the start goes on); `remove` (nothing added; the lesson stays as it is for a later plan).
+|`use` -> `source-lesson.store`; `retire`, `remove` -> `source-lesson.done` (`none`).
+|link:../store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas Specification, A Claimed Lesson Ends with the Landing]
+
+|[[state-source-lesson.store]]`source-lesson.store`
+|— (`entry`)
+|`auto`
+|`source-lesson.resolve` (`valid`); `source-lesson.premise` (`use`).
+|The lesson stored as `lesson-<id>.md` in the source directory; it is claimed for the plan when `start.create` creates it.
+|`stored` -> `source-lesson.done`.
+|link:../store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas Specification, A Claimed Lesson Ends with the Landing]
+
+|[[state-source-local-changes.preview]]`source-local-changes.preview`
+|— (`entry`)
+|`auto`
+|`call` (entry state); `source-local-changes.failed` (`retry`).
+|Previews the change set of the main checkout: the changed files against the branch with their counts of lines, commits ahead, base branch. The preview is informational: `start.create` takes the capture, a change made after the preview is captured with the rest and named, and an empty capture there is refused.
+|`present` -> `source-local-changes.confirm`; `empty` -> `source-local-changes.failed` (`no_local_changes`).
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#land-lane[Phase Workflows Specification, Land Lane]
+
+|[[state-source-local-changes.confirm]]`source-local-changes.confirm`
+|— (`entry`)
+|`operator_wait`
+|`source-local-changes.preview` (`present`).
+|`add`, `not_now`.
+|`add` -> `source-local-changes.store`; `not_now` -> `source-local-changes.done` (`none`).
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-9[UC-STA-9]
+
+|[[state-source-local-changes.store]]`source-local-changes.store`
+|— (`entry`)
+|`auto`
+|`source-local-changes.confirm` (`add`).
+|The preview recorded as `local-changes.json` in the source directory; the plan takes the land lane and lands the changes by the project's landing.
+|`stored` -> `source-local-changes.done`.
+|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#land-lane[Phase Workflows Specification, Land Lane]
+
+|[[state-source-epic-row.read]]`source-epic-row.read`
+|— (`entry`)
+|`auto`
+|`call` (entry state, `plan_id`, `from_epic`).
+|Reads the queue row under the epic lock: it must exist in that epic and be launchable (prerequisites shipped, re-grounded at the current `HEAD`, not `stale`, no `unreadable` claim section); its staged spec section (claim sections parsed) is stored as the source `epic-row.md` of kind `epic_row`, and the row's `plan_id` is the plan's (no slug). `origin.epic_id` is recorded for the creation, which sets the row `running`.
+|`bound` -> `source-epic-row.done`; `row_unknown`, `row_not_launchable`, `spec_unreadable` -> `source-epic-row.refused`.
+|link:../model-work/08-epic-coordination.adoc#server-started-plans[Model Work Specification, Server-Started Plans]
+
+|[[state-source.screen]]`source-<kind>.screen` (`source-issue`, `source-pr`)
+|— (`entry`)
+|`job`
+|The unit's store state (`stored`); `source-<kind>.unscreened` (`retry`).
+|`job llm screen role screener each screen.batch-parts` over the stored items without a cached verdict (one screener task per batch part, one part unless the batch exceeds the screening split bound; a fully cached batch settles at once), zero tools, in the empty `cwd/` subdirectory of its job-private directory; fail-closed. The verdict is written into the manifest.
+|`clean` -> `source-<kind>.done`; `suspicious` -> `source-<kind>.flagged`; `lost` (the screener failed, its launch was refused, or no configuration of `screener` qualifies) -> `source-<kind>.unscreened`.
+|link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener Job]
+
+|[[state-source.flagged]]`source-<kind>.flagged` (`source-issue`, `source-pr`)
+|— (`entry`)
+|`operator_wait`
+|`source-<kind>.screen` (`suspicious`).
+|`facts`: the flagged spans with their reasons. `accept` (`reason: text[1..2000]`: the text is used, still delivered marked untrusted, and the acceptance is audited); implicit `step_out` (_remove_).
+|`accept` -> `source-<kind>.done`.
+|link:../model-work/07-untrusted-text-screening.adoc#two-level-guard[Model Work Specification, Two-Level Guard for External Text]
+
+|[[state-source.unscreened]]`source-<kind>.unscreened` (`source-issue`, `source-pr`)
+|— (`entry`)
+|`operator_wait`
+|`source-<kind>.screen` (`lost`).
+|`facts`: the cause. `retry` (the screener again); `accept_untrusted` (`reason: text[1..2000]`, recorded like an accepted flagged source); implicit `step_out` (_remove_).
+|`retry` -> `source-<kind>.screen`; `accept_untrusted` -> `source-<kind>.done`.
+|link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]
+
+|[[state-source.failed]]`source-<kind>.failed` (`source-issue`, `source-pr`, `source-local-changes`)
+|— (`entry`)
+|`operator_wait`
+|The unit's gathering state (a failure outcome); `source-issue.grant` (`no`).
+|`facts.reason`: `not_found`, `not_readable`, `not_granted`, `no_credential`, `rate_limited` (with `resets_at`), `provider_unavailable`, `unknown_forge`, `pr_not_open`, `head_not_writable`, `no_local_changes`, or `cancelled`. `retry` (not offered for `no_local_changes`); implicit `step_out` (_remove_). The entry keeps the source in the list with its cause while the operator is away.
+|`retry` -> the unit's gathering state (`source-issue.resolve` after `not_granted` or `unknown_forge`).
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4]
+
+|[[state-source-epic-row.refused]]`source-epic-row.refused`
+|— (`entry`)
+|`terminal`
+|`source-epic-row.read` (`row_unknown`, `row_not_launchable`, `spec_unreadable`).
+|Returns the control outcome `stepped_out {by: server, cause, reason}` with the refusal as `cause`; the unit runs without an operator and offers no link.
+|The caller's `stepped_out` transition (`start.source-epic-row` -> `start.abandoned`).
+|link:../model-work/08-epic-coordination.adoc#server-started-plans[Model Work Specification, Server-Started Plans]
+
+|[[state-source.done]]`source-<kind>.done`
+|— (`entry`)
+|`terminal`
+|The unit's last state (`stored`, `clean`, `accept`, `accept_untrusted`, `bound`; `none` from `source-lesson.premise` and `source-local-changes.confirm`).
+|Declared `terminal done success`; returns the source record, or `none` when nothing was added.
+|The caller's `done` transition.
+|link:../workflow-dsl/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL Specification, Sub-Workflow Return]
+|===
+
+[#state-catalogue-bootstrap-epic]
+== Start of an Epic: `bootstrap-epic`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15: Epic Creation, Server-Started Plans & Cross-Plan Merge Mutex]_
+_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-38[PM-WATCH-DISP-38]_
+
+The operator opens the start of an epic in either client with `POST /api/v1/projects/{project_id}/entries` (kind `epic`), addressed like a plan's start. `bootstrap-epic.pmwf` (state prefix `start-epic`) is compiled only and runs like `bootstrap-plan` (<<start-from-clients>>): it gathers the epic's sources (descriptions, documents, issues, through the same source units), offers a chat about the entry with the role `decompose`, and proposes the epic's title and id from the sources. Its creation writes in a fixed order: first the ledger, the durable truth (the ledger directory `.marshall/epics/<epic_id>/` in the shared epic worktree with `epic.json`: title, `parallelization_scope`, `auto_start`, and `overlap_max_files` taken from the project's values, the list of its sources with kind, reference, and digest, and the lifecycle), into which the entry's source directory moves (`.marshall/epics/<epic_id>/sources/`, an external source in its level-1-validated form with its verdict); then the machine store `epics/<epic_id>/` with `status.json` at `epic.decompose` and the transcript of a chat about the entry (`epics/<epic_id>/chat/`, never in the ledger); and last the deletion of the entry. The epic's first ledger commit (`decomposition.commit`) commits the ledger and its sources, and `epic.landing` lands them, so that every machine that adopts the epic and every later decomposition reads them. A crash after the ledger write leaves a ledger without machine scope, which the start adopts. An epic whose git-tracked ledger exists (`.marshall/epics/<epic_id>/` with `epic.json`, read through the Epic Ledger Resolution Seam, link:../filesystem-layout/01-repository-workspace.adoc#shared-epic-worktree[Filesystem Layout Specification, Shared Epic Worktree]) but has no machine scope (for example after a clone on another machine) is offered for adoption instead of a new epic: the ledger is the durable truth, and the adoption creates only the machine scope from it and never rewrites it.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-start-epic.open]]`start-epic.open`
+|— (`entry`)
+|`auto`
+|The entry's creation (the unit's start state).
+|`auto start-epic.open`: the setup gate of `start.open`; the facts: the adoptable ledgers (count and at most ten: `epic_id`, title).
+|`ready` -> `start-epic.sources`; `refused{reason}` -> `start-epic.refused`.
+|link:../model-work/08-epic-coordination.adoc#epic-workflow[Model Work Specification, Epic Workflow]
+
+|[[state-start-epic.sources]]`start-epic.sources`
+|— (`entry`)
+|`operator_wait`
+|`start-epic.open` (`ready`); `start-epic.store-description`; `start-epic.chat` (`ended`); `start-epic.source-<kind>` (`done`, `stepped_out`); `start-epic.ready` (`back`); `start-epic.adopt-failed` (`back`).
+|As `start.sources`, with the kinds `description`, `documents`, and `issue`; `chat` with the role `decompose`; `adopt:<epic_id>` per adoptable ledger; `start`; `abandon`.
+|`add_description` -> `start-epic.store-description`; `add_documents`, `add_issue` -> `start-epic.source-documents`, `start-epic.source-issue`; `remove` -> this state; `chat` -> `start-epic.chat`; `adopt` -> `start-epic.adopt`; `start` -> `start-epic.ready`; `abandon` -> `start-epic.abandoned`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-2[UC-STA-2]
+
+|[[state-start-epic.store-description]]`start-epic.store-description`
+|— (`entry`)
+|`auto`
+|`start-epic.sources` (`add_description`); `start-epic.chat` (`proposed`).
+|As `start.store-description`.
+|`stored` -> `start-epic.sources`.
+|link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout Specification, The Source Directory]
+
+|[[state-start-epic.chat]]`start-epic.chat`
+|— (`entry`)
+|`call`
+|`start-epic.sources` (`chat`).
+|`call chat` with the subject the entry and the role `decompose` (link:../state-catalogue.adoc#chat[Chat]).
+|`proposed` -> `start-epic.store-description`; `ended` -> `start-epic.sources`.
+|link:../state-catalogue.adoc#chat[Chat]
+
+|[[state-start-epic.source-documents]][[state-start-epic.source-issue]]`start-epic.source-documents`, `start-epic.source-issue`
+|— (`entry`)
+|`call`
+|`start-epic.sources` (`add_documents`, `add_issue`).
+|`call source-documents`, `call source-issue` (<<state-catalogue-source>>).
+|`done`, `stepped_out` -> `start-epic.sources`.
+|<<state-catalogue-source>>
+
+|[[state-start-epic.ready]]`start-epic.ready`
+|— (`entry`)
+|`operator_wait`
+|`start-epic.sources` (`start`); `start-epic.create` (`refused`).
+|`facts`: the epic's title proposed from the sources, the derived `epic_id` and whether it is free, and the values in force from the project, shown and never asked: the automatic mode (`epic.auto_start`), `parallelization_scope`, and `overlap_max_files`. Links: `create` (`title?`, `epic_slug?`); `back`; `abandon`.
+|`create` -> `start-epic.create`; `back` -> `start-epic.sources`; `abandon` -> `start-epic.abandoned`.
+|link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-2[UC-STA-2]
+
+|[[state-start-epic.create]]`start-epic.create`
+|— (`entry`)
+|`auto`
+|`start-epic.ready` (`create`).
+|`auto start.create-scope` for an epic: re-checks the identifier, the lifecycle gate or the project's pilot enrolment, the configuration state, and every source stored and screened; writes the ledger, the machine store, and the deletion of the entry in the fixed order above.
+|`created` (the epic exists at `epic.decompose`) -> `start-epic.committed`; `refused{reason}` -> `start-epic.ready`.
+|link:../model-work/08-epic-coordination.adoc#epic-workflow[Model Work Specification, Epic Workflow]
+
+|[[state-start-epic.adopt]]`start-epic.adopt`
+|— (`entry`)
+|`auto`
+|`start-epic.sources` (`adopt`); `start-epic.adopt-failed` (`retry`).
+|`auto start-epic.adopt`: reads the ledger through the seam and validates `epic.json` and every queue row against their schemas (link:../store-schemas/04-epic-and-change-ledger.adoc#epic-ledger-records[Store Schemas Specification, Epic Ledger Records]); a `terminal` header is not adoptable. Its transaction (`start.create-scope`, re-checking that `epics/<epic_id>/` is still absent, the lifecycle gate or the project's pilot enrolment, and the configuration state) creates only the machine scope: `epics/<epic_id>/` with `status.json` at `epic.decompose` when the ledger has no queue row, otherwise at `epic.next-work`. It writes nothing under `.marshall/epics/`.
+|`adopted` -> `start-epic.committed`; `adopt_failed{reason}` (`ledger_unreadable` with the failing file, `ledger_invalid`, `ledger_terminal`, or a refused re-check) -> `start-epic.adopt-failed`.
+|link:../model-work/08-epic-coordination.adoc#epic-workflow[Model Work Specification, Epic Workflow]
+
+|[[state-start-epic.adopt-failed]]`start-epic.adopt-failed`
+|— (`entry`)
+|`operator_wait`
+|`start-epic.adopt` (`adopt_failed`).
+|`facts.reason` and `facts.detail` (the file and the failure). Links: `retry` (after the ledger was repaired through git); `back`; `abandon`.
+|`retry` -> `start-epic.adopt`; `back` -> `start-epic.sources`; `abandon` -> `start-epic.abandoned`.
+|link:../model-work/08-epic-coordination.adoc#epic-workflow[Model Work Specification, Epic Workflow]
+
+|[[state-start-epic.committed]][[state-start-epic.abandoned]][[state-start-epic.refused]]`start-epic.committed`, `start-epic.abandoned`, `start-epic.refused`
+|— (`entry`)
+|`terminal`
+|`start-epic.create` (`created`); `start-epic.adopt` (`adopted`); the `abandon` links; `start-epic.open` (`refused`).
+|`links: []`. Declared `terminal committed success`, `terminal abandoned failure`, `terminal refused failure`; `start-epic.committed` names the epic, which then runs at its decomposition; the other two delete the entry with its sources and transcript.
+|—
+|link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]
+|===

@@ -24,7 +24,7 @@
  * <ul>
  * <li>{@code doc/specification/model-work/02-task-protocol.adoc} (Queue Task)</li>
  * <li>{@code doc/specification/store-schemas/16-task-queue.adoc} (Session Generation Record)</li>
- * <li>{@code doc/specification/runtime-model/03-relay.adoc} (Generations at the Relay)</li>
+ * <li>{@code plan-marshall-documentation/doc/specification/runtime-model/03-relay.adoc} (Generations at the Relay)</li>
  * </ul>
  */
 package de.planmarshall.core.queue;

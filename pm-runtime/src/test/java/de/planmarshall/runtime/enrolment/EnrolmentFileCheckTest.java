@@ -25,9 +25,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import de.planmarshall.core.store.StoreRefusal;
-import de.planmarshall.core.store.StoreRefusal.Outcome;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +34,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.store.StoreRefusal;
+import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The per-use checks of an enrolment file (PM-SEC-4): a foreign owner, a mode broader than {@code 0600} and a symbolic

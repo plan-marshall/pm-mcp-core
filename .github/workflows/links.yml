@@ -1,0 +1,38 @@
+# The link and traceability check of plan-marshall-documentation, run here over this repository and the documentation:
+# every link and anchor of the specifications, watch documents, plans, ADRs and module documents of this checkout and
+# of the documentation resolves, and no requirement or watch identifier is referenced without being defined. The script
+# lives in plan-marshall-documentation (doc-review skill); this side checks out its main.
+name: Links
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: pm-mcp-core
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: plan-marshall/plan-marshall-documentation
+          ref: main
+          path: plan-marshall-documentation
+          persist-credentials: false
+      - name: Check links and traceability
+        run: |
+          python3 plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py plan-marshall-documentation/doc pm-mcp-core | tee trace.txt
+          grep -qx "BROKEN LINKS 0" trace.txt || { echo "::error::broken links or anchors, see the list above"; exit 1; }
+          grep -qx "REFERENCED BUT UNDEFINED WATCH IDS \[\]" trace.txt || { echo "::error::a watch identifier is referenced but not defined"; exit 1; }
+          grep -qx "UNDEFINED REQ IDS REFERENCED \[\]" trace.txt || { echo "::error::a requirement identifier is referenced but not defined"; exit 1; }

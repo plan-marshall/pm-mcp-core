@@ -17,7 +17,8 @@ the same time can take the same number; the plan that merges later renumbers its
 
 A new ADR follows the template link:template.adoc[`doc/adr/template.adoc`]. The template states the sections and what
 each one holds. The layout of the module documentation is ADR
-link:004-module-documentation-layout.adoc[004 The Module Documentation Layout].
+link:004-module-documentation-layout.adoc[004 The Module Documentation Layout]; where the specifications of this repository live is ADR
+link:007-specifications-of-the-engine-in-this-repository.adoc[007 The Specifications of the Engine in This Repository].
 
 == Directories
 

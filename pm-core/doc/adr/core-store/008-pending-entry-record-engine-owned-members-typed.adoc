@@ -57,4 +57,4 @@ The operator decided to type the engine-owned parts (refine, question q2):
 
 * Operator decision q2 of the work package `session-log-and-generations` (refine)
 * link:001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]
-* link:../../../../../plan-marshall-documentation/doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry Record]

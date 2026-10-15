@@ -1,0 +1,37 @@
+= Runtime Lifecycle Specification: The Runtime's Metrics
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../runtime-lifecycle.adoc[Runtime Lifecycle Specification] » The Runtime's Metrics
+
+[#runtime-metrics]
+== The Runtime's Metrics
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-9[PM-ARCH-9: Runtime Metrics]_
+
+The runtime keeps its figures as metrics in one registry of named counters, gauges, and timers. Each metric has one writer, its unit, and its labels from a closed set (`project`, `role`, `harness`, `model`, `kind`, `state`); its name is distinct from the names of the metrics store, whose rule of one writer per name it follows. No figure is computed by reading the stores on a request, and none ever leaves the machine (`PM-ARCH-2`). Which library implements the registry is open: see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#metrics-library[Open Questions].
+
+[cols="2,2,3"]
+|===
+|Metric |Unit, labels |Kept by
+
+|`runtime.version` (with its build), `runtime.started_at`, `runtime.uptime` |text, instant, seconds |the start sequence
+|`runtime.memory.heap`, `runtime.memory.resident`, `runtime.cpu` |bytes, bytes, percent |read from the process at a snapshot (`/proc` on Linux, the task information on macOS)
+|`runtime.disk.machine_store` |bytes, with when it was measured |the periodic sweep (link:01-startup-recovery-drain.adoc#periodic-sweep[Periodic Sweep])
+|`runtime.listeners` |state per listener |the transport
+|`work.scopes` |count; `kind` (plan, epic), `state` (an activity, waiting for the operator, held), `project` |the transitions
+|`work.tasks` |count; `state` (queued, running), `role` |the task queue
+|`work.workers` |count; `role`, `harness`, `model`, `state` (busy, idle) |the supervisor
+|`work.jobs` |count; `kind`, `state` (running, queued) |the job runner
+|`work.slots` |count and cap; `kind` (build, model) |the slot scheduler
+|`work.locks`, `work.leases` |count |the lock manager and the lease stores
+|`models.calls`, `models.tokens_in`, `models.tokens_out`, `models.total_tokens` |count per hour, with the coverage of the hour; `model`, `role` |the transaction that writes a task row
+|`models.errors`, `models.retries` |count per hour; `model`, `role`, cause class |the transaction that ends an attempt
+|===
+
+* *Where they come from*: the work's gauges are kept by the transitions, the queue, the supervisor, and the slots where things happen, and set from the recovered state at every start (link:01-startup-recovery-drain.adoc#per-project-recovery[Per-Project Recovery]); the models' hourly figures are filled at the start from the task rows of the metrics stores and the machine's usage aggregate `state/usage-aggregate.jsonl` (link:../timeouts/03-retention-host-config.adoc#cleanup[One Cleanup]), which stay the truth (`PM-ARCH-6`). Unmeasured usage is counted as unmeasured, never as `0`, and the models' figures are tokens only, never money. A figure the platform does not give is `unavailable`, never `0`.
+* *Local API*: `GET /api/v1/system` answers the snapshot of the system view, with the window (`hour`, `today`, `7d`) and the project as parameters; `GET /api/v1/system/metrics` answers every metric of the registry with its labels. Both never wait for a project's recovery and mark a recovering project. The runtime-wide stream carries `system.metrics` with the figures that changed, at most once per metrics event interval (link:../timeouts/02-runtime-leases-operator-web.adoc#metrics-event-interval[Timeouts & Budgets Specification, Metrics Event Interval]). A paired device reads them like every resource.
+* *Exposition*: `GET /api/v1/system/metrics` with `Accept: application/openmetrics-text` may answer the OpenMetrics text format, for a tool of the operator that holds the runtime token, on the socket only; the runtime opens no listener of its own for it (`PM-SEC-4`).

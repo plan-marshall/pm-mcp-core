@@ -13,7 +13,7 @@ import java.time.Instant;
 
 /**
  * One step of the periodic sweep ({@link PeriodicSweep}) over an enrolled project
- * (doc/specification/runtime-model/02-startup-recovery-drain.adoc, Per-Project Recovery).
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery).
  * <p>
  * Sweep rule, the contract of every step: a step selects candidates only from positive evidence of abandonment, never
  * from a name that fails to parse as an identifier. For pending entry records the age is the only evidence: a record

@@ -1,4 +1,5 @@
 = Scope Stores and Engine Ports (`core.store`, `core.spi`) Developer Guide
+:spec: ../../../doc/specification
 :toc:
 :toclevels: 3
 :nofooter:
@@ -28,8 +29,8 @@ The store substrate these types build on (transaction journal, `ScopeTransaction
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
 not repeated here; this guide describes only what the delete mode and the create target change in it. The schemas of
 the documents are in
-link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store] and
-link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session
+link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store] and
+link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store Schemas § Scope Session
 Log].
 
 == The Workflow State Store
@@ -622,21 +623,20 @@ closes such a task `lost`.
 
 == Testing
 
-The tests run on the JVM over stores in a temporary base. The schema parity tests (`ScopeSessionRowSchemaParityTest`,
-`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`) read the JSON schema from the documentation checkout named by the system property
-`pm.documentation.root` (`SpecificationDocument`), by default `../plan-marshall-documentation` beside the repository.
-Without the checkout they are skipped with the missing path named, never passed unseen; a build in a worktree that is
-not beside the checkout passes `-Dpm.documentation.root=<path>` to run them.
+The tests run on the JVM over stores in a temporary base. The schema parity tests (`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`, `WorkflowStatusSchemaParityTest`)
+read the JSON schema from the specification of this repository (`doc/specification`, below the root the system
+property `pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
+parity check the specification has run ahead of is `@Disabled` with the work package that re-enables it named.
 
 == Specification Tracing
 
-* Specification: link:{docs}/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
-  Store], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas §
-  Transaction Journal], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store
-  Schemas § Scope Session Log], link:{docs}/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store
-  Schemas § Pending Entry Record], link:{docs}/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas §
-  Security & Transition Audit Log], link:{docs}/specification/store-schemas/12-machine-stores.adoc#audit-head[§ Audit
-  Head], link:{docs}/specification/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
+* Specification: link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State
+  Store], link:{spec}/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas §
+  Transaction Journal], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/01-format-and-session-log.adoc#scope-session-log[Store
+  Schemas § Scope Session Log], link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store
+  Schemas § Pending Entry Record], link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas §
+  Security & Transition Audit Log], link:{spec}/store-schemas/12-machine-stores.adoc#audit-head[§ Audit
+  Head], link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
 == Decisions
