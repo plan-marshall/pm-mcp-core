@@ -1,0 +1,107 @@
+# PLAN-71: Plan instance versions in force: composition events, the engine's switch, Rules 13 and 14, resources
+
+epic: pm-mcp-core-m2-m4
+workstream: WS-03
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Lives at `plans/PLAN-71-plan-instance-versions.md` and is queued as one row file, `queue/PLAN-71.json`,
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT: the emitted command is a one-line pointer and carries no
+> brief, so every per-plan carry is authored here and nowhere else.
+> See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
+> hand-off contract.
+
+## Objective
+
+Implement the work package `plan-instance-versions` of `doc/plans/plan-instance-versions.adoc`: plan instance versions in force: composition events, the engine's switch, Rules 13 and 14, resources. Serves: Roadmap Milestone 3 (the plan instance: the triggers of the composition events, the engine's switch to a version in force with its read of the stored sub-unit texts, a store that refuses a version the composer did not verify, the instance resources) and Milestone 4 (Rule 13 at composition; Rule 14 joins with the skill catalogue of Milestones 7 and 14). Where: pm-workflow packages `workflow.plan` (`PlanInstanceComposer`, `PlanInstanceStore`) and `workflow.engine` (`WorkflowEngine`, the composition at the entering transaction, the version in force), with the composition-time checks in `workflow.verify`; pm-core package `core.store` (`instance_version` of the workflow state). The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
+
+## Deliverables
+
+The bullets of `doc/plans/plan-instance-versions.adoc` § What, in its words (regenerated at 710da61, after the specification moved into this repository).
+
+Context: `plan-instance` built the composer, the store of the versions and of the bound sub-unit texts, and the rendering of an instance; nothing composes a version on an event yet, the engine runs the one unit it was built with (`WorkflowEngine`), and `instance_version` is a member name of the status codec without a field. This package makes the versions take effect, as Workflow DSL § Plan Instance (Versions & Composition Events) and Store Schemas § Plan Instance state. The alignment of the reasons, rules, axes, header, and `diff_summary` is `plan-instance-alignment`'s.
+
+1. The triggers: the engine composes a version of a server event (`outline`, `plan`, `fallback`, `empty_harvest`, `replan`) in the transaction that enters its target state, so the version always contains it and is in force for the rest of its composing chain from that transition; a refused composition of a server event raises `precondition_unmet` on the composing transition with the reason. The operator and configuration events (`config_adopted`, `waiver`, `override`) enter through one entry point that composes, applies the position rule, refuses with `position_not_contained` (a configuration candidate kept, with `kept` or `identical_adopted` in the log), and puts the version in force from the next transition, never mid-state. `start` is composed in the plan's creation transaction. The callers of the operator events and of `start` and `replan` are the packages of those acts (`start-from-clients`, `operator-wait-and-machine-scope` for waivers, `process-designer` for `config_drift`, `plan-and-epic-control` for overrides).
+2. The version in force: `instance_version` of `mcp/status.json` becomes a field of the workflow state, written in the transaction that puts a version in force; the engine runs a plan from the composed units of that version and, for a bound sub-unit, from its stored text `mcp/units/<digest>.pmwf` instead of the level's copy, so an edit of a project's or the machine's unit never changes a running call; a re-composition resets no counter and rewrites no history.
+3. Only verified versions are stored: `PlanInstanceStore` accepts only a version the composer returned as verified, never a version built elsewhere, beside its checks of the version, the header, and the composition record.
+4. Rules 13 and 14 at composition: every role a `job llm` state or a `consult role` clause of a composed unit and of every unit it calls names resolves in the effective role set with the plan's overrides applied and fits its use (`role_undefined`, `class_mismatch`: an `ask` on a `zero_tool` role, a consultation of a `zero_tool` role, a quorum's roles not `read_only` or not on pairwise different models), over the role set of `role-sets-and-model-caller`; every skill a `skill` clause names resolves in the project's skill catalogue (`skill_unresolved`), read through a port that the assembly fills; at `start` the plan is not created, at a server event the transition raises `precondition_unmet`, an operator event is refused. The static verifier's seams of Rules 13 and 14 and of the `skill` clause of Rule 3 close.
+5. The instance resources: the read of a version's DSL text with its header (`pm://plan/{plan_id}/instance[/{version}]`), the diagram of the version in force with the active state, and the version with its last composition event for the status; the bindings to the resource URIs and to the plan's process resource are the assembly's in `plan-marshall-mcp`.
+
+**Done when** (the package's own acceptance): A fixture plan entering the target state of each server event composes its version in that transaction and selects from it in the next `auto` state; an operator event's version is in force from the next transition and one that fails the position rule is refused and logged; after a version switch the engine runs the stored sub-unit text although the project's copy changed; the store refuses a version the composer did not return; a missing role, a role of the wrong class, a quorum on one model, and an unresolved skill each refuse the composition with its reason, at `start`, at a server event, and at an operator event as specified; the text of a version and the diagram of the version in force are read through the package's API; `verify`, `verify -Ppre-commit`, `verify -Pcoverage`, and `verify -Pintegration-tests` are green.
+
+**Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
+
+- Requirements: PM-IMPL-5; PM-WF-1; PM-WORK-1; PM-SKILL-5; PM-EXT-7
+- Specification: the sections the introduction names; Workflow DSL § Static AST Verification Rules (Rules 13 and 14); Store Schemas § Workflow State Store (`instance_version`); MCP Tools § Resource URI Templates; Runtime & Interaction Model § The Plan's Process as a Structure
+- Watch: PM-WATCH-DSL-21; Workflow DSL
+
+## Standing Constraints
+
+Set by the operator for every plan of this epic on 2026-10-09, beside the rules of `CLAUDE.md`:
+
+- **Java 25 is the baseline.** Write for Java 25 and use its language and library features where they fit; no fallback for an older release. The release comes from the parent POM and is not overridden here.
+- **HTTP calls go through `cui-http`.** No direct `java.net.http` or other HTTP client. The build forbids `cui-http` in `pm-core` and `pm-workflow`, so an HTTP call belongs in `pm-runtime` or a provider module, behind an interface the foundation declares.
+- **HTTP tests use `cui-test-mockwebserver-junit5`.** Every test that involves HTTP runs against it; no hand-made fake server. The operator's statement is the consent `CLAUDE.md` requires for adding it as a test-scope dependency.
+- **Work the package as the index says** (`doc/plans/README.adoc` § How to Work a Package, as reworded by #19): the usual plan-marshall flow — a branch, the commits of the plan, a pull request opened at finalize. No draft pull request claims the package; before starting, list the open pull requests for one that names it. The pull request removes the package's row from the index and deletes its package file within its commits, and drops the package from the _Depends on_ column of every row that names it. Build the trace matrix of `traced-implementation` before code, deliver the remainder the roadmap item leaves, and finish with `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` green.
+- **Documents (operator decision 2026-10-15, pm-mcp-core ADR 007).** The specifications, the implementation watch and the traceability of the engine live in this repository: `doc/specification/`, `doc/implementation-watch/`, `doc/Traceability.adoc`, and the log message reference `doc/LogMessages.adoc`. This plan's one pull request carries the code, the tests, Javadoc and `package-info.java`, the developer documentation and ADRs, the deletion of the implemented specification sections and watch items, a correction of a specification statement it proves wrong, and the `Implementation:`, `Verified by:` and `Documentation:` lines of the requirements it implements in `doc/Traceability.adoc`. It opens a pull request in `plan-marshall-documentation` only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there; merging that one is the operator's. The concept and user documentation of the slice and the roadmap check-off are written there at the milestone exit: list them in the pull request body as **Owed to the milestone exit**.
+- **Module documentation (operator decision 2026-10-11).** Documentation of the code lives in its module, in this plan's pull request, not in `plan-marshall-documentation`: the developer documentation of each package this plan changes in the developer file of each package it changes (`{module}/doc/developer/{package}.adoc`) (create or extend it: what the package is for, its main types and how they work together, how to use and extend it, invariants and failure modes, links to the specification sections it implements), and one ADR per design decision taken — every operator decision and every choice between alternatives — in `{module}/doc/adr/{package}/` as `NNN-{slug}.adoc`, the next free number of that directory, with the sections of `doc/adr/template.adoc` (Status, Date, Context, Decision, Alternatives considered, Consequences, Source) or, before that template exists, those same sections. A decision binding the whole repository goes to `doc/adr/`. The module's `README.adoc` gets one line only when this plan adds a new package; it is otherwise left alone. Layout: workstream WS-10.
+- **Settled design: a refused project path is a value.** The confinement check that landed with #19 lives in `pm-core` package `core.store` (`PathConfinement`, `WorkspaceRoots`, `ConfinementOutcome`) and `pm-runtime` package `runtime.workspace` (`WorkspaceConfinement`). A refusal is returned as `ConfinementOutcome` carrying `path_traversal_rejected`; no checked exception type exists or is added. No consumer is wired to it yet (`pm-provider-git` included): a package that performs a file or repository operation for a project adopts the check itself.
+- **Do not leave a design choice open that changes the file set.** Where two readings of a deliverable differ in the files they create, ask the operator at refine instead of deferring the choice to implementation.
+- **Files shared by every plan.** In `doc/plans/README.adoc` remove only this package's own row (and its name from the _Depends on_ column); in `doc/Traceability.adoc` add only the sections of the requirements this package implements. Neither is a declared surface.
+- **Log messages: the holder of your module, next free identifier** (operator decision 2026-10-13; pm-mcp-core #64, ADR `doc/adr/005-one-log-message-holder-per-module.adoc`). A new INFO, WARN or ERROR record goes into the holder of the module whose production code logs it, at the next free identifier of its level (INFO 1-99, WARN 100-199, ERROR 200-299, the same ranges in every holder); for this plan: `WorkflowLogMessages` (`de.planmarshall.workflow.log`, prefix `PM_WORKFLOW`); `CoreLogMessages` (`de.planmarshall.core.log`, prefix `PM_CORE`); `RuntimeLogMessages` (`de.planmarshall.runtime.log`, prefix `PM_RUNTIME`). A record two modules log goes to the lower one (`pm-core`); a module logs only through its own holder and `CoreLogMessages`. There are no workstream blocks and nothing is renumbered. A provider's first record creates its holder `de.planmarshall.provider.<x>.log.<X>LogMessages` (prefix `PM_PROVIDER_<X>`) with a `package-info.java`, and adds the prefix to `KNOWN_PREFIXES` in `CoreLogMessagesTest`. After a rebase, run the holder's test, which refuses an identifier used twice or outside its level's range, and move to the next free one. The same identifiers go into `doc/LogMessages.adoc` of this repository, under the holder's section.
+
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
+## Claim Labels
+
+- OBSERVED: the Objective, Deliverables, Done when, Trace and Depends on above are the package file's and its index row's own — regenerated from `doc/plans/plan-instance-versions.adoc` and `doc/plans/README.adoc` at 710da61 (branch `docs/specification-into-core`, pm-mcp-core #77), after the specification moved into this repository and the package was aligned with the changed specification; the claims below were checked before that
+  - verdict: corroborated | checked_at: 710da6150c6da19d4335643ca6070ef5517f0896 | by: pm-mcp-core-m2-m4/restructure | rescoped: n/a | evidence: regenerated by the orchestrator from the package file and its index row at 710da6150c6da19d4335643ca6070ef5517f0896 after the specification moved into pm-mcp-core (#77); § What, Trace, Done When and Depends on are the package's own
+- HYPOTHESIS: the Expected Surface below is inferred from the `Where` line, the class names of § What and the specification parts the package links, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
+- Verify-first clause: before scoping, list the open pull requests for one that names `plan-instance-versions`, check in `doc/plans/README.adoc` that no package it depends on is still listed, and read the roadmap item this package serves for what the code already covers; a refutation of any claim above loops back to re-scope.
+
+## Expected Surface
+
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — production code
+- HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/` — tests
+- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/engine/` — production code
+- HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/engine/` — tests
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-engine.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-engine/` — ADRs of the package's design decisions; new directory if absent
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/plan/` — production code
+- HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/plan/` — tests
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-plan.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-plan/` — ADRs of the package's design decisions; new directory if absent
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/verify/` — production code
+- HYPOTHESIS: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/` — tests
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-verify.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-verify/` — ADRs of the package's design decisions; new directory if absent
+- OBSERVED: `doc/plans/README.adoc` — this package's own row only
+- OBSERVED: `doc/plans/plan-instance-versions.adoc` — the package file, deleted when the package is done
+- OBSERVED: `doc/implementation-watch/workflow-dsl.adoc` — watch document; the covered items deleted
+- OBSERVED: `doc/specification/store-schemas/02-workflow-state-store.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/workflow-dsl/04-ast-node-model.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/workflow-dsl/09-plan-instance.adoc` — specification part; the implemented sections deleted
+
+## Dependencies and Sequencing
+
+- Depends on: PLAN-26 (`role-sets-and-model-caller`)
+- Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface
+- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
+
+## Hand-Off Command
+
+```text
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-71-plan-instance-versions.md"
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository source and tests. It creates
+and edits NO file under `.plan/orchestrator/` other than its own
+`inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
+its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.

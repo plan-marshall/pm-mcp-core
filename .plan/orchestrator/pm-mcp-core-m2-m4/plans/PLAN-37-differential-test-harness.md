@@ -13,11 +13,11 @@ workstream: WS-06
 
 ## Objective
 
-Implement the work package `differential-test-harness` of `doc/plans/differential-test-harness.adoc` — differential test harness — as one pull request in this repository with its documentation pull request in `plan-marshall-documentation`. It serves Roadmap Milestone 4 and lands in: pm-mcp-core, test scope. The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
+Implement the work package `differential-test-harness` of `doc/plans/differential-test-harness.adoc`: differential test harness. Serves: Roadmap Milestone 4. Where: pm-mcp-core, test scope. The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
 
 ## Deliverables
 
-The bullets of `doc/plans/differential-test-harness.adoc` § What, in its words. A bullet that states what already exists or what follows in a later milestone is context, not a deliverable.
+The bullets of `doc/plans/differential-test-harness.adoc` § What, in its words (regenerated at 710da61, after the specification moved into this repository).
 
 1. Python reference scripts of `plan-marshall` against the Java primitives over shared fixtures; the legacy mapping lives in test code only.
 2. The reference is `plan-marshall` at the commit the migration inventory pins, so that every run uses the same oracle. The pin is advanced deliberately, in one change that updates the inventory and verifies each legacy format again at the new commit; that is how the formats stay verified against the latest `plan-marshall`.
@@ -25,7 +25,7 @@ The bullets of `doc/plans/differential-test-harness.adoc` § What, in its words.
 
 **Done when** (the package's own acceptance): The harness runs one `Ported` primitive against its reference script and fails on a planted difference; no production class reads a legacy format.
 
-**Trace starting set** (documents live in `../plan-marshall-documentation`):
+**Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
 
 - Requirements: PM-TEST-2, PM-MIG-4
 - Specification: Store Schemas § Differential Harness; Migration inventory
@@ -38,18 +38,20 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - **Java 25 is the baseline.** Write for Java 25 and use its language and library features where they fit; no fallback for an older release. The release comes from the parent POM and is not overridden here.
 - **HTTP calls go through `cui-http`.** No direct `java.net.http` or other HTTP client. The build forbids `cui-http` in `pm-core` and `pm-workflow`, so an HTTP call belongs in `pm-runtime` or a provider module, behind an interface the foundation declares.
 - **HTTP tests use `cui-test-mockwebserver-junit5`.** Every test that involves HTTP runs against it; no hand-made fake server. The operator's statement is the consent `CLAUDE.md` requires for adding it as a test-scope dependency.
-- **Work the package as the index says** (`doc/plans/README.adoc` § How to Work a Package, as reworded by #19): the usual plan-marshall flow — a branch, the commits of the plan, a pull request opened at finalize. No draft pull request claims the package; before starting, list the open pull requests for one that names it. The pull request sets the package's row to `done` within its commits. Build the trace matrix of `traced-implementation` before code, deliver the remainder the roadmap item leaves, and finish with `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` green.
-- **Documents.** Javadoc, `package-info.java` and the work package file live here. Requirement and specification documents, the user documentation, the deletion of implemented specification sections and watch items and the roadmap update are made directly in `plan-marshall-documentation` by this plan, in a pull request there that need not name the code pull request; merging it is the operator's.
+- **Work the package as the index says** (`doc/plans/README.adoc` § How to Work a Package, as reworded by #19): the usual plan-marshall flow — a branch, the commits of the plan, a pull request opened at finalize. No draft pull request claims the package; before starting, list the open pull requests for one that names it. The pull request removes the package's row from the index and deletes its package file within its commits, and drops the package from the _Depends on_ column of every row that names it. Build the trace matrix of `traced-implementation` before code, deliver the remainder the roadmap item leaves, and finish with `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` green.
+- **Documents (operator decision 2026-10-15, pm-mcp-core ADR 007).** The specifications, the implementation watch and the traceability of the engine live in this repository: `doc/specification/`, `doc/implementation-watch/`, `doc/Traceability.adoc`, and the log message reference `doc/LogMessages.adoc`. This plan's one pull request carries the code, the tests, Javadoc and `package-info.java`, the developer documentation and ADRs, the deletion of the implemented specification sections and watch items, a correction of a specification statement it proves wrong, and the `Implementation:`, `Verified by:` and `Documentation:` lines of the requirements it implements in `doc/Traceability.adoc`. It opens a pull request in `plan-marshall-documentation` only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there; merging that one is the operator's. The concept and user documentation of the slice and the roadmap check-off are written there at the milestone exit: list them in the pull request body as **Owed to the milestone exit**.
 - **Module documentation (operator decision 2026-10-11).** Documentation of the code lives in its module, in this plan's pull request, not in `plan-marshall-documentation`: the developer documentation of each package this plan changes in `pm-core/doc/developer/core-differential.adoc` (create or extend it: what the package is for, its main types and how they work together, how to use and extend it, invariants and failure modes, links to the specification sections it implements), and one ADR per design decision taken — every operator decision and every choice between alternatives — in `pm-core/doc/adr/core-differential/` as `NNN-{slug}.adoc`, the next free number of that directory, with the sections of `doc/adr/template.adoc` (Status, Date, Context, Decision, Alternatives considered, Consequences, Source) or, before that template exists, those same sections. A decision binding the whole repository goes to `doc/adr/`. The module's `README.adoc` gets one line only when this plan adds a new package; it is otherwise left alone. Layout: workstream WS-10.
 - **Settled design: a refused project path is a value.** The confinement check that landed with #19 lives in `pm-core` package `core.store` (`PathConfinement`, `WorkspaceRoots`, `ConfinementOutcome`) and `pm-runtime` package `runtime.workspace` (`WorkspaceConfinement`). A refusal is returned as `ConfinementOutcome` carrying `path_traversal_rejected`; no checked exception type exists or is added. No consumer is wired to it yet (`pm-provider-git` included): a package that performs a file or repository operation for a project adopts the check itself.
 - **Do not leave a design choice open that changes the file set.** Where two readings of a deliverable differ in the files they create, ask the operator at refine instead of deferring the choice to implementation.
-- **One file is shared by every plan.** In `doc/plans/README.adoc` change only this package's own row.
+- **Files shared by every plan.** In `doc/plans/README.adoc` remove only this package's own row (and its name from the _Depends on_ column); in `doc/Traceability.adoc` add only the sections of the requirements this package implements. Neither is a declared surface.
 - **Log messages: none expected.** This plan is expected to add no INFO, WARN or ERROR message. If the trace matrix shows one, it goes into the holder of the module that logs it, at the next free identifier of its level (see ADR `doc/adr/005-one-log-message-holder-per-module.adoc`), and the plan says so in its inbox message.
 
 - **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
 
 ## Claim Labels
 
+- OBSERVED: the Objective, Deliverables, Done when, Trace and Depends on above are the package file's and its index row's own — regenerated from `doc/plans/differential-test-harness.adoc` and `doc/plans/README.adoc` at 710da61 (branch `docs/specification-into-core`, pm-mcp-core #77), after the specification moved into this repository and the package was aligned with the changed specification; the claims below were checked before that
+  - verdict: corroborated | checked_at: 710da6150c6da19d4335643ca6070ef5517f0896 | by: pm-mcp-core-m2-m4/restructure | rescoped: n/a | evidence: regenerated by the orchestrator from the package file and its index row at 710da6150c6da19d4335643ca6070ef5517f0896 after the specification moved into pm-mcp-core (#77); § What, Trace, Done When and Depends on are the package's own
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/differential-test-harness.adoc` § What, Trace, Done When (origin/main at 7d99648)
   - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans package file re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: § What, Trace and Done When match the Deliverables above (corrected by cleanup where #70/#68/#72 changed them)
 - OBSERVED: the index gives this package the status `blocked` and the dependencies `store-substrate`; plus an operator tool decision: a Python interpreter in the test environment and a checkout of `plan-marshall` at the pinned inventory commit (no work package) — read at `doc/plans/README.adoc` § Packages
@@ -71,12 +73,15 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - OBSERVED: `doc/plans/README.adoc` — this package's own status row only
 - HYPOTHESIS: `pm-core/doc/developer/core-differential.adoc` — developer documentation of the package; created or extended
 - HYPOTHESIS: `pm-core/doc/adr/core-differential/` — ADRs of the package's design decisions; new directory if absent
+- OBSERVED: `doc/plans/differential-test-harness.adoc` — the package file, deleted when the package is done
+- OBSERVED: `doc/implementation-watch/store-schemas.adoc` — watch document; the covered items deleted
+- OBSERVED: `doc/specification/store-schemas/13-leases-integrity-testing.adoc` — specification part; the implemented sections deleted
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-06 (`store-substrate`); external: an operator tool decision: a Python interpreter in the test environment and a checkout of `plan-marshall` at the pinned inventory commit (no work package)
+- Depends on: a checkout of `plan-marshall` at the pinned inventory commit, and a Python interpreter in the test environment (a tool decision for the operator) (no work package)
 - Overlaps with: no other plan by package; every plan through `doc/plans/README.adoc`
-- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `doc/LogMessages.adoc` of `plan-marshall-documentation`, which goes into the documentation pull request
+- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 
 ## Hand-Off Command
 
