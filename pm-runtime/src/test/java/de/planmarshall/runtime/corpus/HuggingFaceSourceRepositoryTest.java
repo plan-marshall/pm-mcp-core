@@ -253,6 +253,25 @@ class HuggingFaceSourceRepositoryTest {
         }
 
         @Test
+        @DisplayName("delivers a file whose path needs encoding at the raw URL that encodes each segment")
+        void readsPathNeedingEncoding() throws Exception {
+            var file = "data/a b#c?d%e.csv";
+            var encoded = REPOSITORY_PATH + "/raw/" + COMMIT + "/data/a%20b%23c%3Fd%25e.csv";
+            on("GET", encoded, bytes(CSV));
+
+            var fetch = repository.readFile(datasetUri(), COMMIT, file);
+
+            assertAll(
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertArrayEquals(CSV, fetch.content()),
+                    () -> assertEquals(1, server.getRequestCount()));
+            var request = nextRequest();
+            assertAll(
+                    () -> assertEquals("GET", request.getMethod()),
+                    () -> assertEquals(encoded, request.getTarget()));
+        }
+
+        @Test
         @DisplayName("delivers a file in Git LFS as its pointer, for the import to download the object")
         void lfsPointer() {
             var pointer = new LfsPointer(Sha256.hex(CSV), CSV.length).toBytes();

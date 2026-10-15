@@ -43,7 +43,7 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
 |===
 |What happens |`SourceFetch.Outcome`
 
-|the URL names no scheme or no host, is not `https`, carries user information, or is not a Hugging Face dataset URL; the dataset API does not answer, times out or is interrupted; the revision API answers a status other than 200 and 404; the raw endpoint answers a status other than 200 and 404
+|the URL names no scheme or no host, is not `https`, carries user information, or is not a Hugging Face dataset URL; the dataset API does not answer, times out or is interrupted; the revision API answers a status other than 200 and 404; the raw endpoint answers a status that is neither a 2xx nor 404
 |`UNREACHABLE`
 
 |the revision API answers 404 (the dataset has no such commit); the raw endpoint answers 404 (the file is absent at the pin)

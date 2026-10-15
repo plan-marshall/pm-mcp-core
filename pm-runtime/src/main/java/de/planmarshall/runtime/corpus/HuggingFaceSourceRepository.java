@@ -13,6 +13,7 @@ import de.cuioss.http.client.handler.HttpHandler;
 import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandler;
 import java.net.http.HttpResponse.BodyHandlers;
@@ -183,8 +184,8 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
     }
 
     /**
-     * Reads a file at the pinned commit with one request: the bytes as stored ({@code 200}), a file absent at the pin
-     * ({@code 404}), a server error or no answer (unreachable).
+     * Reads a file at the pinned commit with one request: the bytes as stored (a {@code 2xx}), a file absent at the
+     * pin ({@code 404}), a server error or no answer (unreachable).
      */
     private SourceFetch download(URI raw) {
         var answer = send(raw, BodyHandlers.ofByteArray());
@@ -290,9 +291,11 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
             return null;
         }
         try {
-            return URI.create(
-                    repository.getScheme() + "://" + repository.getRawAuthority() + root + dataset + suffix);
-        } catch (IllegalArgumentException _) {
+            // Built through the URI API so every character a path may not carry verbatim is encoded: a space, a '%',
+            // a '#' and a '?' all reach the endpoint as the file name holds them, where concatenation would cut the
+            // path at a '#' or a '?' and misread a '%'.
+            return new URI(repository.getScheme(), repository.getRawAuthority(), root + dataset + suffix, null, null);
+        } catch (URISyntaxException _) {
             return null;
         }
     }
@@ -302,7 +305,7 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      * @return the dataset below {@code /datasets/}, {@code <owner>/<name>}; null when the URL names no such dataset
      */
     private static String dataset(URI repository) {
-        var path = repository.getRawPath();
+        var path = repository.getPath();
         if (path == null) {
             return null;
         }
