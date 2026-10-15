@@ -16,11 +16,11 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-2[PM-TEST-2], link:../../../plan-marshall-documentation/doc/requirements/11-migration.adoc#PM-MIG-4[PM-MIG-4]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/store-schemas/13-leases-integrity-testing.adoc#differential-harness[Store Schemas § Differential Harness]; link:../../../plan-marshall-documentation/doc/specification/../roadmap/migration-inventory.csv[Migration inventory]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]
+* Specification: link:../specification/store-schemas/13-leases-integrity-testing.adoc#differential-harness[Store Schemas § Differential Harness]; link:../../../plan-marshall-documentation/doc/specification/../roadmap/migration-inventory.csv[Migration inventory]
+* Watch: link:../implementation-watch/store-schemas.adoc[Store Schemas]; link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc[Cross-Cutting]
 
 == Done When
 

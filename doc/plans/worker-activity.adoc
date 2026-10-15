@@ -10,7 +10,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* *Implements* link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles § What a Worker Does], link:../../../plan-marshall-documentation/doc/specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work § A Worker Off Track], and link:../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc#activity-journal[Store Schemas § Activity Journal] (`PM-WORK-7`).
+* *Implements* link:../specification/client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles § What a Worker Does], link:../specification/model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work § A Worker Off Track], and link:../specification/store-schemas/16-task-queue.adoc#activity-journal[Store Schemas § Activity Journal] (`PM-WORK-7`).
 * *Events, mapped per harness*: `headless.events` maps a line of the worker's output stream onto the closed, harness-neutral activity kinds `text` (cut to the compiled bound), `tool_call` (the tool's name and its target, never its whole arguments), `tool_result` (its size and whether it failed, never its content), `file_changed`, and `turn` (its usage through the usage pointers of link:token-usage.adoc[`token-usage`]); a line that matches no mapping is counted, not shown; the server adds the entries it knows itself (the links the worker followed, its questions and answer acknowledgements, the off-track signals and actions).
 * *The activity journal*: per task, append-only in the store of the task's scope, written while the worker runs, masked, bounded, archived with the plan and deleted with it; untrusted data, shown as plain text and never read by a model as instructions.
 * *The off-track signals*: computed by the runtime from the activity journal and the task's records, never by a model (`repeating`, `no_progress`, `over_size`, `outside_footprint`), each against its compiled threshold, which a role artifact may lower in its `off_track` member and never raise, evaluated at every activity entry in the transaction that appends it, at most once per attempt and plan task; a signal is no limit and ends no plan; the action the role artifact chooses from the closed list (`show`, the default, `nudge`, `yield`, `restart`), recorded in the queue task's `signals[]` and as a `signal` entry of the activity journal, a `yield` or `restart` reported `task.off_track` (link:operator-reports.adoc[`operator-reports`]); a running plan's `off_track` with its signal in the project's resource (link:process-and-overview.adoc[`process-and-overview`]).
@@ -19,12 +19,12 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Use case: link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-1[UC-PLN-1]
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-7[PM-WORK-7]; link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-3[PM-WORK-3]; link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-1[PM-SEC-1]
-* Specification: the sections the first bullet of _What_ names; link:../../../plan-marshall-documentation/doc/specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification]; link:../../../plan-marshall-documentation/doc/specification/model-work/04-worker-launch.adoc#worker-output[Model Work § Output Read While the Worker Runs]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/client-profiles.adoc[Client Profiles]
+* Specification: the sections the first bullet of _What_ names; link:../specification/client-profiles/01-profile-schema.adoc#profile-verification[Client Profiles § Profile Verification]; link:../specification/model-work/04-worker-launch.adoc#worker-output[Model Work § Output Read While the Worker Runs]
+* Watch: link:../implementation-watch/model-work.adoc[Model Work]; link:../implementation-watch/client-profiles.adoc[Client Profiles]
 
 == Done When
 

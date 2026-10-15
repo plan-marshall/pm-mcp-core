@@ -11,17 +11,19 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 == What
 
 * Grading a role's configuration against the model verification corpus, its record bound to the qualification digest, its invalidation, and the conservative fallback of an unqualified or unavailable role.
-* The corpus is completed from its sources before grading, through link:corpus-sources.adoc[`corpus-sources`]; a grading on a partial corpus records the missing sources, and a role counts as qualified only on what was graded.
+* The digest over the effective `harness`, `model`, and `effort` (from link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]) with `tools`, `class`, the skill digests, and the harness major.minor, so a changed assignment or plan override makes the record stale per project; every record the operator makes written to the project set. A plan override without a current record is shown unqualified and its tasks take the conservative fallback. The `judge` and the `steward` are exempt.
+* The record: `total_tokens` per item and per form, the open `harness` pattern, and the required `missed_sources`. A grading starts only behind the operator's consent with the expected tokens shown, a declined one recorded as owed; the offer and the consent are link:project-onboarding-unit.adoc[`project-onboarding-unit`]'s and `pm-operator roles qualify`'s.
+* The corpus is completed from its sources before grading, through link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/corpus-sources.adoc[`corpus-sources`]: on a failed import no role is qualified; a grading on a partial corpus records the missed sources, and a role counts as qualified only on what was graded.
 * The corpus itself and its validation by the build are link:../../../plan-marshall-mcp/doc/plans/qualification-corpus-in-the-build.adoc[`plan-marshall-mcp` / `qualification-corpus-in-the-build`].
 
 == Trace
 
-Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
-* Specification: link:../../../plan-marshall-documentation/doc/specification/model-work/01-roles-and-configuration.adoc#qualification[Model Work § Role Qualification]; link:../../../plan-marshall-documentation/doc/specification/store-schemas/16-task-queue.adoc#qualification-record[Store Schemas § Role Qualification Record]
-* Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/model-work.adoc[Model Work]; link:../../../plan-marshall-documentation/doc/implementation-watch/store-schemas.adoc[Store Schemas]
+* Specification: link:../specification/model-work/01-roles-and-configuration.adoc#qualification[Model Work § Role Qualification]; link:../specification/store-schemas/16-task-queue.adoc#qualification-record[Store Schemas § Role Qualification Record]
+* Watch: link:../implementation-watch/model-work.adoc[Model Work]; link:../implementation-watch/store-schemas.adoc[Store Schemas]
 
 == Done When
 
-A changed member of the digest invalidates the record; an unqualified role takes its conservative fallback; a grading run over a fixture corpus with a scripted harness writes the specified record.
+A changed member of the digest invalidates the record, a changed role assignment or plan override included; an unqualified role takes its conservative fallback; a grading run over a fixture corpus with a scripted harness writes the specified record with `total_tokens`; a grading over a failed import writes no valid record, and one over a partial import names its missed sources.
