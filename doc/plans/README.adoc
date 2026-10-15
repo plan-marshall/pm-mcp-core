@@ -317,9 +317,15 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
-|`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; the re-planning of a running plan, its unit `replan` and its guards (no work package); link:process-and-overview.adoc[`process-and-overview`] (ended work)
+|`open`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:workflow-engine.adoc[`workflow-engine`]; link:plan-instance.adoc[`plan-instance`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; link:process-and-overview.adoc[`process-and-overview`] (ended work)
 |Milestone 8; the client work of `pm-mcp-clients`
+
+|link:chat-plan-revision.adoc[`chat-plan-revision`]
+|A plan's revision from a chat, applied through the re-planning path
+|`blocked`
+|link:chat.adoc[`chat`]; the re-planning of a running plan, its unit `replan` and its guards (no work package)
+|Milestone 9; the client work of `pm-mcp-clients`
 
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans and epics: pause, start, cancel, abandon, a plan's settings; the epic told; next plan, archive check, cancel; holds; the release of a project
@@ -329,19 +335,19 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:epic-findings-review.adoc[`epic-findings-review`]
 |An epic's findings and watches, and their review
-|`blocked`
+|`open`
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:chat.adoc[`chat`]
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-decomposition.adoc[`epic-decomposition`]
 |The decomposition of an epic, reviewed by the operator
-|`blocked`
+|`open`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-auto.adoc[`epic-auto`]
 |An epic runs by itself: its automatic mode, the overlap wait, its reactions on a finished plan
-|`blocked`
+|`open`
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-decomposition.adoc[`epic-decomposition`]
 |Milestone 12; the client work of `pm-mcp-clients`
 
@@ -353,7 +359,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 
 |link:operator-reports.adoc[`operator-reports`]
 |Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report with its Tokens section
-|`blocked`
+|`open`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:entity-addressing.adoc[`entity-addressing`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; link:token-usage.adoc[`token-usage`]; link:worker-activity.adoc[`worker-activity`] (`task.off_track`)
 |Milestone 7; the client work of `pm-mcp-clients`
 
