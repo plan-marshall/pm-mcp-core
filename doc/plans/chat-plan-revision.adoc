@@ -1,0 +1,28 @@
+= A plan's revision from a chat
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `chat-plan-revision`
+
+[horizontal]
+Serves:: roadmap Milestone 9 (dynamic re-planning); link:../../../plan-marshall-documentation/doc/specification/phase-workflows/08-dynamic-re-planning.adoc#replan-chat[Phase Workflows § Revision from a Chat]; Chat on a plan (link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1]) and inside a decision of a plan (link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-2[UC-PLN-2]); the chat in both clients of `pm-mcp-clients`
+Where:: pm-workflow (`chat.apply` for a plan, the decision closed as withdrawn); pm-core (the re-planning record of a chat's revision)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../../../plan-marshall-documentation/doc/specification/phase-workflows/08-dynamic-re-planning.adoc#replan-chat[Phase Workflows § Revision from a Chat] and the plan's part of _Apply by subject_ of link:../../../plan-marshall-documentation/doc/specification/state-catalogue.adoc#chat[State Catalogue § Chatting with the Planning Role: `chat`], on top of link:chat.adoc[`chat`], whose plan chat until then proposes no revision.
+* *The proposal*: a plan's chat proposes a revision only while the plan runs in Phase 5 or in finalize before the merge, the window of every re-planning, and otherwise answers and proposes none.
+* *Apply*: an accepted revision passes the guards of a first plan (outline validation, derivation dry-run, task graph, Q-Gate), is applied at the plan's next task boundary as `replan.apply` applies one (`replan.apply-revision`), what runs finishing first, a paused plan applying it when started again, and composes a plan instance version of event `replan`; its re-planning record names the operator's chat as the decider, and the report `plan.revised` is written. A chat's revision is the operator's own act: it spends nothing of the plan's re-planning budget. A change to a plan an epic started reaches the epic's inbox like every act.
+* *Inside a decision*: a revision the chat proposes goes through the same path; the decision stays open unless the applied revision removes the task or state that asked it, which closes it as withdrawn, with the reason.
+
+== Trace
+
+Requirements, specification sections, and watch documents stay in `plan-marshall-documentation` and are only referenced here. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-1[UC-CTL-1]; link:../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-2[UC-PLN-2] (a decision)
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-17[PM-WF-17]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-24[PM-WF-24]
+* Specification: the sections the first bullet of _What_ names; link:../../../plan-marshall-documentation/doc/specification/phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows § Re-Planning, Actions & Guards]; link:../../../plan-marshall-documentation/doc/specification/phase-workflows/08-dynamic-re-planning.adoc#replan-apply[§ Apply, Re-Entry & Instance Version]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue/12-re-planning.adoc#state-catalogue-replan-unit[State Catalogue § Unit `replan`]; link:../../../plan-marshall-documentation/doc/specification/state-catalogue/16-decision.adoc[State Catalogue § Decision]
+
+== Done When
+
+A plan's chat proposes a revision in Phase 5 and in finalize before the merge and none outside that window; an accepted revision passes the guards of a first plan, takes effect at the next task boundary (a paused plan's when started again), composes an instance version of event `replan` whose record names the chat as the decider, writes `plan.revised`, and leaves the re-planning budget untouched; a change to a plan of an epic reaches the epic's inbox; in a decision, an applied revision that removes what asked it closes the decision as withdrawn with the reason, and one that does not leaves it open.
