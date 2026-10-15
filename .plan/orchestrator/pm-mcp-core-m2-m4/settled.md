@@ -81,3 +81,10 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
 
 - **No production `AuditSink` or `AuditChainVerification` in pm-mcp-core** (only test sinks; `AuditChainVerification.NONE`). Since #76 the daemon starts with `NONE` and `NO_AUDIT_STORE`, a sink that refuses every record (`StartupSequence` then logs `AUDIT_CHAIN_BROKEN_NOT_RECORDED`). PLAN-09 `audit-trail` is the natural owner — source: plan-marshall-mcp #76 report, corroborated 2026-10-14.
 - Settled by PLAN-09 (#69, 3236ed5): `core.store.AuditLogSink` is the production sink and `runtime.audit.AuditVerification` implements `AuditChainVerification`. The wiring in plan-marshall-mcp is owed (see the plan-marshall-mcp watch in `epic.md`); `landings/PLAN-09.md`.
+
+<!-- moved by analyze on 2026-10-15: PLAN-24 landing drained -->
+
+## Watch: PLAN-24 landing
+
+- PLAN-24 `plan-instance`: code PR #67 merged (2ebec2a, 2026-10-14); documentation PR #73 open; no landing message yet — checked 2026-10-15.
+- Settled: documentation #73 merged (1eaa6c6) and the landing message `plan-24-plan-instance-001.md` was drained on 2026-10-15; `landings/PLAN-24.md`. The code/specification gap it left is a new watch in `epic.md`.

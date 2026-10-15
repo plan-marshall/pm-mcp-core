@@ -40,6 +40,9 @@ decision or a dependency outside this repository.
   `core.store/` and overlap each other: run one at a time unless the operator pairs them.
   PLAN-09 also declares `runtime.start/` and so overlaps PLAN-08. PLAN-09 shipped as #69 on
   2026-10-14 (3236ed5); PLAN-11 and PLAN-12 had shipped before it. Of the four, only PLAN-14 is left.
+- PLAN-24 — shipped as #67 (2ebec2a, documentation #73 1eaa6c6). It also touched `core.store` (`ScopeTransaction`,
+  ADR core-store/028), which PLAN-14 must take into account. TASK-15 was split into the new package
+  `lane-route-pruning`, and the code lags documentation #76 (see the watch).
 - Corpus moved under the queue on 2026-10-14 (see the Open Defect "Staged specs behind `doc/plans/`"):
   re-ground PLAN-15, PLAN-28, PLAN-33 and PLAN-34 before emitting them.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
@@ -527,9 +530,14 @@ decision or a dependency outside this repository.
 > ↪ Relocated to `settled.md` § "Watch: no production AuditSink or AuditChainVerification in pm-mcp-core" — PLAN-09 shipped `AuditLogSink` and `AuditVerification` (#69, 3236ed5)
 - plan-marshall-mcp also owes (after PLAN-09, #69): wiring `AuditLogSink` (`new AuditHead(…)` → `new AuditLog(…)` → `new AuditLogSink(locks, log)`) and `AuditVerification` in place of `AuditChainVerification.NONE` and the refusing sink; creating `logs/` before the log is built; breaking the `FileLockManager` ↔ `AuditLogSink` constructor cycle; and the `pm-operator audit verify` command over `AuditVerification.full()` — source: #69 PR body and landing message, corroborated 2026-10-15.
 
-- PLAN-24 `plan-instance`: code PR #67 is merged (2ebec2a, 2026-10-14) and its documentation PR #73 is OPEN
-  (it merges after #67). No landing message has arrived yet and the plan directory is still live, so the row
-  stays `running` until the landing is drained — checked 2026-10-15.
+> ↪ Relocated to `settled.md` § "Watch: PLAN-24 landing" — #67 (2ebec2a) and documentation #73 (1eaa6c6) merged; landing drained 2026-10-15
+- **Plan instance code behind its specification (after PLAN-24).** The code still ships the prune reasons
+  `recipe_override` and `auto_merge_off` (`PruneReason`, `CompositionCause`, `composition-rules.json`). Since
+  documentation #76, the specification targets `plan_default` and `merge_by_operator`, with the plan axes, the
+  plan's overrides and phase sub-workflows. `PM-IMPL-5` and the roadmap item (`[~]`) name the gap. By operator
+  decision (2026-10-15) the alignment is follow-up work. No package for it exists in `doc/plans/` yet; stage one at
+  `cleanup`, together with `lane-route-pruning` (`open`, ADR workflow-plan/011). The source is the PLAN-24 landing,
+  checked against `origin/main` on 2026-10-15.
 - Specification issue `plan-marshall-documentation` #71 ("Workflow DSL: define how a `depends_on_config` value activates a guard") is OPEN (filed by PLAN-56). Rule 3 configuration reachability stays a named seam (ADRs 004, 006) until it is answered; then stage a follow-up package that implements the specified activation.
 - Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
 
