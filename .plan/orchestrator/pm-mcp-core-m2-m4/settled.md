@@ -74,3 +74,10 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
 
 - Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
 - Settled by PLAN-56 (#66, 7981d17; documentation #72): every item was implemented or named as a seam. The Rule 3 activation remains a seam until documentation issue #71 is answered (see the watch in `epic.md`); `landings/PLAN-56.md`.
+
+<!-- moved by analyze on 2026-10-15: PLAN-09 shipped as #69 (3236ed5) -->
+
+## Watch: no production AuditSink or AuditChainVerification in pm-mcp-core
+
+- **No production `AuditSink` or `AuditChainVerification` in pm-mcp-core** (only test sinks; `AuditChainVerification.NONE`). Since #76 the daemon starts with `NONE` and `NO_AUDIT_STORE`, a sink that refuses every record (`StartupSequence` then logs `AUDIT_CHAIN_BROKEN_NOT_RECORDED`). PLAN-09 `audit-trail` is the natural owner — source: plan-marshall-mcp #76 report, corroborated 2026-10-14.
+- Settled by PLAN-09 (#69, 3236ed5): `core.store.AuditLogSink` is the production sink and `runtime.audit.AuditVerification` implements `AuditChainVerification`. The wiring in plan-marshall-mcp is owed (see the plan-marshall-mcp watch in `epic.md`); `landings/PLAN-09.md`.

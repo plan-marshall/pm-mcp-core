@@ -2,9 +2,9 @@
   "id": "PLAN-09",
   "slug": "audit-trail",
   "workstream": "WS-01",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-09-audit-trail",
+  "pr": "#69",
+  "landing": "landings/PLAN-09.md",
   "seq": 9
 }
