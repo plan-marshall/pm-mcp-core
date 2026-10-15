@@ -56,6 +56,7 @@ import de.planmarshall.core.role.corpus.LfsPointer;
 import de.planmarshall.core.role.corpus.Sha256;
 import de.planmarshall.core.role.corpus.SourceFetch;
 import de.planmarshall.core.role.corpus.SourceManifest;
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceManifestCodec;
 import de.planmarshall.core.role.corpus.SourceOverlay;
@@ -108,20 +109,20 @@ class JGitSourceRepositoryTest {
 
     private void writeCorpus() throws IOException {
         writeSource(new SourceManifest("alpha", URI.create("https://github.com/example/alpha"), alphaCommit, "MIT",
-                        List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false),
+                        FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false),
                                 new SourceFile("data/big.jsonl", Sha256.hex(JSONL), true))),
                 new SourceOverlay("alpha", "data/big.jsonl", null, CREATED, List.of(new Row("1", "d-1", "review/alpha",
-                        "review", "missing null check", List.of(), "Review: {diff}", "", null,
+                        "review", "missing null check", List.of(), "Review: {diff}", "", null, null,
                         new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
                                 false),
                         new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
                         new Review(ReviewStatus.DRAFT, null, null, null)))));
         writeSource(new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
-                        List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false))),
+                        FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false))),
                 new SourceOverlay("beta", "data/test.csv", "question_id", CREATED, List.of(new Row("q-1", "q-1",
                         "screening/beta", "screening", "sky question", List.of("imported"), "{question}", "",
-                        List.of("{option_a}", "{option_b}"), new Target("{option_a}", "the first holds", List.of(),
-                                List.of(), false),
+                        List.of("{option_a}", "{option_b}"), null, new Target("{option_a}", "the first holds",
+                                List.of(), List.of(), false),
                         new Grading(GradingMethod.EXACT_CHOICE, null, null),
                         new Review(ReviewStatus.DRAFT, null, null, null)))));
         Files.writeString(corpus.resolve(CorpusValidator.ATTRIBUTION), "## alpha\n\nMIT\n\n## beta\n\nMIT\n");
@@ -244,7 +245,7 @@ class JGitSourceRepositoryTest {
     void absentPath() throws Exception {
         betaRepository(CSV);
         var manifest = new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
-                List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+                FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
         var repository = new JGitSourceRepository(git,
                 source -> new Remote(fixtures.get(source.name()).toUri().toString(), RemotePolicy.localOnly()));
         assertTrue(repository.prepare(cache, manifest).isFetched());
@@ -262,7 +263,7 @@ class JGitSourceRepositoryTest {
     @DisplayName("the default remote fetches from the manifest's repository, admitted by its https origin alone")
     void defaultRemote() {
         var manifest = new SourceManifest("gamma", URI.create("https://127.0.0.1:1/example/gamma"), "a".repeat(40),
-                "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+                "MIT", FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
         var repository = new JGitSourceRepository(git);
         assertTrue(repository.prepare(cache, manifest).isFetched());
 
@@ -278,9 +279,10 @@ class JGitSourceRepositoryTest {
     @DisplayName("Remote.of names the manifest's repository and admits its origin with its port, nothing else")
     void remoteOf() {
         var manifest = new SourceManifest("gamma", URI.create("https://git.example.org:8443/group/gamma"),
-                "a".repeat(40), "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+                "a".repeat(40), "MIT", FetchKind.GIT,
+                List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
         var standard = new SourceManifest("delta", URI.create("https://github.com/example/delta/"), "a".repeat(40),
-                "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
+                "MIT", FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
 
         var remote = Remote.of(manifest);
         var standardRemote = Remote.of(standard);
