@@ -31,14 +31,15 @@ import java.util.List;
 import java.util.Objects;
 import lombok.experimental.UtilityClass;
 
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StrictJson;
 
 /**
  * Reads and writes the manifest of a corpus source, {@code sources/<name>/manifest.json} (PM-WORK-6):
- * {@code {"format_version": 1, "name", "repository", "commit", "licence", "files": [{"path", "sha256", "lfs"}]}},
- * the closed schema {@code source-manifest.schema.json} of this package.
+ * {@code {"format_version": 1, "name", "repository", "commit", "licence", "fetch",
+ * "files": [{"path", "sha256", "lfs"}]}}, the closed schema {@code source-manifest.schema.json} of this package.
  * <p>
  * The reader accepts exactly one shape through {@link StrictJson}: the current {@code format_version} first, then
  * every declared field exactly once and no undeclared field. Every refusal is a {@link StoreRefusal} that names the
@@ -56,6 +57,7 @@ public class SourceManifestCodec {
     private static final String FIELD_REPOSITORY = "repository";
     private static final String FIELD_COMMIT = "commit";
     private static final String FIELD_LICENCE = "licence";
+    private static final String FIELD_FETCH = "fetch";
     private static final String FIELD_FILES = "files";
     private static final String FIELD_PATH = "path";
     private static final String FIELD_SHA256 = "sha256";
@@ -89,6 +91,7 @@ public class SourceManifestCodec {
             generator.writeStringField(FIELD_REPOSITORY, manifest.repository().toString());
             generator.writeStringField(FIELD_COMMIT, manifest.commit());
             generator.writeStringField(FIELD_LICENCE, manifest.licence());
+            generator.writeStringField(FIELD_FETCH, manifest.fetch().wireName());
             generator.writeArrayFieldStart(FIELD_FILES);
             for (var source : manifest.files()) {
                 generator.writeStartObject();
@@ -111,6 +114,7 @@ public class SourceManifestCodec {
         String repository = null;
         String commit = null;
         String licence = null;
+        FetchKind fetch = null;
         List<SourceFile> files = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -121,18 +125,21 @@ public class SourceManifestCodec {
                 case FIELD_REPOSITORY -> repository = string(parser, field);
                 case FIELD_COMMIT -> commit = string(parser, field);
                 case FIELD_LICENCE -> licence = string(parser, field);
+                case FIELD_FETCH -> fetch = CorpusJson.wireValue(parser, field, FetchKind::fromWireName);
                 case FIELD_FILES -> files = array(parser, field, SourceManifestCodec::readFile);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, MANIFEST, FIELD_NAME, FIELD_REPOSITORY, FIELD_COMMIT, FIELD_LICENCE, FIELD_FILES);
+        requireFields(seen, MANIFEST, FIELD_NAME, FIELD_REPOSITORY, FIELD_COMMIT, FIELD_LICENCE, FIELD_FETCH,
+                FIELD_FILES);
         var sourceName = name;
         var sourceRepository = repository;
         var sourceCommit = commit;
         var sourceLicence = licence;
+        var sourceFetch = fetch;
         var sourceFiles = files;
         return CorpusJson.construct(() -> new SourceManifest(sourceName, URI.create(sourceRepository), sourceCommit,
-                sourceLicence, sourceFiles));
+                sourceLicence, sourceFetch, sourceFiles));
     }
 
     private static SourceFile readFile(JsonParser parser, String name) throws IOException {

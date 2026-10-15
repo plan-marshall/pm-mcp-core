@@ -41,9 +41,10 @@ import de.planmarshall.core.store.StoreRefusal;
  * files its manifest names are fetched at the pinned commit, checked against their SHA-256, and the rows its overlay
  * selects are generated into items below the cache root.
  * <p>
- * The fetch goes through the two interfaces the daemon composes: {@link SourceRepository} for the git part and
- * {@link LfsObjectSource} for the objects of files stored in Git LFS. A plain file must have the SHA-256 of its
- * manifest; a file in LFS must be a pointer whose oid is that SHA-256, and the downloaded object must have it too.
+ * The fetch goes through the two interfaces the daemon composes: {@link SourceRepository} for the source-fetch part
+ * (a git repository or an HTTPS endpoint) and {@link LfsObjectSource} for the objects of files stored in Git LFS. A
+ * plain file must have the SHA-256 of its manifest; a file in LFS must be a pointer whose oid is that SHA-256, and the
+ * downloaded object must have it too.
  * <p>
  * A source is missed as a whole, and none of its items is written, when a step of its fetch is
  * {@link SourceFetch.Outcome#UNREACHABLE} or {@link SourceFetch.Outcome#PIN_MISSING}, when a file fails its hash, or

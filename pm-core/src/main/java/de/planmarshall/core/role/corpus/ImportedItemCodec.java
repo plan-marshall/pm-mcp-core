@@ -84,6 +84,7 @@ public class ImportedItemCodec {
     private static final String FIELD_QUESTION = "question";
     private static final String FIELD_FACTS = "facts";
     private static final String FIELD_CHOICES = "choices";
+    private static final String FIELD_ANSWER_SCHEMA = "answer_schema";
     private static final String FIELD_TARGET = "target";
     private static final String FIELD_ANSWER = "answer";
     private static final String FIELD_RATIONALE = "rationale";
@@ -172,6 +173,10 @@ public class ImportedItemCodec {
         generator.writeStringField(FIELD_FACTS, input.facts());
         if (input.choices() != null) {
             writeStringList(generator, FIELD_CHOICES, input.choices());
+        }
+        if (input.answerSchema() != null) {
+            generator.writeFieldName(FIELD_ANSWER_SCHEMA);
+            generator.writeRawValue(input.answerSchema().toJson());
         }
         generator.writeEndObject();
     }
@@ -304,6 +309,7 @@ public class ImportedItemCodec {
         String question = null;
         String facts = null;
         List<String> choices = null;
+        JsonValue answerSchema = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -311,6 +317,7 @@ public class ImportedItemCodec {
                 case FIELD_QUESTION -> question = string(parser, field);
                 case FIELD_FACTS -> facts = string(parser, field);
                 case FIELD_CHOICES -> choices = stringList(parser, field);
+                case FIELD_ANSWER_SCHEMA -> answerSchema = nonEmptyValue(parser, field);
                 default -> throw undeclared(field);
             }
         }
@@ -318,7 +325,8 @@ public class ImportedItemCodec {
         var inputQuestion = question;
         var inputFacts = facts;
         var inputChoices = choices;
-        return construct(() -> new Input(inputQuestion, inputFacts, inputChoices));
+        var inputAnswerSchema = answerSchema;
+        return construct(() -> new Input(inputQuestion, inputFacts, inputChoices, inputAnswerSchema));
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {
@@ -477,6 +485,13 @@ public class ImportedItemCodec {
             throw unreadable("'%s' is present but empty".formatted(field));
         }
         return values;
+    }
+
+    private static JsonValue nonEmptyValue(JsonParser parser, String field) throws IOException {
+        if (parser.currentToken() == JsonToken.VALUE_NULL) {
+            throw unreadable("'%s' is present but empty".formatted(field));
+        }
+        return JsonValue.read(parser);
     }
 
     /** Names where the document stops being JSON, without the source excerpt the parser may append. */

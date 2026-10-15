@@ -10,6 +10,7 @@
 package de.planmarshall.core.role.corpus;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -18,7 +19,8 @@ import java.util.regex.Pattern;
 
 /**
  * The manifest of one corpus source, {@code sources/<name>/manifest.json} (PM-WORK-6): the public repository a
- * dataset is fetched from, the commit it is pinned to, its licence and the files read from it, each with its SHA-256.
+ * dataset is fetched from and the kind of source it is, the commit it is pinned to, its licence and the files read
+ * from it, each with its SHA-256.
  * <p>
  * A file stored as a Git LFS pointer is marked {@link SourceFile#lfs()}; its hash is then the hash of the object the
  * pointer names, not of the pointer. The record refuses every value outside its format with an
@@ -33,10 +35,12 @@ import java.util.regex.Pattern;
  * @param repository the repository the files are fetched from, an absolute {@code https} URI
  * @param commit     the pinned commit, 40 lower-case hexadecimal digits
  * @param licence    the SPDX licence identifier of the dataset
+ * @param fetch      the kind of source the files are fetched from: {@code git} or {@code huggingface}
  * @param files      the files read from the repository at the commit, at least one, each path once; unmodifiable
  * @since 0.1
  */
-public record SourceManifest(String name, URI repository, String commit, String licence, List<SourceFile> files) {
+public record SourceManifest(String name, URI repository, String commit, String licence, FetchKind fetch,
+    List<SourceFile> files) {
 
     /** A source name: the directory of the source below {@code sources/}. */
     public static final Pattern NAME_PATTERN = PythonRegex.compile("^[a-z][a-z0-9-]{1,63}$");
@@ -78,6 +82,38 @@ public record SourceManifest(String name, URI repository, String commit, String 
     }
 
     /**
+     * The kind of source a manifest names: the protocol the files are fetched over, and the part of the fetch that
+     * serves it. The set is closed.
+     *
+     * @since 0.1
+     */
+    public enum FetchKind {
+        /** The files are fetched from a git repository. */
+        GIT("git"),
+        /** The files are fetched over HTTPS from a Hugging Face dataset. */
+        HUGGINGFACE("huggingface");
+
+        private final String wireName;
+
+        FetchKind(String wireName) {
+            this.wireName = wireName;
+        }
+
+        /** @return the name of the kind in a document */
+        public String wireName() {
+            return wireName;
+        }
+
+        /**
+         * @param wireName the name of a kind in a document
+         * @return the kind; empty if the name is not one
+         */
+        public static Optional<FetchKind> fromWireName(String wireName) {
+            return Arrays.stream(values()).filter(kind -> kind.wireName.equals(wireName)).findFirst();
+        }
+    }
+
+    /**
      * @throws IllegalArgumentException if a value is outside the format or a path is named twice
      */
     public SourceManifest {
@@ -85,6 +121,7 @@ public record SourceManifest(String name, URI repository, String commit, String 
         requireRepository(repository);
         require(commit, COMMIT_PATTERN, "commit");
         require(licence, LICENCE_PATTERN, "licence");
+        Objects.requireNonNull(fetch, "fetch");
         files = List.copyOf(Objects.requireNonNull(files, "files"));
         if (files.isEmpty()) {
             throw new IllegalArgumentException("'files' must name at least one file");

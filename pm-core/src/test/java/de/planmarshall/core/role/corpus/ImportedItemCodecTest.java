@@ -57,11 +57,13 @@ class ImportedItemCodecTest {
     private static final URI REPOSITORY = URI.create("https://github.com/example/sample-set");
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
     private static final String CANARY = "corpus canary 0000";
+    private static final JsonValue ANSWER_SCHEMA =
+            JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
 
     /** A closed item with only the required members. */
     static ImportedItem closedItem() {
         return new ImportedItem("screening/sample-set/q-1", "screening/sample-set", "screening", "sample question",
-                List.of(), new Input("Which holds?", "Subject: logic", List.of("first", "second")),
+                List.of(), new Input("Which holds?", "Subject: logic", List.of("first", "second"), null),
                 new Target("first", "the first holds", List.of(), List.of(), false),
                 new Grading(GradingMethod.EXACT_CHOICE, null, null),
                 new Provenance(LocalDate.of(2026, 10, 14), new Origin(REPOSITORY, COMMIT, "data/test.csv", 2),
@@ -72,7 +74,7 @@ class ImportedItemCodecTest {
     /** An open item with every optional member. */
     static ImportedItem openItem() {
         return new ImportedItem("review/sample-set/q-7", "review/sample-set", "review", "open question",
-                List.of("imported", "review"), new Input("Review the change.", "diff --git a b", null),
+                List.of("imported", "review"), new Input("Review the change.", "diff --git a b", null, ANSWER_SCHEMA),
                 new Target("report the defect", "one defect is seeded", List.of("name the defect"),
                         List.of(new RubricItem("d1", "the off-by-one")), true),
                 new Grading(GradingMethod.RUBRIC_ITEMS, "strict judge", new BigDecimal("0.75")),
@@ -148,8 +150,17 @@ class ImportedItemCodecTest {
                     () -> assertFalse(text.contains("\"judge\""), text),
                     () -> assertFalse(text.contains("\"pass_threshold\""), text),
                     () -> assertFalse(text.contains("\"by\""), text),
+                    () -> assertFalse(text.contains("\"answer_schema\""), text),
                     () -> assertFalse(text.contains("null"), text),
                     () -> assertTrue(text.contains("\"kind\" : \"fetched\""), text));
+        }
+
+        @Test
+        @DisplayName("the answer schema of an open item is written inside the input")
+        void answerSchemaWritten() {
+            var text = text(openItem());
+
+            assertTrue(text.contains("\"answer_schema\" : {\"type\": \"object\"}"), text);
         }
     }
 
@@ -182,6 +193,14 @@ class ImportedItemCodecTest {
         void undeclared() {
             assertUnreadable(refusalOf(text(closedItem()).replace("\"canary\"", "\"group\" : \"g\",\n  \"canary\"")),
                     "undeclared field 'group'");
+        }
+
+        @Test
+        @DisplayName("an answer_schema outside the input is refused")
+        void answerSchemaUndeclared() {
+            assertUnreadable(refusalOf(text(closedItem())
+                    .replace("\"rationale\" :", "\"answer_schema\" : null,\n  \"rationale\" :")),
+                    "undeclared field 'answer_schema'");
         }
 
         @Test

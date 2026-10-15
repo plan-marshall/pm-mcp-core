@@ -64,6 +64,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "answer_schema": {
+          "type": "object"
         }
       }
     },

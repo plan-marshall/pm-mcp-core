@@ -28,14 +28,16 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
  * source that become items, and per row what the item adds to it.
  * <p>
  * A row is selected by the value of its key field, or by its position among the rows of the file when the overlay
- * names no key field. Per row the overlay writes the framing of the item (slug, topic, role, title, tags), the
- * question, the facts and the choices, the reference answer with its alternatives and rubric items, the grading and
- * the review. The question, the facts, every choice, the reference answer and every alternative are templates whose
- * {@code {field}} placeholders name fields of the row, filled by {@link ItemGenerator}: a literal brace in any of them
- * is written doubled (<code>&#123;&#123;</code>, <code>&#125;&#125;</code>); a single brace is read as a placeholder,
- * and one that names no field of the row, or opens or closes nothing, refuses the row at import. The rationale, the
- * rubric items, the judge and the review are written literally. The record refuses every value outside its
- * format with an {@link IllegalArgumentException}; {@link SourceOverlayCodec} reads and writes the document.
+ * names no key field. A key may repeat, so one row of the file may be selected by more than one overlay row; the item
+ * id of a row may not repeat. Per row the overlay writes the framing of the item (slug, topic, role, title, tags), the
+ * question, the facts, the choices and the answer schema, the reference answer with its alternatives and rubric items,
+ * the grading and the review. The question, the facts, every choice, the reference answer and every alternative are
+ * templates whose {@code {field}} placeholders name fields of the row, filled by {@link ItemGenerator}: a literal brace
+ * in any of them is written doubled (<code>&#123;&#123;</code>, <code>&#125;&#125;</code>); a single brace is read as a
+ * placeholder, and one that names no field of the row, or opens or closes nothing, refuses the row at import. The
+ * rationale, the rubric items, the judge, the review and the answer schema are written as they are. The record refuses
+ * every value outside its format with an {@link IllegalArgumentException}; {@link SourceOverlayCodec} reads and writes
+ * the document.
  *
  * @param source   the name of the source, the name of its manifest
  * @param file     the repository-relative path of the file the rows are read from, a file of the manifest
@@ -58,23 +60,25 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
     /**
      * One selected row and the item generated from it.
      *
-     * @param key      the value of the key field of the row, or its position when the overlay names no key field
-     * @param slug     the slug of the item: its file name below the topic without {@code .json}
-     * @param topic    the topic of the item, the directory it belongs to
-     * @param role     the configured role that answers the item
-     * @param title    the title of the item, at most 120 characters
-     * @param tags     the tags of the item; unmodifiable, empty if there are none
-     * @param question the template of the question
-     * @param facts    the template of the facts
-     * @param choices  the templates of the choices of a closed answer; {@code null} for an open answer
-     * @param target   the reference answer; its answer and its alternatives are templates, its rationale and rubric
-     *                 items literal
-     * @param grading  how an answer is graded
-     * @param review   who reviewed the reference
+     * @param key          the value of the key field of the row, or its position when the overlay names no key field
+     * @param slug         the slug of the item: its file name below the topic without {@code .json}
+     * @param topic        the topic of the item, the directory it belongs to
+     * @param role         the configured role that answers the item
+     * @param title        the title of the item, at most 120 characters
+     * @param tags         the tags of the item; unmodifiable, empty if there are none
+     * @param question     the template of the question
+     * @param facts        the template of the facts
+     * @param choices      the templates of the choices of a closed answer; {@code null} for an open answer
+     * @param answerSchema the JSON Schema the answer of the item is checked against; {@code null} if there is none
+     * @param target       the reference answer; its answer and its alternatives are templates, its rationale and rubric
+     *                     items literal
+     * @param grading      how an answer is graded
+     * @param review       who reviewed the reference
      * @since 0.1
      */
     public record Row(String key, String slug, String topic, String role, String title, List<String> tags,
-    String question, String facts, List<String> choices, Target target, Grading grading, Review review) {
+    String question, String facts, List<String> choices, JsonValue answerSchema, Target target, Grading grading,
+    Review review) {
 
         /**
          * @throws IllegalArgumentException if a value is outside the format
@@ -110,7 +114,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
     }
 
     /**
-     * @throws IllegalArgumentException if a value is outside the format, or a key or an item id repeats
+     * @throws IllegalArgumentException if a value is outside the format or an item id repeats
      */
     public SourceOverlay {
         require(source, NAME_PATTERN, "source");
@@ -123,15 +127,11 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("'rows' must select at least one row");
         }
-        var keys = new HashSet<String>();
         var ids = new HashSet<String>();
         for (var row : rows) {
             if (keyField == null && !POSITION.matcher(row.key()).matches()) {
                 throw new IllegalArgumentException(
                         "'key' must be a position from 1 without a key field: " + row.key());
-            }
-            if (!keys.add(row.key())) {
-                throw new IllegalArgumentException("'rows' selects the row '%s' twice".formatted(row.key()));
             }
             if (!ids.add(row.itemId())) {
                 throw new IllegalArgumentException("'rows' generates the item '%s' twice".formatted(row.itemId()));

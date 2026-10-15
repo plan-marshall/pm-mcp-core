@@ -84,6 +84,7 @@ public class SourceOverlayCodec {
     private static final String FIELD_QUESTION = "question";
     private static final String FIELD_FACTS = "facts";
     private static final String FIELD_CHOICES = "choices";
+    private static final String FIELD_ANSWER_SCHEMA = "answer_schema";
     private static final String FIELD_TARGET = "target";
     private static final String FIELD_ANSWER = "answer";
     private static final String FIELD_RATIONALE = "rationale";
@@ -154,6 +155,12 @@ public class SourceOverlayCodec {
             generator.writeNullField(FIELD_CHOICES);
         } else {
             writeStringList(generator, FIELD_CHOICES, row.choices());
+        }
+        if (row.answerSchema() == null) {
+            generator.writeNullField(FIELD_ANSWER_SCHEMA);
+        } else {
+            generator.writeFieldName(FIELD_ANSWER_SCHEMA);
+            generator.writeRawValue(row.answerSchema().toJson());
         }
         writeTarget(generator, row.target());
         writeGrading(generator, row.grading());
@@ -245,6 +252,7 @@ public class SourceOverlayCodec {
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
                 case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
+                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
@@ -252,9 +260,15 @@ public class SourceOverlayCodec {
             }
         }
         requireFields(seen, name, FIELD_KEY, FIELD_ID, FIELD_TOPIC, FIELD_ROLE, FIELD_TITLE, FIELD_TAGS,
-                FIELD_QUESTION, FIELD_FACTS, FIELD_CHOICES, FIELD_TARGET, FIELD_GRADING, FIELD_REVIEW);
+                FIELD_QUESTION, FIELD_FACTS, FIELD_CHOICES, FIELD_ANSWER_SCHEMA, FIELD_TARGET, FIELD_GRADING,
+                FIELD_REVIEW);
         return construct(() -> new Row(values.key, values.slug, values.topic, values.role, values.title, values.tags,
-                values.question, values.facts, values.choices, values.target, values.grading, values.review));
+                values.question, values.facts, values.choices, values.answerSchema, values.target, values.grading,
+                values.review));
+    }
+
+    private static JsonValue nullableValue(JsonParser parser) throws IOException {
+        return parser.currentToken() == JsonToken.VALUE_NULL ? null : JsonValue.read(parser);
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {
@@ -358,6 +372,7 @@ public class SourceOverlayCodec {
         private String question;
         private String facts;
         private List<String> choices;
+        private JsonValue answerSchema;
         private Target target;
         private Grading grading;
         private Review review;

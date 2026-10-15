@@ -164,7 +164,16 @@ public sealed interface JsonValue {
         return text.toString();
     }
 
-    private static JsonValue read(JsonParser parser) throws IOException {
+    /**
+     * Reads one JSON value at the current position of a parser, leaving the parser on the last token of that value,
+     * as the streaming API places it: the closing token of an object or an array, or the scalar itself.
+     *
+     * @param parser the parser, positioned on the value
+     * @return the value
+     * @throws IOException   if the document does not parse as JSON
+     * @throws MalformedJson if the value is not one JSON value, or an object names a member twice
+     */
+    public static JsonValue read(JsonParser parser) throws IOException {
         var token = parser.currentToken();
         if (token == null) {
             throw new MalformedJson("the document ends inside a value", null);

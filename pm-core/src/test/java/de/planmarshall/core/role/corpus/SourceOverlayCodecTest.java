@@ -42,7 +42,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The overlay of a corpus source (PM-WORK-6): one format version, every declared field exactly once, no undeclared
- * field, every value in its format, rows selected once each; a refusal names the file. Every test runs under a default
+ * field, every value in its format, every item id once; a refusal names the file. Every test runs under a default
  * locale with non-Latin digits, so the numbers of a document and of a refusal must be ASCII digits.
  */
 @ExtendWith(NonLatinDigits.class)
@@ -63,6 +63,7 @@ class SourceOverlayCodecTest {
         members.put("question", "\"{question}\"");
         members.put("facts", "\"Subject: {subject}\"");
         members.put("choices", "[\"{option_a}\",\"{option_b}\"]");
+        members.put("answer_schema", "{\"type\":\"object\"}");
         members.put("target", "{\"answer\":\"{option_a}\",\"rationale\":\"the first option holds\","
                 + "\"alternatives\":[],\"items\":[],\"expected_empty\":false}");
         members.put("grading", "{\"method\":\"exact_choice\",\"judge\":null,\"pass_threshold\":null}");
@@ -138,6 +139,8 @@ class SourceOverlayCodecTest {
                     () -> assertEquals("{question}", row.question()),
                     () -> assertEquals("Subject: {subject}", row.facts()),
                     () -> assertEquals(List.of("{option_a}", "{option_b}"), row.choices()),
+                    () -> assertEquals(JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8)),
+                            row.answerSchema()),
                     () -> assertEquals("{option_a}", row.target().answer()),
                     () -> assertEquals(GradingMethod.EXACT_CHOICE, row.grading().method()),
                     () -> assertNull(row.grading().passThreshold()),
@@ -149,6 +152,7 @@ class SourceOverlayCodecTest {
         void openRow() {
             var row = rowMembers("q-1", "q-1");
             row.put("choices", "null");
+            row.put("answer_schema", "null");
             row.put("target", "{\"answer\":null,\"rationale\":\"r\",\"alternatives\":[\"a\"],"
                     + "\"items\":[{\"id\":\"d1\",\"description\":\"names the defect\"}],\"expected_empty\":false}");
             row.put("grading", "{\"method\":\"rubric_items\",\"judge\":\"strict\",\"pass_threshold\":0.75}");
@@ -160,6 +164,7 @@ class SourceOverlayCodecTest {
             var read = overlay.rows().getFirst();
             assertAll(
                     () -> assertNull(read.choices()),
+                    () -> assertNull(read.answerSchema()),
                     () -> assertNull(read.target().answer()),
                     () -> assertEquals(List.of(new RubricItem("d1", "names the defect")), read.target().items()),
                     () -> assertEquals(new BigDecimal("0.75"), read.grading().passThreshold()),
@@ -257,8 +262,8 @@ class SourceOverlayCodecTest {
     }
 
     static Stream<String> rowFields() {
-        return Stream.of("key", "id", "topic", "role", "title", "tags", "question", "facts", "choices", "target",
-                "grading", "review");
+        return Stream.of("key", "id", "topic", "role", "title", "tags", "question", "facts", "choices",
+                "answer_schema", "target", "grading", "review");
     }
 
     static Stream<Arguments> malformedOverlayValues() {
@@ -278,9 +283,6 @@ class SourceOverlayCodecTest {
                 Arguments.of("a date in the shape that names no day", "created", "\"2026-02-30\"",
                         "'created' is not a date"),
                 Arguments.of("no row", "rows", "[]", "'rows'"),
-                Arguments.of("a row twice", "rows",
-                        "[" + object(rowMembers("q-1", "q-1")) + "," + object(rowMembers("q-1", "q-9")) + "]",
-                        "selects the row 'q-1' twice"),
                 Arguments.of("an item twice", "rows",
                         "[" + object(rowMembers("q-1", "q-1")) + "," + object(rowMembers("q-2", "q-1")) + "]",
                         "generates the item 'screening/sample-set/q-1' twice"));

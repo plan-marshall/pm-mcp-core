@@ -30,6 +30,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
@@ -54,6 +55,7 @@ class SourceManifestCodecTest {
         members.put("repository", "\"https://github.com/example/sample-set\"");
         members.put("commit", "\"" + COMMIT + "\"");
         members.put("licence", "\"CC-BY-4.0\"");
+        members.put("fetch", "\"git\"");
         members.put("files", "[" + file("data/test.csv", HASH, false) + "," + file("data/big.jsonl", OBJECT_HASH, true)
                 + "]");
         return members;
@@ -100,6 +102,7 @@ class SourceManifestCodecTest {
                     () -> assertEquals(URI.create("https://github.com/example/sample-set"), manifest.repository()),
                     () -> assertEquals(COMMIT, manifest.commit()),
                     () -> assertEquals("CC-BY-4.0", manifest.licence()),
+                    () -> assertEquals(FetchKind.GIT, manifest.fetch()),
                     () -> assertEquals(List.of(new SourceFile("data/test.csv", HASH, false),
                             new SourceFile("data/big.jsonl", OBJECT_HASH, true)), manifest.files()),
                     () -> assertEquals(new SourceFile("data/big.jsonl", OBJECT_HASH, true),
@@ -207,7 +210,7 @@ class SourceManifestCodecTest {
     }
 
     static Stream<String> requiredFields() {
-        return Stream.of("name", "repository", "commit", "licence", "files");
+        return Stream.of("name", "repository", "commit", "licence", "fetch", "files");
     }
 
     static Stream<Arguments> malformedValues() {
@@ -222,6 +225,7 @@ class SourceManifestCodecTest {
                 Arguments.of("an upper-case commit", "commit", "\"" + COMMIT.toUpperCase() + "\"", "'commit'"),
                 Arguments.of("a name with upper case", "name", "\"Sample\"", "'name'"),
                 Arguments.of("a licence with a space", "licence", "\"CC BY\"", "'licence'"),
+                Arguments.of("an unknown fetch", "fetch", "\"ftp\"", "'fetch'"),
                 Arguments.of("a short hash", "files", "[" + file("a.csv", "abc", false) + "]", "'sha256'"),
                 Arguments.of("a path escaping the repository", "files", "[" + file("../a.csv", HASH, false) + "]",
                         "'path'"),
