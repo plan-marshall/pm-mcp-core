@@ -145,5 +145,13 @@ class SchemaSubsetTest {
 
             assertEquals("{\"a\": [1, 2.5, true, null], \"b\": \"x\\\"\\u00e9\\n\", \"c\": {}}", value.toJson());
         }
+
+        @Test
+        @DisplayName("escapes DEL as Python's json.dumps does, keeping the printable range up to '~'")
+        void toJsonEscapesDel() {
+            var value = json("{\"a\":\" ~" + (char) 0x7f + "E1\"}");
+
+            assertEquals("{\"a\": \" ~\\u007fE1\"}", value.toJson());
+        }
     }
 }

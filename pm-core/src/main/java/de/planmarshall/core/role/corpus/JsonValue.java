@@ -268,7 +268,7 @@ public sealed interface JsonValue {
                 case '\b' -> text.append("\\b");
                 case '\f' -> text.append("\\f");
                 default -> {
-                    if (c < 0x20 || c > 0x7f) {
+                    if (c < 0x20 || c > 0x7e) {
                         text.append("\\u%04x".formatted((int) c));
                     } else {
                         text.append(c);

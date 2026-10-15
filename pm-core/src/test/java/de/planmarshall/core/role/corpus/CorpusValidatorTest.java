@@ -57,6 +57,7 @@ class CorpusValidatorTest {
 
     private static final String ITEM_A = "screening/topic/item-a";
     private static final String ITEM_B = "review/topic/item-b";
+    private static final String NESTED_SOURCES_ITEM = "screening/sources/q-1";
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
     private static final String SOURCE_FILE = "data/test.csv";
     private static final byte[] CSV = "question_id,question\nq-1,Is the sky blue?\n".getBytes(UTF_8);
@@ -174,6 +175,14 @@ class CorpusValidatorTest {
         item.put("target", map("answer", "yes", "rationale", "the sky is blue at noon"));
         item.put("grading", map("method", "exact_choice"));
         return reorder(item);
+    }
+
+    /** A valid item in a topic with a {@code sources} segment below the corpus root, which holds items. */
+    static Map<String, Object> nestedSourcesItem() {
+        var item = closedItem();
+        item.put("id", NESTED_SOURCES_ITEM);
+        item.put("topic", "screening/sources");
+        return item;
     }
 
     static Map<String, Object> rubricItem() {
@@ -353,11 +362,24 @@ class CorpusValidatorTest {
         }
 
         @Test
-        @DisplayName("the files below schema/, context/ and sources/ are no items")
+        @DisplayName("the files below schema/ and context/ at any depth and below the root sources/ are no items")
         void noItemDirectories() throws Exception {
             fixture.write("context/notes.json", "not JSON");
             fixture.write("schema/other.json", "{\"id\":\"elsewhere\"}");
+            fixture.write("screening/context/notes.json", "not JSON");
+            fixture.write("review/schema/other.json", "{\"id\":\"elsewhere\"}");
             fixture.write("sources/alpha/extra.json", "[]");
+            fixture.write("sources/alpha/nested/q-1.json", "not JSON");
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("a valid item below a sources directory deeper than the root is an item and accepted")
+        void nestedSourcesItemAccepted() throws Exception {
+            fixture.item(nestedSourcesItem());
 
             var violations = validate();
 
@@ -370,6 +392,16 @@ class CorpusValidatorTest {
             fixture.item(with(closedItem(), "provenance", map("kind", "fetched", "created", "2026-10-14", "origin",
                     map("repository", "https://github.com/example/alpha", "path", "src/Main.java"), "history",
                     List.of("2026-10-14: fetched from a review comment of the repository."))));
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
+        @DisplayName("a DEL before a stage-like name is written as \\u007f, as validate.py matches it, so no name")
+        void delBeforeStageName() throws Exception {
+            fixture.item(with(closedItem(), "tags", List.of((char) 0x7f + "E1")));
 
             var violations = validate();
 
@@ -399,6 +431,11 @@ class CorpusValidatorTest {
                 Arguments.of("an id differs from the path", "screening/topic/item-c", Rule.ID_PATH,
                         (Mutation) f -> f.write("screening/topic/item-c.json",
                                 json(with(closedItem(), "id", "screening/topic/other")))),
+                Arguments.of("an item below a nested sources directory has a wrong canary", NESTED_SOURCES_ITEM,
+                        Rule.CANARY, (Mutation) f -> f.item(with(nestedSourcesItem(), "canary", "another canary"))),
+                Arguments.of("an item below a nested sources directory has an id that differs from its path",
+                        NESTED_SOURCES_ITEM, Rule.ID_PATH, (Mutation) f -> f.write(NESTED_SOURCES_ITEM + ".json",
+                                json(with(nestedSourcesItem(), "id", "screening/sources/other")))),
                 Arguments.of("a topic differs from the directory", ITEM_A, Rule.TOPIC_DIRECTORY,
                         (Mutation) f -> f.item(with(closedItem(), "topic", "screening/else"))),
                 Arguments.of("a generated item has the id of a corpus item", ITEM_A, Rule.DUPLICATE_ID,

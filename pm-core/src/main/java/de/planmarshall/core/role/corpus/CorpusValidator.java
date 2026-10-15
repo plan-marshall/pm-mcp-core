@@ -41,8 +41,8 @@ import de.planmarshall.core.store.StoreRefusal;
  * Validates the model verification corpus (PM-WORK-6): the Java form of {@code validate.py} of the corpus, plus the
  * rules of its sources. Every violation is reported as a {@link CorpusViolation}; none is thrown.
  * <p>
- * An item is every {@code *.json} file below the corpus root outside a directory {@code schema/}, {@code context/} or
- * {@code sources/}. Each is checked against the item schema {@code schema/verification-item.schema.json} of the corpus
+ * An item is every {@code *.json} file below the corpus root outside a directory {@code schema/} or {@code context/}
+ * at any depth and outside the directory {@code sources/} of the corpus root. Each is checked against the item schema {@code schema/verification-item.schema.json} of the corpus
  * root with the keyword subset of {@link SchemaSubset}, and against the rules the schema cannot express: the id
  * equals the path without {@code .json}, the topic equals the directory, ids are unique, the canary is the corpus
  * canary, a closed answer ({@code exact_choice}, {@code label}) is one of the choices, a rubric method has rubric items
@@ -78,8 +78,8 @@ public final class CorpusValidator {
             "fixtures/|\\.plan/|pull\\.py|judge\\.py|corpus\\.py|test-pull|\\bStage \\d\\b|\\bE\\d{1,2}\\b"
                     + "|\\bV\\d{1,2}\\b|Part A");
 
-    /** The directories below the corpus root whose files are no items. */
-    private static final Set<String> NO_ITEMS = Set.of("schema", "context", CorpusImport.SOURCES);
+    /** The directories whose files are no items, at any depth, as {@code validate.py} skips them. */
+    private static final Set<String> NO_ITEMS = Set.of("schema", "context");
 
     private static final String JSON = ".json";
     private static final String CORPUS = ".";
@@ -485,8 +485,14 @@ public final class CorpusValidator {
                 && origin.flatMap(value -> value.get("line")).isPresent();
     }
 
+    /**
+     * @return {@code true} for a file that is an item: outside every directory {@code schema/} and {@code context/}
+     *         at any depth, as {@code validate.py} skips them, and outside the {@code sources/} directory of the corpus
+     *         root, which {@link Run#sources()} reads; a {@code sources} directory deeper in the tree holds items
+     */
     private static boolean isItem(String relative) {
-        return Stream.of(relative.split("/")).noneMatch(NO_ITEMS::contains);
+        var segments = relative.split("/");
+        return !CorpusImport.SOURCES.equals(segments[0]) && Stream.of(segments).noneMatch(NO_ITEMS::contains);
     }
 
     private static String id(String relative) {

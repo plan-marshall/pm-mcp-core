@@ -29,7 +29,9 @@ thrown.
   `pattern` matches anywhere unless anchored, `maxLength` counts code points). The other item rules of `validate.py`
   are ported as they are.
 * Manifests and overlays are checked against the schema resources of this package and read with their codecs; the
-  files below `sources/` are no items.
+  files below the `sources/` directory of the corpus root are no items. As in `validate.py`, a directory `schema/` or
+  `context/` at any depth holds no items; a `sources` directory deeper in the tree does, so no item escapes the
+  checks by its topic.
 * The `sources` entry is read by the rules of `CorpusImport`, so the validator never passes a corpus the import
   refuses: an absent entry is a corpus without sources; an entry that is no directory (a file, a dangling link, an
   entry that cannot be told to be absent) and a `sources/` that cannot be listed are `unreadable` violations, never
