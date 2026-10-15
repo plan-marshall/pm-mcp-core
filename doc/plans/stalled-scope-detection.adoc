@@ -10,7 +10,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == What
 
-* The detection of a stalled scope for `pm-operator status`. It reads scope stores that Milestone 3 delivers: plan this task after the store substrate of Milestone 3, or deliver the detection over a fixture store and wire the real stores then; decide in the trace matrix.
+* The detection of a stalled plan or epic by the definition of _Stalled Plans_, with its cause `no_progress` and the idle span, as a hold `stalled` that clears by itself with the scope's next transition or task progress; one `plan_stalled` audit record per episode; counted in `needs_operator` and announced on the event streams, and never in a model-facing representation. The hold's acts and how the clients show it are link:plan-and-epic-control.adoc[`plan-and-epic-control`]'s. It reads scope stores that Milestone 3 delivers: plan this task after the store substrate of Milestone 3, or deliver the detection over a fixture store and wire the real stores then; decide in the trace matrix.
 
 == Trace
 
@@ -22,4 +22,4 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 
 == Done When
 
-A scope past its threshold is reported stalled, one below it is not; the threshold comes from the timeouts specification.
+A scope past its threshold is held `stalled`, one below it, or in an operator wait or another hold, is not; the threshold comes from the timeouts specification; a second detection in the same episode appends no second `plan_stalled` record.
