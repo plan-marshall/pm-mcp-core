@@ -243,12 +243,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]
 |Milestone 4
 
-|link:session-as-worker.adoc[`session-as-worker`]
-|The interactive session as optional worker (removed from the specification)
-|`blocked`
-|the operator's decision to drop the package: the specification has no interactive session as a worker (no work package)
-|Milestone 4
-
 |link:corpus-sources.adoc[`corpus-sources`]
 |Corpus sources fetched at pinned commits, and the corpus validator in Java
 |`open`
