@@ -142,7 +142,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |Milestone 4
 
 |link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
-|Several corpus items per source row, and items graded by execution
+|Corpus sources on Hugging Face fetched over HTTPS, several items per source row, an answer schema in the overlay
 |`open`
 |nothing
 |Milestone 4
@@ -150,7 +150,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
-|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]; link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
+|link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]
 |Milestone 4
 
 |link:supervision-scenarios.adoc[`supervision-scenarios`]
