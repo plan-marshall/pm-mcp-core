@@ -22,4 +22,4 @@ Requirements, specification sections, and watch documents stay in `plan-marshall
 
 == Done When
 
-A scope past its threshold is held `stalled`, one below it, or in an operator wait or another hold, is not; the threshold comes from the timeouts specification; a second detection in the same episode appends no second `plan_stalled` record.
+A scope past its threshold is held `stalled`, one below it, or in an operator wait or another hold, is not; the threshold comes from the timeouts specification; a second detection in the same episode appends no second `plan_stalled` record; the hold clearing by itself announces `plan.hold_released`; neither the hold, its cause, nor `plan_stalled` appears in any model-facing representation.
