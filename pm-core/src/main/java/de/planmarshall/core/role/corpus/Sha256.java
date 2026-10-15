@@ -29,13 +29,14 @@ import lombok.experimental.UtilityClass;
 public class Sha256 {
 
     private static final HexFormat HEX = HexFormat.of();
+    private static final String CONTENT = "content";
 
     /**
      * @param content the bytes
      * @return their SHA-256, 64 lower-case hexadecimal digits
      */
     public static String hex(byte[] content) {
-        Objects.requireNonNull(content, "content");
+        Objects.requireNonNull(content, CONTENT);
         return HEX.formatHex(digest().digest(content));
     }
 
@@ -47,7 +48,7 @@ public class Sha256 {
      * @throws IOException if the stream cannot be read
      */
     public static String hex(InputStream content) throws IOException {
-        Objects.requireNonNull(content, "content");
+        Objects.requireNonNull(content, CONTENT);
         var digest = digest();
         try (var sink = new DigestOutputStream(OutputStream.nullOutputStream(), digest)) {
             content.transferTo(sink);
@@ -65,7 +66,7 @@ public class Sha256 {
      *         is not a SHA-256
      */
     public static boolean matches(byte[] content, String expected) {
-        Objects.requireNonNull(content, "content");
+        Objects.requireNonNull(content, CONTENT);
         Objects.requireNonNull(expected, "expected");
         if (!SourceManifest.SHA256.matcher(expected).matches()) {
             return false;

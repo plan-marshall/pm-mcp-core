@@ -591,6 +591,23 @@ class CorpusValidatorTest {
             assertSingle(violations, CorpusImport.ITEMS, Rule.UNREADABLE);
         }
 
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("a directory below the generated items that cannot be listed is reported under the subject items")
+        void unlistableItemsDirectory() throws Exception {
+            var topic = fixture.cache().resolve(CorpusImport.ITEMS).resolve("screening");
+            Files.createDirectories(topic.resolve("imported"));
+            var permissions = Files.getPosixFilePermissions(topic);
+            Files.setPosixFilePermissions(topic, PosixFilePermissions.fromString("-wx------"));
+            try {
+                var violations = validate();
+
+                assertSingle(violations, CorpusImport.ITEMS, Rule.UNREADABLE);
+            } finally {
+                Files.setPosixFilePermissions(topic, permissions);
+            }
+        }
+
         private static void assertSingle(List<CorpusViolation> violations, String subject, Rule rule) {
             assertAll(
                     () -> assertEquals(1, violations.size(), () -> report(violations)),

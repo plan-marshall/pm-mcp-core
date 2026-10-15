@@ -78,40 +78,43 @@ class CorpusPatternParityTest {
 
     static Stream<Arguments> copies() {
         return Stream.of(
-                Arguments.of("SourceManifest.NAME / manifest name", SourceManifest.NAME, MANIFEST,
+                Arguments.of("SourceManifest.NAME_PATTERN / manifest name", SourceManifest.NAME_PATTERN, MANIFEST,
                         new String[]{"name"}),
-                Arguments.of("SourceManifest.NAME / overlay source", SourceManifest.NAME, OVERLAY,
+                Arguments.of("SourceManifest.NAME_PATTERN / overlay source", SourceManifest.NAME_PATTERN, OVERLAY,
                         new String[]{"source"}),
-                Arguments.of("SourceManifest.COMMIT / manifest commit", SourceManifest.COMMIT, MANIFEST,
-                        new String[]{"commit"}),
-                Arguments.of("SourceManifest.COMMIT / item origin commit", SourceManifest.COMMIT, ITEM,
-                        new String[]{"provenance", "origin", "commit"}),
+                Arguments.of("SourceManifest.COMMIT_PATTERN / manifest commit", SourceManifest.COMMIT_PATTERN,
+                        MANIFEST, new String[]{"commit"}),
+                Arguments.of("SourceManifest.COMMIT_PATTERN / item origin commit", SourceManifest.COMMIT_PATTERN,
+                        ITEM, new String[]{"provenance", "origin", "commit"}),
                 Arguments.of("SourceManifest.SHA256 / manifest file sha256", SourceManifest.SHA256, MANIFEST,
                         new String[]{"files", "items", "sha256"}),
-                Arguments.of("SourceManifest.LICENCE / manifest licence", SourceManifest.LICENCE, MANIFEST,
-                        new String[]{"licence"}),
+                Arguments.of("SourceManifest.LICENCE_PATTERN / manifest licence", SourceManifest.LICENCE_PATTERN,
+                        MANIFEST, new String[]{"licence"}),
                 Arguments.of("SourceManifest.RELATIVE_PATH / manifest file path", SourceManifest.RELATIVE_PATH,
                         MANIFEST, new String[]{"files", "items", "path"}),
                 Arguments.of("SourceManifest.RELATIVE_PATH / overlay file", SourceManifest.RELATIVE_PATH, OVERLAY,
                         new String[]{"file"}),
                 Arguments.of("SourceManifest.RELATIVE_PATH / item origin path", SourceManifest.RELATIVE_PATH, ITEM,
                         new String[]{"provenance", "origin", "path"}),
-                Arguments.of("ImportedItem.ID / item id", ImportedItem.ID, ITEM, new String[]{"id"}),
-                Arguments.of("ImportedItem.TOPIC / item topic", ImportedItem.TOPIC, ITEM, new String[]{"topic"}),
-                Arguments.of("ImportedItem.TOPIC / overlay row topic", ImportedItem.TOPIC, OVERLAY,
+                Arguments.of("ImportedItem.ID_PATTERN / item id", ImportedItem.ID_PATTERN, ITEM,
+                        new String[]{"id"}),
+                Arguments.of("ImportedItem.TOPIC_PATTERN / item topic", ImportedItem.TOPIC_PATTERN, ITEM,
+                        new String[]{"topic"}),
+                Arguments.of("ImportedItem.TOPIC_PATTERN / overlay row topic", ImportedItem.TOPIC_PATTERN, OVERLAY,
                         new String[]{"rows", "items", "topic"}),
-                Arguments.of("ImportedItem.SLUG / overlay row id", ImportedItem.SLUG, OVERLAY,
+                Arguments.of("ImportedItem.SLUG_PATTERN / overlay row id", ImportedItem.SLUG_PATTERN, OVERLAY,
                         new String[]{"rows", "items", "id"}),
                 Arguments.of("SourceOverlay.KEY / overlay key_field", SourceOverlay.KEY, OVERLAY,
                         new String[]{"key_field"}),
                 Arguments.of("SourceOverlay.KEY / overlay row key", SourceOverlay.KEY, OVERLAY,
                         new String[]{"rows", "items", "key"}),
-                Arguments.of("CorpusJson.DATE / overlay created", CorpusJson.DATE, OVERLAY, new String[]{"created"}),
-                Arguments.of("CorpusJson.DATE / overlay row review date", CorpusJson.DATE, OVERLAY,
+                Arguments.of("CorpusJson.DATE_PATTERN / overlay created", CorpusJson.DATE_PATTERN, OVERLAY,
+                        new String[]{"created"}),
+                Arguments.of("CorpusJson.DATE_PATTERN / overlay row review date", CorpusJson.DATE_PATTERN, OVERLAY,
                         new String[]{"rows", "items", "review", "date"}),
-                Arguments.of("CorpusJson.DATE / item provenance created", CorpusJson.DATE, ITEM,
+                Arguments.of("CorpusJson.DATE_PATTERN / item provenance created", CorpusJson.DATE_PATTERN, ITEM,
                         new String[]{"provenance", "created"}),
-                Arguments.of("CorpusJson.DATE / item review date", CorpusJson.DATE, ITEM,
+                Arguments.of("CorpusJson.DATE_PATTERN / item review date", CorpusJson.DATE_PATTERN, ITEM,
                         new String[]{"review", "date"}));
     }
 
@@ -196,6 +199,6 @@ class CorpusPatternParityTest {
 
         assertAll(
                 () -> assertTrue(schemaAccepts(commit, MANIFEST, "commit"), "Python's $ matches before a final \\n"),
-                () -> assertFalse(SourceManifest.COMMIT.matcher(commit).matches(), "the record matches it whole"));
+                () -> assertFalse(SourceManifest.COMMIT_PATTERN.matcher(commit).matches(), "the record matches it whole"));
     }
 }

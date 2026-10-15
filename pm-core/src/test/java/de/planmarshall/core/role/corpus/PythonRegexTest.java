@@ -9,8 +9,11 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A regular expression of {@code validate.py} and the corpus schemas compiled with Python's meaning (PM-WORK-6). Every
@@ -83,5 +87,21 @@ class PythonRegexTest {
     @DisplayName("syntax Java lacks does not compile")
     void pythonOnlySyntax() {
         assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile("(?P<name>a)"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"[\\B]", "[\\Z]", "^[^a\\B]$", "^[a-z\\Z]+$"})
+    @DisplayName("\\B and \\Z in a class do not compile, as Python refuses them as a bad escape")
+    void badEscapeInClass(String pattern) {
+        var refusal = assertThrows(PatternSyntaxException.class, () -> PythonRegex.compile(pattern));
+        assertTrue(refusal.getDescription().startsWith("bad escape"), refusal.getDescription());
+    }
+
+    @Test
+    @DisplayName("\\B and \\Z outside a class still compile")
+    void escapesOutsideClass() {
+        assertAll(
+                () -> assertTrue(PythonRegex.compile("a\\B").matcher("ab").find()),
+                () -> assertFalse(PythonRegex.compile("[a]\\Z").matcher("a\n").find()));
     }
 }

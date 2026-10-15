@@ -69,10 +69,10 @@ public class SchemaSubset {
         return switch (a) {
             case JsonNumber number when b instanceof JsonNumber other -> number.value().compareTo(other.value()) == 0;
             case JsonList array when b instanceof JsonList other -> sameElements(array, other);
-            case JsonObject object when b instanceof JsonObject other -> object.members().keySet()
-                    .equals(other.members().keySet())
-                    && object.members().entrySet().stream()
-                    .allMatch(member -> same(member.getValue(), other.members().get(member.getKey())));
+            case JsonObject(var members) when b instanceof JsonObject(var others) -> members.keySet()
+                    .equals(others.keySet())
+                    && members.entrySet().stream()
+                    .allMatch(member -> same(member.getValue(), others.get(member.getKey())));
             default -> a.equals(b);
         };
     }
@@ -104,7 +104,7 @@ public class SchemaSubset {
                 .filter(members -> members.elements().stream().noneMatch(member -> same(value, member)))
                 .ifPresent(members -> errors.add("%s: %s not in %s".formatted(path, value.toJson(), members.toJson())));
         switch (value) {
-            case JsonString string -> checkString(string.value(), schema, path, errors);
+            case JsonString(var string) -> checkString(string, schema, path, errors);
             case JsonNumber number -> checkNumber(number, schema, path, errors);
             case JsonList array -> checkArray(array, schema, path, errors);
             case JsonObject object -> checkObject(object, schema, path, errors);
@@ -116,8 +116,8 @@ public class SchemaSubset {
 
     private static List<String> kinds(JsonObject schema) {
         return switch (schema.get("type").orElse(null)) {
-            case JsonString kind -> List.of(kind.value());
-            case JsonList kinds -> kinds.elements().stream().filter(JsonString.class::isInstance)
+            case JsonString(var kind) -> List.of(kind);
+            case JsonList(var kinds) -> kinds.stream().filter(JsonString.class::isInstance)
                     .map(kind -> ((JsonString) kind).value()).toList();
             case null, default -> List.of();
         };
@@ -137,13 +137,13 @@ public class SchemaSubset {
     }
 
     private static void checkString(String value, JsonObject schema, String path, List<String> errors) {
-        if (schema.get("pattern").orElse(null) instanceof JsonString pattern) {
+        if (schema.get("pattern").orElse(null) instanceof JsonString(var pattern)) {
             try {
-                if (!PythonRegex.compile(pattern.value()).matcher(value).find()) {
-                    errors.add("%s: does not match %s".formatted(path, pattern.value()));
+                if (!PythonRegex.compile(pattern).matcher(value).find()) {
+                    errors.add("%s: does not match %s".formatted(path, pattern));
                 }
             } catch (PatternSyntaxException e) {
-                errors.add("%s: the schema pattern %s does not compile: %s".formatted(path, pattern.value(),
+                errors.add("%s: the schema pattern %s does not compile: %s".formatted(path, pattern,
                         e.getDescription()));
             }
         }
@@ -177,16 +177,16 @@ public class SchemaSubset {
     }
 
     private static void checkObject(JsonObject value, JsonObject schema, String path, List<String> errors) {
-        if (schema.get("required").orElse(null) instanceof JsonList required) {
-            for (var key : required.elements()) {
-                if (key instanceof JsonString name && !value.members().containsKey(name.value())) {
-                    errors.add("%s: missing %s".formatted(path, name.value()));
+        if (schema.get("required").orElse(null) instanceof JsonList(var required)) {
+            for (var key : required) {
+                if (key instanceof JsonString(var name) && !value.members().containsKey(name)) {
+                    errors.add("%s: missing %s".formatted(path, name));
                 }
             }
         }
         var properties = schema.get("properties").orElse(null) instanceof JsonObject declared ? declared
                 : new JsonObject(Map.of());
-        var closed = schema.get("additionalProperties").orElse(null) instanceof JsonBoolean open && !open.value();
+        var closed = schema.get("additionalProperties").orElse(null) instanceof JsonBoolean(var open) && !open;
         for (var member : value.members().entrySet()) {
             var property = properties.get(member.getKey());
             if (property.isPresent()) {

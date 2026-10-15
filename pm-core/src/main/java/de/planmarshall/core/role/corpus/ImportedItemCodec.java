@@ -439,8 +439,9 @@ public class ImportedItemCodec {
             }
         }
         requireFields(seen, FIELD_ORIGIN, FIELD_REPOSITORY, FIELD_COMMIT, FIELD_PATH, FIELD_LINE);
-        if (line > Integer.MAX_VALUE) {
-            throw unreadable("'line' is too large: " + line);
+        // Checked on the long, before the cast: a line below 1 or beyond int would otherwise wrap into the int range.
+        if (line < 1 || line > Integer.MAX_VALUE) {
+            throw unreadable("'line' is outside 1 to " + Integer.MAX_VALUE + ": " + line);
         }
         var originRepository = repository;
         var originCommit = commit;

@@ -212,7 +212,7 @@ class CorpusImportTest {
 
         @Test
         @DisplayName("covers both sources, writes their items and is COMPLETE")
-        void complete() throws Exception {
+        void complete() {
             var result = run();
 
             assertAll(
@@ -838,9 +838,11 @@ class CorpusImportTest {
             var roots = layout.apply(base, corpusRoot);
             var before = snapshot(roots.corpusFiles());
             var corpusImport = new CorpusImport(repository, lfs);
+            var corpusArgument = roots.corpusArgument();
+            var cacheArgument = roots.cacheArgument();
 
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> corpusImport.run(roots.corpusArgument(), roots.cacheArgument()));
+                    () -> corpusImport.run(corpusArgument, cacheArgument));
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(message), refusal::getMessage),

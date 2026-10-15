@@ -13,7 +13,6 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import java.io.IOException;
-import java.io.Serial;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -129,25 +128,6 @@ public sealed interface JsonValue {
     }
 
     /**
-     * A document that is not one JSON value, or that names a member of an object twice.
-     *
-     * @since 0.1
-     */
-    final class MalformedJson extends IllegalArgumentException {
-
-        @Serial
-        private static final long serialVersionUID = 1L;
-
-        /**
-         * @param detail what is malformed
-         * @param cause  the failure that found it; {@code null} if there is none
-         */
-        public MalformedJson(String detail, Throwable cause) {
-            super(Objects.requireNonNull(detail, "detail"), cause);
-        }
-    }
-
-    /**
      * @param document one JSON value, UTF-8 encoded
      * @return the value
      * @throws MalformedJson if the document is not exactly one JSON value, or an object names a member twice
@@ -224,10 +204,10 @@ public sealed interface JsonValue {
 
     private static void write(JsonValue value, StringBuilder text) {
         switch (value) {
-            case JsonObject object -> {
+            case JsonObject(var members) -> {
                 text.append('{');
                 var first = true;
-                for (var member : object.members().entrySet()) {
+                for (var member : members.entrySet()) {
                     if (!first) {
                         text.append(", ");
                     }
@@ -238,20 +218,20 @@ public sealed interface JsonValue {
                 }
                 text.append('}');
             }
-            case JsonList array -> {
+            case JsonList(var elements) -> {
                 text.append('[');
-                for (var index = 0; index < array.elements().size(); index++) {
+                for (var index = 0; index < elements.size(); index++) {
                     if (index > 0) {
                         text.append(", ");
                     }
-                    write(array.elements().get(index), text);
+                    write(elements.get(index), text);
                 }
                 text.append(']');
             }
-            case JsonString string -> writeString(string.value(), text);
-            case JsonNumber number -> text.append(number.integral() ? number.value().toPlainString()
-                    : number.value().toString().replace('E', 'e'));
-            case JsonBoolean bool -> text.append(bool.value());
+            case JsonString(var string) -> writeString(string, text);
+            case JsonNumber(var number, var integral) -> text.append(integral ? number.toPlainString()
+                    : number.toString().replace('E', 'e'));
+            case JsonBoolean(var bool) -> text.append(bool);
             case JsonNull _ -> text.append("null");
         }
     }

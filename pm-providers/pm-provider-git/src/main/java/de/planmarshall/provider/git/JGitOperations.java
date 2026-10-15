@@ -430,10 +430,10 @@ public final class JGitOperations implements GitOperations {
                 }
             }
             Files.createDirectories(cache);
-            try (Git git = Git.init().setBare(true).setGitDir(cache.toFile()).setFs(fs).call()) {
+            try (Git _ = Git.init().setBare(true).setGitDir(cache.toFile()).setFs(fs).call()) {
                 return GitResult.ok(cache.toRealPath());
             }
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, cache.toString());
         } catch (GitAPIException | IOException | JGitInternalException e) {
             return failure(e);
@@ -445,7 +445,7 @@ public final class JGitOperations implements GitOperations {
         URIish uri;
         try {
             uri = new URIish(input.url());
-        } catch (URISyntaxException e) {
+        } catch (URISyntaxException _) {
             return GitResult.of(GitOutcome.REMOTE_ORIGIN_MISMATCH, "not a URL: " + input.url());
         }
         if (!input.policy().permits(uri)) {
@@ -471,7 +471,7 @@ public final class JGitOperations implements GitOperations {
             }
             return isCommit(repository, commit) ? GitResult.ok(commit.name())
                     : GitResult.of(GitOutcome.UNKNOWN_REVISION, uri + " did not serve " + commit.name());
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, input.cache().toString());
         } catch (RefusingFS.CapabilityRefusedException e) {
             return GitResult.of(GitOutcome.CAPABILITY_MISSING, e.getReason());
@@ -502,7 +502,7 @@ public final class JGitOperations implements GitOperations {
                     return GitResult.ok(content.readAllBytes());
                 }
             }
-        } catch (RepositoryNotFoundException e) {
+        } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, input.cache().toString());
         } catch (IllegalArgumentException e) {
             return GitResult.of(GitOutcome.PATH_NOT_FOUND, input.path() + ": " + e.getMessage());

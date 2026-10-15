@@ -39,7 +39,7 @@ class CorpusJson {
      * no sign, so a date {@link LocalDate#parse} reads beyond it ({@code +12345-01-01}, {@code -0001-01-01}) is
      * refused as the schema refuses it.
      */
-    static final Pattern DATE = PythonRegex.compile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
+    static final Pattern DATE_PATTERN = PythonRegex.compile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 
     /**
      * Turns a value a record refuses into the refusal of the document.
@@ -58,7 +58,7 @@ class CorpusJson {
 
     /**
      * Accepts the one spelling of a date the schemas admit and the writer produces: {@code YYYY-MM-DD} with a
-     * four-digit year ({@link #DATE}), naming a day of the calendar.
+     * four-digit year ({@link #DATE_PATTERN}), naming a day of the calendar.
      *
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
@@ -67,7 +67,7 @@ class CorpusJson {
      */
     static LocalDate date(JsonParser parser, String field) throws IOException {
         var text = string(parser, field);
-        if (!DATE.matcher(text).matches()) {
+        if (!DATE_PATTERN.matcher(text).matches()) {
             throw unreadable("'%s' is not in the one shape of a date (YYYY-MM-DD): %s".formatted(field, text));
         }
         try {

@@ -86,8 +86,8 @@ class ImportedItemCodecTest {
     }
 
     private static StoreRefusal refusalOf(String document) {
-        return assertThrows(StoreRefusal.class,
-                () -> ImportedItemCodec.read(FILE, document.getBytes(StandardCharsets.UTF_8)));
+        var bytes = document.getBytes(StandardCharsets.UTF_8);
+        return assertThrows(StoreRefusal.class, () -> ImportedItemCodec.read(FILE, bytes));
     }
 
     private static void assertUnreadable(StoreRefusal refusal, String detail) {
@@ -236,7 +236,12 @@ class ImportedItemCodecTest {
                 Arguments.of("a short commit", COMMIT, "0123456", "'commit'"),
                 Arguments.of("a title longer than 120 characters", "\"title\" : \"sample question\"",
                         "\"title\" : \"" + "t".repeat(121) + "\"", "'title' is longer than 120 characters"),
-                Arguments.of("a line 0", "\"line\" : 2", "\"line\" : 0", "'line' must be at least 1"),
+                Arguments.of("a line 0", "\"line\" : 2", "\"line\" : 0", "'line' is outside 1 to 2147483647: 0"),
+                Arguments.of("a line -1", "\"line\" : 2", "\"line\" : -1", "'line' is outside 1 to 2147483647: -1"),
+                Arguments.of("a negative line that wraps to 1 as an int", "\"line\" : 2", "\"line\" : -4294967295",
+                        "'line' is outside 1 to 2147483647: -4294967295"),
+                Arguments.of("a line beyond int", "\"line\" : 2", "\"line\" : 2147483648",
+                        "'line' is outside 1 to 2147483647: 2147483648"),
                 Arguments.of("a missing line", ",\n      \"line\" : 2", "", "field 'line' of the origin is missing"),
                 Arguments.of("an id outside its topic", "\"id\" : \"screening/sample-set/q-1\"",
                         "\"id\" : \"screening/other/q-1\"", "is not an item of the topic"),

@@ -119,7 +119,7 @@ class JGitCacheRepositoryTest {
 
         @Test
         @DisplayName("creates a bare repository, and opens it again unchanged")
-        void idempotent() throws Exception {
+        void idempotent() {
             var first = git.initCache(cache);
             var second = git.initCache(cache);
 
@@ -289,7 +289,7 @@ class JGitCacheRepositoryTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("refusedRemotes")
     @DisplayName("a remote the policy does not admit is refused before anything is sent")
-    void remoteOutsidePolicy(String name, String url, RemotePolicy policy) throws Exception {
+    void remoteOutsidePolicy(String name, String url, RemotePolicy policy) {
         assertTrue(git.initCache(cache).isOk());
 
         var fetched = fetch(url, commit, policy);

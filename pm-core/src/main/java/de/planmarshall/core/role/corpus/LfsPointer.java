@@ -62,7 +62,7 @@ public record LfsPointer(String oid, long size) {
         }
         try {
             return Optional.of(new LfsPointer(matcher.group(1), Long.parseLong(matcher.group(2))));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return Optional.empty();
         }
     }

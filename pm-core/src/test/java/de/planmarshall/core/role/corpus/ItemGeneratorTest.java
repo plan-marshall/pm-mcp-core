@@ -210,8 +210,9 @@ class ItemGeneratorTest {
         @DisplayName("written single in an alternative is refused as a field the row lacks")
         void singleInAlternative() {
             var row = withTarget(new Target(null, "r", List.of(CODE), List.of(new RubricItem("d1", "d")), false));
+            var fields = fields();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields()));
+            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
 
             assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
         }
@@ -220,8 +221,9 @@ class ItemGeneratorTest {
         @DisplayName("written single in the answer is refused as a field the row lacks")
         void singleInAnswer() {
             var row = withTarget(new Target(CODE, "r", List.of(), List.of(new RubricItem("d1", "d")), false));
+            var fields = fields();
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields()));
+            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
 
             assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
         }

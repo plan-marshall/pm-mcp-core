@@ -276,7 +276,7 @@ class JGitSourceRepositoryTest {
 
     @Test
     @DisplayName("Remote.of names the manifest's repository and admits its origin with its port, nothing else")
-    void remoteOf() throws Exception {
+    void remoteOf() {
         var manifest = new SourceManifest("gamma", URI.create("https://git.example.org:8443/group/gamma"),
                 "a".repeat(40), "MIT", List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false)));
         var standard = new SourceManifest("delta", URI.create("https://github.com/example/delta/"), "a".repeat(40),

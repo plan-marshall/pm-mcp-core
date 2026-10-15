@@ -29,6 +29,7 @@ import lombok.experimental.UtilityClass;
  * <li>{@code \b} and {@code \B} are the word boundary of that {@code \w}; inside a character class {@code \b} is the
  * backspace.</li>
  * <li>{@code \Z} is the very end of the string, Java's {@code \z}.</li>
+ * <li>{@code \B} and {@code \Z} inside a character class do not compile, as Python refuses them as a bad escape.</li>
  * <li>A case-insensitive match ({@code (?i)}) folds the case of every Unicode letter ({@link Pattern#UNICODE_CASE}).</li>
  * <li>In a character class {@code [} and {@code &} are members, as in Python, not a nested class or an
  * intersection.</li>
@@ -61,6 +62,8 @@ class PythonRegex {
     /**
      * @param regex a regular expression in Python's syntax
      * @return the expression in Java's syntax with Python's meaning of the escapes this class names
+     * @throws PatternSyntaxException for {@code \B} or {@code \Z} inside a character class, which Python refuses as a
+     *                                bad escape
      */
     static String translate(String regex) {
         var java = new StringBuilder(regex.length() + 16);
@@ -69,39 +72,63 @@ class PythonRegex {
         while (index < regex.length()) {
             var current = regex.charAt(index);
             if (current == '\\' && index + 1 < regex.length()) {
-                java.append(escape(regex.charAt(index + 1), inClass));
+                java.append(escape(regex, index, inClass));
                 index += 2;
-                continue;
-            }
-            if (current == '[' && !inClass) {
+            } else if (current == '[' && !inClass) {
                 inClass = true;
                 java.append(current);
+                index = classStart(regex, index + 1, java);
+            } else {
+                inClass = inClass && current != ']';
+                literal(current, inClass, java);
                 index++;
-                // A ']' first in the class (after an optional '^') is a member, not the end of the class.
-                if (index < regex.length() && regex.charAt(index) == '^') {
-                    java.append('^');
-                    index++;
-                }
-                if (index < regex.length() && regex.charAt(index) == ']') {
-                    java.append("\\]");
-                    index++;
-                }
-                continue;
             }
-            if (current == ']' && inClass) {
-                inClass = false;
-            }
-            if (inClass && (current == '[' || current == '&')) {
-                // A literal in a Python class; in a Java class '[' opens a nested class and "&&" intersects.
-                java.append('\\');
-            }
-            java.append(current);
-            index++;
         }
         return java.toString();
     }
 
-    private static String escape(char escaped, boolean inClass) {
+    /**
+     * Copies the start of a character class: a {@code ]} first in the class (after an optional {@code ^}) is a member,
+     * not the end of the class.
+     *
+     * @param regex the expression
+     * @param start the index after the {@code [} that opens the class
+     * @param java  the translation so far
+     * @return the index after the start of the class
+     */
+    private static int classStart(String regex, int start, StringBuilder java) {
+        var index = start;
+        if (index < regex.length() && regex.charAt(index) == '^') {
+            java.append('^');
+            index++;
+        }
+        if (index < regex.length() && regex.charAt(index) == ']') {
+            java.append("\\]");
+            index++;
+        }
+        return index;
+    }
+
+    private static void literal(char current, boolean inClass, StringBuilder java) {
+        if (inClass && (current == '[' || current == '&')) {
+            // A literal in a Python class; in a Java class '[' opens a nested class and "&&" intersects.
+            java.append('\\');
+        }
+        java.append(current);
+    }
+
+    /**
+     * @param regex   the expression
+     * @param index   the index of the backslash of the escape
+     * @param inClass {@code true} inside a character class
+     * @return the escape in Java's syntax with Python's meaning
+     * @throws PatternSyntaxException for {@code \B} or {@code \Z} inside a character class, a bad escape in Python
+     */
+    private static String escape(String regex, int index, boolean inClass) {
+        var escaped = regex.charAt(index + 1);
+        if (inClass && (escaped == 'B' || escaped == 'Z')) {
+            throw new PatternSyntaxException("bad escape \\" + escaped + " inside a character class", regex, index);
+        }
         return switch (escaped) {
             case 'd' -> "\\p{Nd}";
             case 'D' -> "\\P{Nd}";
@@ -110,8 +137,8 @@ class PythonRegex {
             case 's' -> "[" + SPACE + "]";
             case 'S' -> "[^" + SPACE + "]";
             case 'b' -> inClass ? "\\x08" : BOUNDARY;
-            case 'B' -> inClass ? "\\B" : NO_BOUNDARY;
-            case 'Z' -> inClass ? "\\Z" : "\\z";
+            case 'B' -> NO_BOUNDARY;
+            case 'Z' -> "\\z";
             default -> "\\" + escaped;
         };
     }

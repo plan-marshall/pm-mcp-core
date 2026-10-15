@@ -93,18 +93,7 @@ public class ItemGenerator {
                 text.append(current);
                 index += 2;
             } else if (current == OPEN) {
-                var end = template.indexOf(CLOSE, index + 1);
-                if (end < 0) {
-                    throw new IllegalArgumentException("the template opens a field it does not close: " + template);
-                }
-                var name = template.substring(index + 1, end);
-                if (name.isEmpty() || name.indexOf(OPEN) >= 0 || !fields.containsKey(name)) {
-                    throw new IllegalArgumentException(
-                            String.format(Locale.ROOT, "the row at line %d has no field '%s' the template names", line,
-                                    name));
-                }
-                text.append(fields.get(name));
-                index = end + 1;
+                index = field(template, index, fields, line, text);
             } else if (current == CLOSE) {
                 throw new IllegalArgumentException("the template closes a field it did not open: " + template);
             } else {
@@ -113,6 +102,31 @@ public class ItemGenerator {
             }
         }
         return text.toString();
+    }
+
+    /**
+     * Fills the placeholder that opens at an index.
+     *
+     * @param template the template
+     * @param open     the index of the brace that opens the placeholder
+     * @param fields   the fields of the row
+     * @param line     the line of the row, named by a refusal
+     * @param text     the filled text so far
+     * @return the index after the brace that closes the placeholder
+     * @throws IllegalArgumentException if the placeholder is not closed or names a field the row lacks
+     */
+    private static int field(String template, int open, Map<String, String> fields, int line, StringBuilder text) {
+        var end = template.indexOf(CLOSE, open + 1);
+        if (end < 0) {
+            throw new IllegalArgumentException("the template opens a field it does not close: " + template);
+        }
+        var name = template.substring(open + 1, end);
+        if (name.isEmpty() || name.indexOf(OPEN) >= 0 || !fields.containsKey(name)) {
+            throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "the row at line %d has no field '%s' the template names", line, name));
+        }
+        text.append(fields.get(name));
+        return end + 1;
     }
 
     private static List<String> fillAll(List<String> templates, Map<String, String> fields, int line) {

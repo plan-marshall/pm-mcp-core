@@ -60,6 +60,7 @@ public class SourceManifestCodec {
     private static final String FIELD_PATH = "path";
     private static final String FIELD_SHA256 = "sha256";
     private static final String FIELD_LFS = "lfs";
+    private static final String MANIFEST = "manifest";
 
     /**
      * @param file     the manifest file the document was read from, named by a refusal
@@ -78,7 +79,7 @@ public class SourceManifestCodec {
      * @return the document, UTF-8 encoded, its members in the order of the schema
      */
     public static byte[] write(SourceManifest manifest) {
-        Objects.requireNonNull(manifest, "manifest");
+        Objects.requireNonNull(manifest, MANIFEST);
         var out = new ByteArrayOutputStream();
         try (var generator = StrictJson.factory().createGenerator(out, JsonEncoding.UTF8)) {
             generator.useDefaultPrettyPrinter();
@@ -105,7 +106,7 @@ public class SourceManifestCodec {
     }
 
     private static SourceManifest readDocument(JsonParser parser) throws IOException {
-        requireObject(parser, "manifest");
+        requireObject(parser, MANIFEST);
         String name = null;
         String repository = null;
         String commit = null;
@@ -124,7 +125,7 @@ public class SourceManifestCodec {
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "manifest", FIELD_NAME, FIELD_REPOSITORY, FIELD_COMMIT, FIELD_LICENCE, FIELD_FILES);
+        requireFields(seen, MANIFEST, FIELD_NAME, FIELD_REPOSITORY, FIELD_COMMIT, FIELD_LICENCE, FIELD_FILES);
         var sourceName = name;
         var sourceRepository = repository;
         var sourceCommit = commit;

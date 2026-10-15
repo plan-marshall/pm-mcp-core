@@ -40,7 +40,8 @@ public final class CsvRowReader {
     private static final char COMMA = ',';
     private static final char CR = '\r';
     private static final char LF = '\n';
-    private static final char BOM = '﻿';
+    /** The byte order mark U+FEFF, written as a number so that no invisible character stands in the source. */
+    private static final char BOM = (char) 0xFEFF;
 
     private final String text;
     private int position;
@@ -76,7 +77,7 @@ public final class CsvRowReader {
         if (atEnd()) {
             throw new MalformedSource(1, "the header is missing", null);
         }
-        var header = record();
+        var header = nextRecord();
         var names = new HashSet<String>();
         for (var name : header) {
             if (name.isEmpty()) {
@@ -89,7 +90,7 @@ public final class CsvRowReader {
         var rows = new ArrayList<SourceRow>();
         while (!atEnd()) {
             var start = line;
-            var values = record();
+            var values = nextRecord();
             if (values.size() != header.size()) {
                 throw new MalformedSource(start, String.format(Locale.ROOT, "the record has %d fields, the header %d",
                         values.size(), header.size()), null);
@@ -108,7 +109,7 @@ public final class CsvRowReader {
     }
 
     /** Reads one record and its line end; leaves the position after it. */
-    private List<String> record() {
+    private List<String> nextRecord() {
         var start = line;
         var values = new ArrayList<String>();
         while (true) {

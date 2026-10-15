@@ -9,7 +9,7 @@
  */
 package de.planmarshall.core.role.corpus;
 
-import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT;
+import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT_PATTERN;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 import static de.planmarshall.core.role.corpus.SourceManifest.requireRepository;
@@ -56,13 +56,13 @@ public record ImportedItem(String id, String topic, String role, String title, L
 Target target, Grading grading, Provenance provenance, Review review, String canary) {
 
     /** An item id: a topic path and a slug. */
-    public static final Pattern ID = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
+    public static final Pattern ID_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
 
     /** A topic: the directory of an item below the corpus root. */
-    public static final Pattern TOPIC = PythonRegex.compile("^[a-z0-9-]+(/[a-z0-9-]+)*$");
+    public static final Pattern TOPIC_PATTERN = PythonRegex.compile("^[a-z0-9-]+(/[a-z0-9-]+)*$");
 
     /** The slug of an item: the file name below its topic, without {@code .json}. */
-    public static final Pattern SLUG = PythonRegex.compile("^[a-z0-9][a-z0-9-]*$");
+    public static final Pattern SLUG_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*$");
 
     /** The longest title, in characters. */
     public static final int TITLE_MAX_LENGTH = 120;
@@ -237,7 +237,7 @@ Target target, Grading grading, Provenance provenance, Review review, String can
          */
         public Origin {
             requireRepository(repository);
-            require(commit, COMMIT, "commit");
+            require(commit, COMMIT_PATTERN, "commit");
             require(path, RELATIVE_PATH, "path");
             if (line < 1) {
                 throw new IllegalArgumentException("'line' must be at least 1: " + line);
@@ -304,8 +304,8 @@ Target target, Grading grading, Provenance provenance, Review review, String can
      *                                  items share an id
      */
     public ImportedItem {
-        require(id, ID, "id");
-        require(topic, TOPIC, "topic");
+        require(id, ID_PATTERN, "id");
+        require(topic, TOPIC_PATTERN, "topic");
         if (!id.substring(0, id.lastIndexOf('/')).equals(topic)) {
             throw new IllegalArgumentException("'id' %s is not an item of the topic %s".formatted(id, topic));
         }

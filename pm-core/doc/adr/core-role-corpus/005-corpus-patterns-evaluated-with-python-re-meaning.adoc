@@ -33,8 +33,9 @@ Every pattern of a schema, of `validate.py` and every copy of one in a record or
 * `PythonRegex.compile` translates the escapes and classes where the two dialects differ into Java's syntax with
   Python's meaning and compiles with `UNIX_LINES` and `UNICODE_CASE`. `SchemaSubset` evaluates a schema `pattern`
   through it with `find`, as `re.search` does; `CorpusValidator` compiles `TRANSIENT` through it.
-* The record patterns (`SourceManifest.NAME`, `COMMIT`, `SHA256`, `LICENCE`, `RELATIVE_PATH`, `ImportedItem.ID`,
-  `TOPIC`, `SLUG`, `SourceOverlay.KEY`) and the date pattern of the codecs (`CorpusJson.DATE`) are their schema
+* The record patterns (`SourceManifest.NAME_PATTERN`, `COMMIT_PATTERN`, `SHA256`, `LICENCE_PATTERN`,
+  `RELATIVE_PATH`, `ImportedItem.ID_PATTERN`, `TOPIC_PATTERN`, `SLUG_PATTERN`, `SourceOverlay.KEY`) and the date
+  pattern of the codecs (`CorpusJson.DATE_PATTERN`) are their schema
   patterns compiled with `PythonRegex`, matched against the whole value. They are stricter than `re.search` only for
   a value ending in one `\n`, which `$` admits in Python.
 * The supported subset is the syntax the patterns of the corpus use. Syntax Python has and Java lacks (such as

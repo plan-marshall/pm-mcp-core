@@ -27,7 +27,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.role.corpus.JsonValue.JsonString;
-import de.planmarshall.core.role.corpus.JsonValue.MalformedJson;
 
 /**
  * The JSON Schema keyword subset of the corpus (PM-WORK-6), evaluated as {@code validate.py} evaluates it: per keyword

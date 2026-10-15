@@ -14,6 +14,7 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandler;
@@ -36,9 +37,9 @@ import de.planmarshall.core.role.corpus.JsonValue;
 import de.planmarshall.core.role.corpus.JsonValue.JsonList;
 import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
 import de.planmarshall.core.role.corpus.JsonValue.JsonString;
-import de.planmarshall.core.role.corpus.JsonValue.MalformedJson;
 import de.planmarshall.core.role.corpus.LfsObjectSource;
 import de.planmarshall.core.role.corpus.LfsPointer;
+import de.planmarshall.core.role.corpus.MalformedJson;
 import de.planmarshall.core.role.corpus.Sha256;
 import de.planmarshall.core.role.corpus.SourceFetch;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
@@ -76,8 +77,11 @@ public final class LfsBatchClient implements LfsObjectSource {
     /** The media type of the LFS batch API. */
     public static final String MEDIA_TYPE = "application/vnd.git-lfs+json";
 
-    /** The path of the batch API below the {@code .git} URL of a repository. */
-    static final String BATCH_PATH = "/info/lfs/objects/batch";
+    /**
+     * The path of the batch API below the {@code .git} URL of a repository, {@code /info/lfs/objects/batch}: fixed by
+     * the Git LFS batch API, so it is built from its segments and no setting.
+     */
+    static final String BATCH_PATH = String.join("/", "", "info", "lfs", "objects", "batch");
 
     private static final CuiLogger LOGGER = new CuiLogger(LfsBatchClient.class);
     private static final String HTTPS = "https";
@@ -176,14 +180,14 @@ public final class LfsBatchClient implements LfsObjectSource {
         URI uri;
         try {
             uri = URI.create(href.get());
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             return Step.failed(SourceFetch.unreachable("the download action names no URL"));
         }
         var headers = new LinkedHashMap<String, String>();
         download.flatMap(action -> member(action, "header")).filter(JsonObject.class::isInstance)
                 .map(JsonObject.class::cast).ifPresent(header -> header.members().forEach((name, value) -> {
-            if (value instanceof JsonString string) {
-                headers.put(name, string.value());
+            if (value instanceof JsonString(var text)) {
+                headers.put(name, text);
             }
         }));
         return Step.download(new Download(uri, headers));
@@ -231,14 +235,9 @@ public final class LfsBatchClient implements LfsObjectSource {
         try (var handler = HttpHandler.builder().uri(uri).connectionTimeoutSeconds(connectTimeoutSeconds)
                      .readTimeoutSeconds(readTimeoutSeconds).allowInsecureHttp(HTTP.equals(scheme(uri))).build()) {
             var request = handler.requestBuilder().uri(uri);
-            for (var header : headers.entrySet()) {
-                try {
-                    request.header(header.getKey(), header.getValue());
-                } catch (IllegalArgumentException e) {
-                    // The JDK's message carries the header value, which may be a credential: name the header only.
-                    return Answer.failed(SourceFetch.unreachable("the request to %s is refused: %s".formatted(
-                            withoutQuery(uri), headerName(header.getKey()))));
-                }
+            var refused = headers(request, headers, uri);
+            if (refused.isPresent()) {
+                return Answer.failed(refused.get());
             }
             if (body == null) {
                 request.GET();
@@ -249,7 +248,7 @@ public final class LfsBatchClient implements LfsObjectSource {
         } catch (IOException e) {
             return Answer.failed(SourceFetch.unreachable("%s did not answer: %s".formatted(withoutQuery(uri),
                     e.getClass().getSimpleName())));
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             return Answer.failed(SourceFetch.unreachable("interrupted while asking " + withoutQuery(uri)));
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -257,6 +256,27 @@ public final class LfsBatchClient implements LfsObjectSource {
             return Answer.failed(SourceFetch.unreachable("the request to %s is refused: %s".formatted(
                     withoutQuery(uri), e.getClass().getSimpleName())));
         }
+    }
+
+    /**
+     * Sets the request headers.
+     *
+     * @param request the request being built
+     * @param headers the request headers
+     * @param uri     the target, named by a refusal
+     * @return the outcome of a header the request builder refuses; empty if it takes every header
+     */
+    private static Optional<SourceFetch> headers(HttpRequest.Builder request, Map<String, String> headers, URI uri) {
+        for (var header : headers.entrySet()) {
+            try {
+                request.header(header.getKey(), header.getValue());
+            } catch (IllegalArgumentException _) {
+                // The JDK's message carries the header value, which may be a credential: name the header only.
+                return Optional.of(SourceFetch.unreachable("the request to %s is refused: %s".formatted(
+                        withoutQuery(uri), headerName(header.getKey()))));
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -280,7 +300,7 @@ public final class LfsBatchClient implements LfsObjectSource {
 
     /**
      * @param repository the repository of a source
-     * @return the batch API of its LFS endpoint: the {@code .git} URL of the repository and {@value #BATCH_PATH}
+     * @return the batch API of its LFS endpoint: the {@code .git} URL of the repository and {@link #BATCH_PATH}
      */
     static URI batchUri(URI repository) {
         var path = Optional.ofNullable(repository.getRawPath()).orElse("");

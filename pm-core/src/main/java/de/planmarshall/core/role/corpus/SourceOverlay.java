@@ -9,7 +9,7 @@
  */
 package de.planmarshall.core.role.corpus;
 
-import static de.planmarshall.core.role.corpus.SourceManifest.NAME;
+import static de.planmarshall.core.role.corpus.SourceManifest.NAME_PATTERN;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 
@@ -47,7 +47,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
 public record SourceOverlay(String source, String file, String keyField, LocalDate created, List<Row> rows) {
 
     /** The key of a row selected by its position among the rows of the file, from 1. */
-    public static final Pattern POSITION = Pattern.compile("^[1-9][0-9]*$");
+    public static final Pattern POSITION = Pattern.compile("^[1-9]\\d*$");
 
     /**
      * A key and a key field: the schema pattern {@code .} found anywhere in the value with Python's meaning, so a value
@@ -81,8 +81,8 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
          */
         public Row {
             requireKey(key, "key");
-            require(slug, ImportedItem.SLUG, "id");
-            require(topic, ImportedItem.TOPIC, "topic");
+            require(slug, ImportedItem.SLUG_PATTERN, "id");
+            require(topic, ImportedItem.TOPIC_PATTERN, "topic");
             Objects.requireNonNull(role, "role");
             Objects.requireNonNull(title, "title");
             if (title.codePointCount(0, title.length()) > ImportedItem.TITLE_MAX_LENGTH) {
@@ -113,7 +113,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
      * @throws IllegalArgumentException if a value is outside the format, or a key or an item id repeats
      */
     public SourceOverlay {
-        require(source, NAME, "source");
+        require(source, NAME_PATTERN, "source");
         require(file, RELATIVE_PATH, "file");
         if (keyField != null) {
             requireKey(keyField, "key_field");

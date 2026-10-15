@@ -39,16 +39,16 @@ import java.util.regex.Pattern;
 public record SourceManifest(String name, URI repository, String commit, String licence, List<SourceFile> files) {
 
     /** A source name: the directory of the source below {@code sources/}. */
-    public static final Pattern NAME = PythonRegex.compile("^[a-z][a-z0-9-]{1,63}$");
+    public static final Pattern NAME_PATTERN = PythonRegex.compile("^[a-z][a-z0-9-]{1,63}$");
 
     /** A pinned commit: the full object id of SHA-1 git. */
-    public static final Pattern COMMIT = PythonRegex.compile("^[0-9a-f]{40}$");
+    public static final Pattern COMMIT_PATTERN = PythonRegex.compile("^[0-9a-f]{40}$");
 
     /** A SHA-256 in lower-case hexadecimal digits. */
     public static final Pattern SHA256 = PythonRegex.compile("^[0-9a-f]{64}$");
 
     /** An SPDX licence identifier, or an SPDX expression of identifiers joined by {@code -}, {@code .} or {@code +}. */
-    public static final Pattern LICENCE = PythonRegex.compile("^[A-Za-z0-9][A-Za-z0-9.+-]*$");
+    public static final Pattern LICENCE_PATTERN = PythonRegex.compile("^[A-Za-z0-9][A-Za-z0-9.+-]*$");
 
     /**
      * A repository-relative path: segments joined by {@code /}, none empty, {@code .} or {@code ..}. A {@code ..}
@@ -81,10 +81,10 @@ public record SourceManifest(String name, URI repository, String commit, String 
      * @throws IllegalArgumentException if a value is outside the format or a path is named twice
      */
     public SourceManifest {
-        require(name, NAME, "name");
+        require(name, NAME_PATTERN, "name");
         requireRepository(repository);
-        require(commit, COMMIT, "commit");
-        require(licence, LICENCE, "licence");
+        require(commit, COMMIT_PATTERN, "commit");
+        require(licence, LICENCE_PATTERN, "licence");
         files = List.copyOf(Objects.requireNonNull(files, "files"));
         if (files.isEmpty()) {
             throw new IllegalArgumentException("'files' must name at least one file");
