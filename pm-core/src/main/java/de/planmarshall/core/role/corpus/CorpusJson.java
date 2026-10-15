@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.StrictJson;
@@ -32,6 +33,13 @@ import de.planmarshall.core.store.StrictJson;
  */
 @UtilityClass
 class CorpusJson {
+
+    /**
+     * The pattern of every date of the schemas of the package, compiled with {@link PythonRegex}: a four-digit year,
+     * no sign, so a date {@link LocalDate#parse} reads beyond it ({@code +12345-01-01}, {@code -0001-01-01}) is
+     * refused as the schema refuses it.
+     */
+    static final Pattern DATE = PythonRegex.compile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 
     /**
      * Turns a value a record refuses into the refusal of the document.
@@ -49,7 +57,8 @@ class CorpusJson {
     }
 
     /**
-     * Accepts the one spelling of a date the writer produces: {@code YYYY-MM-DD}.
+     * Accepts the one spelling of a date the schemas admit and the writer produces: {@code YYYY-MM-DD} with a
+     * four-digit year ({@link #DATE}), naming a day of the calendar.
      *
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
@@ -58,15 +67,14 @@ class CorpusJson {
      */
     static LocalDate date(JsonParser parser, String field) throws IOException {
         var text = string(parser, field);
+        if (!DATE.matcher(text).matches()) {
+            throw unreadable("'%s' is not in the one shape of a date (YYYY-MM-DD): %s".formatted(field, text));
+        }
         try {
-            var date = LocalDate.parse(text);
-            if (date.toString().equals(text)) {
-                return date;
-            }
+            return LocalDate.parse(text);
         } catch (DateTimeException e) {
             throw unreadable("'%s' is not a date: %s".formatted(field, text), e);
         }
-        throw unreadable("'%s' is not in the one shape of a date (YYYY-MM-DD): %s".formatted(field, text));
     }
 
     /**

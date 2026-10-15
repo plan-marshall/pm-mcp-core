@@ -105,7 +105,14 @@ class CorpusPatternParityTest {
                 Arguments.of("SourceOverlay.KEY / overlay key_field", SourceOverlay.KEY, OVERLAY,
                         new String[]{"key_field"}),
                 Arguments.of("SourceOverlay.KEY / overlay row key", SourceOverlay.KEY, OVERLAY,
-                        new String[]{"rows", "items", "key"}));
+                        new String[]{"rows", "items", "key"}),
+                Arguments.of("CorpusJson.DATE / overlay created", CorpusJson.DATE, OVERLAY, new String[]{"created"}),
+                Arguments.of("CorpusJson.DATE / overlay row review date", CorpusJson.DATE, OVERLAY,
+                        new String[]{"rows", "items", "review", "date"}),
+                Arguments.of("CorpusJson.DATE / item provenance created", CorpusJson.DATE, ITEM,
+                        new String[]{"provenance", "created"}),
+                Arguments.of("CorpusJson.DATE / item review date", CorpusJson.DATE, ITEM,
+                        new String[]{"review", "date"}));
     }
 
     @ParameterizedTest(name = "{0}")

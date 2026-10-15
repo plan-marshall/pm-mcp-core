@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.juli.LogAsserts;
@@ -343,6 +344,100 @@ class LfsBatchClientTest {
         for (var level : TestLogLevel.values()) {
             assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "s3cret").isEmpty(),
                     "no " + level + " line holds the header value");
+        }
+    }
+
+    /**
+     * A download action the client refuses after the batch answer: nothing is downloaded, the action's
+     * {@code Authorization} header is sent nowhere, and the WARN is logged without its value. The client under test
+     * admits plain {@code http} to a loopback address only, so that the batch request reaches the mock web server; an
+     * {@code http} download to any other host is refused by the very rule that refuses every {@code http} URL in the
+     * production client, and user information is refused whatever the scheme and host.
+     */
+    @Nested
+    @DisplayName("a refused download action")
+    class RefusedDownload {
+
+        private void answers(String href, long size) {
+            on("POST", BATCH, lfsJson(200, String.format(Locale.ROOT, """
+                    {"objects":[{"oid":"%s","size":%d,"actions":{"download":{"href":"%s",\
+                    "header":{"Authorization":"%s"}}}}]}""", POINTER.oid(), size, href, ACTION_SECRET)));
+            on("GET", OBJECT_PATH, bytes(OBJECT));
+        }
+
+        private void assertNothingDownloaded(SourceFetch fetch, Outcome expected, String detail)
+                throws InterruptedException {
+            assertAll(
+                    () -> assertEquals(expected, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(0, fetch.content().length),
+                    () -> assertTrue(fetch.detail().contains(detail), fetch::detail),
+                    () -> assertFalse(fetch.detail().contains("s3cret"), fetch::detail),
+                    () -> assertEquals(1, server.getRequestCount(), "only the batch request is sent"));
+            var batch = nextRequest();
+            assertAll(
+                    () -> assertEquals("POST", batch.getMethod()),
+                    () -> assertEquals(BATCH, batch.getTarget()),
+                    () -> assertNull(batch.getHeaders().get("Authorization"),
+                            "the action's header is never sent"));
+            assertUnavailableLogged();
+            for (var level : TestLogLevel.values()) {
+                assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "s3cret").isEmpty(),
+                        "no " + level + " line holds the header value");
+            }
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"http://example.org", "http://example.org:80", "HTTP://lfs.example.org"})
+        @DisplayName("a download URL that is http to a host other than loopback is UNREACHABLE")
+        void cleartextDownload(String origin) throws InterruptedException {
+            answers(origin + OBJECT_PATH, POINTER.size());
+
+            var fetch = client.object(repository(), POINTER);
+
+            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + POINTER.oid()
+                    + " is not https");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"http", "https"})
+        @DisplayName("a download URL with user information is UNREACHABLE, even to the loopback test server")
+        void userInfoDownload(String scheme) throws InterruptedException {
+            var href = base().replace("http://", scheme + "://user:pa55word@") + OBJECT_PATH;
+            answers(href, POINTER.size());
+
+            var fetch = client.object(repository(), POINTER);
+
+            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "refused: the download URL of " + POINTER.oid()
+                    + " is not https");
+            assertFalse(fetch.detail().contains("pa55word"), fetch::detail);
+            for (var level : TestLogLevel.values()) {
+                assertTrue(TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, "pa55word")
+                        .isEmpty(), "no " + level + " line holds the user information");
+            }
+        }
+
+        @Test
+        @DisplayName("a pointer larger than a byte array holds is UNREACHABLE before the download")
+        void tooLarge() throws InterruptedException {
+            var huge = new LfsPointer(POINTER.oid(), Integer.MAX_VALUE);
+            answers(base() + OBJECT_PATH, huge.size());
+
+            var fetch = client.object(repository(), huge);
+
+            assertNothingDownloaded(fetch, Outcome.UNREACHABLE,
+                    "the object of " + Integer.MAX_VALUE + " bytes is too large to hold");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"https://lfs.example.org/objects/a b", "https://lfs.example.org/objects/%zz",
+                "https://[lfs.example.org/objects"})
+        @DisplayName("a download href that is no URL is UNREACHABLE")
+        void noUrl(String href) throws InterruptedException {
+            answers(href, POINTER.size());
+
+            var fetch = client.object(repository(), POINTER);
+
+            assertNothingDownloaded(fetch, Outcome.UNREACHABLE, "the download action names no URL");
         }
     }
 

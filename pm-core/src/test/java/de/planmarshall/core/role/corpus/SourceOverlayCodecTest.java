@@ -32,6 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
@@ -270,6 +271,12 @@ class SourceOverlayCodecTest {
                 Arguments.of("an empty key field", "key_field", "\"\"", "'key_field'"),
                 Arguments.of("a key field of line feeds only", "key_field", "\"\\n\\n\"", "'key_field'"),
                 Arguments.of("a date in another shape", "created", "\"2026-10-4\"", "'created'"),
+                Arguments.of("a date with a five-digit signed year", "created", "\"+12345-01-01\"",
+                        "'created' is not in the one shape of a date"),
+                Arguments.of("a date with a negative year", "created", "\"-0001-01-01\"",
+                        "'created' is not in the one shape of a date"),
+                Arguments.of("a date in the shape that names no day", "created", "\"2026-02-30\"",
+                        "'created' is not a date"),
                 Arguments.of("no row", "rows", "[]", "'rows'"),
                 Arguments.of("a row twice", "rows",
                         "[" + object(rowMembers("q-1", "q-1")) + "," + object(rowMembers("q-1", "q-9")) + "]",
@@ -284,6 +291,15 @@ class SourceOverlayCodecTest {
     @DisplayName("an overlay value outside its format is refused naming the file")
     void malformedOverlayValue(String name, String field, String value, String detail) {
         assertUnreadable(refusalOf(with(field, value)), detail);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"2026-10-14", "0001-01-01", "9999-12-31"})
+    @DisplayName("a date in the schema's shape with a four-digit year is read")
+    void fourDigitYear(String date) {
+        var overlay = SourceOverlayCodec.read(FILE, with("created", "\"" + date + "\""));
+
+        assertEquals(LocalDate.parse(date), overlay.created());
     }
 
     @Test

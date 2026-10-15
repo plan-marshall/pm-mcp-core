@@ -1,0 +1,74 @@
+= ADR 005: Every Corpus Pattern Is Evaluated with the Meaning of Python's `re`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-15
+
+== Context
+
+The schemas of the corpus (the item schema `schema/verification-item.schema.json` of plan-marshall-mcp and the
+schema resources of this package) and the `TRANSIENT` rule of `validate.py` carry their patterns in Python's syntax,
+and `validate.py` evaluates them with `re.search` on a `str`. `CorpusValidator` replaces `validate.py` (ADR 004), so it
+must answer the same for every value: a corpus `validate.py` accepts must pass, and one it refuses must fail. The
+records of the package (`SourceManifest`, `SourceOverlay`, `ImportedItem`) copy schema patterns, and the codecs read
+dates in the schemas' date shape; the import reads only through them, so a record or a codec looser than its schema
+lets a source the validator reports as malformed be fetched.
+
+`java.util.regex` gives the same text another meaning: `.` and `$` know the line terminators `\r`, U+0085, U+2028
+and U+2029, where Python knows `\n` only; `\d`, `\w` and `\s` are ASCII classes, where Python's are Unicode ones
+(`\s` with `\x1c` to `\x1f`); `\b` follows that other `\w`; `\Z` differs; `(?i)` folds ASCII case only; `[` and `&`
+in a class open a nested class or an intersection. A path with a `..` segment behind U+0085 is refused by the schema
+and was admitted by a pattern compiled with `Pattern.compile`.
+
+== Decision
+
+Every pattern of a schema, of `validate.py` and every copy of one in a record or a codec is compiled with
+`PythonRegex`, never with `Pattern.compile`.
+
+* `PythonRegex.compile` translates the escapes and classes where the two dialects differ into Java's syntax with
+  Python's meaning and compiles with `UNIX_LINES` and `UNICODE_CASE`. `SchemaSubset` evaluates a schema `pattern`
+  through it with `find`, as `re.search` does; `CorpusValidator` compiles `TRANSIENT` through it.
+* The record patterns (`SourceManifest.NAME`, `COMMIT`, `SHA256`, `LICENCE`, `RELATIVE_PATH`, `ImportedItem.ID`,
+  `TOPIC`, `SLUG`, `SourceOverlay.KEY`) and the date pattern of the codecs (`CorpusJson.DATE`) are their schema
+  patterns compiled with `PythonRegex`, matched against the whole value. They are stricter than `re.search` only for
+  a value ending in one `\n`, which `$` admits in Python.
+* The supported subset is the syntax the patterns of the corpus use. Syntax Python has and Java lacks (such as
+  `(?P<name>...)`, or a brace that is no quantifier) does not compile: `SchemaSubset` and the validator report it as
+  an error of the schema, never as a match or a mismatch.
+
+== Alternatives Considered
+
+1. *Plain `java.util.regex`.* Not taken: the dialects differ on line terminators, Unicode classes, word boundaries
+   and case folding, so the validator would pass values `validate.py` refuses, and a record would admit a path the
+   schema refuses.
+2. *Running `validate.py` or Python's `re` in a subprocess.* Not taken: `pm-core` would need a Python interpreter at
+   run time, which neither the daemon nor `pm-operator roles qualify` may assume, and the import would depend on a
+   process outside the JVM for every record it builds.
+3. *A third-party regular expression library with Python's semantics.* Not taken: no new dependency is allowed
+   without the user's decision, `pm-core` depends on `pm-api` alone among the product's modules, and the patterns
+   of the corpus use a small subset that a translation covers.
+
+== Consequences
+
+* `CorpusPatternParityTest` pins every Java copy of a schema pattern to the pattern of its schema, compiled with
+  `PythonRegex`, flags included; a schema pattern that changes fails the test until its copy follows.
+* `PythonRegexTest` pins each difference between the dialects to what `re.search` of Python 3 answers for the same
+  pattern and string; a new construct a corpus pattern uses needs its translation and a test there.
+* A pattern with Python-only syntax fails to compile and is reported, so the corpus has to stay within the supported
+  subset or the translation has to grow.
+* A Java pattern compiled with `Pattern.compile` from a schema or `validate.py` is a defect (developer documentation,
+  § Pitfalls, item 5).
+
+== Source
+
+* Work package link:../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Plan `corpus-sources`: the clarified request (validator rules, Done When) and its pull request
+* `test/model/verification/validate.py` and `schema/verification-item.schema.json` of plan-marshall-mcp
+* ADR link:004-validator-reads-the-item-schema-from-the-corpus-root.adoc[004]: the validator replaces `validate.py`
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Formats and
+  § Validation

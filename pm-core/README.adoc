@@ -57,7 +57,7 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/adr/core-analysis/[`doc/adr/core-analysis/`]: the code-analysis contract.
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
 * link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue store and the session generations.
-* link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import and the corpus validator.
+* link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:doc/adr/core-spi/[`doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:doc/adr/core-store/[`doc/adr/core-store/`]: the state stores and the engine ports.
 
