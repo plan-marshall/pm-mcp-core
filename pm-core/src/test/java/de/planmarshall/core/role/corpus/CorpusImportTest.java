@@ -707,8 +707,8 @@ class CorpusImportTest {
 
             assertMalformed(result, "alpha", null, "'path'");
             assertTrue(new CorpusValidator(corpusRoot).validate().stream().anyMatch(violation ->
-                    violation.rule() == CorpusViolation.Rule.MANIFEST
-                            && violation.subject().equals("sources/alpha/manifest.json")),
+                            violation.rule() == CorpusViolation.Rule.MANIFEST
+                                    && "sources/alpha/manifest.json".equals(violation.subject())),
                     "the validator reports the same manifest");
         }
 
