@@ -279,4 +279,14 @@ class ImportedItemCodecTest {
 
         assertUnreadable(refusalOf(text.replace(original, replacement)), detail);
     }
+
+    @Test
+    @DisplayName("a malformed answer_schema becomes a refusal, not a thrown MalformedJson")
+    void malformedAnswerSchema() {
+        var text = text(openItem()).replace("\"answer_schema\" : {\"type\": \"object\"}",
+                "\"answer_schema\" : {\"type\": \"object\", \"type\": \"object\"}");
+
+        assertUnreadable(refusalOf(text),
+                "'answer_schema' is not one JSON value: the member 'type' is named twice");
+    }
 }

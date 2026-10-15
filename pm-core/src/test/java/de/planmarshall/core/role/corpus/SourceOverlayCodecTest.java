@@ -337,7 +337,14 @@ class SourceOverlayCodecTest {
                 Arguments.of("a rubric item without description", "target",
                         "{\"answer\":null,\"rationale\":\"r\",\"alternatives\":[],\"items\":[{\"id\":\"d\"}],"
                                 + "\"expected_empty\":false}",
-                        "field 'description' of the items[0] is missing"));
+                        "field 'description' of the items[0] is missing"),
+                Arguments.of("an answer_schema object that names a member twice", "answer_schema",
+                        "{\"type\":\"object\",\"type\":\"object\"}",
+                        "'answer_schema' is not one JSON value: the member 'type' is named twice"),
+                Arguments.of("an answer_schema that is a string", "answer_schema", "\"not-an-object\"",
+                        "'answer_schema' must be an object or null"),
+                Arguments.of("an answer_schema that is an array", "answer_schema", "[\"a\"]",
+                        "'answer_schema' must be an object or null"));
     }
 
     @ParameterizedTest(name = "{0}")

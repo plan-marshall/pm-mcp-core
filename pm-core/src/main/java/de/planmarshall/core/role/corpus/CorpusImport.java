@@ -77,7 +77,7 @@ public final class CorpusImport {
     private final LfsObjectSource lfs;
 
     /**
-     * @param repository the git part of the fetch
+     * @param repository the source-fetch part of the fetch (a git repository or an HTTPS endpoint)
      * @param lfs        the LFS part of the fetch
      */
     public CorpusImport(SourceRepository repository, LfsObjectSource lfs) {

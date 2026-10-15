@@ -27,6 +27,7 @@ import static de.planmarshall.core.store.StrictJson.requireObject;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
+import static de.planmarshall.core.store.StrictJson.unreadable;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -252,7 +253,7 @@ public class SourceOverlayCodec {
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
                 case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
-                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser);
+                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
@@ -267,8 +268,20 @@ public class SourceOverlayCodec {
                 values.review));
     }
 
-    private static JsonValue nullableValue(JsonParser parser) throws IOException {
-        return parser.currentToken() == JsonToken.VALUE_NULL ? null : JsonValue.read(parser);
+    private static JsonValue nullableValue(JsonParser parser, String field) throws IOException {
+        if (parser.currentToken() == JsonToken.VALUE_NULL) {
+            return null;
+        }
+        JsonValue value;
+        try {
+            value = JsonValue.read(parser);
+        } catch (MalformedJson e) {
+            throw unreadable("'%s' is not one JSON value: %s".formatted(field, e.getMessage()), e);
+        }
+        if (!(value instanceof JsonValue.JsonObject)) {
+            throw unreadable("'%s' must be an object or null".formatted(field));
+        }
+        return value;
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {

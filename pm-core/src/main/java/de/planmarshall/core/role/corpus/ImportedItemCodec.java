@@ -491,7 +491,11 @@ public class ImportedItemCodec {
         if (parser.currentToken() == JsonToken.VALUE_NULL) {
             throw unreadable("'%s' is present but empty".formatted(field));
         }
-        return JsonValue.read(parser);
+        try {
+            return JsonValue.read(parser);
+        } catch (MalformedJson e) {
+            throw unreadable("'%s' is not one JSON value: %s".formatted(field, e.getMessage()), e);
+        }
     }
 
     /** Names where the document stops being JSON, without the source excerpt the parser may append. */
