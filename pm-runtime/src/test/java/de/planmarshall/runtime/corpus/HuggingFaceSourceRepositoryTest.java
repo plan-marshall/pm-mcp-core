@@ -153,7 +153,7 @@ class HuggingFaceSourceRepositoryTest {
 
     @Test
     @DisplayName("prepare creates nothing and makes no request")
-    void prepare() throws IOException {
+    void prepare() throws Exception {
         var fetch = repository.prepare(cacheRoot, anyManifest());
 
         assertAll(

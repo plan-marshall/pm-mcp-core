@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
  * @since 0.1
  */
 public record SourceManifest(String name, URI repository, String commit, String licence, FetchKind fetch,
-    List<SourceFile> files) {
+List<SourceFile> files) {
 
     /** A source name: the directory of the source below {@code sources/}. */
     public static final Pattern NAME_PATTERN = PythonRegex.compile("^[a-z][a-z0-9-]{1,63}$");
