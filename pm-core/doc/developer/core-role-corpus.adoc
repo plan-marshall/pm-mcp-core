@@ -1,0 +1,252 @@
+= Corpus Sources (`core.role.corpus`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../plan-marshall-documentation/doc/specification
+:src: ../../src/main/java/de/planmarshall/core/role/corpus
+:res: ../../src/main/resources/de/planmarshall/core/role/corpus
+:test: ../../src/test/java/de/planmarshall/core/role/corpus
+
+== Purpose
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+Package `de.planmarshall.core.role.corpus` of `pm-core` holds the corpus sources of the model verification corpus: the formats of its own part, the fetch of public datasets at their pinned commits, the generation of the imported items and the validation of the corpus.
+
+The corpus a role configuration is graded against is its own part plus items generated from public datasets.
+The datasets are never copied into the corpus.
+Each is named by a manifest that pins a repository commit and the SHA-256 of every file read from it; an overlay selects the rows that become items and writes what each item adds.
+An import fetches the files at the pin, checks their hashes, and generates the items below a cache root outside the corpus.
+
+The package declares the two fetch interfaces but implements neither.
+The git part is `JGitSourceRepository` of `pm-provider-git` (see link:../../../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[`provider-git.adoc`]), the Git LFS part is `LfsBatchClient` of `pm-runtime` (see link:../../../pm-runtime/doc/developer/runtime-corpus.adoc[`runtime-corpus.adoc`]); `pm-mcp-server` in plan-marshall-mcp composes them (link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[ADR 006]).
+
+== Corpus Layout
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+[source]
+----
+<corpus root>                              test/model/verification/ of plan-marshall-mcp
+├── schema/verification-item.schema.json   the item schema, read by the validator from the root
+├── context/                               context files the items name (no items)
+├── ATTRIBUTION.md                         one "## <name>" section per source
+├── <topic>/<slug>.json                    the corpus's own items
+└── sources/<name>/                        one directory per source (no items)
+    ├── manifest.json                      SourceManifest: repository, pinned commit, licence, files
+    └── overlay.json                       SourceOverlay: the selected rows and their framing
+
+<cache root>                               apart from the corpus root (CorpusImport refuses any overlap)
+├── repositories/<name>.git                the bare cache repository of a source (JGitSourceRepository)
+└── items/<topic>/<slug>.json              the generated ImportedItems, replaced by every import
+----
+
+== Formats
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+Each format is a record that refuses every value outside it with an `IllegalArgumentException`, a closed JSON schema resource (draft 2020-12, `additionalProperties: false` at every level, only the keyword subset of `SchemaSubset`), and a codec.
+Every pattern of a record (`SourceManifest.NAME_PATTERN`, `COMMIT_PATTERN`, `SHA256`, `LICENCE_PATTERN`, `RELATIVE_PATH`, `ImportedItem.ID_PATTERN`, `TOPIC_PATTERN`, `SLUG_PATTERN`, `SourceOverlay.KEY`) is the pattern of its schema compiled with `PythonRegex`, so the record never accepts a string the schema refuses: the import reads only through the codecs, and a looser record would let a source the validator reports as malformed be fetched (a `..` segment behind U+0085 then reads as a missing pin and a `PARTIAL` run instead of a `FAILED` one).
+A date (`created`, a review `date`) is a `LocalDate` in the record and is checked by the codec: `CorpusJson.DATE_PATTERN` is the schemas' date pattern compiled with `PythonRegex`, so a codec reads a date only with a four-digit year and refuses a signed or longer year (`+12345-01-01`, `-0001-01-01`) that `LocalDate.parse` would accept, and then a text that names no day of the calendar (`2026-02-30`). A record built in code holds any `LocalDate`; only a year from 0000 to 9999 writes in the schema's shape.
+A record or a codec matches the whole value, and is stricter than the schema's `re.search` only for a value ending in one `\n`, which the codec then refuses as well.
+The decisions are link:../adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] for the formats and link:../adr/core-role-corpus/005-corpus-patterns-evaluated-with-python-re-meaning.adoc[ADR 005] for evaluating every pattern with the meaning of Python's `re`.
+
+[horizontal]
+link:{src}/SourceManifest.java[`SourceManifest`]:: `format_version`, `name` (the directory below `sources/`, `^[a-z][a-z0-9-]{1,63}$`), `repository` (an absolute `https` URI without user, query or fragment), `commit` (40 lower-case hexadecimal digits), `licence` (an SPDX-like identifier) and `files`, each with `path`, `sha256` and `lfs`. For a file with `lfs: true` the hash is that of the object the pointer names, not of the pointer. Schema: link:{res}/source-manifest.schema.json[`source-manifest.schema.json`].
+link:{src}/SourceOverlay.java[`SourceOverlay`]:: `format_version`, `source` (the manifest name), `file` (a path of the manifest), `key_field` (the field whose value selects a row; `null` selects rows by their position from 1), `created` and `rows`. Each row writes the framing (`id` slug, `topic`, `role`, `title`, `tags`), the `question`, `facts` and `choices`, the `target` with its `answer`, `alternatives` and rubric `items`, the `grading` and the `review`. The templates over the row's fields are `question`, `facts`, every choice, the `answer` and every alternative: `{field}` names a field, `{{` and `}}` stand for a literal brace, and a single brace that names no field of the row or opens or closes nothing fails the import of the source as `malformed`; `rationale`, the rubric items, `judge` and the review are literal. A `key` and a `key_field` hold a character other than a line feed (the schema pattern `.`). A value the overlay does not give is `null` or an empty array, never an absent field. Schema: link:{res}/source-overlay.schema.json[`source-overlay.schema.json`].
+link:{src}/ImportedItem.java[`ImportedItem`]:: The corpus item format, tightened: `provenance.kind` is `fetched` and `provenance.origin` requires `repository`, `commit`, `path` and `line`; an optional member has one shape only (an absent list is empty, `expected_empty` is present only when `true`). The origin `repository` follows the rule of the manifest's `repository` (an absolute `https` URI without user, query or fragment; `SourceManifest.requireRepository` checks both, the two schemas carry the same pattern), so every source a valid manifest names yields items the import accepts, on GitHub or elsewhere. An imported item is accepted by link:{res}/imported-item.schema.json[`imported-item.schema.json`]; the item schema of the corpus in plan-marshall-mcp still admits `https://github.com/<owner>/<repo>` origins only, so a source outside GitHub needs that pattern widened there before its generated items pass the corpus's `schema` rule.
+
+link:{src}/SourceManifestCodec.java[`SourceManifestCodec`] and link:{src}/SourceOverlayCodec.java[`SourceOverlayCodec`] read through `StrictJson` of `core.store`: the current `format_version` first, every declared field exactly once, no undeclared field.
+link:{src}/ImportedItemCodec.java[`ImportedItemCodec`] checks `schema_version` 1 first and writes deterministically: members in schema order, an optional member only when it has a value, so a written item reads back equal and writes to the same bytes.
+Every refusal of a codec is a `StoreRefusal` that names the file; the package-private `CorpusJson` holds the reading helpers the codecs share beside `StrictJson`.
+
+== Rows and Checks
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+A source file is read into `SourceRow` values: the line a row starts on (from 1) and its named fields in source order.
+A file the readers cannot read is refused with a `SourceRow.MalformedSource` naming the line.
+Both readers are written by hand on what `pm-core` already has (link:../adr/core-role-corpus/002-hand-written-row-readers-for-jsonl-and-rfc-4180-csv.adoc[ADR 002]).
+
+[horizontal]
+link:{src}/JsonlRowReader.java[`JsonlRowReader`]:: One JSON object per line on `jackson-core`, LF or CRLF, a blank last line allowed. A string field keeps the string; any other value keeps its JSON text exactly as the line writes it: a number is never converted (`2.50` stays `2.50`, `1e3` stays `1e3`, `-0` stays `-0`), a nested object or array is the text it spans. A key named twice in the row or in any object nested in it is refused.
+link:{src}/CsvRowReader.java[`CsvRowReader`]:: RFC 4180 without a CSV library: UTF-8 with an optional byte order mark, the header names the fields (unique, not empty), quoted fields with commas, line breaks and doubled quotes, CRLF or LF. A record with another field count than the header, an unterminated quoted field, a quote inside an unquoted field, or a character after a closing quote other than a separator is refused with the line the record starts on.
+link:{src}/Sha256.java[`Sha256`]:: The SHA-256 of bytes or a stream as lower-case hex, and the comparison with an expected hash in constant time.
+link:{src}/LfsPointer.java[`LfsPointer`]:: The pointer of the Git LFS specification v1 exactly as git-lfs writes it: the `version https://git-lfs.github.com/spec/v1` line first, `oid sha256:<64 hex>`, `size <bytes>`, keys sorted, every line ended by a line feed, at most `MAX_POINTER_SIZE` (1024) bytes. Anything else is not a pointer (`parse` answers empty).
+
+== Fetch and Import
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+[horizontal]
+link:{src}/SourceRepository.java[`SourceRepository`]:: The git part: `prepare` the cache repository of a source below the cache root, `fetchCommit` the pinned commit, `readFile` one file at that commit as stored (an LFS file as its pointer).
+link:{src}/LfsObjectSource.java[`LfsObjectSource`]:: The LFS part: `object(repository, pointer)`, the bytes the repository's LFS endpoint serves for the pointer, over HTTP and never through a git filter driver.
+link:{src}/SourceFetch.java[`SourceFetch`]:: The closed outcome of one fetch step: `FETCHED` with the bytes (or `done` without bytes), `UNREACHABLE` (the repository or endpoint did not answer), `PIN_MISSING` (the commit, path or object is absent at the pin). The user information of every URI in the detail is removed when the outcome is made, up to the last `@` of the authority, so a password with an unencoded `@` is removed whole.
+link:{src}/ItemGenerator.java[`ItemGenerator`]:: Overlay row plus source row gives one `ImportedItem`: the templates filled from the row's fields (`{field}`; `{{` and `}}` for a literal brace), a fetched provenance with the manifest's repository and commit, the file's path and the row's line, and the corpus canary. A template that names a field the row lacks, or an unmatched brace, is refused.
+link:{src}/CorpusImport.java[`CorpusImport`]:: `run(corpusRoot, cacheRoot)` imports every source below `sources/`, in name order, and answers an `ImportResult`.
+link:{src}/ImportResult.java[`ImportResult`]:: The covered sources with their item counts, the missed sources each with its `Reason` (`unreachable`, `pin_missing`, `hash_mismatch`, `malformed`), the file it concerns and the detail, and the `Verdict`.
+
+Per source the import reads the manifest and the overlay with their codecs (the manifest must name its directory, the overlay its source and a file of the manifest), prepares the cache repository, fetches the commit, reads every file of the manifest and checks it:
+
+* a plain file must have the manifest's SHA-256;
+* a file with `lfs: true` must be a pointer whose oid is the manifest's SHA-256, and the bytes the `LfsObjectSource` delivers for it must have that SHA-256 too.
+
+It then reads the rows of the overlay's file (`.jsonl` or `.csv`), selects each overlay row by its key field or position, and generates the items.
+A source whose step fails is missed as a whole, and none of its items is written; the other sources are imported all the same.
+The items are written below `<cache root>/items/`, replacing those of an earlier import; nothing is written below the corpus root.
+Since the import deletes and writes below the cache root (`items/` and the cache repositories), the two roots must not overlap: a cache root below the corpus root, a corpus root below the cache root (inside `items/` or the cache repositories included) and two roots that are one are refused with an `IllegalArgumentException` before anything is fetched, deleted or written.
+The roots are compared as normalized absolute paths and again with their links resolved (the real path of the nearest existing ancestor, the rest of the path below it), so a link cannot hide an overlap; a link that cannot be resolved refuses the run with an `UncheckedIOException`.
+
+A corpus with no sources and a corpus that could not be read are told apart.
+A corpus root that exists and has no `sources/` directory, or whose `sources/` holds no subdirectory, imports nothing and is `COMPLETE` with no source: the corpus of the product has no sources yet, and that is a legitimate state.
+A corpus root that does not exist, is no directory or whose `sources/` entry cannot be looked up, and a `sources/` that is no directory or cannot be listed, refuse the whole import with an `UncheckedIOException` (its cause a `NoSuchFileException`, a `NotDirectoryException` or the `IOException` of the listing): no `ImportResult` is answered, so no role can be qualified on a corpus nothing was read from.
+The sources are listed before the items of an earlier import are removed, so a refused import leaves those items in place.
+
+[cols="2,1,1,3",options="header"]
+|===
+|What happens |Reason |Verdict |Logged
+
+|a fetch step is `UNREACHABLE`
+|`unreachable`
+|`PARTIAL`
+|WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`
+
+|a fetch step is `PIN_MISSING`
+|`pin_missing`
+|`PARTIAL`
+|WARN `PM_CORE-102`
+
+|a file, a pointer oid or a delivered LFS object does not have the pinned SHA-256
+|`hash_mismatch`
+|`FAILED`
+|ERROR `PM_CORE-200` `CORPUS_SOURCE_HASH_MISMATCH`
+
+|the manifest, the overlay or the source file does not yield the selected items, or two sources generate one id
+|`malformed`
+|`FAILED`
+|WARN `PM_CORE-102`
+|===
+
+Every row of the table is a missed source: it is named in `ImportResult.missed()` with its reason and none of its items is written; the reason alone decides whether the run is `PARTIAL` or `FAILED`.
+`FAILED` wins over `PARTIAL`; an import that missed nothing is `COMPLETE`.
+The items of the other sources are generated even on a `FAILED` run, but no role is qualified on it (link:../adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[ADR 003]).
+A qualification on a `PARTIAL` import is recorded as partial, with the missed sources named.
+
+=== Component Interaction
+
+[source]
+----
+CorpusImport.run(corpusRoot, cacheRoot)
+  │  the roots overlap (normalized or real paths)                 ──► IllegalArgumentException
+  │  list sources/<name>/                                        ──► UncheckedIOException (root or sources/ unreadable)
+  │  delete <cache root>/items/
+  └─ for each sources/<name>/ (sorted)
+       ├─ SourceManifestCodec.read  / SourceOverlayCodec.read      ──► malformed
+       ├─ SourceRepository.prepare(cacheRoot, manifest)           ──► unreachable | pin_missing
+       ├─ SourceRepository.fetchCommit(cacheRoot, manifest)        ──► unreachable | pin_missing
+       ├─ for each file of the manifest
+       │    ├─ SourceRepository.readFile(cacheRoot, manifest, path)
+       │    ├─ plain: Sha256.matches(bytes, sha256)                 ──► hash_mismatch
+       │    └─ lfs:   LfsPointer.parse, oid == sha256              ──► hash_mismatch
+       │              LfsObjectSource.object(repository, pointer)  ──► unreachable | pin_missing
+       │              Sha256.matches(object, sha256)               ──► hash_mismatch
+       ├─ JsonlRowReader | CsvRowReader                            ──► malformed
+       ├─ ItemGenerator.generate per overlay row                   ──► malformed
+       └─ ImportedItemCodec.write → <cache root>/items/<topic>/<slug>.json
+  ▼
+ImportResult{covered[], missed[]}.verdict()  COMPLETE | PARTIAL | FAILED
+----
+
+== Validation
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+link:{src}/CorpusValidator.java[`CorpusValidator`] is the Java form of `validate.py` of the corpus plus the rules of its sources.
+It takes the corpus root as a parameter; `validate()` checks the corpus, `validate(cacheRoot)` also the items an import generated below `<cache root>/items/`.
+Every violation is a link:{src}/CorpusViolation.java[`CorpusViolation`] value (subject, `Rule`, detail); none is thrown.
+The item schema stays with the corpus and is read from `schema/verification-item.schema.json` of the root (link:../adr/core-role-corpus/004-validator-reads-the-item-schema-from-the-corpus-root.adoc[ADR 004]).
+
+An item is every `*.json` file below the root outside a directory `schema/` or `context/` at any depth, as `validate.py` skips them, and outside the `sources/` directory of the root, which is read as the sources; a `sources` directory deeper in the tree (`screening/sources/q-1.json`) holds items and is checked as such.
+The `sources` entry is read by the rules of `CorpusImport`, so the validator never passes a corpus the import refuses: an absent entry is a corpus without sources; an entry that is no directory (a file, a dangling link, an entry that cannot be told to be absent) and a `sources/` that cannot be listed are `unreadable` violations under the subject `sources`.
+An absent `<cache root>/items` holds no generated item; an `items` entry that is no directory, and an `items` directory whose files cannot be listed, are `unreadable` violations under the subject `items`; a corpus whose files cannot be listed is one under the subject `.`.
+
+[cols="1,3",options="header"]
+|===
+|Rule |Checked
+
+|`unreadable` |a file cannot be read, a directory cannot be listed, or the corpus root, its `sources` entry or the generated `items` is no directory
+|`item_schema` |the item schema is absent or no JSON
+|`not_json` |an item is no JSON document
+|`schema` |an item breaks the item schema, evaluated with `SchemaSubset`
+|`imported_item` |a generated item breaks `imported-item.schema.json`
+|`id_path` |the id differs from the path below the root without `.json`
+|`topic_directory` |the topic differs from the directory
+|`duplicate_id` |two items have one id (the generated items count together with the corpus's own)
+|`canary` |the item lacks the corpus canary
+|`closed_answer` |the answer of an `exact_choice` or `label` item is not one of its choices
+|`rubric_items` |a rubric method has no rubric items and the item is no control (`expected_empty`)
+|`context_file` |a context file the item names does not exist
+|`transient_name` |provenance, review, grading or tags name a transient tool, stage or local path (`TRANSIENT`, the pattern of `validate.py`)
+|`manifest` |`sources/<name>/manifest.json` is absent, breaks `source-manifest.schema.json` or its codec, or names another directory
+|`overlay` |`sources/<name>/overlay.json` is absent, breaks `source-overlay.schema.json` or its codec, or names another source or no file of the manifest
+|`attribution` |`ATTRIBUTION.md` lacks the `## <name>` section of a source or has it more than once
+|`third_party_text` |a file below the corpus has the SHA-256 of a file a manifest names, or an item below the corpus is an imported one
+|===
+
+An item counts as imported only when its `provenance.kind` is `fetched` *and* its `provenance.origin` names a `commit` and a `line`, the form `ItemGenerator` writes.
+The corpus's own items of `screening/untrusted-text` are review comments fetched from a pull request: their provenance is `fetched`, but their origin names no commit and no line, so they are no third-party text.
+
+link:{src}/SchemaSubset.java[`SchemaSubset`] evaluates the keywords `type`, `const`, `enum`, `pattern`, `maxLength`, `minimum`, `maximum`, `minItems`, `items`, `required`, `properties` and `additionalProperties: false`, as `validate.py` does: a value of a type the schema does not admit is reported once and not looked into; a boolean is never a number nor an integer; an `integer` is written without fraction or exponent; `pattern` matches anywhere unless anchored, with the meaning Python's `re.search` gives it; `maxLength` counts code points.
+link:{src}/PythonRegex.java[`PythonRegex`] compiles a `pattern` of a schema and the `TRANSIENT` pattern of `validate.py` with Python's meaning, where `java.util.regex` differs: `\n` is the only line terminator (`$` matches at the end or before one final `\n`, never before a final `\r`, U+0085, U+2028 or U+2029), `\d`, `\w` and `\s` are Python's Unicode classes (`\s` includes `\x1c` to `\x1f`), `\b` and `\B` follow that `\w`, `\Z` is the very end, `(?i)` folds Unicode case, and `[` and `&` in a class are members; `\B` and `\Z` inside a class do not compile, as Python refuses them as a bad escape.
+Syntax only Python has does not compile and is reported as a violation, never matched.
+It walks link:{src}/JsonValue.java[`JsonValue`], a minimal immutable JSON tree on the streaming API of `jackson-core`, whose array type is `JsonList` and which refuses a member named twice.
+
+== Testing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+Every fixture is written by the test into a temporary directory, never copied from the content of the product.
+
+[horizontal]
+link:{test}/SourceManifestCodecTest.java[`SourceManifestCodecTest`], link:{test}/SourceOverlayCodecTest.java[`SourceOverlayCodecTest`], link:{test}/ImportedItemCodecTest.java[`ImportedItemCodecTest`]:: A valid document reads, a written one round-trips byte for byte, and each refusal names the file; a manifest file object without `path`, `sha256` or `lfs` is refused, so `lfs` never defaults.
+link:{test}/CorpusSchemaResourcesTest.java[`CorpusSchemaResourcesTest`]:: Every codec-written fixture validates against its schema resource with the JSON schema validator of the tests, and every resource uses only the keyword subset.
+link:{test}/JsonlRowReaderTest.java[`JsonlRowReaderTest`], link:{test}/CsvRowReaderTest.java[`CsvRowReaderTest`], link:{test}/Sha256Test.java[`Sha256Test`], link:{test}/LfsPointerTest.java[`LfsPointerTest`]:: The RFC 4180 cases and refusals, the JSON Lines rules, the known SHA-256 vectors, and the pointer shape.
+link:{test}/ItemGeneratorTest.java[`ItemGeneratorTest`]:: The generated item, valid against `imported-item.schema.json`; a template naming a missing field is refused; a single literal brace in the answer or an alternative is refused, a doubled one gives one brace, and the rationale and rubric items stay literal.
+link:{test}/CorpusImportTest.java[`CorpusImportTest`]:: In-test fakes of both fetch interfaces over two sources (a plain CSV file and a JSON Lines file in LFS): the complete run, each hash mismatch (`FAILED`, ERROR logged), the unreachable source and the missing pin (`PARTIAL`, WARN logged), the malformed cases (a manifest or overlay naming another source, an overlay naming a file outside the manifest, an absent or refused manifest or overlay, a file neither `.jsonl` nor `.csv`, a reader refusal, a position beyond the rows, a key matching no or several rows, an unknown template field, a duplicate item id), a source outside GitHub imported `COMPLETE`, the corpus root left untouched, an existing corpus root without `sources/` or with an empty one `COMPLETE` with no source, and the refusal of a corpus root that does not exist or is a file, a `sources/` that is a file, and (POSIX, `@EnabledOnOs`) a `sources/` that cannot be listed and a corpus root whose entries cannot be looked up, each leaving the items of the earlier import in place; and the refusal of every overlap of the two roots (the cache root below the corpus root, the two equal, also spelled with `..` or through a link, the corpus root below the cache root, below its `items/` and below its cache repositories, a link to a corpus root below `items/`, a cache root not yet created below a link into the corpus root), each leaving the corpus untouched and fetching nothing, while a sibling cache root whose name extends the corpus root's is accepted.
+link:{test}/SourceFetchTest.java[`SourceFetchTest`]:: The user information of every URI in a detail is removed up to the last `@` of its authority, also for a password with an unencoded `@`.
+link:{test}/CorpusValidatorTest.java[`CorpusValidatorTest`], link:{test}/SchemaSubsetTest.java[`SchemaSubsetTest`]:: One negative fixture per rule next to a matched valid corpus, including a manifest naming a path twice and an overlay selecting a row twice, which pass their schemas (proved by the test) and are refused by their codecs; an absent `sources` entry accepted, and a `sources` entry that is a file or a dangling link, a `sources/` that cannot be listed (POSIX, `@EnabledOnOs`) and generated `items` that are a file reported `unreadable`; the files below `schema/` and `context/` at any depth and below the root `sources/` skipped, while an item below a nested `sources` directory is checked (a wrong canary or id reported); a DEL character written as `\u007f`, as `json.dumps` writes it; a passing and a failing value per keyword.
+link:{test}/CorpusPatternParityTest.java[`CorpusPatternParityTest`]:: Every pattern of a record, and `CorpusJson.DATE_PATTERN` of the four date fields, is its schema pattern compiled with `PythonRegex`; a path with a `..` segment behind `\r`, U+0085, U+2028 or U+2029 is refused by the three schemas and the records, a `key` of line feeds only by the overlay schema and the record, and a value ending in one `\n` is admitted by the schema and refused by the record. `CorpusImportTest` fails such a manifest as `malformed` (`FAILED`, never `PARTIAL`), and the validator reports it.
+link:{test}/PythonRegexTest.java[`PythonRegexTest`]:: Each difference between the two dialects, pinned to what `re.search` of Python 3 answers for the same pattern and string; `SchemaSubsetTest` refuses a commit ending in `\r`, U+0085, U+2028 or U+2029 and accepts one ending in a single `\n`, as `validate.py` does.
+link:{test}/NonLatinDigits.java[`NonLatinDigits`]:: A test extension that runs a test under the default format locale `fa-IR`, whose digits are not ASCII, and restores the previous one. The codec, reader, generator, pointer, import and validator tests that compare a number in a document or a detail run under it, so a locale-sensitive number conversion fails them.
+link:{test}/ProductCorpusValidationTest.java[`ProductCorpusValidationTest`]:: The validator accepts the corpus of the plan-marshall-mcp checkout with no violation.
+
+`ProductCorpusValidationTest` finds the checkout through the system property `pm.product.root`, which `pm-core/pom.xml` passes to Surefire from the Maven property of the same name (default `../plan-marshall-mcp` beside the repository).
+When the corpus is absent, the test helper `ProductCorpus` aborts the test through a JUnit assumption naming the path, so it is reported as skipped.
+In a worktree below `.plan/local/worktrees/` the default does not resolve; pass the checkout explicitly:
+
+[source,bash]
+----
+python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-core -am -Dpm.product.root=/path/to/plan-marshall-mcp"
+----
+
+The end-to-end fixtures of the two fetch parts live with their implementations: `JGitSourceRepositoryTest` of `pm-provider-git` runs `CorpusImport` over on-disk fixture repositories, `LfsBatchClientTest` of `pm-runtime` over a mock web server.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+1. **Never write below the corpus root**: generated items belong below the cache root; an imported item stored below the corpus is a `third_party_text` violation.
+2. **The manifest hash of an LFS file is the object's**: the pointer is checked by its oid, the object by its bytes. Do not hash the pointer.
+3. **A mismatch is not a missing pin**: bytes that were delivered but are not the pinned file fail the run, even when an LFS endpoint delivered them; only an absent commit, path or object is `pin_missing`.
+4. **Numbers are written in ASCII digits whatever the locale**: `%d` of `String.formatted` takes the digits of the default format locale (Persian digits under `fa-IR`). Every number that reaches a file, a wire format, an item, a path of a violation or a detail is written by string concatenation or `String.format(Locale.ROOT, ...)`, never through a number conversion of `formatted`. `StrictJson` and `StoreRefusal` of `core.store`, which the codecs refuse through, follow the same rule.
+5. **A pattern of validate.py or a schema is Python's**: compile it with `PythonRegex`, never with `Pattern.compile`, or `.`, `$`, `\s`, `\d`, `\w` and `\b` mean something else. This holds for the Java copy of a schema pattern in a record too; `CorpusPatternParityTest` pins every copy to its schema (link:../adr/core-role-corpus/005-corpus-patterns-evaluated-with-python-re-meaning.adoc[ADR 005]).
+6. **Refusals are values**: a missed source is an `ImportResult` entry and a violation a `CorpusViolation`; the import throws only for a corpus root and a cache root that overlap (`IllegalArgumentException`) and for roots whose links cannot be resolved, a corpus root or `sources/` that cannot be read or listed, or items that cannot be written (`UncheckedIOException`). Never answer an unreadable corpus as one without sources: an empty `COMPLETE` result is for a corpus root that exists and has none, and the validator reports what the import refuses.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+
+* Specification: link:{spec}/model-work/01-roles-and-configuration.adoc#qualification[Roles and Configuration § Role Qualification], link:{spec}/model-work/01-roles-and-configuration.adoc#qualification-topics[§ Qualification Topics]
+* Decisions: link:../adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001], link:../adr/core-role-corpus/002-hand-written-row-readers-for-jsonl-and-rfc-4180-csv.adoc[ADR 002], link:../adr/core-role-corpus/003-missed-source-partial-and-hash-mismatch-failed.adoc[ADR 003], link:../adr/core-role-corpus/004-validator-reads-the-item-schema-from-the-corpus-root.adoc[ADR 004], link:../adr/core-role-corpus/005-corpus-patterns-evaluated-with-python-re-meaning.adoc[ADR 005], link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]

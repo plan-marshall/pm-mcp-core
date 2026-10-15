@@ -1,0 +1,61 @@
+= ADR 001: The Source Manifest, Overlay and Imported Item Formats
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+A corpus source needs three documents no format existed for: the manifest that pins a public repository, its commit,
+its licence and the SHA-256 of each file read from it; the overlay that selects the rows of one file and writes what
+each generated item adds; and the item generated from a row. The corpus package of plan-marshall-mcp that will hold
+the manifests and overlays had not started. The corpus's own items are checked by `validate.py` of the corpus against
+the item schema, with a fixed keyword subset of JSON Schema.
+
+== Decision
+
+The operator decided that this package defines the three formats and plan-marshall-mcp adopts them.
+
+* Each format is a record (`SourceManifest`, `SourceOverlay`, `ImportedItem`) that refuses every value outside it, a
+  closed JSON schema resource below `de/planmarshall/core/role/corpus/` (`source-manifest.schema.json`,
+  `source-overlay.schema.json`, `imported-item.schema.json`; draft 2020-12, `additionalProperties: false` at every
+  level, only the keyword subset `SchemaSubset` evaluates), and a strict codec on `jackson-core`. The manifest and
+  overlay codecs read through `StrictJson`: `format_version` first, every declared field exactly once, no undeclared
+  field. Every refusal names the file.
+* The imported item has the format of a corpus item, tightened: `provenance.kind` is `fetched`, and
+  `provenance.origin` requires `repository`, `commit`, `path` and `line`. Every optional member has one shape only.
+  So `validate.py` and the Java validator both accept a generated item, and `ImportedItemCodec` writes it
+  deterministically.
+* The origin `repository` of an imported item follows the rule of the manifest's `repository`: an absolute `https`
+  URI without user, query or fragment, on any host. One check (`SourceManifest.requireRepository`) and one schema
+  pattern serve both, so a manifest the validator accepts never yields items the import refuses. The item schema of
+  the corpus in plan-marshall-mcp admits GitHub origins only and is widened there for a source outside GitHub.
+* In a manifest, the hash of a file with `lfs: true` is the hash of the object, not of the pointer.
+
+== Alternatives Considered
+
+1. *A wrapper format with extra members around a corpus item.* Not taken: `validate.py` would refuse the extra
+   members, and the corpus would need a second item format.
+2. *Formats defined by plan-marshall-mcp first.* Not taken: the corpus package that would define them had not started,
+   and the import and the validator need them now.
+
+== Consequences
+
+* plan-marshall-mcp (`question-corpus-public-datasets`) writes its manifests and overlays in these formats and lays
+  them out as `sources/<name>/manifest.json` and `overlay.json`.
+* A change of a format changes its record, its codec and its schema resource together; `CorpusSchemaResourcesTest`
+  validates codec-written fixtures against the resources and keeps them in the keyword subset.
+* A generated item is never stored below the corpus; the validator reports one there as third-party text.
+
+== Source
+
+* Work package link:../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Plan `corpus-sources`, operator clarification "Formats", and its pull request
+* Specification: `doc/specification/model-work/01-roles-and-configuration.adoc` § Role Qualification and
+  § Qualification Topics of plan-marshall-documentation
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Formats

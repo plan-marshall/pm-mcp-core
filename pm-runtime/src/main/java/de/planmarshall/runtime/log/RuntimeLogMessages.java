@@ -498,6 +498,17 @@ public final class RuntimeLogMessages {
                 .identifier(125)
                 .template("Audit log rotation pending after its checkpoint, the record is not appended: %s")
                 .build();
+
+        /**
+         * Logged when the Git LFS object of a corpus source is not downloaded: the endpoint did not answer or failed,
+         * or does not have the object. Bytes the endpoint delivers are handed to the import's hash check instead. The
+         * detail names the step and never carries a credential or a header value of the download action.
+         */
+        public static final LogRecord CORPUS_LFS_OBJECT_UNAVAILABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(126)
+                .template("LFS object '%s' of '%s' not downloaded: %s")
+                .build();
     }
 
     /** ERROR level messages. */

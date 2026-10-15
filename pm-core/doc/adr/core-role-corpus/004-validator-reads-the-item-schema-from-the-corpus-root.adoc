@@ -1,0 +1,69 @@
+= ADR 004: The Validator Reads the Item Schema from the Corpus Root
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-14
+
+== Context
+
+The corpus of plan-marshall-mcp (`test/model/verification/`) carries its item schema
+`schema/verification-item.schema.json` and `validate.py`, which checks every `*.json` file outside `schema/` and
+`context/` against that schema with a fixed keyword subset, plus the rules the schema cannot express. The build of
+the product and `pm-operator roles qualify` need the same check in Java, over the corpus's own items and over the
+items an import generates. The new layout adds `sources/<name>/` with manifests and overlays, which `validate.py`
+would take for items.
+
+== Decision
+
+`CorpusValidator` takes the corpus root as a parameter and reports violations as `CorpusViolation` values, never
+thrown.
+
+* The item schema stays with the corpus and is read from `schema/verification-item.schema.json` of the root; it is
+  not copied into `pm-core`.
+* `SchemaSubset` evaluates the same keyword subset as `validate.py`, with its semantics (a boolean is never a number,
+  `pattern` matches anywhere unless anchored, `maxLength` counts code points). The other item rules of `validate.py`
+  are ported as they are.
+* Manifests and overlays are checked against the schema resources of this package and read with their codecs; the
+  files below the `sources/` directory of the corpus root are no items. As in `validate.py`, a directory `schema/` or
+  `context/` at any depth holds no items; a `sources` directory deeper in the tree does, so no item escapes the
+  checks by its topic.
+* The `sources` entry is read by the rules of `CorpusImport`, so the validator never passes a corpus the import
+  refuses: an absent entry is a corpus without sources; an entry that is no directory (a file, a dangling link, an
+  entry that cannot be told to be absent) and a `sources/` that cannot be listed are `unreadable` violations, never
+  read as no sources. Likewise a `<cache root>/items` entry that is no directory is an `unreadable` violation under
+  the subject `items`, never read as no generated items.
+* `ATTRIBUTION.md` has one `## <name>` section per source, and no third-party text is stored below the corpus: no
+  file has the SHA-256 of a file a manifest names, and no item is an imported one. An item counts as imported only
+  when `provenance.kind` is `fetched` *and* `provenance.origin` names a `commit` and a `line`: the corpus's own items of
+  `screening/untrusted-text` are review comments fetched from a pull request, with no commit and no line in their
+  origin, and are no third-party text.
+* `validate(cacheRoot)` checks the generated items as well, against the item schema and `imported-item.schema.json`,
+  their ids unique together with the corpus's own.
+
+== Alternatives Considered
+
+1. *The item schema as a resource of `pm-core`.* Not taken: the corpus and its schema change together in
+   plan-marshall-mcp, and two copies would drift.
+2. *Treating every fetched item below the corpus as third-party text.* Not taken: it flags the corpus's own fetched
+   review comments, which carry no source row.
+
+== Consequences
+
+* plan-marshall-mcp replaces `validate.py` in its build with this validator (`qualification-corpus-in-the-build`);
+  until then `validate.py` would fail on the files below `sources/`, so the corpus adopts the layout and the validator
+  together.
+* `ProductCorpusValidationTest` checks the corpus of the plan-marshall-mcp checkout named by `pm.product.root`, so a
+  change of the corpus that this validator refuses shows up in the tests of this repository.
+* A new rule of `validate.py` has to be ported here.
+
+== Source
+
+* Work package link:../../../../doc/plans/corpus-sources.adoc[`doc/plans/corpus-sources.adoc`]
+* Plan `corpus-sources`: the clarified request (validator rules, Done When) and its pull request
+* `test/model/verification/validate.py` and `schema/verification-item.schema.json` of plan-marshall-mcp
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Validation

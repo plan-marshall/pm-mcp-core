@@ -48,7 +48,7 @@ class CoreLogMessagesTest {
             Pattern.compile("public static final String PREFIX = \"([^\"]+)\";");
 
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
-    @CsvSource({"INFO, 1, 99", "WARN, 100, 199"})
+    @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
     @DisplayName("every message lies in the range of its level and carries the prefix")
     void ranges(String level, int first, int last) throws Exception {
         var records = records(level);
@@ -65,7 +65,7 @@ class CoreLogMessagesTest {
     @DisplayName("no identifier is used twice")
     void unique() throws Exception {
         var all = new ArrayList<LogRecord>();
-        for (String level : List.of("INFO", "WARN")) {
+        for (String level : List.of("INFO", "WARN", "ERROR")) {
             all.addAll(records(level));
         }
         var seen = new HashSet<Integer>();
@@ -99,19 +99,23 @@ class CoreLogMessagesTest {
                 () -> assertTrue(KNOWN_PREFIXES.contains(CoreLogMessages.PREFIX), CoreLogMessages.PREFIX));
     }
 
-    static Stream<Arguments> enrolmentPairRecords() {
+    static Stream<Arguments> namedRecords() {
         return Stream.of(
                 Arguments.of(CoreLogMessages.INFO.ENROLMENT_PAIR_COMPLETED, "PM_CORE-1",
                         "Stopped write of the enrolment of project '%s' completed by the recovery: transaction '%s'"),
                 Arguments.of(CoreLogMessages.WARN.ENROLMENT_PAIR_DISCARDED, "PM_CORE-101",
                         "Incomplete staged write of the enrolment of project '%s' discarded, "
-                                + "the enrolment is as it was before the write: %s"));
+                                + "the enrolment is as it was before the write: %s"),
+                Arguments.of(CoreLogMessages.WARN.CORPUS_SOURCE_MISSED, "PM_CORE-102",
+                        "Corpus source '%s' missed, its items are left out: %s"),
+                Arguments.of(CoreLogMessages.ERROR.CORPUS_SOURCE_HASH_MISMATCH, "PM_CORE-200",
+                        "Corpus source '%s' fails its hash: file '%s' expected %s, found %s"));
     }
 
     @ParameterizedTest(name = "{1}")
-    @MethodSource("enrolmentPairRecords")
-    @DisplayName("the records of the enrolment pair")
-    void enrolmentPair(LogRecord logRecord, String identifier, String template) {
+    @MethodSource("namedRecords")
+    @DisplayName("the records of the enrolment pair and of the corpus import carry their identifier and template")
+    void namedRecord(LogRecord logRecord, String identifier, String template) {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
                 () -> assertEquals(template, logRecord.getTemplate()));

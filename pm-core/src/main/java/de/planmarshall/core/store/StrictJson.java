@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -329,7 +330,7 @@ public class StrictJson {
         requireArray(parser, field);
         var values = new ArrayList<V>();
         while (parser.nextToken() != JsonToken.END_ARRAY) {
-            values.add(element.read(parser, "%s[%d]".formatted(field, values.size())));
+            values.add(element.read(parser, field + "[" + values.size() + "]"));
         }
         return Collections.unmodifiableList(values);
     }
@@ -411,7 +412,7 @@ public class StrictJson {
     /** Names where the document stops being JSON, without the source excerpt the parser may append. */
     private static String describe(IOException e) {
         if (e instanceof JsonProcessingException malformed && malformed.getLocation() != null) {
-            return "%s (line %d, column %d)".formatted(malformed.getOriginalMessage(),
+            return String.format(Locale.ROOT, "%s (line %d, column %d)", malformed.getOriginalMessage(),
                     malformed.getLocation().getLineNr(), malformed.getLocation().getColumnNr());
         }
         return String.valueOf(e.getMessage());

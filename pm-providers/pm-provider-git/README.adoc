@@ -19,8 +19,12 @@ Run from the root of the repository:
 
 The commands for the whole repository are in `CLAUDE.md`.
 
-== Developer Documentation and ADRs
+== Developer Documentation
 
-The module has no developer documentation and no ADRs yet. A later plan writes them to
-`doc/developer/provider-git.adoc` and `doc/adr/provider-git/` of this module. The index of all ADRs of the repository
-is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].
+* link:doc/developer/provider-git.adoc[Cache Repository Operations (`provider.git`)]
+
+== ADRs
+
+* link:doc/adr/provider-git/[`doc/adr/provider-git/`]: the cache repository operations on the shared git contract.
+
+The index of all ADRs of the repository is link:../../doc/adr/README.adoc[`doc/adr/README.adoc`].

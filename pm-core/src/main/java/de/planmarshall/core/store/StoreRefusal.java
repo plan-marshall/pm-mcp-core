@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.io.Serial;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.OptionalInt;
 
@@ -133,7 +134,7 @@ public final class StoreRefusal extends RuntimeException {
      */
     public static StoreRefusal ofVersion(Path file, int found, int current) {
         if (found == current) {
-            throw new IllegalArgumentException("format_version %d is the current one".formatted(found));
+            throw new IllegalArgumentException("format_version " + found + " is the current one");
         }
         var outcome = found < current ? Outcome.FORMAT_OUTDATED : Outcome.FORMAT_NEWER;
         return new StoreRefusal(outcome, Objects.requireNonNull(file, "file"), found, current, null, null);
@@ -214,8 +215,8 @@ public final class StoreRefusal extends RuntimeException {
             return "%s: %s: %s".formatted(file, outcome.code(), detail);
         }
         var version = found == NO_VERSION ? "none" : Integer.toString(found);
-        var message = "%s: %s (format_version found %s, current %d)".formatted(file, outcome.code(), version,
-                current);
+        var message = String.format(Locale.ROOT, "%s: %s (format_version found %s, current %d)", file,
+                outcome.code(), version, current);
         return detail == null ? message : message + ": " + detail;
     }
 }

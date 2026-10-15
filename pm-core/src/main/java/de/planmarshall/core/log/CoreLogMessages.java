@@ -70,5 +70,33 @@ public final class CoreLogMessages {
                 .template("Incomplete staged write of the enrolment of project '%s' discarded, "
                         + "the enrolment is as it was before the write: %s")
                 .build();
+
+        /**
+         * Logged when the import of the corpus misses a source for any reason but a hash mismatch: its repository or
+         * LFS endpoint did not answer or its pinned commit, a file or an object is absent at the pin (the import is
+         * then partial), or its manifest, its overlay or the source file does not yield the selected items (the
+         * source is missed all the same, and the import fails: no role is qualified on it). None of the source's
+         * items is written; the items of the other sources are.
+         */
+        public static final LogRecord CORPUS_SOURCE_MISSED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(102)
+                .template("Corpus source '%s' missed, its items are left out: %s")
+                .build();
+    }
+
+    /** ERROR level messages. */
+    @UtilityClass
+    public static final class ERROR {
+
+        /**
+         * Logged when a file of a corpus source, or the LFS object it points to, does not have the SHA-256 its
+         * manifest pins. None of the source's items is written, and the import fails: no role is qualified on it.
+         */
+        public static final LogRecord CORPUS_SOURCE_HASH_MISMATCH = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(200)
+                .template("Corpus source '%s' fails its hash: file '%s' expected %s, found %s")
+                .build();
     }
 }
