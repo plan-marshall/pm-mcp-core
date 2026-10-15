@@ -19,7 +19,7 @@ Implement the work package `task-queue-and-protocol` of `doc/plans/task-queue-an
 
 The bullets of `doc/plans/task-queue-and-protocol.adoc` § What, in its words. A bullet that states what already exists or what follows in a later milestone is context, not a deliverable.
 
-1. The task queue store: queue task records and task leases per worker generation.
+1. The task queue store: queue task records and task leases per worker generation; a generation is a worker's, issued with its job token by `worker-launch` (roadmap Milestone 4, worker generations and fencing), never a session's: the session generation record of `session-log-and-generations` is no part of the target and goes with `removed-concepts`.
 2. The task protocol: offers, acknowledgement, leases, fencing, task outcomes and re-offers, and skill delivery per generation.
 3. The compiled `worker-task` unit is content of the assembly; this package proves the protocol against a fixture unit.
 
@@ -50,10 +50,10 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/task-queue-and-protocol.adoc` § What, Trace, Done When (origin/main at 7d99648)
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/task-queue-and-protocol.adoc exists at fa58b0d (presence checked, content not re-read)
-- OBSERVED: the index gives this package the status `open` and the dependencies `session-log-and-generations`, `role-sets-and-model-caller`, `waits` — read at `doc/plans/README.adoc` § Packages
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row of task-queue-and-protocol still reads open as claimed at fa58b0d; dependencies cell: link:session-log-and-generations.adoc[`session-log-and-generations`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:waits.adoc[`waits
+- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/task-queue-and-protocol.adoc` § What, Trace, Done When (origin/main at a8a4214, updated by cleanup on 2026-10-15)
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans package file re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: § What, Trace and Done When match the Deliverables above (corrected by cleanup where #70/#68/#72 changed them)
+- OBSERVED: the index gives this package the status `open` and the dependencies `role-sets-and-model-caller`, `waits` (`session-log-and-generations` dropped by #70) — read at `doc/plans/README.adoc` § Packages
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: status and dependencies match the claim
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/queue/` is no longer greenfield: it holds the session generations of PLAN-12 (#51) — `SessionGeneration`, `SessionGenerationStore`, `SessionGenerationCodec`, `GenerationId`, `GenerationCheck`, `GenerationCause`; the task queue joins them and reuses the fencing generation rather than defining its own — directory listing at fa58b0d on 2026-10-13 (re-grounded by cleanup)
   - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: claim re-written by this cleanup from the directory listing at fa58b0d
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09
@@ -83,8 +83,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-12 (`session-log-and-generations`); PLAN-26 (`role-sets-and-model-caller`); PLAN-25 (`waits`)
-- Overlaps with: PLAN-12 (`session-log-and-generations`) in `core.queue`; PLAN-33 (`session-as-worker`) in `workflow.task`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
+- Depends on: PLAN-26 (`role-sets-and-model-caller`); PLAN-25 (`waits`)
+- Overlaps with: PLAN-12 (`session-log-and-generations`) in `core.queue`; PLAN-33 (`session-as-worker`, retired) in `workflow.task`; PLAN-64 (`removed-concepts`) in `core.queue` (it removes the session generations; `GenerationId` stays only if this package reuses it); every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `doc/LogMessages.adoc` of `plan-marshall-documentation`, which goes into the documentation pull request
 
 ## Hand-Off Command

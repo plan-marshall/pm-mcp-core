@@ -51,9 +51,9 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Claim Labels
 
 - OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/role-sets-and-model-caller.adoc` § What, Trace, Done When (origin/main at 7d99648)
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/role-sets-and-model-caller.adoc exists at fa58b0d (presence checked, content not re-read)
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans package file re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: § What, Trace and Done When match the Deliverables above (corrected by cleanup where #70/#68/#72 changed them)
 - OBSERVED: the index gives this package the status `open` and the dependencies `profile-loader`, `store-substrate`, `workflow-engine` — read at `doc/plans/README.adoc` § Packages
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row of role-sets-and-model-caller still reads open as claimed at fa58b0d; dependencies cell: link:profile-loader.adoc[`profile-loader`]; link:store-substrate.adoc[`store-substrate`]; link:workflow-engine.adoc[`workflow-engine`]
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: status and dependencies match the claim
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09
   - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-core/src/main/java/de/planmarshall/core/role/ still holds only package-info.java at fa58b0d
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09

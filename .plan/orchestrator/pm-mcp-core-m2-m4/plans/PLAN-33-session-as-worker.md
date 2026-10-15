@@ -11,6 +11,8 @@ workstream: WS-05
 > See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
 > hand-off contract.
 
+**Retired by cleanup on 2026-10-15:** pm-mcp-core #72 (9670920, "retire session-as-worker") deleted `doc/plans/session-as-worker.adoc` and its index row; the specification has no session acting as a worker. No successor package carries the work. The spec is kept as the audit record of the retirement; never emit it.
+
 ## Objective
 
 Implement the work package `session-as-worker` of `doc/plans/session-as-worker.adoc` — the interactive session as optional worker — as one pull request in this repository with its documentation pull request in `plan-marshall-documentation`. It serves Roadmap Milestone 4 and lands in: pm-workflow package `workflow.task`. The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.

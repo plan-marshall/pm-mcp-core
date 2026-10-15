@@ -31,6 +31,11 @@ The bullets of `doc/plans/audit-trail.adoc` § What, in its words. A bullet that
 - Specification: CLI & Security § Security Audit Trail; Store Schemas § Audit Log; § Audit Head; § Audit Index
 - Watch: CLI & Security; Store Schemas
 
+**Carried from the epic** (folded 2026-10-14; context for deliverables 1 and 2, no new deliverable, no new surface):
+
+- pm-core has no production `AuditSink` and `pm-runtime` offers only `AuditChainVerification.NONE`. Since plan-marshall-mcp #76 (e34961b) the daemon starts with `NONE` and a sink that refuses every record. This package supplies the production sink and the startup verification `StartupSequence` takes, so that the assembly can wire them in place of `NONE`. The PR body names both types for the plan-marshall-mcp follow-up.
+- Closing a channel on a POSIX file drops the process's OS locks on it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock. The audit log appends under a lock and must account for it; the fix belongs in the lock manager (`core.lock`). If it is needed here, record that as a surface expansion.
+
 ## Standing Constraints
 
 Set by the operator for every plan of this epic on 2026-10-09, beside the rules of `CLAUDE.md`:

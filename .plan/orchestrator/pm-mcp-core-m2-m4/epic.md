@@ -38,7 +38,34 @@ decision or a dependency outside this repository.
 - PLAN-04, PLAN-06 — shipped 2026-10-11 as #25 and #26.
 - PLAN-09, PLAN-11, PLAN-12, PLAN-14 — ready since PLAN-06 shipped, but all four declare
   `core.store/` and overlap each other: run one at a time unless the operator pairs them.
-  PLAN-09 also declares `runtime.start/` and so overlaps PLAN-08.
+  PLAN-09 also declares `runtime.start/` and so overlaps PLAN-08. PLAN-09 shipped as #69 on
+  2026-10-14 (3236ed5); PLAN-11 and PLAN-12 had shipped before it. Of the four, only PLAN-14 is left.
+- PLAN-24 — shipped as #67 (2ebec2a, documentation #73 1eaa6c6). It also touched `core.store` (`ScopeTransaction`,
+  ADR core-store/028), which PLAN-14 must take into account. TASK-15 was split into the new package
+  `lane-route-pruning`, and the code lags documentation #76 (see the watch).
+- Corpus reconciled by `cleanup` on 2026-10-15 at a8a4214, after #67, #68, #70, #72, #73 and #74:
+  - PLAN-15, PLAN-23, PLAN-28 and PLAN-34 corrected to their package files. PLAN-23 and PLAN-28 no longer depend
+    on PLAN-12, and PLAN-34 now also depends on `corpus-sources`.
+  - PLAN-33 `session-as-worker` is `retired` (#72 deleted the package).
+  - The 19 parked specs were regenerated from their package files, so their deliverables no longer carry the
+    "specification first" task. Their Expected Surface is still the old `Where` inference: re-derive it before
+    an emit.
+  - New rows:
+    - PLAN-64 `removed-concepts` (staged, ready). It removes PLAN-12's session log and session generations,
+      `FencedSessionGenerationsSweep`, `JobRefusal.operatorCommand` and the scenario directive
+      `expire_question`. It overlaps PLAN-14, 15, 20, 23 and 28 in `core.store`, `core.queue`, `runtime.start`
+      and `runtime.job`.
+    - PLAN-65 `lane-route-pruning` (staged, ready). Its § Discussion is decided with the operator before any
+      code.
+    - PLAN-66 `worker-activity` (staged).
+    - PLAN-67 `process-and-overview` and PLAN-68 `chat-plan-revision` (both parked).
+  - `corpus-sources` has no row: pm-mcp-core #74 (a8a4214) did it outside this queue.
+- PLAN-19 — still parked after the cleanup: the index row still names `pm-mcp-clients` / `profile-documents`
+  (`open` there on 2026-10-15).
+- Ready by the index on 2026-10-15: PLAN-14, PLAN-15, PLAN-20, PLAN-23, PLAN-64 and PLAN-65 (plus PLAN-40, which
+  has no package file). Of the code plans, only PLAN-65 is disjoint from the others; the rest share `core.store`.
+  Recommended order: PLAN-64 first, because it deletes code that PLAN-23 and PLAN-28 would otherwise read, and
+  shrinks `core.store` before PLAN-14 and PLAN-15 extend it.
 - PLAN-07 — unblocked on 2026-10-10: its only dependency PLAN-02 shipped.
 - PLAN-15 — PLAN-03 shipped; still waits on PLAN-06 and PLAN-11.
 - PLAN-38 — shipped as #24 on 2026-10-10; WS-09 closes with it.
@@ -51,7 +78,7 @@ decision or a dependency outside this repository.
   in `plan-marshall-documentation` (whose #38 and #39 merged the same day — re-check the index).
   They rework parts of PLAN-13, PLAN-14, PLAN-17, PLAN-24, PLAN-25 and PLAN-41's Rules 7 and 10.
 - PLAN-45 — parked: added by #37 (2026-10-12), `blocked` on UC-PRJ-1 and PLAN-42.
-- PLAN-44 — shipped as #38, gaps materially open; PLAN-54 completed the package (#48, minor gaps). PLAN-17 is unblocked; PLAN-56 holds the residuals and blocks nothing.
+- PLAN-44 — shipped as #38, gaps materially open; PLAN-54 completed the package (#48, minor gaps). PLAN-17 is unblocked; PLAN-56 closed the residuals (#66, 2026-10-14), except the Rule 3 seam waiting on documentation issue #71.
 - PLAN-55 — parked: `chat`, added by #46 (2026-10-13), blocked; PLAN-51, PLAN-52 and PLAN-53 now also depend on it.
 - PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
@@ -430,8 +457,44 @@ decision or a dependency outside this repository.
   - The first resolution attempt pushed a commit with conflict markers (dfb23c7). 3c5342b fixed it
     before the merge, and the squash left no trace on main; main was checked to have no markers.
   - No open documentation PR remains for this epic.
+- 2026-10-14 — PLAN-56 `static-verifier-residuals` shipped as #66 (7981d17), with documentation #72 merged
+  first; landing report `landings/PLAN-56.md`. The inbox drain covered 11 messages, all valid: 1 landing
+  (reconciled) and 10 candidate lessons. The 10 lessons all concern plan-marshall components and were
+  promoted, routed to plan-marshall `lessons-routing` as `pm-mcp-core-m2-m4-263.md` to `-270.md`:
+  - 001 → -263 and 002 → -264 are new.
+  - 003 + 008 → -265, 004 → -266, 005 + 010 → -267, 006 → -268, 007 → -269 and 009 → -270 repeat lessons
+    this epic routed earlier. Each new message names the messages it repeats, so lessons-routing can fold it.
+    The intra-batch pairs were merged into one message each.
+- 2026-10-15 — PLAN-09 `audit-trail` shipped as #69 (3236ed5), with documentation #74 merged by the operator
+  (78c0d83); landing report `landings/PLAN-09.md`. The inbox drain covered 32 messages, all valid: 1 landing
+  (reconciled) and 31 candidate lessons.
+  - 16 lessons concern plan-marshall and were promoted, routed to `lessons-routing` as 15 messages
+    (`pm-mcp-core-m2-m4-271.md` to `-285.md`; 005 + 010 merged into -274). The 10 recurrences name the
+    messages they repeat. The new signals are 013 (unchecked "sole path" claims), 023 (fail-open grading),
+    025 (change-type heuristic), 027 (wrapper timeout) and 028 (freshness-gate ordering).
+  - 15 lessons concern this repository's code. Four are new lessons, `2026-10-15-06-001` to `-004`
+    (004, 006, 008, 009); 11 were folded as recurrences into `2026-10-11-07-008` (007), `2026-10-11-20-001`
+    (014–017), `2026-10-11-07-006` (018, 022, 024) and `2026-10-12-13-001` (019–021).
+  - The drain also found the corpus changes of #67, #68 and #70 (Open Defect "Staged specs behind
+    `doc/plans/`"). No emit until `cleanup` re-grounds the affected rows; the operator's hold on the store
+    plans stands.
+
+- 2026-10-15 — `cleanup` reconciled the corpus at a8a4214 after #67, #68, #70, #72, #73 and #74:
+  - The specs follow their package files: four staged specs were corrected, the 19 parked specs regenerated, and
+    PLAN-64 to PLAN-68 staged for the new packages.
+  - PLAN-33 is `retired`, because #72 deleted `session-as-worker` and no successor carries it.
+  - `corpus-sources` gets no row, because #74 did it outside this queue.
+  - Declined:
+    - Re-deriving the parked specs' Expected Surface. It is still inferred from the `Where` line and is re-derived
+      when a row becomes ready.
+    - Regrouping the corpus (A5). The specs map one-to-one to package files by design.
+    - A row for the plan-instance alignment after documentation #76. No package file exists for it; writing one
+      is a direct pull request to `doc/plans/`, which is the operator's call.
+  - Emit hold of 2026-10-15 still stands.
 
 ## Open Defects
+
+> ↪ Relocated to `settled.md` § "Defect: staged specs behind doc/plans/" — reconciled by cleanup on 2026-10-15 at a8a4214
 
 - **Format version bumped although nothing is released (cleanup at the end of the epic).**
   - `TransactionJournal.FORMAT_VERSION = 3` (`pm-core/src/main/java/de/planmarshall/core/store/TransactionJournal.java`
@@ -447,13 +510,12 @@ decision or a dependency outside this repository.
   decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
   2026-10-13 at bed24eb) — source: operator, 2026-10-13.
 
-- Documentation behind the code: (a) the Job Runtime specification lacks PLAN-18's mandatory
-  `maxLength` for enrolled patterns (doc #46 merged before the review fixes); (b) the Workflow DSL
-  watch items PM-WATCH-DSL-3/4/5/8/9/11/15/16/29/32 are still open on documentation main although
-  PLAN-41/44/54 implemented them (no documentation PR). Proposed owner: PLAN-56 (residuals) takes (b);
-  (a) is a small direct documentation PR — source: PR check of 2026-10-13.
+- Documentation behind the code: the Job Runtime specification lacks PLAN-18's mandatory
+  `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
+  documentation PR — source: PR check of 2026-10-13. (Part (b), the Workflow DSL watch items, was
+  closed by documentation #72, merged 2026-10-14 with PLAN-56.)
 
-- Static verifier residuals after PLAN-54: Rule 9 firing per step, result guards on non-call transitions, the remediation budget re-check, `lost` in plan-only sub-workflows, the Rule 3 activation, and documentation over-claims. Owned by PLAN-56 — source: landing PLAN-54.
+> ↪ Relocated to `settled.md` § "Defect: static verifier residuals after PLAN-54" — PLAN-56 shipped as #66 (7981d17)
 
 - No consumer is wired to the confinement check of PLAN-03; `pm-provider-git` was put out of slice
   by operator decision and no staged plan owns the wiring. The specs not yet started now tell each
@@ -475,13 +537,23 @@ decision or a dependency outside this repository.
 > ↪ Relocated to `settled.md` § "Watch: doc #56 of PLAN-21" — #56 merged 2026-10-14T06:51:30Z (42217c3); PLAN-21 complete
 - A pm-runtime adapter for `core.spi.PendingEntryReader` over `PendingEntryStore` is owed (PLAN-21) — the daemon wiring.
 > ↪ Relocated to `settled.md` § "Watch: the log-holder PRs" — #64 merged 06:08:33Z (50827cf, SNAPSHOT deployed), doc #68 merged 06:20:45Z (d9d3e83)
-- plan-marshall-mcp `pm-mcp-server` imports `PmMcpLogMessages` and breaks against the SNAPSHOT of #64 until it switches to `RuntimeLogMessages` (all of its 16 records) or takes over its own records.
+> ↪ Relocated to `settled.md` § "Watch: pm-mcp-server against the log-holder SNAPSHOT" — plan-marshall-mcp #76 merged 2026-10-14 (e34961b), assembly on `RuntimeLogMessages`
 > ↪ Relocated to `settled.md` § "Watch: doc #57 of PLAN-17" — #57 merged 2026-10-13T20:44:58Z (fff6552); PLAN-17 complete
-- plan-marshall-mcp owes, from PLAN-17: `DefaultUnitInvariantTest` over the real default units, and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal).
+- plan-marshall-mcp still owes (after #76): from PLAN-17, `DefaultUnitInvariantTest` over the real default units and wiring the project-unit loader into plan start/resume (the `config_invalid` refusal); taking its 16 log records over from `RuntimeLogMessages` into a holder of its own; wiring a `PeriodicSweep` with `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep` once the daemon runs the periodic sweep (new behaviour — the assembly never used `SweepStep`). The sweep item is void: the package `removed-concepts` (PLAN-64) removes `FencedSessionGenerationsSweep`, and the age sweep of pending entries goes to `start-from-clients` (confirmed by cleanup against `doc/plans/removed-concepts.adoc` at a8a4214). Do not carry it to plan-marshall-mcp.
 
-- plan-marshall-mcp `pm-mcp-server` still calls `SweepStep.notImplemented`, which PLAN-12 removed; the assembly breaks against the new pm-core/pm-runtime SNAPSHOT until it registers `PendingEntryRecordsSweep` and `FencedSessionGenerationsSweep`. This adds to the earlier breaking changes for plan-marshall-mcp (PLAN-06, 08, 11, 36).
+> ↪ Relocated to `settled.md` § "Watch: pm-mcp-server and SweepStep.notImplemented" — refuted by #76: no use site in the assembly
+> ↪ Relocated to `settled.md` § "Watch: no production AuditSink or AuditChainVerification in pm-mcp-core" — PLAN-09 shipped `AuditLogSink` and `AuditVerification` (#69, 3236ed5)
+- plan-marshall-mcp also owes (after PLAN-09, #69): wiring `AuditLogSink` (`new AuditHead(…)` → `new AuditLog(…)` → `new AuditLogSink(locks, log)`) and `AuditVerification` in place of `AuditChainVerification.NONE` and the refusing sink; creating `logs/` before the log is built; breaking the `FileLockManager` ↔ `AuditLogSink` constructor cycle; and the `pm-operator audit verify` command over `AuditVerification.full()` — source: #69 PR body and landing message, corroborated 2026-10-15.
 
-- The specification issue "Workflow DSL Rule 3: define how a `depends_on_config` value activates a guard" is not filed in `plan-marshall-documentation`; its text is in PR #48 and ADR 006 (operator, or PLAN-56).
+> ↪ Relocated to `settled.md` § "Watch: PLAN-24 landing" — #67 (2ebec2a) and documentation #73 (1eaa6c6) merged; landing drained 2026-10-15
+- **Plan instance code behind its specification (after PLAN-24).** The code still ships the prune reasons
+  `recipe_override` and `auto_merge_off` (`PruneReason`, `CompositionCause`, `composition-rules.json`). Since
+  documentation #76, the specification targets `plan_default` and `merge_by_operator`, with the plan axes, the
+  plan's overrides and phase sub-workflows. `PM-IMPL-5` and the roadmap item (`[~]`) name the gap. By operator
+  decision (2026-10-15) the alignment is follow-up work. No package for it exists in `doc/plans/` yet; stage one at
+  `cleanup`, together with `lane-route-pruning` (`open`, ADR workflow-plan/011). The source is the PLAN-24 landing,
+  checked against `origin/main` on 2026-10-15.
+- Specification issue `plan-marshall-documentation` #71 ("Workflow DSL: define how a `depends_on_config` value activates a guard") is OPEN (filed by PLAN-56). Rule 3 configuration reachability stays a named seam (ADRs 004, 006) until it is answered; then stage a follow-up package that implements the specified activation.
 - Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
 
 - No plan records its harness (high-priority finding `pm-mcp-core-m2-m4-132.md`). The operator's rule since 2026-10-13: assume Claude Code unless stated otherwise.
@@ -494,14 +566,14 @@ decision or a dependency outside this repository.
 - `FindingSchemaParityTest` of PLAN-36 and `WorkflowStatusSchemaParityTest` of PLAN-13 read the sibling checkout of `plan-marshall-documentation`
   (`pm.documentation.root`) and aborts by assumption when it is absent — in CI it most likely never
   runs. Check a CI log of `main`; if skipped, the parity guard exists only on developer machines.
-- Breaking changes for plan-marshall-mcp against the deployed SNAPSHOT: `FindingSource` /
-  `FindingResponder` type parameters (PLAN-36); `StartupSequence`, `ProjectRecovery` (PLAN-08);
-  `AuditEvent`, `CrossScopeReconciler`, journal format (PLAN-06).
+> ↪ Relocated to `settled.md` § "Watch: breaking changes for plan-marshall-mcp" — settled by plan-marshall-mcp #76 (e34961b)
 
-- PLAN-06 changed the signatures of `AuditEvent` and `CrossScopeReconciler` and the journal format;
-  `plan-marshall-mcp` must follow. Closing a channel on a POSIX file drops the process's OS locks on
-  it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock — PLAN-09
-  `audit-trail` must account for it; the fix belongs in the lock manager.
+- Closing a channel on a POSIX file drops the process's OS locks on
+  it, so `JsonlStoreFile` appends on file-locked stores lose the lock manager's OS lock. PLAN-09 (#69)
+  accepted the loss for the audit log alone (ADR core-store/024: the per-key in-process lock and
+  `RuntimeLock` serialize appends; a deviation from the specification's "append only under
+  `FileChannel.lock()`", recorded in the ADR). Every other file-locked JSONL store is still affected and no
+  staged plan owns the fix, which belongs in the lock manager.
 
 - The `plan-marshall-mcp` package that wires `FileLockManager` must create one instance per runtime
   (a second one can release the first holder's OS lock on POSIX); stated only in the Javadoc.

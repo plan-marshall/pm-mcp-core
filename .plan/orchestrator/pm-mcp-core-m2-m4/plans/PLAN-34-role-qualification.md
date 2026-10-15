@@ -21,6 +21,7 @@ The bullets of `doc/plans/role-qualification.adoc` § What, in its words. A bull
 
 1. Grading a role's configuration against the model verification corpus, its record bound to the qualification digest, its invalidation, and the conservative fallback of an unqualified or unavailable role.
 2. The corpus itself and its validation by the build are `plan-marshall-mcp` / `qualification-corpus-in-the-build`.
+3. The corpus is completed from its sources before grading, through `corpus-sources` (done, pm-mcp-core #74, a8a4214); a grading on a partial corpus records the missing sources, and a role counts as qualified only on what was graded.
 
 **Done when** (the package's own acceptance): A changed member of the digest invalidates the record; an unqualified role takes its conservative fallback; a grading run over a fixture corpus with a scripted harness writes the specified record.
 
@@ -49,10 +50,10 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/role-qualification.adoc` § What, Trace, Done When (origin/main at 7d99648)
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/role-qualification.adoc exists at fa58b0d (presence checked, content not re-read)
-- OBSERVED: the index gives this package the status `open` and the dependencies `role-sets-and-model-caller`, `supervisor` — read at `doc/plans/README.adoc` § Packages
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row of role-qualification still reads open as claimed at fa58b0d; dependencies cell: link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:supervisor.adoc[`supervisor`]
+- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/role-qualification.adoc` § What, Trace, Done When (origin/main at a8a4214, updated by cleanup on 2026-10-15)
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans package file re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: § What, Trace and Done When match the Deliverables above (corrected by cleanup where #70/#68/#72 changed them)
+- OBSERVED: the index gives this package the status `open` and the dependencies `role-sets-and-model-caller`, `supervisor`, `corpus-sources` (added by #68; `done` by #74) — read at `doc/plans/README.adoc` § Packages
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: status and dependencies match the claim
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/role/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09
   - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: pm-core/src/main/java/de/planmarshall/core/role/ still holds only package-info.java at fa58b0d
 - OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/model/` exists and holds `package-info.java` today, so the package is greenfield apart from its package description — directory listing on 2026-10-09
@@ -84,7 +85,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-26 (`role-sets-and-model-caller`); PLAN-30 (`supervisor`)
+- Depends on: PLAN-26 (`role-sets-and-model-caller`); PLAN-30 (`supervisor`); `corpus-sources` (no row: done by pm-mcp-core #74 outside this epic's queue)
 - Overlaps with: PLAN-26 (`role-sets-and-model-caller`) in `core.role`, `workflow.model`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `doc/LogMessages.adoc` of `plan-marshall-documentation`, which goes into the documentation pull request
 

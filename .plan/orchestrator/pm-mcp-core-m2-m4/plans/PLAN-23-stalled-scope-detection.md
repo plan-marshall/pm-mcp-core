@@ -19,9 +19,9 @@ Implement the work package `stalled-scope-detection` of `doc/plans/stalled-scope
 
 The bullets of `doc/plans/stalled-scope-detection.adoc` § What, in its words. A bullet that states what already exists or what follows in a later milestone is context, not a deliverable.
 
-1. The detection of a stalled scope for `pm-operator status`. It reads scope stores that Milestone 3 delivers: plan this task after the store substrate of Milestone 3, or deliver the detection over a fixture store and wire the real stores then; decide in the trace matrix.
+1. The detection of a stalled plan or epic by the definition of _Stalled Plans_, with its cause `no_progress` and the idle span, as a hold `stalled` that clears by itself with the scope's next transition or task progress; one `plan_stalled` audit record per episode; counted in `needs_operator` and announced on the event streams, and never in a model-facing representation. The hold's acts and how the clients show it are `plan-and-epic-control`'s. It reads scope stores that Milestone 3 delivers: plan this task after the store substrate of Milestone 3, or deliver the detection over a fixture store and wire the real stores then; decide in the trace matrix.
 
-**Done when** (the package's own acceptance): A scope past its threshold is reported stalled, one below it is not; the threshold comes from the timeouts specification.
+**Done when** (the package's own acceptance): A scope past its threshold is held `stalled`, one below it, or in an operator wait or another hold, is not; the threshold comes from the timeouts specification; a second detection in the same episode appends no second `plan_stalled` record; the hold clearing by itself announces `plan.hold_released`; neither the hold, its cause, nor `plan_stalled` appears in any model-facing representation.
 
 **Trace starting set** (documents live in `../plan-marshall-documentation`):
 
@@ -48,10 +48,10 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Claim Labels
 
-- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/stalled-scope-detection.adoc` § What, Trace, Done When (origin/main at 7d99648)
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans/stalled-scope-detection.adoc exists at fa58b0d (presence checked, content not re-read)
-- OBSERVED: the index gives this package the status `open` and the dependencies `store-substrate`, `session-log-and-generations`, `workflow-engine` — read at `doc/plans/README.adoc` § Packages
-  - verdict: corroborated | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row of stalled-scope-detection still reads open as claimed at fa58b0d; dependencies cell: link:store-substrate.adoc[`store-substrate`]; link:session-log-and-generations.adoc[`session-log-and-generations`]; link:workflow-engine.adoc[`workflow-engine`]
+- OBSERVED: the deliverables, the trace starting set and the acceptance above are the package file's own — read at `doc/plans/stalled-scope-detection.adoc` § What, Trace, Done When (origin/main at a8a4214, updated by cleanup on 2026-10-15)
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: doc/plans package file re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: § What, Trace and Done When match the Deliverables above (corrected by cleanup where #70/#68/#72 changed them)
+- OBSERVED: the index gives this package the status `open` and the dependencies `store-substrate`, `workflow-engine` (`session-log-and-generations` dropped by #72) — read at `doc/plans/README.adoc` § Packages
+  - verdict: corroborated | checked_at: a8a421408bfa31a4a64630c5139fd9e50bfac6f3 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: index row re-read at a8a421408bfa31a4a64630c5139fd9e50bfac6f3: status and dependencies match the claim
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` exists and holds `BaseDirectoryCheck.java`, `NativeLibraryPath.java`, `PosixModes.java`, `RuntimeLock.java`, `RuntimeTokenFile.java`, `StartupSequence.java`, `package-info.java` today, so the package is an extension of those declarations — directory listing on 2026-10-09
   - verdict: unverifiable | checked_at: fa58b0dc0424f17f90fb9f938ffed3f77d5f4369 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: not mechanically checkable at cleanup; verify-at-outline
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/` exists and holds `ConfinementOutcome.java`, `PathConfinement.java`, `WorkspaceRoots.java`, `package-info.java` today, so the package is an extension of those declarations — directory listing on 2026-10-09
@@ -85,7 +85,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-06 (`store-substrate`); PLAN-12 (`session-log-and-generations`); PLAN-13 (`workflow-engine`)
+- Depends on: PLAN-06 (`store-substrate`); PLAN-13 (`workflow-engine`). Overlaps PLAN-64 (`removed-concepts`) in `core.store` and `runtime.start`; PLAN-64 removes the scope session log this package once read
 - Overlaps with: PLAN-01 (`lock-manager-and-leases`) in `core.store`; PLAN-03 (`workspace-confinement`) in `core.store`; PLAN-04 (`service-unit`) in `runtime.start`; PLAN-06 (`store-substrate`) in `core.store`; PLAN-08 (`runtime-lifecycle`) in `runtime.start`; PLAN-09 (`audit-trail`) in `core.store`, `runtime.start`; PLAN-11 (`enrolment-store`) in `core.store`; PLAN-12 (`session-log-and-generations`) in `core.store`; PLAN-13 (`workflow-engine`) in `core.store`; PLAN-14 (`operator-and-question-stores`) in `core.store`; PLAN-15 (`project-machine-store`) in `core.store`; PLAN-20 (`job-runner`) in `core.store`; PLAN-31 (`slots-usage-and-budgets`) in `core.store`; every plan through `doc/plans/README.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `doc/LogMessages.adoc` of `plan-marshall-documentation`, which goes into the documentation pull request
 
