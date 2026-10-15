@@ -68,6 +68,10 @@ class CorpusSchemaResourcesTest {
     private static final Set<String> ANNOTATIONS = Set.of("$schema", "title", "description");
 
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
+
+    /** The member whose value is a literal JSON Schema, not a record of the corpus formats. */
+    private static final String ANSWER_SCHEMA_MEMBER = "answer_schema";
+
     private static final JsonValue ANSWER_SCHEMA = JsonValue.parse("{\"type\": \"object\"}".getBytes(UTF_8));
 
     static String resource(String name) {
@@ -160,7 +164,7 @@ class CorpusSchemaResourcesTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {MANIFEST_SCHEMA, OVERLAY_SCHEMA, ITEM_SCHEMA})
-    @DisplayName("a schema uses only the keyword subset, and every property record is closed")
+    @DisplayName("a schema uses only the keyword subset, and is closed at every level apart from a literal answer schema")
     void keywordSubsetAndClosed(String schemaName) throws Exception {
         var problems = new ArrayList<String>();
         try (var parser = new JsonFactory().createParser(resource(schemaName))) {
@@ -171,14 +175,40 @@ class CorpusSchemaResourcesTest {
         assertEquals(List.of(), problems);
     }
 
+    @Test
+    @DisplayName("an object schema that names no property is rejected when it is not closed")
+    void objectSchemaWithoutPropertiesIsRejected() throws Exception {
+        assertFalse(problemsOf("{\"type\": \"object\"}").isEmpty());
+    }
+
+    @Test
+    @DisplayName("a literal answer schema is left open")
+    void literalAnswerSchemaIsLeftOpen() throws Exception {
+        var closedRecord = "{\"type\": \"object\", \"additionalProperties\": false, \"properties\": "
+                + "{ \"answer_schema\": { \"type\": \"object\" } }}";
+
+        assertEquals(List.of(), problemsOf(closedRecord));
+    }
+
+    private static List<String> problemsOf(String schema) throws Exception {
+        var problems = new ArrayList<String>();
+        try (var parser = new JsonFactory().createParser(schema.getBytes(UTF_8))) {
+            parser.nextToken();
+            walk(parser, "$", problems);
+        }
+        return problems;
+    }
+
     /**
-     * Walks one schema object, positioned on its start; reports a foreign keyword and an object schema that enumerates
-     * properties without closing them. A schema that admits an object and names no property describes a free-form
-     * object, not a record, so it is left open by design and not reported.
+     * Walks one schema object, positioned on its start; reports a foreign keyword and an object schema that is not
+     * closed — whether it enumerates properties or only admits an object. The value of an {@code answer_schema} member
+     * is a literal JSON Schema the corpus holds as an opaque slot, not a record of the format, so it is left open by
+     * design: the walk does not descend into it, and its keywords are not held to the subset.
      */
     private static void walk(JsonParser parser, String path, List<String> problems) throws IOException {
         var keywords = new HashSet<String>();
         var closed = false;
+        var objectType = false;
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var keyword = parser.currentName();
             keywords.add(keyword);
@@ -191,15 +221,28 @@ class CorpusSchemaResourcesTest {
                     while (parser.nextToken() == JsonToken.FIELD_NAME) {
                         var property = parser.currentName();
                         parser.nextToken();
-                        walk(parser, path + "." + property, problems);
+                        if (ANSWER_SCHEMA_MEMBER.equals(property)) {
+                            parser.skipChildren();
+                        } else {
+                            walk(parser, path + "." + property, problems);
+                        }
                     }
                 }
                 case "items" -> walk(parser, path + "[]", problems);
                 case "additionalProperties" -> closed = token == JsonToken.VALUE_FALSE;
+                case "type" -> {
+                    if (token == JsonToken.START_ARRAY) {
+                        while (parser.nextToken() != JsonToken.END_ARRAY) {
+                            objectType |= "object".equals(parser.getText());
+                        }
+                    } else {
+                        objectType = "object".equals(parser.getText());
+                    }
+                }
                 default -> parser.skipChildren();
             }
         }
-        if (keywords.contains("properties") && !closed) {
+        if ((objectType || keywords.contains("properties")) && !closed) {
             problems.add(path + ": an object schema without additionalProperties false");
         }
     }
