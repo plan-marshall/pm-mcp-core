@@ -491,6 +491,25 @@ decision or a dependency outside this repository.
     - A row for the plan-instance alignment after documentation #76. No package file exists for it; writing one
       is a direct pull request to `doc/plans/`, which is the operator's call.
   - Emit hold of 2026-10-15 still stands.
+- 2026-10-15 — The specification moved into pm-mcp-core (operator request; pm-mcp-core #77, ADR 007; documentation
+  #81, pm-mcp-clients #49, plan-marshall-mcp #81 relink; merge #77 first). The engine's specifications, watch documents,
+  requirement trace lines (`doc/Traceability.adoc`) and `LogMessages.adoc` live beside the code, so a plan of this
+  epic is one pull request; the shared specifications were split (`runtime-lifecycle`, `credentials-and-enrolment`,
+  `host-integration` stays in the documentation). Operator decisions: move the shared registries too (identifiers,
+  timeouts, state-catalogue, job-runtime); trace lines in pm-mcp-core; concept/user documentation and roadmap
+  check-offs batched at milestone exits; `trace.py` checks both trees in both repositories' `links.yml`; relink
+  pm-mcp-clients and plan-marshall-mcp; the schema parity tests now run in CI, four drifting checks `@Disabled`
+  naming their package (`start-from-clients`, `process-and-overview`, `operator-wait-and-machine-scope`), two of
+  removed concepts deleted.
+- 2026-10-15 — `doc/plans/` aligned with the specification changes of documentation #69–#80 in the same PR: the 24
+  done packages removed (a done package now leaves the index; links to them are permalinks at 603d4f7), the open
+  packages updated, six new packages staged as PLAN-69 `unit-frontmatter-and-types`, PLAN-70
+  `plan-instance-alignment`, PLAN-71 `plan-instance-versions`, PLAN-72 `spend-removal`, PLAN-73
+  `question-continuation`, PLAN-74 `credential-store-choice`. Every staged and parked spec was regenerated from its
+  package file at 710da61 (Objective, Deliverables, Trace, Depends on; the Documents, shared-file and log constraints
+  rewritten for the one-pull-request flow; the specification parts each package links added to its Expected
+  Surface); earlier claims kept. The specs point at package files that reach `main` with #77, so no command is
+  emitted before it merges.
 
 ## Open Defects
 
@@ -510,9 +529,9 @@ decision or a dependency outside this repository.
   decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
   2026-10-13 at bed24eb) — source: operator, 2026-10-13.
 
-- Documentation behind the code: the Job Runtime specification lacks PLAN-18's mandatory
-  `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
-  documentation PR — source: PR check of 2026-10-13. (Part (b), the Workflow DSL watch items, was
+- Documentation behind the code: the Job Runtime specification (now in pm-mcp-core, `doc/specification/job-runtime/`)
+  lacks PLAN-18's mandatory `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
+  PR in pm-mcp-core — source: PR check of 2026-10-13. (Part (b), the Workflow DSL watch items, was
   closed by documentation #72, merged 2026-10-14 with PLAN-56.)
 
 > ↪ Relocated to `settled.md` § "Defect: static verifier residuals after PLAN-54" — PLAN-56 shipped as #66 (7981d17)
@@ -550,8 +569,9 @@ decision or a dependency outside this repository.
   `recipe_override` and `auto_merge_off` (`PruneReason`, `CompositionCause`, `composition-rules.json`). Since
   documentation #76, the specification targets `plan_default` and `merge_by_operator`, with the plan axes, the
   plan's overrides and phase sub-workflows. `PM-IMPL-5` and the roadmap item (`[~]`) name the gap. By operator
-  decision (2026-10-15) the alignment is follow-up work. No package for it exists in `doc/plans/` yet; stage one at
-  `cleanup`, together with `lane-route-pruning` (`open`, ADR workflow-plan/011). The source is the PLAN-24 landing,
+  decision (2026-10-15) the alignment is follow-up work, now staged as PLAN-70 `plan-instance-alignment` (prune
+  reasons, rules, axes, adjudication unit, `diff_summary`) and PLAN-71 `plan-instance-versions` (composition events,
+  version switch, Rules 13 and 14, resources), beside PLAN-65 `lane-route-pruning`. The source is the PLAN-24 landing,
   checked against `origin/main` on 2026-10-15.
 - Specification issue `plan-marshall-documentation` #71 ("Workflow DSL: define how a `depends_on_config` value activates a guard") is OPEN (filed by PLAN-56). Rule 3 configuration reachability stays a named seam (ADRs 004, 006) until it is answered; then stage a follow-up package that implements the specified activation.
 - Verifier performance on the real merged plan unit (simple-cycle enumeration, 2^N configuration combinations) is untested; no default units live in this repository.
