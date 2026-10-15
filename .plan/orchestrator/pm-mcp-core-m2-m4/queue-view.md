@@ -4,7 +4,7 @@
 
 ## START HERE
 
-**Resume anchor**: RUNNING: PLAN-24 (plan-instance) — #67 merged (2ebec2a), doc #73 open, landing message not yet arrived. PLAN-09 shipped as #69 (3236ed5) on 2026-10-14, doc #74 merged; drained and reconciled on 2026-10-15 (31 lessons: 15 routed to lessons-routing -271..-285, 4 new local lessons, 11 folded). BLOCKER for emits: #70, #68 and #67 changed doc/plans/ under the queue (staged PLAN-15/28/33/34, shipped PLAN-12, 19 parked rows, 5 new packages without a row) — run cleanup (corpus reconciliation) before emitting. PLAN-23 and PLAN-40 are untouched by the corpus change and no longer overlap a running plan. Next: cleanup, then next; drain PLAN-24's landing when it arrives. Watch: documentation issue #71 (Rule 3). Ledger commits not yet landed.
+**Resume anchor**: RUNNING: PLAN-24 (plan-instance) — #67 merged (2ebec2a), doc #73 open, landing message not yet arrived. PLAN-09 shipped as #69 (3236ed5) on 2026-10-14, doc #74 merged; drained and reconciled on 2026-10-15 (31 lessons: 15 routed to lessons-routing -271..-285, 4 new local lessons, 11 folded). BLOCKER for emits: #70, #68 and #67 changed doc/plans/ under the queue (staged PLAN-15/28/33/34, shipped PLAN-12, 19 parked rows, 5 new packages without a row) — run cleanup (corpus reconciliation) before emitting. PLAN-23 and PLAN-40 are untouched by the corpus change and no longer overlap a running plan. OPERATOR HOLD (2026-10-15): no emits; drain the running queue first. Next: drain PLAN-24's landing when it arrives. Watch: documentation issue #71 (Rule 3). Ledger commits not yet landed.
 **Phase**: orchestrating
 **Running**:
 - PLAN-24 (WS-03)
