@@ -36,6 +36,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.Origin;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
+import de.planmarshall.core.role.corpus.ImportedItem.Target;
 
 /**
  * The generation of a corpus item from one selected row of a fetched source (PM-WORK-6): the overlay frames the item,
@@ -185,6 +186,59 @@ class ItemGeneratorTest {
             var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields));
 
             assertTrue(refusal.getMessage().contains("'option_b'"), refusal::getMessage);
+        }
+    }
+
+    /**
+     * The answer and the alternatives are templates as the question is, as the overlay's documents say: a literal brace
+     * there is written doubled, a single one is read as a placeholder. The rationale and the rubric items are literal.
+     */
+    @Nested
+    @DisplayName("a literal brace in the reference answer or an alternative")
+    class LiteralBrace {
+
+        private static final String CODE = "if (x == null) { return; }";
+        private static final String ESCAPED = "if (x == null) {{ return; }}";
+
+        private static SourceOverlay.Row withTarget(Target target) {
+            var open = overlay().rows().get(1);
+            return new SourceOverlay.Row(open.key(), open.slug(), open.topic(), open.role(), open.title(), open.tags(),
+                    open.question(), open.facts(), open.choices(), target, open.grading(), open.review());
+        }
+
+        @Test
+        @DisplayName("written single in an alternative is refused as a field the row lacks")
+        void singleInAlternative() {
+            var row = withTarget(new Target(null, "r", List.of(CODE), List.of(new RubricItem("d1", "d")), false));
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields()));
+
+            assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
+        }
+
+        @Test
+        @DisplayName("written single in the answer is refused as a field the row lacks")
+        void singleInAnswer() {
+            var row = withTarget(new Target(CODE, "r", List.of(), List.of(new RubricItem("d1", "d")), false));
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> generate(row, fields()));
+
+            assertTrue(refusal.getMessage().contains("has no field ' return; '"), refusal::getMessage);
+        }
+
+        @Test
+        @DisplayName("written doubled in the answer and an alternative is one literal brace; the rationale is literal")
+        void doubled() {
+            var row = withTarget(new Target(ESCAPED, CODE, List.of(ESCAPED),
+                    List.of(new RubricItem("d1", CODE)), false));
+
+            var item = generate(row, fields());
+
+            assertAll(
+                    () -> assertEquals(CODE, item.target().answer()),
+                    () -> assertEquals(List.of(CODE), item.target().alternatives()),
+                    () -> assertEquals(CODE, item.target().rationale()),
+                    () -> assertEquals(List.of(new RubricItem("d1", CODE)), item.target().items()));
         }
     }
 

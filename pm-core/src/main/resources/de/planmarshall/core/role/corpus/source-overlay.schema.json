@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "PM-MCP corpus source overlay",
-  "description": "sources/<name>/overlay.json of the model verification corpus: the rows of one file of the source that become items, and per row the framing, the question, facts and choices as templates over the row's fields, the written reference answer, the grading and the review. Every declared field is present; a value the overlay does not give is null or an empty array. The schema uses only the keyword subset the corpus validator evaluates.",
+  "description": "sources/<name>/overlay.json of the model verification corpus: the rows of one file of the source that become items, and per row the framing, the question, facts and choices, the reference answer, the grading and the review. The question, the facts, every choice, the answer and every alternative are templates over the row's fields: {field} names a field of the row, {{ and }} stand for a literal brace, and a single brace that names no field of the row, or opens or closes nothing, fails the import of the source. The rationale, the rubric items, the judge and the review are literal. Every declared field is present; a value the overlay does not give is null or an empty array. The schema uses only the keyword subset the corpus validator evaluates.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -89,11 +89,11 @@
           },
           "question": {
             "type": "string",
-            "description": "a template; {field} names a field of the row"
+            "description": "a template; {field} names a field of the row, {{ and }} stand for a literal brace"
           },
           "facts": {
             "type": "string",
-            "description": "a template; {field} names a field of the row"
+            "description": "a template; {field} names a field of the row, {{ and }} stand for a literal brace"
           },
           "choices": {
             "type": [
@@ -103,7 +103,7 @@
             "minItems": 2,
             "items": {
               "type": "string",
-              "description": "a template; {field} names a field of the row"
+              "description": "a template; {field} names a field of the row, {{ and }} stand for a literal brace"
             }
           },
           "target": {
@@ -121,15 +121,18 @@
                 "type": [
                   "string",
                   "null"
-                ]
+                ],
+                "description": "a template; {field} names a field of the row, {{ and }} stand for a literal brace"
               },
               "rationale": {
-                "type": "string"
+                "type": "string",
+                "description": "literal text, not a template"
               },
               "alternatives": {
                 "type": "array",
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "a template; {field} names a field of the row, {{ and }} stand for a literal brace"
                 }
               },
               "items": {

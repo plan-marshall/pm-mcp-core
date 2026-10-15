@@ -264,7 +264,11 @@ class SourceOverlayCodecTest {
         return Stream.of(
                 Arguments.of("a source name with upper case", "source", "\"Sample\"", "'source'"),
                 Arguments.of("a file escaping the repository", "file", "\"../test.csv\"", "'file'"),
+                Arguments.of("a file with a .. segment behind U+0085", "file", "\"data\\u0085/../test.csv\"", "'file'"),
+                Arguments.of("a file with a .. segment behind U+2028", "file", "\"data\\u2028/../test.csv\"", "'file'"),
+                Arguments.of("a file with a .. segment behind U+2029", "file", "\"data/x\\u2029/..\"", "'file'"),
                 Arguments.of("an empty key field", "key_field", "\"\"", "'key_field'"),
+                Arguments.of("a key field of line feeds only", "key_field", "\"\\n\\n\"", "'key_field'"),
                 Arguments.of("a date in another shape", "created", "\"2026-10-4\"", "'created'"),
                 Arguments.of("no row", "rows", "[]", "'rows'"),
                 Arguments.of("a row twice", "rows",
@@ -294,6 +298,7 @@ class SourceOverlayCodecTest {
     static Stream<Arguments> malformedRowValues() {
         return Stream.of(
                 Arguments.of("an empty key", "key", "\"\"", "'key'"),
+                Arguments.of("a key of a line feed only", "key", "\"\\n\"", "'key'"),
                 Arguments.of("a slug with a slash", "id", "\"a/b\"", "'id'"),
                 Arguments.of("a topic with upper case", "topic", "\"Screening\"", "'topic'"),
                 Arguments.of("a title longer than 120 characters", "title", "\"" + "t".repeat(121) + "\"",

@@ -73,8 +73,9 @@ overlap.
 
 * A caller qualifies only on `COMPLETE` or `PARTIAL`; a qualification on `PARTIAL` is recorded as partial with the
   missed sources named (`role-qualification`).
-* Every missed source is logged: WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`, and for a mismatch ERROR `PM_CORE-200`
-  `CORPUS_SOURCE_HASH_MISMATCH`. An LFS object the endpoint does not deliver is also logged by the client as WARN
+* Every missed source is logged once: a source missed for a hash mismatch with ERROR `PM_CORE-200`
+  `CORPUS_SOURCE_HASH_MISMATCH` only, every other missed source with WARN `PM_CORE-102` `CORPUS_SOURCE_MISSED`. An LFS
+  object the endpoint does not deliver is also logged by the client as WARN
   `PM_RUNTIME-126` `CORPUS_LFS_OBJECT_UNAVAILABLE`.
 * A caller that gets the `UncheckedIOException` of an unreadable corpus qualifies nothing; the items of the earlier
   import stay below the cache root.

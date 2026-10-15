@@ -688,6 +688,30 @@ class CorpusImportTest {
             assertMalformed(result, "alpha", ALPHA_FILE, "the file has 2 rows whose field 'question_id' is 'q-1'");
         }
 
+        /**
+         * Python's {@code .}, which the schema's path pattern is written for, crosses every character but {@code \n};
+         * a {@code ..} segment behind {@code \r}, U+0085, U+2028 or U+2029 is found, so the manifest is malformed and
+         * the import FAILED, never a missing pin and PARTIAL.
+         */
+        @ParameterizedTest(name = "a path with {0} before a .. segment")
+        @ValueSource(strings = {"\\r", "\\u0085", "\\u2028", "\\u2029"})
+        @DisplayName("a manifest path hiding a .. segment behind a line separator fails the import as malformed")
+        void pathWithLineSeparator(String escape) throws Exception {
+            var manifest = new String(SourceManifestCodec.write(alphaManifest(ALPHA_FILE, CSV)), UTF_8)
+                    .replace("\"" + ALPHA_FILE + "\"", "\"data" + escape + "/../test.csv\"");
+            var overlay = SourceOverlayCodec.write(new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
+                    List.of(closedRow("q-1", "{question}"))));
+            writeSource("alpha", manifest.getBytes(UTF_8), overlay);
+
+            var result = run();
+
+            assertMalformed(result, "alpha", null, "'path'");
+            assertTrue(new CorpusValidator(corpusRoot).validate().stream().anyMatch(violation ->
+                    violation.rule() == CorpusViolation.Rule.MANIFEST
+                            && violation.subject().equals("sources/alpha/manifest.json")),
+                    "the validator reports the same manifest");
+        }
+
         private void assertMalformed(ImportResult result, String source, String file, String detail) {
             var missed = result.missed();
             assertAll(

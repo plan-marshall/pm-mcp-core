@@ -23,6 +23,11 @@ import java.util.regex.Pattern;
  * A file stored as a Git LFS pointer is marked {@link SourceFile#lfs()}; its hash is then the hash of the object the
  * pointer names, not of the pointer. The record refuses every value outside its format with an
  * {@link IllegalArgumentException}; {@link SourceManifestCodec} reads and writes the document.
+ * <p>
+ * Each pattern of this record is the pattern of the schemas of the package, compiled with {@link PythonRegex} so that it
+ * has the meaning Python gives it (in {@link #RELATIVE_PATH}, {@code .} crosses {@code \r}, U+0085, U+2028 and U+2029).
+ * The record matches the whole value, so it never accepts a value the schema refuses; it is stricter than the schema's
+ * {@code re.search} only for a value ending in one {@code \n}, which the schema's {@code $} admits.
  *
  * @param name       the source name, the directory below {@code sources/}: {@code ^[a-z][a-z0-9-]{1,63}$}
  * @param repository the repository the files are fetched from, an absolute {@code https} URI
@@ -34,20 +39,24 @@ import java.util.regex.Pattern;
 public record SourceManifest(String name, URI repository, String commit, String licence, List<SourceFile> files) {
 
     /** A source name: the directory of the source below {@code sources/}. */
-    public static final Pattern NAME = Pattern.compile("^[a-z][a-z0-9-]{1,63}$");
+    public static final Pattern NAME = PythonRegex.compile("^[a-z][a-z0-9-]{1,63}$");
 
     /** A pinned commit: the full object id of SHA-1 git. */
-    public static final Pattern COMMIT = Pattern.compile("^[0-9a-f]{40}$");
+    public static final Pattern COMMIT = PythonRegex.compile("^[0-9a-f]{40}$");
 
     /** A SHA-256 in lower-case hexadecimal digits. */
-    public static final Pattern SHA256 = Pattern.compile("^[0-9a-f]{64}$");
+    public static final Pattern SHA256 = PythonRegex.compile("^[0-9a-f]{64}$");
 
     /** An SPDX licence identifier, or an SPDX expression of identifiers joined by {@code -}, {@code .} or {@code +}. */
-    public static final Pattern LICENCE = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9.+-]*$");
+    public static final Pattern LICENCE = PythonRegex.compile("^[A-Za-z0-9][A-Za-z0-9.+-]*$");
 
-    /** A repository-relative path: segments joined by {@code /}, none empty, {@code .} or {@code ..}. */
+    /**
+     * A repository-relative path: segments joined by {@code /}, none empty, {@code .} or {@code ..}. A {@code ..}
+     * segment behind any character but {@code \n} is found, as Python finds it, so a path whose first segment ends in
+     * U+0085 before a {@code /../} is refused.
+     */
     public static final Pattern RELATIVE_PATH =
-            Pattern.compile("^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$");
+            PythonRegex.compile("^(?!.*(^|/)\\.{1,2}(/|$))[^/\\\\\\x00-\\x1f]+(/[^/\\\\\\x00-\\x1f]+)*$");
 
     /**
      * One file of a source.

@@ -29,9 +29,13 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
  * <p>
  * A row is selected by the value of its key field, or by its position among the rows of the file when the overlay
  * names no key field. Per row the overlay writes the framing of the item (slug, topic, role, title, tags), the
- * question, the facts and the choices as templates whose {@code {field}} placeholders name fields of the row, the
- * written reference answer with its rubric items, the grading and the review. The record refuses every value outside
- * its format with an {@link IllegalArgumentException}; {@link SourceOverlayCodec} reads and writes the document.
+ * question, the facts and the choices, the reference answer with its alternatives and rubric items, the grading and
+ * the review. The question, the facts, every choice, the reference answer and every alternative are templates whose
+ * {@code {field}} placeholders name fields of the row, filled by {@link ItemGenerator}: a literal brace in any of them
+ * is written doubled (<code>&#123;&#123;</code>, <code>&#125;&#125;</code>); a single brace is read as a placeholder,
+ * and one that names no field of the row, or opens or closes nothing, refuses the row at import. The rationale, the
+ * rubric items, the judge and the review are written literally. The record refuses every value outside its
+ * format with an {@link IllegalArgumentException}; {@link SourceOverlayCodec} reads and writes the document.
  *
  * @param source   the name of the source, the name of its manifest
  * @param file     the repository-relative path of the file the rows are read from, a file of the manifest
@@ -46,6 +50,12 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
     public static final Pattern POSITION = Pattern.compile("^[1-9][0-9]*$");
 
     /**
+     * A key and a key field: the schema pattern {@code .} found anywhere in the value with Python's meaning, so a value
+     * holds at least one character other than {@code \n}.
+     */
+    public static final Pattern KEY = PythonRegex.compile(".");
+
+    /**
      * One selected row and the item generated from it.
      *
      * @param key      the value of the key field of the row, or its position when the overlay names no key field
@@ -57,7 +67,8 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
      * @param question the template of the question
      * @param facts    the template of the facts
      * @param choices  the templates of the choices of a closed answer; {@code null} for an open answer
-     * @param target   the written reference answer
+     * @param target   the reference answer; its answer and its alternatives are templates, its rationale and rubric
+     *                 items literal
      * @param grading  how an answer is graded
      * @param review   who reviewed the reference
      * @since 0.1
@@ -69,10 +80,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
          * @throws IllegalArgumentException if a value is outside the format
          */
         public Row {
-            Objects.requireNonNull(key, "key");
-            if (key.isEmpty()) {
-                throw new IllegalArgumentException("'key' must not be empty");
-            }
+            requireKey(key, "key");
             require(slug, ImportedItem.SLUG, "id");
             require(topic, ImportedItem.TOPIC, "topic");
             Objects.requireNonNull(role, "role");
@@ -107,8 +115,8 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
     public SourceOverlay {
         require(source, NAME, "source");
         require(file, RELATIVE_PATH, "file");
-        if (keyField != null && keyField.isEmpty()) {
-            throw new IllegalArgumentException("'key_field' must not be empty");
+        if (keyField != null) {
+            requireKey(keyField, "key_field");
         }
         Objects.requireNonNull(created, "created");
         rows = List.copyOf(Objects.requireNonNull(rows, "rows"));
@@ -128,6 +136,14 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
             if (!ids.add(row.itemId())) {
                 throw new IllegalArgumentException("'rows' generates the item '%s' twice".formatted(row.itemId()));
             }
+        }
+    }
+
+    private static void requireKey(String value, String field) {
+        Objects.requireNonNull(value, field);
+        if (!KEY.matcher(value).find()) {
+            throw new IllegalArgumentException(
+                    "'%s' must hold a character other than a line feed: %s".formatted(field, value));
         }
     }
 }

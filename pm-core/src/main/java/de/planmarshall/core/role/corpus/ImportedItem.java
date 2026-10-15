@@ -36,7 +36,8 @@ import java.util.regex.Pattern;
  * {@code expected_empty} is present only when {@code true}. Members the generation never writes (a group, an answer
  * schema, context files, the contamination note, the location of a rubric item) are not part of it. So an imported
  * item is accepted by the item schema of the corpus and by {@code imported-item.schema.json} of this package;
- * {@link ImportedItemCodec} reads and writes it.
+ * {@link ImportedItemCodec} reads and writes it. Each pattern of the record is the pattern of the schema, compiled with
+ * {@link PythonRegex} and matched against the whole value, as {@link SourceManifest} does.
  *
  * @param id         {@code <topic>/<slug>}, the path of the item below the corpus without {@code .json}
  * @param topic      the directory of the item
@@ -55,13 +56,13 @@ public record ImportedItem(String id, String topic, String role, String title, L
 Target target, Grading grading, Provenance provenance, Review review, String canary) {
 
     /** An item id: a topic path and a slug. */
-    public static final Pattern ID = Pattern.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
+    public static final Pattern ID = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
 
     /** A topic: the directory of an item below the corpus root. */
-    public static final Pattern TOPIC = Pattern.compile("^[a-z0-9-]+(/[a-z0-9-]+)*$");
+    public static final Pattern TOPIC = PythonRegex.compile("^[a-z0-9-]+(/[a-z0-9-]+)*$");
 
     /** The slug of an item: the file name below its topic, without {@code .json}. */
-    public static final Pattern SLUG = Pattern.compile("^[a-z0-9][a-z0-9-]*$");
+    public static final Pattern SLUG = PythonRegex.compile("^[a-z0-9][a-z0-9-]*$");
 
     /** The longest title, in characters. */
     public static final int TITLE_MAX_LENGTH = 120;
