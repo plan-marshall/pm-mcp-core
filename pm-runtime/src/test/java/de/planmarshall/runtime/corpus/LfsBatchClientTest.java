@@ -389,7 +389,7 @@ class LfsBatchClientTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"http://example.org", "http://example.org:80", "HTTP://lfs.example.org"})
         @DisplayName("a download URL that is http to a host other than loopback is UNREACHABLE")
-        void cleartextDownload(String origin) throws InterruptedException {
+        void cleartextDownload(String origin) throws Exception {
             answers(origin + OBJECT_PATH, POINTER.size());
 
             var fetch = client.object(repository(), POINTER);
@@ -401,7 +401,7 @@ class LfsBatchClientTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"http", "https"})
         @DisplayName("a download URL with user information is UNREACHABLE, even to the loopback test server")
-        void userInfoDownload(String scheme) throws InterruptedException {
+        void userInfoDownload(String scheme) throws Exception {
             var href = base().replace("http://", scheme + "://user:pa55word@") + OBJECT_PATH;
             answers(href, POINTER.size());
 
@@ -418,7 +418,7 @@ class LfsBatchClientTest {
 
         @Test
         @DisplayName("a pointer larger than a byte array holds is UNREACHABLE before the download")
-        void tooLarge() throws InterruptedException {
+        void tooLarge() throws Exception {
             var huge = new LfsPointer(POINTER.oid(), Integer.MAX_VALUE);
             answers(base() + OBJECT_PATH, huge.size());
 
@@ -432,7 +432,7 @@ class LfsBatchClientTest {
         @ValueSource(strings = {"https://lfs.example.org/objects/a b", "https://lfs.example.org/objects/%zz",
                 "https://[lfs.example.org/objects"})
         @DisplayName("a download href that is no URL is UNREACHABLE")
-        void noUrl(String href) throws InterruptedException {
+        void noUrl(String href) throws Exception {
             answers(href, POINTER.size());
 
             var fetch = client.object(repository(), POINTER);
