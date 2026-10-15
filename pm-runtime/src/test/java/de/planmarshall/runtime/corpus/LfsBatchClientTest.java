@@ -67,6 +67,7 @@ import de.planmarshall.core.role.corpus.Sha256;
 import de.planmarshall.core.role.corpus.SourceFetch;
 import de.planmarshall.core.role.corpus.SourceFetch.Outcome;
 import de.planmarshall.core.role.corpus.SourceManifest;
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceManifestCodec;
 import de.planmarshall.core.role.corpus.SourceOverlay;
@@ -538,11 +539,11 @@ class LfsBatchClientTest {
             var directory = corpusRoot.resolve(CorpusImport.SOURCES).resolve("beta");
             Files.createDirectories(directory);
             Files.write(directory.resolve(CorpusImport.MANIFEST), SourceManifestCodec.write(new SourceManifest("beta",
-                    URI.create("https://github.com/example/beta"), "2".repeat(40), "MIT",
+                    URI.create("https://github.com/example/beta"), "2".repeat(40), "MIT", FetchKind.GIT,
                     List.of(new SourceFile("data/rows.jsonl", POINTER.oid(), true)))));
             Files.write(directory.resolve(CorpusImport.OVERLAY), SourceOverlayCodec.write(new SourceOverlay("beta",
                     "data/rows.jsonl", null, LocalDate.of(2026, 10, 14), List.of(new Row("2", "d-2", "review/beta",
-                            "review", "open question 2", List.of(), "Review: {diff}", "", null,
+                            "review", "open question 2", List.of(), "Review: {diff}", "", null, null,
                             new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
                                     false),
                             new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
