@@ -37,6 +37,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
+import de.planmarshall.core.role.corpus.JsonValue.JsonList;
+import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
+import de.planmarshall.core.role.corpus.JsonValue.JsonString;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 
@@ -261,9 +264,18 @@ class SourceOverlayCodecTest {
         return Stream.of("source", "file", "key_field", "created", "rows");
     }
 
+    /**
+     * The names of the row fields the overlay schema declares as required, read from
+     * {@code source-overlay.schema.json} at {@code properties.rows.items.required}, so a required field added to the
+     * schema is covered here without editing a list that mirrors it.
+     */
     static Stream<String> rowFields() {
-        return Stream.of("key", "id", "topic", "role", "title", "tags", "question", "facts", "choices",
-                "answer_schema", "target", "grading", "review");
+        var schema = (JsonObject) JsonValue.parse(
+                CorpusSchemaResourcesTest.resource("source-overlay.schema.json").getBytes(StandardCharsets.UTF_8));
+        var rows = (JsonObject) ((JsonObject) schema.get("properties").orElseThrow()).get("rows").orElseThrow();
+        var items = (JsonObject) rows.get("items").orElseThrow();
+        return ((JsonList) items.get("required").orElseThrow()).elements().stream()
+                .map(field -> ((JsonString) field).value());
     }
 
     static Stream<Arguments> malformedOverlayValues() {
