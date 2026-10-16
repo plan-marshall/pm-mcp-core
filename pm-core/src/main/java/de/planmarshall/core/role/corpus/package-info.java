@@ -13,10 +13,11 @@
  * <p>
  * The corpus a role configuration is graded against (PM-WORK-6) is its own part plus items generated from public
  * datasets. A source is named by its manifest {@code sources/<name>/manifest.json} ({@link SourceManifest}: the
- * repository, the pinned commit, the licence and the files with their SHA-256), and its items by its overlay
- * {@code sources/<name>/overlay.json} ({@link SourceOverlay}: the selected rows of one file with the framing of each
- * item). An item generated from a row is an {@link ImportedItem}, in the format of a corpus item with a fetched
- * provenance. Each of the three formats has a closed JSON schema below this package's resources and a strict codec.
+ * repository, the kind of source it is, the pinned commit, the licence and the files with their SHA-256), and its items
+ * by its overlay {@code sources/<name>/overlay.json} ({@link SourceOverlay}: the selected rows of one file with the
+ * framing of each item). An item generated from a row is an {@link ImportedItem}, in the format of a corpus item with a
+ * fetched provenance. Each of the three formats has a closed JSON schema below this package's resources and a strict
+ * codec.
  * <p>
  * Specification: {@code doc/specification/model-work/01-roles-and-configuration.adoc} § Role Qualification.
  */
