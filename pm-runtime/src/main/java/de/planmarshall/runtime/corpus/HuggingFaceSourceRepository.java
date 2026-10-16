@@ -75,6 +75,9 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
     private static final String HTTP = "http";
     private static final Set<String> LOOPBACK = Set.of("localhost", "127.0.0.1", "[::1]", "::1");
 
+    /** The name of the {@code manifest} parameter, the message of the null check of the manifest-based methods. */
+    private static final String MANIFEST = "manifest";
+
     private final boolean cleartextLoopback;
     private final int connectTimeoutSeconds;
     private final int readTimeoutSeconds;
@@ -100,19 +103,19 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
 
     @Override
     public SourceFetch prepare(Path cacheRoot, SourceManifest manifest) {
-        Objects.requireNonNull(manifest, "manifest");
+        Objects.requireNonNull(manifest, MANIFEST);
         return SourceFetch.done("prepared");
     }
 
     @Override
     public SourceFetch fetchCommit(Path cacheRoot, SourceManifest manifest) {
-        Objects.requireNonNull(manifest, "manifest");
+        Objects.requireNonNull(manifest, MANIFEST);
         return fetchCommit(manifest.repository(), manifest.commit());
     }
 
     @Override
     public SourceFetch readFile(Path cacheRoot, SourceManifest manifest, String path) {
-        Objects.requireNonNull(manifest, "manifest");
+        Objects.requireNonNull(manifest, MANIFEST);
         return readFile(manifest.repository(), manifest.commit(), path);
     }
 
