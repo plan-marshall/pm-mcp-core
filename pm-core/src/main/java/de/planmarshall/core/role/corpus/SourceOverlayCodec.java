@@ -27,6 +27,7 @@ import static de.planmarshall.core.store.StrictJson.requireObject;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.stringList;
 import static de.planmarshall.core.store.StrictJson.undeclared;
+import static de.planmarshall.core.store.StrictJson.unreadable;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -84,6 +85,7 @@ public class SourceOverlayCodec {
     private static final String FIELD_QUESTION = "question";
     private static final String FIELD_FACTS = "facts";
     private static final String FIELD_CHOICES = "choices";
+    private static final String FIELD_ANSWER_SCHEMA = "answer_schema";
     private static final String FIELD_TARGET = "target";
     private static final String FIELD_ANSWER = "answer";
     private static final String FIELD_RATIONALE = "rationale";
@@ -154,6 +156,12 @@ public class SourceOverlayCodec {
             generator.writeNullField(FIELD_CHOICES);
         } else {
             writeStringList(generator, FIELD_CHOICES, row.choices());
+        }
+        if (row.answerSchema() == null) {
+            generator.writeNullField(FIELD_ANSWER_SCHEMA);
+        } else {
+            generator.writeFieldName(FIELD_ANSWER_SCHEMA);
+            generator.writeRawValue(row.answerSchema().toJson());
         }
         writeTarget(generator, row.target());
         writeGrading(generator, row.grading());
@@ -245,6 +253,7 @@ public class SourceOverlayCodec {
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
                 case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
+                case FIELD_ANSWER_SCHEMA -> values.answerSchema = nullableValue(parser, field);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
@@ -252,9 +261,27 @@ public class SourceOverlayCodec {
             }
         }
         requireFields(seen, name, FIELD_KEY, FIELD_ID, FIELD_TOPIC, FIELD_ROLE, FIELD_TITLE, FIELD_TAGS,
-                FIELD_QUESTION, FIELD_FACTS, FIELD_CHOICES, FIELD_TARGET, FIELD_GRADING, FIELD_REVIEW);
+                FIELD_QUESTION, FIELD_FACTS, FIELD_CHOICES, FIELD_ANSWER_SCHEMA, FIELD_TARGET, FIELD_GRADING,
+                FIELD_REVIEW);
         return construct(() -> new Row(values.key, values.slug, values.topic, values.role, values.title, values.tags,
-                values.question, values.facts, values.choices, values.target, values.grading, values.review));
+                values.question, values.facts, values.choices, values.answerSchema, values.target, values.grading,
+                values.review));
+    }
+
+    private static JsonValue nullableValue(JsonParser parser, String field) throws IOException {
+        if (parser.currentToken() == JsonToken.VALUE_NULL) {
+            return null;
+        }
+        JsonValue value;
+        try {
+            value = JsonValue.read(parser);
+        } catch (MalformedJson e) {
+            throw unreadable("'%s' is not one JSON value: %s".formatted(field, e.getMessage()), e);
+        }
+        if (!(value instanceof JsonValue.JsonObject)) {
+            throw unreadable("'%s' must be an object or null".formatted(field));
+        }
+        return value;
     }
 
     private static Target readTarget(JsonParser parser) throws IOException {
@@ -358,6 +385,7 @@ public class SourceOverlayCodec {
         private String question;
         private String facts;
         private List<String> choices;
+        private JsonValue answerSchema;
         private Target target;
         private Grading grading;
         private Review review;

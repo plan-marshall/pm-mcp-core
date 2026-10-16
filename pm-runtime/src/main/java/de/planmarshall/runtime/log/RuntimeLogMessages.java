@@ -509,6 +509,17 @@ public final class RuntimeLogMessages {
                 .identifier(126)
                 .template("LFS object '%s' of '%s' not downloaded: %s")
                 .build();
+
+        /**
+         * Logged when a step of the HTTPS fetch of a corpus source does not fetch: the dataset API did not answer or
+         * failed, the pinned commit or the file is absent, or the request was refused. Bytes the raw endpoint delivers
+         * are handed to the import's hash check instead. The detail names the step and never carries user information.
+         */
+        public static final LogRecord CORPUS_HTTPS_SOURCE_UNAVAILABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(127)
+                .template("HTTPS source '%s' not fetched: %s")
+                .build();
     }
 
     /** ERROR level messages. */

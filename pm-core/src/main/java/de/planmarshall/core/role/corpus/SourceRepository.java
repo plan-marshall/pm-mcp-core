@@ -12,14 +12,18 @@ package de.planmarshall.core.role.corpus;
 import java.nio.file.Path;
 
 /**
- * The git part of the fetch of a corpus source (PM-WORK-6, PM-EXEC-5): a cache repository of the source below a cache
- * root, the source's pinned commit fetched into it, and one file read at that commit.
+ * The source-fetch part of the fetch of a corpus source (PM-WORK-6, PM-EXEC-5): a cache repository of the source
+ * below a cache root, the source's pinned commit made readable there, and one file read at that commit. The part
+ * serves a git source and an HTTPS source alike; {@link SourceManifest#fetch()} names which.
  * <p>
  * The interface is implemented natively, outside {@code pm-core}, and composed with {@link CorpusImport} by the
- * daemon. Every operation answers a {@link SourceFetch}: {@link SourceFetch.Outcome#FETCHED} on success,
- * {@link SourceFetch.Outcome#UNREACHABLE} when the repository did not answer, {@link SourceFetch.Outcome#PIN_MISSING}
- * when the commit or the path is absent at the pin. A file stored in Git LFS is read as its pointer; its object comes
- * from an {@link LfsObjectSource}.
+ * daemon. {@link #fetchCommit} makes the pinned commit readable by {@link #readFile} and by {@link #prepare}: once it
+ * has answered {@link SourceFetch.Outcome#FETCHED}, every file of the manifest can be read at the pin. Neither
+ * {@link #prepare} nor {@link #fetchCommit} needs to create or store anything: a source the daemon fetches over
+ * HTTPS may answer both without a cache repository. Every operation answers a {@link SourceFetch}:
+ * {@link SourceFetch.Outcome#FETCHED} on success, {@link SourceFetch.Outcome#UNREACHABLE} when the repository did not
+ * answer, {@link SourceFetch.Outcome#PIN_MISSING} when the commit or the path is absent at the pin. A file stored in
+ * Git LFS is read as its pointer; its object comes from an {@link LfsObjectSource}.
  *
  * @since 0.1
  */

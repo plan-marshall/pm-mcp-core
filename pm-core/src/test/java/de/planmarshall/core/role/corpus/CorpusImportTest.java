@@ -66,6 +66,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.Review;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
 import de.planmarshall.core.role.corpus.ImportedItem.Target;
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceOverlay.Row;
 
@@ -101,6 +102,7 @@ class CorpusImportTest {
     private static final String ALPHA_Q1 = "screening/alpha/q-1.json";
     private static final String ALPHA_Q2 = "screening/alpha/q-2.json";
     private static final String BETA_D2 = "review/beta/d-2.json";
+    private static final JsonValue ANSWER_SCHEMA = JsonValue.parse("{\"type\": \"object\"}".getBytes(UTF_8));
 
     @TempDir
     Path base;
@@ -116,11 +118,11 @@ class CorpusImportTest {
         cacheRoot = base.resolve("cache");
         repository = new FakeRepository();
         lfs = new FakeLfs();
-        writeSource(new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0",
+        writeSource(new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0", FetchKind.GIT,
                         List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
                 new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
                         List.of(closedRow("q-1", "{question}"), closedRow("q-2", "{question}"))));
-        writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT",
+        writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT", FetchKind.GIT,
                         List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
                 new SourceOverlay("beta", BETA_FILE, null, CREATED, List.of(openRow("2", "review/beta", "d-2"))));
         repository.files.put("alpha:" + ALPHA_FILE, CSV);
@@ -129,18 +131,23 @@ class CorpusImportTest {
     }
 
     private static Row closedRow(String key, String question) {
-        return closedRow(key, question, "screening/alpha");
+        return closedRow(key, question, "screening/alpha", key);
     }
 
     private static Row closedRow(String key, String question, String topic) {
-        return new Row(key, key, topic, "screening", "closed question " + key, List.of("imported"),
-                question, "Subject: {subject}", List.of("{option_a}", "{option_b}"),
+        return closedRow(key, question, topic, key);
+    }
+
+    private static Row closedRow(String key, String question, String topic, String slug) {
+        return new Row(key, slug, topic, "screening", "closed question " + key, List.of("imported"),
+                question, "Subject: {subject}", List.of("{option_a}", "{option_b}"), ANSWER_SCHEMA,
                 new Target("{option_a}", "the first option holds", List.of(), List.of(), false),
                 new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
     }
 
     private static Row openRow(String key, String topic, String slug) {
         return new Row(key, slug, topic, "review", "open question " + key, List.of(), "Review: {diff}", "", null,
+                ANSWER_SCHEMA,
                 new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")), false),
                 new Grading(GradingMethod.RUBRIC_ITEMS, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
     }
@@ -164,8 +171,16 @@ class CorpusImportTest {
     }
 
     private static SourceManifest alphaManifest(String file, byte[] content) {
-        return new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0",
+        return new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0", FetchKind.GIT,
                 List.of(new SourceFile(file, Sha256.hex(content), false)));
+    }
+
+    /**
+     * @param repository the repository of a source
+     * @return the fetch kind of the source: a Hugging Face dataset is fetched over HTTPS, any other over git
+     */
+    private static FetchKind fetchKind(URI repository) {
+        return "huggingface.co".equals(repository.getHost()) ? FetchKind.HUGGINGFACE : FetchKind.GIT;
     }
 
     private ImportResult run() {
@@ -257,6 +272,36 @@ class CorpusImportTest {
                     () -> assertEquals(new Origin(BETA_REPOSITORY, BETA_COMMIT, BETA_FILE, 2),
                             item.provenance().origin()),
                     () -> assertEquals(List.of(BETA_REPOSITORY), lfs.asked));
+        }
+
+        @Test
+        @DisplayName("one source row selected by three overlay rows with distinct ids generates three items on it")
+        void repeatedRowSelection() throws Exception {
+            writeSource(alphaManifest(ALPHA_FILE, CSV), new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
+                    List.of(closedRow("q-1", "{question}", "screening/alpha", "q-a"),
+                            closedRow("q-1", "{question}", "screening/alpha", "q-b"),
+                            closedRow("q-1", "{question}", "screening/alpha", "q-c"))));
+
+            var result = run();
+
+            assertAll(
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString),
+                    () -> assertEquals(Set.of("screening/alpha/q-a.json", "screening/alpha/q-b.json",
+                            "screening/alpha/q-c.json", BETA_D2), itemFiles()),
+                    () -> assertEquals(new Origin(ALPHA_REPOSITORY, ALPHA_COMMIT, ALPHA_FILE, 2),
+                            item("screening/alpha/q-a.json").provenance().origin()),
+                    () -> assertEquals(new Origin(ALPHA_REPOSITORY, ALPHA_COMMIT, ALPHA_FILE, 2),
+                            item("screening/alpha/q-b.json").provenance().origin()),
+                    () -> assertEquals(new Origin(ALPHA_REPOSITORY, ALPHA_COMMIT, ALPHA_FILE, 2),
+                            item("screening/alpha/q-c.json").provenance().origin()));
+        }
+
+        @Test
+        @DisplayName("an overlay row's answer schema reaches the written item's input")
+        void answerSchemaReachesTheItem() throws Exception {
+            run();
+
+            assertEquals(ANSWER_SCHEMA, item(ALPHA_Q1).input().answerSchema());
         }
 
         @Test
@@ -531,7 +576,7 @@ class CorpusImportTest {
         @Test
         @DisplayName("a template naming a field the row lacks misses the source and fails the import")
         void unknownTemplateField() throws Exception {
-            writeSource(new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0",
+            writeSource(new SourceManifest("alpha", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0", FetchKind.GIT,
                             List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
                     new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
                             List.of(closedRow("q-1", "{nothing}"))));
@@ -552,7 +597,7 @@ class CorpusImportTest {
         @Test
         @DisplayName("an item id another source generates too misses the later source and fails the import")
         void duplicateItemId() throws Exception {
-            writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT",
+            writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT", FetchKind.GIT,
                             List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
                     new SourceOverlay("beta", BETA_FILE, null, CREATED,
                             List.of(openRow("2", "screening/alpha", "q-1"))));
@@ -567,9 +612,28 @@ class CorpusImportTest {
         }
 
         @Test
+        @DisplayName("an overlay that generates one item id twice still misses the source")
+        void repeatedItemId() throws Exception {
+            var overlay = new String(SourceOverlayCodec.write(new SourceOverlay("alpha", ALPHA_FILE, "question_id",
+                    CREATED, List.of(closedRow("q-1", "{question}"), closedRow("q-2", "{question}")))), UTF_8)
+                    .replace("\"id\" : \"q-2\"", "\"id\" : \"q-1\"");
+            writeSource("alpha", SourceManifestCodec.write(alphaManifest(ALPHA_FILE, CSV)), overlay.getBytes(UTF_8));
+
+            var result = run();
+
+            assertAll(
+                    () -> assertEquals(Verdict.FAILED, result.verdict()),
+                    () -> assertEquals("alpha", result.missed().getFirst().name()),
+                    () -> assertEquals(Reason.MALFORMED, result.missed().getFirst().reason()),
+                    () -> assertTrue(result.missed().getFirst().detail().contains("generates the item"),
+                            result.missed().getFirst()::detail),
+                    () -> assertEquals(Set.of(BETA_D2), itemFiles()));
+        }
+
+        @Test
         @DisplayName("a manifest that names another source than its directory misses the source")
         void manifestNamesAnotherSource() throws Exception {
-            var gamma = new SourceManifest("gamma", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0",
+            var gamma = new SourceManifest("gamma", ALPHA_REPOSITORY, ALPHA_COMMIT, "CC-BY-4.0", FetchKind.GIT,
                     List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false)));
             var overlay = new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
                     List.of(closedRow("q-1", "{question}")));
@@ -644,7 +708,7 @@ class CorpusImportTest {
         @ValueSource(strings = {"3", "10", "99999999999"})
         @DisplayName("a position beyond the rows of the file misses the source")
         void positionBeyondRows(String position) throws Exception {
-            writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT",
+            writeSource(new SourceManifest("beta", BETA_REPOSITORY, BETA_COMMIT, "MIT", FetchKind.GIT,
                             List.of(new SourceFile(BETA_FILE, Sha256.hex(JSONL), true))),
                     new SourceOverlay("beta", BETA_FILE, null, CREATED,
                             List.of(openRow(position, "review/beta", "d-x"))));
@@ -740,7 +804,7 @@ class CorpusImportTest {
         @DisplayName("any https repository the manifest accepts imports COMPLETE, its items naming it")
         void importsComplete(String uri) throws Exception {
             var gamma = URI.create(uri);
-            writeSource(new SourceManifest("gamma", gamma, ALPHA_COMMIT, "CC-BY-4.0",
+            writeSource(new SourceManifest("gamma", gamma, ALPHA_COMMIT, "CC-BY-4.0", fetchKind(gamma),
                             List.of(new SourceFile(ALPHA_FILE, Sha256.hex(CSV), false))),
                     new SourceOverlay("gamma", ALPHA_FILE, "question_id", CREATED,
                             List.of(closedRow("q-1", "{question}", "screening/gamma"))));
@@ -767,7 +831,7 @@ class CorpusImportTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Origin(origin, ALPHA_COMMIT, ALPHA_FILE, 1)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new SourceManifest("gamma", origin, ALPHA_COMMIT, "MIT", files)));
+                            () -> new SourceManifest("gamma", origin, ALPHA_COMMIT, "MIT", FetchKind.GIT, files)));
         }
     }
 

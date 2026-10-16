@@ -1,4 +1,4 @@
-= Git LFS Download of the Corpus Sources (`runtime.corpus`) Developer Guide
+= The Corpus Source Fetch in `runtime.corpus` Developer Guide
 :docs: ../../../../plan-marshall-documentation/doc
 :toc:
 :toclevels: 3
@@ -13,10 +13,47 @@
 
 _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
 
-Package `de.planmarshall.runtime.corpus` of `pm-runtime` holds the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
-Its one class, link:{src}/LfsBatchClient.java[`LfsBatchClient`], implements `LfsObjectSource` of `pm-core` (see link:../../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]).
-The git part reads an LFS file as its pointer; this class downloads the object the pointer names over HTTP, never through a git filter driver.
-`pm-mcp-server` composes it with `JGitSourceRepository` of `pm-provider-git` into a `CorpusImport` (link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[ADR 006]).
+Package `de.planmarshall.runtime.corpus` of `pm-runtime` holds the two HTTP parts of the fetch of the corpus sources, each through `cui-http`: the HTTPS source repository and the Git LFS object download.
+The HTTPS source repository is link:{src}/HuggingFaceSourceRepository.java[`HuggingFaceSourceRepository`], which implements `SourceRepository` of `pm-core` for a manifest whose fetch is the HTTPS one; the Git LFS part is link:{src}/LfsBatchClient.java[`LfsBatchClient`], which implements `LfsObjectSource` of `pm-core` (see link:../../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]).
+The git part reads an LFS file as its pointer; `LfsBatchClient` downloads the object the pointer names over HTTP, never through a git filter driver, and `HuggingFaceSourceRepository` reads a Hugging Face dataset at its pinned commit, never through a git client.
+`pm-mcp-server` composes them with `JGitSourceRepository` of `pm-provider-git` into a `CorpusImport` (link:../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[ADR 006], as amended for the HTTPS fetch).
+
+== HTTPS Source Repository
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5]
+
+`HuggingFaceSourceRepository` implements `SourceRepository` for a source whose manifest states the `huggingface` fetch: a Hugging Face dataset read at its pinned commit over HTTPS. It sits beside `LfsBatchClient`.
+
+. `prepare(cacheRoot, manifest)` answers `SourceFetch.done` and makes no request and creates nothing: the files are read over HTTPS, so there is no cache repository to prepare.
+. `fetchCommit(cacheRoot, manifest)` confirms the pin with one `GET` of the dataset's revision, `<host>/api/datasets/<owner>/<name>/revision/<commit>`, and stores nothing. A `200` is the pinned commit (`done`); a `404` is a commit the dataset does not have (`PIN_MISSING`); any other status, a request that got no answer and a refused request are `UNREACHABLE`. This is the amended `fetchCommit` contract: the commit it confirms is made readable by `readFile` and by `prepare`, and the step may create and store nothing, so a source fetched over HTTPS answers `prepare` and `fetchCommit` without a cache repository.
+. `readFile(cacheRoot, manifest, path)` reads one file at the pinned commit with one `GET` of `<repository>/raw/<commit>/<path>`, which serves the file as it is stored, a file in Git LFS as its pointer; the pointer's object comes from an `LfsObjectSource` (`LfsBatchClient`) exactly as for a git source. The delivered bytes are `FETCHED`; the import's hash check decides whether they are the file's SHA-256, so bytes that are not are `hash_mismatch` and the run `FAILED`.
+
+=== URL and Timeout Rules
+
+Every URL is built from the repository: the dataset is the path below `/datasets/`, so the repository URL must be `<host>/datasets/<owner>/<name>`, and a repository that is not such a URL is `UNREACHABLE` before anything is sent.
+Every request goes to an `https` URL without user information; a repository URL without scheme or host, or a repository that is not `https`, is refused before anything is sent.
+The package-private constructor admits plain `http` to a loopback address as well, for the mock web server of the tests.
+Every request is bounded by the compiled connect timeout `CONNECT_TIMEOUT_SECONDS` (10 s) and read timeout `READ_TIMEOUT_SECONDS` (60 s).
+
+=== Outcomes of the HTTPS Fetch
+
+_Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-6[PM-WORK-6]
+
+[cols="3,1",options="header"]
+|===
+|What happens |`SourceFetch.Outcome`
+
+|the URL names no scheme or no host, is not `https`, carries user information, or is not a Hugging Face dataset URL; the dataset API does not answer, times out or is interrupted; the revision API answers a status other than 200 and 404; the raw endpoint answers a status that is neither a 2xx nor 404
+|`UNREACHABLE`
+
+|the revision API answers 404 (the dataset has no such commit); the raw endpoint answers 404 (the file is absent at the pin)
+|`PIN_MISSING`
+
+|`prepare`, a revision confirmed with 200 (each without content), and the raw endpoint having delivered bytes
+|`FETCHED`
+|===
+
+Every `UNREACHABLE` and `PIN_MISSING` outcome is logged as WARN `PM_RUNTIME-127` `CORPUS_HTTPS_SOURCE_UNAVAILABLE` with the repository without user information, query or fragment, and the detail; a repository URL without scheme or host is named `<a URL without scheme or host>` and none of its parts is logged, so writing the WARN never fails on what the caller handed in.
 
 == Batch Request and Download
 
@@ -76,6 +113,13 @@ The client under test is built with the loopback admitted, a connect timeout of 
 * Under the default format locale `fa-IR`, whose digits are not ASCII: the batch request body exactly, its size in ASCII digits, and a status in a detail in ASCII digits.
 * Within `CorpusImport`, with a manifest whose `https` repository is redirected to the mock web server: the delivered object yields the item, and bytes with another SHA-256, fewer bytes or more bytes fail the run with `hash_mismatch`.
 
+link:{test}/HuggingFaceSourceRepositoryTest.java[`HuggingFaceSourceRepositoryTest`] runs the HTTPS source repository against the same mock web server (`@EnableMockWebServer`), with the repository URL redirected to it and the loopback admitted, a connect timeout of 2 s and a read timeout of 1 s:
+
+* `prepare` creates nothing and makes no request.
+* `fetchCommit` on a `200` of the revision API is `FETCHED`, on a `404` is `PIN_MISSING`, and on a server error or a stalled response is `UNREACHABLE`; `readFile` on a delivered plain file and on a delivered LFS pointer is `FETCHED`, on a `404` is `PIN_MISSING`, and on a server error or a stalled response is `UNREACHABLE`.
+* A repository URL that is not `https`, is without a host or carries user information is refused with nothing sent, and the WARN is logged; under `fa-IR` a status in a detail is in ASCII digits.
+* Within `CorpusImport`, a manifest whose repository is redirected to the mock web server yields the item `COMPLETE`, and delivered bytes that are not the pinned SHA-256 fail the run `FAILED`.
+
 == Pitfalls
 
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-6[PM-EXEC-6]
@@ -84,7 +128,8 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06
 2. **Do not refuse delivered bytes here**: returning `PIN_MISSING` for a mismatch would turn a failed run into a partial one.
 3. **Keep the read bounded**: do not read the download into memory with an unbounded body handler.
 4. **Every request through `cui-http`**: no other HTTP client, and the timeouts stay compiled.
-5. **Numbers in ASCII digits**: `%d` of `String.formatted` takes the digits of the default format locale; under `fa-IR` the batch body would be no JSON. Format with `Locale.ROOT` or concatenate.
+5. **Numbers in ASCII digits**: `%d` of `String.format` takes the digits of the default format locale; under `fa-IR` a status in a detail would not be ASCII. Format with `Locale.ROOT`.
+6. **The HTTPS source reads raw bytes**: `HuggingFaceSourceRepository.readFile` returns the file at the pin as stored, a file in Git LFS as its pointer; the pointer's object comes from `LfsBatchClient`, so do not resolve LFS in the source repository.
 
 == Specification Tracing
 

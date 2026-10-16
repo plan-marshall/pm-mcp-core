@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "PM-MCP corpus source manifest",
-  "description": "sources/<name>/manifest.json of the model verification corpus: the public repository a dataset is fetched from, the commit it is pinned to, its licence and the files read from it with their SHA-256. The schema uses only the keyword subset the corpus validator evaluates.",
+  "description": "sources/<name>/manifest.json of the model verification corpus: the public repository a dataset is fetched from and the kind of source it is, the commit it is pinned to, its licence and the files read from it with their SHA-256. The schema uses only the keyword subset the corpus validator evaluates.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,6 +10,7 @@
     "repository",
     "commit",
     "licence",
+    "fetch",
     "files"
   ],
   "properties": {
@@ -35,6 +36,13 @@
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*$",
       "description": "the SPDX licence identifier of the dataset"
+    },
+    "fetch": {
+      "enum": [
+        "git",
+        "huggingface"
+      ],
+      "description": "the kind of source the files are fetched from"
     },
     "files": {
       "type": "array",

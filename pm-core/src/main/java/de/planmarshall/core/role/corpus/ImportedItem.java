@@ -33,8 +33,8 @@ import java.util.regex.Pattern;
  * repository follows the rule of the manifest's repository (an absolute {@code https} URI without user information,
  * query or fragment), so every source a manifest names produces items this format accepts. Every optional
  * member of the corpus item format has one shape only: an absent list is empty and a present one is not,
- * {@code expected_empty} is present only when {@code true}. Members the generation never writes (a group, an answer
- * schema, context files, the contamination note, the location of a rubric item) are not part of it. So an imported
+ * {@code expected_empty} is present only when {@code true}. Members the generation never writes (a group, context
+ * files, the contamination note, the location of a rubric item) are not part of it. So an imported
  * item is accepted by the item schema of the corpus and by {@code imported-item.schema.json} of this package;
  * {@link ImportedItemCodec} reads and writes it. Each pattern of the record is the pattern of the schema, compiled with
  * {@link PythonRegex} and matched against the whole value, as {@link SourceManifest} does.
@@ -70,12 +70,14 @@ Target target, Grading grading, Provenance provenance, Review review, String can
     /**
      * What the model sees.
      *
-     * @param question the question
-     * @param facts    exactly the text the model sees besides the question
-     * @param choices  the choices of a closed answer, at least two; {@code null} for an open answer
+     * @param question     the question
+     * @param facts        exactly the text the model sees besides the question
+     * @param choices      the choices of a closed answer, at least two; {@code null} for an open answer
+     * @param answerSchema the JSON Schema the answer of the item is checked against, a JSON object; {@code null} if
+     *                     there is none
      * @since 0.1
      */
-    public record Input(String question, String facts, List<String> choices) {
+    public record Input(String question, String facts, List<String> choices, JsonValue answerSchema) {
 
         /**
          * @throws IllegalArgumentException if fewer than two choices are given
@@ -88,6 +90,10 @@ Target target, Grading grading, Provenance provenance, Review review, String can
                 if (choices.size() < 2) {
                     throw new IllegalArgumentException("'choices' must name at least two choices");
                 }
+            }
+            if (answerSchema != null && !(answerSchema instanceof JsonValue.JsonObject)) {
+                throw new IllegalArgumentException(
+                        "'answer_schema' must be an object or null: " + answerSchema.toJson());
             }
         }
     }

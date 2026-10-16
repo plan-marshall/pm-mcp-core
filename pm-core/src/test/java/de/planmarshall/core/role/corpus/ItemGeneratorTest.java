@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -102,6 +103,18 @@ class ItemGeneratorTest {
                     () -> assertEquals(GradingMethod.LABEL, item.grading().method()),
                     () -> assertEquals(ReviewStatus.DRAFT, item.review().status()),
                     () -> assertEquals(ItemGenerator.CANARY, item.canary()));
+        }
+
+        @Test
+        @DisplayName("carries the row answer schema verbatim into the input")
+        void answerSchema() {
+            var row = overlay().rows().getFirst();
+
+            var item = generate(row, fields());
+
+            assertAll(
+                    () -> assertNotNull(row.answerSchema()),
+                    () -> assertEquals(row.answerSchema(), item.input().answerSchema()));
         }
 
         @Test
@@ -203,7 +216,8 @@ class ItemGeneratorTest {
         private static SourceOverlay.Row withTarget(Target target) {
             var open = overlay().rows().get(1);
             return new SourceOverlay.Row(open.key(), open.slug(), open.topic(), open.role(), open.title(), open.tags(),
-                    open.question(), open.facts(), open.choices(), target, open.grading(), open.review());
+                    open.question(), open.facts(), open.choices(), open.answerSchema(), target, open.grading(),
+                    open.review());
         }
 
         @Test

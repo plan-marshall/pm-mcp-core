@@ -37,12 +37,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
+import de.planmarshall.core.role.corpus.JsonValue.JsonList;
+import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
+import de.planmarshall.core.role.corpus.JsonValue.JsonString;
 import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The overlay of a corpus source (PM-WORK-6): one format version, every declared field exactly once, no undeclared
- * field, every value in its format, rows selected once each; a refusal names the file. Every test runs under a default
+ * field, every value in its format, every item id once; a refusal names the file. Every test runs under a default
  * locale with non-Latin digits, so the numbers of a document and of a refusal must be ASCII digits.
  */
 @ExtendWith(NonLatinDigits.class)
@@ -63,6 +66,7 @@ class SourceOverlayCodecTest {
         members.put("question", "\"{question}\"");
         members.put("facts", "\"Subject: {subject}\"");
         members.put("choices", "[\"{option_a}\",\"{option_b}\"]");
+        members.put("answer_schema", "{\"type\":\"object\"}");
         members.put("target", "{\"answer\":\"{option_a}\",\"rationale\":\"the first option holds\","
                 + "\"alternatives\":[],\"items\":[],\"expected_empty\":false}");
         members.put("grading", "{\"method\":\"exact_choice\",\"judge\":null,\"pass_threshold\":null}");
@@ -138,6 +142,8 @@ class SourceOverlayCodecTest {
                     () -> assertEquals("{question}", row.question()),
                     () -> assertEquals("Subject: {subject}", row.facts()),
                     () -> assertEquals(List.of("{option_a}", "{option_b}"), row.choices()),
+                    () -> assertEquals(JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8)),
+                            row.answerSchema()),
                     () -> assertEquals("{option_a}", row.target().answer()),
                     () -> assertEquals(GradingMethod.EXACT_CHOICE, row.grading().method()),
                     () -> assertNull(row.grading().passThreshold()),
@@ -149,6 +155,7 @@ class SourceOverlayCodecTest {
         void openRow() {
             var row = rowMembers("q-1", "q-1");
             row.put("choices", "null");
+            row.put("answer_schema", "null");
             row.put("target", "{\"answer\":null,\"rationale\":\"r\",\"alternatives\":[\"a\"],"
                     + "\"items\":[{\"id\":\"d1\",\"description\":\"names the defect\"}],\"expected_empty\":false}");
             row.put("grading", "{\"method\":\"rubric_items\",\"judge\":\"strict\",\"pass_threshold\":0.75}");
@@ -160,6 +167,7 @@ class SourceOverlayCodecTest {
             var read = overlay.rows().getFirst();
             assertAll(
                     () -> assertNull(read.choices()),
+                    () -> assertNull(read.answerSchema()),
                     () -> assertNull(read.target().answer()),
                     () -> assertEquals(List.of(new RubricItem("d1", "names the defect")), read.target().items()),
                     () -> assertEquals(new BigDecimal("0.75"), read.grading().passThreshold()),
@@ -256,9 +264,18 @@ class SourceOverlayCodecTest {
         return Stream.of("source", "file", "key_field", "created", "rows");
     }
 
+    /**
+     * The names of the row fields the overlay schema declares as required, read from
+     * {@code source-overlay.schema.json} at {@code properties.rows.items.required}, so a required field added to the
+     * schema is covered here without editing a list that mirrors it.
+     */
     static Stream<String> rowFields() {
-        return Stream.of("key", "id", "topic", "role", "title", "tags", "question", "facts", "choices", "target",
-                "grading", "review");
+        var schema = (JsonObject) JsonValue.parse(
+                CorpusSchemaResourcesTest.resource("source-overlay.schema.json").getBytes(StandardCharsets.UTF_8));
+        var rows = (JsonObject) ((JsonObject) schema.get("properties").orElseThrow()).get("rows").orElseThrow();
+        var items = (JsonObject) rows.get("items").orElseThrow();
+        return ((JsonList) items.get("required").orElseThrow()).elements().stream()
+                .map(field -> ((JsonString) field).value());
     }
 
     static Stream<Arguments> malformedOverlayValues() {
@@ -278,9 +295,6 @@ class SourceOverlayCodecTest {
                 Arguments.of("a date in the shape that names no day", "created", "\"2026-02-30\"",
                         "'created' is not a date"),
                 Arguments.of("no row", "rows", "[]", "'rows'"),
-                Arguments.of("a row twice", "rows",
-                        "[" + object(rowMembers("q-1", "q-1")) + "," + object(rowMembers("q-1", "q-9")) + "]",
-                        "selects the row 'q-1' twice"),
                 Arguments.of("an item twice", "rows",
                         "[" + object(rowMembers("q-1", "q-1")) + "," + object(rowMembers("q-2", "q-1")) + "]",
                         "generates the item 'screening/sample-set/q-1' twice"));
@@ -335,7 +349,14 @@ class SourceOverlayCodecTest {
                 Arguments.of("a rubric item without description", "target",
                         "{\"answer\":null,\"rationale\":\"r\",\"alternatives\":[],\"items\":[{\"id\":\"d\"}],"
                                 + "\"expected_empty\":false}",
-                        "field 'description' of the items[0] is missing"));
+                        "field 'description' of the items[0] is missing"),
+                Arguments.of("an answer_schema object that names a member twice", "answer_schema",
+                        "{\"type\":\"object\",\"type\":\"object\"}",
+                        "'answer_schema' is not one JSON value: the member 'type' is named twice"),
+                Arguments.of("an answer_schema that is a string", "answer_schema", "\"not-an-object\"",
+                        "'answer_schema' must be an object or null"),
+                Arguments.of("an answer_schema that is an array", "answer_schema", "[\"a\"]",
+                        "'answer_schema' must be an object or null"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -343,5 +364,48 @@ class SourceOverlayCodecTest {
     @DisplayName("a row value outside its format is refused naming the file")
     void malformedRowValue(String name, String field, String value, String detail) {
         assertUnreadable(refusalOf(withRow(field, value)), detail);
+    }
+
+    @Nested
+    @DisplayName("the answer schema of a row")
+    class AnswerSchema {
+
+        /** A valid row with the given answer schema. */
+        private static SourceOverlay.Row row(JsonValue answerSchema) {
+            return new SourceOverlay.Row("q-1", "q-1", "screening/sample-set", "screening", "sample question",
+                    List.of("imported"), "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"),
+                    answerSchema,
+                    new ImportedItem.Target("{option_a}", "the first option holds", List.of(), List.of(), false),
+                    new ImportedItem.Grading(GradingMethod.EXACT_CHOICE, null, null),
+                    new ImportedItem.Review(ReviewStatus.DRAFT, null, null, null));
+        }
+
+        static Stream<Arguments> nonObjectValues() {
+            return Stream.of(
+                    Arguments.of("a string", new JsonValue.JsonString("not-an-object")),
+                    Arguments.of("a number", new JsonValue.JsonNumber(new BigDecimal("7"), true)),
+                    Arguments.of("a boolean", new JsonValue.JsonBoolean(true)),
+                    Arguments.of("an array", new JsonValue.JsonList(List.of(new JsonValue.JsonString("a")))),
+                    Arguments.of("a JSON null", new JsonValue.JsonNull()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("nonObjectValues")
+        @DisplayName("an answer schema that is no object and no null is refused at construction")
+        void nonObjectRefused(String name, JsonValue answerSchema) {
+            var refused = assertThrows(IllegalArgumentException.class, () -> row(answerSchema));
+
+            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("a JSON object and a null are accepted")
+        void objectAndNullAccepted() {
+            var schema = JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
+
+            assertAll(
+                    () -> assertEquals(schema, row(schema).answerSchema()),
+                    () -> assertNull(row(null).answerSchema()));
+        }
     }
 }

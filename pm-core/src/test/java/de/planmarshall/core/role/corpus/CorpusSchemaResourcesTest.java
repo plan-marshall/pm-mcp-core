@@ -45,6 +45,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.Review;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.RubricItem;
 import de.planmarshall.core.role.corpus.ImportedItem.Target;
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceOverlay.Row;
 
@@ -68,6 +69,11 @@ class CorpusSchemaResourcesTest {
 
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
+    /** The member whose value is a literal JSON Schema, not a record of the corpus formats. */
+    private static final String ANSWER_SCHEMA_MEMBER = "answer_schema";
+
+    private static final JsonValue ANSWER_SCHEMA = JsonValue.parse("{\"type\": \"object\"}".getBytes(UTF_8));
+
     static String resource(String name) {
         try (var in = CorpusSchemaResourcesTest.class.getResourceAsStream(name)) {
             assertNotNull(in, () -> "the schema resource " + name + " exists beside the package");
@@ -85,17 +91,18 @@ class CorpusSchemaResourcesTest {
 
     static SourceManifest manifest() {
         return new SourceManifest("sample-set", URI.create("https://github.com/example/sample-set"), COMMIT,
-                "CC-BY-4.0", List.of(new SourceFile("data/test.csv", "a".repeat(64), false),
+                "CC-BY-4.0", FetchKind.GIT, List.of(new SourceFile("data/test.csv", "a".repeat(64), false),
                         new SourceFile("data/big.jsonl", "b".repeat(64), true)));
     }
 
     static SourceOverlay overlay(String keyField, String firstKey, String secondKey) {
         var closed = new Row(firstKey, "q-1", "screening/sample-set", "screening", "closed question",
                 List.of("imported"), "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"),
+                ANSWER_SCHEMA,
                 new Target("{option_a}", "the first holds", List.of(), List.of(), false),
                 new Grading(GradingMethod.LABEL, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
         var open = new Row(secondKey, "q-2", "review/sample-set", "review", "open question", List.of(),
-                "Review: {diff}", "", null,
+                "Review: {diff}", "", null, ANSWER_SCHEMA,
                 new Target(null, "one defect", List.of("alternative"), List.of(new RubricItem("d1", "the defect")),
                         false),
                 new Grading(GradingMethod.RUBRIC_PROPERTIES, "judge", new BigDecimal("0.5")),
@@ -157,7 +164,7 @@ class CorpusSchemaResourcesTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {MANIFEST_SCHEMA, OVERLAY_SCHEMA, ITEM_SCHEMA})
-    @DisplayName("a schema uses only the keyword subset and is closed at every level")
+    @DisplayName("a schema uses only the keyword subset, and is closed at every level apart from a literal answer schema")
     void keywordSubsetAndClosed(String schemaName) throws Exception {
         var problems = new ArrayList<String>();
         try (var parser = new JsonFactory().createParser(resource(schemaName))) {
@@ -168,7 +175,36 @@ class CorpusSchemaResourcesTest {
         assertEquals(List.of(), problems);
     }
 
-    /** Walks one schema object, positioned on its start; reports a foreign keyword and an open object schema. */
+    @Test
+    @DisplayName("an object schema that names no property is rejected when it is not closed")
+    void objectSchemaWithoutPropertiesIsRejected() throws Exception {
+        assertFalse(problemsOf("{\"type\": \"object\"}").isEmpty());
+    }
+
+    @Test
+    @DisplayName("a literal answer schema is left open")
+    void literalAnswerSchemaIsLeftOpen() throws Exception {
+        var closedRecord = "{\"type\": \"object\", \"additionalProperties\": false, \"properties\": "
+                + "{ \"answer_schema\": { \"type\": \"object\" } }}";
+
+        assertEquals(List.of(), problemsOf(closedRecord));
+    }
+
+    private static List<String> problemsOf(String schema) throws Exception {
+        var problems = new ArrayList<String>();
+        try (var parser = new JsonFactory().createParser(schema.getBytes(UTF_8))) {
+            parser.nextToken();
+            walk(parser, "$", problems);
+        }
+        return problems;
+    }
+
+    /**
+     * Walks one schema object, positioned on its start; reports a foreign keyword and an object schema that is not
+     * closed — whether it enumerates properties or only admits an object. The value of an {@code answer_schema} member
+     * is a literal JSON Schema the corpus holds as an opaque slot, not a record of the format, so it is left open by
+     * design: the walk does not descend into it, and its keywords are not held to the subset.
+     */
     private static void walk(JsonParser parser, String path, List<String> problems) throws IOException {
         var keywords = new HashSet<String>();
         var closed = false;
@@ -185,7 +221,11 @@ class CorpusSchemaResourcesTest {
                     while (parser.nextToken() == JsonToken.FIELD_NAME) {
                         var property = parser.currentName();
                         parser.nextToken();
-                        walk(parser, path + "." + property, problems);
+                        if (ANSWER_SCHEMA_MEMBER.equals(property)) {
+                            parser.skipChildren();
+                        } else {
+                            walk(parser, path + "." + property, problems);
+                        }
                     }
                 }
                 case "items" -> walk(parser, path + "[]", problems);

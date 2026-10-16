@@ -1,0 +1,63 @@
+= ADR 006: The Source Fetch Kind, Repeated Row Selection and the Row Answer Schema
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-15
+
+== Context
+
+Three limits of the corpus formats of link:001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] showed up
+in the prototype. A source on `huggingface.co` cannot be fetched by the git part alone: `JGitSourceRepository` reads a
+git repository, while a Hugging Face dataset is read over HTTPS, so a manifest naming one had no fetch the daemon could
+compose. An overlay row yields exactly one item, while one row of a source file may be worth several items the overlay
+frames differently. And an open answer had no way to carry the JSON Schema its answer is checked against, so an item
+could not state it.
+
+== Decision
+
+The three formats of ADR 001 are extended, each in its record, its codec and its schema resource together.
+
+* The manifest gains `fetch`, closed to `git` and `huggingface` and named by the record's `FetchKind`, between
+  `licence` and `files`, validated non-null in the record. Every source that existed before states `git`.
+* The overlay's row gains `answer_schema`, a literal JSON Schema object or `null`, placed after `choices` and accepted
+  as it is. The row-key refusal is dropped: a key may repeat, so one row of a file may be selected by more than one
+  overlay row. The item-id refusal is kept: one overlay may not generate one item id twice.
+* The imported item gains `input.answer_schema`, the row's answer schema carried into the item unchanged and written by
+  `ImportedItemCodec` as an optional member (present when it has a value, absent when it is `null`).
+* `SourceRepository` keeps its three signatures and restates its contract: `fetchCommit` makes the pinned commit
+  readable by `readFile` and by `prepare`, and it may create and store nothing. The HTTPS source repository of
+  `pm-runtime` (`HuggingFaceSourceRepository`) implements it beside the git part, and `LfsBatchClient` of the same
+  package keeps the LFS part.
+
+== Alternatives Considered
+
+1. *One item per overlay row, kept.* Not taken: a source row worth several items would need several source files or
+   several overlays, and the overlay is the place that frames the items.
+2. *A defaulting `fetch` so the 5-argument construction sites survive.* Not taken: the change is breaking, and a
+   defaulting member would leave two ways to state one thing and hide a manifest that names no fetch from the
+   validator.
+3. *A separate HTTPS-only repository interface.* Not taken: the fetch of a source is one contract, the HTTPS part
+   answers the same three steps, and the fetch kind says which part serves a source.
+
+== Consequences
+
+* Compatibility is breaking: the record constructors gain a member, so every construction site changes. The corpus
+  package of plan-marshall-mcp and the tests of `pm-core`, `pm-provider-git` and `pm-runtime` are updated with it.
+* The codec refuses a manifest without `fetch`, so a corpus written before this change is reported `malformed` until
+  its manifests state their fetch.
+* The two fetch parts stay composed by `pm-mcp-server`; neither `pm-runtime` nor `pm-provider-git` sees the other
+  (link:../../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]).
+
+== Source
+
+* Work package link:../../../../doc/plans/corpus-overlay-extensions.adoc[`doc/plans/corpus-overlay-extensions.adoc`]
+* Plan `corpus-overlay-extensions` and its pull request
+* link:001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] (the formats this extends) and
+  link:../../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]
+  (the fetch split)
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Formats, § Fetch and Import

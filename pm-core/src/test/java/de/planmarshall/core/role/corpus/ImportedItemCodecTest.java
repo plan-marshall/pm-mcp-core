@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,11 +58,13 @@ class ImportedItemCodecTest {
     private static final URI REPOSITORY = URI.create("https://github.com/example/sample-set");
     private static final String COMMIT = "0123456789abcdef0123456789abcdef01234567";
     private static final String CANARY = "corpus canary 0000";
+    private static final JsonValue ANSWER_SCHEMA =
+            JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
 
     /** A closed item with only the required members. */
     static ImportedItem closedItem() {
         return new ImportedItem("screening/sample-set/q-1", "screening/sample-set", "screening", "sample question",
-                List.of(), new Input("Which holds?", "Subject: logic", List.of("first", "second")),
+                List.of(), new Input("Which holds?", "Subject: logic", List.of("first", "second"), null),
                 new Target("first", "the first holds", List.of(), List.of(), false),
                 new Grading(GradingMethod.EXACT_CHOICE, null, null),
                 new Provenance(LocalDate.of(2026, 10, 14), new Origin(REPOSITORY, COMMIT, "data/test.csv", 2),
@@ -72,7 +75,7 @@ class ImportedItemCodecTest {
     /** An open item with every optional member. */
     static ImportedItem openItem() {
         return new ImportedItem("review/sample-set/q-7", "review/sample-set", "review", "open question",
-                List.of("imported", "review"), new Input("Review the change.", "diff --git a b", null),
+                List.of("imported", "review"), new Input("Review the change.", "diff --git a b", null, ANSWER_SCHEMA),
                 new Target("report the defect", "one defect is seeded", List.of("name the defect"),
                         List.of(new RubricItem("d1", "the off-by-one")), true),
                 new Grading(GradingMethod.RUBRIC_ITEMS, "strict judge", new BigDecimal("0.75")),
@@ -148,8 +151,17 @@ class ImportedItemCodecTest {
                     () -> assertFalse(text.contains("\"judge\""), text),
                     () -> assertFalse(text.contains("\"pass_threshold\""), text),
                     () -> assertFalse(text.contains("\"by\""), text),
+                    () -> assertFalse(text.contains("\"answer_schema\""), text),
                     () -> assertFalse(text.contains("null"), text),
                     () -> assertTrue(text.contains("\"kind\" : \"fetched\""), text));
+        }
+
+        @Test
+        @DisplayName("the answer schema of an open item is written inside the input")
+        void answerSchemaWritten() {
+            var text = text(openItem());
+
+            assertTrue(text.contains("\"answer_schema\" : {\"type\": \"object\"}"), text);
         }
     }
 
@@ -182,6 +194,14 @@ class ImportedItemCodecTest {
         void undeclared() {
             assertUnreadable(refusalOf(text(closedItem()).replace("\"canary\"", "\"group\" : \"g\",\n  \"canary\"")),
                     "undeclared field 'group'");
+        }
+
+        @Test
+        @DisplayName("an answer_schema outside the input is refused")
+        void answerSchemaUndeclared() {
+            assertUnreadable(refusalOf(text(closedItem())
+                    .replace("\"rationale\" :", "\"answer_schema\" : null,\n  \"rationale\" :")),
+                    "undeclared field 'answer_schema'");
         }
 
         @Test
@@ -259,5 +279,68 @@ class ImportedItemCodecTest {
         assertTrue(text.contains(original), () -> "the fixture carries " + original + ": " + text);
 
         assertUnreadable(refusalOf(text.replace(original, replacement)), detail);
+    }
+
+    @Test
+    @DisplayName("a malformed answer_schema becomes a refusal, not a thrown MalformedJson")
+    void malformedAnswerSchema() {
+        var text = text(openItem()).replace("\"answer_schema\" : {\"type\": \"object\"}",
+                "\"answer_schema\" : {\"type\": \"object\", \"type\": \"object\"}");
+
+        assertUnreadable(refusalOf(text),
+                "'answer_schema' is not one JSON value: the member 'type' is named twice");
+    }
+
+    static Stream<Arguments> nonObjectAnswerSchemas() {
+        return Stream.of(Arguments.of("a string", "\"not-an-object\""),
+                Arguments.of("a number", "7"),
+                Arguments.of("a boolean", "true"),
+                Arguments.of("an array", "[ \"a\" ]"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("nonObjectAnswerSchemas")
+    @DisplayName("an answer_schema that is no object is refused naming the file")
+    void nonObjectAnswerSchema(String name, String value) {
+        var text = text(openItem()).replace("\"answer_schema\" : {\"type\": \"object\"}",
+                "\"answer_schema\" : " + value);
+
+        assertUnreadable(refusalOf(text), "'answer_schema' must be an object or null");
+    }
+
+    @Nested
+    @DisplayName("the answer schema of the input")
+    class AnswerSchema {
+
+        /** An input with the given answer schema. */
+        private static Input input(JsonValue answerSchema) {
+            return new Input("Which holds?", "Subject: logic", List.of("first", "second"), answerSchema);
+        }
+
+        static Stream<Arguments> nonObjectValues() {
+            return Stream.of(
+                    Arguments.of("a string", new JsonValue.JsonString("not-an-object")),
+                    Arguments.of("a number", new JsonValue.JsonNumber(new BigDecimal("7"), true)),
+                    Arguments.of("a boolean", new JsonValue.JsonBoolean(true)),
+                    Arguments.of("an array", new JsonValue.JsonList(List.of(new JsonValue.JsonString("a")))),
+                    Arguments.of("a JSON null", new JsonValue.JsonNull()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("nonObjectValues")
+        @DisplayName("an answer schema that is no object and no null is refused at construction")
+        void nonObjectRefused(String name, JsonValue answerSchema) {
+            var refused = assertThrows(IllegalArgumentException.class, () -> input(answerSchema));
+
+            assertEquals("'answer_schema' must be an object or null: " + answerSchema.toJson(), refused.getMessage());
+        }
+
+        @Test
+        @DisplayName("a JSON object and a null are accepted")
+        void objectAndNullAccepted() {
+            assertAll(
+                    () -> assertEquals(ANSWER_SCHEMA, input(ANSWER_SCHEMA).answerSchema()),
+                    () -> assertNull(input(null).answerSchema()));
+        }
     }
 }

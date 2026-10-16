@@ -46,6 +46,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.Review;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.Target;
+import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceOverlay.Row;
 
@@ -80,7 +81,7 @@ class CorpusValidatorTest {
               "tags":{"type":"array","items":{"type":"string"}},
               "input":{"type":"object","additionalProperties":false,"required":["question","facts"],"properties":{
                "question":{"type":"string"},"facts":{"type":"string"},
-               "choices":{"type":["array","null"],"items":{"type":"string"},"minItems":2},
+               "choices":{"type":["array","null"],"items":{"type":"string"},"minItems":2},"answer_schema":{"type":"object"},
                "context":{"type":"array","items":{"type":"string","pattern":"^context/"}}}},
               "target":{"type":"object","additionalProperties":false,"required":["rationale"],"properties":{
                "answer":{},"rationale":{"type":"string"},"alternatives":{"type":"array","items":{"type":"string"}},
@@ -272,13 +273,14 @@ class CorpusValidatorTest {
     }
 
     private static SourceManifest manifest(String name, String file) {
-        return new SourceManifest(name, URI.create("https://github.com/example/alpha"), COMMIT, "MIT",
+        return new SourceManifest(name, URI.create("https://github.com/example/alpha"), COMMIT, "MIT", FetchKind.GIT,
                 List.of(new SourceFile(file, Sha256.hex(CSV), false)));
     }
 
     private static SourceOverlay overlay(String source, String file) {
         var row = new Row("q-1", "q-1", "screening/alpha", "screening", "sky question", List.of("imported"),
-                "{question}", "", List.of("yes", "no"), new Target("yes", "the sky is blue", List.of(), List.of(), false),
+                "{question}", "", List.of("yes", "no"), null,
+                new Target("yes", "the sky is blue", List.of(), List.of(), false),
                 new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
         return new SourceOverlay(source, file, "question_id", LocalDate.of(2026, 10, 14), List.of(row));
     }
@@ -289,22 +291,22 @@ class CorpusValidatorTest {
      */
     private static String pathTwice() {
         var twoFiles = new SourceManifest("alpha", URI.create("https://github.com/example/alpha"), COMMIT, "MIT",
-                List.of(new SourceFile(SOURCE_FILE, Sha256.hex(CSV), false),
+                FetchKind.GIT, List.of(new SourceFile(SOURCE_FILE, Sha256.hex(CSV), false),
                         new SourceFile("data/other.csv", Sha256.hex(CSV), false)));
         return new String(SourceManifestCodec.write(twoFiles), UTF_8).replace("data/other.csv", SOURCE_FILE);
     }
 
     /**
-     * @return an overlay of {@code alpha} whose two rows select the key {@code q-1}: its schema admits it, its codec
-     *         refuses it
+     * @return an overlay of {@code alpha} whose two rows generate the item id {@code screening/alpha/q-1}: its schema
+     *         admits it, its codec refuses it
      */
-    private static String rowTwice() {
+    private static String itemTwice() {
         var row = overlay("alpha", SOURCE_FILE).rows().getFirst();
         var second = new Row("q-2", "q-2", row.topic(), row.role(), row.title(), row.tags(), row.question(),
-                row.facts(), row.choices(), row.target(), row.grading(), row.review());
+                row.facts(), row.choices(), row.answerSchema(), row.target(), row.grading(), row.review());
         var twoRows = new SourceOverlay("alpha", SOURCE_FILE, "question_id", LocalDate.of(2026, 10, 14),
                 List.of(row, second));
-        return new String(SourceOverlayCodec.write(twoRows), UTF_8).replace("\"q-2\"", "\"q-1\"");
+        return new String(SourceOverlayCodec.write(twoRows), UTF_8).replace("\"id\" : \"q-2\"", "\"id\" : \"q-1\"");
     }
 
     @Test
@@ -312,7 +314,7 @@ class CorpusValidatorTest {
     void codecRefusalFixturesPassTheirSchemas() throws Exception {
         var manifestErrors = SchemaSubset.validate(JsonValue.parse(pathTwice().getBytes(UTF_8)),
                 JsonValue.parse(resource("source-manifest.schema.json")));
-        var overlayErrors = SchemaSubset.validate(JsonValue.parse(rowTwice().getBytes(UTF_8)),
+        var overlayErrors = SchemaSubset.validate(JsonValue.parse(itemTwice().getBytes(UTF_8)),
                 JsonValue.parse(resource("source-overlay.schema.json")));
 
         assertAll(
@@ -473,8 +475,8 @@ class CorpusValidatorTest {
                 Arguments.of("the manifest is no JSON", MANIFEST, Rule.MANIFEST, (Mutation) f -> f.write(MANIFEST, "[")),
                 Arguments.of("the manifest passes its schema but its codec refuses a path twice", MANIFEST,
                         Rule.MANIFEST, (Mutation) f -> f.write(MANIFEST, pathTwice())),
-                Arguments.of("the overlay passes its schema but its codec refuses a row twice", OVERLAY, Rule.OVERLAY,
-                        (Mutation) f -> f.write(OVERLAY, rowTwice())),
+                Arguments.of("the overlay passes its schema but its codec refuses one item id twice", OVERLAY,
+                        Rule.OVERLAY, (Mutation) f -> f.write(OVERLAY, itemTwice())),
                 Arguments.of("the overlay is missing", OVERLAY, Rule.OVERLAY, (Mutation) f -> f.delete(OVERLAY)),
                 Arguments.of("the overlay names another source", OVERLAY, Rule.OVERLAY,
                         (Mutation) f -> f.overlay(overlay("beta", SOURCE_FILE))),
