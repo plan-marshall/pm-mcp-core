@@ -717,6 +717,7 @@ link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/SourceOverlay.jav
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/ImportedItem.java[ImportedItem],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/ItemGenerator.java[ItemGenerator],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitSourceRepository.java[JGitSourceRepository],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/corpus/HuggingFaceSourceRepository.java[HuggingFaceSourceRepository],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/corpus/LfsBatchClient.java[LfsBatchClient]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusImportTest.java[CorpusImportTest] (the complete, partial and failed imports),
@@ -724,6 +725,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusValidatorTe
 link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ProductCorpusValidationTest.java[ProductCorpusValidationTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ItemGeneratorTest.java[ItemGeneratorTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitSourceRepositoryTest.java[JGitSourceRepositoryTest] (the import over fixture repositories on disk),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/HuggingFaceSourceRepositoryTest.java[HuggingFaceSourceRepositoryTest] (the HTTPS fetch against a mock web server),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/LfsBatchClientTest.java[LfsBatchClientTest] (the LFS download against a mock web server)
 
-Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]
