@@ -285,6 +285,36 @@ class HuggingFaceSourceRepositoryTest {
         }
 
         @Test
+        @DisplayName("delivers a body of exactly the compiled maximum")
+        void atCap() {
+            var body = "x".repeat(16).getBytes(UTF_8);
+            var capped = new HuggingFaceSourceRepository(true, 2, 1, body.length);
+            on("GET", RAW, bytes(body));
+
+            var fetch = capped.readFile(datasetUri(), COMMIT, FILE);
+
+            assertAll(
+                    () -> assertEquals(Outcome.FETCHED, fetch.outcome(), fetch::detail),
+                    () -> assertArrayEquals(body, fetch.content()));
+        }
+
+        @Test
+        @DisplayName("a body over the compiled maximum is UNREACHABLE and is never held")
+        void overCap() {
+            var body = "x".repeat(17).getBytes(UTF_8);
+            var capped = new HuggingFaceSourceRepository(true, 2, 1, 16);
+            on("GET", RAW, bytes(body));
+
+            var fetch = capped.readFile(datasetUri(), COMMIT, FILE);
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREACHABLE, fetch.outcome(), fetch::detail),
+                    () -> assertEquals(0, fetch.content().length),
+                    () -> assertTrue(fetch.detail().contains("larger than the maximum of 16 bytes"), fetch::detail));
+            assertUnavailableLogged();
+        }
+
+        @Test
         @DisplayName("a 404 is PIN_MISSING")
         void fileMissing() {
             on("GET", RAW, notFound());

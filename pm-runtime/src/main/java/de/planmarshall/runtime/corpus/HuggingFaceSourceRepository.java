@@ -48,8 +48,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * dataset does not have (404) and a file absent at the pin (404) are {@link SourceFetch.Outcome#PIN_MISSING}. Each
  * such outcome is logged as a warning through {@link WARN#CORPUS_HTTPS_SOURCE_UNAVAILABLE}, which names the repository
  * without user information, query or fragment and never a credential. Bytes the raw endpoint delivers are
- * {@link SourceFetch.Outcome#FETCHED} whatever they are; the import's hash check of
- * {@link de.planmarshall.core.role.corpus.CorpusImport} refuses bytes that are not the file's SHA-256.
+ * {@link SourceFetch.Outcome#FETCHED} whatever they are, up to the raw-file maximum of {@value #MAX_RAW_FILE_SIZE}
+ * bytes; a longer body is {@link SourceFetch.Outcome#UNREACHABLE} rather than held in memory. The import's hash check
+ * of {@link de.planmarshall.core.role.corpus.CorpusImport} refuses bytes that are not the file's SHA-256.
  *
  * @since 0.1
  */
@@ -60,6 +61,12 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
 
     /** The read timeout of every request, in seconds. */
     public static final int READ_TIMEOUT_SECONDS = 60;
+
+    /**
+     * The most bytes one raw file may hold. A raw body longer than this is refused rather than held in memory, so a
+     * changed or hostile dataset file cannot exhaust the heap before the import's hash check runs.
+     */
+    private static final int MAX_RAW_FILE_SIZE = 64 * 1024 * 1024;
 
     /**
      * The path of the datasets of a Hugging Face repository: a dataset repository is {@code <host>/datasets/<owner>/
@@ -81,12 +88,14 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
     private final boolean cleartextLoopback;
     private final int connectTimeoutSeconds;
     private final int readTimeoutSeconds;
+    private final int maxRawFileSize;
 
     /**
-     * A repository that sends every request over {@code https}, within the compiled timeouts.
+     * A repository that sends every request over {@code https}, within the compiled timeouts and the compiled raw-file
+     * maximum.
      */
     public HuggingFaceSourceRepository() {
-        this(false, CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS);
+        this(false, CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS, MAX_RAW_FILE_SIZE);
     }
 
     /**
@@ -96,9 +105,22 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      * @param readTimeoutSeconds    the read timeout of every request
      */
     HuggingFaceSourceRepository(boolean cleartextLoopback, int connectTimeoutSeconds, int readTimeoutSeconds) {
+        this(cleartextLoopback, connectTimeoutSeconds, readTimeoutSeconds, MAX_RAW_FILE_SIZE);
+    }
+
+    /**
+     * @param cleartextLoopback     {@code true} admits plain {@code http} to a loopback address too, for a local test
+     *                              server
+     * @param connectTimeoutSeconds the connect timeout of every request
+     * @param readTimeoutSeconds    the read timeout of every request
+     * @param maxRawFileSize        the most bytes one raw file may hold
+     */
+    HuggingFaceSourceRepository(boolean cleartextLoopback, int connectTimeoutSeconds, int readTimeoutSeconds,
+            int maxRawFileSize) {
         this.cleartextLoopback = cleartextLoopback;
         this.connectTimeoutSeconds = connectTimeoutSeconds;
         this.readTimeoutSeconds = readTimeoutSeconds;
+        this.maxRawFileSize = maxRawFileSize;
     }
 
     @Override
@@ -147,8 +169,9 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
      * @param repository the repository of a source
      * @param commit     the pinned commit
      * @param path       the repository-relative path of the file
-     * @return {@link SourceFetch.Outcome#FETCHED} with the bytes as stored; {@link SourceFetch.Outcome#PIN_MISSING} on
-     *         404; {@link SourceFetch.Outcome#UNREACHABLE} otherwise or for a repository the client refuses
+     * @return {@link SourceFetch.Outcome#FETCHED} with the bytes as stored, up to the raw-file maximum;
+     *         {@link SourceFetch.Outcome#PIN_MISSING} on 404; {@link SourceFetch.Outcome#UNREACHABLE} otherwise, for a
+     *         repository the client refuses, or for a body over the raw-file maximum
      */
     SourceFetch readFile(URI repository, String commit, String path) {
         Objects.requireNonNull(repository, "repository");
@@ -187,11 +210,13 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
     }
 
     /**
-     * Reads a file at the pinned commit with one request: the bytes as stored (a {@code 2xx}), a file absent at the
-     * pin ({@code 404}), a server error or no answer (unreachable).
+     * Reads a file at the pinned commit with one request: the bytes as stored up to the raw-file maximum (a {@code
+     * 2xx}), a body over the maximum (unreachable), a file absent at the pin ({@code 404}), a server error or no answer
+     * (unreachable). The read is bounded by {@link LfsBatchClient.BoundedBody}, so a body over the maximum is never
+     * held in memory.
      */
     private SourceFetch download(URI raw) {
-        var answer = send(raw, BodyHandlers.ofByteArray());
+        var answer = send(raw, info -> new LfsBatchClient.BoundedBody((long) maxRawFileSize + 1));
         if (answer.failure().isPresent()) {
             return answer.failure().get();
         }
@@ -204,7 +229,12 @@ public final class HuggingFaceSourceRepository implements SourceRepository {
             return SourceFetch.unreachable(
                     String.format(Locale.ROOT, "the raw file %s answered %d", withoutQuery(raw), status));
         }
-        return SourceFetch.fetched(answer.response().body(), "raw file " + withoutQuery(raw));
+        var body = answer.response().body();
+        if (body.length > maxRawFileSize) {
+            return SourceFetch.unreachable(String.format(Locale.ROOT,
+                    "the raw file %s is larger than the maximum of %d bytes", withoutQuery(raw), maxRawFileSize));
+        }
+        return SourceFetch.fetched(body, "raw file " + withoutQuery(raw));
     }
 
     /**
