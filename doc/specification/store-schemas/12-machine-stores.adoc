@@ -692,7 +692,13 @@ Five single-writer records in `<PM_MCP_BASE>/state/` (mode `0600`), each with `f
 }
 ----
 
-[[credential-store-move-record]]*`state/credential-store-move.json`*: the open move between the credential stores (link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment Specification, The Move]), written only by the runtime under `locks/credentials.lock`, which the move holds for its whole duration: written with `phase: copying` at the start of a move, before the first entry is copied; rewritten once to `phase: switched` in the step that switches `credentials.store` (<<machine-config>>); and deleted when the move ends, after the last entry was deleted from the old store, or when a move that failed before the switch has deleted its copies from the target. Its absence means that no move is open. After a stop the next start reads it and resumes the move: with `copying` it deletes the copies from the target and starts again from the first entry, with `switched` it finishes the deletion from the old store. It names stores only and holds nothing secret; it is read only by the runtime, never by a job or a model.
+[[credential-store-move-record]]*`state/credential-store-move.json`*: the open move between the credential stores (link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment Specification, The Move]), written only by the runtime under `locks/credentials.lock`, which the move holds for its whole duration: written with `phase: copying` at the start of a move, before the first entry is copied; rewritten once to `phase: switched` right after the write that switches `credentials.store` (<<machine-config>>); and deleted when the move ends, after the last entry was deleted from the old store, or when a move that failed before the switch has deleted its copies from the target. Its absence means that no move is open. While it exists only the move records `credentials.store`; every other writer, the credential-store aspect included, is refused (`aspect_owned`), and the check is taken under `locks/credentials.lock`, so no writer records a store between the check and its write. After a stop the next start reads it and resumes the move:
+
+* with `phase: copying` and `credentials.store` still naming the old store, the stop fell before the switch: it deletes the copies from the target and starts again from the first entry;
+* with `phase: copying` and `credentials.store` already naming the target, the stop fell between the switch and the rewrite of the record, so the switch has happened: it rewrites the record to `switched` and finishes the deletion from the old store, and never deletes from or copies into the recorded target;
+* with `phase: switched` it finishes the deletion from the old store.
+
+It names stores only and holds nothing secret; it is read only by the runtime, never by a job or a model.
 
 [source,json]
 ----
@@ -708,7 +714,7 @@ Five single-writer records in `<PM_MCP_BASE>/state/` (mode `0600`), each with `f
     "from": { "type": "string", "enum": ["os", "file"], "description": "The store recorded in credentials.store when the move started." },
     "to": { "type": "string", "enum": ["os", "file"], "description": "The store the move switches to; never equal to from." },
     "started_at": { "type": "string", "format": "date-time", "description": "When the move started." },
-    "phase": { "type": "string", "enum": ["copying", "switched"], "description": "copying until credentials.store names to, switched from the step that switches it." }
+    "phase": { "type": "string", "enum": ["copying", "switched"], "description": "copying until the record is rewritten after the switch, switched from then on; between the switch of credentials.store to to and the rewrite the record still says copying." }
   }
 }
 ----

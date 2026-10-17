@@ -27,7 +27,9 @@ to one store would read the key from the old store after a move (question q3 of 
   call would answer the file store during a transient outage, and the next create would write a second key into the
   key file, under which sidecars signed with the first key fail as `enrolment_tampered`.
 * The constructor with one `SecretStore` stays and delegates with a supplier of that store.
-* Nothing is re-signed: after a move the key is read from the store now recorded, and every sidecar verifies under it.
+* Nothing is re-signed: after the first recording, which carries the key into the recorded store
+  (link:../runtime-credentials/006-the-first-recording-carries-the-integrity-key.adoc[`runtime-credentials` ADR 006]),
+  and after a move the key is read from the store now recorded, and every sidecar verifies under it.
 
 Rationale not recorded.
 

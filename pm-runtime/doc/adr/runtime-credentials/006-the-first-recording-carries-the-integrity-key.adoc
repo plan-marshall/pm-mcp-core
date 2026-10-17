@@ -1,0 +1,60 @@
+= ADR 006: The First Recording Carries the Integrity Key
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The harness enrolment and the audit head need the enrolment integrity key before the operator records a credential
+store, so until then the key lives in the store the runtime finds: the OS store where one is available, else the key
+file (`CredentialStoreChoice.integrityKeyStore()`). Once a store is recorded, the key is read from the recorded store.
+Where the operator first records the other store than the one the key was found in, the recorded store held no key:
+`EnrolmentKey.readOrCreate()` then created a second key, and every sidecar signed before the choice failed as
+`enrolment_tampered`. A later move did not repair it, since a move finds no key in the old store and takes that as
+nothing signed. A move cannot follow from "nothing recorded" either, because it is refused with
+`onboarding_incomplete`. Both reviews of the work package found the gap; at its finalize the operator decided to close
+it in the work package.
+
+== Decision
+
+* The credential-store aspect records its store through `CredentialStoreChoice.record(LockManager, String, Store)`, in a
+  transaction of its own; the transactional `record(LockTransaction, Store, Writer)` is the switch of the move alone and
+  refuses the aspect.
+* At the first recording, where the store being recorded is not the store the key was found in and the found store
+  holds a key, the key is carried with the discipline of the move (ADR 004): copied into the store being recorded and
+  read back, every HMAC sidecar verified under the key read back in a transaction of its own (`EnrolmentSidecars`),
+  `credentials.store` switched in one write, and only then the key deleted from the found store.
+* A target that holds the same key already is not written again. A target that holds another key, a key that does not
+  read back, or a sidecar that does not verify fails with `credential_store_failed`: nothing is recorded, the copy is
+  removed from the target and the found store keeps the key. Where no key exists yet nothing is carried.
+* The copy, read-back and sidecar verification the move and the first recording share are `IntegrityKeyCarry`.
+
+The decision is the operator's, taken at the finalize of the work package.
+
+== Alternatives Considered
+
+* Leaving the key where it was found and reading it from there after the choice: not taken, since the runtime serves
+  from the recorded store alone (ADR 001), and the key is a credential of the operator lane.
+* Re-signing every sidecar under a new key in the recorded store: not taken, since the sidecars are never re-signed on
+  a change of the store, and a re-signing would vouch for files whose integrity nothing checked.
+
+== Consequences
+
+* Once a store is recorded it holds the key every sidecar was signed under, and no second key is created there.
+* The lock order of the move holds for the first recording: credentials, then, in the transaction of the
+  verification, the enrolment locks, `harnesses` and the audit leaf, then `machine-config` in the recording's
+  transaction.
+* A key that cannot be deleted from the found store after the switch fails the call with the reason of that store; the
+  recording stands, and the key is in both stores.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment § Credential Store as an Operator Choice]
+* link:004-move-copies-the-key-last-and-switches-once.adoc[ADR 004: The Move Copies the Key Last and Switches Once]

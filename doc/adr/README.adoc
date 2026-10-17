@@ -42,7 +42,7 @@ The repository:
 `pm-runtime`:
 
 * link:../../pm-runtime/doc/adr/runtime-audit/[`pm-runtime/doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
-* link:../../pm-runtime/doc/adr/runtime-credentials/[`pm-runtime/doc/adr/runtime-credentials/`]: the recorded credential store and the move between the stores.
+* link:../../pm-runtime/doc/adr/runtime-credentials/[`pm-runtime/doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
 * link:../../pm-runtime/doc/adr/runtime-enrolment/[`pm-runtime/doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:../../pm-runtime/doc/adr/runtime-job/[`pm-runtime/doc/adr/runtime-job/`]: the verification of a job.
 * link:../../pm-runtime/doc/adr/runtime-lock/[`pm-runtime/doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.

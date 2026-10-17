@@ -58,7 +58,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 == ADRs
 
 * link:doc/adr/runtime-audit/[`doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
-* link:doc/adr/runtime-credentials/[`doc/adr/runtime-credentials/`]: the recorded credential store and the move between the stores.
+* link:doc/adr/runtime-credentials/[`doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
 * link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.

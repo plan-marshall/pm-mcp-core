@@ -25,11 +25,15 @@ move could land in the old store after it was copied, and a stop may cut the mov
 * The record `state/credential-store-move.json` (`CredentialStoreMoveRecord`: `from`, `to`, `started_at`, `phase`) is
   written under the credentials lock in phase `copying`, rewritten once in phase `switched`, and deleted when the
   move ends.
+* While the record exists only the move records `credentials.store`: `CredentialStoreChoice` refuses every other
+  writer, the credential-store aspect included, with `aspect_owned`, and checks the record under the credentials lock
+  before it takes `locks/machine-config.lock`, so no writer records a store between the check and its write.
 * `credentials.store` is switched before the record is marked `switched`, and only after every entry and the key were
-  copied and verified. A stop between the two leaves a record in phase `copying` while the target is recorded; the
-  resume decides the phase from the recorded store as well as from the record, treats that move as switched and
-  finishes the deletion from the old store. A stop before the switch leaves the old store recorded and holding every
-  entry, from which the resume copies again; a stop never deletes the only copy of an entry.
+  copied and verified. A stop between the two leaves a record in phase `copying` while the target is recorded; since
+  no other writer records a store while the record exists, that state is the move's own switch, and the resume
+  decides the phase from the recorded store as well as from the record, treats that move as switched and finishes the
+  deletion from the old store. A stop before the switch leaves the old store recorded and holding every entry, from
+  which the resume copies again; a stop never deletes the only copy of an entry.
 * A failure before the switch deletes the record and fails with `credential_store_failed`; it deletes the copies only
   while the old store is recorded, so the clean-up never deletes from the recorded store.
 * `EnrolmentKey` gained the public `write(SecretKey)` and `delete()` for the copy and the deletion of the key.
@@ -42,10 +46,16 @@ Rationale not recorded beyond the order the specification gives and the stop tha
 
 * Marking the record `switched` before switching the store: not taken, since a stop between the two would let the
   resume delete from the old store entries that the recorded store does not yet name.
+* Letting the aspect record a store while a move is open: not taken, since a store the aspect recorded after the copy
+  of the entries reads to the resume as the move's own switch, and the deletion from the old store would then remove
+  the only copies; the clean-up of a failed move had the same window between reading the recorded store and deleting
+  the copies.
 
 == Consequences
 
 * No credential is written while a move runs; a writer waits for the credentials lock.
+* No store is recorded while a move record exists, also after a stop until the resume ends the move; the aspect is
+  refused with `aspect_owned` until then.
 * `resume()` decides on the phase of the record and the recorded store: `copying` with the old store recorded starts
   again from the first entry; `switched`, or `copying` with the target recorded, finishes the deletion.
 * A later change keeps the lock order: credentials before the enrolment locks, `harnesses` and `machine-config`.

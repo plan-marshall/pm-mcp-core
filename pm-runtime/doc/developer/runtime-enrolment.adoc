@@ -14,14 +14,14 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-cr
 
 Package `de.planmarshall.runtime.enrolment` of `pm-runtime` holds the runtime's side of the enrolment store of
 `pm-core`: the integrity key, the HMAC of the enrolment files, the per-use checks, the enrolment check and the
-enrolment operations. This guide covers what the work package `credential-store-choice` (PLAN-74) added and changed
-in it, all for the move between the credential stores (link:runtime-credentials.adoc[`runtime.credentials`]):
+enrolment operations. This guide covers the parts that serve the recorded credential store
+(link:runtime-credentials.adoc[`runtime.credentials`]):
 
-* `EnrolmentKey` reads the integrity key from the store a supplier gives on every read, so after a move the key is
-  read from the store now recorded and nothing is re-signed.
+* `EnrolmentKey` reads the integrity key from the store a supplier gives on every read, so after the first recording
+  of a store and after a move the key is read from the store now recorded and nothing is re-signed.
 * `HarnessesSidecarCheck` verifies `harnesses.json` against its sidecar under a given key.
-* `EnrolmentSidecars` verifies every HMAC sidecar of the machine under one key: what the move verifies under the
-  moved key before it switches the store.
+* `EnrolmentSidecars` verifies every HMAC sidecar of the machine under one key: what the first recording and the move
+  verify under the carried key before they switch the store.
 
 The earlier decisions of the package are its ADRs 001 to 004 in link:../adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`].
 
@@ -42,8 +42,14 @@ answering the first `Failure` (file and reason) or nothing.
 _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 The harness enrolment and the audit head need the key before the operator records a credential store. Until then the
-key lives where the runtime finds a store: in the OS store where one is available, else in the key file. Once a store
-is recorded it lives there, and the move carries it like every other entry.
+key lives where the runtime finds a store: in the OS store where one is available, else in the key file. The first
+recording of a store carries the key into it: where the found store is the other one and holds a key, the key is
+copied into the store being recorded, read back, and every sidecar is verified under the key read back before
+`credentials.store` is switched; the key is then deleted from the found store
+(link:../adr/runtime-credentials/006-the-first-recording-carries-the-integrity-key.adoc[`runtime-credentials` ADR
+006]). A sidecar that does not verify under the carried key records nothing, and the key stays in the found store. So
+once a store is recorded it holds the key every sidecar was signed under, `readOrCreate()` creates no second key, and
+the move carries the key like every other entry.
 
 `EnrolmentKey(Supplier<SecretStore> activeStore, Path stateDirectory, String user, SecureRandom random)` asks the
 supplier for the store on every `read()`, `readOrCreate()`, `write(SecretKey)` and `delete()`. The supplier meant for
@@ -52,13 +58,13 @@ store before; wiring it is the assembly's
 (link:../adr/runtime-enrolment/005-integrity-key-through-a-supplier-of-the-active-store.adoc[ADR 005]). Where
 the store is the file store (`name()` is `file`) the key is the key file, otherwise the keyring entry.
 
-The constructor with a `SecretStore` delegates to the supplier constructor with that one store; the move uses it to
-reach the key in a store that is not recorded.
+The constructor with a `SecretStore` delegates to the supplier constructor with that one store; the move and the
+first recording use it to reach the key in a store that is not recorded.
 
-`write(SecretKey)` and `delete()` exist for the move alone. `write` writes the keyring entry, replacing what it holds,
-or creates the key file atomically and keeps a key file that exists already, so the caller reads the key back and
-compares it before it relies on the copy. `delete` removes the keyring entry or the key file. The caller of both holds
-the credentials lock (`EnrolmentKey.creationLock`), as the move does.
+`write(SecretKey)` and `delete()` exist for the move and the first recording alone. `write` writes the keyring entry,
+replacing what it holds, or creates the key file atomically and keeps a key file that exists already, so the caller
+reads the key back and compares it before it relies on the copy. `delete` removes the keyring entry or the key file.
+The caller of both holds the credentials lock (`EnrolmentKey.creationLock`).
 
 == The Harness Enrolment Sidecar
 
@@ -97,10 +103,10 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-cr
 
 The locks are taken in the total lock order: the enrolment locks, then `harnesses`, the audit leaf last. A caller that
 holds `locks/credentials.lock` keeps the order, and the transaction can take no lock after the verification, which is
-why the move verifies in a transaction of its own. The first failure names the file and the reason. Nothing is
-written, logged or audited, and the refusals of the enrolment check stay with the enrolment check.
+why the move and the first recording verify in a transaction of their own. The first failure names the file and the
+reason. Nothing is written, logged or audited, and the refusals of the enrolment check stay with the enrolment check.
 
-The move calls it with the key read back from the target store. The three kinds are verified here, in `pm-runtime`,
+The move and the first recording call it with the key read back from the target store. The three kinds are verified here, in `pm-runtime`,
 with no seam for the assembly
 (link:../adr/runtime-credentials/005-the-move-verifies-every-sidecar-in-the-runtime.adoc[`runtime-credentials` ADR
 005]).
@@ -113,8 +119,9 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
 link:{test}/EnrolmentKeyTest.java[`EnrolmentKeyTest`]:: The supplier asked on every read and every create; a switch of
 the supplier from the file store to a keyring reading the moved key; a key that was not moved absent in the newly
 given store; before the choice the key created in the found OS store, else in the key file; with `file` recorded the
-key file as the key of the choice; the constructor with one store as before. `write` and `delete` are exercised by
-the move (`CredentialStoreMoveTest`).
+key file as the key of the choice; the first recording of `file` carrying the key the OS store held, with no second key
+created; the constructor with one store as before. `write` and `delete` are exercised by the move
+(`CredentialStoreMoveTest`) and the first recording (`CredentialStoreChoiceTest`).
 link:{test}/HarnessesSidecarCheckTest.java[`HarnessesSidecarCheckTest`]:: A file and sidecar passing under their key and
 failing under another; both absent passing; a missing half; a changed byte failing on the digest; the right digest
 with a wrong HMAC; mode `0644` and a symbolic link failing as insecure; an unreadable sidecar; the lock
@@ -130,7 +137,8 @@ _Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
 
 1. **Ask the supplier, never cache the store**: a store kept from an earlier read reads the key from the old store
    after a move.
-2. **Never re-sign on a move**: the key moves; every sidecar stays as it was and is verified under the moved key.
+2. **Never re-sign on a move or the first recording**: the key is carried; every sidecar stays as it was and is
+   verified under the carried key.
 3. **Do not parse `harnesses.json` here**: the check verifies bytes against the sidecar only; the schema belongs to the
    harness enrolment store of the worker launch.
 4. **Audit leaf last**: no lock may be taken in the transaction after `EnrolmentSidecars.verify`.
