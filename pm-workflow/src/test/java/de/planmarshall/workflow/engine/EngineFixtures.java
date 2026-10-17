@@ -347,14 +347,31 @@ final class EngineFixtures {
         return plan(start, states + PLAN_RETURN);
     }
 
+    /** The entry the fixture sub-workflows bind, which a frame of {@link #frame(String, String, String)} records. */
+    static final String MAIN_ENTRY = "main";
+
     /**
      * @param callerWorkflowId the calling unit
      * @param callerStateId    the calling state
      * @param subworkflowId    the called sub-workflow
-     * @return a frame of the store without bound arguments, pushed at {@link #T0} in {@link #EXECUTE}
+     * @return a frame of the store through the entry {@link #MAIN_ENTRY} without bound arguments, pushed at
+     *         {@link #T0} in {@link #EXECUTE}
      */
     static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId) {
-        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, EXECUTE, subworkflowId, Map.of(), T0);
+        return frame(callerWorkflowId, callerStateId, subworkflowId, MAIN_ENTRY);
+    }
+
+    /**
+     * @param callerWorkflowId the calling unit
+     * @param callerStateId    the calling state
+     * @param subworkflowId    the called sub-workflow
+     * @param entry            the entry of the sub-workflow the call went through
+     * @return a frame of the store without bound arguments, pushed at {@link #T0} in {@link #EXECUTE}
+     */
+    static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId,
+            String entry) {
+        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, EXECUTE, subworkflowId, entry, Map.of(),
+                T0);
     }
 
     /**

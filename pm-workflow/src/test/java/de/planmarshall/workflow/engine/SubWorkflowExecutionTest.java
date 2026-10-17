@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -45,6 +46,7 @@ import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
+import de.planmarshall.core.store.WorkflowStatusCodec;
 import de.planmarshall.workflow.ast.CallFrame;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.ResultGuard;
@@ -322,7 +324,7 @@ class SubWorkflowExecutionTest {
     class Call {
 
         @Test
-        @DisplayName("Should push a frame with the bound arguments and pushed_at, and keep the caller's phase")
+        @DisplayName("Should push a frame with the sole entry, the arguments and pushed_at, and keep the caller's phase")
         void shouldPushFrame() {
             var pushedAt = fixtures.clock.tick(Duration.ofSeconds(5));
             var engine = argsEngine();
@@ -337,12 +339,12 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals("sub.wait", resting.stateId()),
                     () -> assertEquals(EXECUTE, resting.status().phase()),
                     () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE,
-                            "sub.args", expectedArgs, pushedAt)), resting.status().callStack()));
+                            "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack()));
         }
 
         @ParameterizedTest(name = "entry {0} -> {1}")
         @MethodSource("de.planmarshall.workflow.engine.SubWorkflowExecutionTest#namedEntries")
-        @DisplayName("Should enter the state the named entry binds")
+        @DisplayName("Should enter the state the named entry binds and push a frame with that entry")
         void shouldEnterNamedEntry(String entry, String expectedState) {
             var engine = twoEntriesEngine("call sub.two entry " + entry);
 
@@ -351,11 +353,28 @@ class SubWorkflowExecutionTest {
             assertAll(
                     () -> assertEquals(expectedState, resting.stateId()),
                     () -> assertEquals(List.of("sub.two"), resting.status().callStack().stream()
-                            .map(WorkflowStatus.CallFrame::subworkflowId).toList()));
+                            .map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                    () -> assertEquals(List.of(entry), resting.status().callStack().stream()
+                            .map(WorkflowStatus.CallFrame::entry).toList()));
+        }
+
+        @ParameterizedTest(name = "entry {0}")
+        @MethodSource("de.planmarshall.workflow.engine.SubWorkflowExecutionTest#namedEntries")
+        @DisplayName("Should write the entry of the pushed frame with the status of the call")
+        void shouldWriteEntryWithStatus(String entry, String expectedState) {
+            var engine = twoEntriesEngine("call sub.two entry " + entry);
+
+            var status = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var written = new String(WorkflowStatusCodec.write(status), StandardCharsets.UTF_8);
+
+            assertAll(
+                    () -> assertEquals(expectedState, status.state()),
+                    () -> assertTrue(written.contains("\"subworkflow_id\":\"sub.two\",\"entry\":\"" + entry + "\""),
+                            written));
         }
 
         @Test
-        @DisplayName("Should enter the sole entry of a callee when the call names none")
+        @DisplayName("Should enter the sole entry of a callee when the call names none, and record it on the frame")
         void shouldEnterSoleEntry() {
             var engine = argsEngine();
             var callee = parse("sub.pmwf", SUB_ARGS);
@@ -364,7 +383,8 @@ class SubWorkflowExecutionTest {
 
             assertAll(
                     () -> assertEquals(List.of("main"), List.copyOf(callee.entryBindings().keySet())),
-                    () -> assertEquals(callee.entryBindings().get("main").stateId(), resting.stateId()));
+                    () -> assertEquals(callee.entryBindings().get("main").stateId(), resting.stateId()),
+                    () -> assertEquals("main", resting.status().callStack().getFirst().entry()));
         }
 
         @Test
@@ -415,7 +435,9 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals(List.of("execute.invoke", "d1.step", "d2.step", "d3.step"),
                             frames.stream().map(WorkflowStatus.CallFrame::callerStateId).toList()),
                     () -> assertEquals(List.of("sub.d1", "sub.d2", "sub.d3", "sub.d4"),
-                            frames.stream().map(WorkflowStatus.CallFrame::subworkflowId).toList()));
+                            frames.stream().map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                    () -> assertEquals(List.of("main", "main", "main", "main"),
+                            frames.stream().map(WorkflowStatus.CallFrame::entry).toList()));
         }
     }
 
@@ -597,7 +619,7 @@ class SubWorkflowExecutionTest {
     @DisplayName("CallStack value")
     class CallStackValue {
 
-        private final CallFrame frame = new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args",
+        private final CallFrame frame = new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
                 Map.of("mode", new CallValue.EnumValue("strict")), T0.toString());
 
         @Test
@@ -615,7 +637,7 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should pop exactly one frame, unwind every frame top first, and refuse to pop an empty stack")
         void shouldPopAndUnwind() {
-            var other = new CallFrame("sub.args", "sub.wait", EXECUTE, "sub.commit", Map.of(), T0.toString());
+            var other = new CallFrame("sub.args", "sub.wait", EXECUTE, "sub.commit", "main", Map.of(), T0.toString());
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
@@ -631,22 +653,26 @@ class SubWorkflowExecutionTest {
         }
 
         @Test
-        @DisplayName("Should convert every kind of bound argument to the store and back")
+        @DisplayName("Should convert the entry and every kind of bound argument to the store and back")
         void shouldRoundTripThroughStore() {
             var args = new LinkedHashMap<String, CallValue>();
             args.put("mode", new CallValue.EnumValue("strict"));
             args.put("rounds", new CallValue.IntValue(3));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
-            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", args,
-                    T0.toString()));
+            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "repair",
+                    args, T0.toString()));
 
-            assertEquals(stack, CallStack.fromStore(stack.toStore()));
+            var stored = stack.toStore();
+
+            assertAll(
+                    () -> assertEquals("repair", stored.getFirst().entry()),
+                    () -> assertEquals(stack, CallStack.fromStore(stored)));
         }
 
         @Test
         @DisplayName("Should refuse a stored integer argument outside the range of a call value")
         void shouldRefuseOversizedInteger() {
-            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args",
+            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
             var storedFrames = List.of(stored);
 
@@ -661,7 +687,10 @@ class SubWorkflowExecutionTest {
 
             var stack = CallStack.fromStore(status.callStack());
 
-            assertEquals("sub.commit", stack.top().orElseThrow().subWorkflowId());
+            var top = stack.top().orElseThrow();
+            assertAll(
+                    () -> assertEquals("sub.commit", top.subWorkflowId()),
+                    () -> assertEquals(EngineFixtures.MAIN_ENTRY, top.entry()));
         }
     }
 }

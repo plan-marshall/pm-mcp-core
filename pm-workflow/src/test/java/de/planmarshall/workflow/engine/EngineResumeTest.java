@@ -224,8 +224,29 @@ class EngineResumeTest {
                 () -> assertEquals("work.run", stored.state()),
                 () -> assertEquals(first.callStack(), stored.callStack()),
                 () -> assertEquals("sub.worker", stored.callStack().getFirst().subworkflowId()),
+                () -> assertEquals("main", stored.callStack().getFirst().entry()),
                 () -> assertEquals("execute.invoke", stored.callStack().getFirst().callerStateId()),
                 () -> assertEquals("b-0000000000000001", stored.activeJobBinding().orElseThrow().jobId()));
+    }
+
+    @Test
+    @DisplayName("Should keep the entry of a stored frame across a restart and return into the caller as before")
+    void shouldKeepEntryAndReturnAfterRestart() {
+        var first = restart().engine().start(JournalScopeType.PLAN, PLAN_ID).status();
+        committed(transaction -> persist(transaction, first));
+        var stored = read();
+        var restarted = restart();
+
+        var waited = restarted.engine().advance(stored);
+        var returned = committed(transaction -> restarted.engine().advance(stored, EVENTS.getFirst(),
+                new WorkflowStatusStore(scope), transaction));
+
+        assertAll(
+                () -> assertEquals("main", stored.callStack().getFirst().entry()),
+                () -> assertEquals(stored.callStack(), waited.status().callStack()),
+                () -> assertEquals("execute.review", returned.status().state()),
+                () -> assertTrue(returned.status().callStack().isEmpty()),
+                () -> assertEquals(returned.status(), read()));
     }
 
     @Test

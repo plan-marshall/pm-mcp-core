@@ -63,9 +63,10 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <ul>
  * <li>an {@code auto} state runs its primitive through the {@link PrimitiveRegistry} and takes the transition of the
  * returned outcome;</li>
- * <li>a {@code call} state pushes a frame (the calling unit and state, the caller's phase, the sub-workflow and its
- * bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the sub-workflow at the state its
- * entry binds, the entry the call names or the callee's sole entry when the call names none; a state
+ * <li>a {@code call} state pushes a frame (the calling unit and state, the caller's phase, the sub-workflow, the entry
+ * the call goes through, the bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the
+ * sub-workflow at the state that entry binds, the entry the call names or the callee's sole entry when the call names
+ * none; the frame and its entry are written with the status in the transaction of the call; a state
  * that declares {@code phase inherit} keeps the caller's phase;</li>
  * <li>a terminal state of a sub-workflow pops exactly one frame and takes the calling state's transition of the
  * returned outcome; of an outcome routed twice, the one whose result guard holds over the frame's result record, the
@@ -704,32 +705,33 @@ public final class WorkflowEngine {
 
         private String call(StateNode node, StateBehavior.SubWorkflowCall call) {
             var callee = verifiedUnit(call.subWorkflowId());
-            var frame = new CallFrame(unitOf(stack).id(), node.id(), status.phase(), callee.id(),
+            var entry = entryOf(callee, call);
+            var frame = new CallFrame(unitOf(stack).id(), node.id(), status.phase(), callee.id(), entry,
                     call.paramBindings(), clock.now().toString());
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());
-            return entryStateOf(callee, call);
+            return callee.entryBindings().get(entry).stateId();
         }
 
         /**
-         * The state a call enters its callee at: the state the named entry binds, or the state of the callee's sole
-         * entry when the call names none.
+         * The entry a call goes through, which its frame records and whose bound state the call enters: the entry the
+         * call names, or the callee's sole entry when the call names none.
          */
-        private String entryStateOf(WorkflowDefinition callee, StateBehavior.SubWorkflowCall call) {
+        private String entryOf(WorkflowDefinition callee, StateBehavior.SubWorkflowCall call) {
             var bindings = callee.entryBindings();
             if (call.entry().isPresent()) {
-                var binding = bindings.get(call.entry().get());
-                if (binding == null) {
+                var entry = call.entry().get();
+                if (!bindings.containsKey(entry)) {
                     throw fault(Reason.UNRESOLVED_NAME, "the sub-workflow '%s' binds no entry '%s'", callee.id(),
-                            call.entry().get());
+                            entry);
                 }
-                return binding.stateId();
+                return entry;
             }
             if (bindings.size() != 1) {
                 throw fault(Reason.UNRESOLVED_NAME, "the call of '%s' names no entry, and the callee binds %s entries",
                         callee.id(), bindings.size());
             }
-            return bindings.values().iterator().next().stateId();
+            return bindings.keySet().iterator().next();
         }
 
         /**

@@ -312,11 +312,12 @@ class AstNodeModelTest {
             bindings.put("m", new CallValue.EnumList(List.of("p", "q")));
 
             var call = new StateBehavior.SubWorkflowCall("git.commit_and_push", Optional.empty(), bindings, List.of());
-            var frame = new CallFrame("plan", "execute.commit", "execute", "git.commit_and_push", bindings,
+            var frame = new CallFrame("plan", "execute.commit", "execute", "git.commit_and_push", "commit", bindings,
                     "2026-01-01T00:00:00Z");
             var boundArgs = frame.boundArgs();
 
             assertAll(
+                    () -> assertEquals("commit", frame.entry()),
                     () -> assertEquals(List.of("z", "a", "m"), List.copyOf(call.paramBindings().keySet())),
                     () -> assertEquals(List.of("z", "a", "m"), List.copyOf(boundArgs.keySet())),
                     () -> assertThrows(UnsupportedOperationException.class, boundArgs::clear));
