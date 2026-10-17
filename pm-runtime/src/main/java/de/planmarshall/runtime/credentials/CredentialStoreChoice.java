@@ -305,7 +305,18 @@ public final class CredentialStoreChoice {
         var store = recorded().orElseThrow(() -> new Refusal(Refusal.Reason.ONBOARDING_INCOMPLETE,
                 "no credential store is recorded yet; record one in the '%s' step of the machine's onboarding"
                         .formatted(STORE_STEP)));
-        return store == Store.FILE ? fileStore : new RecordedOsStore();
+        return store(store);
+    }
+
+    /**
+     * Gives one of the two stores, whether it is recorded or not: what the store move copies from and into. The OS
+     * store is probed before every operation, like the recorded one.
+     *
+     * @param store the store
+     * @return the file store below {@code <PM_MCP_BASE>/credentials}, or the OS store of the platform
+     */
+    SecretStore store(Store store) {
+        return Objects.requireNonNull(store, "store") == Store.FILE ? fileStore : new RecordedOsStore();
     }
 
     /**

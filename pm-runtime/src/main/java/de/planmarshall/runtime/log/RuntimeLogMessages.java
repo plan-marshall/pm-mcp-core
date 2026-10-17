@@ -264,6 +264,27 @@ public final class RuntimeLogMessages {
                 .identifier(26)
                 .template("Credential store '%s' recorded by %s, machine configuration revision %s")
                 .build();
+
+        /**
+         * Logged by {@code CredentialStoreMove} when a move between the credential stores starts, after its record
+         * {@code state/credential-store-move.json} was written, with the old and the new store.
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVE_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(27)
+                .template("Credential store move from '%s' to '%s' started")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreMove} when a move between the credential stores has ended: the new store is
+         * recorded, the old one is empty and the record is deleted; with the old and the new store and the number of
+         * Token Lane entries moved (the integrity key not counted). Never names an entry's secret.
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(28)
+                .template("Credential store moved from '%s' to '%s', %s entries")
+                .build();
     }
 
     /** WARN level messages. */
@@ -530,6 +551,17 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(128)
                 .template("Recorded credential store '%s' unavailable, no other store serves: %s")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreMove} when a move fails before the switch (a copy, a read-back or the
+         * verification of a sidecar under the moved key failed): the copies are deleted from the target, the record
+         * is deleted and the old store stays recorded; with the old and the new store and the cause, never a secret.
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(129)
+                .template("Credential store move from '%s' to '%s' failed, nothing switched and '%s' stays recorded: %s")
                 .build();
     }
 

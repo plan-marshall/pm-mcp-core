@@ -196,6 +196,57 @@ public final class EnrolmentKey {
                 () -> unavailable(store, new SecretStoreException(SecretStoreException.Reason.FAILED, vanished)));
     }
 
+    /**
+     * Writes a key into the store the supplier gives: the copy of the credential-store move, which carries the key
+     * from one store to the other. In a keyring the entry under {@value #ACCOUNT} is written, replacing what it holds;
+     * in the file store the key file is created atomically, and a key file that exists already is kept. The caller
+     * therefore reads the key back ({@link #read()}) and compares it before it relies on the copy. The caller holds
+     * {@link #creationLock(Path)}.
+     *
+     * @param key the key to write, 256 bits
+     * @throws SecretStoreException if the key cannot be written
+     */
+    public synchronized void write(SecretKey key) {
+        Objects.requireNonNull(key, "key");
+        var store = currentStore();
+        var bytes = key.getEncoded();
+        try {
+            create(store, Base64.getUrlEncoder().withoutPadding().encodeToString(bytes));
+        } finally {
+            Arrays.fill(bytes, (byte) 0);
+        }
+    }
+
+    /**
+     * Deletes the key from the store the supplier gives: the keyring entry under {@value #ACCOUNT}, or the key file.
+     * Only the credential-store move deletes the key, from the store it moved the key out of, or from the target of a
+     * move that failed before the switch. The caller holds {@link #creationLock(Path)}.
+     *
+     * @return whether a key was deleted
+     * @throws SecretStoreException if the key cannot be deleted
+     */
+    public synchronized boolean delete() {
+        var store = currentStore();
+        if (!inKeyFile(store)) {
+            try {
+                return store.delete(CredentialAccount.global(ACCOUNT));
+            } catch (SecretStoreException e) {
+                throw unavailable(store, e);
+            }
+        }
+        boolean deleted;
+        try {
+            deleted = Files.deleteIfExists(keyFile);
+        } catch (IOException e) {
+            throw unavailable(store, new SecretStoreException(SecretStoreException.Reason.FAILED,
+                    "key file %s cannot be deleted".formatted(keyFile), e));
+        }
+        if (deleted) {
+            forceStateDirectory();
+        }
+        return deleted;
+    }
+
     /** @return the key file below the state directory, used where the key lives in the file store */
     public Path keyFile() {
         return keyFile;

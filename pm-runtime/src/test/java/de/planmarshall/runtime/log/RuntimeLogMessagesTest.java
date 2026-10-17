@@ -144,6 +144,25 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> credentialStoreMoveRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVE_STARTED, "PM_RUNTIME-27",
+                        "Credential store move from '%s' to '%s' started"),
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVED, "PM_RUNTIME-28",
+                        "Credential store moved from '%s' to '%s', %s entries"),
+                Arguments.of(RuntimeLogMessages.WARN.CREDENTIAL_STORE_MOVE_FAILED, "PM_RUNTIME-129",
+                        "Credential store move from '%s' to '%s' failed, nothing switched and '%s' stays recorded: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("credentialStoreMoveRecords")
+    @DisplayName("the records of the move between the credential stores")
+    void credentialStoreMove(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     @Test
     @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
     void fileStoreFallbackRemoved() throws Exception {
