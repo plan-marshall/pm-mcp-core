@@ -32,7 +32,7 @@ import de.planmarshall.workflow.ast.UnitType;
 /**
  * Reads the frontmatter a unit opens with into a {@link UnitFrontmatter} (PM-IMPL-5): the closed, line-oriented
  * subset of YAML between the two {@code ---} lines, read by this parser of its own and never by a general YAML loader,
- * so no tag, anchor, alias or merge key is ever resolved (PM-WATCH-DSL-36). It reads the frontmatter alone and stops at
+ * so no tag, anchor, alias or merge key is ever resolved. It reads the frontmatter alone and stops at
  * the closing {@code ---}, so a unit's name, description, type and interface can be shown without its body, and the
  * body need not be parseable.
  * <p>

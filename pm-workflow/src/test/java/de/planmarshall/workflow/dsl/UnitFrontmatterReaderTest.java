@@ -39,7 +39,7 @@ import de.planmarshall.workflow.ast.UnitType;
  * The reader of the unit frontmatter (PM-IMPL-5): a valid frontmatter is read field by field, and every form outside
  * its closed, line-oriented subset and every field bound is refused with the rule {@link RefusalRule#FRONTMATTER}, the
  * line and the column. A general YAML loader resolves tags, anchors, aliases and merge keys, which is the hazard the
- * reader of its own closes (PM-WATCH-DSL-36).
+ * reader of its own closes.
  */
 @DisplayName("UnitFrontmatterReader")
 class UnitFrontmatterReaderTest {
