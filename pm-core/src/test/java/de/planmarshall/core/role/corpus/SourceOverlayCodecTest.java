@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -63,6 +64,7 @@ class SourceOverlayCodecTest {
         members.put("role", "\"screening\"");
         members.put("title", "\"sample question " + key + "\"");
         members.put("tags", "[\"imported\"]");
+        members.put("group", "null");
         members.put("question", "\"{question}\"");
         members.put("facts", "\"Subject: {subject}\"");
         members.put("choices", "[\"{option_a}\",\"{option_b}\"]");
@@ -71,6 +73,7 @@ class SourceOverlayCodecTest {
                 + "\"alternatives\":[],\"items\":[],\"expected_empty\":false}");
         members.put("grading", "{\"method\":\"exact_choice\",\"judge\":null,\"pass_threshold\":null}");
         members.put("review", "{\"status\":\"draft\",\"by\":null,\"date\":null,\"notes\":null}");
+        members.put("contamination", "null");
         return members;
     }
 
@@ -226,7 +229,7 @@ class SourceOverlayCodecTest {
         @Test
         @DisplayName("an undeclared field of a row is refused")
         void undeclaredRowField() {
-            assertUnreadable(refusalOf(withRow("group", "\"g\"")), "undeclared field 'group'");
+            assertUnreadable(refusalOf(withRow("context", "[]")), "undeclared field 'context'");
         }
 
         @Test
@@ -373,11 +376,11 @@ class SourceOverlayCodecTest {
         /** A valid row with the given answer schema. */
         private static SourceOverlay.Row row(JsonValue answerSchema) {
             return new SourceOverlay.Row("q-1", "q-1", "screening/sample-set", "screening", "sample question",
-                    List.of("imported"), "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"),
-                    answerSchema,
+                    List.of("imported"), null, "{question}", "Subject: {subject}",
+                    List.of("{option_a}", "{option_b}"), answerSchema,
                     new ImportedItem.Target("{option_a}", "the first option holds", List.of(), List.of(), false),
                     new ImportedItem.Grading(GradingMethod.EXACT_CHOICE, null, null),
-                    new ImportedItem.Review(ReviewStatus.DRAFT, null, null, null));
+                    new ImportedItem.Review(ReviewStatus.DRAFT, null, null, null), null);
         }
 
         static Stream<Arguments> nonObjectValues() {
@@ -406,6 +409,129 @@ class SourceOverlayCodecTest {
             assertAll(
                     () -> assertEquals(schema, row(schema).answerSchema()),
                     () -> assertNull(row(null).answerSchema()));
+        }
+    }
+
+    @Nested
+    @DisplayName("the group and the contamination note of a row")
+    class GroupAndContamination {
+
+        private static final String GROUP = "sample-set/q {shared}";
+        private static final String CONTAMINATION = "shares its subject with screening/sample-set/q-2";
+
+        private static List<String> overlaySchemaErrors(byte[] document) {
+            var schema = JsonValue.parse(
+                    CorpusSchemaResourcesTest.resource("source-overlay.schema.json").getBytes(StandardCharsets.UTF_8));
+            return SchemaSubset.validate(JsonValue.parse(document), schema);
+        }
+
+        private static byte[] withMembers(String group, String contamination) {
+            var row = rowMembers("q-1", "q-1");
+            row.put("group", group);
+            row.put("contamination", contamination);
+            return with("rows", "[" + object(row) + "]");
+        }
+
+        @Test
+        @DisplayName("both present are read as written, round trip and are accepted by the schema")
+        void present() {
+            var document = withMembers("\"" + GROUP + "\"", "\"" + CONTAMINATION + "\"");
+
+            var overlay = SourceOverlayCodec.read(FILE, document);
+            var written = SourceOverlayCodec.write(overlay);
+            var reread = SourceOverlayCodec.read(FILE, written);
+
+            var row = overlay.rows().getFirst();
+            assertAll(
+                    () -> assertEquals(GROUP, row.group()),
+                    () -> assertEquals(CONTAMINATION, row.contamination()),
+                    () -> assertEquals(overlay, reread),
+                    () -> assertArrayEquals(written, SourceOverlayCodec.write(reread)),
+                    () -> assertEquals(List.of(), overlaySchemaErrors(document)),
+                    () -> assertEquals(List.of(), overlaySchemaErrors(written)));
+        }
+
+        @Test
+        @DisplayName("both null are read as null, written as null and are accepted by the schema")
+        void bothNull() {
+            var document = withMembers("null", "null");
+
+            var overlay = SourceOverlayCodec.read(FILE, document);
+            var written = SourceOverlayCodec.write(overlay);
+
+            var row = overlay.rows().getFirst();
+            var text = new String(written, StandardCharsets.UTF_8);
+            assertAll(
+                    () -> assertNull(row.group()),
+                    () -> assertNull(row.contamination()),
+                    () -> assertTrue(text.contains("\"group\" : null"), text),
+                    () -> assertTrue(text.contains("\"contamination\" : null"), text),
+                    () -> assertEquals(overlay, SourceOverlayCodec.read(FILE, written)),
+                    () -> assertEquals(List.of(), overlaySchemaErrors(document)));
+        }
+
+        @Test
+        @DisplayName("the group is written after the tags and the contamination note after the review")
+        void schemaOrder() {
+            var text = new String(SourceOverlayCodec.write(SourceOverlayCodec.read(FILE,
+                    withMembers("\"" + GROUP + "\"", "\"" + CONTAMINATION + "\""))), StandardCharsets.UTF_8);
+
+            assertAll(
+                    () -> assertTrue(text.indexOf("\"tags\" :") < text.indexOf("\"group\" :"), text),
+                    () -> assertTrue(text.indexOf("\"group\" :") < text.indexOf("\"question\" :"), text),
+                    () -> assertTrue(text.indexOf("\"review\" :") < text.indexOf("\"contamination\" :"), text));
+        }
+
+        @ParameterizedTest(name = "missing {0}")
+        @ValueSource(strings = {"group", "contamination"})
+        @DisplayName("an absent member is refused by the codec and by the schema")
+        void absent(String field) {
+            var row = rowMembers("q-1", "q-1");
+            row.remove(field);
+            var document = with("rows", "[" + object(row) + "]");
+
+            assertAll(
+                    () -> assertUnreadable(refusalOf(document),
+                            "field '%s' of the rows[0] is missing".formatted(field)),
+                    () -> assertFalse(overlaySchemaErrors(document).isEmpty(), "the schema refuses it"));
+        }
+
+        static Stream<Arguments> malformedValues() {
+            return Stream.of("group", "contamination").flatMap(field -> Stream.of(
+                    Arguments.of(field + " that is a number", field, "7", "'%s' must be a string".formatted(field)),
+                    Arguments.of(field + " that is a list", field, "[\"a\"]",
+                            "'%s' must be a string".formatted(field)),
+                    Arguments.of(field + " that is empty", field, "\"\"",
+                            "'%s' must hold a character other than a line feed".formatted(field)),
+                    Arguments.of(field + " of a line feed only", field, "\"\\n\"",
+                            "'%s' must hold a character other than a line feed".formatted(field))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("malformedValues")
+        @DisplayName("a value outside its format is refused by the codec and by the schema")
+        void malformed(String name, String field, String value, String detail) {
+            var document = withRow(field, value);
+
+            assertAll(
+                    () -> assertUnreadable(refusalOf(document), detail),
+                    () -> assertFalse(overlaySchemaErrors(document).isEmpty(), "the schema refuses it"));
+        }
+
+        @Test
+        @DisplayName("a row refuses a group or a contamination note of line feeds only at construction")
+        void constructionRefused() {
+            var target = new ImportedItem.Target("{option_a}", "r", List.of(), List.of(), false);
+            var grading = new ImportedItem.Grading(GradingMethod.EXACT_CHOICE, null, null);
+            var review = new ImportedItem.Review(ReviewStatus.DRAFT, null, null, null);
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new SourceOverlay.Row("q-1", "q-1",
+                            "screening/sample-set", "screening", "t", List.of(), "\n\n", "q", "f", null, null,
+                            target, grading, review, null)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new SourceOverlay.Row("q-1", "q-1",
+                            "screening/sample-set", "screening", "t", List.of(), null, "q", "f", null, null,
+                            target, grading, review, "")));
         }
     }
 }

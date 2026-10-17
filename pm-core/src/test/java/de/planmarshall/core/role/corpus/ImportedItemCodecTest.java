@@ -60,28 +60,32 @@ class ImportedItemCodecTest {
     private static final String CANARY = "corpus canary 0000";
     private static final JsonValue ANSWER_SCHEMA =
             JsonValue.parse("{\"type\": \"object\"}".getBytes(StandardCharsets.UTF_8));
+    private static final String GROUP = "sample-set/q-7";
+    private static final String CONTAMINATION = "shares its diff with review/sample-set/q-8";
 
     /** A closed item with only the required members. */
     static ImportedItem closedItem() {
         return new ImportedItem("screening/sample-set/q-1", "screening/sample-set", "screening", "sample question",
-                List.of(), new Input("Which holds?", "Subject: logic", List.of("first", "second"), null),
+                List.of(), null, new Input("Which holds?", "Subject: logic", List.of("first", "second"), null),
                 new Target("first", "the first holds", List.of(), List.of(), false),
                 new Grading(GradingMethod.EXACT_CHOICE, null, null),
                 new Provenance(LocalDate.of(2026, 10, 14), new Origin(REPOSITORY, COMMIT, "data/test.csv", 2),
                         List.of("2026-10-14: generated from row 2 of data/test.csv")),
-                new Review(ReviewStatus.DRAFT, null, null, null), CANARY);
+                new Review(ReviewStatus.DRAFT, null, null, null), null, CANARY);
     }
 
     /** An open item with every optional member. */
     static ImportedItem openItem() {
         return new ImportedItem("review/sample-set/q-7", "review/sample-set", "review", "open question",
-                List.of("imported", "review"), new Input("Review the change.", "diff --git a b", null, ANSWER_SCHEMA),
+                List.of("imported", "review"), GROUP,
+                new Input("Review the change.", "diff --git a b", null, ANSWER_SCHEMA),
                 new Target("report the defect", "one defect is seeded", List.of("name the defect"),
                         List.of(new RubricItem("d1", "the off-by-one")), true),
                 new Grading(GradingMethod.RUBRIC_ITEMS, "strict judge", new BigDecimal("0.75")),
                 new Provenance(LocalDate.of(2026, 10, 14), new Origin(REPOSITORY, COMMIT, "data/big.jsonl", 7),
                         List.of("2026-10-14: generated", "2026-10-15: reviewed")),
-                new Review(ReviewStatus.CONFIRMED, "operator", LocalDate.of(2026, 10, 15), "checked"), CANARY);
+                new Review(ReviewStatus.CONFIRMED, "operator", LocalDate.of(2026, 10, 15), "checked"), CONTAMINATION,
+                CANARY);
     }
 
     private static String text(ImportedItem item) {
@@ -129,8 +133,8 @@ class ImportedItemCodecTest {
             var text = text(openItem());
 
             var order = List.of("\"schema_version\" :", "\"id\" :", "\"topic\" :", "\"role\" :", "\"title\" :",
-                    "\"tags\" :", "\"input\" :", "\"target\" :", "\"grading\" :", "\"provenance\" :", "\"review\" :",
-                    "\"canary\" :");
+                    "\"tags\" :", "\"group\" :", "\"input\" :", "\"target\" :", "\"grading\" :", "\"provenance\" :",
+                    "\"review\" :", "\"contamination\" :", "\"canary\" :");
             for (var index = 1; index < order.size(); index++) {
                 var before = order.get(index - 1);
                 var after = order.get(index);
@@ -145,6 +149,8 @@ class ImportedItemCodecTest {
 
             assertAll(
                     () -> assertFalse(text.contains("\"tags\""), text),
+                    () -> assertFalse(text.contains("\"group\""), text),
+                    () -> assertFalse(text.contains("\"contamination\""), text),
                     () -> assertFalse(text.contains("\"alternatives\""), text),
                     () -> assertFalse(text.contains("\"items\""), text),
                     () -> assertFalse(text.contains("\"expected_empty\""), text),
@@ -192,8 +198,8 @@ class ImportedItemCodecTest {
         @Test
         @DisplayName("an undeclared member is refused")
         void undeclared() {
-            assertUnreadable(refusalOf(text(closedItem()).replace("\"canary\"", "\"group\" : \"g\",\n  \"canary\"")),
-                    "undeclared field 'group'");
+            assertUnreadable(refusalOf(text(closedItem()).replace("\"canary\"", "\"origin\" : \"g\",\n  \"canary\"")),
+                    "undeclared field 'origin'");
         }
 
         @Test
@@ -306,6 +312,90 @@ class ImportedItemCodecTest {
                 "\"answer_schema\" : " + value);
 
         assertUnreadable(refusalOf(text), "'answer_schema' must be an object or null");
+    }
+
+    @Nested
+    @DisplayName("the group and the contamination note")
+    class GroupAndContamination {
+
+        private static List<String> itemSchemaErrors(String document) {
+            var schema = JsonValue.parse(
+                    CorpusSchemaResourcesTest.resource("imported-item.schema.json").getBytes(StandardCharsets.UTF_8));
+            return SchemaSubset.validate(JsonValue.parse(document.getBytes(StandardCharsets.UTF_8)), schema);
+        }
+
+        @Test
+        @DisplayName("both present are written directly after the tags and the review and read back")
+        void present() {
+            var text = text(openItem());
+
+            var reread = ImportedItemCodec.read(FILE, text.getBytes(StandardCharsets.UTF_8));
+
+            assertAll(
+                    () -> assertTrue(text.contains("\"group\" : \"" + GROUP + "\""), text),
+                    () -> assertTrue(text.contains("\"contamination\" : \"" + CONTAMINATION + "\""), text),
+                    () -> assertTrue(text.indexOf("\"tags\" :") < text.indexOf("\"group\" :")
+                            && text.indexOf("\"group\" :") < text.indexOf("\"input\" :"), text),
+                    () -> assertTrue(text.indexOf("\"review\" :") < text.indexOf("\"contamination\" :")
+                            && text.indexOf("\"contamination\" :") < text.indexOf("\"canary\" :"), text),
+                    () -> assertEquals(GROUP, reread.group()),
+                    () -> assertEquals(CONTAMINATION, reread.contamination()));
+        }
+
+        @Test
+        @DisplayName("absent ones read as null")
+        void absent() {
+            var item = ImportedItemCodec.read(FILE, ImportedItemCodec.write(closedItem()));
+
+            assertAll(
+                    () -> assertNull(item.group()),
+                    () -> assertNull(item.contamination()));
+        }
+
+        static Stream<Arguments> writtenItems() {
+            return Stream.of(Arguments.of("with the members", openItem()),
+                    Arguments.of("without the members", closedItem()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("writtenItems")
+        @DisplayName("a written item is accepted by the item schema")
+        void schemaAccepts(String name, ImportedItem item) {
+            assertEquals(List.of(), itemSchemaErrors(text(item)));
+        }
+
+        static Stream<Arguments> malformedValues() {
+            return Stream.of(
+                    Arguments.of("a null group", "\"group\" : \"" + GROUP + "\"", "\"group\" : null",
+                            "'group' must be a string"),
+                    Arguments.of("a group that is a number", "\"group\" : \"" + GROUP + "\"", "\"group\" : 7",
+                            "'group' must be a string"),
+                    Arguments.of("a group of a line feed only", "\"group\" : \"" + GROUP + "\"",
+                            "\"group\" : \"\\n\"", "'group' must hold a character other than a line feed"),
+                    Arguments.of("an empty group", "\"group\" : \"" + GROUP + "\"", "\"group\" : \"\"",
+                            "'group' must hold a character other than a line feed"),
+                    Arguments.of("a null contamination note", "\"contamination\" : \"" + CONTAMINATION + "\"",
+                            "\"contamination\" : null", "'contamination' must be a string"),
+                    Arguments.of("a contamination note that is a list",
+                            "\"contamination\" : \"" + CONTAMINATION + "\"", "\"contamination\" : [ \"a\" ]",
+                            "'contamination' must be a string"),
+                    Arguments.of("a contamination note of a line feed only",
+                            "\"contamination\" : \"" + CONTAMINATION + "\"", "\"contamination\" : \"\\n\"",
+                            "'contamination' must hold a character other than a line feed"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("malformedValues")
+        @DisplayName("a value outside its format is refused by the codec and by the item schema")
+        void malformed(String name, String original, String replacement, String detail) {
+            var text = text(openItem());
+            assertTrue(text.contains(original), () -> "the fixture carries " + original + ": " + text);
+            var document = text.replace(original, replacement);
+
+            assertAll(
+                    () -> assertUnreadable(refusalOf(document), detail),
+                    () -> assertFalse(itemSchemaErrors(document).isEmpty(), "the item schema refuses it"));
+        }
     }
 
     @Nested

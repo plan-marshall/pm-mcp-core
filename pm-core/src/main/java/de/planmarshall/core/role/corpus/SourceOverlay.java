@@ -29,15 +29,15 @@ import de.planmarshall.core.role.corpus.ImportedItem.Target;
  * <p>
  * A row is selected by the value of its key field, or by its position among the rows of the file when the overlay
  * names no key field. A key may repeat, so one row of the file may be selected by more than one overlay row; the item
- * id of a row may not repeat. Per row the overlay writes the framing of the item (slug, topic, role, title, tags), the
- * question, the facts, the choices and the answer schema, the reference answer with its alternatives and rubric items,
- * the grading and the review. The question, the facts, every choice, the reference answer and every alternative are
- * templates whose {@code {field}} placeholders name fields of the row, filled by {@link ItemGenerator}: a literal brace
- * in any of them is written doubled (<code>&#123;&#123;</code>, <code>&#125;&#125;</code>); a single brace is read as a
- * placeholder, and one that names no field of the row, or opens or closes nothing, refuses the row at import. The
- * rationale, the rubric items, the judge, the review and the answer schema are written as they are. The record refuses
- * every value outside its format with an {@link IllegalArgumentException}; {@link SourceOverlayCodec} reads and writes
- * the document.
+ * id of a row may not repeat. Per row the overlay writes the framing of the item (slug, topic, role, title, tags,
+ * group), the question, the facts, the choices and the answer schema, the reference answer with its alternatives and
+ * rubric items, the grading, the review and the contamination note. The question, the facts, every choice, the
+ * reference answer and every alternative are templates whose {@code {field}} placeholders name fields of the row,
+ * filled by {@link ItemGenerator}: a literal brace in any of them is written doubled (<code>&#123;&#123;</code>,
+ * <code>&#125;&#125;</code>); a single brace is read as a placeholder, and one that names no field of the row, or opens
+ * or closes nothing, refuses the row at import. The rationale, the rubric items, the judge, the review, the answer
+ * schema, the group and the contamination note are written as they are. The record refuses every value outside its
+ * format with an {@link IllegalArgumentException}; {@link SourceOverlayCodec} reads and writes the document.
  *
  * @param source   the name of the source, the name of its manifest
  * @param file     the repository-relative path of the file the rows are read from, a file of the manifest
@@ -66,6 +66,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
      * @param role         the configured role that answers the item
      * @param title        the title of the item, at most 120 characters
      * @param tags         the tags of the item; unmodifiable, empty if there are none
+     * @param group        the group of the item, literal text; {@code null} if not given
      * @param question     the template of the question
      * @param facts        the template of the facts
      * @param choices      the templates of the choices of a closed answer; {@code null} for an open answer
@@ -75,11 +76,12 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
      *                     items literal
      * @param grading      how an answer is graded
      * @param review       who reviewed the reference
+     * @param contamination the contamination note of the item, literal text; {@code null} if not given
      * @since 0.1
      */
     public record Row(String key, String slug, String topic, String role, String title, List<String> tags,
-    String question, String facts, List<String> choices, JsonValue answerSchema, Target target, Grading grading,
-    Review review) {
+    String group, String question, String facts, List<String> choices, JsonValue answerSchema, Target target,
+    Grading grading, Review review, String contamination) {
 
         /**
          * @throws IllegalArgumentException if a value is outside the format
@@ -95,6 +97,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
                         "'title' is longer than " + ImportedItem.TITLE_MAX_LENGTH + " characters");
             }
             tags = List.copyOf(Objects.requireNonNull(tags, "tags"));
+            ImportedItem.requireText(group, "group");
             Objects.requireNonNull(question, "question");
             Objects.requireNonNull(facts, "facts");
             if (choices != null) {
@@ -110,6 +113,7 @@ public record SourceOverlay(String source, String file, String keyField, LocalDa
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(grading, "grading");
             Objects.requireNonNull(review, "review");
+            ImportedItem.requireText(contamination, "contamination");
         }
 
         /** @return the id of the item generated from the row: {@code <topic>/<slug>} */

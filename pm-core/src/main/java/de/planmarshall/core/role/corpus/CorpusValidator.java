@@ -47,8 +47,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * root with the keyword subset of {@link SchemaSubset}, and against the rules the schema cannot express: the id
  * equals the path without {@code .json}, the topic equals the directory, ids are unique, the canary is the corpus
  * canary, a closed answer ({@code exact_choice}, {@code label}) is one of the choices, a rubric method has rubric items
- * unless the item is a control ({@code expected_empty}), context files exist, and provenance, review, grading and tags
- * name no transient tool, stage or local path.
+ * unless the item is a control ({@code expected_empty}), context files exist, and provenance, review, grading, tags,
+ * group and the contamination note name no transient tool, stage or local path. The group and the contamination note
+ * are covered beyond {@code validate.py}, which checks only the first four.
  * <p>
  * The {@code sources} entry of the corpus root is read by the rules of {@link CorpusImport}: absent, the corpus has
  * no sources; present but no directory, or a directory that cannot be listed, it is reported {@code unreadable}, as the
@@ -90,7 +91,8 @@ public final class CorpusValidator {
     private static final String NOT_JSON = "not JSON: ";
     private static final Set<String> CLOSED_METHODS = Set.of("exact_choice", "label");
     private static final Set<String> RUBRIC_METHODS = Set.of("rubric_items", "rubric_properties");
-    private static final List<String> TRANSIENT_MEMBERS = List.of("provenance", "review", "grading", "tags");
+    private static final List<String> TRANSIENT_MEMBERS = List.of("provenance", "review", "grading", "tags", "group",
+            "contamination");
 
     private final Path corpusRoot;
 
@@ -271,7 +273,10 @@ public final class CorpusValidator {
             }
         }
 
-        /** Checks that provenance, review, grading and tags name no transient tool, stage or local path. */
+        /**
+         * Checks that provenance, review, grading, tags, group and the contamination note name no transient tool, stage
+         * or local path.
+         */
         private void transientNames(JsonObject item, String id) {
             var named = new LinkedHashMap<String, JsonValue>();
             TRANSIENT_MEMBERS.forEach(member -> named.put(member, item.get(member).orElse(new JsonNull())));

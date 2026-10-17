@@ -25,7 +25,8 @@ import de.planmarshall.core.role.corpus.SourceOverlay.Row;
  * Generates the corpus item of one selected row of a fetched source (PM-WORK-6): the framing, the reference answer,
  * the grading and the review the overlay writes, the question, the facts, the choices and the answer schema the row
  * carries, the answer and the alternatives filled from the fields of the row, a fetched provenance naming the row, and
- * the corpus canary.
+ * the corpus canary. The group and the contamination note of the overlay row are literal: they are copied as they are,
+ * a brace in them included, and are absent from the item when the overlay row gives none.
  * <p>
  * A template names a field of the row as {@code {field}}; <code>&#123;&#123;</code> and <code>&#125;&#125;</code>
  * stand for a literal brace. A
@@ -70,9 +71,10 @@ public class ItemGenerator {
                 new Origin(manifest.repository(), manifest.commit(), overlay.file(), line),
                 List.of(String.format(Locale.ROOT, history, overlay.created(), line, overlay.file(),
                         manifest.repository(), manifest.commit(), manifest.name())));
-        return new ImportedItem(row.itemId(), row.topic(), row.role(), row.title(), row.tags(),
+        return new ImportedItem(row.itemId(), row.topic(), row.role(), row.title(), row.tags(), row.group(),
                 new Input(fill(row.question(), fields, line), fill(row.facts(), fields, line), choices,
-                        row.answerSchema()), target, row.grading(), provenance, row.review(), CANARY);
+                        row.answerSchema()), target, row.grading(), provenance, row.review(), row.contamination(),
+                CANARY);
     }
 
     /**

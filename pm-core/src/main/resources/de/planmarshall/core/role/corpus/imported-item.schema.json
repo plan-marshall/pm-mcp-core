@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "PM-MCP imported corpus item",
-  "description": "A corpus item generated from one row of a fetched source: the corpus item format, tightened. provenance.kind is fetched and provenance.origin names the repository, the pinned commit, the path and the line of the row; an optional list is absent rather than empty, expected_empty is present only when true. The schema uses only the keyword subset the corpus validator evaluates.",
+  "description": "A corpus item generated from one row of a fetched source: the corpus item format, tightened. provenance.kind is fetched and provenance.origin names the repository, the pinned commit, the path and the line of the row; an optional list is absent rather than empty, expected_empty is present only when true, and the group and the contamination note are literal text copied from the overlay row, present only when given. The schema uses only the keyword subset the corpus validator evaluates.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -43,6 +43,11 @@
       "items": {
         "type": "string"
       }
+    },
+    "group": {
+      "type": "string",
+      "pattern": ".",
+      "description": "the group the item belongs to, literal text"
     },
     "input": {
       "type": "object",
@@ -224,6 +229,11 @@
           "type": "string"
         }
       }
+    },
+    "contamination": {
+      "type": "string",
+      "pattern": ".",
+      "description": "the contamination note of the item, literal text"
     },
     "canary": {
       "type": "string",
