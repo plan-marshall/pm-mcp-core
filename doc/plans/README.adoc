@@ -69,12 +69,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |nothing
 |Milestones 2 and 3
 
-|link:spend-removal.adoc[`spend-removal`]
-|Tokens, not money: the spend policy class, `SPEND_UNIT`, `spend_overrun` and the spend clause of the invariants removed from the code
-|`open`
-|nothing
-|Milestone 3
-
 |link:job-runner.adoc[`job-runner`]
 |Subprocess job runner
 |`open`
