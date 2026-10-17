@@ -141,10 +141,10 @@ class SubprocessJobRunnerTest {
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives) {
         return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
                 .launcher(new PmExecLauncher(home)).termination(termination).environment(job -> {
-                    observations.add(new Observation(jobs.records(),
-                            locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
-                    return ENVIRONMENT;
-                }).probeEnvironment(candidate -> ENVIRONMENT).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
+            observations.add(new Observation(jobs.records(),
+                    locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
+            return ENVIRONMENT;
+        }).probeEnvironment(candidate -> ENVIRONMENT).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
                 .primitives(primitives).build();
     }
 
@@ -312,7 +312,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a group that outlives the grace period is sent SIGKILL and logged; the cause decides the fate")
-        void escalated() throws InterruptedException {
+        void escalated() throws Exception {
             var now = new AtomicReference<>(Instant.now());
             InstantSource clock = now::get;
             TerminationProtocol.Pause pause = duration -> now.updateAndGet(instant -> instant.plus(duration));
@@ -382,7 +382,7 @@ class SubprocessJobRunnerTest {
         @Test
         @EnabledOnOs(OS.LINUX)
         @DisplayName("the enrolment lock of the verification is released before the launch")
-        void enrolmentLockReleased() throws IOException {
+        void enrolmentLockReleased() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
 
             settled(started(runner.start(git(30, "ok"))));
@@ -403,7 +403,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a launcher that exits 127 without a report leaves no PID and settles failed")
-        void launcherExit() throws IOException {
+        void launcherExit() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.EXIT_127);
 
             var settled = settled(started(runner.start(git(30, "ok"))));
@@ -435,7 +435,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a fate that cannot be written stops the settlement and is logged at ERROR")
-        void fateNotWritten() throws IOException {
+        void fateNotWritten() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var jobId = started(runner.start(git(60, "sleep", "60")));
             var directory = jobs.directoryPath();
@@ -480,7 +480,7 @@ class SubprocessJobRunnerTest {
         @Test
         @EnabledOnOs(OS.LINUX)
         @DisplayName("matched control: a primitive with a job spec is started with an id of the port's grammar")
-        void knownPrimitive() throws IOException {
+        void knownPrimitive() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var job = git(30, "ok");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));

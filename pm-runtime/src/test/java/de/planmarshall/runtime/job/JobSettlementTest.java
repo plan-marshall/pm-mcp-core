@@ -126,7 +126,7 @@ class JobSettlementTest {
     }
 
     private boolean slotHeld() {
-        return slots.snapshot().stream().anyMatch(lease -> lease.key().equals(SLOT_KEY));
+        return slots.snapshot().stream().anyMatch(lease -> SLOT_KEY.equals(lease.key()));
     }
 
     /** A step that records its name when it runs and is done. */
@@ -245,7 +245,7 @@ class JobSettlementTest {
                     && step.name() != Name.SLOT_RELEASE).toList();
             assertAll(
                     () -> assertEquals(List.of(Name.WORKER_QUEUE_TASK, Name.METRICS_ROW, Name.CHANGE_LEDGER_ROW,
-                            Name.TIMING_OBSERVATION, Name.JOB_PRIVATE_DIRECTORY),
+                                    Name.TIMING_OBSERVATION, Name.JOB_PRIVATE_DIRECTORY),
                             seams.stream().map(JobSettlement.StepReport::name).toList()),
                     () -> assertTrue(seams.stream().allMatch(step -> step.outcome()
                             .equals(new Outcome.Done(SettlementStep.NOT_IMPLEMENTED)))));
@@ -280,7 +280,7 @@ class JobSettlementTest {
 
         @Test
         @DisplayName("an unreadable job record fails the fate step, and the slot stays held")
-        void fateStoreFailure() throws IOException {
+        void fateStoreFailure() throws Exception {
             var settled = runningJobWithSlot();
             Files.writeString(records.recordPath(JOB), "{");
 
@@ -294,7 +294,7 @@ class JobSettlementTest {
 
         @Test
         @DisplayName("an unreadable lease store fails the slot release after the fate was recorded")
-        void slotStoreFailure() throws IOException {
+        void slotStoreFailure() throws Exception {
             var settled = runningJobWithSlot();
             Files.writeString(slots.store(), "{");
 

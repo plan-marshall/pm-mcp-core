@@ -16,11 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.tools.logging.LogRecord;
-import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -155,7 +154,7 @@ class RuntimeLogMessagesTest {
     @ParameterizedTest(name = "{1}")
     @MethodSource("jobRunnerRecords")
     @DisplayName("the records of the subprocess job runner are documented in doc/LogMessages.adoc")
-    void jobRunnerDocumented(LogRecord logRecord, String identifier, String template) throws IOException {
+    void jobRunnerDocumented(LogRecord logRecord, String identifier, String template) throws Exception {
         var documentation = Files.readString(LOG_MESSAGES);
 
         assertTrue(documentation.contains("|%s |SubprocessJobRunner |%s |".formatted(identifier, template)),

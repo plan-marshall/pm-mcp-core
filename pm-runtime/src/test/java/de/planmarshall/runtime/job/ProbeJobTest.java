@@ -177,7 +177,7 @@ class ProbeJobTest {
 
     @Test
     @DisplayName("a probe of an onboarding entry runs in its checkout, its record and log in the entry's store")
-    void entryStore() throws IOException {
+    void entryStore() throws Exception {
         var checkout = Files.createDirectories(fixture.base.resolve("checkout"));
         Files.createDirectories(checkout.resolve(ProbeVerification.GIT));
         var entry = new Scope(Scope.Type.ENTRY, ENTRY_ID);
@@ -225,7 +225,7 @@ class ProbeJobTest {
 
     @Test
     @DisplayName("a probe whose executable changed after the scan is refused and recorded refused, nothing spawned")
-    void digestMismatch() throws IOException {
+    void digestMismatch() throws Exception {
         var candidate = onMachine(Set.of(0), "version");
         Files.writeString(probe, "#!/bin/sh\nexit 0\n");
 

@@ -748,7 +748,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 logState = LogState.READABLE;
                 parse = current.kind() == JobId.Kind.PROBE
                         || LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue()) ? ParseResult.NOTHING
-                                : parser.parse(current.kind(), complete.reading().jobOutput());
+                        : parser.parse(current.kind(), complete.reading().jobOutput());
             }
             case JobLog.Unavailable unavailable -> {
                 logState = unavailable.state();

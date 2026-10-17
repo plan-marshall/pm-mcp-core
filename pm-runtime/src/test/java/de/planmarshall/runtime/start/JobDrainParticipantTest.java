@@ -163,7 +163,7 @@ class JobDrainParticipantTest {
 
     @Test
     @DisplayName("a job running past the drain timeout is terminated and killed, and no longer counts as running")
-    void runningPastDrainTimeout() throws InterruptedException {
+    void runningPastDrainTimeout() throws Exception {
         var jobId = start("120");
         participant.stopAdmitting();
 
@@ -183,7 +183,7 @@ class JobDrainParticipantTest {
 
     @Test
     @DisplayName("matched control: a job admitted before the drain finishes normally")
-    void admittedBeforeDrainFinishes() throws InterruptedException {
+    void admittedBeforeDrainFinishes() throws Exception {
         var jobId = start("1");
         participant.stopAdmitting();
 
@@ -202,7 +202,7 @@ class JobDrainParticipantTest {
 
     @Test
     @DisplayName("a deadline already passed ends the wait at once while a job runs")
-    void passedDeadline() throws InterruptedException {
+    void passedDeadline() throws Exception {
         start("120");
 
         assertFalse(participant.awaitQuiet(Instant.now().minusSeconds(1)));
@@ -216,7 +216,7 @@ class JobDrainParticipantTest {
         assertAll(
                 () -> assertEquals(JobDrainParticipant.NAME, participant.name()),
                 () -> assertEquals("jobs", participant.name()),
-                () -> assertEquals(TerminationProtocol.GRACE_PERIOD.plusSeconds(10),
-                        JobDrainParticipant.TERMINATION_WAIT));
+                () -> assertEquals(
+                        JobDrainParticipant.TERMINATION_WAIT, TerminationProtocol.GRACE_PERIOD.plusSeconds(10)));
     }
 }

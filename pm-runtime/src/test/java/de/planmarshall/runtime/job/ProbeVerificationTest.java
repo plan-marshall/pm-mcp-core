@@ -125,7 +125,7 @@ class ProbeVerificationTest {
 
         @Test
         @DisplayName("an executable whose content changed after the scan")
-        void executableChanged() throws IOException {
+        void executableChanged() throws Exception {
             var candidate = inCheckout();
             Files.write(executable, randomContent());
 
@@ -136,7 +136,7 @@ class ProbeVerificationTest {
 
         @Test
         @DisplayName("an interpreter whose content changed after the scan")
-        void interpreterChanged() throws IOException {
+        void interpreterChanged() throws Exception {
             var candidate = inCheckout();
             Files.write(interpreter, randomContent());
 
@@ -150,7 +150,7 @@ class ProbeVerificationTest {
 
         @Test
         @DisplayName("an executable that is gone, before the working directory is looked at")
-        void executableMissingFirst() throws IOException {
+        void executableMissingFirst() throws Exception {
             var candidate = inCheckout();
             Files.delete(executable);
 
@@ -174,7 +174,7 @@ class ProbeVerificationTest {
 
         @Test
         @DisplayName("a symbolic link in the checkout that escapes it")
-        void symlinkEscape() throws IOException {
+        void symlinkEscape() throws Exception {
             var link = Files.createSymbolicLink(checkout.resolve("escape"), outside);
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, link, jobPrivate));
@@ -184,7 +184,7 @@ class ProbeVerificationTest {
 
         @Test
         @DisplayName("a symbolic link that resolves to the checkout root itself")
-        void symlinkToRoot() throws IOException {
+        void symlinkToRoot() throws Exception {
             var link = Files.createSymbolicLink(outside.resolve("root"), checkout);
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, link, jobPrivate));
@@ -194,7 +194,7 @@ class ProbeVerificationTest {
 
         @Test
         @DisplayName("a checkout root that is no git top-level")
-        void noGitTopLevel() throws IOException {
+        void noGitTopLevel() throws Exception {
             Files.delete(checkout.resolve(ProbeVerification.GIT));
 
             var refusal = refused(ProbeVerification.verify(inCheckout(), arguments, checkout, jobPrivate));

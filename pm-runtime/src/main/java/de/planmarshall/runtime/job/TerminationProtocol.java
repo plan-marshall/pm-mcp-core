@@ -182,7 +182,7 @@ public final class TerminationProtocol {
         Answer answer = new NoSuchProcess();
         var interrupted = false;
         for (var attempt = 0; attempt < GROUP_RETRY_ATTEMPTS && answer instanceof NoSuchProcess && !interrupted;
-                attempt++) {
+             attempt++) {
             interrupted = !sleep(GROUP_RETRY_INTERVAL);
             answer = signals.signalGroup(pid, Signal.SIGTERM);
         }

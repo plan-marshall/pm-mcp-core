@@ -66,7 +66,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("answers the complete lines written so far and continues at the offset after them")
-        void readsWhileAppending() throws IOException {
+        void readsWhileAppending() throws Exception {
             append(REPORT + "\n[INFO] first\n[INFO] sec");
 
             var first = assertInstanceOf(Lines.class, log.readLines(0));
@@ -88,7 +88,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("strips the report once: a report-shaped job line read from a later offset is kept")
-        void reportStrippedOnce() throws IOException {
+        void reportStrippedOnce() throws Exception {
             append(REPORT + "\n");
             var first = assertInstanceOf(Lines.class, log.readLines(0));
             append(REPORT + "\n");
@@ -104,7 +104,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("keeps a first line that is no report, and waits for an incomplete first line")
-        void noReport() throws IOException {
+        void noReport() throws Exception {
             append("pm-exec: usage");
             var incomplete = assertInstanceOf(Lines.class, log.readLines(0));
             append(" error\n");
@@ -120,7 +120,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("is missing before the launcher created it, and truncated when shorter than the offset")
-        void missingAndTruncated() throws IOException {
+        void missingAndTruncated() throws Exception {
             var missing = assertInstanceOf(Unavailable.class, log.readLines(0));
             append("short\n");
 
@@ -139,7 +139,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("readable: the report and the job's output after it")
-        void readable() throws IOException {
+        void readable() throws Exception {
             append(REPORT + "\n[INFO] BUILD SUCCESS\n");
 
             var whole = assertInstanceOf(Complete.class, log.readWhole(0));
@@ -160,7 +160,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("truncated: the log is shorter than what was already read from it")
-        void truncated() throws IOException {
+        void truncated() throws Exception {
             append(REPORT + "\n[INFO] first\n");
             var read = assertInstanceOf(Lines.class, log.readLines(0));
             Files.writeString(path, REPORT + "\n");
@@ -174,7 +174,7 @@ class JobLogTest {
 
         @Test
         @DisplayName("unreadable: the log exists and cannot be read")
-        void unreadable() throws IOException {
+        void unreadable() throws Exception {
             Files.createDirectory(path);
 
             var whole = assertInstanceOf(Unavailable.class, log.readWhole(0));

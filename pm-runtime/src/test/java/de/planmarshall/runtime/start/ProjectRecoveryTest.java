@@ -583,7 +583,7 @@ class ProjectRecoveryTest {
                 var job = JobRecord.builder().jobId(store.allocate(transaction, JobId.Kind.BUILD, scope))
                         .execution(JobRecord.Execution.PROCESS).scope(scope).budgetKey("maven:verify")
                         .budgetSeconds(600).budgetDerivation(new JobRecord.BudgetDerivation(
-                                JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                        JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null))
                         .status(JobRecord.Status.QUEUED).confinement(JobRecord.Confinement.UNAVAILABLE)
                         .createdAt(Instant.EPOCH.plusSeconds(1)).clampedValues(List.of()).build();
                 store.writeQueued(transaction, job);

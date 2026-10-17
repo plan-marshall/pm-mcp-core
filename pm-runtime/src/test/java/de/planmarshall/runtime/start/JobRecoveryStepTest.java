@@ -398,7 +398,7 @@ class JobRecoveryStepTest {
 
         @Test
         @DisplayName("the slot the job held is released after its fate is recorded")
-        void slotIsReleased() throws IOException {
+        void slotIsReleased() throws Exception {
             var slots = RecoveryStepFixtures.buildSlots(base, lockManager);
             var lease = RecoveryStepFixtures.claim(slots, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
             var job = queued();
@@ -419,7 +419,7 @@ class JobRecoveryStepTest {
 
         @Test
         @DisplayName("unreadable job records fail the step")
-        void unreadableRecords() throws IOException {
+        void unreadableRecords() throws Exception {
             var job = queued();
             Files.writeString(store.recordPath(job.jobId()), "{");
 
@@ -449,7 +449,7 @@ class JobRecoveryStepTest {
 
         @Test
         @DisplayName("a slot that cannot be released stops the step after the fate was recorded")
-        void unreleasableSlot() throws IOException {
+        void unreleasableSlot() throws Exception {
             var slots = RecoveryStepFixtures.buildSlots(base, lockManager);
             var lease = RecoveryStepFixtures.claim(slots, "slot-a", PROJECT_A, RecoveryStepFixtures.self());
             Files.writeString(slots.store(), "{");

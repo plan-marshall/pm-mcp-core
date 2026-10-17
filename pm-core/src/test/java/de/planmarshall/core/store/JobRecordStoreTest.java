@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -287,7 +286,7 @@ class JobRecordStoreTest {
 
         @Test
         @DisplayName("a drawn id that names a record or a log present is drawn again, under the owning lock")
-        void collisionRedraw() throws IOException {
+        void collisionRedraw() throws Exception {
             write(store::writeAhead, writeAhead(new JobId("b-efcdab8967452301"), PLAN_SCOPE));
             Files.writeString(store.logPath(new JobId("b-1032547698badcfe")), "log");
             locks.reset();
@@ -322,7 +321,7 @@ class JobRecordStoreTest {
 
         @Test
         @DisplayName("only the files named <job_id>.json are jobs, and the recovery reads them all")
-        void listing() throws IOException {
+        void listing() throws Exception {
             var first = writeAhead(new JobId("b-0000000000000001"), PLAN_SCOPE);
             var second = queued(new JobId("c-0000000000000002"), new Scope(Scope.Type.WORKSPACE, null));
             write(store::writeAhead, first);
@@ -348,7 +347,7 @@ class JobRecordStoreTest {
 
         @Test
         @DisplayName("a record that states another job id than its file name is refused")
-        void foreignId() throws IOException {
+        void foreignId() throws Exception {
             write(store::writeAhead, writeAhead(BUILD_ID, PLAN_SCOPE));
             var other = new JobId("b-00000000000000ff");
             Files.copy(store.recordPath(BUILD_ID), store.recordPath(other));
