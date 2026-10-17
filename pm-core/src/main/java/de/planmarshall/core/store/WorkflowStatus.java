@@ -176,22 +176,25 @@ Map<String, String> retained) {
      * @param callerStateId    the calling state, whose transition the return selects
      * @param callerPhase      the phase of the calling state
      * @param subworkflowId    the called sub-workflow
+     * @param entry            the entry of the called sub-workflow the call went through (PM-WF-16); for a phase
+     *                         sub-workflow the point at which the phase is entered
      * @param boundArgs        the arguments bound at the push, by parameter name, in their order
      * @param pushedAt         the instant of the push
      * @since 0.1
      */
     public record CallFrame(String callerWorkflowId, String callerStateId, String callerPhase, String subworkflowId,
-    Map<String, BoundArg> boundArgs, Instant pushedAt) {
+    String entry, Map<String, BoundArg> boundArgs, Instant pushedAt) {
 
         /**
          * @throws NullPointerException     if a component, a parameter name or an argument is {@code null}
-         * @throws IllegalArgumentException if an identifier is blank
+         * @throws IllegalArgumentException if an identifier or the entry is blank
          */
         public CallFrame {
             requireNonBlank(callerWorkflowId, "caller_workflow_id");
             requireNonBlank(callerStateId, "caller_state_id");
             requireNonBlank(callerPhase, "caller_phase");
             requireNonBlank(subworkflowId, "subworkflow_id");
+            requireNonBlank(entry, "entry");
             boundArgs = orderedCopy(boundArgs, "boundArgs", (name, arg) -> requireNonBlank(name, "bound_args key"));
             Objects.requireNonNull(pushedAt, "pushedAt");
         }
