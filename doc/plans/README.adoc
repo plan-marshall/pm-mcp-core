@@ -58,13 +58,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |Milestones 3 and 4
 
 |link:operator-and-question-stores.adoc[`operator-and-question-stores`]
-|Operator and question stores of the scopes
-|`open`
-|nothing
-|Milestone 3
-
-|link:project-machine-store.adoc[`project-machine-store`]
-|Per-project machine store and project resolution
+|Operator and question stores of the scopes; the per-project machine store and project resolution
 |`open`
 |nothing
 |Milestone 3
