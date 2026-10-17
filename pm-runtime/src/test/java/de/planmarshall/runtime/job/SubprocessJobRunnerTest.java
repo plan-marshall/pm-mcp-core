@@ -144,7 +144,7 @@ class SubprocessJobRunnerTest {
                     observations.add(new Observation(jobs.records(),
                             locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
                     return ENVIRONMENT;
-                }).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
+                }).probeEnvironment(candidate -> ENVIRONMENT).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
                 .primitives(primitives).build();
     }
 

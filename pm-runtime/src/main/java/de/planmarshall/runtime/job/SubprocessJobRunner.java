@@ -13,6 +13,7 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -30,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import lombok.Builder;
 
 import de.planmarshall.core.service.JobRunner;
@@ -96,8 +98,18 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <p>
  * The engine port maps a {@link JobStarter.StartRequest} to a job through the caller's {@link PrimitiveJobs}; a
  * primitive with no job spec is refused {@value #PRIMITIVE_WITHOUT_JOB}. The id it answers keeps the port's grammar
- * {@code ^[bcgp]-[0-9a-f]{16}$}. This runner starts no worker, whose launch belongs to the supervisor, and no probe: a
- * probe start is refused {@value #PROBE_NOT_SUPPORTED}.
+ * {@code ^[bcgp]-[0-9a-f]{16}$}. This runner starts no worker, whose launch belongs to the supervisor.
+ * <p>
+ * A probe ({@link #startProbe}) runs only with the operator's consent of its kind; without it the start is refused
+ * {@value #CONSENT_REQUIRED} and nothing is recorded. Its step 0 is the {@link ProbeVerification} against its
+ * {@link ProbeCandidate candidate record} instead of an enrolment, run under the lock of its scope together with the
+ * allocation of its {@code v-} job id and its first record. Its record and log lie in the store of its scope: the
+ * machine scope's {@code machine/jobs/} or the onboarding entry's {@code onboardings/<entry_id>/jobs/}. A probe that
+ * does not run in a checkout runs in the empty {@code cwd/} of its job-private directory
+ * {@code <base>/run/jobs/<job_id>/}. Its budget is the fixed budget of its kind ({@link ProbeBudget}); rows 1 to 4 of
+ * the outcome derivation and its success marker, an exit code the probe declares, decide its fate, and otherwise its
+ * exit code and output are left to the step that asked for it, which the runner's output parser does not read. The
+ * runner never starts a probe again.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Subprocess Lifecycle &
  * Process-Group Isolation; Process Termination & Cancellation Protocol; Outcome Derivation);
@@ -106,15 +118,21 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  *
  * @since 0.1
  */
-public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, JobStarter {
+public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCandidate>, JobStarter {
 
     private static final CuiLogger LOGGER = new CuiLogger(SubprocessJobRunner.class);
 
     /** The refusal of the engine port for a primitive that names no job. */
     public static final String PRIMITIVE_WITHOUT_JOB = "primitive_without_job";
 
-    /** The refusal of a probe start. */
-    public static final String PROBE_NOT_SUPPORTED = "probe_not_supported";
+    /** The refusal of a probe whose kind the operator did not consent to. */
+    public static final String CONSENT_REQUIRED = "consent_required";
+
+    /** The directory of the job-private directories below the base directory. */
+    static final String JOB_PRIVATE_DIRECTORIES = "run/jobs";
+
+    /** The working directory of a probe below its job-private directory. */
+    static final String JOB_PRIVATE_CWD = "cwd";
 
     /** How often the job log is read for the launch report after the spawn. */
     static final Duration REPORT_POLL_INTERVAL = Duration.ofMillis(10);
@@ -141,6 +159,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
     private final PmExecLauncher launcher;
     private final TerminationProtocol termination;
     private final Environment environment;
+    private final ProbeEnvironment probeEnvironment;
     private final OutputParser parser;
     private final PrimitiveJobs primitives;
     private final InstantSource clock;
@@ -153,22 +172,24 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
      * @param pipeline    the verify-not-resolve pipeline
      * @param launcher    the launcher {@code pm-exec}
      * @param termination the termination protocol
-     * @param environment the environment of a verified job
-     * @param parser      the parser of the job log of an ended job
-     * @param primitives  the jobs of the primitives the engine port starts
-     * @param clock       the clock of the records and the budgets; {@code null} for the system clock
+     * @param environment      the environment of a verified job
+     * @param probeEnvironment the environment of a verified probe
+     * @param parser           the parser of the job log of an ended job that is no probe
+     * @param primitives       the jobs of the primitives the engine port starts
+     * @param clock            the clock of the records and the budgets; {@code null} for the system clock
      * @throws NullPointerException if an argument other than the clock is {@code null}
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
-            PmExecLauncher launcher, TerminationProtocol termination, Environment environment, OutputParser parser,
-            PrimitiveJobs primitives, InstantSource clock) {
-        this.base = Objects.requireNonNull(base, "base");
+            PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
+            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock) {
+        this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.termination = Objects.requireNonNull(termination, "termination");
         this.environment = Objects.requireNonNull(environment, "environment");
+        this.probeEnvironment = Objects.requireNonNull(probeEnvironment, "probeEnvironment");
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;
@@ -188,6 +209,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
          * @return the complete environment of the job
          */
         Map<String, String> of(VerifiedJob job);
+    }
+
+    /**
+     * The environment a verified probe runs with: the rows of the job environment for every job type, and a
+     * {@code PATH} of only the directories of the probed executable and its interpreter.
+     *
+     * @since 0.1
+     */
+    @FunctionalInterface
+    public interface ProbeEnvironment {
+
+        /**
+         * @param candidate the candidate record of the verified probe
+         * @return the complete environment of the probe
+         */
+        Map<String, String> of(ProbeCandidate candidate);
     }
 
     /**
@@ -252,15 +289,61 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
     }
 
     /**
-     * Refuses every probe: this runner starts no probe.
+     * Starts a probe of a program that is not enrolled yet, waiting until its post-spawn record is written. Its
+     * allocation, its verification against its candidate record and its first record are one transaction under the
+     * lock of its scope.
      *
-     * @param request the probe
-     * @return the refusal {@value #PROBE_NOT_SUPPORTED}
+     * @param request the candidate and whether the operator consented to its kind
+     * @return the id of the started probe job, also of one whose launcher failed and which is settled already; the
+     *         refusal {@value #CONSENT_REQUIRED} without a record for a probe without consent; or the refusal of its
+     *         verification, recorded as the probe's fate {@code refused}
+     * @throws UncheckedIOException if a record or the job-private directory cannot be written
+     * @throws StoreRefusal         if a record of the probe's store cannot be read
      */
     @Override
-    public JobRunner.StartResult startProbe(ProbeRequest<Void> request) {
+    public JobRunner.StartResult startProbe(ProbeRequest<ProbeCandidate> request) {
         Objects.requireNonNull(request, "request");
-        return new JobRunner.StartResult.Refused(PROBE_NOT_SUPPORTED);
+        if (!request.consented()) {
+            return new JobRunner.StartResult.Refused(CONSENT_REQUIRED);
+        }
+        var candidate = request.candidate();
+        var budget = ProbeBudget.of(candidate.kind());
+        var scope = candidate.scope();
+        var store = scope.type() == JobRecord.Scope.Type.MACHINE ? JobRecordStore.ofMachine(base)
+                : JobRecordStore.ofEntry(base, scope.id());
+        JobRecord first;
+        ProbeVerification.Result verification;
+        try (var transaction = lockManager.openTransaction()) {
+            var jobId = store.allocate(transaction, JobId.Kind.PROBE, scope);
+            var jobPrivate = jobPrivateCwd(jobId);
+            var workingDirectory = switch (candidate.workingDirectory()) {
+                case ProbeCandidate.CheckoutRoot(var root) -> root;
+                case ProbeCandidate.JobPrivate _ -> createDirectories(jobPrivate);
+            };
+            verification = ProbeVerification.verify(candidate, candidate.arguments(), workingDirectory, jobPrivate);
+            var now = clock.instant();
+            var record = newRecord(jobId, scope, budget, null, now);
+            if (verification instanceof ProbeVerification.Refused(var refusal)) {
+                var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(refusal.reason().code()));
+                first = record.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
+                        .refusalReason(refusal.reason().code()).endedAt(now).build();
+                store.writeFate(transaction, first);
+            } else {
+                var verified = (ProbeVerification.Verified) verification;
+                first = record.argvDigest(argvDigest(verified.argv())).status(Status.RUNNING).build();
+                store.writeAhead(transaction, first);
+            }
+        }
+        stores.put(first.jobId(), store);
+        return switch (verification) {
+            case ProbeVerification.Refused(var refusal) -> {
+                LOGGER.info(INFO.JOB_SETTLED, first.jobId(), first.fate().wireName(), first.outcomeRow());
+                yield new JobRunner.StartResult.Refused(refusal.reason().code());
+            }
+            case ProbeVerification.Verified(var workingDirectory, var argv) -> run(new RunningJob(first, store, budget,
+                    candidate.successExitCodes()), log -> new Launch(workingDirectory, argv,
+                            probeEnvironment.of(candidate), Optional.empty(), log));
+        };
     }
 
     /**
@@ -353,8 +436,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
         JobRecord settled;
         try (var transaction = lockManager.openTransaction()) {
             var jobId = store.allocate(transaction, request.kind(), request.scope());
-            settled = newRecord(jobId, request, budget, null, now).status(Status.REFUSED).fate(outcome.fate())
-                    .outcomeRow(outcome.row()).refusalReason(reason).endedAt(now).build();
+            settled = newRecord(jobId, request.scope(), budget, null, now).status(Status.REFUSED)
+                    .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(reason).endedAt(now).build();
             store.writeFate(transaction, settled);
         }
         stores.put(settled.jobId(), store);
@@ -368,26 +451,34 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
         JobRecord ahead;
         try (var transaction = lockManager.openTransaction()) {
             var jobId = store.allocate(transaction, request.kind(), request.scope());
-            ahead = newRecord(jobId, request, budget, argvDigest(verified.argv()), clock.instant())
+            ahead = newRecord(jobId, request.scope(), budget, argvDigest(verified.argv()), clock.instant())
                     .status(Status.RUNNING).build();
             store.writeAhead(transaction, ahead);
         }
-        var jobId = ahead.jobId();
-        stores.put(jobId, store);
-        var job = new RunningJob(ahead, store, budget);
+        stores.put(ahead.jobId(), store);
+        return run(new RunningJob(ahead, store, budget, Set.of()),
+                log -> Launch.of(verified, environment.of(verified), request.stdin(), log));
+    }
+
+    /**
+     * Launches a job whose write-ahead record is written, waits for its post-spawn record and hands it to the virtual
+     * thread that waits for its end.
+     */
+    private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
+        var jobId = job.record.jobId();
         running.put(jobId, job);
-        var log = new JobLog(store.logPath(jobId));
+        var log = new JobLog(job.store.logPath(jobId));
         var spawnedAt = clock.instant();
         Launched launched;
         try {
-            launched = launcher.launch(Launch.of(verified, environment.of(verified), request.stdin(), log.path()));
+            launched = launcher.launch(launchOf.apply(log.path()));
         } catch (IOException e) {
             LOGGER.debug(e, "The launcher of job %s could not be started", jobId);
             settleUnlaunched(job, log);
             return new JobRunner.StartResult.Started(jobId);
         }
         job.launched(launched.process());
-        var deadline = spawnedAt.plus(budget.duration());
+        var deadline = spawnedAt.plus(job.budget.duration());
         var awaited = awaitReport(launched.process(), log, deadline);
         awaited.report().ifPresent(report -> writePostSpawn(job, launched, report, spawnedAt));
         Thread.ofVirtual().name("job-" + jobId).start(() -> supervise(job, launched, spawnedAt,
@@ -544,8 +635,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
         switch (new JobLog(job.store.logPath(current.jobId())).readWhole(observedLength)) {
             case JobLog.Complete complete -> {
                 logState = LogState.READABLE;
-                parse = LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue()) ? ParseResult.NOTHING
-                        : parser.parse(current.kind(), complete.reading().jobOutput());
+                parse = current.kind() == JobId.Kind.PROBE
+                        || LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue()) ? ParseResult.NOTHING
+                                : parser.parse(current.kind(), complete.reading().jobOutput());
             }
             case JobLog.Unavailable unavailable -> {
                 logState = unavailable.state();
@@ -553,7 +645,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
             }
         }
         var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), ended.termination(), waitStatus,
-                logState, parse, Set.of(), true));
+                logState, parse, job.successExitCodes, true));
         var settled = current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                 .spawnedAt(ended.spawnedAt()).endedAt(ended.endedAt())
                 .exitCode(waitStatus instanceof Exited(var code) ? Long.valueOf(code) : null)
@@ -572,7 +664,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable ? unavailable.state()
                     : LogState.READABLE;
             var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), Optional.empty(),
-                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, Set.of(), true));
+                    new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, job.successExitCodes, true));
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                     .endedAt(clock.instant()).build());
         } finally {
@@ -647,9 +739,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
         };
     }
 
-    private static JobRecord.JobRecordBuilder newRecord(JobId jobId, JobRunner.StartRequest<JobRequest> request,
-            JobBudget budget, String argvDigest, Instant createdAt) {
-        return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(request.scope())
+    /** @return the {@code cwd/} of the job-private directory {@code <base>/run/jobs/<job_id>/} of a job */
+    Path jobPrivateCwd(JobId jobId) {
+        return base.resolve(JOB_PRIVATE_DIRECTORIES).resolve(jobId.value()).resolve(JOB_PRIVATE_CWD);
+    }
+
+    private static Path createDirectories(Path directory) {
+        try {
+            return Files.createDirectories(directory);
+        } catch (IOException e) {
+            throw new UncheckedIOException("The job-private directory cannot be created: " + directory, e);
+        }
+    }
+
+    private static JobRecord.JobRecordBuilder newRecord(JobId jobId, JobRecord.Scope scope, JobBudget budget,
+            String argvDigest, Instant createdAt) {
+        return JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(scope)
                 .budgetKey(budget.key()).budgetSeconds(budget.seconds()).budgetDerivation(budget.derivation())
                 .argvDigest(argvDigest).confinement(Confinement.UNAVAILABLE).createdAt(createdAt)
                 .clampedValues(List.of());
@@ -660,15 +765,20 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, Void>, J
 
         private final JobRecordStore store;
         private final JobBudget budget;
+        private final Set<Integer> successExitCodes;
         private final CompletableFuture<Termination> cause = new CompletableFuture<>();
         private final CompletableFuture<JobRecord> settled = new CompletableFuture<>();
         private volatile JobRecord record;
         private volatile Process process;
 
-        RunningJob(JobRecord record, JobRecordStore store, JobBudget budget) {
+        /**
+         * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
+         */
+        RunningJob(JobRecord record, JobRecordStore store, JobBudget budget, Set<Integer> successExitCodes) {
             this.record = record;
             this.store = store;
             this.budget = budget;
+            this.successExitCodes = successExitCodes;
         }
 
         void launched(Process launched) {
