@@ -51,7 +51,8 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 
 * link:doc/developer/core-role-corpus.adoc[Corpus Sources (`core.role.corpus`)]
 * link:doc/developer/core-queue.adoc[Session Generations (`core.queue`)]
-* link:doc/developer/core-store.adoc[Scope Stores and Engine Ports (`core.store`, `core.spi`)]
+* link:doc/developer/core-service.adoc[Service Interfaces (`core.service`)]
+* link:doc/developer/core-store.adoc[Scope Stores and Engine Ports (`core.store`, `core.spi`)], with the job records
 
 == ADRs
 
@@ -59,7 +60,14 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
 * link:doc/adr/core-findings/[`doc/adr/core-findings/`]: the findings contract.
 * link:doc/adr/core-queue/[`doc/adr/core-queue/`]: the task queue store and the session generations.
 * link:doc/adr/core-role-corpus/[`doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
+* link:doc/adr/core-service/[`doc/adr/core-service/`]: the service interfaces:
+  link:doc/adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR 001] the job runner beside
+  the engine port.
 * link:doc/adr/core-spi/[`doc/adr/core-spi/`]: the primitive SPI and the content validators.
-* link:doc/adr/core-store/[`doc/adr/core-store/`]: the state stores and the engine ports.
+* link:doc/adr/core-store/[`doc/adr/core-store/`]: the state stores and the engine ports; of the job records
+  link:doc/adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029] the typed members
+  and the verbatim `worker` and `gate_facts`, and
+  link:doc/adr/core-store/030-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 030] the locks of the
+  machine queue and of an onboarding entry.
 
 The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].

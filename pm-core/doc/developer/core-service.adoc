@@ -1,0 +1,121 @@
+= Service Interfaces (`core.service`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-EXEC-2[PM-EXEC-2], link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]_
+
+Package `de.planmarshall.core.service` of `pm-core` holds the service interfaces the foundation declares and
+`pm-runtime` implements. The engine and the stores of `pm-core` reach the runtime through them alone: no class of
+`pm-core` implements one of them, and a component that needs a service depends on its interface, not on the class of
+the runtime that implements it.
+
+[cols="1,3,2"]
+|===
+|Interface |What it is |Implemented by
+
+|`LockManager` |The one lock manager every lock acquisition of the runtime goes through: it opens a `LockTransaction`.
+|`FileLockManager` of `runtime.lock`
+|`LockTransaction` |The locks one transaction holds: `acquire(key)` asserts the total lock order and takes the lock in one
+call, `holds(key)` asks, `close()` releases them, the last acquired first. |`FileLockManager` of `runtime.lock`
+|`AuditSink` |Where a component hands over an audit record (`AuditEvent`); delivery of a store mutation's record is at
+least once, deduplicated by its `transaction_id`. |`AuditLogSink` of `core.store` over the audit log
+|`LiveWork` |The live work of an enrolled project (its non-terminal plans and epics and its running jobs), which refuses
+its `unenrol` with `scope_active`. |the runtime, from its lease and scope records
+|`JobRunner` |The job runner: start a job or a probe, cancel a job, read its record (<<_job_runner>>).
+|`SubprocessJobRunner` of `runtime.job`
+|===
+
+The first four are described where their decisions lie and are not repeated here:
+
+* The total lock order, its levels and the key of every lock are those of `LockKey` and `LockLevel` of `core.store`
+  (link:../adr/core-store/011-one-total-lock-order-asserted-at-acquisition.adoc[ADR core-store/011]); an acquisition
+  against it is refused with `InternalFaultException`, the failure class `internal_fault`. The lock manager of the runtime
+  is link:../../../pm-runtime/doc/adr/runtime-lock/002-one-lock-manager-per-runtime.adoc[ADR runtime-lock/002].
+* The audit log behind `AuditSink` is link:core-store.adoc#_audit_log[Scope Stores § The Audit Log].
+* `LiveWork` and the refusal of an `unenrol` are
+  link:../../../pm-runtime/doc/adr/runtime-enrolment/004-unenrol-refused-while-live-work.adoc[ADR runtime-enrolment/004].
+
+[#_job_runner]
+== The Job Runner
+_Requirements: link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/Requirements.adoc#PM-EXEC-1[PM-EXEC-1], link:{docs}/Requirements.adoc#PM-EXEC-3[PM-EXEC-3]_
+
+`JobRunner<R, C>` is the service through which a job of any kind is started, cancelled and read. It stands beside the
+engine port `JobStarter` of `core.spi`, which starts only the job of a `job` state of the workflow; the runtime
+implements both (link:../adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR
+core-service/001]). Its two type parameters are what `pm-core` cannot name: `R` is the request of a job as the runtime
+verifies it (what the job runs and where, `JobRequest` of `runtime.job`), `C` the candidate record of a probe a scan or
+a detection wrote (`ProbeCandidate` of `runtime.job`).
+
+[horizontal]
+`start(StartRequest<R>)`:: Starts a job. `StartRequest` names the kind (`JobId.Kind`, never `probe`), the owning
+`JobRecord.Scope`, the budget key, the budget in seconds (at least 1) and its derivation, the request, and an optional
+in-memory `stdin` payload that is never part of the argument vector. The job is verified, recorded and launched, or it
+waits for its slot recorded `queued`.
+`startProbe(ProbeRequest<C>)`:: Starts a probe of a program that is not enrolled yet, verified against its candidate
+record instead of an enrolment, with the fixed budget of its probe. `ProbeRequest` carries the candidate and whether the
+operator consented to probes of its kind; a probe without that consent is never started.
+`cancel(jobId, CancelCause)`:: Cancels a job that is queued or running: a running job's process group is terminated, a
+queued job is settled without a signal. The answer is whether this call cancelled the job; `false` for a job that has
+settled or that the runner does not know.
+`record(jobId)`:: The record of the job as it is now; empty if the runner knows no such job.
+
+=== The Contract
+
+* *The runner opens and closes the verification transaction itself.* A caller never passes a transaction in: the
+  runner verifies a job in a transaction it opens and closes before the launch, so no caller holds the enrolment lock
+  while a job is launched or awaited, and a job that runs for its whole budget never holds a lock of its caller. This is
+  concern (a) left by PLAN-18, stated in the contract of the interface.
+* *A refusal is a value.* A start the runner declines answers `StartResult.Refused(reason)`, never an exception; the
+  reason is a lower-case snake-case word (`[a-z][a-z0-9_]*`), for example `executable_digest_mismatch`, and anything
+  else is refused at construction. Where a record was written, the refusal is recorded as the job's fate `refused`. A
+  start that goes ahead answers `StartResult.Started(jobId)`, also for a job recorded `queued`.
+* *A cancel names its cause, and the cause decides the fate.* `CancelCause` is a closed set of five causes, each with
+  its row of the outcome derivation:
+
+[cols="2,1,1,3"]
+|===
+|Cause |Row |Fate |When
+
+|`ENGINE_CANCEL` |2 |`cancelled` |the engine cancelled the job: a cancelled job state, the short-circuit of a composite
+wait, a scope end
+|`PLAN_PAUSED_NOW` |2 |`cancelled` |the plan that owns the job was paused with the pause point `now`
+|`SUPERVISOR_END` |2 |`cancelled` |the supervisor ended a worker: lost, fenced or recycled
+|`BUDGET_EXPIRED` |3 |`timed_out` |the job's budget expired
+|`DRAIN` |4 |`killed` |the runtime drains and the job did not end within the drain timeout
+|===
+
+The five causes cover exactly the rows 2 to 4 of the outcome derivation; the other rows are decided by what the runtime
+observed of the job itself.
+
+=== Invariants
+
+* *No implementation in the foundation*: no class of `pm-core` implements `JobRunner`; an ArchUnit guard of
+  `JobRunnerTest` fails otherwise.
+* *Closed causes*: a cause outside the five does not exist, so no cancel can settle a job by a row outside 2 to 4.
+* *Checked requests*: a `StartRequest` of kind `probe`, with a blank budget key or a budget under one second, and a
+  `ProbeRequest` without its candidate cannot be built.
+
+Tested by `JobRunnerTest` (the components of a start request and their refusals, the refusal reason form, the mapping
+of each cause to its row and fate, the causes covering exactly rows 2 to 4, the implementation guard and its matched
+control). The runner of the runtime is described in
+link:../../../pm-runtime/doc/developer/runtime-job.adoc[Job Runtime (`runtime.job`)].
+
+== Specification Tracing
+
+* Module structure: link:{docs}/specification/module-structure.adoc[Module Structure Specification] (`pm-core`, the
+  service interfaces)
+* Specification: link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses],
+  link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[§ Outcome Derivation],
+  link:{spec}/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot
+  Reads, Transaction Locks & Leases]
+
+== Decisions
+
+* link:../adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR 001]: `JobRunner` is created
+  in `core.service` as the module structure names it, generic in the request and the probe candidate, and the runtime
+  implements it beside the engine port `JobStarter`.

@@ -1,0 +1,69 @@
+= ADR 001: `JobRunner` Is a Service Interface Beside the Engine Port, Implemented Together With It
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The Module Structure Specification names a service interface `JobRunner` among the service interfaces of `pm-core`
+that `pm-runtime` implements. It did not exist. The engine port `JobStarter` of `core.spi` did: it starts the job of a
+`job` state of the workflow for a `StartRequest(scopeId, stateId, primitiveId)`, answers `Started` or `Refused`, and
+names four job kinds. The work package `job-runner` left open whether the runner implements `JobStarter` alone or
+`JobRunner` is created, and where.
+
+A job runner of the runtime has to do more than the port: start a job of every kind outside a workflow state, start a
+probe from its candidate record, cancel a job for a cause that decides its fate, and read its record. What a job runs
+and where (`JobRequest`) and the candidate record of a probe (`ProbeCandidate`) are types of `runtime.job`; `pm-core`
+depends on `pm-api` alone among the modules of the product and cannot name them.
+
+PLAN-18 left a concern for the runner (concern (a)): the verification of a job by the `VerifyNotResolvePipeline` runs
+in a lock transaction that holds the enrolment lock, and that lock must not stay held while a job is launched or
+awaited.
+
+== Decision
+
+* `JobRunner<R, C>` is created in `core.service`, the package the Module Structure Specification names for it.
+  `SubprocessJobRunner` of `runtime.job` implements both `JobRunner<JobRequest, ProbeCandidate>` and `JobStarter`; the
+  port is not changed and keeps its four kinds and its `job_id` grammar.
+* The two type parameters stand for what `pm-core` cannot name: `R` the request of a job as the runtime verifies it,
+  `C` the candidate record of a probe.
+* The interface has four operations: `start(StartRequest<R>)`, `startProbe(ProbeRequest<C>)`,
+  `cancel(JobId, CancelCause)` and `record(JobId)`. A start the runner declines is a `StartResult.Refused` value, never
+  an exception.
+* `CancelCause` is a closed set of five causes, each with its row and fate of the outcome derivation: `ENGINE_CANCEL`,
+  `PLAN_PAUSED_NOW` and `SUPERVISOR_END` (row 2, `cancelled`), `BUDGET_EXPIRED` (row 3, `timed_out`) and `DRAIN` (row 4,
+  `killed`).
+* The contract of the interface states concern (a): a caller never passes a transaction in; the runner opens the
+  transaction of the verification itself and closes it before the launch.
+* No class of `pm-core` implements `JobRunner`; `JobRunnerTest` guards it.
+
+== Alternatives Considered
+
+1. *The runner implements `JobStarter` alone.*
+_Rejected_: the port starts only the job of a workflow state; the starts outside a state, the probes, the cancel by
+cause and the read of a record would have no interface in `pm-core`.
+2. *`JobRunner` created in `core.spi`.*
+_Rejected_: the Module Structure Specification names it among the service interfaces of `core.service`; further reasons
+not recorded.
+
+== Consequences
+
+* The engine keeps reaching the runner through the port it already has, and every other caller through `JobRunner`;
+  one runtime object serves both.
+* A caller cannot cancel a job for a cause outside the five, so no cancel settles a job by a row outside 2 to 4.
+* A later caller of `JobRunner` holds no enrolment lock while a job runs for its whole budget.
+* The request and the probe candidate stay types of the runtime; `pm-core` gains no dependency.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification] (`pm-core`)
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation]
+* `pm-core/src/main/java/de/planmarshall/core/service/JobRunner.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`

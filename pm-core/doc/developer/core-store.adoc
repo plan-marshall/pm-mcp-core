@@ -7,7 +7,7 @@
 :docs: ../../../../plan-marshall-documentation/doc
 
 == Purpose
-_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{docs}/Requirements.adoc#PM-CLIENT-3[PM-CLIENT-3]_
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1], link:{docs}/Requirements.adoc#PM-CLIENT-3[PM-CLIENT-3], link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]_
 
 This guide covers the stores of a scope that `pm-core` adds on top of the store substrate, and the engine ports:
 
@@ -23,7 +23,11 @@ This guide covers the stores of a scope that `pm-core` adds on top of the store 
   head and its index, the seam through which the runtime anchors it, and the production audit sink; and it gave every
   audit record a scope transaction owes a `transaction_id` of its own (<<_audit_log>>). The keyed head, the rotation
   and the verification live in `runtime.audit` of `pm-runtime`
-  (link:../../../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]).
+  (link:../../../pm-runtime/doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]);
+* the work package `job-runner` added the job record `jobs/<job_id>.json` of a project, of the machine scope and of an
+  onboarding entry, its identifier and its store, and the two lock keys of the machine queue and of an onboarding entry
+  (<<_job_records>>). The runner that writes the record and the recovery that reads it live in `runtime.job` and
+  `runtime.start` of `pm-runtime`.
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
@@ -589,6 +593,127 @@ the first record of an empty log chained to `emptyLogPredecessor()` or to genesi
 `AuditSchemaParityTest`; the per-record ids by `ScopeTransactionTest`, `JournalRecoveryTest`, `OrderedWriteTest` and
 `ScopeSessionLogTest`.
 
+[#_job_records]
+== Job Records
+_Requirements: link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/Requirements.adoc#PM-ARCH-7[PM-ARCH-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+The job record `jobs/<job_id>.json` is the write-ahead journal of one job: every job the runtime starts, a worker and a
+probe included, has one, and the recovery after a runtime start reads it to settle what a previous instance left
+behind. This package holds the identifier, the record, its codec and its store; the runner that writes the record and
+the recovery that reads it live in `runtime.job` and `runtime.start` of `pm-runtime`.
+
+[horizontal]
+`JobId`:: The `job_id`: the prefix of its kind, `-` and 16 lower-case hexadecimal digits, `^[bcglpv]-[0-9a-f]{16}$`.
+`JobId.Kind` owns the full kind vocabulary of the job records: `build` (`b`), `ci` (`c`), `git` (`g`),
+`project_script` (`p`), `llm` (`l`, a worker) and `probe` (`v`). `random(kind)` draws 16 digits from a `SecureRandom`;
+whether the id is free is decided by the store. `ofRecordFileName` parses the name of a record; a name that does not
+parse is never a job.
+`JobRecord`:: The record in `format_version` 1. Every member this package writes is typed; `worker` (the block a
+supervisor writes) and `gate_facts` (the facts a gate writes) are kept as the raw JSON text they were read with
+(link:../adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029]). The record carries
+its own vocabularies: `Execution` (`process`, `in_process`), `Status` (`queued`, `refused`, `running`, `ended`),
+`Fate`, `Confinement`, the owning `Scope` (`plan`, `epic`, `workspace`, `project`, `machine`, `entry`), the
+`BudgetDerivation`, a `SelfReportContradiction` and the `ClampedValue` rows. `isSpawnRecorded()` is true once the record
+carries the PID: only from then on does the job count as running.
+`JobRecordCodec`:: Reads and writes the record over `StrictJson`: `format_version` first, every member once, only the
+declared members, every required member, one JSON type per member, the closed values; the `kind` must be the kind the
+`job_id` names, and `worker` and `gate_facts` must be objects or `null`. It writes the members in schema order, the two
+raw members as the bytes they were read with, so a supervisor's or a gate's block is re-emitted byte for byte.
+`JobRecordStore`:: The records of one store: `ofProject(base, projectId)` (`projects/<project_id>/jobs/`),
+`ofMachine(base)` (`machine/jobs/`) and `ofEntry(base, entryId)` (`onboardings/<entry_id>/jobs/`). The raw log
+`<job_id>.log` lies beside its record. A project store holds the jobs of the scopes `plan`, `epic`, `workspace` and
+`project`, the machine store those of `machine`, an entry store those of its own `entry`; a job of another scope is
+refused before anything is written.
+
+=== The Write Points and Their Locks
+
+A record is written at four fixed points, each one atomic replace (`AtomicStoreFile`) under the lock of the scope that
+owns the job, which the method acquires in the caller's `LockTransaction`. Each point reads the record it replaces
+under that lock and refuses a record that does not follow it, so a record moves only forward:
+
+[cols="1,2,2"]
+|===
+|Point |Writes |Replaces
+
+|`writeQueued` |`queued`, not spawned, budget not started |nothing: it is the first record of the job
+|`writeAhead` |`running` with neither PID nor process start, before the process or the in-process operation starts
+|nothing, or the job's `queued` record
+|`writePostSpawn` |the PID, the process start and the spawn instant of a process job |the job's write-ahead record,
+once
+|`writeFate` |the settled record, `refused` or `ended` |a `queued` or `running` record, or nothing, as for a job
+refused before anything was written
+|===
+
+A replacement must keep the job's scope and execution. The lock of the owning scope is
+(link:../adr/core-store/030-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 030]):
+
+[cols="1,2"]
+|===
+|Scope |Lock
+
+|`plan`, `epic` |the plan or epic lock of the project
+|`workspace` |the workspace lock of the project
+|`project` (a worker) |the queue lock of the project, `LockKey.queue`
+|`machine` |the machine queue lock `machine/locks/queue.lock`, `LockKey.machineQueue`, at the level `QUEUE` with the id
+`machine/queue`
+|`entry` |the entry lock `onboardings/locks/<entry_id>.lock`, `LockKey.onboardingEntry`, at the level `WORKSPACE`
+with the entry id
+|===
+
+`allocate(transaction, kind, scope)` is a check-then-act on `jobs/`: it acquires the owning lock in the caller's
+transaction, draws an id and draws again while the id names a record or a log present. The lock stays held, so the
+caller writes the job's first record in the same transaction and no second writer of that scope comes between the
+check and the write.
+
+A read takes no lock: `read(jobId)` returns the record or `Optional.empty()`, `jobIds()` lists the regular files of
+`jobs/` whose name parses as `<job_id>.json` (a log, a staged file or any other name is not a job), and `records()`
+reads them all, as the recovery does. The directory `jobs/` is created by the first write.
+
+=== Invariants
+
+* *The rules of the schema at construction*: `fate` and `outcome_row` are set exactly for a settled job, the status
+  `refused` goes with the fate `refused` and `refusal_reason` exactly with it; a worker carries its `worker` block, runs
+  as a process and belongs to a project or the machine; a probe runs as a process and belongs to the machine or an
+  entry; an in-process operation has no process field and the confinement `not_applicable`; `pid` and
+  `process_started_at` are set together; a queued or refused job was never spawned; `child_wall_ms` is recorded only for
+  an ended process job and never exceeds its wall time from `spawned_at` to `ended_at`. A record outside these rules
+  cannot be built, so it is never written.
+* *Forward only*: each write point checks the record it replaces under the owning lock; a settled record is never
+  replaced, and a post-spawn record is never written twice.
+* *Verbatim remainder*: `worker` and `gate_facts` are re-emitted unchanged; this package never rewrites what the
+  supervisor or a gate owns.
+* *Only job ids are jobs*: a listing never names a file whose name does not parse as `<job_id>.json`.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A record is unreadable, of another format version, or states another `job_id` than its file name
+|`read` and `records` throw a `StoreRefusal` naming the file.
+
+|A write point does not follow the record it replaces, or the record is not of its status
+|The write throws `IllegalArgumentException`; nothing is written.
+
+|A job of a scope of another store
+|`lockKey`, `allocate` and every write throw `IllegalArgumentException`; nothing is acquired or written.
+
+|The transaction may not take the owning lock after the locks it holds
+|`InternalFaultException` from the lock manager; nothing is written.
+
+|The directory `jobs/` does not exist
+|`jobIds()` and `records()` are empty, `read` is empty.
+|===
+
+Tested by `JobIdTest`, `JobRecordCodecTest` (round trip byte for byte, schema order, `worker` and `gate_facts` verbatim
+with their whitespace, the refusals, the rules of the record), `JobRecordStoreTest` (paths and locks per home, the four
+write points in order, a refused job's only record, the refused out-of-order writes, the redraw on a collision under the
+owning lock, the listing and the refused foreign `job_id`), `LockKeyTest` (the two new keys and their place in the order)
+and `JobRecordSchemaParityTest`, which compares the codec with the schema of the job record: the members and their order,
+the required members, the values of every enumeration, the confinement and `job_id` patterns, the format version and the
+range of `outcome_row`.
+
 == Reading Helpers Shared with `core.queue`
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
@@ -623,7 +748,7 @@ closes such a task `lost`.
 
 == Testing
 
-The tests run on the JVM over stores in a temporary base. The schema parity tests (`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`, `WorkflowStatusSchemaParityTest`)
+The tests run on the JVM over stores in a temporary base. The schema parity tests (`PendingEntrySchemaParityTest`, `AuditSchemaParityTest`, `WorkflowStatusSchemaParityTest`, `JobRecordSchemaParityTest`)
 read the JSON schema from the specification of this repository (`doc/specification`, below the root the system
 property `pm.specification.root` names, `SpecificationDocument`); a missing document or schema block is a failure. A
 parity check the specification has run ahead of is `@Disabled` with the work package that re-enables it named.
@@ -636,7 +761,8 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   Schemas § Scope Session Log], link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store
   Schemas § Pending Entry Record], link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas §
   Security & Transition Audit Log], link:{spec}/store-schemas/12-machine-stores.adoc#audit-head[§ Audit
-  Head], link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index]
+  Head], link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index],
+  link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
 == Decisions
@@ -666,3 +792,9 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   the audit log is written into the log by its own in-log sink before the intent is deleted.
 * link:../adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[ADR 028]: a create target is
   refused at the commit, under the scope lock, when its store exists.
+* link:../adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029]: of the job record,
+  every member this package writes is typed, `worker` and `gate_facts` kept verbatim, and the job kinds and scopes are
+  the record's own vocabulary.
+* link:../adr/core-store/030-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 030]: the records of the
+  machine scope are written under the machine queue lock, those of an onboarding entry under the entry lock, and each
+  write point checks the record it replaces.
