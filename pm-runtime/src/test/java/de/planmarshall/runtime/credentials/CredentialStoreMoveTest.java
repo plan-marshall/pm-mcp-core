@@ -37,6 +37,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -516,6 +519,50 @@ class CredentialStoreMoveTest {
                     () -> assertTrue(refusals.getFirst().getMessage().contains("only the move records"),
                             refusals.getFirst().getMessage()),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
+        }
+
+        @Test
+        @DisplayName("the aspect from another thread waits for the running move and is then refused for the old store")
+        void aspectFromAnotherThreadWaitsForTheMove() throws Exception {
+            var key = machineOn(Store.OS);
+            var refusal = new AtomicReference<CredentialStoreChoice.Refusal>();
+            var aspect = new Thread(() -> {
+                try {
+                    choice.record(locks, USER, Store.OS);
+                } catch (CredentialStoreChoice.Refusal refused) {
+                    refusal.set(refused);
+                }
+            });
+            var waitedDuringTheMove = new AtomicBoolean();
+            var mover = move(step -> {
+                if (step == Step.KEY_COPIED) {
+                    aspect.start();
+                    waitedDuringTheMove.set(awaitWaiting(aspect));
+                }
+            });
+
+            mover.move(Store.FILE);
+            aspect.join(TimeUnit.SECONDS.toMillis(10));
+
+            assertAll(
+                    () -> assertTrue(waitedDuringTheMove.get()),
+                    () -> assertFalse(aspect.isAlive()),
+                    () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.get().reason()),
+                    () -> assertTrue(refusal.get().getMessage().contains("a change to 'os' is a move"),
+                            refusal.get().getMessage()),
+                    () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
+        }
+
+        /** @return whether the thread waits, for the credentials lock the move holds, within ten seconds */
+        private static boolean awaitWaiting(Thread thread) {
+            var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (System.nanoTime() < deadline) {
+                if (thread.getState() == Thread.State.WAITING) {
+                    return true;
+                }
+                Thread.onSpinWait();
+            }
+            return false;
         }
 
         @Test

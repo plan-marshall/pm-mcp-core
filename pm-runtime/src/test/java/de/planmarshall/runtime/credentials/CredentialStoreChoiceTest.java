@@ -357,17 +357,65 @@ class CredentialStoreChoiceTest {
         }
 
         @Test
-        @DisplayName("once the record of the move is gone the aspect records again")
-        void aspectRecordsAfterTheMove() throws Exception {
+        @DisplayName("once the record of the move is gone the aspect is still refused for the other store, since a "
+                + "change of the recorded store is a move")
+        void aspectRefusedAfterTheMoveForTheOtherStore() throws Exception {
             writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
             openMove();
             var choice = linux(true);
-            assertThrows(Refusal.class, () -> choice.record(locks, USER, Store.FILE));
+            var whileOpen = assertThrows(Refusal.class, () -> choice.record(locks, USER, Store.FILE));
             Files.delete(CredentialStoreMoveRecord.file(base));
 
-            choice.record(locks, USER, Store.FILE);
+            var afterwards = assertThrows(Refusal.class, () -> choice.record(locks, USER, Store.FILE));
 
-            assertEquals(Optional.of(Store.FILE), choice.recorded());
+            assertAll(
+                    () -> assertTrue(whileOpen.getMessage().contains("only the move records"), whileOpen.getMessage()),
+                    () -> assertEquals(Refusal.Reason.ASPECT_OWNED, afterwards.reason()),
+                    () -> assertTrue(afterwards.getMessage().contains("a change to 'file' is a move"),
+                            afterwards.getMessage()),
+                    () -> assertEquals(document(",\"credentials\":{\"store\":\"os\"}"), readMachineConfig()),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()));
+        }
+
+        @Test
+        @DisplayName("while a store is recorded the aspect is refused for the other store with aspect_owned, and "
+                + "nothing is written, carried or deleted")
+        void aspectRefusedForTheOtherStore() throws Exception {
+            writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
+            secretService.put(GITHUB, "token");
+            var key = new EnrolmentKey(secretService, base.resolve("state"), USER, new SecureRandom()).readOrCreate();
+            var choice = linux(true);
+
+            var refusal = assertThrows(Refusal.class, () -> choice.record(locks, USER, Store.FILE));
+
+            assertAll(
+                    () -> assertEquals(Refusal.Reason.ASPECT_OWNED, refusal.reason()),
+                    () -> assertEquals("aspect_owned", refusal.reason().code()),
+                    () -> assertTrue(refusal.getMessage().contains("'os' is recorded"), refusal.getMessage()),
+                    () -> assertEquals(document(",\"credentials\":{\"store\":\"os\"}"), readMachineConfig()),
+                    () -> assertEquals(List.of(CredentialAccount.global(EnrolmentKey.ACCOUNT), GITHUB),
+                            secretService.entries()),
+                    () -> assertEquals(Optional.of("token"), secretService.get(GITHUB)),
+                    () -> assertArrayEquals(key.getEncoded(), new EnrolmentKey(secretService, base.resolve("state"),
+                            USER, new SecureRandom()).read().orElseThrow().getEncoded()),
+                    () -> assertFalse(Files.exists(base.resolve("credentials"))),
+                    () -> assertFalse(Files.exists(base.resolve("state").resolve(EnrolmentKey.FILE_NAME))));
+        }
+
+        @Test
+        @DisplayName("the aspect for the recorded store again writes nothing and probes no store")
+        void aspectForTheRecordedStoreIsANoOp() throws Exception {
+            writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
+            var choice = linux(true);
+
+            choice.record(locks, USER, Store.OS);
+
+            assertAll(
+                    () -> assertEquals(document(",\"credentials\":{\"store\":\"os\"}"), readMachineConfig()),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertTrue(probes.isEmpty(), probes.toString()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                            INFO.CREDENTIAL_STORE_RECORDED.resolveIdentifierString()));
         }
 
         @Test
@@ -838,6 +886,113 @@ class CredentialStoreChoiceTest {
                     () -> assertArrayEquals(created.getEncoded(), key(choice).readOrCreate().getEncoded()));
         }
 
+        @Test
+        @DisplayName("a target that holds the same key already: the key is not copied again, the found store gives it "
+                + "up and the sidecars verify")
+        void targetHoldsTheSameKey() throws Exception {
+            var choice = choice();
+            var created = key(choice).readOrCreate();
+            signHarnesses(created);
+            keyIn(fileStoreName()).write(created);
+
+            choice.record(locks, USER, Store.FILE);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
+                            .getEncoded()),
+                    () -> assertTrue(keyIn(secretService).read().isEmpty()),
+                    () -> assertTrue(verified(key(choice).readOrCreate()).isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a key that cannot be deleted from the found store after the switch: the recording stands, the "
+                + "failure says the key is in both stores, and a later recording of the store carries nothing")
+        void deletionAfterTheSwitchFails() throws Exception {
+            var choice = choice();
+            var created = key(choice).readOrCreate();
+            signHarnesses(created);
+            secretService.failDeletesWith(SecretStoreException.Reason.LOCKED);
+
+            var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.FILE));
+            var recordedDocument = readMachineConfig();
+            choice.record(locks, USER, Store.FILE);
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.LOCKED, failure.reason()),
+                    () -> assertTrue(failure.getMessage().contains("the recording of 'file' stands"),
+                            failure.getMessage()),
+                    () -> assertTrue(failure.getMessage().contains("in both stores"), failure.getMessage()),
+                    () -> assertFalse(failure.getMessage().contains("nothing was recorded"), failure.getMessage()),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertEquals(recordedDocument, readMachineConfig()),
+                    () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
+                            .getEncoded()),
+                    () -> assertArrayEquals(created.getEncoded(), keyIn(secretService).read().orElseThrow()
+                            .getEncoded()),
+                    () -> assertTrue(verified(key(choice).readOrCreate()).isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a copy that cannot be removed from the target after a failed sidecar check is added to the cause, "
+                + "and nothing is recorded")
+        void removalOfTheCopyFails() throws Exception {
+            osAvailable[0] = false;
+            var choice = choice();
+            var created = key(choice).readOrCreate();
+            signHarnesses(keyIn(new MemoryStore(SecretStore.KEYCHAIN)).readOrCreate());
+            osAvailable[0] = true;
+            secretService.failDeletesWith(SecretStoreException.Reason.FAILED);
+
+            var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.OS));
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                    () -> assertTrue(failure.getMessage().contains("nothing was recorded"), failure.getMessage()),
+                    () -> assertEquals(1, failure.getCause().getSuppressed().length),
+                    () -> assertInstanceOf(SecretStoreException.class, failure.getCause().getSuppressed()[0]),
+                    () -> assertTrue(choice.recorded().isEmpty()),
+                    () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
+                            .getEncoded()),
+                    () -> assertTrue(keyIn(secretService).read().isPresent()));
+        }
+
+        @Test
+        @DisplayName("a store that fails while the key is carried fails the recording with its own reason")
+        void storeFailsDuringTheCarry() throws Exception {
+            osAvailable[0] = false;
+            var choice = choice();
+            var created = key(choice).readOrCreate();
+            signHarnesses(created);
+
+            var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.OS));
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.UNAVAILABLE, failure.reason()),
+                    () -> assertTrue(failure.getMessage().contains("nothing was recorded"), failure.getMessage()),
+                    () -> assertTrue(choice.recorded().isEmpty()),
+                    () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
+                            .getEncoded()));
+        }
+
+        @Test
+        @DisplayName("a later recording of the recorded store carries, writes and deletes nothing")
+        void reRecording() throws Exception {
+            var choice = choice();
+            var created = key(choice).readOrCreate();
+            signHarnesses(created);
+            choice.record(locks, USER, Store.FILE);
+            var recordedDocument = readMachineConfig();
+
+            choice.record(locks, USER, Store.FILE);
+
+            assertAll(
+                    () -> assertEquals(recordedDocument, readMachineConfig()),
+                    () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
+                            .getEncoded()),
+                    () -> assertTrue(keyIn(secretService).read().isEmpty()));
+        }
+
         /** @return the file store as the key sees it: the key file below the state directory */
         private SecretStore fileStoreName() {
             return new FileSecretStore(base.resolve("credentials"));
@@ -859,12 +1014,13 @@ class CredentialStoreChoiceTest {
         assertEquals(reason, assertThrows(SecretStoreException.class, operation).reason());
     }
 
-    /** An OS store in memory, which can be told to fail every operation. */
+    /** An OS store in memory, which can be told to fail every operation, or its deletions only. */
     private static final class MemoryStore implements SecretStore {
 
         private final String name;
         private final Map<String, String> secrets = new TreeMap<>();
         private SecretStoreException.Reason failure;
+        private SecretStoreException.Reason deleteFailure;
 
         MemoryStore(String name) {
             this.name = name;
@@ -872,6 +1028,10 @@ class CredentialStoreChoiceTest {
 
         void failWith(SecretStoreException.Reason reason) {
             failure = reason;
+        }
+
+        void failDeletesWith(SecretStoreException.Reason reason) {
+            deleteFailure = reason;
         }
 
         private void failIfAsked() {
@@ -900,6 +1060,9 @@ class CredentialStoreChoiceTest {
         @Override
         public boolean delete(CredentialAccount account) {
             failIfAsked();
+            if (deleteFailure != null) {
+                throw new SecretStoreException(deleteFailure, "store refuses to delete with " + deleteFailure.code());
+            }
             return secrets.remove(account.account()) != null;
         }
 

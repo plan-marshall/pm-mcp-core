@@ -53,9 +53,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * the credential-store aspect of the machine's onboarding and the store move write the key; every other writer is
  * refused with {@code aspect_owned}. While a move between the stores is open, while its record
  * {@code state/credential-store-move.json} exists, only the move writes the key: the aspect is refused with
- * {@code aspect_owned} as well. The record is checked under {@code locks/credentials.lock}, which the move holds for its
- * whole duration and which sorts before the machine configuration lock, so no other writer records a store between the
- * check and the write, nor while a move runs.
+ * {@code aspect_owned} as well. The aspect records a store the first time only: once a store is recorded, a change to
+ * the other store is the move, so the aspect is refused for it with {@code aspect_owned}, and for the recorded store it
+ * writes nothing. The record and the recorded store are checked under {@code locks/credentials.lock}, which the move
+ * holds for its whole duration and which sorts before the machine configuration lock, so no other writer records a
+ * store between the check and the write, nor while a move runs.
  * <p>
  * <b>The active store.</b> {@link #activeStore()} gives the store of the recorded choice, read from the file at every
  * call, so a switch by the move takes effect for the next operation. Before a store is recorded it refuses with
@@ -123,7 +125,10 @@ public final class CredentialStoreChoice {
 
     /** Who writes {@code machine-config.json}. The set is closed; only the owners of the key may write it. */
     public enum Writer {
-        /** The credential-store aspect of the machine's onboarding, in its first or a later run. */
+        /**
+         * The credential-store aspect of the machine's onboarding, which records the store the first time only; a
+         * later change of the recorded store goes through the move ({@link CredentialStoreMove}).
+         */
         CREDENTIAL_STORE_ASPECT(true),
         /** The move of every entry between the stores, which switches the key in one write. */
         STORE_MOVE(true),
@@ -156,8 +161,9 @@ public final class CredentialStoreChoice {
             /** No store is recorded yet: no credential can be entered before the store step of the onboarding. */
             ONBOARDING_INCOMPLETE("onboarding_incomplete"),
             /**
-             * The writer does not own {@code credentials.store}: it is not one of its owners, or a move between the
-             * stores is open, which alone owns the key until it ends.
+             * The writer does not own {@code credentials.store}: it is not one of its owners, a move between the
+             * stores is open, which alone owns the key until it ends, or the credential-store aspect asks for another
+             * store than the one recorded, which only the move changes.
              */
             ASPECT_OWNED("aspect_owned");
 
@@ -325,6 +331,11 @@ public final class CredentialStoreChoice {
      * transaction of its own: under {@code locks/credentials.lock} it is refused while the record of a move exists,
      * and then {@code credentials.store} is written as {@link #record(LockTransaction, Store, Writer)} writes it.
      * <p>
+     * <b>Only the first recording writes.</b> Where a store is recorded already, the aspect does not change it: a
+     * change of the recorded store is a move ({@link CredentialStoreMove}), which carries every entry and the key, so
+     * another store is refused with {@code aspect_owned}, and the recorded store again is a no-op that writes and carries
+     * nothing.
+     * <p>
      * <b>The first recording carries the integrity key.</b> Before a store is recorded the key lives in the store the
      * runtime found ({@link #integrityKeyStore()}). Where that is the other store and holds a key, the key is carried
      * into the store being recorded before {@code credentials.store} is switched, with the discipline of the move
@@ -333,23 +344,34 @@ public final class CredentialStoreChoice {
      * was found in. The recorded store therefore holds the key every sidecar was signed under, and no second key is
      * created there. Where no key exists yet nothing is carried; where the target holds the same key already it is not
      * copied again.
+     * <p>
+     * <b>A key left in the found store.</b> Where the key cannot be deleted from the found store after the switch, the
+     * recording stands and the key is in both stores. No later call deletes it, since a later call of the aspect for
+     * the recorded store carries nothing: the operator deletes it from the found store by hand, the keyring entry
+     * {@value de.planmarshall.runtime.enrolment.EnrolmentKey#ACCOUNT} under the service name of the instance, or the
+     * key file {@code state/}{@value de.planmarshall.runtime.enrolment.EnrolmentKey#FILE_NAME}.
      *
      * @param locks the lock manager; the calling thread holds no lock that sorts after the credentials lock
      * @param user  the name of the running user, the owner of the key file and of every file the verification reads
      * @param store the store the operator chose
-     * @throws Refusal                                 with {@code aspect_owned} while the record of a move exists;
+     * @throws Refusal                                 with {@code aspect_owned} while the record of a move exists, or
+     *                                                 where another store than {@code store} is recorded already;
      *                                                 nothing was written then
-     * @throws SecretStoreException                    with {@code credential_store_failed} if the key cannot be carried:
-     *                                                 the target holds another key, the key does not read back, or a
-     *                                                 sidecar does not verify under it; nothing was recorded then, the
-     *                                                 copy was removed from the target and the found store keeps the
-     *                                                 key. With the reason of the store if the key cannot be deleted
-     *                                                 from the found store after the switch: the recording stands, and
+     * @throws SecretStoreException                    if the key cannot be carried, with {@code credential_store_failed}
+     *                                                 where the target holds another key, the key does not read back,
+     *                                                 a sidecar does not verify under it or cannot be read, or the
+     *                                                 machine's files the verification reads are not in their format,
+     *                                                 and with the reason of the store where a store fails while the
+     *                                                 key is read or written; nothing was recorded then, the copy was
+     *                                                 removed from the target (a removal that fails is added to the
+     *                                                 cause as suppressed) and the found store keeps the key. With the
+     *                                                 reason of the found store if the key cannot be deleted from it
+     *                                                 after the switch, and a message that says the recording stands and
      *                                                 the key is in both stores
      * @throws de.planmarshall.core.store.StoreRefusal if the machine configuration cannot be read as its format; nothing
      *                                                 was written then
      * @throws UncheckedIOException                    if the record of a move or the machine configuration cannot be
-     *                                                 read or written, or a sidecar cannot be read
+     *                                                 read or written
      */
     public void record(LockManager locks, String user, Store store) {
         Objects.requireNonNull(locks, "locks");
@@ -358,18 +380,48 @@ public final class CredentialStoreChoice {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(moveRecord.lockKey());
             requireNoMove(transaction);
-            var found = recorded().isEmpty() ? Optional.of(integrityKeyStore()) : Optional.<SecretStore>empty();
-            var from = found.filter(foundStore -> storeOf(foundStore) != store);
-            if (from.isEmpty()) {
+            var recorded = recorded();
+            if (recorded.isPresent()) {
+                requireRecorded(recorded.get(), store);
+                return;
+            }
+            var found = integrityKeyStore();
+            if (storeOf(found) == store) {
                 write(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
                 return;
             }
             var keyCarry = new IntegrityKeyCarry(base, locks, user);
-            var carried = carryKey(keyCarry, from.get(), store(store));
+            var carried = carryKey(keyCarry, found, store(store));
             write(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
             if (carried) {
-                keyCarry.keyIn(from.get()).delete();
+                deleteFromFound(keyCarry, found, store);
             }
+        }
+    }
+
+    /**
+     * Refuses the aspect for another store than the recorded one: a change of the recorded store is a move. The
+     * recorded store again is a no-op.
+     */
+    private void requireRecorded(Store recorded, Store store) {
+        if (recorded != store) {
+            throw new Refusal(Refusal.Reason.ASPECT_OWNED,
+                    ("'%s' is recorded in credentials.store of %s; the aspect records a store the first time only, "
+                            + "a change to '%s' is a move between the credential stores")
+                            .formatted(recorded.value(), file.store(), store.value()));
+        }
+    }
+
+    /** Deletes the carried key from the found store after the switch; a failure says that the recording stands. */
+    private static void deleteFromFound(IntegrityKeyCarry keyCarry, SecretStore found, Store recorded) {
+        try {
+            keyCarry.keyIn(found).delete();
+        } catch (SecretStoreException e) {
+            throw new SecretStoreException(e.reason(),
+                    ("the recording of '%s' stands and it holds the integrity key, but the key cannot be deleted "
+                            + "from '%s', so it is in both stores; delete it there by hand: %s")
+                            .formatted(recorded.value(), found.name(), e.getMessage()),
+                    e);
         }
     }
 
@@ -400,7 +452,8 @@ public final class CredentialStoreChoice {
             if (copied) {
                 removeCopy(keyCarry, target, e);
             }
-            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+            throw new SecretStoreException(
+                    e instanceof SecretStoreException failure ? failure.reason() : SecretStoreException.Reason.FAILED,
                     "the first recording of '%s' failed, nothing was recorded and the integrity key stays in '%s': %s"
                             .formatted(storeOf(target).value(), from.name(), e.getMessage()),
                     e);
