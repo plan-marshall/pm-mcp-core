@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -41,11 +42,12 @@ import de.planmarshall.runtime.start.PosixModes;
  * The enrolment integrity key (PM-EXEC-2, PM-SEC-5): the operator-lane secret the HMAC of every enrolment file is
  * computed with.
  * <p>
- * Where the active credential store is a keyring, the key is its entry under the global account
- * {@value #ACCOUNT}; where it is the fallback file store, the key is the file {@code <state>/}{@value #FILE_NAME},
- * owned by the running user with no permission bit outside {@code 0600}. The key is 256 random bits, kept
- * base64url-encoded without padding. It is created on the first enrolment write and never replaced; only the runtime
- * reads it.
+ * The key lives in the recorded credential store, or before the choice in the store the runtime finds (PM-CRED-2):
+ * where that store is a keyring, the key is its entry under the global account {@value #ACCOUNT}; where it is the
+ * file store, the key is the file {@code <state>/}{@value #FILE_NAME}, owned by the running user with no permission
+ * bit outside {@code 0600}. The store is asked of a supplier on every read, so after a move between the stores the key
+ * is read from the store now recorded, and nothing is re-signed. The key is 256 random bits, kept base64url-encoded
+ * without padding. It is created on the first enrolment write and never replaced; only the runtime reads it.
  * <p>
  * The key file is created atomically: the key is written to a temporary file in the state directory with mode
  * {@code 0600} and synced, published under its name by a hard link that never replaces an existing file, and the
@@ -68,7 +70,7 @@ public final class EnrolmentKey {
     /** The global account of the key in a keyring. */
     public static final String ACCOUNT = "enrolment-integrity-key";
 
-    /** The name of the key file below the state directory, on a host without a keyring. */
+    /** The name of the key file below the state directory, where the key lives in the file store. */
     public static final String FILE_NAME = "enrolment-hmac.key";
 
     /** The algorithm the key is used with. */
@@ -82,24 +84,44 @@ public final class EnrolmentKey {
 
     private static final CuiLogger LOGGER = new CuiLogger(EnrolmentKey.class);
 
-    private final SecretStore store;
+    private final Supplier<SecretStore> activeStore;
     private final Path keyFile;
     private final EnrolmentFileCheck fileCheck;
     private final SecureRandom random;
 
     /**
-     * @param store          the active credential store
-     * @param stateDirectory the state directory {@code <PM_MCP_BASE>/state}, which holds the key file on a host
-     *                       without a keyring
+     * @param activeStore    gives the store the key lives in, asked on every read: the recorded credential store, or
+     *                       before the choice the store the runtime finds (the OS store where one is available, else
+     *                       the file store, which means the key file)
+     * @param stateDirectory the state directory {@code <PM_MCP_BASE>/state}, which holds the key file where the store is
+     *                       the file store
      * @param user           the name of the running user, the owner the key file must have
      * @param random         the source of a new key
      */
-    public EnrolmentKey(SecretStore store, Path stateDirectory, String user, SecureRandom random) {
-        this.store = Objects.requireNonNull(store, "store");
+    public EnrolmentKey(Supplier<SecretStore> activeStore, Path stateDirectory, String user, SecureRandom random) {
+        this.activeStore = Objects.requireNonNull(activeStore, "activeStore");
         this.keyFile = Objects.requireNonNull(stateDirectory, "stateDirectory").toAbsolutePath().normalize()
                 .resolve(FILE_NAME);
         this.fileCheck = new EnrolmentFileCheck(user);
         this.random = Objects.requireNonNull(random, "random");
+    }
+
+    /**
+     * The key in one store that never changes.
+     *
+     * @param store          the credential store the key lives in
+     * @param stateDirectory the state directory {@code <PM_MCP_BASE>/state}, which holds the key file where the store is
+     *                       the file store
+     * @param user           the name of the running user, the owner the key file must have
+     * @param random         the source of a new key
+     */
+    public EnrolmentKey(SecretStore store, Path stateDirectory, String user, SecureRandom random) {
+        this(fixed(store), stateDirectory, user, random);
+    }
+
+    private static Supplier<SecretStore> fixed(SecretStore store) {
+        Objects.requireNonNull(store, "store");
+        return () -> store;
     }
 
     /**
@@ -108,12 +130,20 @@ public final class EnrolmentKey {
      *                              keyring
      */
     public synchronized Optional<SecretKey> read() {
+        return read(currentStore());
+    }
+
+    private Optional<SecretKey> read(SecretStore store) {
         try {
-            var encoded = inKeyFile() ? readKeyFile() : store.get(CredentialAccount.global(ACCOUNT));
-            return encoded.map(this::decode);
+            var encoded = inKeyFile(store) ? readKeyFile() : store.get(CredentialAccount.global(ACCOUNT));
+            return encoded.map(value -> decode(store, value));
         } catch (SecretStoreException e) {
-            throw unavailable(e);
+            throw unavailable(store, e);
         }
+    }
+
+    private SecretStore currentStore() {
+        return Objects.requireNonNull(activeStore.get(), "active store");
     }
 
     /**
@@ -146,31 +176,32 @@ public final class EnrolmentKey {
      *                              written
      */
     public synchronized SecretKey readOrCreate() {
-        var existing = read();
+        var store = currentStore();
+        var existing = read(store);
         if (existing.isPresent()) {
             return existing.get();
         }
         var bytes = new byte[KEY_BYTES];
         random.nextBytes(bytes);
         try {
-            if (create(Base64.getUrlEncoder().withoutPadding().encodeToString(bytes))) {
+            if (create(store, Base64.getUrlEncoder().withoutPadding().encodeToString(bytes))) {
                 return new SecretKeySpec(bytes, ALGORITHM);
             }
         } finally {
             Arrays.fill(bytes, (byte) 0);
         }
-        var vanished = inKeyFile() ? "key file %s vanished after another writer created it".formatted(keyFile)
-                : "%s vanished after it was written".formatted(source());
-        return read().orElseThrow(
-                () -> unavailable(new SecretStoreException(SecretStoreException.Reason.FAILED, vanished)));
+        var vanished = inKeyFile(store) ? "key file %s vanished after another writer created it".formatted(keyFile)
+                : "%s vanished after it was written".formatted(source(store));
+        return read(store).orElseThrow(
+                () -> unavailable(store, new SecretStoreException(SecretStoreException.Reason.FAILED, vanished)));
     }
 
-    /** @return the key file below the state directory, used on a host without a keyring */
+    /** @return the key file below the state directory, used where the key lives in the file store */
     public Path keyFile() {
         return keyFile;
     }
 
-    private boolean inKeyFile() {
+    private static boolean inKeyFile(SecretStore store) {
         return SecretStore.FILE.equals(store.name());
     }
 
@@ -195,15 +226,15 @@ public final class EnrolmentKey {
      * @return whether the key this call generated is the key; {@code false} if another writer created the key file
      *         first, and always for a keyring, whose entry is read back because a write replaces what it holds
      */
-    private boolean create(String encoded) {
+    private boolean create(SecretStore store, String encoded) {
         try {
-            if (inKeyFile()) {
+            if (inKeyFile(store)) {
                 return writeKeyFile(encoded);
             }
             store.put(CredentialAccount.global(ACCOUNT), encoded);
             return false;
         } catch (SecretStoreException e) {
-            throw unavailable(e);
+            throw unavailable(store, e);
         }
     }
 
@@ -260,18 +291,18 @@ public final class EnrolmentKey {
         }
     }
 
-    private SecretKey decode(String encoded) {
+    private SecretKey decode(SecretStore store, String encoded) {
         byte[] bytes;
         try {
             bytes = Base64.getUrlDecoder().decode(encoded);
         } catch (IllegalArgumentException _) {
             throw new SecretStoreException(SecretStoreException.Reason.INVALID,
-                    "%s does not hold an integrity key in base64url".formatted(source()));
+                    "%s does not hold an integrity key in base64url".formatted(source(store)));
         }
         try {
             if (bytes.length != KEY_BYTES) {
                 throw new SecretStoreException(SecretStoreException.Reason.INVALID,
-                        "%s does not hold an integrity key of %d bytes".formatted(source(), KEY_BYTES));
+                        "%s does not hold an integrity key of %d bytes".formatted(source(store), KEY_BYTES));
             }
             return new SecretKeySpec(bytes, ALGORITHM);
         } finally {
@@ -279,12 +310,13 @@ public final class EnrolmentKey {
         }
     }
 
-    private String source() {
-        return inKeyFile() ? keyFile.toString() : "credential store '%s' account '%s'".formatted(store.name(), ACCOUNT);
+    private String source(SecretStore store) {
+        return inKeyFile(store) ? keyFile.toString()
+                : "credential store '%s' account '%s'".formatted(store.name(), ACCOUNT);
     }
 
-    private SecretStoreException unavailable(SecretStoreException e) {
-        LOGGER.error(e, ERROR.ENROLMENT_KEY_UNAVAILABLE, source(), e.reason().code());
+    private SecretStoreException unavailable(SecretStore store, SecretStoreException e) {
+        LOGGER.error(e, ERROR.ENROLMENT_KEY_UNAVAILABLE, source(store), e.reason().code());
         return e;
     }
 }

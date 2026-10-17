@@ -11,9 +11,13 @@
  * The integrity of the project enrolments (PM-EXEC-2, PM-SEC-4, PM-SEC-5, PM-MIG-1, PM-IMPL-7): the runtime's side of
  * the enrolment store of {@code pm-core}.
  * <ul>
- * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentKey}: the operator-lane integrity key, from the active
- * credential store under the account {@code enrolment-integrity-key}, or on a host without a keyring from
- * {@code <PM_MCP_BASE>/state/enrolment-hmac.key} (mode {@code 0600}); created on the first enrolment write under the
+ * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentKey}: the operator-lane integrity key, from the store a
+ * supplier gives on every read: the recorded credential store once the operator chose one, before the choice the
+ * store the runtime finds (the OS store where one is available, else the file store). In a keyring the key is the
+ * entry under the account {@code enrolment-integrity-key}, in the file store the key file
+ * {@code <PM_MCP_BASE>/state/enrolment-hmac.key} (mode {@code 0600}); a move between the stores carries it like
+ * every other entry, so after the move it is read from the store now recorded and nothing is re-signed. It is
+ * created on the first enrolment write under the
  * credentials lock ({@code EnrolmentKey.creationLock}), taken before any enrolment lock, so two runtime instances
  * never create two keys; a keyring entry is read back after its write and the key it holds is adopted. Never logged
  * and never put into a message.</li>
