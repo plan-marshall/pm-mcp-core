@@ -33,12 +33,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:../../../pm-mcp-clients/doc/plans/profile-documents.adoc[`pm-mcp-clients` / `profile-documents`]
 |Milestone 2
 
-|link:lane-route-pruning.adoc[`lane-route-pruning`]
-|Pruning the other lane's route at the `outline` event: discussion of the design first, then per-lane routes and reachability pruning
-|`open`
-|nothing
-|Milestone 3
-
 |link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
 |Unit frontmatter, unit types and the entry/exit interface: the closed frontmatter parser, the six unit types, named entries and `call … entry`, the interface rules
 |`open`
@@ -46,7 +40,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |Milestone 3
 
 |link:plan-instance-alignment.adoc[`plan-instance-alignment`]
-|Plan instance aligned with the specification: prune reasons and fallback causes, the composition rules `auto-merge-off` and `simplify-recipe` removed, plan axes and overrides in the composition, the adjudication unit in the header, `diff_summary`
+|Discussion of the lane-route pruning design at the `outline` event first, then its per-lane routes and reachability pruning; the plan instance aligned with the specification: prune reasons and fallback causes, the composition rules `auto-merge-off` and `simplify-recipe` removed, plan axes and overrides in the composition, the adjudication unit in the header, `diff_summary`
 |`open`
 |nothing
 |Milestone 3
