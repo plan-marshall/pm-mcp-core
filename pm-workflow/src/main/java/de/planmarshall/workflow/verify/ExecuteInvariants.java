@@ -113,8 +113,8 @@ final class ExecuteInvariants {
 
     private static void worktree(Context context) {
         var id = InvariantId.INV_EXEC_1;
-        var unguarded = Context.avoiding(context.graph(), context.unit().startState(), WORKTREE_INITS);
-        var referenceUnguarded = Context.avoiding(context.referenceGraph(), context.reference().startState(),
+        var unguarded = Context.avoiding(context.graph(), context.unit().startingStates(), WORKTREE_INITS);
+        var referenceUnguarded = Context.avoiding(context.referenceGraph(), context.reference().startingStates(),
                 WORKTREE_INITS);
         for (var state : context.states()) {
             if (WORKTREE_INITS.contains(state.id()) || !unguarded.contains(state.id())

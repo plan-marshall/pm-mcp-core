@@ -1,4 +1,12 @@
-# expect: LINK_COMPATIBILITY state verify.entry line 12
+---
+name: verify.link-noop-with-params
+description: A unit written for the verifier tests.
+type: system
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: LINK_COMPATIBILITY state verify.entry line 20
 workflow verify.link-noop-with-params version 1 format 1
 scope workspace
 start verify.entry

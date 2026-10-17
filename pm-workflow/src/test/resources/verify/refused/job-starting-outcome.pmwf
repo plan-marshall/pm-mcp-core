@@ -1,4 +1,12 @@
-# expect: JOB_STARTING_OUTCOME state verify.entry line 9
+---
+name: verify.job-starting-outcome
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: JOB_STARTING_OUTCOME state verify.entry line 17
 workflow verify.job-starting-outcome version 1 format 1
 scope plan
 start verify.entry

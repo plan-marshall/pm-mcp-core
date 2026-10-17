@@ -1,3 +1,11 @@
+---
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The finalize phase (Phase 6) of the plan unit, written for the invariant and unit-loader tests, never copied from
 # the product. The push barrier is the only push before the pull request; finalize.merge-gate precedes the merge,
 # which completes the branch cleanup; the landing is completed; finalize.archive-plan alone enters the delivery

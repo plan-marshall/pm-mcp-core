@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 import de.planmarshall.workflow.dsl.ParseResult;
@@ -41,7 +42,8 @@ import de.planmarshall.workflow.verify.VerificationRule;
 
 /**
  * The merge of the seven phase files into the plan unit (PM-IMPL-5): the states and migrations are the union, the
- * start state is that of the init file, the version is the sum of the part versions, each recorded under its file,
+ * optional start state, the entry bindings and the frontmatter are those of the init file, the frontmatter with the type
+ * {@code workflow}, the version is the sum of the part versions, each recorded under its file,
  * and {@code derivedFrom} is recorded per file. The header of a part names the part and identifies the file only. A
  * part of another scope, a part of another format or origin, a state declared in two files and a {@code declare},
  * {@code decide} or {@code instance} line in a part are each refused with the file and line of the offending node, and
@@ -131,6 +133,29 @@ class PlanUnitMergerTest {
                     () -> assertEquals(UnitOrigin.DEFAULT, plan.origin()),
                     () -> assertEquals(parts.stream().mapToInt(part -> part.migrations().size()).sum(),
                             plan.migrations().size()));
+        }
+
+        @Test
+        @DisplayName("carries the frontmatter of the init file with the type workflow, and its optional start state "
+                + "and entry bindings")
+        void frontmatterAndStart() {
+            var parts = new ArrayList<>(phases(UnitOrigin.DEFAULT));
+            parts.set(0, parse(INIT_FILE, new UnitFixtures.Mutation("a recipe part", INIT_FILE, "\ntype: workflow\n",
+                    "\ntype: recipe\n").apply(InvariantFixtures.read(INIT_FILE)), UnitOrigin.DEFAULT));
+            var init = parts.getFirst();
+
+            var plan = PlanUnitMerger.merge(parts).unit().orElseThrow();
+
+            assertAll(
+                    () -> assertEquals(UnitType.RECIPE, init.frontmatter().type()),
+                    () -> assertEquals(UnitType.WORKFLOW, plan.frontmatter().type()),
+                    () -> assertEquals(init.frontmatter().name(), plan.frontmatter().name()),
+                    () -> assertEquals(init.frontmatter().description(), plan.frontmatter().description()),
+                    () -> assertEquals(init.frontmatter().modificationDate(), plan.frontmatter().modificationDate()),
+                    () -> assertEquals(init.frontmatter().author(), plan.frontmatter().author()),
+                    () -> assertEquals(init.frontmatter().location(), plan.frontmatter().location()),
+                    () -> assertEquals(Optional.of("init.begin"), plan.startState()),
+                    () -> assertEquals(init.entryBindings(), plan.entryBindings()));
         }
 
         @Test

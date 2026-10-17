@@ -1,8 +1,18 @@
-# expect: MODEL_JOB_OUTCOMES state verify.entry line 7
+---
+name: verify.model-job-lost-mixed-callers
+description: A unit written for the verifier tests.
+type: subworkflow
+entry: main
+exit: done
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: MODEL_JOB_OUTCOMES state verify.entry line 17
 # The test catalog's plan unit test.plan-caller and epic unit test.epic-caller both call this sub-workflow.
 workflow verify.model-job-lost-mixed-callers version 1 format 1
 scope subworkflow
-start verify.entry
+entry main -> verify.entry
 
 state verify.entry
     phase inherit

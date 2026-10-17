@@ -64,7 +64,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <li>an {@code auto} state runs its primitive through the {@link PrimitiveRegistry} and takes the transition of the
  * returned outcome;</li>
  * <li>a {@code call} state pushes a frame (the calling unit and state, the caller's phase, the sub-workflow and its
- * bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the sub-workflow's start state; a state
+ * bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the sub-workflow at the state its
+ * entry binds, the entry the call names or the callee's sole entry when the call names none; a state
  * that declares {@code phase inherit} keeps the caller's phase;</li>
  * <li>a terminal state of a sub-workflow pops exactly one frame and takes the calling state's transition of the
  * returned outcome; of an outcome routed twice, the one whose result guard holds over the frame's result record, the
@@ -208,11 +209,14 @@ public final class WorkflowEngine {
      * @param scopeType the type of the scope
      * @param scopeId   the plan or epic id; {@code null} for the workspace scope
      * @return the step the start ends in, with the first status of the scope
-     * @throws IllegalArgumentException if the scope does not fit the status store, or the start state inherits its
-     *                                  phase outside the workspace scope
+     * @throws IllegalArgumentException if the unit declares no start state (a unit with entries is called, never
+     *                                  started), the scope does not fit the status store, or the start state inherits
+     *                                  its phase outside the workspace scope
      */
     public EngineStep start(JournalScopeType scopeType, String scopeId) {
-        var startState = stateOf(unit, unit.startState());
+        var startState = stateOf(unit, unit.startState().orElseThrow(() -> new IllegalArgumentException(
+                "the unit '%s' declares no start state; a unit with entries is called, never started"
+                        .formatted(unit.id()))));
         String phase;
         if (INHERIT.equals(startState.phase())) {
             if (scopeType != JournalScopeType.WORKSPACE) {
@@ -704,7 +708,28 @@ public final class WorkflowEngine {
                     call.paramBindings(), clock.now().toString());
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());
-            return callee.startState();
+            return entryStateOf(callee, call);
+        }
+
+        /**
+         * The state a call enters its callee at: the state the named entry binds, or the state of the callee's sole
+         * entry when the call names none.
+         */
+        private String entryStateOf(WorkflowDefinition callee, StateBehavior.SubWorkflowCall call) {
+            var bindings = callee.entryBindings();
+            if (call.entry().isPresent()) {
+                var binding = bindings.get(call.entry().get());
+                if (binding == null) {
+                    throw fault(Reason.UNRESOLVED_NAME, "the sub-workflow '%s' binds no entry '%s'", callee.id(),
+                            call.entry().get());
+                }
+                return binding.stateId();
+            }
+            if (bindings.size() != 1) {
+                throw fault(Reason.UNRESOLVED_NAME, "the call of '%s' names no entry, and the callee binds %s entries",
+                        callee.id(), bindings.size());
+            }
+            return bindings.values().iterator().next().stateId();
         }
 
         /**

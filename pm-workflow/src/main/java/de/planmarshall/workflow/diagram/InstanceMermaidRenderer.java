@@ -116,7 +116,7 @@ final class InstanceMermaidRenderer {
         static Identifiers of(WorkflowDefinition unit) {
             var transitions = StateTransitions.of(unit);
             var names = new HashSet<String>();
-            Stream.concat(Stream.of(unit.startState()), unit.states().keySet().stream()).forEach(names::add);
+            Stream.concat(unit.startingStates().stream(), unit.states().keySet().stream()).forEach(names::add);
             unit.states().keySet().stream().flatMap(id -> transitions.outgoing(id).stream())
                     .forEach(edge -> names.add(edge.target()));
             var preferredForms = new HashSet<String>();

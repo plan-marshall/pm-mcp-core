@@ -311,7 +311,7 @@ class WorkflowValidatorTest {
     }
 
     private static WorkflowDefinition unit(String id, String scope, String states) {
-        return VerifyFixtures.parseSource("inline.pmwf", """
+        return VerifyFixtures.parseSource("inline.pmwf", VerifyFixtures.frontmatter(scope) + """
                 workflow %s version 1 format 1
                 scope %s
                 start verify.entry
@@ -965,6 +965,14 @@ class WorkflowValidatorTest {
 
         private List<Violation> verify(String migration) {
             return retiring.verify(VerifyFixtures.parseSource("inline.pmwf", """
+                    ---
+                    name: verify.inline
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow verify.inline version 1 format 1
                     scope plan
                     start verify.entry
@@ -985,10 +993,11 @@ class WorkflowValidatorTest {
 
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = ';', quoteCharacter = '"', value = {
-                "migrate verify.old -> verify.gone;4;targets 'verify.gone'",
-                "\"# no migration\";1;no migrate declaration names it"
+                "migrate verify.old -> verify.gone;12;targets 'verify.gone'",
+                "\"# no migration\";9;no migrate declaration names it"
         })
-        @DisplayName("Should refuse a released name that is neither a state nor migrated to one")
+        @DisplayName("Should refuse a released name that is neither a state nor migrated to one, at the migration or "
+                + "at the unit header below the eight lines of the frontmatter")
         void shouldRefuseDroppedName(String migration, int line, String fragment) {
             var found = verify(migration + "\n");
 

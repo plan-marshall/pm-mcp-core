@@ -148,6 +148,15 @@ class GuardEvaluatorTest {
 
         private static List<LinkSpec> links() {
             var unit = EngineFixtures.parse("session.pmwf", """
+                    ---
+                    name: session.guards
+                    description: A unit written for the tests of pm-workflow.
+                    type: subworkflow
+                    exit: done
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow session.guards version 1 format 1
                     scope subworkflow
                     start session.choose

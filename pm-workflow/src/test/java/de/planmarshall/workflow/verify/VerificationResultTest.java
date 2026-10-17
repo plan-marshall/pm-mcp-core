@@ -128,6 +128,15 @@ class VerificationResultTest {
                 TestPrimitives.catalog());
 
         var byState = VerifyFixtures.parseSource("ordering-state.pmwf", """
+                ---
+                name: verify.ordering-state
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow verify.ordering-state version 1 format 1
                 scope subworkflow
                 result schema[unregistered-schema]
@@ -167,6 +176,14 @@ class VerificationResultTest {
                 () -> "expected declaration order, not discovery order: " + byStateFound);
 
         var byRule = VerifyFixtures.parseSource("ordering-rule.pmwf", """
+                ---
+                name: verify.ordering-rule
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow verify.ordering-rule version 1 format 1
                 scope subworkflow
                 start verify.entry

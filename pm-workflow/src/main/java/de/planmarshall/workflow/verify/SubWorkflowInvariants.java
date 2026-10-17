@@ -136,7 +136,7 @@ final class SubWorkflowInvariants {
                     ignoreRole ? Optional.empty() : job.roleName(), job.fanOutPrimitiveId(), job.rolesPrimitiveId(),
                     job.ask(), job.consultRoles(), shape(job.transitions()));
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
-                    call.paramBindings(), shape(call.transitions()));
+                    call.entry(), call.paramBindings(), shape(call.transitions()));
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),
                     shape(question.transitions()), question.links().stream().map(SubWorkflowInvariants::shape).toList());
             case StateBehavior.TerminalState terminal -> terminal;

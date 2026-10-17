@@ -127,7 +127,7 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertEquals(InvariantFixtures.PLAN_FILES, List.copyOf(plan.partVersions().keySet())),
                     () -> assertEquals(InvariantFixtures.PLAN_FILES.size(), plan.version()),
-                    () -> assertEquals("init.begin", plan.startState()),
+                    () -> assertEquals(Optional.of("init.begin"), plan.startState()),
                     () -> assertEquals(INIT_FILE, plan.location().resourceName()));
         }
     }
@@ -198,6 +198,15 @@ class CompiledInvariantsTest {
         @DisplayName("a project unit without a default unit is refused at its header")
         void unitWithoutDefault() {
             var source = """
+                    ---
+                    name: test.unknown
+                    description: A project unit written for the invariant tests.
+                    type: subworkflow
+                    exit: done
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: Erika Mustermann
+                    ---
                     workflow test.unknown version 1 format 1
                     scope subworkflow
                     start unknown.done
@@ -210,7 +219,8 @@ class CompiledInvariantsTest {
             var found = InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
                     List.of());
 
-            assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, "unknown.pmwf", 1)),
+            assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, "unknown.pmwf",
+                            InvariantFixtures.lineOf(source, "workflow test.unknown"))),
                     found.stream().map(InvariantLocation::of).toList());
         }
 
@@ -269,6 +279,15 @@ class CompiledInvariantsTest {
         @DisplayName("a unit named remediation.spend gets no exemption from the remediation contract")
         void spendUnitHasNoExemption() {
             var source = """
+                    ---
+                    name: remediation.spend
+                    description: A unit written for the tests of pm-workflow.
+                    type: subworkflow
+                    exit: resolved
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow remediation.spend version 1 format 1
                     scope subworkflow
                     param waiver_wait_seconds : int[0..86400]

@@ -1,4 +1,12 @@
-# expect: LINK_COMPATIBILITY state verify.entry line 8
+---
+name: verify.link-form-not-admitted
+description: A unit written for the verifier tests.
+type: system
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: LINK_COMPATIBILITY state verify.entry line 16
 workflow verify.link-form-not-admitted version 1 format 1
 scope workspace
 start verify.entry

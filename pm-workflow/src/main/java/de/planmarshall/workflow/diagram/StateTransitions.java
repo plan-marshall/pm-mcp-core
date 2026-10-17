@@ -131,7 +131,7 @@ final class StateTransitions {
             case StateBehavior.AutoStep(var _, var transitions) -> transitions;
             case StateBehavior.JobStep(var _, var _, var transitions) -> transitions;
             case StateBehavior.ModelJob job -> job.transitions();
-            case StateBehavior.SubWorkflowCall(var _, var _, var transitions) -> transitions;
+            case StateBehavior.SubWorkflowCall(var _, var _, var _, var transitions) -> transitions;
             case StateBehavior.QuestionWait(var _, var transitions, var _) -> transitions;
             case StateBehavior.InteractiveLinks _, StateBehavior.TerminalState _ -> List.of();
         };
@@ -174,7 +174,7 @@ final class StateTransitions {
             case StateBehavior.AutoStep(var primitiveId, var _) -> kind + " " + primitiveId;
             case StateBehavior.JobStep(var primitiveId, var _, var _) -> kind + " " + primitiveId;
             case StateBehavior.ModelJob job -> taskLabel(job);
-            case StateBehavior.SubWorkflowCall(var subWorkflowId, var _, var _) -> kind + " " + subWorkflowId;
+            case StateBehavior.SubWorkflowCall(var subWorkflowId, var _, var _, var _) -> kind + " " + subWorkflowId;
             case StateBehavior.QuestionWait(var questionClass, var _, var _) -> kind + " " + questionClass;
             case StateBehavior.TerminalState _ -> kind + state.terminalOutcome().map(outcome -> " " + outcome.id())
                     .orElse("");

@@ -82,6 +82,14 @@ final class ScenarioFixtures {
      * The job is started through the job port, so its id is {@code b-0000000000000001} in every replay.
      */
     static final String PLAN_UNIT = """
+            ---
+            name: scenario.plan
+            description: A unit written for the tests of pm-workflow.
+            type: workflow
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow scenario.plan version 1 format 1
             scope plan
             start execute.prepare

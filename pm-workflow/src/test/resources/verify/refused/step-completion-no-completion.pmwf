@@ -1,4 +1,12 @@
-# expect: STEP_COMPLETION state verify.entry line 11
+---
+name: verify.step-completion-no-completion
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: STEP_COMPLETION state verify.entry line 19
 workflow verify.step-completion-no-completion version 1 format 1
 scope plan
 start verify.entry

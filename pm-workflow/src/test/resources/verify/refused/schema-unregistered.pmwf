@@ -1,4 +1,13 @@
-# expect: SCHEMA_BINDING state verify.entry line 2
+---
+name: verify.unregistered-schema
+description: A unit written for the verifier tests.
+type: subworkflow
+exit: done
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: SCHEMA_BINDING state verify.entry line 11
 workflow verify.unregistered-schema version 1 format 1
 scope subworkflow
 result schema[unregistered-schema]

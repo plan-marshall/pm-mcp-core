@@ -1,4 +1,12 @@
-# expect: QUESTION_OUTCOMES state verify.entry line 10
+---
+name: verify.question-outcome-twice
+description: A unit written for the verifier tests.
+type: system
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: QUESTION_OUTCOMES state verify.entry line 18
 workflow verify.question-outcome-twice version 1 format 1
 scope workspace
 start verify.entry

@@ -1,3 +1,16 @@
+---
+name: remediation.qgate-findings
+description: A unit written for the invariant and unit-loader tests.
+type: subworkflow
+entry: main
+exit: resolved
+exit: waived
+exit: exhausted
+exit: fix_requested
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The Q-Gate remediation unit with the full template, written for the invariant and unit-loader tests, never copied
 # from the product. The gather, the budget check, the decision and the remedies; the waived terminal only on
 # all_waived of the gather or waived of the waiver wait; a nested commit routes a commit-less exit to the budget check.
@@ -7,7 +20,7 @@ param retry_budget : int[0..5]
 param fix_budget : int[0..5]
 param waiver_wait_seconds : int[0..86400]
 param actions : list<enum[retry|fix|loop_back]>
-start remediation-qgate.gather
+entry main -> remediation-qgate.gather
 
 state remediation-qgate.gather
     phase inherit

@@ -1,0 +1,15 @@
+---
+name: &unit Malformed unit
+description: A malformed unit written for the parser tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: FRONTMATTER line 2 column 7
+# The value of the name opens with a YAML anchor.
+workflow demo version 1 format 1
+scope plan
+start demo.begin
+state demo.begin terminal done success
+    phase init

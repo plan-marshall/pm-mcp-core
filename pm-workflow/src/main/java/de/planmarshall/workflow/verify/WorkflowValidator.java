@@ -242,15 +242,29 @@ public final class WorkflowValidator {
         };
     }
 
+    /**
+     * The state a violation of the unit as a whole is reported at: its first starting state, the start state or the
+     * state of its first entry binding; the unit's id when it declares neither.
+     */
+    private static String unitStateId(WorkflowDefinition definition) {
+        return definition.startingStates().stream().findFirst().orElse(definition.id());
+    }
+
+    /** Names where control enters the unit, for a message: its start state, or the states its entries bind. */
+    private static String startingPoint(WorkflowDefinition definition) {
+        return definition.startState().map("the start state '%s'"::formatted)
+                .orElseGet(() -> "the entry-bound states %s".formatted(definition.startingStates()));
+    }
+
     private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
         definition.resultSchema().ifPresent(schemaName -> {
             if (!schemas.contains(schemaName)) {
-                violations.add(new Violation(VerificationRule.SCHEMA_BINDING, definition.startState(),
+                violations.add(new Violation(VerificationRule.SCHEMA_BINDING, unitStateId(definition),
                         definition.location(), "the result schema '%s' is not registered".formatted(schemaName)));
             }
         });
         for (var param : definition.params()) {
-            checkParamSchema(param.name(), param.type(), param.location(), definition.startState(), violations);
+            checkParamSchema(param.name(), param.type(), param.location(), unitStateId(definition), violations);
         }
         for (var state : definition.states().values()) {
             for (var link : UnitGraph.declaredLinks(state.behavior())) {
@@ -275,10 +289,16 @@ public final class WorkflowValidator {
     }
 
     private static void checkStateExists(WorkflowDefinition definition, List<Violation> violations) {
-        if (!definition.states().containsKey(definition.startState())) {
-            violations.add(new Violation(VerificationRule.STATE_EXISTS, definition.startState(), definition.location(),
-                    "the start state '%s' does not exist in the unit".formatted(definition.startState())));
-        }
+        definition.startState().filter(start -> !definition.states().containsKey(start)).ifPresent(start ->
+                violations.add(new Violation(VerificationRule.STATE_EXISTS, start, definition.location(),
+                        "the start state '%s' does not exist in the unit".formatted(start))));
+        definition.entryBindings().forEach((entry, binding) -> {
+            if (!definition.states().containsKey(binding.stateId())) {
+                violations.add(new Violation(VerificationRule.STATE_EXISTS, binding.stateId(), binding.location(),
+                        "the state '%s' the entry '%s' binds does not exist in the unit".formatted(binding.stateId(),
+                                entry)));
+            }
+        });
         for (var state : definition.states().values()) {
             for (var transition : UnitGraph.allTransitions(state.behavior())) {
                 var target = transition.targetStateId();
@@ -710,12 +730,12 @@ public final class WorkflowValidator {
 
     private static void checkReachability(WorkflowDefinition definition, UnitGraph graph,
             List<Violation> violations) {
-        var reached = graph.forwardClosure(Set.of(definition.startState()));
+        var roots = definition.startingStates();
+        var reached = graph.forwardClosure(Set.copyOf(roots));
         for (var state : definition.states().values()) {
             if (!reached.contains(state.id()) && !ABORT_TERMINALS.contains(state.id())) {
                 violations.add(new Violation(VerificationRule.REACHABILITY, state.id(), state.location(),
-                        "the state '%s' is not reachable from the start state '%s'".formatted(state.id(),
-                                definition.startState())));
+                        "the state '%s' is not reachable from %s".formatted(state.id(), startingPoint(definition))));
             }
         }
     }
@@ -1183,7 +1203,7 @@ public final class WorkflowValidator {
 
     private void checkProducerCoverage(WorkflowDefinition definition, UnitGraph graph, StateNode state,
             SourceLocation location, String artifact, Set<String> producers, List<Violation> violations) {
-        var reachableWithout = graph.reachableWithoutProducers(definition.startState(), producers);
+        var reachableWithout = graph.reachableWithoutProducers(definition.startingStates(), producers);
         if (reachableWithout.contains(state.id())) {
             violations.add(new Violation(VerificationRule.GATE_PRODUCER_COVERAGE, state.id(), location,
                     "the state '%s' requires the artifact '%s', but there is a path from the start state without a producer"
@@ -1360,8 +1380,7 @@ public final class WorkflowValidator {
     }
 
     private Set<String> openingsOf(WorkflowDefinition definition) {
-        var openings = new LinkedHashSet<String>();
-        openings.add(definition.startState());
+        var openings = new LinkedHashSet<>(definition.startingStates());
         definition.states().keySet().stream().filter(REGION_ENTRY_STATES::contains).forEach(openings::add);
         for (var state : definition.states().values()) {
             if (cycleMeasureOf(state) == CycleMeasure.STEP_LIST) {
@@ -1990,12 +2009,13 @@ public final class WorkflowValidator {
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, boolean defaultLostRoute,
             List<Violation> violations) {
         if (definition.scope() == WorkflowScope.WORKSPACE) {
-            var returning = graph.backwardClosure(Set.of(definition.startState()));
+            var roots = definition.startingStates();
+            var returning = graph.backwardClosure(Set.copyOf(roots));
             definition.states().values().stream()
                     .filter(state -> !isTerminal(state) && !returning.contains(state.id()))
                     .forEach(state -> violations.add(new Violation(VerificationRule.EXIT_PATH, state.id(),
-                            state.location(), "the state '%s' has no path back to the start state '%s'"
-                            .formatted(state.id(), definition.startState()))));
+                            state.location(), "the state '%s' has no path back to %s"
+                            .formatted(state.id(), startingPoint(definition)))));
             return;
         }
         var exits = new LinkedHashSet<String>();

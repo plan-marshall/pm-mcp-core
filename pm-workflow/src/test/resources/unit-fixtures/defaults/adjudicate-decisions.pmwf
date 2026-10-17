@@ -1,3 +1,13 @@
+---
+name: adjudicate.decisions
+description: A unit written for the invariant and unit-loader tests.
+type: subworkflow
+exit: decided
+exit: escalated
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The adjudication unit, written for the invariant and unit-loader tests, never copied from the product.
 # It declares the shipped values of its compiled schema and one decide line per declaration form; the lost outcome of
 # the vote ends in adjudicate.escalated.

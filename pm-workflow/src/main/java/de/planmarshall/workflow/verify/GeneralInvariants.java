@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.OutcomeClass;
@@ -85,8 +86,8 @@ final class GeneralInvariants {
                     reference.scope()));
         }
         if (!unit.startState().equals(reference.startState())) {
-            context.reportUnit(id, "the start state '%s' differs from the start state '%s' of the default unit"
-                    .formatted(unit.startState(), reference.startState()));
+            context.reportUnit(id, "the start state %s differs from the start state %s of the default unit"
+                    .formatted(describeStart(unit.startState()), describeStart(reference.startState())));
         }
         for (var terminal : reference.states().values()) {
             if (Context.isTerminal(terminal) && context.state(terminal.id()).filter(Context::isTerminal).isEmpty()) {
@@ -106,6 +107,11 @@ final class GeneralInvariants {
                         .formatted(state.id(), describe(state), describe(counterpart.get())));
             }
         }
+    }
+
+    /** Names an optional start state for a message: quoted, or {@code none} for a unit that binds entries instead. */
+    private static String describeStart(Optional<String> startState) {
+        return startState.map("'%s'"::formatted).orElse("none");
     }
 
     private static String describe(StateNode terminal) {

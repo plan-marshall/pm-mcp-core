@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
@@ -41,6 +42,9 @@ final class VerifyFixtures {
 
     /** The directory of the units the verifier refuses, one planted defect each. */
     static final String REFUSED = "verify/refused";
+
+    /** The line that opens and closes the frontmatter of a fixture. */
+    private static final String FRONTMATTER_DELIMITER = "---";
 
     private static final Pattern EXPECTATION =
             Pattern.compile("^#\\s*expect:\\s*([A-Z_]+)\\s+state\\s+(\\S+)\\s+line\\s+(\\d+)\\s*$");
@@ -85,16 +89,19 @@ final class VerifyFixtures {
     }
 
     /**
-     * Reads the expected violations of a refusing fixture: one leading comment line
+     * Reads the expected violations of a refusing fixture: one comment line
      * {@code # expect: <RULE> state <state id> line <line>} per violation, in the order the verifier reports them.
-     * The expectation lines open the fixture; the first line that is not one ends them.
+     * The expectation lines open the body, directly below the closing {@code ---} of the frontmatter, where a comment
+     * is admitted; the first line that is not one ends them. The line of an expectation counts the lines of the
+     * frontmatter.
      *
      * @param resource the classpath resource of a refusing fixture
      * @return the expected violations, each located in the fixture; empty when the fixture states none
      */
     static List<Expectation> expectations(String resource) {
         var expectations = new ArrayList<Expectation>();
-        for (var line : read(resource).lines().toList()) {
+        var lines = read(resource).lines().toList();
+        for (var line : lines.subList(bodyStart(lines), lines.size())) {
             var matcher = EXPECTATION.matcher(line);
             if (!matcher.matches()) {
                 break;
@@ -103,6 +110,19 @@ final class VerifyFixtures {
                     Integer.parseInt(matcher.group(3))));
         }
         return List.copyOf(expectations);
+    }
+
+    /**
+     * @param lines the lines of a fixture
+     * @return the index of the first line of the body: the line after the closing {@code ---} of the frontmatter, or
+     *         the first line when the fixture opens with no frontmatter
+     */
+    private static int bodyStart(List<String> lines) {
+        if (lines.isEmpty() || !FRONTMATTER_DELIMITER.equals(lines.getFirst())) {
+            return 0;
+        }
+        var closing = lines.subList(1, lines.size()).indexOf(FRONTMATTER_DELIMITER);
+        return closing < 0 ? lines.size() : closing + 2;
     }
 
     /**
@@ -132,6 +152,31 @@ final class VerifyFixtures {
             return new Expectation(violation.rule(), violation.stateId(), violation.location().resourceName(),
                     violation.location().line());
         }
+    }
+
+    /**
+     * The frontmatter of a unit the verifier tests write inline for a scope they choose: a default unit without entries
+     * and exits, of the type the Unit Types table assigns to the scope, in eight lines.
+     *
+     * @param scope the keyword of the unit's scope
+     * @return the frontmatter, both {@code ---} lines and the line break after the closing one included
+     */
+    static String frontmatter(String scope) {
+        var type = switch (scope) {
+            case "plan", "epic" -> UnitType.WORKFLOW;
+            case "subworkflow" -> UnitType.SUBWORKFLOW;
+            default -> UnitType.SYSTEM;
+        };
+        return """
+                ---
+                name: Inline unit
+                description: A unit written for the verifier tests.
+                type: %s
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                """.formatted(type.wireName());
     }
 
     /**

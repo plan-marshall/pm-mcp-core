@@ -121,9 +121,9 @@ public final class InvariantFixtures {
     }
 
     /**
-     * Merges the phase files of the plan unit for the tests: the states and migrations are the union, the start state,
-     * the header and the origin are those of the first part, the version is the sum of the part versions, recorded
-     * per file in {@code partVersions}.
+     * Merges the phase files of the plan unit for the tests: the states and migrations are the union, the frontmatter,
+     * the start state, the header and the origin are those of the first part, the version is the sum of the part
+     * versions, recorded per file in {@code partVersions}.
      *
      * @param parts the parsed phase files, in merge order
      * @return the merged plan unit
@@ -144,9 +144,10 @@ public final class InvariantFixtures {
             partVersions.put(part.location().resourceName(), part.version());
             version += part.version();
         }
-        return new WorkflowDefinition(PLAN_UNIT, version, first.scope(), List.of(), Optional.empty(),
-                Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(), first.origin(), Map.of(),
-                first.startState(), migrations, states, first.location());
+        return new WorkflowDefinition(first.frontmatter(), PLAN_UNIT, version, first.scope(), List.of(),
+                Optional.empty(), Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(),
+                first.origin(), Map.of(), first.startState(), first.entryBindings(), migrations, states,
+                first.location());
     }
 
     /**
@@ -275,6 +276,15 @@ public final class InvariantFixtures {
      */
     public static WorkflowDefinition entityUnit() {
         return parse("entity.pmwf", """
+                ---
+                name: Entity unit
+                description: The entity unit of the invariant tests.
+                type: task
+                exit: submitted
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow entity version 1 format 1
                 scope entity
                 start entity.completed

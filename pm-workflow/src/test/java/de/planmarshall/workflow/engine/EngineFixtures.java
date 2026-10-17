@@ -72,10 +72,20 @@ final class EngineFixtures {
      * {@code done}, {@code failed} with the server step-out.
      */
     static final String SUB_COMMIT = """
+            ---
+            name: sub.commit
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow sub.commit version 1 format 1
             scope subworkflow
             result schema[commit-result]
-            start sub.work
+            entry main -> sub.work
 
             state sub.work
                 phase inherit
@@ -194,6 +204,14 @@ final class EngineFixtures {
      * workspace scope, as the units the workspace scope hosts do.
      */
     static final String WORKSPACE_UNIT = """
+            ---
+            name: workspace
+            description: A unit written for the tests of pm-workflow.
+            type: system
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow workspace version 1 format 1
             scope workspace
             start workspace.idle
@@ -302,6 +320,14 @@ final class EngineFixtures {
      */
     static WorkflowDefinition plan(String start, String states) {
         return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow plan version 1 format 1
                 scope plan
                 start %s

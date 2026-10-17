@@ -9,7 +9,12 @@
  */
 package de.planmarshall.workflow.dsl;
 
+import static de.planmarshall.workflow.dsl.WorkflowParserTest.FRONTMATTER_LINES;
+import static de.planmarshall.workflow.dsl.WorkflowParserTest.frontmatter;
 import static de.planmarshall.workflow.dsl.WorkflowParserTest.lines;
+import static de.planmarshall.workflow.dsl.WorkflowParserTest.projectUnit;
+import static de.planmarshall.workflow.dsl.WorkflowParserTest.typeOf;
+import static de.planmarshall.workflow.dsl.WorkflowParserTest.unit;
 import static de.planmarshall.workflow.dsl.WorkflowParserTest.unitWithBody;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,16 +38,22 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.UnitType;
 
 /**
- * The refusals of the parser (PM-IMPL-5): every malformed fixture states its expected rule key and line in a leading
- * comment and is refused with that rule, its resource name and that line; inline units cover every further refusal
- * path. A refusal is a value: no exception leaves the parser.
+ * The refusals of the parser (PM-IMPL-5): every malformed fixture states its expected rule key, line and, for the
+ * refusals of the frontmatter and the entry bindings, column in a comment line {@code # expect: <RULE> line <n>
+ * [column <c>]} (below the closing {@code ---} of its frontmatter, or on the first line of a fixture that lacks one)
+ * and is refused with that rule, its resource name and that location; inline units cover every further refusal path.
+ * Every inline unit opens with its frontmatter, so the line of a refusal in its body counts the
+ * {@link WorkflowParserTest#FRONTMATTER_LINES} lines of the frontmatter. A refusal is a value: no exception leaves the
+ * parser.
  */
 @DisplayName("WorkflowParser refusals")
 class WorkflowParserRefusalTest {
 
-    private static final Pattern EXPECTATION = Pattern.compile("^#\\s*expect:\\s*([A-Z_]+)\\s+line\\s+(\\d+)");
+    private static final Pattern EXPECTATION = Pattern.compile(
+            "^#\\s*expect:\\s*([A-Z_]+)\\s+line\\s+(\\d+)(?:\\s+column\\s+(\\d+))?\\s*$", Pattern.MULTILINE);
 
     private static final String HEADER = "workflow demo version 1 format 1";
     private static final String TEMPLATES = "\"templates\": []";
@@ -65,14 +76,19 @@ class WorkflowParserRefusalTest {
         return assertInstanceOf(ParseResult.Refused.class, result, () -> resource + " was parsed").diagnostic();
     }
 
-    private static Arguments refusal(String name, RefusalRule rule, int line, String source) {
-        return Arguments.of(name, rule, line, source);
+    /**
+     * A refusal of an inline unit that opens with its frontmatter.
+     *
+     * @param bodyLine the line of the refusal counted from the first line of the body, the line after the frontmatter
+     */
+    private static Arguments refusal(String name, RefusalRule rule, int bodyLine, String source) {
+        return Arguments.of(name, rule, FRONTMATTER_LINES + bodyLine, source);
     }
 
     /** A unit whose header line after the unit header is the given instance line. */
     private static String withInstance(String instanceLine) {
-        return lines(HEADER, instanceLine, "scope plan", "start demo.end", "state demo.end terminal done success",
-                "phase init");
+        return frontmatter(UnitType.INSTANCE) + lines(HEADER, instanceLine, "scope plan", "start demo.end",
+                "state demo.end terminal done success", "phase init");
     }
 
     /** A unit whose instance header carries the given members. */
@@ -87,13 +103,13 @@ class WorkflowParserRefusalTest {
 
     /** A unit of the scope whose header lines from line 3 on are the given lines. */
     private static String withHeaderLines(String scope, String... headerLines) {
-        return lines(HEADER, "scope " + scope) + lines(headerLines)
+        return frontmatter(typeOf(scope)) + lines(HEADER, "scope " + scope) + lines(headerLines)
                 + lines("start demo.end", "state demo.end terminal done success", "phase inherit");
     }
 
     /** A unit whose states from line 4 on are the given lines. */
     private static String withStates(String... stateLines) {
-        return lines(HEADER, "scope plan", "start demo.begin") + lines(stateLines);
+        return unit(HEADER, "scope plan", "start demo.begin") + lines(stateLines);
     }
 
     /** A unit whose start state, from line 6 on, has one link of the given parameter list. */
@@ -115,15 +131,23 @@ class WorkflowParserRefusalTest {
             return DslFixtures.list(DslFixtures.MALFORMED);
         }
 
+        static List<String> frontmatterAndEntryFixtures() {
+            return malformedFixtures().stream().filter(resource -> resource.contains("/frontmatter-")
+                    || resource.endsWith("/start-beside-entry-binding.pmwf")
+                    || resource.endsWith("/entry-binding-repeated.pmwf")).toList();
+        }
+
         @Test
-        @DisplayName("finds one fixture per refusal class")
+        @DisplayName("finds one fixture per refusal class: 14 of the body, 14 of the frontmatter, 2 of the entries")
         void fixturesPresent() {
-            assertEquals(14, malformedFixtures().size());
+            assertAll(
+                    () -> assertEquals(30, malformedFixtures().size()),
+                    () -> assertEquals(16, frontmatterAndEntryFixtures().size()));
         }
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("malformedFixtures")
-        @DisplayName("refuses every malformed fixture with the rule and line its leading comment states")
+        @DisplayName("refuses every malformed fixture with the rule, line and column its expect comment states")
         void refusesAsStated(String resource) {
             var source = DslFixtures.read(resource);
             var expectation = EXPECTATION.matcher(source);
@@ -136,8 +160,30 @@ class WorkflowParserRefusalTest {
                             diagnostic::message),
                     () -> assertEquals(resource, diagnostic.resourceName()),
                     () -> assertEquals(Integer.parseInt(expectation.group(2)), diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(Optional.ofNullable(expectation.group(3)).map(Integer::parseInt)
+                            .orElse(diagnostic.column()), diagnostic.column(), diagnostic::message),
                     () -> assertTrue(diagnostic.column() >= 1),
                     () -> assertFalse(diagnostic.message().isBlank()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("frontmatterAndEntryFixtures")
+        @DisplayName("states the column of every refusal of the frontmatter and of the entry bindings")
+        void statesColumn(String resource) {
+            var expectation = EXPECTATION.matcher(DslFixtures.read(resource));
+
+            assertTrue(expectation.find() && expectation.group(3) != null,
+                    () -> resource + " states no '# expect: <RULE> line <n> column <c>' comment");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("frontmatterAndEntryFixtures")
+        @DisplayName("refuses every fixture of the frontmatter with the rule FRONTMATTER, and no other fixture")
+        void frontmatterRule(String resource) {
+            var diagnostic = refuse(resource, DslFixtures.read(resource));
+
+            assertEquals(resource.contains("/frontmatter-"), diagnostic.rule() == RefusalRule.FRONTMATTER,
+                    diagnostic::message);
         }
     }
 
@@ -147,22 +193,22 @@ class WorkflowParserRefusalTest {
 
         static Stream<Arguments> headerRefusals() {
             return Stream.of(
-                    refusal("empty source", RefusalRule.STRUCTURE, 1, ""),
-                    refusal("comment-only source", RefusalRule.STRUCTURE, 1, "# nothing but a comment\n"),
-                    refusal("control character", RefusalRule.STRUCTURE, 1, "\u0001\n"),
-                    refusal("no unit header", RefusalRule.STRUCTURE, 1, lines("scope plan")),
-                    refusal("bare unit header", RefusalRule.STRUCTURE, 1, lines("workflow")),
+                    refusal("empty body", RefusalRule.STRUCTURE, 1, unit()),
+                    refusal("comment-only body", RefusalRule.STRUCTURE, 1, unit("# nothing but a comment")),
+                    refusal("control character", RefusalRule.STRUCTURE, 1, unit("\u0001")),
+                    refusal("no unit header", RefusalRule.STRUCTURE, 1, unit("scope plan")),
+                    refusal("bare unit header", RefusalRule.STRUCTURE, 1, unit("workflow")),
                     refusal("unit id is an enum value", RefusalRule.STRUCTURE, 1,
-                            lines("workflow Demo version 1 format 1")),
+                            unit("workflow Demo version 1 format 1")),
                     refusal("unit id is a reserved keyword", RefusalRule.RESERVED_KEYWORD, 1,
-                            lines("workflow state version 1 format 1")),
+                            unit("workflow state version 1 format 1")),
                     refusal("unknown character in the unit id", RefusalRule.STRUCTURE, 1,
-                            lines("workflow demo@x version 1 format 1")),
-                    refusal("misspelled version", RefusalRule.STRUCTURE, 1, lines("workflow demo revision 1 format 1")),
-                    refusal("version is a word", RefusalRule.STRUCTURE, 1, lines("workflow demo version one format 1")),
+                            unit("workflow demo@x version 1 format 1")),
+                    refusal("misspelled version", RefusalRule.STRUCTURE, 1, unit("workflow demo revision 1 format 1")),
+                    refusal("version is a word", RefusalRule.STRUCTURE, 1, unit("workflow demo version one format 1")),
                     refusal("version out of range", RefusalRule.STRUCTURE, 1,
-                            lines("workflow demo version 99999999999 format 1")),
-                    refusal("token after the header", RefusalRule.STRUCTURE, 1, lines(HEADER + " extra")),
+                            unit("workflow demo version 99999999999 format 1")),
+                    refusal("token after the header", RefusalRule.STRUCTURE, 1, unit(HEADER + " extra")),
                     refusal("bare instance keyword", RefusalRule.INSTANCE_HEADER, 2, withInstance("instance")),
                     refusal("instance without JSON", RefusalRule.INSTANCE_HEADER, 2, withInstance("instance plan")),
                     refusal("instance JSON broken", RefusalRule.INSTANCE_HEADER, 2,
@@ -219,31 +265,31 @@ class WorkflowParserRefusalTest {
                             RefusalRule.INSTANCE_HEADER, 2,
                             withInputs(TEMPLATES, "\"templates\": [{\"unit\": \"plan\", \"digest\": \"t\", "
                                     + "\"origin\": \"project\", \"extra\": {\"deep\": {\"a\": 1, \"a\": 2}}}]")),
-                    refusal("scope missing at the end of the unit", RefusalRule.MISSING_SCOPE, 1, lines(HEADER)),
-                    refusal("unknown scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope team")),
-                    refusal("bare scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope")),
-                    refusal("token after the scope", RefusalRule.STRUCTURE, 2, lines(HEADER, "scope plan extra")));
+                    refusal("scope missing at the end of the unit", RefusalRule.MISSING_SCOPE, 1, unit(HEADER)),
+                    refusal("unknown scope", RefusalRule.STRUCTURE, 2, unit(HEADER, "scope team")),
+                    refusal("bare scope", RefusalRule.STRUCTURE, 2, unit(HEADER, "scope")),
+                    refusal("token after the scope", RefusalRule.STRUCTURE, 2, unit(HEADER, "scope plan extra")));
         }
 
         @Test
         @DisplayName("refuses derived_from zero on a project unit with the zero check")
         void derivedFromZero() {
-            var diagnostic = refuseProject("zero.pmwf", lines(HEADER + " derived_from 0"));
+            var diagnostic = refuseProject("zero.pmwf", projectUnit(HEADER + " derived_from 0"));
 
             assertAll(
                     () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
-                    () -> assertEquals(1, diagnostic.line()),
+                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line()),
                     () -> assertEquals("expected a positive integer but found '0'", diagnostic.message()));
         }
 
         @Test
         @DisplayName("refuses derived_from on a default unit, which derives from nothing")
         void derivedFromOnDefaultUnit() {
-            var diagnostic = refuse("default.pmwf", lines(HEADER + " derived_from 2"));
+            var diagnostic = refuse("default.pmwf", unit(HEADER + " derived_from 2"));
 
             assertAll(
                     () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
-                    () -> assertEquals(1, diagnostic.line()),
+                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line()),
                     () -> assertEquals("'derived_from' is admitted only in a project unit, but 'demo' is parsed as "
                             + "a default unit", diagnostic.message()));
         }
@@ -306,14 +352,31 @@ class WorkflowParserRefusalTest {
                             withHeaderLines("entity", "decide approach -> quorum(architect, reviewer)")),
                     refusal("quorum not closed", RefusalRule.STRUCTURE, 3,
                             withHeaderLines("entity", "decide approach -> quorum(architect, 60")),
-                    refusal("start missing", RefusalRule.STRUCTURE, 3,
-                            lines(HEADER, "scope plan", "state demo.end terminal done success", "phase init")),
-                    refusal("bare start", RefusalRule.STRUCTURE, 3, lines(HEADER, "scope plan", "start")),
+                    refusal("neither start nor entry binding", RefusalRule.STRUCTURE, 3,
+                            unit(HEADER, "scope plan", "state demo.end terminal done success", "phase init")),
+                    refusal("bare start", RefusalRule.STRUCTURE, 3, unit(HEADER, "scope plan", "start")),
                     refusal("unit ends after start", RefusalRule.STRUCTURE, 3,
-                            lines(HEADER, "scope plan", "start demo.end")),
-                    refusal("migrate without arrow", RefusalRule.STRUCTURE, 4, lines(HEADER, "scope plan",
+                            unit(HEADER, "scope plan", "start demo.end")),
+                    refusal("migrate without arrow", RefusalRule.STRUCTURE, 4, unit(HEADER, "scope plan",
                             "start demo.end", "migrate demo.old demo.end", "state demo.end terminal done success",
-                            "phase init")));
+                            "phase init")),
+                    refusal("entry binding after start", RefusalRule.STRUCTURE, 4, unit(HEADER, "scope subworkflow",
+                            "start demo.end", "entry main -> demo.end", "state demo.end terminal done success",
+                            "phase inherit")),
+                    refusal("start after an entry binding", RefusalRule.STRUCTURE, 4, unit(HEADER,
+                            "scope subworkflow", "entry main -> demo.end", "start demo.end",
+                            "state demo.end terminal done success", "phase inherit")),
+                    refusal("entry bound twice", RefusalRule.DUPLICATE_ID, 4, unit(HEADER, "scope subworkflow",
+                            "entry main -> demo.end", "entry main -> demo.other", "state demo.end terminal done success",
+                            "phase inherit")),
+                    refusal("bare entry binding", RefusalRule.STRUCTURE, 3, unit(HEADER, "scope subworkflow",
+                            "entry")),
+                    refusal("entry name is an enum value", RefusalRule.STRUCTURE, 3, unit(HEADER,
+                            "scope subworkflow", "entry Main -> demo.end")),
+                    refusal("entry binding without arrow", RefusalRule.STRUCTURE, 3, unit(HEADER,
+                            "scope subworkflow", "entry main demo.end")),
+                    refusal("token after the entry binding", RefusalRule.STRUCTURE, 3, unit(HEADER,
+                            "scope subworkflow", "entry main -> demo.end extra")));
         }
 
         static Stream<Arguments> stateRefusals() {
@@ -501,19 +564,44 @@ class WorkflowParserRefusalTest {
     class ColumnsAndMessages {
 
         @Test
-        @DisplayName("points an empty source at line 1, column 1")
+        @DisplayName("refuses an empty source as a missing frontmatter, at line 1, column 1")
         void emptySource() {
             var diagnostic = refuse("empty.pmwf", "");
 
             assertAll(
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule()),
                     () -> assertEquals(1, diagnostic.line()),
+                    () -> assertEquals(1, diagnostic.column()));
+        }
+
+        @Test
+        @DisplayName("refuses a unit without its frontmatter before reading its body, at line 1, column 1")
+        void unitWithoutFrontmatter() {
+            var diagnostic = refuse("bare.pmwf", lines(HEADER, "scope plan", "start demo.end",
+                    "state demo.end terminal done success", "phase init"));
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.FRONTMATTER, diagnostic.rule()),
+                    () -> assertEquals("bare.pmwf", diagnostic.resourceName()),
+                    () -> assertEquals(1, diagnostic.line()),
+                    () -> assertEquals(1, diagnostic.column()));
+        }
+
+        @Test
+        @DisplayName("points an empty body at the first line after the frontmatter, column 1")
+        void emptyBody() {
+            var diagnostic = refuse("empty.pmwf", unit());
+
+            assertAll(
+                    () -> assertEquals(RefusalRule.STRUCTURE, diagnostic.rule()),
+                    () -> assertEquals(FRONTMATTER_LINES + 1, diagnostic.line()),
                     () -> assertEquals(1, diagnostic.column()));
         }
 
         @Test
         @DisplayName("points a refusal at the end of the unit just after its last token")
         void endOfUnit() {
-            var diagnostic = refuse("short.pmwf", lines(HEADER));
+            var diagnostic = refuse("short.pmwf", unit(HEADER));
 
             assertAll(
                     () -> assertEquals(RefusalRule.MISSING_SCOPE, diagnostic.rule()),
@@ -543,11 +631,11 @@ class WorkflowParserRefusalTest {
             var call = "call demo.sub(modes = [x, y, x])";
             var enumType = "param mode : enum[a|b|a]";
             return Stream.of(
-                    Arguments.of("declare line", withHeaderLines("plan", declare), 3, declare.lastIndexOf("a]") + 1,
-                            "a"),
-                    Arguments.of("call binding", unitWithBody("plan", call, "done -> demo.begin"), 6,
-                            call.lastIndexOf("x]") + 1, "x"),
-                    Arguments.of("enum type", withHeaderLines("subworkflow", enumType), 3,
+                    Arguments.of("declare line", withHeaderLines("plan", declare), FRONTMATTER_LINES + 3,
+                            declare.lastIndexOf("a]") + 1, "a"),
+                    Arguments.of("call binding", unitWithBody("plan", call, "done -> demo.begin"),
+                            FRONTMATTER_LINES + 6, call.lastIndexOf("x]") + 1, "x"),
+                    Arguments.of("enum type", withHeaderLines("subworkflow", enumType), FRONTMATTER_LINES + 3,
                             enumType.lastIndexOf("a]") + 1, "a"));
         }
 
@@ -567,7 +655,7 @@ class WorkflowParserRefusalTest {
         @Test
         @DisplayName("lists the keywords of a scope, read off the enumeration, when it refuses an unknown one")
         void scopeKeywordMessage() {
-            var diagnostic = refuse("scope.pmwf", lines(HEADER, "scope team"));
+            var diagnostic = refuse("scope.pmwf", unit(HEADER, "scope team"));
 
             assertEquals("expected a scope (plan, epic, workspace, entity or subworkflow) but found 'team'",
                     diagnostic.message());
