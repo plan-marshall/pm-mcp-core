@@ -1,0 +1,56 @@
+= ADR 004: The Move Copies the Key Last and Switches Once
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The specification orders the move: record it, copy and read back every Token Lane entry, copy the integrity key last
+and verify every sidecar under it in the target, switch `credentials.store` in one write, delete every entry from the
+old store, end the record; a move cut by a stop is resumed from its record. It named no file for the record; the work
+package corrected the store schema to name `state/credential-store-move.json`. A credential write arriving during the
+move could land in the old store after it was copied, and a stop may cut the move between any two steps.
+
+== Decision
+
+* `CredentialStoreMove` holds `locks/credentials.lock`, the lock every credential write takes, for the whole move, and
+  re-reads its record inside the lock before every phase. It takes `locks/machine-config.lock` only inside it, for the
+  switch.
+* The record `state/credential-store-move.json` (`CredentialStoreMoveRecord`: `from`, `to`, `started_at`, `phase`) is
+  written under the credentials lock in phase `copying`, rewritten once in phase `switched`, and deleted when the
+  move ends.
+* `credentials.store` is switched before the record is marked `switched`. A stop between the two leaves a record in
+  phase `copying`, from which the resume copies again from the old store, which still holds every entry; a stop never
+  deletes the only copy of an entry.
+* A failure before the switch deletes the copies and the record and fails with `credential_store_failed`; the old
+  store stays recorded.
+* `EnrolmentKey` gained the public `write(SecretKey)` and `delete()` for the copy and the deletion of the key.
+* The `operator` audit record `credential_store_moved` (`from`, `to`, `entries`) is built directly as an `AuditEvent`;
+  no factory was added to `AuditEvent` of `pm-core`.
+
+Rationale not recorded beyond the order the specification gives and the stop that must never lose an entry.
+
+== Alternatives Considered
+
+* Marking the record `switched` before switching the store: not taken, since a stop between the two would let the
+  resume delete from the old store entries that the recorded store does not yet name.
+
+== Consequences
+
+* No credential is written while a move runs; a writer waits for the credentials lock.
+* `resume()` decides on the phase of the record alone: `copying` starts again from the first entry, `switched`
+  finishes the deletion.
+* A later change keeps the lock order: credentials before the enrolment locks, `harnesses` and `machine-config`.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment § The move]
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#machine-state-records[Store Schemas § Machine State Records]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads] (lock order)

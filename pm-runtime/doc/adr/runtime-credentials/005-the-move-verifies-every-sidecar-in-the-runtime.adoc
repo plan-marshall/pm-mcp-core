@@ -1,0 +1,51 @@
+= ADR 005: The Move Verifies Every Sidecar in the Runtime
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+Before it switches the store, the move verifies every HMAC sidecar of the machine under the integrity key read back
+from the target: the enrolment files, `harnesses.json` and `logs/audit.head`. `pm-runtime` verified the enrolment
+files and the audit head, but had no reader of the harness enrolment store, which comes with the worker launch in the
+assembly. The verification of `harnesses.json` could be supplied by the assembly through a seam, or done in
+`pm-runtime`.
+
+== Decision
+
+* All three kinds are verified in `pm-runtime`, by `EnrolmentSidecars` of `runtime.enrolment`, with no seam for the
+  assembly. `harnesses.json` is verified by `HarnessesSidecarCheck` from its bytes
+  (link:../runtime-enrolment/006-harnesses-sidecar-verified-from-its-bytes-without-a-store-reader.adoc[`runtime-enrolment`
+  ADR 006]).
+* The locks are taken in the total lock order: the enrolment locks in the lexicographic order of the project ids,
+  then `locks/harnesses.lock`, the audit leaf lock last.
+* The sidecars are verified in a transaction of their own while the move's transaction holds
+  `locks/credentials.lock`: after the audit leaf lock a transaction may acquire nothing, and the move still takes
+  `locks/machine-config.lock` for the switch.
+
+The operator decided for the verification in the runtime against the alternative below; its rationale is not
+recorded.
+
+== Alternatives Considered
+
+* A verification of `harnesses.json` supplied by the assembly through a seam of `pm-runtime`: not taken, by the
+  operator's decision.
+
+== Consequences
+
+* The move is complete in `pm-runtime` and testable there on every OS.
+* The later harness enrolment store reuses `HarnessesSidecarCheck` rather than adding a second verification.
+* A caller that verifies the sidecars inside a transaction can take no lock afterwards in that transaction.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment § The move] (every HMAC sidecar)
+* link:../../../../doc/specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness Enrolment Store]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads] (lock order)

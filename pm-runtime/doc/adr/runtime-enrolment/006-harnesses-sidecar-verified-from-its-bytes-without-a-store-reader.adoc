@@ -1,0 +1,48 @@
+= ADR 006: The `harnesses.json` Sidecar Is Verified From Its Bytes Without a Store Reader
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The move between the credential stores verifies `harnesses.json` under the moved integrity key
+(link:../runtime-credentials/005-the-move-verifies-every-sidecar-in-the-runtime.adoc[`runtime-credentials` ADR 005]).
+`pm-runtime` has no harness enrolment store: reading and writing the file, its verification before every worker
+spawn, the self-update and `harness_tampered` come with the worker launch. The specification gives the sidecar
+`harnesses.json.hmac` the format of a project enrolment's sidecar under the same key, guarded with the file by
+`locks/harnesses.lock`. A verification written now could diverge from the store the worker launch adds later.
+
+== Decision
+
+* `HarnessesSidecarCheck` verifies the bytes of `harnesses.json` against its sidecar only: under
+  `locks/harnesses.lock`, the per-use checks on one no-follow snapshot of each file (`EnrolmentFileCheck`), the strict
+  read of the sidecar record (`EnrolmentSidecar`), the size and SHA-256, and the HMAC (`EnrolmentHmac`), the same
+  parts the project enrolment store uses.
+* The file is never parsed against the schema of the harness enrolment store, never written and never logged. The
+  check takes no audit sink, raises no refusal of the harness store, and answers a `Result` whose meaning its caller
+  decides. Both files absent passes: no harness is enrolled yet.
+* It lives in `runtime.enrolment`, because it reuses the package-private per-use checks and the HMAC of that package.
+
+Rationale not recorded beyond reusing the format the specification names.
+
+== Alternatives Considered
+
+* A reader of the `HarnessEnrolmentStore` schema in `pm-runtime` now: not taken; the schema belongs to the harness
+  enrolment store of the worker launch.
+
+== Consequences
+
+* The later harness enrolment store reuses the check for its own verification.
+* `PM-WATCH-DISP-33` stays open: the verification before every worker spawn is not implemented.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness Enrolment Store]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads] (`harnesses.lock`)

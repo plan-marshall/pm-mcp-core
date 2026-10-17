@@ -22,8 +22,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 
 /**
  * The resume of a move between the credential stores that a stop cut (PM-CRED-2). It is machine-wide, not a step of
- * the per-project recovery: the assembly runs it once after the socket bind, before the first credential is read.
- * It reads the record {@code state/credential-store-move.json} through {@link CredentialStoreMove#resume()}:
+ * the per-project recovery: the assembly runs it once after the socket bind. It reads the record
+ * {@code state/credential-store-move.json} through {@link CredentialStoreMove#resume()}:
  * <ul>
  * <li>in phase {@code copying} the copies are deleted from the target and the move starts again from the first entry,
  * the old store still being recorded and holding every entry;</li>

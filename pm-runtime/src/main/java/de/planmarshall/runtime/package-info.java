@@ -9,8 +9,8 @@
  */
 /**
  * The daemon's logic that needs no framework (PM-IMPL-1): the runtime start sequence, the credential stores with the
- * operator's recorded choice among them (no automatic choice, no fallback), the certificate of the web listener, the language server client, the ingestion validator, and the registries
- * the authentication of {@code pm-mcpd} resolves tokens through. No class of this module references a Quarkus,
+ * operator's recorded choice among them (no automatic choice, no fallback), the certificate of the web listener, the
+ * language server client, the ingestion validator, and the registries the authentication of {@code pm-mcpd} resolves tokens through. No class of this module references a Quarkus,
  * CDI, Vert.x or MCP type; the assembly {@code pm-mcp-server} produces its services through CDI.
  * The log messages of the daemon are registered in {@code RuntimeLogMessages} of the package {@code log}.
  */
