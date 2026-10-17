@@ -17,7 +17,7 @@ specification. Item format and lifecycle: link:../ImplementationWatch.adoc[Imple
 [#PM-WATCH-RUN-6]
 === PM-WATCH-RUN-6: Drain releases slots and task leases, never provider leases
 
-Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Model § Drain, Stop & Upgrade]
+Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Lifecycle § Drain, Stop & Upgrade]
 Hazard:: A drain that releases merge-queue or review-bot leases lets another plan take a merge slot or a rate window
 while the drained plan's merge or review round is still in flight on the provider; a drain that leaves a worker's
 generation unfenced lets its late submit land after the restart, and one that counts its tasks as lost spends their
@@ -38,7 +38,7 @@ Source:: design review.
 [#PM-WATCH-RUN-8]
 === PM-WATCH-RUN-8: A plan in an operator wait is listed as waiting, never as stalled or timed out
 
-Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model § Stalled Plans],
+Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle § Stalled Plans],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12]
 Hazard:: A plan waiting for the operator (an operator wait never ended by time, like the integrity pause and a
 pause) is invisible, or is treated as a bounded wait and expires.
@@ -52,8 +52,8 @@ Source:: design review.
 [#PM-WATCH-RUN-9]
 === PM-WATCH-RUN-9: The web listener never outlives, blocks, or relocates with the runtime
 
-Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup Sequence] (Web listener),
-link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Model § Drain, Stop & Upgrade],
+Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Lifecycle § Startup Sequence] (Web listener),
+link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Lifecycle § Drain, Stop & Upgrade],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-7[PM-SEC-7]
 Hazard:: A web listener bound in the same start path as the socket makes an occupied `web.port` or
 `web.lan_port` a start failure, so workers and operator verbs lose the runtime over a browser setting; a start that falls back to a free
@@ -70,7 +70,7 @@ Source:: design review.
 [#PM-WATCH-RUN-13]
 === PM-WATCH-RUN-13: A job created during drain is recorded, never admitted, and settled with the queue
 
-Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Model § Drain, Stop & Upgrade]
+Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Lifecycle § Drain, Stop & Upgrade]
 Hazard:: A transition that runs while the runtime drains creates a job that is spawned after admission stopped, so it
 outlives the drain timeout unsupervised, or is dropped without a record, so the state waits on a job that never
 settles; a `pm_build` during drain blocks until the exit instead of answering.
@@ -83,7 +83,7 @@ Source:: design review.
 [#PM-WATCH-RUN-15]
 === PM-WATCH-RUN-15: An upgrade is never undone by an old relay or the service unit
 
-Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Model § Drain, Stop & Upgrade]
+Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_drain_stop_upgrade[Runtime Lifecycle § Drain, Stop & Upgrade]
 Hazard:: After the upgrade switched the `PATH` links, a binary of the old installation directory that starts a
 runtime (a relay resolving `PM_MCP_HOME` from its running executable, or a service unit naming the old path) brings
 the old `pm-mcpd` back, so the upgrade is reverted without notice and the old installation directory is in use
@@ -101,7 +101,7 @@ Source:: design review.
 [#PM-WATCH-RUN-2]
 === PM-WATCH-RUN-2: Stalls and idle gaps on an active plan are derived
 
-Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model § Stalled Plans],
+Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle § Stalled Plans],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-6[PM-SEC-6]
 Hazard:: A stalled plan left no record; an agent that announced continuation and then ended its turn halted the plan
 unnoticed.

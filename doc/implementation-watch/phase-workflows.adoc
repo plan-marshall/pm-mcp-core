@@ -853,7 +853,7 @@ PLAN-PR-076 D2 and D5.
 === PM-WATCH-PHASE-105: The pull request and its triggers are user-authored, never bot-authored
 
 Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#automatic-review[Phase Workflows § Automatic Review: Registry, Participation, Refusals & Ingestion] (Identity & trigger),
-link:../specification/credentials-and-enrolment/01-provider-credentials.adoc#user-access-token[CLI & Security § Agent Credentials of the Native Variant] (User access token)
+link:../specification/credentials-and-enrolment/01-provider-credentials.adoc#user-access-token[Credentials & Enrolment § Agent Credentials of the Native Variant] (User access token)
 Hazard:: A pull request opened with the App's installation token is authored by `<app>[bot]`: CodeRabbit answers only
 with "Review skipped … Bot user detected", ignores the App's `@coderabbitai review`, and a later trigger by the
 operator does not rescue it, so every required CodeRabbit review stays `unproven` and every plan hands back.

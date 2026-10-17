@@ -390,7 +390,7 @@ Source:: design review.
 === PM-WATCH-EXT-28: A new capability finding asks again and never falls back
 
 Anchor:: link:../specification/domain-extensions/04-setup-state-machine.adoc#setup-integration-variants[Domain Extensions § Integration Variants],
-link:../specification/credentials-and-enrolment/01-provider-credentials.adoc#native-confinement[CLI & Security § Native Operation Confinement]
+link:../specification/credentials-and-enrolment/01-provider-credentials.adoc#native-confinement[Credentials & Enrolment § Native Operation Confinement]
 Hazard:: The repository gains a feature the native variant cannot serve while `native` is in effect (for
 example `.husky/` is added); the stale variant keeps running unasked, or the server silently starts a CLI job and so
 acts with the operator's credentials. Equally, an enrolment that changes between two setup runs changes the
