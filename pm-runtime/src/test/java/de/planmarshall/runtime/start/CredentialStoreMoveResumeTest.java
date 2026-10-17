@@ -247,8 +247,8 @@ class CredentialStoreMoveResumeTest {
             fileStore.put(GITHUB, GITHUB_SECRET);
             fileStore.put(SONAR, SONAR_SECRET);
             keyIn(fileStore).write(key);
-            record(Store.FILE, Writer.STORE_MOVE);
             openMove(Phase.COPYING);
+            record(Store.FILE, Writer.STORE_MOVE);
             return key;
         }
 
@@ -292,8 +292,8 @@ class CredentialStoreMoveResumeTest {
             fileStore.put(GITHUB, GITHUB_SECRET);
             fileStore.put(SONAR, SONAR_SECRET);
             keyIn(fileStore).write(key);
-            record(Store.FILE, Writer.STORE_MOVE);
             openMove(Phase.SWITCHED);
+            record(Store.FILE, Writer.STORE_MOVE);
             osStore.delete(GITHUB);
 
             var resumed = resume.run();
@@ -308,8 +308,8 @@ class CredentialStoreMoveResumeTest {
             fileStore.put(GITHUB, GITHUB_SECRET);
             fileStore.put(SONAR, SONAR_SECRET);
             keyIn(fileStore).write(key);
-            record(Store.FILE, Writer.STORE_MOVE);
             openMove(Phase.SWITCHED);
+            record(Store.FILE, Writer.STORE_MOVE);
             osStore.refuseDeletes = true;
 
             var failure = assertThrows(SecretStoreException.class, resume::run);

@@ -796,14 +796,17 @@ class EnrolmentKeyTest {
         @DisplayName("with file recorded the store of the integrity key of the choice is the key file")
         void recordedFileStore() throws Exception {
             var base = Files.createDirectories(state.resolve("pm-base"));
+            var stateDirectory = Files.createDirectories(base.resolve("state"));
             var choice = CredentialStoreChoiceFixture.withOsStore(base, "de.planmarshall.mcp", new InMemoryKeyring());
             choice.record(new FileLockManager(event -> {
             }), USER, CredentialStoreChoice.Store.FILE);
-            var key = new EnrolmentKey(choice::integrityKeyStore, state, USER, new SecureRandom());
+            var key = new EnrolmentKey(choice::integrityKeyStore, stateDirectory, USER, new SecureRandom());
 
             key.readOrCreate();
 
-            assertTrue(Files.exists(key.keyFile()));
+            assertAll(
+                    () -> assertEquals(stateDirectory.resolve(EnrolmentKey.FILE_NAME), key.keyFile()),
+                    () -> assertTrue(Files.exists(stateDirectory.resolve(EnrolmentKey.FILE_NAME))));
         }
 
         @Test

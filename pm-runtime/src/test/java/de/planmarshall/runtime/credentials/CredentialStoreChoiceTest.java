@@ -253,6 +253,7 @@ class CredentialStoreChoiceTest {
             writeMachineConfig("{\"format_version\":1,\"revision\":4,\"max_build_slots\":3,"
                     + "\"lsp_idle_timeout_seconds\":600,\"web\":{\"enabled\":true,\"port\":7500},"
                     + "\"credentials\":{\"store\":\"file\"},\"plan_defaults\":{\"posture\":\"full\"}}");
+            openMove();
 
             linux(true).record(transaction, Store.OS, Writer.STORE_MOVE);
 
@@ -278,7 +279,9 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("the write of the move holds the credentials and the machine configuration lock and logs the store")
-        void lockedAndLogged() {
+        void lockedAndLogged() throws IOException {
+            openMove();
+
             linux(true).record(transaction, Store.FILE, Writer.STORE_MOVE);
 
             assertAll(
@@ -357,6 +360,23 @@ class CredentialStoreChoiceTest {
         }
 
         @Test
+        @DisplayName("without the record of a move the store move is refused and nothing is written")
+        void storeMoveRefusedOutsideAMove() throws Exception {
+            writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
+            var choice = linux(true);
+
+            var refusal = assertThrows(IllegalStateException.class,
+                    () -> choice.record(transaction, Store.FILE, Writer.STORE_MOVE));
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(CredentialStoreMoveRecord.FILE_NAME),
+                            refusal.getMessage()),
+                    () -> assertEquals(document(",\"credentials\":{\"store\":\"os\"}"), readMachineConfig()),
+                    () -> assertFalse(transaction.holds(LockKey.machineConfiguration(base))),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()));
+        }
+
+        @Test
         @DisplayName("once the record of the move is gone the aspect is still refused for the other store, since a "
                 + "change of the recorded store is a move")
         void aspectRefusedAfterTheMoveForTheOtherStore() throws Exception {
@@ -422,6 +442,7 @@ class CredentialStoreChoiceTest {
         @DisplayName("an unreadable document is refused and left as it is")
         void unreadableKept() throws Exception {
             writeMachineConfig("{\"format_version\":1,\"revision\":\"one\"}");
+            openMove();
             var choice = linux(true);
 
             assertThrows(StoreRefusal.class, () -> choice.record(transaction, Store.OS, Writer.STORE_MOVE));
@@ -497,11 +518,62 @@ class CredentialStoreChoiceTest {
         }
 
         @Test
+        @DisplayName("with os on macOS the Keychain store is loaded once across every operation")
+        void keychainLoadedOnce() {
+            var choice = choice(MachinePaths.Os.MACOS, Map.of(), true);
+            choice.record(locks, USER, Store.OS);
+            var store = choice.activeStore();
+
+            store.put(GITHUB, "token");
+            store.get(GITHUB);
+            store.entries();
+            choice.activeStore().delete(GITHUB);
+            choice.store(Store.OS).entries();
+
+            assertEquals(List.of("keychain:" + SERVICE), probes);
+        }
+
+        @Test
+        @DisplayName("with os on macOS a Keychain that does not load is tried again at the next operation")
+        void failedKeychainLoadNotKept() {
+            var loads = new boolean[]{false};
+            var choice = new CredentialStoreChoice(base, SERVICE, MachinePaths.Os.MACOS, Map.of(),
+                    new CredentialStoreChoice.Keyrings() {
+
+                        @Override
+                        public SecretStore keychain(String service) {
+                            probes.add("keychain");
+                            if (!loads[0]) {
+                                throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                                        "no Security.framework");
+                            }
+                            return keychain;
+                        }
+
+                        @Override
+                        public Optional<SecretStore> secretService(Path socket, String service) {
+                            return Optional.empty();
+                        }
+                    });
+            var store = choice.store(Store.OS);
+            assertReason(SecretStoreException.Reason.LOCKED, () -> store.put(GITHUB, "t"));
+
+            loads[0] = true;
+            store.put(GITHUB, "t");
+            store.get(GITHUB);
+
+            assertAll(
+                    () -> assertEquals(Optional.of("t"), keychain.get(GITHUB)),
+                    () -> assertEquals(List.of("keychain", "keychain"), probes));
+        }
+
+        @Test
         @DisplayName("a switch of the recorded store takes effect for the next store given")
-        void switchTakesEffect() {
+        void switchTakesEffect() throws IOException {
             var choice = linux(true);
             choice.record(locks, USER, Store.FILE);
             var before = choice.activeStore().name();
+            openMove();
 
             choice.record(transaction, Store.OS, Writer.STORE_MOVE);
 

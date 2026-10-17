@@ -20,10 +20,12 @@ package had to decide where its resume runs (question q1 of the work package).
 
 * The resume is the machine-wide class `CredentialStoreMoveResume` of `runtime.start`, run once after the bind and
   wired by the assembly. It calls `CredentialStoreMove.resume()`: in phase `copying` with the old store recorded the
-  copies are deleted from the target and the move runs again from the first entry; in phase `switched`, or in phase
-  `copying` with the target recorded (the stop fell between the switch and the rewrite of the record), the record is
-  marked `switched` and the deletion from the old store is finished; without a record nothing happens. A resumed
-  move is logged as `PM_RUNTIME-29`.
+  copies are deleted from the target and the move runs again from the first entry; in phase `switched` with the
+  target recorded, or in phase `copying` with the target recorded (the stop fell between the switch and the rewrite
+  of the record), the record is marked `switched`, the deletion from the old store is finished, the audit record of
+  the move is appended and only then the record is deleted, so an audit record a stop or a failing sink lost is
+  appended by the next start; in phase `switched` with another or no store recorded the resume is refused and
+  deletes nothing; without a record nothing happens. A resumed move is logged as `PM_RUNTIME-29`.
 * `StartupSequence`, `RecoveryStep` and `ProjectRecovery` are unchanged.
 
 Rationale not recorded beyond the move being machine-wide.

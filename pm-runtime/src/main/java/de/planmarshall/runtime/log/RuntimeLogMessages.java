@@ -567,10 +567,11 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged by {@code CredentialStoreMove} when a move fails before the switch (a copy, a read-back or the
-         * verification of a sidecar under the moved key failed) and its record was deleted; with the old and the new
-         * store, what became of the copies (removed from the target while the old store stays recorded, not all
-         * removed, or kept in the target because another store is recorded or the recorded store cannot be read) and
-         * the cause, never a secret.
+         * verification of a sidecar under the moved key failed); with the old and the new store, what became of the
+         * copies and of the record (copies removed from the target while the old store stays recorded, record
+         * deleted; copies not all removed, record kept for the next start; copies kept in the target because the
+         * recorded store cannot be read, record kept, or because the target is recorded, record deleted) and the
+         * cause, never a secret.
          */
         public static final LogRecord CREDENTIAL_STORE_MOVE_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)

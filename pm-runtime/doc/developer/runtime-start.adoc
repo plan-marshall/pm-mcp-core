@@ -152,14 +152,17 @@ link:runtime-credentials.adoc[`runtime.credentials`]) that a stop cut leaves its
 * phase `copying` with the target recorded (a stop between the switch and the rewrite of the record): the move is
   treated as switched, nothing is deleted from or copied into the recorded target, and the deletion from the old store
   is finished;
-* phase `switched`: the target is recorded; the deletion from the old store is finished and the record ended;
+* phase `switched` with the target recorded: the deletion from the old store is finished and the record ended;
+* phase `switched` with another or no store recorded: the resume is refused with an `IllegalStateException`, nothing
+  is deleted from either store and the record is kept;
 * no record: no move is open, nothing happens.
 
 `run()` returns the record it resumed from, as it was found, and logs `PM_RUNTIME-29`
-(`CREDENTIAL_STORE_MOVE_RESUMED`) with both stores and that phase; the move itself logs `PM_RUNTIME-28` and appends its
-`credential_store_moved` audit record. A move that fails again before the switch fails with `credential_store_failed`
-and leaves the old store recorded; a deletion the old store refuses fails with the store's reason and leaves the
-record for the next start.
+(`CREDENTIAL_STORE_MOVE_RESUMED`) with both stores and that phase; the move itself appends its `credential_store_moved`
+audit record, then ends the record and logs `PM_RUNTIME-28`, so a move whose audit record a stop or a failing sink lost
+is finished and audited again by the next start. A move that fails again before the switch fails with
+`credential_store_failed` and leaves the old store recorded; a copy that cannot be removed from the target, or a
+deletion the old store refuses, fails with the store's reason and leaves the record for the next start.
 
 The resume is machine-wide and runs once after the bind; it is no
 `RecoveryStep`, and `StartupSequence`, `RecoveryStep` and `ProjectRecovery` are unchanged

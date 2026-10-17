@@ -28,14 +28,33 @@ move could land in the old store after it was copied, and a stop may cut the mov
 * While the record exists only the move records `credentials.store`: `CredentialStoreChoice` refuses every other
   writer, the credential-store aspect included, with `aspect_owned`, and checks the record under the credentials lock
   before it takes `locks/machine-config.lock`, so no writer records a store between the check and its write.
+  Conversely the writer `STORE_MOVE` records only while the record exists: a caller that names itself the store move
+  outside a move is refused with an `IllegalStateException` and writes nothing.
 * `credentials.store` is switched before the record is marked `switched`, and only after every entry and the key were
   copied and verified. A stop between the two leaves a record in phase `copying` while the target is recorded; since
   no other writer records a store while the record exists, that state is the move's own switch, and the resume
   decides the phase from the recorded store as well as from the record, treats that move as switched and finishes the
   deletion from the old store. A stop before the switch leaves the old store recorded and holding every entry, from
   which the resume copies again; a stop never deletes the only copy of an entry.
-* A failure before the switch deletes the record and fails with `credential_store_failed`; it deletes the copies only
-  while the old store is recorded, so the clean-up never deletes from the recorded store.
+* A move into a target that holds a Token Lane entry already is refused with `credential_store_failed` before the
+  record is written, and nothing is written or deleted in either store. A secret never exists in two stores, so such
+  a target is inconsistent; the refusal makes sure that the copy never overwrites an entry the target held, and that
+  the clean-up of a failed move, which deletes from the target every account the old store holds, deletes only copies
+  of this move. The integrity key is no Token Lane entry; a key a failed deletion after a switch left in both stores
+  is handled by `IntegrityKeyCarry`.
+* A failure before the switch fails with `credential_store_failed` and leaves the old store recorded and untouched;
+  it deletes the copies only while the old store is recorded, so the clean-up never deletes from the recorded store.
+  The record stays exactly while the next start has a clean-up left that it may do: it is deleted where every copy
+  was removed, and kept where a copy could not be removed (the resume removes the copies and moves again from the
+  first entry) or the machine configuration cannot be read (the resume runs once it reads again). Where the target is
+  recorded at the failure, which the lock discipline excludes, the copies stay, since the target is the recorded
+  store, and the record is deleted, since a resume would read that state as the move's own switch and delete the
+  entries from the old store.
+* The resume finishes a record in phase `switched` only while `credentials.store` names its target; otherwise it is
+  refused, deletes nothing from either store and keeps the record.
+* The `operator` audit record of the completed move is appended before the record is deleted, so a stop or a failing
+  audit sink leaves the record, and the next start finishes the move again and appends the audit record then: the
+  audit record is delivered at least once, as `AuditSink` requires of a producer.
 * `EnrolmentKey` gained the public `write(SecretKey)` and `delete()` for the copy and the deletion of the key.
 * The `operator` audit record `credential_store_moved` (`from`, `to`, `entries`) is built directly as an `AuditEvent`;
   no factory was added to `AuditEvent` of `pm-core`.
@@ -50,6 +69,11 @@ Rationale not recorded beyond the order the specification gives and the stop tha
   of the entries reads to the resume as the move's own switch, and the deletion from the old store would then remove
   the only copies; the clean-up of a failed move had the same window between reading the recorded store and deleting
   the copies.
+* Deleting the record after every failure before the switch: not taken (review of PR 90), since a copy the clean-up
+  could not remove would then stay in the target with no record that a later start cleans it up, and a later move
+  into that target would treat it as an entry of its own.
+* Deleting the record before the audit record is appended: not taken (review of PR 90), since a stop or a failing
+  sink between the two would lose the audit record of a completed move for good.
 
 == Consequences
 
@@ -61,7 +85,11 @@ Rationale not recorded beyond the order the specification gives and the stop tha
   recorded one (ADR 006). An aspect that waited for the credentials lock of a running move therefore never writes over
   the move's switch.
 * `resume()` decides on the phase of the record and the recorded store: `copying` with the old store recorded starts
-  again from the first entry; `switched`, or `copying` with the target recorded, finishes the deletion.
+  again from the first entry; `switched` with the target recorded, or `copying` with the target recorded, finishes the
+  deletion; `switched` with another or no store recorded is refused.
+* A move needs an empty target: a target that holds a Token Lane entry is cleaned up by the operator before the move.
+* A failing audit sink after the switch leaves a record that refuses the aspect and another move until a start
+  appends the audit record; the audit log may then hold the record of the move twice.
 * A later change keeps the lock order: credentials before the enrolment locks, `harnesses` and `machine-config`.
 
 == Source

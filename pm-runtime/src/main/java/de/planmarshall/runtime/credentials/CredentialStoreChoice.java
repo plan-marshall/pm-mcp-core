@@ -53,7 +53,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * the credential-store aspect of the machine's onboarding and the store move write the key; every other writer is
  * refused with {@code aspect_owned}. While a move between the stores is open, while its record
  * {@code state/credential-store-move.json} exists, only the move writes the key: the aspect is refused with
- * {@code aspect_owned} as well. The aspect records a store the first time only: once a store is recorded, a change to
+ * {@code aspect_owned} as well; and the move writes it only then, so a caller that names itself the store move while
+ * no record exists is refused. The aspect records a store the first time only: once a store is recorded, a change to
  * the other store is the move, so the aspect is refused for it with {@code aspect_owned}, and for the recorded store it
  * writes nothing. The record and the recorded store are checked under {@code locks/credentials.lock}, which the move
  * holds for its whole duration and which sorts before the machine configuration lock, so no other writer records a
@@ -64,7 +65,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * {@code onboarding_incomplete}, naming the store step. With {@code os} it gives the OS store of the platform, the
  * macOS Keychain or the Linux Secret Service; when that store is unavailable, at start or later, a read fails with
  * {@code credential_store_unavailable} and a write with {@code credential_store_locked}, and nothing is written to the
- * file store in its place. With {@code file} it gives the file store below {@code <PM_MCP_BASE>/credentials}.
+ * file store in its place. The Secret Service is probed before every operation; the Keychain store is loaded once per
+ * instance, a load that fails is tried again. With {@code file} it gives the file store below {@code <PM_MCP_BASE>/credentials}.
  * <p>
  * <b>The integrity key before the choice.</b> {@link #integrityKeyStore()} gives the store the enrolment integrity key
  * lives in: the active store once a store is recorded, and before that the store the runtime finds, the OS store where
@@ -244,6 +246,9 @@ public final class CredentialStoreChoice {
     /** The store of the integrity key before the choice, found at the first call and then kept; empty until then. */
     private final AtomicReference<SecretStore> keyStoreBeforeChoice = new AtomicReference<>();
 
+    /** The Keychain store, loaded at the first probe on macOS that loads it and then kept; empty until then. */
+    private final AtomicReference<SecretStore> loadedKeychain = new AtomicReference<>();
+
     /**
      * @param base        the base directory of the runtime
      * @param service     the service name of the instance ({@link ServiceName})
@@ -299,7 +304,8 @@ public final class CredentialStoreChoice {
      * is re-read, {@code credentials.store} set, {@code revision} incremented, and the file replaced in one atomic
      * write; every other member is kept. A writer that does not own the key is refused; the credential-store aspect
      * records through {@link #record(LockManager, String, Store)}, which refuses it while a move is open and carries
-     * the integrity key at the first recording.
+     * the integrity key at the first recording. The store move records only while the record of a move exists, which
+     * is re-read under the credentials lock: a caller that names itself the store move outside a move is refused.
      *
      * @param transaction the transaction of the write; it holds no lock that sorts after the credentials lock other
      *                    than the machine configuration lock
@@ -309,9 +315,12 @@ public final class CredentialStoreChoice {
      *                                                 nothing was acquired or written then
      * @throws IllegalArgumentException                if the writer is the credential-store aspect; nothing was
      *                                                 acquired or written then
+     * @throws IllegalStateException                   if the writer is the store move and no record of a move exists;
+     *                                                 nothing was written then
      * @throws de.planmarshall.core.store.StoreRefusal if the document on disk is in another format version or
      *                                                 unreadable; nothing was written then
-     * @throws UncheckedIOException                    if the document cannot be read or written
+     * @throws UncheckedIOException                    if the record of a move or the document cannot be read, or the
+     *                                                 document cannot be written
      */
     @SuppressWarnings("java:S6213") // record is the domain verb of the recorded store (ADR runtime-credentials/001, /002)
     public void record(LockTransaction transaction, Store store, Writer writer) {
@@ -327,7 +336,17 @@ public final class CredentialStoreChoice {
                     + "record(LockManager, String, Store), which carries the integrity key at the first recording");
         }
         transaction.acquire(moveRecord.lockKey());
+        requireMove(transaction);
         write(transaction, store, writer);
+    }
+
+    /** Refuses the store move outside a move, where no record of a move exists; the transaction holds its lock. */
+    private void requireMove(LockTransaction transaction) {
+        if (moveRecord.read(transaction).isEmpty()) {
+            throw new IllegalStateException(
+                    "the store move records credentials.store of %s only while the record %s of a move exists"
+                            .formatted(file.store(), moveRecord.store()));
+        }
     }
 
     /**
@@ -570,7 +589,7 @@ public final class CredentialStoreChoice {
     private Probe osStoreOrReason() {
         if (os == MachinePaths.Os.MACOS) {
             try {
-                return new Probe(Optional.of(keyrings.keychain(service)), "");
+                return new Probe(Optional.of(keychain()), "");
             } catch (SecretStoreException e) {
                 return new Probe(Optional.empty(), "Keychain: " + e.getMessage());
             }
@@ -582,6 +601,23 @@ public final class CredentialStoreChoice {
         var store = keyrings.secretService(socket.get(), service);
         return new Probe(store, store.isPresent() ? ""
                 : "Secret Service: not reachable, or no unlocked default collection on " + socket.get());
+    }
+
+    /**
+     * Gives the Keychain store, loaded at most once per instance: loading it looks up Security.framework, which is
+     * never released, so it is not repeated for every operation. A load that fails is not kept and is tried again at
+     * the next probe; a locked Keychain is reported by the store itself at every operation.
+     *
+     * @return the Keychain store
+     * @throws SecretStoreException if Security.framework cannot be loaded
+     */
+    private SecretStore keychain() {
+        var loaded = loadedKeychain.get();
+        if (loaded != null) {
+            return loaded;
+        }
+        var store = keyrings.keychain(service);
+        return loadedKeychain.compareAndSet(null, store) ? store : loadedKeychain.get();
     }
 
     /** The outcome of a probe of the OS store. */
@@ -715,7 +751,8 @@ public final class CredentialStoreChoice {
 
     /**
      * The OS store, probed before every operation, so an OS store that becomes unavailable after the start is reported
-     * as such. An unavailable store fails a read with {@code credential_store_unavailable} and a write with
+     * as such: the Secret Service is probed afresh, the Keychain is loaded once per instance and then answers for
+     * itself, a locked Keychain at every operation. An unavailable store fails a read with {@code credential_store_unavailable} and a write with
      * {@code credential_store_locked}; a locked collection or item met by a read is unavailable as well. Given as the
      * recorded store, its unavailability is logged and named as that of the recorded store; given as one of the two
      * stores of a move, it is named as the OS store only.

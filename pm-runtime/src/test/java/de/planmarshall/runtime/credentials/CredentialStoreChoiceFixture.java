@@ -40,7 +40,8 @@ public final class CredentialStoreChoiceFixture {
      * @param service   the service name of the instance
      * @param osStore   the store that serves as the Keychain of a macOS machine
      * @param available whether the Keychain loads at a probe; a probe while it does not fails as an unloadable
-     *                  Keychain
+     *                  Keychain. The choice keeps a Keychain that loaded once, so this governs the probes until the
+     *                  first load only
      * @return the choice over {@code base}, whose OS store is {@code osStore} while {@code available} holds
      */
     public static CredentialStoreChoice withOsStoreWhile(Path base, String service, SecretStore osStore,
