@@ -184,6 +184,26 @@ class CredentialStoreMoveResumeTest {
                 () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, CredentialStoreMoveResume.class));
     }
 
+    @Test
+    @DisplayName("while the record of a cut move exists the aspect records no store; once the resume ended the move "
+            + "it records again")
+    void aspectRefusedUntilTheResume() throws Exception {
+        machineOnTheOsStore();
+        openMove(Phase.COPYING);
+
+        var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
+                () -> record(Store.FILE, Writer.CREDENTIAL_STORE_ASPECT));
+        var recordedWhileOpen = choice.recorded();
+        resume.run();
+        record(Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+
+        assertAll(
+                () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),
+                () -> assertEquals(Optional.of(Store.OS), recordedWhileOpen),
+                () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                () -> assertFalse(Files.exists(recordFile())));
+    }
+
     @Nested
     @DisplayName("a move cut before the switch")
     class CutBeforeTheSwitch {

@@ -212,6 +212,9 @@ class CredentialStoreMoveTest {
     private void assertNothingSwitched(SecretStoreException failure) {
         assertAll(
                 () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                () -> assertTrue(failure.getMessage().contains(
+                        "failed before the switch, the copies were removed from 'file' and 'os' stays recorded"),
+                        failure.getMessage()),
                 () -> assertNoSecretIn(failure),
                 () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
                 () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
@@ -413,6 +416,9 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
                     () -> assertNoSecretIn(failure),
+                    () -> assertTrue(failure.getMessage().contains(
+                            "the copies could not all be removed from 'os' and 'file' stays recorded"),
+                            failure.getMessage()),
                     () -> assertEquals(1, failure.getCause().getSuppressed().length),
                     () -> assertTrue(failure.getCause().getSuppressed()[0].getMessage().contains("refuses to delete"),
                             failure.getCause().getSuppressed()[0].getMessage()),
@@ -422,33 +428,32 @@ class CredentialStoreMoveTest {
         }
 
         @Test
-        @DisplayName("while another writer recorded the target, the clean-up deletes nothing from the recorded store")
-        void targetRecordedByAnotherWriter() throws Exception {
-            var key = machineOn(Store.OS);
-            signed(harnesses(), harnessesSidecar(), HARNESSES, otherKey());
+        @DisplayName("a machine configuration that cannot be read keeps the copies in the target and says so")
+        void unreadableMachineConfiguration() throws Exception {
+            machineOn(Store.FILE);
+            osStore.failPutOf = SONAR.account();
             var mover = move(step -> {
-                if (step == Step.KEY_COPIED) {
-                    try (var transaction = locks.openTransaction()) {
-                        choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
-                    }
+                if (step == Step.RECORDED) {
+                    rewriteMachineConfiguration("{\"format_version\":1,\"revision\":\"one\"}");
                 }
             });
 
-            var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.FILE));
+            var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.OS));
 
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
-                    () -> assertTrue(failure.getMessage().contains("'file' stays recorded"), failure.getMessage()),
+                    () -> assertTrue(failure.getMessage().contains(
+                            "the recorded store cannot be read, so the copies stay in 'os'"), failure.getMessage()),
+                    () -> assertFalse(failure.getMessage().contains("unknown"), failure.getMessage()),
                     () -> assertNoSecretIn(failure),
-                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
-                    () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)),
-                    () -> assertEquals(Optional.of(SONAR_SECRET), fileStore.get(SONAR)),
-                    () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertEquals(1, failure.getCause().getSuppressed().length),
                     () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
-                    () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
-                    () -> assertTrue(keyIn(osStore).read().isPresent()),
+                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertTrue(keyIn(fileStore).read().isPresent()),
                     () -> assertFalse(Files.exists(recordFile())),
-                    () -> assertTrue(movedEvents().isEmpty()));
+                    () -> assertTrue(movedEvents().isEmpty()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.CREDENTIAL_STORE_MOVE_FAILED.resolveIdentifierString()));
         }
 
         @Test
@@ -476,6 +481,69 @@ class CredentialStoreMoveTest {
             write(recordFile(), record.write());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private void rewriteMachineConfiguration(String document) {
+        try {
+            write(base.resolve(CredentialStoreChoice.FILE_NAME), document.getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Nested
+    @DisplayName("while the record of a move exists only the move records a store")
+    class OnlyTheMoveRecords {
+
+        @Test
+        @DisplayName("the aspect is refused with aspect_owned while the move runs, and the move completes")
+        void aspectRefusedWhileTheMoveRuns() throws Exception {
+            var key = machineOn(Store.OS);
+            var refusals = new ArrayList<CredentialStoreChoice.Refusal>();
+            var mover = move(step -> {
+                if (step == Step.KEY_COPIED) {
+                    try (var transaction = locks.openTransaction()) {
+                        choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+                    } catch (CredentialStoreChoice.Refusal refusal) {
+                        refusals.add(refusal);
+                    }
+                }
+            });
+
+            mover.move(Store.FILE);
+
+            assertAll(
+                    () -> assertEquals(1, refusals.size()),
+                    () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusals.getFirst().reason()),
+                    () -> assertTrue(refusals.getFirst().getMessage().contains("only the move records"),
+                            refusals.getFirst().getMessage()),
+                    () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
+        }
+
+        @Test
+        @DisplayName("a record of a cut move refuses the aspect until the resume ends the move")
+        void aspectRefusedUntilTheResume() throws Exception {
+            machineOn(Store.OS);
+            assertThrows(Stop.class, () -> move(stopAfter(Step.ENTRIES_COPIED)).move(Store.FILE));
+
+            var refusal = assertThrows(CredentialStoreChoice.Refusal.class, () -> {
+                try (var transaction = locks.openTransaction()) {
+                    choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+                }
+            });
+            var recordedWhileOpen = choice.recorded();
+            move().resume();
+            try (var transaction = locks.openTransaction()) {
+                choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+            }
+
+            assertAll(
+                    () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),
+                    () -> assertEquals(Optional.of(Store.OS), recordedWhileOpen),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertFalse(Files.exists(recordFile())),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)));
         }
     }
 

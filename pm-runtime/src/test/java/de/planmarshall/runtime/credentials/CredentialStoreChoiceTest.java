@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -124,6 +125,14 @@ class CredentialStoreChoiceTest {
 
     private String readMachineConfig() throws IOException {
         return Files.readString(machineConfig(), StandardCharsets.UTF_8);
+    }
+
+    /** Writes the record of a move from the OS store to the file store that is open. */
+    private void openMove() throws IOException {
+        var record = CredentialStoreMoveRecord.file(base);
+        Files.createDirectories(record.getParent());
+        Files.write(record, new CredentialStoreMoveRecord(Store.OS, Store.FILE, Instant.parse("2026-10-17T15:00:00Z"),
+                CredentialStoreMoveRecord.Phase.COPYING).write());
     }
 
     private static String document(String credentials) {
@@ -274,6 +283,7 @@ class CredentialStoreChoiceTest {
             assertAll(
                     () -> assertEquals(Refusal.Reason.ASPECT_OWNED, refusal.reason()),
                     () -> assertEquals("aspect_owned", refusal.reason().code()),
+                    () -> assertFalse(transaction.holds(LockKey.credentials(base))),
                     () -> assertFalse(transaction.holds(LockKey.machineConfiguration(base))),
                     () -> assertFalse(Files.exists(machineConfig())));
         }
@@ -285,6 +295,52 @@ class CredentialStoreChoiceTest {
                     () -> assertTrue(Writer.CREDENTIAL_STORE_ASPECT.owner()),
                     () -> assertTrue(Writer.STORE_MOVE.owner()),
                     () -> assertFalse(Writer.OTHER_CONFIGURATION.owner()));
+        }
+
+        @Test
+        @DisplayName("while the record of a move exists the aspect is refused with aspect_owned and nothing is written")
+        void aspectRefusedWhileAMoveIsOpen() throws Exception {
+            writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
+            openMove();
+            var choice = linux(true);
+
+            var refusal = assertThrows(Refusal.class,
+                    () -> choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT));
+
+            assertAll(
+                    () -> assertEquals(Refusal.Reason.ASPECT_OWNED, refusal.reason()),
+                    () -> assertTrue(refusal.getMessage().contains(CredentialStoreMoveRecord.FILE_NAME),
+                            refusal.getMessage()),
+                    () -> assertTrue(transaction.holds(LockKey.credentials(base))),
+                    () -> assertFalse(transaction.holds(LockKey.machineConfiguration(base))),
+                    () -> assertEquals(document(",\"credentials\":{\"store\":\"os\"}"), readMachineConfig()),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()));
+        }
+
+        @Test
+        @DisplayName("while the record of a move exists the move itself records the store")
+        void moveRecordsWhileItsRecordExists() throws Exception {
+            writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
+            openMove();
+            var choice = linux(true);
+
+            choice.record(transaction, Store.FILE, Writer.STORE_MOVE);
+
+            assertEquals(Optional.of(Store.FILE), choice.recorded());
+        }
+
+        @Test
+        @DisplayName("once the record of the move is gone the aspect records again")
+        void aspectRecordsAfterTheMove() throws Exception {
+            writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
+            openMove();
+            var choice = linux(true);
+            assertThrows(Refusal.class, () -> choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT));
+            Files.delete(CredentialStoreMoveRecord.file(base));
+
+            choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+
+            assertEquals(Optional.of(Store.FILE), choice.recorded());
         }
 
         @Test
@@ -422,6 +478,24 @@ class CredentialStoreChoiceTest {
                         () -> assertEquals("credential_store_locked", write.reason().code()),
                         () -> assertTrue(read.getMessage().contains("/run/user/1/bus"), read.getMessage()),
                         () -> assertFalse(write.getMessage().contains("s3cr3t-token-value"), write.getMessage()));
+            }
+
+            @Test
+            @DisplayName("given as the target of a move it is named as the OS store, not as the recorded store")
+            void targetOfAMove() {
+                var choice = linux(false);
+                choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+                var target = choice.store(Store.OS);
+
+                var write = assertThrows(SecretStoreException.class, () -> target.put(GITHUB, "t"));
+
+                assertAll(
+                        () -> assertEquals(SecretStoreException.Reason.LOCKED, write.reason()),
+                        () -> assertTrue(write.getMessage().startsWith("the credential store '" + SecretStore.SECRET_SERVICE + "'"),
+                                write.getMessage()),
+                        () -> assertFalse(write.getMessage().contains("recorded"), write.getMessage()),
+                        () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                                WARN.RECORDED_OS_STORE_UNAVAILABLE.resolveIdentifierString()));
             }
 
             @Test

@@ -48,7 +48,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * {@code revision} 1 and the other required keys at their schema defaults ({@code max_build_slots}
  * {@value #DEFAULT_MAX_BUILD_SLOTS}, {@code lsp_idle_timeout_seconds} {@value #DEFAULT_LSP_IDLE_TIMEOUT_SECONDS}). Only
  * the credential-store aspect of the machine's onboarding and the store move write the key; every other writer is
- * refused with {@code aspect_owned}.
+ * refused with {@code aspect_owned}. While a move between the stores is open, while its record
+ * {@code state/credential-store-move.json} exists, only the move writes the key: the aspect is refused with
+ * {@code aspect_owned} as well. The record is checked under {@code locks/credentials.lock}, which the move holds for its
+ * whole duration and which sorts before the machine configuration lock, so no other writer records a store between the
+ * check and the write, nor while a move runs.
  * <p>
  * <b>The active store.</b> {@link #activeStore()} gives the store of the recorded choice, read from the file at every
  * call, so a switch by the move takes effect for the next operation. Before a store is recorded it refuses with
@@ -146,7 +150,10 @@ public final class CredentialStoreChoice {
         public enum Reason {
             /** No store is recorded yet: no credential can be entered before the store step of the onboarding. */
             ONBOARDING_INCOMPLETE("onboarding_incomplete"),
-            /** The writer does not own {@code credentials.store}. */
+            /**
+             * The writer does not own {@code credentials.store}: it is not one of its owners, or a move between the
+             * stores is open, which alone owns the key until it ends.
+             */
             ASPECT_OWNED("aspect_owned");
 
             private final String code;
@@ -212,6 +219,7 @@ public final class CredentialStoreChoice {
     };
 
     private final AtomicStoreFile file;
+    private final AtomicStoreFile moveRecord;
     private final String service;
     private final MachinePaths.Os os;
     private final Map<String, String> environment;
@@ -232,6 +240,7 @@ public final class CredentialStoreChoice {
             Keyrings keyrings) {
         var root = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.file = new AtomicStoreFile(root.resolve(FILE_NAME), LockKey.machineConfiguration(root));
+        this.moveRecord = new AtomicStoreFile(CredentialStoreMoveRecord.file(root), LockKey.credentials(root));
         this.service = Objects.requireNonNull(service, "service");
         this.os = Objects.requireNonNull(os, "os");
         this.environment = Map.copyOf(environment);
@@ -269,19 +278,24 @@ public final class CredentialStoreChoice {
     }
 
     /**
-     * Records the operator's store: under the lock of the machine configuration, which this call acquires, the
-     * document is re-read, {@code credentials.store} set, {@code revision} incremented, and the file replaced in one
-     * atomic write; every other member is kept.
+     * Records the operator's store: under {@code locks/credentials.lock}, which this call acquires first, a writer
+     * other than the store move is refused while the record of a move exists; then under the lock of the machine
+     * configuration, which this call acquires next, the document is re-read, {@code credentials.store} set,
+     * {@code revision} incremented, and the file replaced in one atomic write; every other member is kept. The move
+     * holds the credentials lock for its whole duration, so its own write takes no lock anew.
      *
-     * @param transaction the transaction of the write; it holds no lock that sorts after the machine configuration
-     *                    lock
+     * @param transaction the transaction of the write; it holds no lock that sorts after the credentials lock other
+     *                    than the machine configuration lock
      * @param store       the store the operator chose
      * @param writer      who writes the key
-     * @throws Refusal                                 with {@code aspect_owned} if the writer does not own the key;
-     *                                                 nothing was acquired or written then
+     * @throws Refusal                                 with {@code aspect_owned} if the writer does not own the key,
+     *                                                 and nothing was acquired or written then; or if the writer is not
+     *                                                 the store move while the record of a move exists, and nothing was
+     *                                                 written then
      * @throws de.planmarshall.core.store.StoreRefusal if the document on disk is in another format version or
      *                                                 unreadable; nothing was written then
-     * @throws UncheckedIOException                    if the document cannot be read or written
+     * @throws UncheckedIOException                    if the record of a move, or the document, cannot be read, or the
+     *                                                 document cannot be written
      */
     public void record(LockTransaction transaction, Store store, Writer writer) {
         Objects.requireNonNull(transaction, "transaction");
@@ -290,6 +304,12 @@ public final class CredentialStoreChoice {
             throw new Refusal(Refusal.Reason.ASPECT_OWNED,
                     "credentials.store of %s is written only by the credential-store aspect and the store move"
                             .formatted(file.store()));
+        }
+        transaction.acquire(moveRecord.lockKey());
+        if (writer != Writer.STORE_MOVE && moveRecord.read(transaction).isPresent()) {
+            throw new Refusal(Refusal.Reason.ASPECT_OWNED,
+                    "a move between the credential stores is open in %s; until it ends only the move records %s"
+                            .formatted(moveRecord.store(), "credentials.store of " + file.store()));
         }
         transaction.acquire(file.lockKey());
         var current = file.read(transaction);
@@ -310,18 +330,20 @@ public final class CredentialStoreChoice {
         var store = recorded().orElseThrow(() -> new Refusal(Refusal.Reason.ONBOARDING_INCOMPLETE,
                 "no credential store is recorded yet; record one in the '%s' step of the machine's onboarding"
                         .formatted(STORE_STEP)));
-        return store(store);
+        return store == Store.FILE ? fileStore : new ProbedOsStore(true);
     }
 
     /**
      * Gives one of the two stores, whether it is recorded or not: what the store move copies from and into. The OS
-     * store is probed before every operation, like the recorded one.
+     * store is probed before every operation, like the recorded one; an unavailable OS store fails with the same
+     * reasons, and its failure names it as the store it is, never as the recorded store, since the target of a move is
+     * not recorded.
      *
      * @param store the store
      * @return the file store below {@code <PM_MCP_BASE>/credentials}, or the OS store of the platform
      */
     SecretStore store(Store store) {
-        return Objects.requireNonNull(store, "store") == Store.FILE ? fileStore : new RecordedOsStore();
+        return Objects.requireNonNull(store, "store") == Store.FILE ? fileStore : new ProbedOsStore(false);
     }
 
     /**
@@ -514,11 +536,20 @@ public final class CredentialStoreChoice {
     }
 
     /**
-     * The recorded OS store: probed before every operation, so an OS store that becomes unavailable after the start
-     * is reported as such. An unavailable store fails a read with {@code credential_store_unavailable} and a write
-     * with {@code credential_store_locked}; a locked collection or item met by a read is unavailable as well.
+     * The OS store, probed before every operation, so an OS store that becomes unavailable after the start is reported
+     * as such. An unavailable store fails a read with {@code credential_store_unavailable} and a write with
+     * {@code credential_store_locked}; a locked collection or item met by a read is unavailable as well. Given as the
+     * recorded store, its unavailability is logged and named as that of the recorded store; given as one of the two
+     * stores of a move, it is named as the OS store only.
      */
-    private final class RecordedOsStore implements SecretStore {
+    private final class ProbedOsStore implements SecretStore {
+
+        private final boolean recorded;
+
+        /** @param recorded whether the store is given as the recorded store */
+        ProbedOsStore(boolean recorded) {
+            this.recorded = recorded;
+        }
 
         @Override
         public String name() {
@@ -568,19 +599,23 @@ public final class CredentialStoreChoice {
             if (probe.store().isPresent()) {
                 return probe.store().get();
             }
-            LOGGER.warn(WARN.RECORDED_OS_STORE_UNAVAILABLE, osStoreName(), probe.reason());
-            throw new SecretStoreException(reason,
-                    "the recorded credential store '%s' is unavailable: %s".formatted(osStoreName(), probe.reason()));
+            throw new SecretStoreException(reason, unavailable(probe.reason()));
         }
 
         private SecretStoreException lockedAsUnavailable(SecretStoreException e) {
             if (e.reason() != SecretStoreException.Reason.LOCKED) {
                 return e;
             }
-            LOGGER.warn(WARN.RECORDED_OS_STORE_UNAVAILABLE, osStoreName(), e.getMessage());
-            return new SecretStoreException(SecretStoreException.Reason.UNAVAILABLE,
-                    "the recorded credential store '%s' is unavailable: %s".formatted(osStoreName(), e.getMessage()),
-                    e);
+            return new SecretStoreException(SecretStoreException.Reason.UNAVAILABLE, unavailable(e.getMessage()), e);
+        }
+
+        /** Logs the unavailability of the recorded store, and describes it as that of the store it is. */
+        private String unavailable(String cause) {
+            if (!recorded) {
+                return "the credential store '%s' is unavailable: %s".formatted(osStoreName(), cause);
+            }
+            LOGGER.warn(WARN.RECORDED_OS_STORE_UNAVAILABLE, osStoreName(), cause);
+            return "the recorded credential store '%s' is unavailable: %s".formatted(osStoreName(), cause);
         }
     }
 }

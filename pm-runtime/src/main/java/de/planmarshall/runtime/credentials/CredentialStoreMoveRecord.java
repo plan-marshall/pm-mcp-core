@@ -30,9 +30,9 @@ import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
  * The record of the open move between the credential stores (PM-CRED-2; Store Schemas, Machine State Records),
  * {@code <PM_MCP_BASE>/state/credential-store-move.json}: from which store to which the move runs, when it started, and
  * whether {@code credentials.store} was switched already. The runtime writes it under {@code locks/credentials.lock}
- * with {@link Phase#COPYING} at the start of a move, rewrites it once with {@link Phase#SWITCHED} in the step that
- * switches the store, and deletes it when the move ends; its absence means that no move is open. It names stores only
- * and holds nothing secret.
+ * with {@link Phase#COPYING} at the start of a move, rewrites it once with {@link Phase#SWITCHED} right after the write
+ * that switches the store, and deletes it when the move ends; its absence means that no move is open. While it exists
+ * only the move records a store. It names stores only and holds nothing secret.
  * <p>
  * The document is {@code {"format_version": 1, "from", "to", "started_at", "phase"}}, written by the shared generator
  * of {@link StrictJson}; the store writes it with mode {@code 0600} in one atomic rename. The reader accepts exactly
@@ -42,8 +42,9 @@ import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
  * @param from      the store recorded in {@code credentials.store} when the move started
  * @param to        the store the move switches to; never {@code from}
  * @param startedAt when the move started
- * @param phase     {@link Phase#COPYING} until {@code credentials.store} names {@code to}, {@link Phase#SWITCHED} from
- *                  the step that switches it
+ * @param phase     {@link Phase#COPYING} until the record is rewritten after the switch, {@link Phase#SWITCHED} from
+ *                  then on; between the switch and the rewrite the record says {@code copying} while
+ *                  {@code credentials.store} names {@code to} already
  * @since 0.1
  */
 public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt, Phase phase) {
@@ -61,7 +62,10 @@ public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt,
 
     /** How far the move came. */
     public enum Phase {
-        /** The entries are being copied; {@code credentials.store} still names the old store. */
+        /**
+         * The entries are being copied, and {@code credentials.store} names the old store; from the switch until the
+         * record is rewritten it names the new store already, which the resume reads as a move that has switched.
+         */
         COPYING("copying"),
         /** {@code credentials.store} names the new store; the entries are being deleted from the old one. */
         SWITCHED("switched");

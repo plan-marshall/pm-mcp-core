@@ -54,23 +54,28 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * ({@link EnrolmentSidecars}: the enrolment files, {@code harnesses.json}, {@code logs/audit.head});</li>
  * <li>switch {@code credentials.store} in one write through {@link CredentialStoreChoice} (writer
  * {@link CredentialStoreChoice.Writer#STORE_MOVE}, under {@code locks/machine-config.lock}, which sorts after the
- * credentials lock), and mark the record {@code switched} in the same step;</li>
+ * credentials lock);</li>
+ * <li>rewrite the record in phase {@code switched};</li>
  * <li>delete every entry and the key from the old store;</li>
  * <li>delete the record, and append the {@code operator} audit record {@value #EVENT} with the old and the new store
  * and the number of entries.</li>
  * </ol>
- * A failed copy, read-back or sidecar verification before the switch deletes the copies from the target, deletes the
- * record and fails with {@code credential_store_failed}; the old store stays recorded. Until the switch the recorded
- * store is the old one, so the active store of {@link CredentialStoreChoice} reads no other store while the move runs.
- * The clean-up never deletes from the recorded store: where {@code credentials.store} does not name the old store when
- * the move fails, the copies stay in the target.
+ * Until the switch {@code credentials.store} names the old store, so the active store of {@link CredentialStoreChoice}
+ * reads no other store while the move runs. Between the switch and the rewrite of the record the record still says
+ * {@code copying} while {@code credentials.store} names the target already. While the record exists no other writer
+ * records a store ({@link CredentialStoreChoice#record}), so that state can only be this move's own switch.
  * <p>
- * The store is switched before the record is marked {@code switched}, and only after every entry and the key were
- * copied and verified. A stop between the two leaves a record in phase {@code copying} while {@code credentials.store}
- * names the target already; {@link #resume()} decides the phase from the recorded store as well as from the record, so
- * it treats that move as switched and finishes the deletion from the old store, and never deletes from the recorded
- * store. A stop before the switch leaves the old store recorded and holding every entry, so the resume copies again
- * from it, and a stop never deletes the only copy of an entry.
+ * A failed copy, read-back or sidecar verification before the switch deletes the record and fails with
+ * {@code credential_store_failed}; the old store stays recorded and the copies are removed from the target. The
+ * clean-up never deletes from the recorded store: where {@code credentials.store} does not name the old store when the
+ * move fails, or cannot be read, the copies stay in the target, and the failure says so.
+ * <p>
+ * {@link #resume()} branches on the record and the recorded store: with the record in phase {@code copying} and the
+ * target recorded, a stop fell between the switch and the rewrite of the record, so the switch has happened; it
+ * rewrites the record to {@code switched} and finishes the deletion from the old store, and never deletes from or
+ * copies into the recorded target. A stop before the switch leaves the old store recorded and holding every entry, so
+ * the resume removes the copies from the target and copies again from the first entry, and a stop never deletes the
+ * only copy of an entry.
  * <p>
  * The sidecars are verified in a transaction of their own while the move's transaction holds the credentials lock:
  * the verification takes the audit leaf lock last, after which a transaction may acquire nothing, and the move takes
@@ -97,9 +102,6 @@ public final class CredentialStoreMove {
     private static final CuiLogger LOGGER = new CuiLogger(CredentialStoreMove.class);
 
     private static final CredentialAccount KEY_ACCOUNT = CredentialAccount.global(EnrolmentKey.ACCOUNT);
-
-    /** Names the recorded store in the failure of a move where the machine configuration cannot be read. */
-    private static final String UNKNOWN_STORE = "unknown";
 
     /** The steps of a move, after each of which a test may stop the move as a killed process would. */
     enum Step {
@@ -186,10 +188,12 @@ public final class CredentialStoreMove {
      * @throws IllegalStateException         if a move is open already, which the next start resumes; nothing was
      *                                       written then
      * @throws SecretStoreException          with {@code credential_store_failed} if a copy, a read-back or the
-     *                                       verification of a sidecar failed before the switch: the copies were deleted
-     *                                       from the target and the old store stays recorded; or with the reason of
-     *                                       the store if an entry cannot be deleted from the old store after the
-     *                                       switch, which the next start completes
+     *                                       verification of a sidecar failed before the switch: the old store stays
+     *                                       recorded and the copies were removed from the target, and the message says
+     *                                       where that did not hold (a copy that cannot be removed, a recorded store
+     *                                       that cannot be read); or with the reason of the store if an entry cannot be
+     *                                       deleted from the old store after the switch, which the next start
+     *                                       completes
      * @throws StoreRefusal                  if the machine configuration or the record cannot be read as its format
      * @throws UncheckedIOException          if the record cannot be read or written, or the audit sink refuses the
      *                                       record of the completed move, which stands then
@@ -334,35 +338,50 @@ public final class CredentialStoreMove {
     }
 
     /**
-     * Ends a move that failed before the switch: logs it, deletes the copies from the target and the record. The
-     * copies are deleted only while {@code credentials.store} names the old store, so the clean-up never deletes from
-     * the recorded store; where another store is recorded, or the machine configuration cannot be read, the copies stay
-     * and the old store keeps every entry. A failure of the clean-up is added to the cause.
+     * Ends a move that failed before the switch: deletes the copies from the target and the record, and logs what
+     * became of the copies. The copies are deleted only while {@code credentials.store} names the old store, so the
+     * clean-up never deletes from the recorded store; where another store is recorded, or the machine configuration
+     * cannot be read, the copies stay and the old store keeps every entry. A failure of the clean-up is added to the
+     * cause. The move holds the credentials lock, under which alone a store is recorded while its record exists, so the
+     * recorded store cannot change between its read here and the clean-up.
      *
      * @return the failure of the move, for the caller to throw
      */
     private SecretStoreException failed(LockTransaction transaction, CredentialStoreMoveRecord record,
             RuntimeException cause) {
         var recorded = recordedNow(cause);
-        var stays = recorded.map(Store::value).orElse(UNKNOWN_STORE);
-        LOGGER.warn(cause, WARN.CREDENTIAL_STORE_MOVE_FAILED, record.from().value(), record.to().value(), stays,
-                cause.getMessage());
+        var to = record.to().value();
+        String outcome;
         if (recorded.equals(Optional.of(record.from()))) {
-            try {
-                deleteCopies(record);
-            } catch (SecretStoreException | UncheckedIOException | StoreRefusal | InvalidCredentialNameException e) {
-                cause.addSuppressed(e);
-            }
+            outcome = (deleteCopiesAfterFailure(record, cause) ? "the copies were removed from '%s'"
+                    : "the copies could not all be removed from '%s'").formatted(to)
+                    + " and '%s' stays recorded".formatted(record.from().value());
+        } else if (recorded.isPresent()) {
+            outcome = "'%s' is recorded, so the copies stay in '%s'".formatted(recorded.get().value(), to);
+        } else {
+            outcome = "the recorded store cannot be read, so the copies stay in '%s'".formatted(to);
         }
         try {
             deleteRecord(transaction);
         } catch (UncheckedIOException e) {
             cause.addSuppressed(e);
         }
+        LOGGER.warn(cause, WARN.CREDENTIAL_STORE_MOVE_FAILED, record.from().value(), to, outcome, cause.getMessage());
         return new SecretStoreException(SecretStoreException.Reason.FAILED,
-                "the move from '%s' to '%s' failed, nothing was switched and '%s' stays recorded: %s".formatted(
-                        record.from().value(), record.to().value(), stays, cause.getMessage()),
+                "the move from '%s' to '%s' failed before the switch, %s: %s".formatted(record.from().value(), to,
+                        outcome, cause.getMessage()),
                 cause);
+    }
+
+    /** @return whether every copy was removed from the target; a failure of the removal is added to the cause */
+    private boolean deleteCopiesAfterFailure(CredentialStoreMoveRecord record, RuntimeException cause) {
+        try {
+            deleteCopies(record);
+            return true;
+        } catch (SecretStoreException | UncheckedIOException | StoreRefusal | InvalidCredentialNameException e) {
+            cause.addSuppressed(e);
+            return false;
+        }
     }
 
     /**
