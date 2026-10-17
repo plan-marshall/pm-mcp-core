@@ -13,12 +13,18 @@ import de.cuioss.tools.logging.CuiLogger;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Starts a verified job through the launcher {@code pm-exec} (PM-EXEC-4, PM-EXEC-1, PM-EXEC-5): the process
@@ -53,6 +59,10 @@ public final class PmExecLauncher {
     static final String SEPARATOR = "--";
 
     private static final File NO_INPUT = new File("/dev/null");
+
+    /** {@code rw-------}: the mode of a job log. */
+    private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY =
+            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
 
     private final Path launcher;
 
@@ -150,7 +160,8 @@ public final class PmExecLauncher {
         environment.putAll(launch.environment());
         builder.redirectInput(launch.stdin().isPresent() ? ProcessBuilder.Redirect.PIPE
                 : ProcessBuilder.Redirect.from(NO_INPUT));
-        builder.redirectOutput(ProcessBuilder.Redirect.to(launch.log().toFile()));
+        createLog(launch.log());
+        builder.redirectOutput(ProcessBuilder.Redirect.appendTo(launch.log().toFile()));
         builder.redirectErrorStream(true);
         var process = builder.start();
         launch.stdin().ifPresent(payload -> writeInput(process, payload.getBytes(StandardCharsets.UTF_8)));
@@ -164,6 +175,16 @@ public final class PmExecLauncher {
         command.add(SEPARATOR);
         command.addAll(argv);
         return command;
+    }
+
+    /**
+     * Creates the job log readable and writable by its owner only, before the child inherits it: it may hold what the
+     * job printed, secrets included. The child writes it opened for appending, so a job cannot seek back and overwrite
+     * the launch report of {@code pm-exec} in the first line; a cut of the log is caught by the length check of
+     * {@link JobLog}.
+     */
+    private static void createLog(Path log) throws IOException {
+        Files.newByteChannel(log, Set.of(StandardOpenOption.CREATE, StandardOpenOption.WRITE), OWNER_ONLY).close();
     }
 
     private static void writeInput(Process process, byte[] payload) {

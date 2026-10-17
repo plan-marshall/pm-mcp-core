@@ -15,6 +15,9 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -141,6 +144,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The working directory of a probe below its job-private directory. */
     static final String JOB_PRIVATE_CWD = "cwd";
+
+    /** The mode of a job-private directory, {@code 0700} like everything the runtime creates below its base. */
+    private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY_DIRECTORY =
+            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
 
     /** How often the job log is read for the launch report after the spawn. */
     static final Duration REPORT_POLL_INTERVAL = Duration.ofMillis(10);
@@ -869,7 +876,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     private static Path createDirectories(Path directory) {
         try {
-            return Files.createDirectories(directory);
+            return Files.createDirectories(directory, OWNER_ONLY_DIRECTORY);
         } catch (IOException e) {
             throw new UncheckedIOException("The job-private directory cannot be created: " + directory, e);
         }

@@ -15,6 +15,9 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -67,6 +70,10 @@ public final class JobRecordStore {
 
     private static final Set<Scope.Type> PROJECT_SCOPES =
             Set.of(Scope.Type.PLAN, Scope.Type.EPIC, Scope.Type.WORKSPACE, Scope.Type.PROJECT);
+
+    /** The mode of every directory this store creates, {@code 0700}: the job logs beside the records may hold secrets. */
+    private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY_DIRECTORY =
+            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"));
 
     private final Path base;
     private final Home home;
@@ -344,7 +351,7 @@ public final class JobRecordStore {
 
     private void write(LockTransaction transaction, JobRecord job) {
         try {
-            Files.createDirectories(directory);
+            Files.createDirectories(directory, OWNER_ONLY_DIRECTORY);
         } catch (IOException e) {
             throw new UncheckedIOException("Job record directory cannot be created: " + directory, e);
         }
