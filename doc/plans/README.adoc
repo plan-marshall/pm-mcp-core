@@ -147,6 +147,12 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |nothing
 |Milestone 4
 
+|link:corpus-group-contamination.adoc[`corpus-group-contamination`]
+|A group and a contamination note on the overlay row and the imported item
+|`open`
+|link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
+|Milestone 4
+
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
