@@ -27,7 +27,7 @@ import de.planmarshall.runtime.credentials.dbus.DbusConnection;
 public class SecretStoreSelector {
 
     /** Bound of every Secret Service exchange. */
-    static final Duration BUS_TIMEOUT = Duration.ofSeconds(2);
+    static final Duration BUS_TIMEOUT = SecretServiceStore.BUS_TIMEOUT;
 
     /**
      * The OS keyrings, separated for tests.

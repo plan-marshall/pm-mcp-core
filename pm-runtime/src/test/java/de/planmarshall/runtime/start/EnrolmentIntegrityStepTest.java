@@ -359,5 +359,10 @@ class EnrolmentIntegrityStepTest {
         public boolean delete(CredentialAccount account) {
             return false;
         }
+
+        @Override
+        public List<CredentialAccount> entries() {
+            throw new SecretStoreException(SecretStoreException.Reason.LOCKED, "keyring locked");
+        }
     }
 }

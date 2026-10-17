@@ -14,13 +14,16 @@ import static java.lang.foreign.ValueLayout.ADDRESS;
 import java.io.Serial;
 import java.lang.foreign.MemorySegment;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * The macOS Keychain backend (PM-CRED-2): generic-password items with {@code kSecAttrService} = the
  * service name and {@code kSecAttrAccount} = the account, through {@code SecItemAdd},
- * {@code SecItemCopyMatching}, {@code SecItemUpdate} and {@code SecItemDelete}.
+ * {@code SecItemCopyMatching}, {@code SecItemUpdate} and {@code SecItemDelete}; the items of the
+ * service name are listed through {@code SecItemCopyMatching} with {@code kSecMatchLimitAll}.
  * <p>
  * Items go to the file-based login keychain. Its default access control list, which
  * {@code SecItemAdd} attaches when no {@code kSecAttrAccess} is given, trusts exactly the creating
@@ -101,9 +104,59 @@ public final class KeychainSecretStore implements SecretStore {
         }
     }
 
+    /**
+     * Lists the generic-password items of the service name: {@code SecItemCopyMatching} with
+     * {@code kSecReturnAttributes} and {@code kSecMatchLimitAll}, reading {@code kSecAttrAccount} of
+     * each result dictionary; {@code errSecItemNotFound} is an empty store.
+     *
+     * @throws SecretStoreException {@code credential_store_locked} for a locked keychain,
+     *                              {@code credential_store_failed} for any other failure or an
+     *                              account that is no credential account
+     */
+    @Override
+    public List<CredentialAccount> entries() {
+        try (var scope = security.scope()) {
+            var query = serviceQuery(scope, security.kSecReturnAttributes, security.kCFBooleanTrue,
+                    security.kSecMatchLimit, security.kSecMatchLimitAll);
+            var result = scope.arena.allocate(ADDRESS);
+            int status = security.copyMatching(query, result);
+            if (status == MacSecurity.ITEM_NOT_FOUND) {
+                return List.of();
+            }
+            check(status, "list", service);
+            var items = scope.own(result.get(ADDRESS, 0));
+            var accounts = new ArrayList<CredentialAccount>();
+            long count = security.arrayCount(items);
+            for (long i = 0; i < count; i++) {
+                var account = security.dictionaryString(scope, security.arrayValue(items, i), security.kSecAttrAccount)
+                        .orElseThrow(() -> new SecretStoreException(SecretStoreException.Reason.FAILED,
+                                "Keychain item of '" + service + "' without an account"));
+                accounts.add(parse(account));
+            }
+            return SecretStore.ordered(accounts);
+        }
+    }
+
+    private CredentialAccount parse(String account) {
+        try {
+            return CredentialAccount.parse(account);
+        } catch (InvalidCredentialNameException e) {
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                    "Keychain item of '" + service + "' is no credential account", e);
+        }
+    }
+
     private MemorySegment query(MacSecurity.Scope scope, CredentialAccount account, MemorySegment... extra) {
+        var entries = new MemorySegment[extra.length + 2];
+        entries[0] = security.kSecAttrAccount;
+        entries[1] = scope.string(account.account());
+        System.arraycopy(extra, 0, entries, 2, extra.length);
+        return serviceQuery(scope, entries);
+    }
+
+    private MemorySegment serviceQuery(MacSecurity.Scope scope, MemorySegment... extra) {
         var base = new MemorySegment[]{security.kSecClass, security.kSecClassGenericPassword, security.kSecAttrService,
-                scope.string(service), security.kSecAttrAccount, scope.string(account.account())};
+                scope.string(service)};
         int length = base.length + extra.length + (dataProtectionKeychain ? 2 : 0);
         var entries = Arrays.copyOf(base, length);
         System.arraycopy(extra, 0, entries, base.length, extra.length);
@@ -115,6 +168,10 @@ public final class KeychainSecretStore implements SecretStore {
     }
 
     private void check(int status, String operation, CredentialAccount account) {
+        check(status, operation + " of '" + account.account() + "' in", service);
+    }
+
+    private static void check(int status, String operation, String service) {
         if (status == MacSecurity.SUCCESS) {
             return;
         }
@@ -122,8 +179,7 @@ public final class KeychainSecretStore implements SecretStore {
                 ? SecretStoreException.Reason.LOCKED
                 : SecretStoreException.Reason.FAILED;
         throw new KeychainException(reason, status,
-                "Keychain " + operation + " of '" + account.account() + "' in '" + service + "' failed with OSStatus "
-                        + status);
+                "Keychain " + operation + " '" + service + "' failed with OSStatus " + status);
     }
 
     /**

@@ -1,5 +1,5 @@
 {
-  "comment": "FFM downcalls of de.planmarshall.mcp.server.credentials (MacSecurity, Posix), one entry per descriptor",
+  "comment": "FFM downcalls of de.planmarshall.runtime.credentials (MacSecurity, Posix), one entry per descriptor",
   "foreign": {
     "downcalls": [
       { "returnType": "void*", "parameterTypes": ["void*", "void*", "jint"] },
@@ -9,6 +9,9 @@
       { "returnType": "void", "parameterTypes": ["void*"] },
       { "returnType": "jlong", "parameterTypes": ["void*"] },
       { "returnType": "void*", "parameterTypes": ["void*"] },
+      { "returnType": "void*", "parameterTypes": ["void*", "jlong"] },
+      { "returnType": "void*", "parameterTypes": ["void*", "void*"] },
+      { "returnType": "jbyte", "parameterTypes": ["void*", "void*", "jlong", "jint"] },
       { "returnType": "jint", "parameterTypes": ["void*", "void*"] },
       { "returnType": "jint", "parameterTypes": ["void*"] },
       { "returnType": "jint", "parameterTypes": [] }

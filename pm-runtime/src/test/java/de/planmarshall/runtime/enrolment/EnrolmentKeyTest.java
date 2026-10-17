@@ -472,6 +472,11 @@ class EnrolmentKeyTest {
         public boolean delete(CredentialAccount account) {
             return entries.remove(account.account()) != null;
         }
+
+        @Override
+        public List<CredentialAccount> entries() {
+            return entries.keySet().stream().sorted().map(CredentialAccount::global).toList();
+        }
     }
 
     private static final Duration BOUND = Duration.ofSeconds(5);
@@ -713,7 +718,7 @@ class EnrolmentKeyTest {
         }
     }
 
-    /** The fallback file store as the key sees it: only its name matters, its entries are never used. */
+    /** The file store as the key sees it: only its name matters, its entries are never used. */
     private static final class FileStoreName implements SecretStore {
 
         @Override
@@ -734,6 +739,11 @@ class EnrolmentKeyTest {
         @Override
         public boolean delete(CredentialAccount account) {
             throw new AssertionError("the key file store must not be deleted through");
+        }
+
+        @Override
+        public List<CredentialAccount> entries() {
+            throw new AssertionError("the key file store must not be listed through");
         }
     }
 }

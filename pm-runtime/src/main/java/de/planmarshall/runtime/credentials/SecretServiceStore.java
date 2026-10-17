@@ -12,6 +12,7 @@ package de.planmarshall.runtime.credentials;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import de.planmarshall.runtime.credentials.dbus.Variant;
  * never calls {@code Unlock}, which may need an interactive prompt, so no operation waits for a
  * user. Every bus exchange is bounded by the timeout. A global entry is an item without a
  * {@code project} attribute: the attribute search matches subsets, so project items are filtered out.
+ * The store is enumerated by a search on the {@code service} attribute alone.
  */
 public final class SecretServiceStore implements SecretStore {
 
@@ -41,6 +43,9 @@ public final class SecretServiceStore implements SecretStore {
     static final String ITEM = "org.freedesktop.Secret.Item";
     static final String PROPERTIES = "org.freedesktop.DBus.Properties";
     static final String NO_PROMPT = "/";
+
+    /** The bound of every Secret Service exchange of the runtime. */
+    public static final Duration BUS_TIMEOUT = Duration.ofSeconds(2);
 
     private final Path busSocket;
     private final long uid;
@@ -143,6 +148,44 @@ public final class SecretServiceStore implements SecretStore {
     }
 
     /**
+     * Lists the items of the service name: {@code SearchItems} on {@code service=<service name>} and
+     * the {@code Attributes} property of each item ({@code credential_key}, optional {@code project}).
+     * An item without {@code credential_key} is no credential entry and is not listed.
+     *
+     * @throws SecretStoreException {@code credential_store_locked} if a matching item is locked,
+     *                              {@code credential_store_failed} for a bus failure or an attribute
+     *                              that is no credential name
+     */
+    @Override
+    public List<CredentialAccount> entries() {
+        try (var session = new Session()) {
+            var reply = session.call(SERVICE_PATH, SERVICE, "SearchItems", "a{ss}", Map.of("service", serviceName));
+            if (!Session.strings(reply.get(1)).isEmpty()) {
+                throw locked("items of '" + serviceName + "' are locked");
+            }
+            var accounts = new ArrayList<CredentialAccount>();
+            for (var item : Session.strings(reply.getFirst())) {
+                var attributes = session.itemAttributes(item);
+                if (attributes.get("credential_key") instanceof String key) {
+                    accounts.add(account(attributes.get("project"), key));
+                }
+            }
+            return SecretStore.ordered(accounts);
+        } catch (DbusException e) {
+            throw failed("list", e);
+        }
+    }
+
+    private CredentialAccount account(Object project, String key) {
+        try {
+            return project instanceof String name ? CredentialAccount.project(name, key) : CredentialAccount.global(key);
+        } catch (InvalidCredentialNameException e) {
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                    "Secret Service item of '" + serviceName + "' is no credential account", e);
+        }
+    }
+
+    /**
      * @param account the account
      * @return the lookup attributes of the account
      */
@@ -209,12 +252,12 @@ public final class SecretServiceStore implements SecretStore {
             return exact;
         }
 
-        private Map<?, ?> itemAttributes(String item) {
+        Map<?, ?> itemAttributes(String item) {
             var value = (Variant) call(item, PROPERTIES, "Get", "ss", ITEM, "Attributes").getFirst();
             return (Map<?, ?>) value.value();
         }
 
-        private static List<String> strings(Object list) {
+        static List<String> strings(Object list) {
             return ((List<?>) list).stream().map(String.class::cast).toList();
         }
 
