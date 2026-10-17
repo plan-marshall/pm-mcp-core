@@ -143,9 +143,9 @@ class CredentialStoreChoiceTest {
 
     /** Writes the record of a move from the OS store to the file store that is open. */
     private void openMove() throws IOException {
-        var record = CredentialStoreMoveRecord.file(base);
-        Files.createDirectories(record.getParent());
-        Files.write(record, new CredentialStoreMoveRecord(Store.OS, Store.FILE, Instant.parse("2026-10-17T15:00:00Z"),
+        var recordFile = CredentialStoreMoveRecord.file(base);
+        Files.createDirectories(recordFile.getParent());
+        Files.write(recordFile, new CredentialStoreMoveRecord(Store.OS, Store.FILE, Instant.parse("2026-10-17T15:00:00Z"),
                 CredentialStoreMoveRecord.Phase.COPYING).write());
     }
 
@@ -528,7 +528,7 @@ class CredentialStoreChoiceTest {
             store.get(GITHUB);
             store.entries();
             choice.activeStore().delete(GITHUB);
-            choice.store(Store.OS).entries();
+            choice.backendOf(Store.OS).entries();
 
             assertEquals(List.of("keychain:" + SERVICE), probes);
         }
@@ -555,7 +555,7 @@ class CredentialStoreChoiceTest {
                             return Optional.empty();
                         }
                     });
-            var store = choice.store(Store.OS);
+            var store = choice.backendOf(Store.OS);
             assertReason(SecretStoreException.Reason.LOCKED, () -> store.put(GITHUB, "t"));
 
             loads[0] = true;
@@ -633,7 +633,7 @@ class CredentialStoreChoiceTest {
             void targetOfAMove() {
                 var choice = linux(false);
                 choice.record(locks, USER, Store.FILE);
-                var target = choice.store(Store.OS);
+                var target = choice.backendOf(Store.OS);
 
                 var write = assertThrows(SecretStoreException.class, () -> target.put(GITHUB, "t"));
 
@@ -925,7 +925,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("a target that holds another key records nothing and keeps both keys")
-        void targetHoldsAnotherKey() throws Exception {
+        void targetHoldsAnotherKey() {
             var choice = choice();
             var created = key(choice).readOrCreate();
             var other = keyIn(fileStoreName()).readOrCreate();

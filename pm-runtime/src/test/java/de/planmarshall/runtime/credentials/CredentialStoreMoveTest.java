@@ -553,9 +553,9 @@ class CredentialStoreMoveTest {
         }
     }
 
-    private void rewriteRecord(CredentialStoreMoveRecord record) {
+    private void rewriteRecord(CredentialStoreMoveRecord moveRecord) {
         try {
-            write(recordFile(), record.write());
+            write(recordFile(), moveRecord.write());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -646,7 +646,8 @@ class CredentialStoreMoveTest {
         @DisplayName("a record of a cut move refuses the aspect until the resume ends the move")
         void aspectRefusedUntilTheResume() throws Exception {
             machineOn(Store.OS);
-            assertThrows(Stop.class, () -> move(stopAfter(Step.ENTRIES_COPIED)).move(Store.FILE));
+            var stopped = move(stopAfter(Step.ENTRIES_COPIED));
+            assertThrows(Stop.class, () -> stopped.move(Store.FILE));
 
             var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
                     () -> choice.record(locks, USER, Store.FILE));
@@ -675,13 +676,13 @@ class CredentialStoreMoveTest {
             var stopped = move(stopAfter(stop));
 
             assertThrows(Stop.class, () -> stopped.move(Store.FILE));
-            var record = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
+            var moveRecord = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
             var resumed = move().resume();
 
             assertAll(
                     () -> assertEquals(stop.compareTo(Step.SWITCHED) < 0 ? Phase.COPYING : Phase.SWITCHED,
-                            record.phase()),
-                    () -> assertEquals(Optional.of(record), resumed),
+                            moveRecord.phase()),
+                    () -> assertEquals(Optional.of(moveRecord), resumed),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
         }
 
@@ -692,14 +693,14 @@ class CredentialStoreMoveTest {
             var key = machineOn(Store.FILE);
             var stopped = move(stopAfter(Step.STORE_RECORDED));
             assertThrows(Stop.class, () -> stopped.move(Store.OS));
-            var record = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
+            var moveRecord = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
             osStore.puts.clear();
 
             var resumed = move().resume();
 
             assertAll(
-                    () -> assertEquals(Phase.COPYING, record.phase()),
-                    () -> assertEquals(Optional.of(record), resumed),
+                    () -> assertEquals(Phase.COPYING, moveRecord.phase()),
+                    () -> assertEquals(Optional.of(moveRecord), resumed),
                     () -> assertTrue(osStore.puts.isEmpty(), osStore.puts.toString()),
                     () -> assertMoved(Store.FILE, Store.OS, osStore, fileStore, key));
         }

@@ -44,6 +44,18 @@ public final class SecretServiceStore implements SecretStore {
     static final String PROPERTIES = "org.freedesktop.DBus.Properties";
     static final String NO_PROMPT = "/";
 
+    /** The D-Bus signature of a dictionary of strings, the attributes of an item and of a search. */
+    static final String STRING_DICTIONARY = "a{ss}";
+
+    /** The attribute that names the service name of the instance. */
+    static final String ATTRIBUTE_SERVICE = "service";
+
+    /** The attribute that names the credential key of an entry. */
+    static final String ATTRIBUTE_CREDENTIAL_KEY = "credential_key";
+
+    /** The attribute that names the project of a project entry; a global entry has none. */
+    static final String ATTRIBUTE_PROJECT = "project";
+
     /**
      * The bound of every Secret Service exchange of the runtime: the store {@link CredentialStoreChoice} gives when
      * {@code os} is recorded on Linux is bounded by it, and so is the integration test against the session keyring.
@@ -103,7 +115,7 @@ public final class SecretServiceStore implements SecretStore {
             }
             var properties = new LinkedHashMap<String, Variant>();
             properties.put(ITEM + ".Label", new Variant("s", serviceName + " " + account.account()));
-            properties.put(ITEM + ".Attributes", new Variant("a{ss}", attributes(account)));
+            properties.put(ITEM + ".Attributes", new Variant(STRING_DICTIONARY, attributes(account)));
             var reply = session.call(collection, COLLECTION, "CreateItem", "a{sv}(oayays)b", properties, secretStruct,
                     false);
             if (!NO_PROMPT.equals(reply.get(1))) {
@@ -162,15 +174,17 @@ public final class SecretServiceStore implements SecretStore {
     @Override
     public List<CredentialAccount> entries() {
         try (var session = new Session()) {
-            var reply = session.call(SERVICE_PATH, SERVICE, "SearchItems", "a{ss}", Map.of("service", serviceName));
+            var reply = session.call(SERVICE_PATH, SERVICE, "SearchItems", STRING_DICTIONARY,
+                    Map.of(ATTRIBUTE_SERVICE, serviceName));
             if (!Session.strings(reply.get(1)).isEmpty()) {
                 throw locked("items of '" + serviceName + "' are locked");
             }
             var accounts = new ArrayList<CredentialAccount>();
             for (var item : Session.strings(reply.getFirst())) {
                 var attributes = session.itemAttributes(item);
-                if (attributes.get("credential_key") instanceof String key) {
-                    accounts.add(account(attributes.get("project"), key));
+                var key = attributes.get(ATTRIBUTE_CREDENTIAL_KEY);
+                if (key != null) {
+                    accounts.add(account(attributes.get(ATTRIBUTE_PROJECT), key));
                 }
             }
             return SecretStore.ordered(accounts);
@@ -179,9 +193,10 @@ public final class SecretServiceStore implements SecretStore {
         }
     }
 
-    private CredentialAccount account(Object project, String key) {
+    /** @param project the project of the item; {@code null} for a global entry */
+    private CredentialAccount account(String project, String key) {
         try {
-            return project instanceof String name ? CredentialAccount.project(name, key) : CredentialAccount.global(key);
+            return project != null ? CredentialAccount.project(project, key) : CredentialAccount.global(key);
         } catch (InvalidCredentialNameException e) {
             throw new SecretStoreException(SecretStoreException.Reason.FAILED,
                     "Secret Service item of '" + serviceName + "' is no credential account", e);
@@ -194,9 +209,9 @@ public final class SecretServiceStore implements SecretStore {
      */
     Map<String, String> attributes(CredentialAccount account) {
         var attributes = new LinkedHashMap<String, String>();
-        attributes.put("service", serviceName);
-        attributes.put("credential_key", account.key());
-        account.project().ifPresent(p -> attributes.put("project", p));
+        attributes.put(ATTRIBUTE_SERVICE, serviceName);
+        attributes.put(ATTRIBUTE_CREDENTIAL_KEY, account.key());
+        account.project().ifPresent(p -> attributes.put(ATTRIBUTE_PROJECT, p));
         return attributes;
     }
 
@@ -244,20 +259,30 @@ public final class SecretServiceStore implements SecretStore {
         }
 
         List<String> exactItems(CredentialAccount account) {
-            var reply = call(SERVICE_PATH, SERVICE, "SearchItems", "a{ss}", attributes(account));
+            var reply = call(SERVICE_PATH, SERVICE, "SearchItems", STRING_DICTIONARY, attributes(account));
             var unlocked = strings(reply.get(0));
             var locked = strings(reply.get(1));
             var exact = account.project().isPresent() ? unlocked
-                    : unlocked.stream().filter(item -> !itemAttributes(item).containsKey("project")).toList();
+                    : unlocked.stream().filter(item -> !itemAttributes(item).containsKey(ATTRIBUTE_PROJECT)).toList();
             if (exact.isEmpty() && !locked.isEmpty()) {
                 throw SecretServiceStore.locked("matching items are locked");
             }
             return exact;
         }
 
-        Map<?, ?> itemAttributes(String item) {
+        /**
+         * @return the attributes of the item by name; an attribute whose name or value is no string, which the
+         *         signature {@code a{ss}} excludes, is left out
+         */
+        Map<String, String> itemAttributes(String item) {
             var value = (Variant) call(item, PROPERTIES, "Get", "ss", ITEM, "Attributes").getFirst();
-            return (Map<?, ?>) value.value();
+            var attributes = new LinkedHashMap<String, String>();
+            ((Map<?, ?>) value.value()).forEach((name, attribute) -> {
+                if (name instanceof String key && attribute instanceof String text) {
+                    attributes.put(key, text);
+                }
+            });
+            return attributes;
         }
 
         static List<String> strings(Object list) {

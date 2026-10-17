@@ -27,9 +27,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * <ul>
  * <li>in phase {@code copying} with the old store recorded, the copies are deleted from the target and the move starts
  * again from the first entry, the old store holding every entry;</li>
- * <li>in phase {@code switched}, or in phase {@code copying} while the target is recorded already (a stop between the
- * switch and the rewrite of the record), the record is marked {@code switched}, the deletion from the old store is
- * finished and the record ended; nothing is deleted from the recorded store;</li>
+ * <li>in phase {@code switched} with the target recorded, or in phase {@code copying} while the target is recorded
+ * already (a stop between the switch and the rewrite of the record), the record is marked {@code switched}, the
+ * deletion from the old store is finished, the move audited and the record ended; nothing is deleted from the recorded
+ * store;</li>
+ * <li>in phase {@code switched} with another or no store recorded the resume is refused and deletes nothing;</li>
  * <li>without a record no move is open and nothing happens.</li>
  * </ul>
  * A resumed move is logged with the record it was resumed from; the move itself logs and audits its end.
@@ -53,17 +55,21 @@ public final class CredentialStoreMoveResume {
      * Resumes the open move, if there is one, and completes it.
      *
      * @return the record of the move that was resumed and completed, as it was found; empty if no move was open
-     * @throws SecretStoreException with {@code credential_store_failed} if the move fails again before the switch, the
-     *                              old store staying recorded, or with the reason of the store if an entry cannot be
-     *                              deleted from the old store, which the next start completes
-     * @throws StoreRefusal         if the record or the machine configuration cannot be read as its format
-     * @throws UncheckedIOException if the record cannot be read or written, or the audit sink refuses the record of
-     *                              the completed move, which stands then
+     * @throws IllegalStateException if the record is in phase {@code switched} while another or no store is recorded;
+     *                               nothing was deleted and the record is kept
+     * @throws SecretStoreException  with {@code credential_store_failed} if the move fails again before the switch,
+     *                               the old store staying recorded, or with the reason of the store if a copy cannot
+     *                               be removed from the target or an entry cannot be deleted from the old store, which
+     *                               the next start completes
+     * @throws StoreRefusal          if the record or the machine configuration cannot be read as its format
+     * @throws UncheckedIOException  if the record cannot be read or written, or the audit sink refuses the record of
+     *                               the completed move: the switch stands then and the record is kept, so the next
+     *                               start finishes the move again and appends the audit record
      */
     public Optional<CredentialStoreMoveRecord> run() {
         var resumed = move.resume();
-        resumed.ifPresent(record -> LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_RESUMED, record.from().value(),
-                record.to().value(), record.phase().value()));
+        resumed.ifPresent(moveRecord -> LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_RESUMED, moveRecord.from().value(),
+                moveRecord.to().value(), moveRecord.phase().value()));
         return resumed;
     }
 }

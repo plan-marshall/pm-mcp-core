@@ -149,7 +149,7 @@ class FileSecretStoreTest {
 
         @Test
         @DisplayName("an empty directory is an empty store")
-        void empty() throws Exception {
+        void empty() {
             store.put(CredentialAccount.global("github"), "x");
             store.delete(CredentialAccount.global("github"));
 

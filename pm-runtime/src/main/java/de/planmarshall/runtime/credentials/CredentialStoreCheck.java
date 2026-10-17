@@ -36,6 +36,9 @@ public final class CredentialStoreCheck {
 
     private static final int VALUE_BYTES = 32;
 
+    /** The last part of the message key of a step the store failed with its own answer. */
+    private static final String WHAT_FAILED = "failed";
+
     private final SecureRandom random;
 
     /** The step of the check. */
@@ -155,7 +158,7 @@ public final class CredentialStoreCheck {
         try {
             store.put(account, value);
         } catch (SecretStoreException e) {
-            lines.add(failed(Step.WRITE, "failed", store.name(), e));
+            lines.add(failed(Step.WRITE, WHAT_FAILED, store.name(), e));
             cleanUp(store, account);
             return new Result(lines);
         }
@@ -170,7 +173,7 @@ public final class CredentialStoreCheck {
                 return new Result(lines);
             }
         } catch (SecretStoreException e) {
-            lines.add(failed(Step.READ_BACK, "failed", store.name(), e));
+            lines.add(failed(Step.READ_BACK, WHAT_FAILED, store.name(), e));
             cleanUp(store, account);
             return new Result(lines);
         }
@@ -182,7 +185,7 @@ public final class CredentialStoreCheck {
                 return new Result(lines);
             }
         } catch (SecretStoreException e) {
-            lines.add(failed(Step.DELETE, "failed", store.name(), e));
+            lines.add(failed(Step.DELETE, WHAT_FAILED, store.name(), e));
             cleanUp(store, account);
             return new Result(lines);
         }

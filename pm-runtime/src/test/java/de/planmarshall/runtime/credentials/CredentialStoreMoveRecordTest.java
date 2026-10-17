@@ -42,24 +42,25 @@ class CredentialStoreMoveRecordTest {
     @Test
     @DisplayName("a record is written in its one shape and read back unchanged")
     void roundTrip() {
-        var record = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING);
+        var moveRecord = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING);
 
-        var document = new String(record.write(), StandardCharsets.UTF_8);
+        var document = new String(moveRecord.write(), StandardCharsets.UTF_8);
 
         assertAll(
                 () -> assertEquals("""
                         {"format_version":1,"from":"os","to":"file","started_at":"2026-10-17T15:00:00Z",\
                         "phase":"copying"}
                         """, document),
-                () -> assertEquals(record, read(document)));
+                () -> assertEquals(moveRecord, read(document)));
     }
 
     @Test
     @DisplayName("switched() keeps the stores and the start and changes only the phase")
     void switched() {
-        var record = new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING);
+        var moveRecord = new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING);
 
-        assertEquals(new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.SWITCHED), record.switched());
+        assertEquals(new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.SWITCHED),
+                moveRecord.switched());
     }
 
     @Test

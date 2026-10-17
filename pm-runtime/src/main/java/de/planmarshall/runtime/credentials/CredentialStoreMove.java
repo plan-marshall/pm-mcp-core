@@ -220,12 +220,12 @@ public final class CredentialStoreMove {
                         to.value()));
             }
             requireEmptyTarget(to);
-            var record = new CredentialStoreMoveRecord(from, to, clock.instant(), Phase.COPYING);
-            recordFile.write(transaction, record.write());
+            var moveRecord = new CredentialStoreMoveRecord(from, to, clock.instant(), Phase.COPYING);
+            recordFile.write(transaction, moveRecord.write());
             LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_STARTED, from.value(), to.value());
             hook.after(Step.RECORDED);
-            copyAndSwitch(transaction, record);
-            finish(transaction, record.switched());
+            copyAndSwitch(transaction, moveRecord);
+            finish(transaction, moveRecord.switched());
         }
     }
 
@@ -255,18 +255,18 @@ public final class CredentialStoreMove {
             if (found.isEmpty()) {
                 return found;
             }
-            var record = found.get();
-            if (record.phase() == Phase.SWITCHED) {
-                requireTargetRecorded(record);
-                finish(transaction, record);
-            } else if (choice.recorded().equals(Optional.of(record.to()))) {
-                var switched = record.switched();
+            var moveRecord = found.get();
+            if (moveRecord.phase() == Phase.SWITCHED) {
+                requireTargetRecorded(moveRecord);
+                finish(transaction, moveRecord);
+            } else if (choice.recorded().equals(Optional.of(moveRecord.to()))) {
+                var switched = moveRecord.switched();
                 recordFile.write(transaction, switched.write());
                 finish(transaction, switched);
             } else {
-                deleteCopies(record);
-                copyAndSwitch(transaction, record);
-                finish(transaction, record.switched());
+                deleteCopies(moveRecord);
+                copyAndSwitch(transaction, moveRecord);
+                finish(transaction, moveRecord.switched());
             }
             return found;
         }
@@ -279,12 +279,13 @@ public final class CredentialStoreMove {
      *                              with the reason of the store if it cannot be listed
      */
     private void requireEmptyTarget(Store to) {
-        var target = choice.store(to);
+        var target = choice.backendOf(to);
         var held = tokenLaneEntries(target).size();
         if (held > 0) {
             throw new SecretStoreException(SecretStoreException.Reason.FAILED,
-                    ("the move into '%s' is refused: '%s' holds Token Lane entries already (%d), and a secret never exists in two "
-                            + "stores; nothing was written or deleted").formatted(to.value(), target.name(), held));
+                    ("the move into '%s' is refused: '%s' holds Token Lane entries already (%d), and a secret never "
+                            + "exists in two stores; nothing was written or deleted")
+                            .formatted(to.value(), target.name(), held));
         }
     }
 
@@ -304,23 +305,23 @@ public final class CredentialStoreMove {
     }
 
     /** Copies the entries and the key, verifies the sidecars, and switches the store; fails cleanly before the switch. */
-    private void copyAndSwitch(LockTransaction transaction, CredentialStoreMoveRecord record) {
+    private void copyAndSwitch(LockTransaction transaction, CredentialStoreMoveRecord moveRecord) {
         requirePhase(transaction, Phase.COPYING);
         try {
-            copy(record);
+            copy(moveRecord);
         } catch (SecretStoreException | UncheckedIOException | StoreRefusal | InvalidCredentialNameException e) {
-            throw failed(transaction, record, e);
+            throw failed(transaction, moveRecord, e);
         }
         requirePhase(transaction, Phase.COPYING);
-        choice.record(transaction, record.to(), CredentialStoreChoice.Writer.STORE_MOVE);
+        choice.record(transaction, moveRecord.to(), CredentialStoreChoice.Writer.STORE_MOVE);
         hook.after(Step.STORE_RECORDED);
-        recordFile.write(transaction, record.switched().write());
+        recordFile.write(transaction, moveRecord.switched().write());
         hook.after(Step.SWITCHED);
     }
 
-    private void copy(CredentialStoreMoveRecord record) {
-        var from = choice.store(record.from());
-        var target = choice.store(record.to());
+    private void copy(CredentialStoreMoveRecord moveRecord) {
+        var from = choice.backendOf(moveRecord.from());
+        var target = choice.backendOf(moveRecord.to());
         for (var account : tokenLaneEntries(from)) {
             copyEntry(from, target, account);
         }
@@ -360,23 +361,24 @@ public final class CredentialStoreMove {
      *
      * @return the failure of the move, for the caller to throw
      */
-    private SecretStoreException failed(LockTransaction transaction, CredentialStoreMoveRecord record,
+    private SecretStoreException failed(LockTransaction transaction, CredentialStoreMoveRecord moveRecord,
             RuntimeException cause) {
         var recorded = recordedNow(cause);
-        var to = record.to().value();
+        var from = moveRecord.from().value();
+        var to = moveRecord.to().value();
         String outcome;
         boolean keepRecord;
-        if (recorded.equals(Optional.of(record.from()))) {
-            var removed = deleteCopiesAfterFailure(record, cause);
+        if (recorded.equals(Optional.of(moveRecord.from()))) {
+            var removed = deleteCopiesAfterFailure(moveRecord, cause);
             keepRecord = !removed;
             outcome = removed
-                    ? "the copies were removed from '%s' and '%s' stays recorded".formatted(to, record.from().value())
+                    ? "the copies were removed from '%s' and '%s' stays recorded".formatted(to, from)
                     : ("the copies could not all be removed from '%s' and '%s' stays recorded; the record is kept, so "
-                            + "the next start removes them and moves again").formatted(to, record.from().value());
+                            + "the next start removes them and moves again").formatted(to, from);
         } else if (recorded.isPresent()) {
             keepRecord = false;
             outcome = "'%s' is recorded, so the copies stay in '%s', '%s' keeps every entry and the record is deleted"
-                    .formatted(recorded.get().value(), to, record.from().value());
+                    .formatted(recorded.get().value(), to, from);
         } else {
             keepRecord = true;
             outcome = ("the recorded store cannot be read, so the copies stay in '%s'; the record is kept, so the next "
@@ -389,17 +391,17 @@ public final class CredentialStoreMove {
                 cause.addSuppressed(e);
             }
         }
-        LOGGER.warn(cause, WARN.CREDENTIAL_STORE_MOVE_FAILED, record.from().value(), to, outcome, cause.getMessage());
+        LOGGER.warn(cause, WARN.CREDENTIAL_STORE_MOVE_FAILED, from, to, outcome, cause.getMessage());
         return new SecretStoreException(SecretStoreException.Reason.FAILED,
-                "the move from '%s' to '%s' failed before the switch, %s: %s".formatted(record.from().value(), to,
-                        outcome, cause.getMessage()),
+                "the move from '%s' to '%s' failed before the switch, %s: %s".formatted(from, to, outcome,
+                        cause.getMessage()),
                 cause);
     }
 
     /** @return whether every copy was removed from the target; a failure of the removal is added to the cause */
-    private boolean deleteCopiesAfterFailure(CredentialStoreMoveRecord record, RuntimeException cause) {
+    private boolean deleteCopiesAfterFailure(CredentialStoreMoveRecord moveRecord, RuntimeException cause) {
         try {
-            deleteCopies(record);
+            deleteCopies(moveRecord);
             return true;
         } catch (SecretStoreException | UncheckedIOException | StoreRefusal | InvalidCredentialNameException e) {
             cause.addSuppressed(e);
@@ -425,14 +427,14 @@ public final class CredentialStoreMove {
      * store holds one. An entry the target held before is never touched: the move refuses a target that holds a Token
      * Lane entry before it starts, so every entry deleted here is a copy of this move.
      */
-    private void deleteCopies(CredentialStoreMoveRecord record) {
-        var from = choice.store(record.from());
-        var target = choice.store(record.to());
+    private void deleteCopies(CredentialStoreMoveRecord moveRecord) {
+        var from = choice.backendOf(moveRecord.from());
+        var target = choice.backendOf(moveRecord.to());
         for (var account : tokenLaneEntries(from)) {
             target.delete(account);
         }
-        if (keyIn(record.from()).read().isPresent()) {
-            keyIn(record.to()).delete();
+        if (keyIn(moveRecord.from()).read().isPresent()) {
+            keyIn(moveRecord.to()).delete();
         }
     }
 
@@ -441,20 +443,20 @@ public final class CredentialStoreMove {
      * audit record is appended before the record is deleted, so a stop or a failing sink leaves the record, and the
      * next start finishes the move again and appends the audit record then: at least once.
      */
-    private void finish(LockTransaction transaction, CredentialStoreMoveRecord record) {
+    private void finish(LockTransaction transaction, CredentialStoreMoveRecord moveRecord) {
         requirePhase(transaction, Phase.SWITCHED);
-        var old = choice.store(record.from());
+        var old = choice.backendOf(moveRecord.from());
         for (var account : tokenLaneEntries(old)) {
             old.delete(account);
         }
-        keyIn(record.from()).delete();
+        keyIn(moveRecord.from()).delete();
         hook.after(Step.OLD_DELETED);
-        var entries = tokenLaneEntries(choice.store(record.to())).size();
+        var entries = tokenLaneEntries(choice.backendOf(moveRecord.to())).size();
         auditSink.append(new AuditEvent(EVENT, AuditEvent.CATEGORY_OPERATOR, AuditEvent.OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_FROM, record.from().value(), DETAIL_TO, record.to().value(), DETAIL_ENTRIES,
+                Map.of(DETAIL_FROM, moveRecord.from().value(), DETAIL_TO, moveRecord.to().value(), DETAIL_ENTRIES,
                         (long) entries)));
         deleteRecord(transaction);
-        LOGGER.info(INFO.CREDENTIAL_STORE_MOVED, record.from().value(), record.to().value(), entries);
+        LOGGER.info(INFO.CREDENTIAL_STORE_MOVED, moveRecord.from().value(), moveRecord.to().value(), entries);
     }
 
     /** @return the Token Lane entries of the store: every entry but the integrity key, which moves last */
@@ -464,7 +466,7 @@ public final class CredentialStoreMove {
 
     /** @return the integrity key as it lives in the store: its keyring entry, or the key file below {@code state/} */
     private EnrolmentKey keyIn(Store store) {
-        return keyCarry.keyIn(choice.store(store));
+        return keyCarry.keyIn(choice.backendOf(store));
     }
 
     private Optional<CredentialStoreMoveRecord> readRecord(LockTransaction transaction) {
@@ -474,8 +476,8 @@ public final class CredentialStoreMove {
 
     /** Re-reads the record inside the lock before a phase. */
     private void requirePhase(LockTransaction transaction, Phase phase) {
-        var record = readRecord(transaction);
-        if (record.isEmpty() || record.get().phase() != phase) {
+        var current = readRecord(transaction);
+        if (current.isEmpty() || current.get().phase() != phase) {
             throw new IllegalStateException("The record %s is not in phase '%s' although the move holds its lock"
                     .formatted(recordFile.store(), phase.value()));
         }

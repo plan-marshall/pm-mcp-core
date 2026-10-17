@@ -97,7 +97,9 @@ public final class CredentialStoreChoice {
     static final String REVISION = "revision";
     static final String MAX_BUILD_SLOTS = "max_build_slots";
     static final String LSP_IDLE_TIMEOUT_SECONDS = "lsp_idle_timeout_seconds";
+    /** The member {@code credentials} of the document, and the directory of the file store below the base. */
     static final String CREDENTIALS = "credentials";
+    /** The member {@code store} of {@code credentials}. */
     static final String STORE = "store";
 
     /** The step of the machine's onboarding that records the store, named by {@code onboarding_incomplete}. */
@@ -266,7 +268,7 @@ public final class CredentialStoreChoice {
         this.os = Objects.requireNonNull(os, "os");
         this.environment = Map.copyOf(environment);
         this.keyrings = Objects.requireNonNull(keyrings, "keyrings");
-        this.fileStore = new FileSecretStore(root.resolve("credentials"));
+        this.fileStore = new FileSecretStore(root.resolve(CREDENTIALS));
     }
 
     /**
@@ -325,7 +327,7 @@ public final class CredentialStoreChoice {
     @SuppressWarnings("java:S6213") // record is the domain verb of the recorded store (ADR runtime-credentials/001, /002)
     public void record(LockTransaction transaction, Store store, Writer writer) {
         Objects.requireNonNull(transaction, "transaction");
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STORE);
         if (!Objects.requireNonNull(writer, "writer").owner()) {
             throw new Refusal(Refusal.Reason.ASPECT_OWNED,
                     "credentials.store of %s is written only by the credential-store aspect and the store move"
@@ -400,7 +402,7 @@ public final class CredentialStoreChoice {
     public void record(LockManager locks, String user, Store store) {
         Objects.requireNonNull(locks, "locks");
         Objects.requireNonNull(user, "user");
-        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(store, STORE);
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(moveRecord.lockKey());
             requireNoMove(transaction);
@@ -415,7 +417,7 @@ public final class CredentialStoreChoice {
                 return;
             }
             var keyCarry = new IntegrityKeyCarry(base, locks, user);
-            var carried = carryKey(keyCarry, found, store(store));
+            var carried = carryKey(keyCarry, found, backendOf(store));
             write(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
             if (carried) {
                 deleteFromFound(keyCarry, found, store);
@@ -539,8 +541,8 @@ public final class CredentialStoreChoice {
      * @param store the store
      * @return the file store below {@code <PM_MCP_BASE>/credentials}, or the OS store of the platform
      */
-    SecretStore store(Store store) {
-        return Objects.requireNonNull(store, "store") == Store.FILE ? fileStore : new ProbedOsStore(false);
+    SecretStore backendOf(Store store) {
+        return Objects.requireNonNull(store, STORE) == Store.FILE ? fileStore : new ProbedOsStore(false);
     }
 
     /**

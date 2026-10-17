@@ -108,7 +108,7 @@ class CredentialStoreMoveResumeTest {
 
     /** Records the OS store, fills it with two entries and the key, and signs {@code harnesses.json} under the key. */
     private SecretKey machineOnTheOsStore() throws IOException {
-        record(Store.OS, Writer.CREDENTIAL_STORE_ASPECT);
+        recordStore(Store.OS, Writer.CREDENTIAL_STORE_ASPECT);
         osStore.put(GITHUB, GITHUB_SECRET);
         osStore.put(SONAR, SONAR_SECRET);
         var key = keyIn(osStore).readOrCreate();
@@ -118,7 +118,8 @@ class CredentialStoreMoveResumeTest {
         return key;
     }
 
-    private void record(Store store, Writer writer) {
+    /** Records the store as the writer records it: the aspect in its own transaction, the move in one of its own. */
+    private void recordStore(Store store, Writer writer) {
         if (writer == Writer.CREDENTIAL_STORE_ASPECT) {
             choice.record(locks, USER, store);
             return;
@@ -196,10 +197,10 @@ class CredentialStoreMoveResumeTest {
         openMove(Phase.COPYING);
 
         var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
-                () -> record(Store.FILE, Writer.CREDENTIAL_STORE_ASPECT));
+                () -> recordStore(Store.FILE, Writer.CREDENTIAL_STORE_ASPECT));
         var recordedWhileOpen = choice.recorded();
         resume.run();
-        record(Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+        recordStore(Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
 
         assertAll(
                 () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),
@@ -248,7 +249,7 @@ class CredentialStoreMoveResumeTest {
             fileStore.put(SONAR, SONAR_SECRET);
             keyIn(fileStore).write(key);
             openMove(Phase.COPYING);
-            record(Store.FILE, Writer.STORE_MOVE);
+            recordStore(Store.FILE, Writer.STORE_MOVE);
             return key;
         }
 
@@ -293,7 +294,7 @@ class CredentialStoreMoveResumeTest {
             fileStore.put(SONAR, SONAR_SECRET);
             keyIn(fileStore).write(key);
             openMove(Phase.SWITCHED);
-            record(Store.FILE, Writer.STORE_MOVE);
+            recordStore(Store.FILE, Writer.STORE_MOVE);
             osStore.delete(GITHUB);
 
             var resumed = resume.run();
@@ -309,7 +310,7 @@ class CredentialStoreMoveResumeTest {
             fileStore.put(SONAR, SONAR_SECRET);
             keyIn(fileStore).write(key);
             openMove(Phase.SWITCHED);
-            record(Store.FILE, Writer.STORE_MOVE);
+            recordStore(Store.FILE, Writer.STORE_MOVE);
             osStore.refuseDeletes = true;
 
             var failure = assertThrows(SecretStoreException.class, resume::run);
