@@ -285,6 +285,18 @@ public final class RuntimeLogMessages {
                 .identifier(28)
                 .template("Credential store moved from '%s' to '%s', %s entries")
                 .build();
+
+        /**
+         * Logged by {@code CredentialStoreMoveResume} after the start completed a move between the credential stores
+         * that a stop cut, with the old and the new store and the phase of the record it was resumed from
+         * ({@code copying}: started again from the first entry; {@code switched}: the deletion from the old store
+         * finished).
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVE_RESUMED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(29)
+                .template("Credential store move from '%s' to '%s' resumed from phase '%s' and completed")
+                .build();
     }
 
     /** WARN level messages. */

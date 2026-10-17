@@ -150,6 +150,8 @@ class RuntimeLogMessagesTest {
                         "Credential store move from '%s' to '%s' started"),
                 Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVED, "PM_RUNTIME-28",
                         "Credential store moved from '%s' to '%s', %s entries"),
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVE_RESUMED, "PM_RUNTIME-29",
+                        "Credential store move from '%s' to '%s' resumed from phase '%s' and completed"),
                 Arguments.of(RuntimeLogMessages.WARN.CREDENTIAL_STORE_MOVE_FAILED, "PM_RUNTIME-129",
                         "Credential store move from '%s' to '%s' failed, nothing switched and '%s' stays recorded: %s"));
     }
