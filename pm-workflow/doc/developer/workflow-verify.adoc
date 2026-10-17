@@ -200,6 +200,7 @@ The passing controls `verify/passing/interface-entries-and-exits.pmwf` (a called
 One owner per check: the parser refuses what the text alone decides, a `start` line beside an `entry` line and an entry bound twice (link:workflow-dsl.adoc[Workflow DSL]); no `VerificationRule` member repeats them.
 A check that another member already makes is not repeated either: a missing bound state is `STATE_EXISTS`, the reachability of the states is `REACHABILITY`, a call that leaves an exit of its callee unrouted is `SUBWORKFLOW_CALL_CONTRACT`, a terminal `stepped_out` of another class is `SUBWORKFLOW_CALL_CONTRACT`, and an exit no terminal reports is rule 2's and not rule 4's.
 
+[#_the_exit_contract]
 === The Exit Contract
 
 The exit contract of a sub-workflow is the exits its frontmatter declares plus the implicit control exit `stepped_out`.

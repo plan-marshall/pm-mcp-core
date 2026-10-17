@@ -343,22 +343,6 @@ loader does not add the state yet); an `ask` on a state of a `zero_tool` role is
 Matched control: `answered` and `assumed` re-enter the asking state.
 Source:: design review.
 
-[#PM-WATCH-DSL-36]
-=== PM-WATCH-DSL-36: The frontmatter is read by its own parser, and a description belongs to the line above it
-
-Anchor:: link:../specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter],
-link:../specification/workflow-dsl/01-grammar.adoc#interface-rules[Workflow DSL § Interface Rules]
-Hazard:: A general YAML loader resolves tags, anchors, and aliases from an uploaded or pasted unit, and collapses the
-repeated `entry` and `exit` keys to their last value, so a unit with three entries loads with one and its call sites
-fail far from the cause; a description that a loader attaches to the wrong element shows the operator a wrong interface.
-Guard:: Parser tests over the closed subset: a tag, an anchor, an alias, a flow collection, an indented line, a blank
-line, a comment, and an unknown key are each refused with line and column; three `entry` lines yield three entries in
-order; an `entry_description` below an `exit` line, below another description, or as the first line is refused; a
-unit outside the binary with `author: plan-marshall` is refused. Interface tests: a unit with entries and a `start`, a
-unit with exits and a terminal outside them, a declared exit no terminal reaches, a called unit without exits, and a
-call without an entry to a unit with two are each refused; the workspace unit without a terminal passes.
-Source:: design review.
-
 == Reusable Compound Sub-Workflows & Call-Stack Execution
 
 [#PM-WATCH-DSL-6]

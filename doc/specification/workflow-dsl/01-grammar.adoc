@@ -25,7 +25,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
 
-Workflow definitions (the default `*.pmwf` units compiled into the binary under `classpath:/workflows/`, the machine's and the project's copies of the designable units in `<PM_MCP_BASE>/workflows/`, `<PM_MCP_BASE>/recipes/`, `.marshall/config/`, and `.marshall/recipes/`, xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants], and the composed plan instance of every plan, xref:09-plan-instance.adoc#plan-instance[Plan Instance]) conform to the following ISO/IEC 14977 Extended Backus-Naur Form (EBNF) grammar. Every file opens with its frontmatter (<<unit-frontmatter>>). The DSL is line-oriented; comments start with `#` and run to the end of the line.
+Workflow definitions (the default `*.pmwf` units compiled into the binary under `classpath:/workflows/`, the machine's and the project's copies of the designable units in `<PM_MCP_BASE>/workflows/`, `<PM_MCP_BASE>/recipes/`, `.marshall/config/`, and `.marshall/recipes/`, xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants], and the composed plan instance of every plan, xref:09-plan-instance.adoc#plan-instance[Plan Instance]) conform to the following ISO/IEC 14977 Extended Backus-Naur Form (EBNF) grammar. Every file opens with its frontmatter (<<unit-frontmatter>>; its format and fields: link:../../../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]). The DSL is line-oriented; comments start with `#` and run to the end of the line.
 
 [source,ebnf]
 ----
@@ -37,8 +37,9 @@ workflow_file        = frontmatter ,
                        ( start_decl | entry_decl , { entry_decl } ) ,
                        { migrate_decl } ,
                        state_decl , { state_decl } ;
-                       (* frontmatter: Unit Frontmatter; start_decl when the frontmatter declares no
-                          entry, one entry_decl per declared entry otherwise (Interface Rules);
+                       (* frontmatter: the unit frontmatter (pm-workflow, workflow-dsl.adoc); start_decl
+                          when the frontmatter declares no entry, one entry_decl per declared entry
+                          otherwise (pm-workflow, workflow-verify.adoc, Interface Rules);
                           instance_decl: only in a composed plan instance, which only the server
                           writes (09-plan-instance.adoc, Instance Header Grammar) *)
 
@@ -133,7 +134,8 @@ call_clause          = "call" , state_id , [ "entry" , entry_name ] ,
                        [ "(" , [ call_arg_list ] , ")" ] , EOL ,
                        outcome_transition , { outcome_transition } ;
                        (* entry: the callee's entry the call goes through; omitted only when the
-                          callee declares exactly one (Interface Rules) *)
+                          callee declares exactly one (pm-workflow, workflow-verify.adoc, Interface
+                          Rules) *)
 call_arg_list        = call_arg , { "," , call_arg } ;
 call_arg             = param_name , "=" , call_value ;
 call_value           = enum_value | positive_int_or_zero
@@ -232,13 +234,13 @@ Identifiers (state, primitive, action, parameter, and outcome names) are lowerca
 * *Task states*: A state that needs a model is written only as `job llm <entity_kind> role <role_name> [each <primitive_id>] [ask]`, or, in the adjudication unit alone, `job llm <entity_kind> role each <primitive_id>` (one task per role the primitive returns from the unit's quorum declarations, xref:02-units-jobs-decisions.adoc#question-adjudicate-unit[Adjudication Unit]), followed by its `consult role <role_name>` clauses; there is no dispatch link and no host sub-agent. Entering the state creates one queue task of the named role for one entity of the kind, which a worker of that role does through the compiled task protocol unit `worker-task` (xref:02-units-jobs-decisions.adoc#model-job-states[Task States]). With the fan-out clause `each <primitive_id>` the state creates one task per element of the list the named server primitive computes, each with its own entity, and completes when every entity has its required submission or its fallback. The role is named freely from the effective role set (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]); the DSL never names a harness, model, effort, or form, so changing, adding, or moving a role is an edit of the role set and reaches the next task without a workflow version. The optional `ask` declaration offers the state's task entities the `ask` link and implies the engine-made question state `<state>.asked` (xref:02-units-jobs-decisions.adoc#model-job-states[Task States], item 8); every task entity offers the `infeasible` link whether or not its state declares `ask`. Each `consult role <role_name>` clause offers the state's tasks one consultation link `consult:<role_name>` and no other (link:../model-work/05-consultation.adoc[Model Work Specification, Consultation]). A `job llm` state's `skill` and `facts` clauses are rendered in the representations of its task entities. Its outcome transitions belong to the completion of its tasks, which runs the return-evaluation primitive the entity kind registers; their outcome set is that primitive's closed outcome set plus the reserved outcome `lost` (a task that closed `lost`: the conservative fallback of the state, routed explicitly or by default, xref:02-units-jobs-decisions.adoc#model-job-states[Task States]); on a state that declares `ask`, the outcome `asked` of a task that asked is routed by the engine to `<state>.asked`, and the unit declares no transition for it.
 [#state-phase]
 * *Phase of a state*: A state declares no phase; its phase is derived. The phase of a plan's state is the phase sub-workflow on the plan's `call_stack`, named by the phase's unit id (`phase-1-init` to `phase-6-finalize`, xref:02-units-jobs-decisions.adoc#workflow-definition-units[Workflow Definition Units]), which every sub-workflow called within the phase shares, a remediation unit, `git.commit_and_push`, the re-planning unit, a decision, and a chat included. A state of the plan unit itself has the phase of the phase it called last, except its terminals: `completed` for the three delivery terminals and `aborted` for `plan.aborted`. Every state of an epic has the phase `epic` (its terminals `completed` and `aborted` like a plan's), of a workspace unit and of an entry `workspace`, of the machine scope `machine`; a state of an entity unit has the phase of the task state whose task works on the entity. The engine records the phase in `mcp/status.json` and in every call frame (`callerPhase`, link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas Specification, Phases as Sub-Workflows]), and only a call or a return of a phase sub-workflow changes it.
-* *Terminal declarations*: Every terminal state declares `terminal <outcome_id> <outcome_class>`: the outcome it reports (in a unit with exits, the exit it leaves through, returned to the caller; in a unit without exits, the stop point that ends its scope, <<interface-rules>>) and its `OutcomeClass` (xref:05-primitives.adoc#primitive-outcome-classes[Outcome Classes & Step Records]), for example `state git.done terminal done success`, `state git.stepped-out terminal stepped_out stepped_out`, or `state plan.aborted terminal aborted failure`. The plan unit's terminals are `completed` (declared `terminal merged success`), `handed_back`, `returned`, and `plan.aborted` (declared `terminal aborted failure`). The declared outcome id of a root plan terminal is nominal: the plan's `outcome` field is authoritative, `completed` ends a plan whose `outcome` is `merged` or `no_change`, and `plan.aborted` a plan whose `outcome` is `cancelled`, `abandoned`, `released`, or `aborted`.
+* *Terminal declarations*: Every terminal state declares `terminal <outcome_id> <outcome_class>`: the outcome it reports (in a unit with exits, the exit it leaves through, returned to the caller; in a unit without exits, the stop point that ends its scope, link:../../../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules]) and its `OutcomeClass` (xref:05-primitives.adoc#primitive-outcome-classes[Outcome Classes & Step Records]), for example `state git.done terminal done success`, `state git.stepped-out terminal stepped_out stepped_out`, or `state plan.aborted terminal aborted failure`. The plan unit's terminals are `completed` (declared `terminal merged success`), `handed_back`, `returned`, and `plan.aborted` (declared `terminal aborted failure`). The declared outcome id of a root plan terminal is nominal: the plan's `outcome` field is authoritative, `completed` ends a plan whose `outcome` is `merged` or `no_change`, and `plan.aborted` a plan whose `outcome` is `cancelled`, `abandoned`, `released`, or `aborted`.
 * *Ends of a scope*: A plan ends in one of the three delivery terminals of its plan unit, `completed` (plan `outcome` `merged` or `no_change`), `handed_back`, or `returned`, each reached only when the phase `phase-6-finalize` ends through `finalize.archive-plan` after the post-run band, or in `plan.aborted`; an epic in `epic.archived` or `epic.aborted`. `plan.aborted` and `epic.aborted` (phase `aborted`, class `failure`) are entered only by an engine-owned, scope-wide transition (xref:02-units-jobs-decisions.adoc#waivers-and-integrity[Waivers, Waiver Requests & the Integrity Pause], Operator-initiated ends): for a plan the operator's cancel or abandon, the cancel of an integrity pause, the release of its project, and `delete-plan`; for an epic its cancel and its project's release, which the epic unit ends in `epic.aborted` through its one declared transition into the abort terminal (`abort_landed` of `epic.next-work`). No other DSL transition targets them and no model link reaches them. No model ends a plan or an epic: a task ends only in its closed outcomes, and the plan takes a fallback only through the server, by the route of an `exhausted`, `stepped_out`, or `lost` outcome or a spent condition budget: after the phases `init`, `refine`, `outline`, and `plan` the plan unit's state `plan.return` (outcome `returned`), which calls `phase-6-finalize` through its entry `post_run` (the post-run band, then the archive, ending the plan `returned`), or, when the plan branch holds commits beyond the base, as after a loop-back from the execute phase, through its entry `hand_back`, whose `finalize.hand-back` ends the plan `handed_back`; in the execute phase, the `land` lane, and the finalize phase before the merge `finalize.hand-back` (outcome `handed_back`, or `returned` when the branch holds no commit beyond the base), which the plan unit reaches after the execute phase through the entry `hand_back`.
 * *Step completion (`completes`)*: A transition that settles a finalize step names it with one `completes <step_id> as done|skipped|failed|waived` clause per settled step, on the lines following the transition. The engine writes the step record (`mcp/status.json` `steps`, link:../store-schemas.adoc[Store Schemas Specification]) and closes the step's open firing in the transaction of that transition; Rule 9 (xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules (Build Time & Every Unit Load)]) checks that every firing of a step is completed exactly once on every path and never as `done` on a failing or stepped-out path. `waived` is admitted only on the outcome `waived` of a `call` to a remediation unit (xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]): the step is settled by a consumed operator waiver, whose `waiver_id` the step record references, and it satisfies Phase-Exit Completeness (link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#_re_entry_head_at_completion_verdict_currency_rules[Phase Workflows Specification, Verdict Currency Rules]). Entering `plan.aborted`, `plan.return`, or `finalize.hand-back` records every begun, unsettled step `failed` in the entering transaction (the on-entry rule), so no transition into them carries a `completes … as failed` clause.
 * *Configuration-dependent guards*: A `guard` clause may declare `depends_on_config [key, …]`, the enum or boolean keys of the effective configuration (in the effective-key form `<file_stem>.<dotted path>`, for example `project.review.currency` or `derived.push_remote`, link:../store-schemas/07-project-configuration.adoc#project-configuration-store[Store Schemas Specification, Project Configuration]) whose values the guard reads. Rule 3 checks reachability for every combination of the declared keys' values (xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules (Build Time & Every Unit Load)]).
 
 [#sub-workflow-exits]
-* *Result guards and the sub-workflow exit contract*: A sub-workflow's exit contract is the exits its frontmatter declares (<<unit-frontmatter>>) and the implicit control exit `stepped_out`, and it is small and control-only: `done` with the typed result record of its `result` declaration, the domain outcomes of its other terminals only where callers genuinely continue differently (a remediation unit's `resolved`, `waived`, `exhausted`, `fix_requested`), and the control outcome `stepped_out`. A caller that continues differently on a result detail branches on it with a result guard: the outcome is routed twice, once with `guard result.<field>` and once with `guard not result.<field>` over the same field (a boolean field holds when true, an optional field when present), for example `done -> finalize.review-cap-check` with `guard result.pushed`, or `done -> remediation-ci.await-ci` with `guard result.commit`. Inside a plan or an epic a sub-workflow is left early only by the server: a terminal that declares the reserved outcome `stepped_out` (class `stepped_out`) is a server-produced step-out (`by: server`, `cause`: the outcome that entered it), for example `git.commit_and_push` after exhausted commit attempts. In a sub-workflow that a workspace, machine, or entry unit calls (a start's source units, the aspects of the machine's onboarding, the sub-workflows of a project's onboarding and setup), every operator wait also offers the operator the implicit link `step_out (reason: text[1..2000])`, which unwinds exactly one frame and returns `stepped_out {by: operator, cause: step_out, reason}` to the caller (xref:02-units-jobs-decisions.adoc#implicit-job-links[Implicit Links]). A call site routes `stepped_out` once (Rule 6): a phase's call site in the plan unit to the plan's fallback, a call site inside a phase to the phase's fallback state, and a call site inside another sub-workflow to a state of its own that continues the unwinding. The one exception is the server step-out after a condition's self-remedy budget is spent (`cause: condition`, xref:04-ast-node-model.adoc#condition-overlays[Condition Overlays]) or a task state without a declared `lost` route lost its task (`cause: lost`, xref:02-units-jobs-decisions.adoc#model-job-states[Task States] item 4): it unwinds in one transaction every frame above the phase's frame, without taking a caller's `stepped_out` transition, so no unit's own recovery state catches it, and enters the phase's fallback: in `phase-6-finalize` before the merge its state `finalize.hand-back`; in every other phase the phase itself ends with `stepped_out`, which the plan unit's call site routes to the plan's fallback (`plan.return` after `init`, `refine`, `outline`, and `plan`; the call of `phase-6-finalize` through its entry `hand_back` after `execute`). `phase-6-finalize` declares no step-out terminal and has its fallback inside it, so it never returns `stepped_out`; its call sites in the plan unit route the outcome, as Rule 6 requires, to `handed_back`, a route the engine never takes.
+* *Result guards and the sub-workflow exit contract*: A sub-workflow's exit contract (the exits its frontmatter declares and the implicit control exit `stepped_out`, link:../../../pm-workflow/doc/developer/workflow-verify.adoc#_the_exit_contract[Workflow Verification Developer Guide § The Exit Contract]) is small and control-only: `done` with the typed result record of its `result` declaration, the domain outcomes of its other terminals only where callers genuinely continue differently (a remediation unit's `resolved`, `waived`, `exhausted`, `fix_requested`), and the control outcome `stepped_out`. A caller that continues differently on a result detail branches on it with a result guard: the outcome is routed twice, once with `guard result.<field>` and once with `guard not result.<field>` over the same field (a boolean field holds when true, an optional field when present), for example `done -> finalize.review-cap-check` with `guard result.pushed`, or `done -> remediation-ci.await-ci` with `guard result.commit`. Inside a plan or an epic a sub-workflow is left early only by the server: a terminal that declares the reserved outcome `stepped_out` (class `stepped_out`) is a server-produced step-out (`by: server`, `cause`: the outcome that entered it), for example `git.commit_and_push` after exhausted commit attempts. In a sub-workflow that a workspace, machine, or entry unit calls (a start's source units, the aspects of the machine's onboarding, the sub-workflows of a project's onboarding and setup), every operator wait also offers the operator the implicit link `step_out (reason: text[1..2000])`, which unwinds exactly one frame and returns `stepped_out {by: operator, cause: step_out, reason}` to the caller (xref:02-units-jobs-decisions.adoc#implicit-job-links[Implicit Links]). A call site routes `stepped_out` once (Rule 6): a phase's call site in the plan unit to the plan's fallback, a call site inside a phase to the phase's fallback state, and a call site inside another sub-workflow to a state of its own that continues the unwinding. The one exception is the server step-out after a condition's self-remedy budget is spent (`cause: condition`, xref:04-ast-node-model.adoc#condition-overlays[Condition Overlays]) or a task state without a declared `lost` route lost its task (`cause: lost`, xref:02-units-jobs-decisions.adoc#model-job-states[Task States] item 4): it unwinds in one transaction every frame above the phase's frame, without taking a caller's `stepped_out` transition, so no unit's own recovery state catches it, and enters the phase's fallback: in `phase-6-finalize` before the merge its state `finalize.hand-back`; in every other phase the phase itself ends with `stepped_out`, which the plan unit's call site routes to the plan's fallback (`plan.return` after `init`, `refine`, `outline`, and `plan`; the call of `phase-6-finalize` through its entry `hand_back` after `execute`). `phase-6-finalize` declares no step-out terminal and has its fallback inside it, so it never returns `stepped_out`; its call sites in the plan unit route the outcome, as Rule 6 requires, to `handed_back`, a route the engine never takes.
 _Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-14[PM-WATCH-DSL-14], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-15[PM-WATCH-DSL-15]_
 * *Question states*: A state whose body starts with `question <class>` runs the adjudication of the scope's new question set and, for a set the adjudication does not decide, calls the compiled decision unit `decision`, whose operator states are operator waits; it rests there until the decision is answered and recorded (xref:02-units-jobs-decisions.adoc#question-states[Question States & Decisions]). Its outcome transitions route the class's closed resolution outcomes, each to a re-entrant `auto` state or the asking task state, which reads the answer from the record and decides (per-option routing lives there, never in the question clause). A question state declares no links. The catalogue kind `awaiting_user` is derived from this clause.
 
@@ -246,168 +248,27 @@ _Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATC
 == Unit Frontmatter
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
 
-_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-36[PM-WATCH-DSL-36]_
+Every `.pmwf` file opens with a frontmatter: what the unit is for a person, its type, its interface (the entries through which control arrives and the exits through which it leaves), and where it comes from. Its format and fields, the six unit types, and the interface rules are implemented in `pm-workflow` and described in its developer documentation: link:../../../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter], link:../../../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types], and link:../../../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types]. What the implementation does not cover yet stays specified here:
 
-Every `.pmwf` file opens with a frontmatter: what the unit is for a person (its display name and description), what kind of unit it is (its type), its interface (the entries through which control arrives and the exits through which it leaves), and where it comes from (its last change, the release it was made with, its author, and a signature reserved for verifying its origin). The frontmatter is read without the body: the designer's list of units, the building-block catalogue, and the process views show a unit's name, description, type, and interface from it, and every `call` site is checked against the interface of its callee (<<interface-rules>>).
-
-[source,yaml]
-----
----
-name: Commit and Push
-description: Commits the changes of the plan's worktree and pushes its branch as the push mode says.
-type: subworkflow
-entry: commit
-entry_description: The worktree holds the changes to commit, or is clean.
-exit: done
-exit_description: Commit and push are settled; the result record says what was committed, pushed, or landed.
-modification_date: 2026-10-14
-version: 1.0.0
-author: plan-marshall
----
-workflow git.commit_and_push version 1 format 1
-scope subworkflow
-…
-entry commit -> git.inspect-worktree
-----
-
-=== Format
-
-The frontmatter is a closed, line-oriented subset of YAML, read by the runtime's own parser of that subset and never by a general YAML loader, so no tag, anchor, alias, or merge key is ever resolved:
-
-[source,ebnf]
-----
-frontmatter          = "---" , NL , fm_line , { fm_line } , "---" , NL ;
-                       (* the first line of the file; the workflow header follows the closing line *)
-fm_line              = fm_key , ":" , [ " " , fm_value ] , NL ;
-fm_key               = "name" | "description" | "type"
-                     | "entry" | "entry_description" | "exit" | "exit_description"
-                     | "modification_date" | "version" | "author" | "signature" ;
-fm_value             = plain_value | quoted_value ;
-plain_value          = ? one line: no leading or trailing blank, does not start with a YAML indicator
-                         character, contains neither ": " nor " #" ? ;
-quoted_value         = '"' , ? one line; the escapes \" and \\ only ? , '"' ;
-NL                   = "\n" ;
-----
-
-* *One field per line*: every line is `key: value`, at column 1; there is no blank line, comment, indentation, nesting, flow collection, block scalar, or document marker other than the two `---` delimiters. The file is UTF-8, and no value contains a control character. A value that a plain scalar cannot carry is written double-quoted.
-* *Closed keys*: a key outside the closed set is refused. `name`, `description`, `type`, `modification_date`, `version`, and `author` occur exactly once, `signature` at most once.
-* *Multi-valued `entry` and `exit`*: a unit declares zero or more entries and zero or more exits, one name per line, the key repeated per name. This is the one point where the frontmatter is not a YAML mapping, and a reason it is read by the runtime's own parser.
-* *Descriptions*: `entry_description` and `exit_description` are optional; a description always describes the element on the line immediately before it: an `entry_description` stands directly below an `entry` line, an `exit_description` directly below an `exit` line, and each element has at most one. A description on any other line (below another key, below another description, or as the first line) fails validation.
-* *Order*: apart from the descriptions, the order of the lines is free; the designer and the server write the order of the table below.
-
-=== Fields
-
-[cols="2,1,6"]
-|===
-|Key |Occurs |Value
-
-|`name`
-|1
-|The display name of the unit, 3 to 100 characters. It names the unit for a person wherever a client shows it (the designer, the catalogue, a plan's process); the DSL, the stores, and every check use the unit id of the `workflow` header.
-
-|`description`
-|1
-|What the unit does and when it is used, 1 to 1000 characters.
-
-|`type`
-|1
-|The kind of unit, one of the closed set of <<unit-types>>.
-
-|`entry`
-|0..n
-|The name of an entry, a channel through which a caller enters the unit: an `identifier` (link:../identifiers/01-general-rules-and-registry.adoc#id-dsl-identifier[Identifier Registry, DSL identifiers]), unique among the unit's entries. Each declared entry is bound to the state it enters by one `entry <name> -> <state_id>` line of the header.
-
-|`entry_description`
-|0..1 per entry
-|What a caller hands over or may assume when it enters through the entry on the line before, 1 to 500 characters.
-
-|`exit`
-|0..n
-|The name of an exit, an outcome the unit returns to its caller: an outcome id (`identifier`), unique among the unit's exits, never `stepped_out` (the implicit control exit of every sub-workflow). Each declared exit is the outcome of at least one terminal state (`terminal <exit> <outcome_class>`).
-
-|`exit_description`
-|0..1 per exit
-|What the caller can rely on when the unit leaves through the exit on the line before, 1 to 500 characters.
-
-|`modification_date`
-|1
-|The date of the last change of the file, `YYYY-MM-DD`, a valid calendar date and not after the day of the validation. A compiled unit carries the date of its last change in the source tree; the designer sets the day of the edit (link:../../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-3[UC-PLN-3]).
-
-|`version`
-|1
-|The plan-marshall release the unit was created with or delivered by, in the link:../identifiers/02-registry-stores-to-web.adoc#id-release-version[release version] grammar: for a compiled unit the release of the binary, for a unit the operator places the release of the runtime that placed it. It is not the unit's revision, which the `workflow` header's `version` counts and `derived_from` and the migrations refer to.
-
-|`author`
-|1
-|Who made the unit: `plan-marshall` for the units compiled into the binary, and only for them; for every other unit the name of the person who made or last changed it, 1 to 100 characters. A unit outside the binary whose author is `plan-marshall` fails validation, so a placed unit never passes as a delivered one.
-
-|`signature`
-|0..1
-|Reserved for a signature over the file's content (every byte except the `signature` line), by which the origin of a unit can be verified. Its scheme is not defined yet: until it is, a value is carried with the unit and not verified, and a missing one is no finding. The designer drops the line when the text changes, because it would no longer cover the content.
-|===
+* *Written by the designer*: the designer and the server write the lines of a frontmatter in the order of the field table of the developer guide. The designer sets `modification_date` to the day of the edit (link:../../../../plan-marshall-documentation/doc/use-cases/03-plans.adoc#UC-PLN-3[UC-PLN-3]) and drops the `signature` line when the text changes, because it would no longer cover the content.
+* *The signature*: a signature over the file's content (every byte except the `signature` line), by which the origin of a unit can be verified. Its scheme is not defined yet.
+* *A unit of the machine level*: a unit at `<PM_MCP_BASE>/workflows/` whose author is `plan-marshall` fails validation, so a placed unit never passes as a delivered one, and a machine's unit declares the type, the entries, and the exits of the default unit it replaces (`INV-GEN-1`, xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]).
 
 [#unit-types]
 === Unit Types
 
-The type says what a unit is to the system and to the operator; together with the unit's `scope` it fixes the shape of its interface. A unit whose scope or interface does not fit its type fails validation.
+The six types and the rows the implementation checks are described in link:../../../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types]. Not implemented yet, and specified here:
 
-[cols="2,4,2,2,2"]
-|===
-|Type |What it is |Scope |Entries |Exits
-
-|`workflow`
-|The process of a scope that the server starts and that is never called: the plan unit `plan.pmwf`, a workflow of the six phase sub-workflows, and the epic unit `epic.pmwf`.
-|`plan`, `epic`
-|none
-|none
-
-|`recipe`
-|The workflow of a recipe, kept beside the recipe's descriptor (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]): the process of a recipe's plan, started when the operator starts the recipe; it calls its own phases where it differs and the plan's shared ones (the finalize phase, the landing) where it does not.
-|`plan`
-|none
-|none
-
-|`subworkflow`
-|A unit another unit calls with `call`: the six phase sub-workflows `phase-1-init` to `phase-6-finalize`, the `land` lane's sub-workflow `land`, the variants of the plan behaviour axes (`landing.*`, `method.*`, `ask.*`, xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]), `git.commit_and_push`, the remediation policy units, and `replan`; and the adjudication unit `adjudicate.decisions`, which the engine runs in its own frame for every question state and no unit calls.
-|`subworkflow`
-|one or more (called); none (`adjudicate.decisions`)
-|one or more (none for a landing variant, <<interface-rules>>, item 2)
-
-|`system`
-|The runtime's own flows, compiled only: the machine unit `onboarding.pmwf` (<<machine-scope>>), the workspace unit `project-setup.pmwf`, the project onboarding unit `project-onboarding.pmwf`, and the bootstrap units (started); and the sub-workflows of the runtime's flows: the aspects of the machine's onboarding, the source units, the decision unit `decision`, the chat unit `chat`, and the short landings `git.land-removal` and `git.land-unit` (called).
-|`machine`, `workspace`, `entity` (started); `subworkflow` (called)
-|none (started); one or more (called)
-|none (started); one or more (called)
-
-|`task`
-|A unit a task runs in, compiled only: the task protocol unit `worker-task.pmwf` and the entity units. The engine starts it for a task or an entity; its exits are the outcomes the task's state reads.
-|`subworkflow` (`worker-task`), `entity`
-|none
-|one or more
-
-|`instance`
-|A version of a plan instance, which only the server composes and writes (xref:09-plan-instance.adoc#plan-instance[Plan Instance]).
-|`plan`
-|none
-|none
-|===
-
-Which units the operator may own and design is stated with the units (xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]; xref:04-ast-node-model.adoc#process-designer[Designing a Process]); a unit of type `system`, `task`, or `instance` is never owned, designed, or placed by the operator.
+* *The machine unit*: the row of the type `system` with `scope machine`, the machine unit `onboarding.pmwf` (<<machine-scope>>), started, with no entries and no exits. The tree of the workflow language has no `machine` scope yet.
+* *Owned and designed units*: which units the operator may own and design is stated with the units (xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]; xref:04-ast-node-model.adoc#process-designer[Designing a Process]); a unit of type `system`, `task`, or `instance` is never owned, designed, or placed by the operator.
 
 [#interface-rules]
 === Interface Rules
-_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-36[PM-WATCH-DSL-36]_
 
-The entries and exits a frontmatter declares are the unit's interface. The rules below hold for every unit; each violation fails validation with the file, the line, and the column (Rules 3 and 6, xref:04-ast-node-model.adoc#static-verification-rules[Static AST Verification Rules]):
+The interface rules are described in link:../../../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types]. Not implemented yet, and specified here:
 
-1. *A starting point or entries*: a unit without entries declares exactly one `start <state_id>`, its starting point, where the server starts it. A unit with entries declares no `start`; it binds every declared entry exactly once with `entry <name> -> <state_id>` and binds no undeclared name. A bound state exists in the unit.
-2. *Stop points or exits*: a unit without exits declares at least one terminal state; its terminals are stop points that end the unit's scope (a plan in `completed`, `handed_back`, `returned`, or `plan.aborted`). The one exception is a resident unit, which lives as long as what it serves, declares no terminal, and returns from every state to its resting state (Rule 3): the workspace unit (`scope workspace`), which ends only with the project's adoption and whose resting state is its start, and the machine unit (`scope machine`), which lives as long as the machine's installation and rests in `onboard.completed` (<<machine-scope>>). A landing variant is composed into the finalize phase rather than called (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]): it declares one entry per step it holds, bound to the state the phase's dispatch hub enters for that step, and no exit and no terminal, because its states continue in the phase; it is verified composed into the phase. A unit with exits declares the outcome id of every terminal as one of its exits, or as `stepped_out` on a terminal of class `stepped_out`, and every declared exit is the outcome of at least one terminal.
-3. *Called units return*: a unit with entries declares at least one exit (a landing variant excepted, item 2); only a unit with entries is the target of a `call`, and a unit without entries is started by the server or run by the engine in a frame of its own (`worker-task`, the entity units, `adjudicate.decisions`), never called.
-4. *Every entry and exit is used*: every state is reachable from the starting point or from at least one entry, and every exit is reached from at least one entry (Rule 3).
-5. *A call names its entry*: `call <unit> entry <name> (…)` enters the callee through the named entry, which the callee declares. A call to a unit with exactly one entry may omit it; a call to a unit with several entries names one. The parameters of a sub-workflow are the unit's (`param` declarations), bound at every call whichever entry it uses. The call routes every exit of the callee and `stepped_out` (Rule 6), and its call frame records the entry (link:../store-schemas/02-workflow-state-store.adoc[Store Schemas Specification, Workflow State Store], `call_stack`).
-6. *Type fits*: the unit's scope and the presence of its entries and exits match the row of its type (<<unit-types>>).
-
-The interface is part of what a unit promises its callers: a project-owned unit declares the type, the entries, and the exits of the default unit it replaces (`INV-GEN-1`, xref:04-ast-node-model.adoc#project-owned-units[Designable Workflow Units, Levels & Compiled Invariants]), so a call site of the binary or of another unit never meets an entry or an exit it does not know.
+* *The machine unit is resident*: like the workspace unit, the machine unit (`scope machine`) is a resident unit, which lives as long as what it serves, declares no terminal, and returns from every state to its resting state (Rule 3): it lives as long as the machine's installation and rests in `onboard.completed` (<<machine-scope>>).
+* *A landing variant is verified composed*: a landing variant is composed into the finalize phase rather than called (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]); each of its entries is bound to the state the phase's dispatch hub enters for that step, and it is verified composed into the phase.
 
 [#machine-scope]
 == Machine Scope
@@ -420,7 +281,7 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 Beside the plan, epic, and workspace scopes, a fourth top-level scope, `machine`, holds the onboarding of the machine. It exists before any project is enrolled, and every scoped request that concerns the machine as a whole addresses it.
 
 1. *One per machine*: Exactly one machine scope exists per machine, with `scope_type: machine` and no scope id (`scope_id` null; a worker of the machine scope addresses it with `plan_id: NO_PLAN`, the operator's clients under `/api/v1/machine`, link:../identifiers/01-general-rules-and-registry.adoc#id-scope-id[Identifiers Specification, `scope_id`]) and its workflow state in `<PM_MCP_BASE>/machine/mcp/status.json` (link:../filesystem-layout/02-machine-runtime.adoc#machine-layout[Filesystem Layout Specification, Machine-Wide Runtime Layout]; the state record: link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]). Its states have the phase `machine` (<<state-phase>>).
-2. *Its unit*: The machine scope runs the unit `onboarding.pmwf`: type `system`, `scope machine`, compiled into the binary and never designable or placed, like `project-setup.pmwf`. Its frontmatter declares no entry and no exit; its starting point is `onboard.entry`. It is a resident unit (<<interface-rules>>, item 2): it declares no terminal and rests in `onboard.completed`.
+2. *Its unit*: The machine scope runs the unit `onboarding.pmwf`: type `system`, `scope machine`, compiled into the binary and never designable or placed, like `project-setup.pmwf`. Its frontmatter declares no entry and no exit; its starting point is `onboard.entry`. It is a resident unit (<<interface-rules>>): it declares no terminal and rests in `onboard.completed`.
 3. *Aspects as sub-workflows*: Each aspect of the machine is a compiled sub-workflow (type `system`, called) that the unit calls from its call states `onboard.language`, `onboard.harnesses`, `onboard.models`, `onboard.assign-roles`, `onboard.credential-store`, `onboard.providers`, and `onboard.plan-defaults`, in this order; their states carry the aspect's prefix (`language.*`, `harness.*`, `catalogue.*`, `roles.*`, `store.*`, `providers.*`, `defaults.*`) and are listed in the link:../state-catalogue.adoc[State Catalogue]. Every aspect declares the parameter `onboard_run: enum[first_run|reconfigure]`. The first run starts at `onboard.entry`, which leads to the operator wait `onboard.mode` (guided, or automatic, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#auto[CLI, Coordination & Security Specification, Automatic Onboarding]) and calls each aspect with `onboard_run=first_run`. `onboard.completed` is an operator wait that names the next step (enrolling and setting up a project) and leads to the machine's settings, the operator wait `settings.choose`, from which a later run of one aspect is called with `onboard_run=reconfigure` and the aspect's current values as its proposal, and which every such run returns to. A run the operator stops rests at its state and is resumed there from either client.
 4. *Operator waits and consents*: Every choice of the onboarding is an operator wait, and every action that looks at the machine, runs a program the server found, or spends model tokens is preceded by its consent state (xref:02-units-jobs-decisions.adoc#operator-wait[Waiting for the Operator], items 1 and 7). The unit writes only the machine's own stores (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]), never a project's or a plan's.
 5. *Role tasks*: No state before `onboard.models` starts a role task. A role task of the machine scope runs on an enrolled harness like any worker task, through the task protocol, with the confinement of a job and without a project checkout.
