@@ -43,6 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -66,6 +67,7 @@ import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice;
+import de.planmarshall.runtime.credentials.CredentialStoreChoiceFixture;
 import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.credentials.SecretStore;
 import de.planmarshall.runtime.credentials.SecretStoreException;
@@ -805,6 +807,45 @@ class EnrolmentKeyTest {
             key.readOrCreate();
 
             assertTrue(Files.exists(key.keyFile()));
+        }
+
+        @Test
+        @DisplayName("before the choice an outage of the OS store after the key was created there creates no second "
+                + "key in the key file")
+        void osOutageCreatesNoSecondKey() throws Exception {
+            var keyring = new InMemoryKeyring();
+            var available = new AtomicBoolean(true);
+            var choice = CredentialStoreChoiceFixture.withOsStoreWhile(
+                    Files.createDirectories(state.resolve("pm-base")), "de.planmarshall.mcp", keyring, available::get);
+            var key = new EnrolmentKey(choice::integrityKeyStore, state, USER, new SecureRandom());
+            var created = key.readOrCreate();
+
+            available.set(false);
+            var again = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
+                    () -> assertFalse(Files.exists(key.keyFile())));
+        }
+
+        @Test
+        @DisplayName("before the choice an OS store that answers after the key file was created gets no second key")
+        void osAnsweringLaterGetsNoSecondKey() throws Exception {
+            var keyring = new InMemoryKeyring();
+            var available = new AtomicBoolean(false);
+            var choice = CredentialStoreChoiceFixture.withOsStoreWhile(
+                    Files.createDirectories(state.resolve("pm-base")), "de.planmarshall.mcp", keyring, available::get);
+            var key = new EnrolmentKey(choice::integrityKeyStore, state, USER, new SecureRandom());
+            var created = key.readOrCreate();
+
+            available.set(true);
+            var again = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
+                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertTrue(keyring.entries.isEmpty(), keyring.entries.keySet().toString()));
         }
 
         @Test

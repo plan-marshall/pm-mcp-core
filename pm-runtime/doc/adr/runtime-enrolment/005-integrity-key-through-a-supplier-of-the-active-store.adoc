@@ -22,6 +22,10 @@ to one store would read the key from the old store after a move (question q3 of 
   supplier for the store on every read, create, write and delete. The supplier meant for it is
   `CredentialStoreChoice::integrityKeyStore`: the recorded store, or before the choice the OS store where one is
   available, else the file store, whose key is the key file `state/enrolment-hmac.key`.
+* The store before the choice is found once, at the first call, and kept for the lifetime of the
+  `CredentialStoreChoice`, as the former selector chose once per process. A supplier that probed the OS store on every
+  call would answer the file store during a transient outage, and the next create would write a second key into the
+  key file, under which sidecars signed with the first key fail as `enrolment_tampered`.
 * The constructor with one `SecretStore` stays and delegates with a supplier of that store.
 * Nothing is re-signed: after a move the key is read from the store now recorded, and every sidecar verifies under it.
 

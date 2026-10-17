@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.LockTransaction;
@@ -58,7 +59,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <p>
  * <b>The integrity key before the choice.</b> {@link #integrityKeyStore()} gives the store the enrolment integrity key
  * lives in: the active store once a store is recorded, and before that the store the runtime finds, the OS store where
- * one is available, else the file store, for which the key is the key file below {@code state/}.
+ * one is available, else the file store, for which the key is the key file below {@code state/}. That store is found
+ * once per instance and kept, so a transient outage of the OS store never moves the key to another store.
  *
  * @since 0.1
  */
@@ -216,6 +218,9 @@ public final class CredentialStoreChoice {
     private final Keyrings keyrings;
     private final FileSecretStore fileStore;
 
+    /** The store of the integrity key before the choice, found at the first call and then kept; empty until then. */
+    private final AtomicReference<SecretStore> keyStoreBeforeChoice = new AtomicReference<>();
+
     /**
      * @param base        the base directory of the runtime
      * @param service     the service name of the instance ({@link ServiceName})
@@ -322,7 +327,9 @@ public final class CredentialStoreChoice {
     /**
      * Gives the store the enrolment integrity key lives in: the active store once a store is recorded; before that
      * the OS store where one is available, else the file store, for which the key is the key file below
-     * {@code state/}.
+     * {@code state/}. The store before the choice is found once, at the first call, and kept for the lifetime of this
+     * instance: a later probe never moves the key from the OS store to the key file or back, so a transient outage of
+     * the OS store fails an operation on the key instead of creating a second key in the other store.
      *
      * @return the store of the integrity key
      * @throws de.planmarshall.core.store.StoreRefusal if the machine configuration cannot be read as its format
@@ -331,7 +338,7 @@ public final class CredentialStoreChoice {
         if (recorded().isPresent()) {
             return activeStore();
         }
-        return osStore().orElse(fileStore);
+        return keyStoreBeforeChoice.updateAndGet(found -> found != null ? found : osStore().orElse(fileStore));
     }
 
     /** @return the name of the OS store of this platform */
@@ -342,7 +349,7 @@ public final class CredentialStoreChoice {
     /**
      * Probes the OS store of the platform.
      *
-     * @return the OS store, or empty with the reason logged if it is unavailable now
+     * @return the OS store, or empty if it is unavailable now
      */
     Optional<SecretStore> osStore() {
         return osStoreOrReason().store();

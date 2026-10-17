@@ -495,6 +495,67 @@ class CredentialStoreChoiceTest {
 
             assertEquals(SecretStore.FILE, choice.integrityKeyStore().name());
         }
+
+        /** @return a Linux choice whose Secret Service answers while {@code available} holds */
+        private CredentialStoreChoice flipping(boolean[] available) {
+            return new CredentialStoreChoice(base, SERVICE, MachinePaths.Os.LINUX,
+                    Map.of("DBUS_SESSION_BUS_ADDRESS", BUS), new CredentialStoreChoice.Keyrings() {
+
+                        @Override
+                        public SecretStore keychain(String service) {
+                            return keychain;
+                        }
+
+                        @Override
+                        public Optional<SecretStore> secretService(Path socket, String service) {
+                            probes.add("secret-service");
+                            return available[0] ? Optional.of(secretService) : Optional.empty();
+                        }
+                    });
+        }
+
+        @Test
+        @DisplayName("before the choice an OS store found once stays the store when it is unavailable later")
+        void osStaysAfterOutage() {
+            var available = new boolean[]{true};
+            var choice = flipping(available);
+            var first = choice.integrityKeyStore();
+
+            available[0] = false;
+            var later = choice.integrityKeyStore();
+
+            assertAll(
+                    () -> assertSame(secretService, first),
+                    () -> assertSame(first, later),
+                    () -> assertEquals(1, probes.size()));
+        }
+
+        @Test
+        @DisplayName("before the choice the file store found once stays the store when an OS store answers later")
+        void fileStaysWhenOsAnswersLater() {
+            var available = new boolean[]{false};
+            var choice = flipping(available);
+            var first = choice.integrityKeyStore();
+
+            available[0] = true;
+            var later = choice.integrityKeyStore();
+
+            assertAll(
+                    () -> assertEquals(SecretStore.FILE, first.name()),
+                    () -> assertSame(first, later));
+        }
+
+        @Test
+        @DisplayName("once a store is recorded the recorded store answers, whatever was found before the choice")
+        void recordedAnswersAfterTheFoundStore() {
+            var available = new boolean[]{true};
+            var choice = flipping(available);
+            choice.integrityKeyStore();
+
+            choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+
+            assertEquals(SecretStore.FILE, choice.integrityKeyStore().name());
+        }
     }
 
     @Test
