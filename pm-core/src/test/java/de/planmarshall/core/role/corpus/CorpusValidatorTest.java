@@ -46,6 +46,7 @@ import de.planmarshall.core.role.corpus.ImportedItem.GradingMethod;
 import de.planmarshall.core.role.corpus.ImportedItem.Review;
 import de.planmarshall.core.role.corpus.ImportedItem.ReviewStatus;
 import de.planmarshall.core.role.corpus.ImportedItem.Target;
+import de.planmarshall.core.role.corpus.JsonValue.JsonObject;
 import de.planmarshall.core.role.corpus.SourceManifest.FetchKind;
 import de.planmarshall.core.role.corpus.SourceManifest.SourceFile;
 import de.planmarshall.core.role.corpus.SourceOverlay.Row;
@@ -104,6 +105,8 @@ class CorpusValidatorTest {
               "contamination":{"type":"string"},
               "canary":{"type":"string"}}}
             """;
+
+    private static final List<String> ITEM_MEMBERS = itemMembers();
 
     @TempDir
     Path base;
@@ -226,16 +229,41 @@ class CorpusValidatorTest {
         return item;
     }
 
-    /** Puts the members in the order of the item format. */
+    /** @return the members of an item in the order of the item format: the properties of the imported item schema */
+    private static List<String> itemMembers() {
+        var schema = (JsonObject) JsonValue.parse(
+                CorpusSchemaResourcesTest.resource("imported-item.schema.json").getBytes(UTF_8));
+        return List.copyOf(((JsonObject) schema.get("properties").orElseThrow()).members().keySet());
+    }
+
+    /**
+     * Puts the members in the order of the item format; a member the item schema does not list is kept after them, so
+     * the validator sees it and can refuse it.
+     */
     private static Map<String, Object> reorder(Map<String, Object> item) {
         var ordered = new LinkedHashMap<String, Object>();
-        for (var key : List.of("schema_version", "id", "topic", "role", "title", "tags", "group", "input", "target",
-                "grading", "provenance", "review", "contamination", "canary")) {
+        for (var key : ITEM_MEMBERS) {
             if (item.containsKey(key)) {
                 ordered.put(key, item.get(key));
             }
         }
+        item.forEach(ordered::putIfAbsent);
         return ordered;
+    }
+
+    @Test
+    @DisplayName("the fixture order follows the item schema and keeps a member the schema does not list, after the rest")
+    void reorderKeepsUnlistedMembers() {
+        var item = new LinkedHashMap<String, Object>();
+        item.put("unlisted", "kept");
+        item.put("canary", ItemGenerator.CANARY);
+        item.put("id", ITEM_A);
+
+        var ordered = reorder(item);
+
+        assertAll(
+                () -> assertEquals(List.of("id", "canary", "unlisted"), List.copyOf(ordered.keySet())),
+                () -> assertEquals("kept", ordered.get("unlisted")));
     }
 
     private static Map<String, Object> map(Object... members) {
