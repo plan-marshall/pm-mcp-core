@@ -299,8 +299,8 @@ public final class CredentialStoreMove {
         if (!recorded.equals(Optional.of(switched.to()))) {
             throw new IllegalStateException(("The record %s is in phase '%s' but credentials.store names %s, not '%s'; "
                     + "nothing was deleted from '%s' or '%s' and the record is kept").formatted(recordFile.store(),
-                            Phase.SWITCHED.value(), recorded.map(store -> "'" + store.value() + "'").orElse("no store"),
-                            switched.to().value(), switched.from().value(), switched.to().value()));
+                    Phase.SWITCHED.value(), recorded.map(store -> "'" + store.value() + "'").orElse("no store"),
+                    switched.to().value(), switched.from().value(), switched.to().value()));
         }
     }
 
@@ -374,7 +374,7 @@ public final class CredentialStoreMove {
             outcome = removed
                     ? "the copies were removed from '%s' and '%s' stays recorded".formatted(to, from)
                     : ("the copies could not all be removed from '%s' and '%s' stays recorded; the record is kept, so "
-                            + "the next start removes them and moves again").formatted(to, from);
+                    + "the next start removes them and moves again").formatted(to, from);
         } else if (recorded.isPresent()) {
             keepRecord = false;
             outcome = "'%s' is recorded, so the copies stay in '%s', '%s' keeps every entry and the record is deleted"

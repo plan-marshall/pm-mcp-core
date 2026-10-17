@@ -519,7 +519,7 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
                     () -> assertTrue(failure.getMessage().contains(
-                            "the recorded store cannot be read, so the copies stay in 'os'; the record is kept"),
+                                    "the recorded store cannot be read, so the copies stay in 'os'; the record is kept"),
                             failure.getMessage()),
                     () -> assertFalse(failure.getMessage().contains("unknown"), failure.getMessage()),
                     () -> assertNoSecretIn(failure),

@@ -279,7 +279,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("the write of the move holds the credentials and the machine configuration lock and logs the store")
-        void lockedAndLogged() throws IOException {
+        void lockedAndLogged() throws Exception {
             openMove();
 
             linux(true).record(transaction, Store.FILE, Writer.STORE_MOVE);
@@ -569,7 +569,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("a switch of the recorded store takes effect for the next store given")
-        void switchTakesEffect() throws IOException {
+        void switchTakesEffect() throws Exception {
             var choice = linux(true);
             choice.record(locks, USER, Store.FILE);
             var before = choice.activeStore().name();
