@@ -78,8 +78,18 @@
         "default:finalize-step-simplify": {
           "lane": "off"
         },
-        "default:functional-review": {},
-        "default:code-review": {},
+        "default:finalize-step-security-audit": {
+          "lane": "full"
+        },
+        "default:functional-review": {
+          "lane": "standard"
+        },
+        "default:code-review": {
+          "lane": "standard"
+        },
+        "default:architecture-refresh": {
+          "lane": "minimal"
+        },
         "default:pre-push-quality-gate": {
           "lane": "minimal"
         },
@@ -127,10 +137,17 @@
         "default:lessons-capture": {
           "lane": "full"
         },
+        "default:finalize-step-preference-emitter": {
+          "preference_min_recurrence": 2,
+          "lane": "minimal"
+        },
         "plan-marshall:plan-retrospective": {
           "lane": "off"
         },
         "default:record-metrics": {
+          "lane": "minimal"
+        },
+        "default:finalize-step-print-phase-breakdown": {
           "lane": "minimal"
         },
         "default:emit-landing": {
@@ -288,7 +305,7 @@
       "plugin_cache_keep_versions": 5,
       "plugin_cache_keep_days": 3
     },
-    "provisioned_version": "0.1.1916",
+    "provisioned_version": "0.1.1938",
     "config_seed_fingerprint": "a2efc4ac"
   }
 }
