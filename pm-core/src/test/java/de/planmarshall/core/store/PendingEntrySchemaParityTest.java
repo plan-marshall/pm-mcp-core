@@ -34,7 +34,7 @@ import de.planmarshall.core.store.PendingEntryRecord.Kind;
  * below {@value SpecificationDocument#ROOT_PROPERTY}.
  */
 @Disabled("the specification gives the entry the directory form; "
-        + "re-enabled by the work package start-from-clients")
+        + "re-enabled by the work package start-source-intake")
 @DisplayName("Pending entry record schema parity")
 class PendingEntrySchemaParityTest {
 

@@ -116,7 +116,7 @@ When a composed version comes into force, server events for the rest of their ch
 * *Lane-route pruning is not implemented.* The specification says the `outline` event prunes the other lane; this package prunes no lane route, and a `deep` instance keeps the `light` route.
 The lane is recorded in the header.
 Pruning the light route leaves outcomes unrouted at `init.light-gate` and `outline.route-rework`, which Rule 2 refuses, and removes transitions `INV-INIT-2` requires; plain reachability prunes nothing because the shared lane-reading routers reach both lanes.
-The work package link:../../../doc/plans/lane-route-pruning.adoc[`lane-route-pruning`] takes this up; the decision is link:../adr/workflow-plan/011-lane-route-pruning-deferred.adoc[ADR 011].
+The work package link:../../../doc/plans/plan-instance-alignment.adoc[`plan-instance-alignment`] takes this up; the decision is link:../adr/workflow-plan/011-lane-route-pruning-deferred.adoc[ADR 011].
 * *Rules 13 and 14* (role and skill resolution) are left to the packages that own the role sets and the skill catalogue (link:../adr/workflow-plan/007-rules-13-and-14-left-to-their-packages.adoc[ADR 007]).
 * *The provider rule reads `integrations.sonar` only*, the one shipped analysis adapter; a second adapter needs a derived fact or a conjunction in the rule language first (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
 * *`diff_summary`* of the composition log is not computed; the store never writes it.

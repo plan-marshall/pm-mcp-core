@@ -119,7 +119,7 @@ class AuditSchemaParityTest {
         }
 
         @Disabled("the specification dropped the category identity and added the scope entry; "
-                + "re-enabled by the work package start-from-clients")
+                + "re-enabled by the work package start-source-intake")
         @Test
         @DisplayName("category, outcome and scope type have the values of the schema's enums")
         void enums() {

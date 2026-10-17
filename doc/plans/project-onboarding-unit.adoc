@@ -4,7 +4,7 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `project-onboarding-unit`
 
 [horizontal]
-Serves:: roadmap Milestone 7 (the onboarding of a project as one process); link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[Use Cases, UC-PRJ-1], link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-2[UC-PRJ-2] (UC-PRJ-3, the release, is link:plan-and-epic-control.adoc[`plan-and-epic-control`]'s); the onboarding of a project in both clients of `pm-mcp-clients`
+Serves:: roadmap Milestone 7 (the onboarding of a project as one process); link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[Use Cases, UC-PRJ-1], link:../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-2[UC-PRJ-2] (UC-PRJ-3, the release, is link:epic-resource-and-release.adoc[`epic-resource-and-release`]'s); the onboarding of a project in both clients of `pm-mcp-clients`
 Where:: pm-workflow (the unit in its own scope per project, the setup's choices as operator waits); pm-core (detection, enrolment writes, the project's values over the machine's); pm-runtime (the onboarding's entry endpoint, the projects of the machine: the list of every project, favourites, recent, most used)
 Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
