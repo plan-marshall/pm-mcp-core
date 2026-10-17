@@ -225,7 +225,7 @@ Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.
 === PM-WATCH-DISP-61: A dead runtime leaves the login copies of its workers behind
 
 Anchor:: link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-data-home[Job Runtime § Per-Worker Data Home],
-link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_per_project_recovery[Runtime Model § Per-Project Recovery]
+link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_per_project_recovery[Runtime Lifecycle § Per-Project Recovery]
 Hazard:: The copy of a harness's login file in a worker's data directory is removed when the worker's job settles,
 by the runtime that launched it. A runtime that is killed while workers run removes nothing: the copies of its
 live workers stay on disk, a credential of the operator in a place the operator does not know, until something

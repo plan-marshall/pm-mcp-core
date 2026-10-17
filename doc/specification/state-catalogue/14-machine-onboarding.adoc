@@ -92,7 +92,7 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |`machine`
 |`operator_wait`
 |`onboard.completed` (`settings`); every aspect call state (`stepped_out`) and `onboard.next` (`settings`); `settings.withdraw` (`keep`), `settings.remove-consent`, `settings.record`, `settings.verify-providers`.
-|`facts`: what the machine recorded per aspect, the remembered consents, the documents mode, the cleanup's durations, the credentials with their status (an expired one, and the plans it holds), and the paired devices. Links: `reconfigure:<aspect>`; `withdraw:<consent>`; `documents_mode`; `cleanup_durations`; `credential:<key>`; `verify_providers` (check the providers again on request, link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]); `done`. The paired devices are acted on through their own endpoints (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]).
+|`facts`: what the machine recorded per aspect, the remembered consents, the documents mode, the cleanup's durations, the credentials with their status (an expired one, and the plans it holds), and the paired devices. Links: `reconfigure:<aspect>`; `withdraw:<consent>`; `documents_mode`; `cleanup_durations`; `credential:<key>`; `verify_providers` (check the providers again on request, link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment Specification, Provider Verification]); `done`. The paired devices are acted on through their own endpoints (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#devices[CLI, Coordination & Security Specification, Devices in Both Clients]).
 |`reconfigure` -> the aspect's call state (`onboard_run: reconfigure`); `withdraw` -> `settings.withdraw`; `documents_mode` -> `settings.documents-mode`; `cleanup_durations` -> `settings.cleanup-durations`; `credential` -> `settings.credential`; `verify_providers` -> `settings.verify-providers`; `done` -> `onboard.completed`.
 |link:../../../../plan-marshall-documentation/doc/use-cases/01-onboarding.adoc#UC-ONB-10[UC-ONB-10]
 
@@ -150,7 +150,7 @@ States of `onboarding.pmwf`, reached from `onboard.completed` once the onboardin
 |`settings.credential`.
 |Writes the secret into the recorded credential store and drops every token derived from the old secret; refused with `credential_store_unavailable` while the recorded store is not available.
 |`stored` -> `settings.verify-providers`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-settings.verify-providers]]`settings.verify-providers`
 |`machine`

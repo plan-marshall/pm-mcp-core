@@ -17,7 +17,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository, or of `plan-marshall-documentation` where a link leads there. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8]
-* Specification: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model § Stalled Plans]; link:../specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts § Stalled Threshold]
+* Specification: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle § Stalled Plans]; link:../specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts § Stalled Threshold]
 * Watch: link:../../../plan-marshall-documentation/doc/implementation-watch/runtime-model.adoc[Runtime Model]
 
 == Done When

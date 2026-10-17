@@ -279,9 +279,9 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 |`600` from the release's confirmation, while a short landing of the project (`git.land-removal`, `git.land-unit`) runs.
 |fixed (compiled constant)
 |—
-|the release of a project (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI & Security, Releasing Ends Work as the Operator Ends It])
+|the release of a project (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment, Releasing Ends Work as the Operator Ends It])
 |The release is refused (`release_landing_pending`) and ends nothing; the landing runs on.
-|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI & Security, Releasing Ends Work as the Operator Ends It]
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment, Releasing Ends Work as the Operator Ends It]
 
 |[[host-cancellation]]Host cancellation of a wait
 |Immediate: a harness's `notifications/cancelled` ends the pending call only; the relay ignores a cancel of an already answered request (link:../../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime Model], relay).

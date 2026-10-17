@@ -12,7 +12,7 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 == Project Onboarding: `project`
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-8[PM-EXT-8: Project Onboarding as One Process]_
 
-Declared in `project-onboarding.pmwf` (compiled only, never designable), the one process from a checkout to a project in which plans and epics run (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]; link:../../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[UC-PRJ-1]). It runs in a scope of its own per project being onboarded, so that several projects are onboarded at once and the machine scope is never touched: an entry from `POST /api/v1/project-onboardings` (body: the checkout path), addressed at the top level as `/api/v1/entries/{entry_id}` with its events, until `project.enrol`, which moves it into the new project's workspace scope, whose resident unit it then is: it has no terminal state there and rests in `project.completed`, from which every later run of the project starts. It starts only while the machine's onboarding is complete (otherwise the request is refused with `machine_not_onboarded`). Its choices are operator waits served to both clients, the first act winning; no coding-agent session drives it. The project's operator values are proposed from the machine's: accepting a proposal records nothing for the project, which keeps following the machine, and only a changed value is recorded (link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]); a change carries the revision it was made against and is refused with `conflict` against a newer one. After the enrolment it runs the project setup as its sub-workflow (xref:06-setup-epic-other.adoc#state-catalogue-setup[Project Setup]) in the order of the use case: the setup's first states up to `setup.check-operator-files`, then the project's operator values (`project.operator`), then the rest of the setup from `setup.probe-integration-variants`. `pm-operator enrol` stays the direct verb: a run of `project.identity` to `project.enrol` with its arguments as the answers; a project enrolled that way continues at `project.setup`, its first run. The release of the project ends a running onboarding where it stands: the workspace scope returns to `project.completed`, and the next run starts afresh (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[CLI, Coordination & Security Specification, Releasing Ends Work as the Operator Ends It]).
+Declared in `project-onboarding.pmwf` (compiled only, never designable), the one process from a checkout to a project in which plans and epics run (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]; link:../../../../plan-marshall-documentation/doc/use-cases/04-projects.adoc#UC-PRJ-1[UC-PRJ-1]). It runs in a scope of its own per project being onboarded, so that several projects are onboarded at once and the machine scope is never touched: an entry from `POST /api/v1/project-onboardings` (body: the checkout path), addressed at the top level as `/api/v1/entries/{entry_id}` with its events, until `project.enrol`, which moves it into the new project's workspace scope, whose resident unit it then is: it has no terminal state there and rests in `project.completed`, from which every later run of the project starts. It starts only while the machine's onboarding is complete (otherwise the request is refused with `machine_not_onboarded`). Its choices are operator waits served to both clients, the first act winning; no coding-agent session drives it. The project's operator values are proposed from the machine's: accepting a proposal records nothing for the project, which keeps following the machine, and only a changed value is recorded (link:../store-schemas/08-project-configuration-local.adoc#project-levels[Store Schemas Specification, Project Values over Machine Values]); a change carries the revision it was made against and is refused with `conflict` against a newer one. After the enrolment it runs the project setup as its sub-workflow (xref:06-setup-epic-other.adoc#state-catalogue-setup[Project Setup]) in the order of the use case: the setup's first states up to `setup.check-operator-files`, then the project's operator values (`project.operator`), then the rest of the setup from `setup.probe-integration-variants`. `pm-operator enrol` stays the direct verb: a run of `project.identity` to `project.enrol` with its arguments as the answers; a project enrolled that way continues at `project.setup`, its first run. The release of the project ends a running onboarding where it stands: the workspace scope returns to `project.completed`, and the next run starts afresh (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment Specification, Releasing Ends Work as the Operator Ends It]).
 
 [cols="2,1,1,2,3,2,2"]
 |===
@@ -24,7 +24,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |The entry's creation (the unit's start state).
 |The checkout of the repository: a path, proposed from the request (a client started in a checkout proposes it). `set`, `abandon`.
 |`set` -> `project.consent`; `abandon` -> `project.abandoned`.
-|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]
 
 |[[state-project.consent]]`project.consent`
 |— (`entry`)
@@ -40,7 +40,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |`project.consent`.
 |Detection, a check line for each: the remote and its owner and name, the base branch, the build wrappers with their pinned files (a wrapper's version read from its pinned properties), the host tools the project uses (only those found on the operator's `PATH` run their version probe, as confined jobs), the language servers, the project scripts. The login environment is the one the terminal client sent.
 |`detected` -> `project.identity`; `scripts_needed` (something of the checkout must run to be known) -> `project.run-consent`.
-|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]
 
 |[[state-project.run-consent]]`project.run-consent`
 |— (`entry`)
@@ -64,7 +64,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |`project.detect` (`detected`), `project.run-consent` (`no`), `project.probe`; `project.enrolment` (`back`).
 |The project's id, proposed from the remote's name, valid by the identifier grammar and unique on the machine; its display name, proposed from the remote's owner and name; while the release keeps the plan lifecycle closed (the lifecycle gate), whether the project is a pilot and what that means. `set`, `abandon`.
 |`set` -> `project.enrolment`; `abandon` -> `project.abandoned`.
-|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]
 
 |[[state-project.enrolment]]`project.enrolment`
 |— (`entry`)
@@ -80,7 +80,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |`project.enrolment` (`enrol`); `pm-operator enrol` (its arguments the answers).
 |Writes the enrolment and the project's machine store (`store.json` with the project's `display_name`), writes the remembered consents under the project's `project_id`, and moves the onboarding from its entry into the project's new workspace scope. A project enrolled again from the same checkout finds its store and archive again; from another checkout it is refused (`project_store_root_mismatch`).
 |`enrolled` -> `project.setup` (`first_run`); `refused{reason}` -> `project.enrolment`.
-|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[CLI, Coordination & Security Specification, Enrolment, Lifecycle Gate & Release]
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#enrolment-lifecycle-release[Credentials & Enrolment Specification, Enrolment, Lifecycle Gate & Release]
 
 |[[state-project.operator]]`project.operator`
 |`workspace`
@@ -120,5 +120,5 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |The `abandon` links of the waits before the enrolment.
 |`links: []`. Declared `terminal abandoned failure`; the entry is deleted, nothing is enrolled, and nothing is remembered.
 |—
-|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security Specification, Onboarding a Project as One Process]
+|link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]
 |===

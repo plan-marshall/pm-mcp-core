@@ -119,7 +119,7 @@ Declared in `worker-task.pmwf` (`scope subworkflow`, compiled only, start `task.
 |inherit
 |`composite_job`
 |`task.queued` (`queued`).
-|`task.await-offer`: a `pm_wait` of a worker of the role; the offer leases the task to the worker's generation. While the plan is paused or pausing, no new task of it is offered (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime & Interaction Model Specification, Pausing and Starting a Plan]).
+|`task.await-offer`: a `pm_wait` of a worker of the role; the offer leases the task to the worker's generation. While the plan is paused or pausing, no new task of it is offered (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#plan-pause[Runtime Lifecycle Specification, Pausing and Starting a Plan]).
 |`offered` -> `task.offered`; `released` (the role's workers were stopped by the start-failure guard) -> `task.queued`; `cancelled` -> `task.lost`.
 |link:../model-work/02-task-protocol.adoc[Model Work Specification, Task Protocol]
 

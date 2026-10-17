@@ -21,6 +21,8 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-4[PM-ARCH-4: Stateless Requests & Explicit Scope Addressing]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-5[PM-ARCH-5: Worktree-Bound Plan Execution & Main-Bound Epic Location]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-6[PM-ARCH-6: Filesystem State Persistence & Cache-Only Process Memory]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-1[PM-MIG-1: Six-Stage Build-Out & Per-Project Plan Lifecycle]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-4[PM-MIG-4: Stage Exit Criteria & Lifecycle Gate]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-1[PM-CRED-1: Dual-Lane Credential Separation (System vs Token Lane)]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-2[PM-CRED-2: Operator-Chosen Credential Store & Native Access]_

@@ -1,4 +1,4 @@
-= Client Profiles & Bundle Manifest Specification: Client Profile Schema
+= Client Profiles Specification: Client Profile Schema
 :toc: left
 :toclevels: 3
 :toc-title: Table of Contents
@@ -6,7 +6,7 @@
 :source-highlighter: highlight.js
 :nofooter:
 
-link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles & Bundle Manifest Specification] » Client Profile Schema
+link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles Specification] » Client Profile Schema
 
 == Normative Client Profile JSON Schema
 _Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-8[PM-WATCH-CLIENT-8]_
@@ -139,7 +139,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
         },
         "skills_extension": {
           "type": "boolean",
-          "description": "true once the host's support of the MCP Skills Extension (io.modelcontextprotocol/skills) is verified; the bundle of such a host installs no shim skill (03-bundle-manifest.adoc, Shim Skill)."
+          "description": "true once the host's support of the MCP Skills Extension (io.modelcontextprotocol/skills) is verified; the bundle of such a host installs no shim skill (host-integration/02-bundle-manifest.adoc, Shim Skill)."
         }
       },
       "required": ["mode", "load_directive_template", "schema_residency", "skills_extension"],

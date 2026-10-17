@@ -249,7 +249,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |link:../client-profiles.adoc[Client Profiles]; the `harness` of a role artifact link:../model-work/01-roles-and-configuration.adoc[Model Work]; the harness enrolment store and the job record's `worker.harness` link:../store-schemas.adoc[Store Schemas]
 
 |[[id-credential-key]]`credential_key`
-|`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`, 3–64: `github`, `gitlab`, `forgejo` (with the forge's host recorded on the entry, link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure, Codeberg and Forgejo]), or `git-https` for the agent credentials of the native git and provider integrations (link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[CLI & Security, Agent Credentials]); `mcp-<server_id>` for an upstream MCP server; otherwise the key the project configuration names for the integration in its `credential_key` (for example `sonar`, link:../store-schemas/07-project-configuration.adoc[Store Schemas, Project Configuration]). There is no key for a harness: `PM-MCP` stores no harness authentication.
+|`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`, 3–64: `github`, `gitlab`, `forgejo` (with the forge's host recorded on the entry, link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure, Codeberg and Forgejo]), or `git-https` for the agent credentials of the native git and provider integrations (link:../credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment, Agent Credentials]); `mcp-<server_id>` for an upstream MCP server; otherwise the key the project configuration names for the integration in its `credential_key` (for example `sonar`, link:../store-schemas/07-project-configuration.adoc[Store Schemas, Project Configuration]). There is no key for a harness: `PM-MCP` stores no harness authentication.
 |operator
 |Machine (global entry) or project (override `<project_id>/<credential_key>`)
 |Immutable
@@ -330,7 +330,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |build
 |—
 |Immutable per release
-|`bundle_version` (install records, bundle manifest), `min_daemon_version` (client profile) link:../client-profiles.adoc[Client Profiles]; the runtime's version, the newest version known, and an upgrade's versions in the runtime status link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Model, The Runtime's Lifecycle]
+|`bundle_version` (install records, bundle manifest), `min_daemon_version` (client profile) link:../client-profiles.adoc[Client Profiles]; the runtime's version, the newest version known, and an upgrade's versions in the runtime status link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]
 |===
 
 [#registry-local-access]

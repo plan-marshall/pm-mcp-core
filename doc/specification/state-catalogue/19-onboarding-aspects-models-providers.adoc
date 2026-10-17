@@ -143,7 +143,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`onboard.credential-store` (entry state); `store.unavailable` (`recheck`).
 |Which stores the machine offers now: macOS Keychain, Linux Secret Service (session bus reachable, collection unlocked), files.
 |`detected` -> `store.choose`; `move_interrupted` (a move an earlier run began is not complete) -> `store.confirm-move`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.choose]]`store.choose`
 |`machine`
@@ -151,7 +151,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`store.detect`; `store.unavailable` (`choose_another`).
 |Each offered store with what protects a secret in it and what does not; the recommendation preselected (the OS store where one is available, else files). `choose`.
 |`os` -> `store.consent`; `os_unavailable` (an OS store not available now) -> `store.unavailable`; `file` -> `store.check` (no consent: the file store lies in the machine's own directory).
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.unavailable]]`store.unavailable`
 |`machine`
@@ -159,7 +159,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`store.choose` (`os_unavailable`); `store.check` (`failed`); `store.move` (`failed`, the old store kept).
 |Names why (a locked collection, no session bus over SSH) and the fix. `recheck`, `choose_another`.
 |`recheck` -> `store.detect`; `choose_another` -> `store.choose`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.consent]]`store.consent`
 |`machine`
@@ -175,7 +175,7 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`store.consent`, `store.choose` (`file`).
 |Writes, reads, and deletes a test entry; each step a line ending in ✓ or ✗ with its cause.
 |`passed` with no store recorded -> `store.record`; `passed` with another store recorded -> `store.confirm-move`; `failed` -> `store.unavailable`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.confirm-move]]`store.confirm-move`
 |`machine`
@@ -183,15 +183,15 @@ Run for the machine from `onboard.assign-roles`, and for a project from its onbo
 |`store.check` (`passed`, another store recorded); `store.detect` (`move_interrupted`).
 |The count of the entries to move from the recorded store to the new one. `move`, `back`.
 |`move` -> `store.move`; `back` -> `store.choose`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.move]]`store.move`
 |`machine`
 |`auto`
 |`store.confirm-move` (`move`).
-|Moves the store as link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[CLI, Coordination & Security Specification, The move] states: copies every entry into the new store and reads each back, copies the enrolment integrity key last and verifies the HMAC sidecars under it, switches `credentials.store`, and only then deletes the entries from the old store; an interrupted move is resumed by the next run from its record, so a secret is never in neither store and, once the move completes, in one only. A failed copy or read-back stops the move: the copies are deleted from the new store, the old store stays the recorded one, and the failure is reported with its cause (`credential_store_failed`).
+|Moves the store as link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment Specification, The move] states: copies every entry into the new store and reads each back, copies the enrolment integrity key last and verifies the HMAC sidecars under it, switches `credentials.store`, and only then deletes the entries from the old store; an interrupted move is resumed by the next run from its record, so a secret is never in neither store and, once the move completes, in one only. A failed copy or read-back stops the move: the copies are deleted from the new store, the old store stays the recorded one, and the failure is reported with its cause (`credential_store_failed`).
 |`moved` -> `store.record`; `failed` -> `store.unavailable`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[CLI, Coordination & Security Specification, Credential Store as an Operator Choice]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment Specification, Credential Store as an Operator Choice]
 
 |[[state-store.record]]`store.record`
 |`machine`
@@ -257,7 +257,7 @@ Entries: `start` (`onboard.providers`) and `verify` (`settings.verify-providers`
 |`providers.verify-consent`; `providers.failed` (`check_again`).
 |Every selected provider, one line per check, each ending in ✓ or ✗ with its cause: the origin reachable; the credential authenticates (`ci.whoami`) and as whom; its permissions and expiry; for the CLI variant the tool's version and that it is logged in as the same identity. Checks that need a repository stay in the project setup.
 |`all_passed` -> `providers.record`; `failed` -> `providers.failed`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment Specification, Provider Verification]
 
 |[[state-providers.failed]]`providers.failed`
 |`machine`
@@ -265,7 +265,7 @@ Entries: `start` (`onboard.providers`) and `verify` (`settings.verify-providers`
 |`providers.verify` (`failed`).
 |The failed checks with the provider's answer and the fix. `fix_credential`, `check_again`, `continue_without` (the provider recorded as not available; it never serves a project in that state).
 |`fix_credential` -> `providers.credentials`; `check_again` -> `providers.verify`; `continue_without` -> `providers.record`.
-|link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[CLI, Coordination & Security Specification, Provider Verification]
+|link:../credentials-and-enrolment/01-provider-credentials.adoc#provider-verification[Credentials & Enrolment Specification, Provider Verification]
 
 |[[state-providers.record]]`providers.record`
 |`machine`

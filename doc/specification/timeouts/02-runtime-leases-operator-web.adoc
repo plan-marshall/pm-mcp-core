@@ -20,7 +20,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |fixed
 |—
 |every `pm-operator` command that starts the runtime on demand, which holds `locks/runtime-start.lock` until its authenticated round trip succeeds or this timeout expires; `pm-operator status` waiting for a live runtime's answer; a worker's relay waiting for the socket to accept connections; an exiting runtime waiting for the successor it started after a restart or an upgrade
-|The command fails with a diagnostic naming `logs/daemon.log`; `pm-operator status` reports "not responding"; the relay answers pending requests with the JSON-RPC error `runtime_unavailable` and retries on the next request; after an upgrade the exiting runtime terminates the successor, switches the links back, and starts the previous version (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Model, The Runtime's Lifecycle]).
+|The command fails with a diagnostic naming `logs/daemon.log`; `pm-operator status` reports "not responding"; the relay answers pending requests with the JSON-RPC error `runtime_unavailable` and retries on the next request; after an upgrade the exiting runtime terminates the successor, switches the links back, and starts the previous version (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]).
 |link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#_start_modes[Runtime Model, Start Modes]; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/04-sessions-and-workers.adoc#_failure_semantics[Runtime Model, Failure Semantics]
 
 |[[runtime-http-idle-timeout]]Runtime HTTP idle timeout
@@ -37,7 +37,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |every MCP call addressing a project (by the scope of the worker's leased task) after a runtime start, and every Local API request addressing a project
 |The call returns the retryable error `runtime_recovering` (`isError: true`; a Local API request: the same code of the `pm-api` error codes); the recovery continues, and a repeated call is served once it has finished. Nothing of the call is executed.
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Model, Per-Project Recovery]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (closed error codes); link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime Model, Local API]; implemented: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/ProjectRecovery.java[ProjectRecovery] (`RECOVERY_WAIT`), link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#per-project-recovery[Concepts § Per-Project Recovery]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Lifecycle, Per-Project Recovery]; link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools] (closed error codes); link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime Model, Local API]; implemented: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/ProjectRecovery.java[ProjectRecovery] (`RECOVERY_WAIT`), link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#per-project-recovery[Concepts § Per-Project Recovery]
 
 |[[drain-timeout]]Drain timeout
 |`600`
@@ -45,22 +45,22 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |minimum `0` (`0` terminates running jobs at once), maximum `3153600000` (100 years of 365 days, so the deadline of the drain can always be represented); a negative, non-integer or larger value, and a `machine-config.json` that cannot be read or does not parse as one JSON object, is invalid: the default `600` applies and a warning names the file and the reason; the start and the drain never fail for it
 |running jobs at `SIGTERM`/`SIGINT` / `pm-operator drain` and at the operator's stop with `when: drain`, for which a stop with `when: now` cuts it to `0`; the wait of `pm-operator drain` for the runtime's exit
 |Remaining job groups are terminated (xref:01-job-budgets-and-waits.adoc#grace-period[Grace period]) and recorded `killed`, their build and model slots released, their job tokens revoked, the generations of workers fenced and their task leases released (the tasks stay `queued` for the next start), and `queued` jobs recorded `killed`; at the start of the drain no task is offered any more and every waiting worker is answered `end`, so only workers holding a task run into the drain timeout; warm language servers are shut down; merge-queue and review-bot leases are left in place and handled at the next start like those of a crash (<<leases>>); the runtime exits. `pm-operator drain` waits for the exit up to the drain timeout plus the xref:01-job-budgets-and-waits.adoc#grace-period[Grace period] plus a fixed `10`, then reports that the runtime is still draining.
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Model, The Runtime's Lifecycle]; implemented on the runtime side: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/DrainTimeout.java[DrainTimeout], link:../../../../plan-marshall-documentation/doc/user/operator.adoc#drain-timeout-seconds[User Guide § drain_timeout_seconds]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]; implemented on the runtime side: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/DrainTimeout.java[DrainTimeout], link:../../../../plan-marshall-documentation/doc/user/operator.adoc#drain-timeout-seconds[User Guide § drain_timeout_seconds]
 
 |[[stalled-threshold]]Stalled threshold
-|`600` since the last transition or task progress of a non-terminal scope that is neither paused nor in an operator wait, has no pending condition, and awaits no event (the definition: link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model, Stalled Plans]).
+|`600` since the last transition or task progress of a non-terminal scope that is neither paused nor in an operator wait, has no pending condition, and awaits no event (the definition: link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle, Stalled Plans]).
 |fixed (compiled constant; the `plan_stalled` record feeds metrics, which must stay comparable across machines)
 |—
 |plans and epics
 |The scope is shown as the hold `stalled` in both clients of the operator, and one `plan_stalled` audit record is appended per episode; nothing changes in a model-facing representation.
-|link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model, Stalled Plans]
+|link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle, Stalled Plans]
 
 |[[pending-entry-max-age]]Pending entry
 |No maximum age: a pending entry of a start or a project onboarding never expires and is never discarded by time; it stays among the project's open entries until it is started or abandoned, or deleted with the release of its project.
 |—
 |—
 |`<PM_MCP_BASE>/projects/<project_id>/pending/<entry_id>/`
-|Nothing expires; the periodic sweep removes only the directory of an entry already started or abandoned whose removal a stop cut off (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model, Periodic Sweep]).
+|Nothing expires; the periodic sweep removes only the directory of an entry already started or abandoned whose removal a stop cut off (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]).
 |link:../state-catalogue/09-bootstrap-and-lessons.adoc#start-from-clients[State Catalogue, Starting from the Clients]
 
 |[[periodic-sweep-interval]]Periodic runtime sweep interval
@@ -68,8 +68,8 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |fixed (compiled constant)
 |—
 |the removal of technical residue, the measurement of the machine store's disk use, and the cleanup's check (its first pass after the start and the first of each new UTC day)
-|Each run removes the residue whose retention passed, one audit record each, under the evidence rules of the removal sweeps, records the disk use, and runs the cleanup's check where it is due (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model, Periodic Sweep]).
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model, Periodic Sweep]; implemented: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep] (`INTERVAL`), link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#periodic-sweep[Concepts § Periodic Sweep]
+|Each run removes the residue whose retention passed, one audit record each, under the evidence rules of the removal sweeps, records the disk use, and runs the cleanup's check where it is due (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]).
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle, Periodic Sweep]; implemented: link:../../../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep] (`INTERVAL`), link:../../../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#periodic-sweep[Concepts § Periodic Sweep]
 
 |[[event-buffer]]Event buffer
 |The last `1000` events of each event stream are held for a reconnecting client.
@@ -85,15 +85,15 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |the runtime-wide stream and the plan and epic streams
 |—
-|link:../runtime-lifecycle/03-runtime-metrics.adoc#runtime-metrics[Runtime Model, The Runtime's Metrics]
+|link:../runtime-lifecycle/03-runtime-metrics.adoc#runtime-metrics[Runtime Lifecycle, The Runtime's Metrics]
 
 |[[update-check-interval]]Update check interval
 |At most one check for a newer release per `86400`, only while the consent `check_updates` is remembered for the machine; the operator's _check_ runs at once.
 |fixed (compiled constant)
 |—
-|the runtime's check of the organisation's registry (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Model, The Runtime's Lifecycle])
+|the runtime's check of the organisation's registry (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle])
 |The next check runs; a failed check is recorded with its reason in the version state and never retried before the next interval.
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Model, The Runtime's Lifecycle]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-lifecycle-operations[Runtime Lifecycle, The Runtime's Lifecycle]
 
 |[[lsp-idle-timeout]]Language server idle timeout
 |`900` without a request to the instance.
@@ -205,7 +205,7 @@ link:../../Specification.adoc[Specification] » link:../timeouts.adoc[Timeouts &
 |—
 |every lease marked `orphaned_at`
 |Released and audited.
-|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Model, Per-Project Recovery]
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Lifecycle, Per-Project Recovery]
 
 |===
 
