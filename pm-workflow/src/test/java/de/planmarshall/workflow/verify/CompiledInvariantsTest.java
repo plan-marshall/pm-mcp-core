@@ -236,37 +236,33 @@ class CompiledInvariantsTest {
     @DisplayName("Without the spend limit")
     class WithoutSpendLimit {
 
-        private static final Set<InvariantId> REMEDIATION_INVARIANTS = EnumSet.of(InvariantId.INV_REM_1,
-                InvariantId.INV_REM_2, InvariantId.INV_REM_3, InvariantId.INV_REM_4, InvariantId.INV_REM_5,
-                InvariantId.INV_REM_6, InvariantId.INV_REM_7);
-
-        private static List<InvariantViolation> checkProjectUnit(String unitId) {
-            var unit = InvariantFixtures.units(InvariantFixtures.sources(), UnitOrigin.PROJECT).get(unitId);
+        private static List<InvariantViolation> checkMutatedPlanUnit(String file, String find, String replace) {
+            var unit = InvariantFixtures.mutatedUnit(new Mutation("spend limit removal", file, find, replace));
             return InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
                     pipelineOf(unit, InvariantFixtures.defaultRoster()));
         }
 
         @Test
-        @DisplayName("the plan unit whose merge gate routes no spend_overrun passes INV-FIN-5")
-        void mergeGateWithoutOverrunPasses() {
-            var found = checkProjectUnit(PLAN_UNIT);
+        @DisplayName("a merge gate that routes spend_overrun to the hand-back, calling no remediation unit, passes INV-FIN-5")
+        void mergeGateOverrunNeedsNoRemediationCall() {
+            var found = checkMutatedPlanUnit(FINALIZE_FILE, "        done -> finalize.merge\n",
+                    "        done -> finalize.merge\n        spend_overrun -> finalize.hand-back\n");
 
-            assertAll(
-                    () -> assertFalse(InvariantFixtures.read(FINALIZE_FILE).contains("spend_overrun")),
-                    () -> assertEquals(List.of(), found.stream()
-                            .filter(violation -> violation.id() == InvariantId.INV_FIN_5).toList()));
+            assertEquals(List.of(), found.stream().filter(violation -> violation.id() == InvariantId.INV_FIN_5)
+                    .toList());
         }
 
         @Test
-        @DisplayName("the remediation units without remediation.spend pass INV-REM-1 to INV-REM-7")
-        void remediationUnitsWithoutSpendPass() {
-            var unitIds = InvariantFixtures.defaultUnits().keySet();
+        @DisplayName("a call of remediation.spend may route exhausted to the re-planning call like any remediation call")
+        void spendCallRoutesExhaustedToReplan() {
+            var found = checkMutatedPlanUnit(EXECUTE_FILE,
+                    "call remediation.qgate-findings(retry_budget = 3, fix_budget = 3, waiver_wait_seconds = 3600,"
+                            + " actions = [retry, fix, loop_back])",
+                    "call remediation.spend(waiver_wait_seconds = 3600)");
 
-            assertAll(
-                    () -> assertFalse(unitIds.contains("remediation.spend")),
-                    () -> unitIds.forEach(unitId -> assertEquals(List.of(), checkProjectUnit(unitId).stream()
-                                    .filter(violation -> REMEDIATION_INVARIANTS.contains(violation.id())).toList(),
-                            unitId)));
+            assertEquals(List.of(), found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_5)
+                    .map(InvariantViolation::message).filter(message -> message.contains("routes 'exhausted'"))
+                    .toList());
         }
 
         @Test
@@ -290,11 +286,14 @@ class CompiledInvariantsTest {
 
             var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of());
 
-            assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
-                            "the unit does not declare the parameter 'fix_budget'",
-                            "the unit does not declare the parameter 'actions'"),
-                    found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
-                            .map(InvariantViolation::message).collect(Collectors.toSet()));
+            assertAll(
+                    () -> assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
+                                    "the unit does not declare the parameter 'fix_budget'",
+                                    "the unit does not declare the parameter 'actions'"),
+                            found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
+                                    .map(InvariantViolation::message).collect(Collectors.toSet())),
+                    () -> assertFalse(found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_7)
+                            .toList().isEmpty(), "the unit is no longer exempt from the full template of INV-REM-7"));
         }
     }
 

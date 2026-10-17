@@ -237,6 +237,7 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInv
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java[FinalizeInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java[HeaderSchemaCheck],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/spend/package-info.java[package-info of `workflow.spend`]
 
 Verified by (no spend limit): link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],

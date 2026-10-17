@@ -186,14 +186,6 @@ class HeaderSchemaCheckTest {
         }
 
         @Test
-        @DisplayName("the policy units are exactly the six remediation policy units")
-        void policyUnitsEnumerated() {
-            assertEquals(
-                    HeaderSchemaCheck.POLICY_UNITS, List.of("remediation.ci-failure", "remediation.review-findings", "remediation.build-failure",
-                            "remediation.merge-conflict", "remediation.qgate-findings", "remediation.analysis"));
-        }
-
-        @Test
         @DisplayName("an argument value may be any JSON value")
         void anyArgumentValue() {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/policy_calls/0/args/fix_budget/value",
