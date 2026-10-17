@@ -1,0 +1,52 @@
+= ADR 032: Waiver Requests Are Typed in the Plan's Status Document
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+A worker asks the operator to waive a gate or raise a budget by a waiver request, which the operator answers by a
+waiver or declines. The status document `mcp/status.json` of a plan already declared the member `waiver_requests[]`,
+kept by `WorkflowStatusCodec` as a retained raw member. A request belongs to the run state of the plan that filed it,
+and its answer has to be read with that run state.
+
+== Decision
+
+* A waiver request is no store of its own and no question record. It is an element of the member `waiver_requests[]`
+  of the plan's status document, typed as `WorkflowStatus.waiverRequests()` of `WaiverRequest`, and moved from the
+  retained members to the typed members of `WorkflowStatusCodec`.
+* The outcomes are the closed `WaiverRequestOutcome`: `waived`, `raised`, `declined` and `cancelled`. There is no
+  `expired`: a request has no time limit and stays pending, without an outcome, until the operator answers it or the
+  plan ends.
+* Like `outline_loop_backs` and `policy_counters`, the member is kept for plan scopes only: a request in the status of
+  an epic or the workspace is refused.
+* A `null` list is refused. An absent member reads as no request, and the codec always writes the member, as `[]` when
+  it is empty.
+
+The typing in the status document and the absence of a time limit were the operator's decisions for the work package.
+
+== Alternatives Considered
+
+1. *A request store of its own beside the waiver log.*
+_Not taken_: the operator decided for the typed member of the status document.
+2. *An expiry of a request after a time.*
+_Not taken_: a request ended by a clock is a decision the operator never took.
+
+== Consequences
+
+* A request and the run state of the plan are written in one status write, through the plan's transaction.
+* A status document written before the change still reads, since the member was declared and kept verbatim.
+* Code that ends a request has to write an outcome from an operator act or from the end of the plan, never from time.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14), and the operator decision to type `waiver_requests` in `WorkflowStatus`
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+* `pm-core/src/main/java/de/planmarshall/core/store/WaiverRequest.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java`

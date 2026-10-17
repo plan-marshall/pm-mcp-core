@@ -1,0 +1,52 @@
+= ADR 029: The Question Store Lives in `core.store` and Is Read Through a Runtime Adapter
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+The engine of `pm-workflow` reads a question record through the port `QuestionRecordReader` of `core.spi`, whose read
+is tri-state (`Open`, `Resolved`, `Unreadable`). The port named a question store of `pm-runtime` as its
+implementation, but no such store existed. The question log `questions.jsonl` of a plan, an epic, the workspace and a
+pending entry is a JSONL store of a scope: it is appended through the scope's `ScopeTransaction`, covered by its digest
+sidecar and recovered by its journal, all of which live in `core.store`. `pm-workflow` depends on `pm-core` alone, and
+`pm-core` implements no engine port (PM-IMPL-5).
+
+== Decision
+
+* The question log is `QuestionLog` of `core.store`, with its record `QuestionRecord`, its events `QuestionEvent`,
+  its channel `QuestionChannel` and its strict codec `QuestionRecordCodec`.
+* The engine keeps reading through `QuestionRecordReader`. An adapter of `pm-runtime` implements the port over
+  `QuestionLog`; no class of `pm-core` implements it, and the Javadoc of the port names `QuestionLog` as the store.
+* The engine's own handling of a question, whether an answer fits the part it answers, stays in `pm-workflow`. The
+  store holds only what it can decide from its lines (ADR 030).
+
+This was the operator's decision for the work package; a further rationale is not recorded.
+
+== Alternatives Considered
+
+1. *The question store in `pm-runtime`, as the port first named it.*
+_Not taken_: the operator decided for `core.store`, where the transaction, the digest sidecar and the recovery of a
+scope store are.
+
+== Consequences
+
+* The question log is written with the same journal, digest and recovery guarantees as every other store of a scope,
+  and the store tests run in `pm-core` without the runtime.
+* The engine does not see `QuestionLog`: a change of the log that keeps the port's tri-state read does not touch
+  `pm-workflow`.
+* The adapter of `pm-runtime` has to map an unreadable line or an unreadable log to `Unreadable`, never to `Open`.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14), and the operator decision to place the question store in `core.store`
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
+  Instance, Waivers and Questions]
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`,
+  `pm-core/src/main/java/de/planmarshall/core/spi/QuestionRecordReader.java`
