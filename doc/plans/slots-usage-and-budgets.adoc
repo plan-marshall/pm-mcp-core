@@ -12,7 +12,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * The machine model slots beside the build slot scheduler; a paused plan holds no model slot.
 * The metrics row per task and job with its raw columns, `reasoning_tokens`, `harness_version`, and the open `harness` included; the usage pointers, `not_applicable`, the unified figures, and the coverage are link:token-usage.adoc[`token-usage`]'s.
-* The per-role learned worker budget; the pause of the worker budget from the ask to the answer acknowledgement during a hold is link:question-continuation.adoc[`question-continuation`]'s, and the fixed probe budgets are link:job-runner.adoc[`job-runner`]'s.
+* The per-role learned worker budget; the pause of the worker budget from the ask to the answer acknowledgement during a hold is link:question-continuation.adoc[`question-continuation`]'s, and the fixed probe budgets are implemented (link:../../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Developer Guide § Probe Jobs]).
 * The minimal writers and readers of this milestone: worker metrics, change ledger, learned budgets, qualification settings.
 
 == Trace

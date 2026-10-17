@@ -18,7 +18,7 @@ Every job, and every in-process `git` or `ci` operation of the native variant (<
 * `git` and `ci` operations: `<kind>:<operation>`, where `<operation>` is the closed contract operation name of the composing primitive, for example `git:worktree-remove` or `ci:checks`. The key is the same for the native and the CLI variant: a project uses one variant per integration, so the key needs no variant component;
 * `project_script` jobs: `project_script:<project_script_id>`;
 * workers (kind `llm`): `llm:<role>`, one key per role whatever the harness, for example `llm:implement` or `llm:screener` (role names of the link:../model-work/01-roles-and-configuration.adoc[effective role set]);
-* probe jobs (kind `probe`): `probe:<probe>`, one key per kind of probe: `probe:version`, `probe:login`, `probe:models`, and `probe:script` (<<probe-budget>>). A probe job runs before its program is enrolled and has no project store, so its key has no learned value.
+* [[probe-budget]]probe jobs (kind `probe`): `probe:<probe>`, one key per kind of probe: `probe:version`, `probe:login`, `probe:models`, and `probe:script`. A probe job runs before its program is enrolled and has no project store, so its key has no learned value: its budget is fixed per key and never learned or escalated, as compiled constants (link:../../../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Developer Guide § Probe Jobs]). A probe over its budget ends `timed_out` and is never retried by itself; the step that asked for it shows the failure with the harness's or tool's own output and its acts (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]).
 
 The budget of every job starts at its spawn: a job recorded `queued` while it waits for a build or model slot (<<build-slot-wait>>, <<model-slot-wait>>; link:../store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas, Machine Lease Stores]) has no budget running, and its queued time is outside the budget and outside the worker's measured duration.
 
@@ -132,28 +132,12 @@ Learned values live in the project's `<PM_MCP_BASE>/projects/<project_id>/build-
 |The supervisor ends the worker (<<grace-period>>, then the fence: job token revoked, generation fenced, lease released at once) and records `timed_out` (<<no-verdict-rule>>); the held task's attempt ends `budget` and the task is offered again within the <<task-reoffer-budget>>.
 |link:../model-work/03-supervision-and-recycling.adoc[Model Work, Supervision & Recycling]; link:../job-runtime.adoc[Job Runtime]
 
-|[[probe-budget]]Probe budget (`probe`)
-|Fixed per key, used as $t$ for every run; no learning and no escalation: `probe:version` `15` (the version probe of a harness or a host tool found), `probe:models` `30` (the models probe of a harness), `probe:login` `120` (the login probe of a harness, a minimal headless call where its profile has no login command), `probe:script` `600` (a script of a checkout in a project's onboarding).
-|fixed (compiled constant)
-|—
-|`probe` jobs
-|`timed_out`; never retried by itself: the step that asked for the probe shows the failure with the harness's or tool's own output and its acts (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]).
-|link:../client-profiles/01-profile-schema.adoc#harness-scan[Client Profiles, Harness Scan]; link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[CLI, Coordination & Security, Onboarding a Project as One Process]
-
 |[[grace-period]]Termination grace period
 |`5` between `SIGTERM` and `SIGKILL` to the job's process group. The measured exits of the worker harnesses on `SIGTERM` under a held wait lie within it (`claude` at most 2.9 s, `opencode` below 0.1 s).
 |fixed
 |—
 |every termination of a job group (budget expiry, engine cancel, drain, orphan termination), every end of a worker by the supervisor (`SIGTERM`, then `SIGKILL`, then the fence), and the final `SIGTERM` of an evicted language server
 |`SIGKILL` to the whole group, also when its leader is gone.
-|link:../job-runtime/01-pipeline-and-subprocesses.adoc#_process_termination_cancellation_protocol[Job Runtime, Process Termination]
-
-|[[cancel-group-retry]]Cancel-before-group retry
-|When `kill(-pgid, SIGTERM)` answers `ESRCH` because the `pm-exec` launcher has not yet called `setpgid`, the runtime signals the PID directly and retries against the group every `0.1` for at most `10` attempts (`1` in total).
-|fixed
-|—
-|engine cancel, budget expiry, worker end, drain
-|After the last attempt the job is settled from its exit status; `cancel_before_group` is recorded in the job record either way.
 |link:../job-runtime/01-pipeline-and-subprocesses.adoc#_process_termination_cancellation_protocol[Job Runtime, Process Termination]
 
 |[[http-request-timeout]]Native request timeout

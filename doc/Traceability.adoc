@@ -70,7 +70,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where jobs, workers, the LSP pool and the web listener join through a seam; the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its two steps, which remove the old pending entry records and the old fenced session generations, where the settlement of jobs and workers and the other recovery steps are named seams. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its two steps, which remove the old pending entry records and the old fenced session generations, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -114,6 +114,20 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecor
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/FencedSessionGenerationsSweepTest.java[FencedSessionGenerationsSweepTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StartupColdStartIT.java[StartupColdStartIT]
 
+Implementation (the jobs part of recovery step 3 and the jobs' participant of the drain, as far as the library module `pm-runtime` carries them and not yet wired into the runtime `pm-mcpd`: every job record of a project left `queued` or `running` by a previous runtime instance settled `killed` by outcome row 4, by the first matching rule, an in-process operation, a spawn before the system boot and a record without a PID settled without any signal, the last with the audit note `orphan unidentifiable`, and a live process group of this boot probed and terminated, never adopted or executed again, the slot the caller names released after the fate; the step placed as step 3 of the per-project recovery; the stop of the job runner's admission under its admission lock, the wait for the running jobs up to the drain timeout, the termination of the jobs still running settled `killed`, and every job still `queued` settled `killed` without a signal. Not implemented yet: the worker part of step 3, the fence of a worker's generation, the revocation of its token, the release of its task lease and the removal of its job-private directory, which the step reports as a seam, and the boot time and the slots of the jobs, which the caller supplies): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java[JobRecoveryStep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobDrainParticipant.java[JobDrainParticipant],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ProjectRecovery.java[ProjectRecovery],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobSettlement.java[JobSettlement],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java[ProcessGroupSignals],
+link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java[JobRecordStore]
+
+Verified by (the jobs part of recovery step 3 and of the drain): link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryStepTest.java[JobRecoveryStepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryKilledRuntimeIT.java[JobRecoveryKilledRuntimeIT],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobDrainParticipantTest.java[JobDrainParticipantTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/ProjectRecoveryTest.java[ProjectRecoveryTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest]
+
 Documentation: link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#startup[Concepts § Startup],
 link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#drain[Concepts § Drain],
 link:../../plan-marshall-documentation/doc/concepts/runtime-lifecycle.adoc#per-project-recovery[Concepts § Per-Project Recovery],
@@ -124,7 +138,9 @@ link:../../plan-marshall-documentation/doc/user/operator.adoc#drain-timeout-seco
 link:../../plan-marshall-documentation/doc/user/operator.adoc#what-a-drain-does[User Guide § What a Drain Does],
 link:../../plan-marshall-documentation/doc/user/operator.adoc#recovery-after-a-crash[User Guide § Recovery After a Crash],
 link:../../plan-marshall-documentation/doc/user/operator.adoc#relay-version-mismatch[User Guide § Relay Version Mismatch],
-link:../pm-runtime/doc/developer/runtime-start.adoc[Sweep Steps Developer Guide]
+link:../pm-runtime/doc/developer/runtime-start.adoc[Sweep Steps Developer Guide],
+link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
+link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[Runtime Start Developer Guide § The Job Drain Participant]
 
 == link:../../plan-marshall-documentation/doc/requirements/02-workflow.adoc[Workflow]
 
@@ -287,7 +303,7 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Dev
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1]
 
-Implementation (the verify-not-resolve check of a job: the build wrapper by its location at the root of the tree, its enrolled name and its digest together with every pinned file, refused as `build_config_changed` naming every changed file; an enrolled host tool by its absolute path and digest, never through `PATH`; the refusal of an executable that is not enrolled; the arguments of a build job against the enrolled or the caller's default template and the forbidden free flags, of a project script against its argument schema; `pw` started through its enrolled interpreter; the enrolment-time requirement of `distributionSha256Sum`, the launch of the verified job, and model jobs with their harness enrolment are not implemented yet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/VerifyNotResolvePipeline.java[VerifyNotResolvePipeline],
+Implementation (the verify-not-resolve check of a job: the build wrapper by its location at the root of the tree, its enrolled name and its digest together with every pinned file, refused as `build_config_changed` naming every changed file; an enrolled host tool by its absolute path and digest, never through `PATH`; the refusal of an executable that is not enrolled; the arguments of a build job against the enrolled or the caller's default template and the forbidden free flags, of a project script against its argument schema; `pw` started through its enrolled interpreter; the enrolment-time requirement of `distributionSha256Sum` and model jobs with their harness enrolment are not implemented yet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/VerifyNotResolvePipeline.java[VerifyNotResolvePipeline],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ExecutableCheck.java[ExecutableCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/WrapperVerification.java[WrapperVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/FileDigest.java[FileDigest],
@@ -301,14 +317,29 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ArgumentCheckTest.j
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ArgumentSchemaValidatorTest.java[ArgumentSchemaValidatorTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/VerifyNotResolveAdversarialTest.java[VerifyNotResolveAdversarialTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
+Implementation (the launch of a verified job through the launcher `pm-exec`, started by its absolute path with the verified absolute argument vector and never through `PATH`, and a probe of a program not enrolled yet started only after the operator's consent of its kind and verified against the absolute path and digest of the executable its candidate record names, with exactly its declared arguments; the launcher itself, the scan and the detection that write the candidate record, and the consent store are not implemented here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/PmExecLauncher.java[PmExecLauncher],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java[ProbeVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java[ProbeCandidate],
+link:../pm-core/src/main/java/de/planmarshall/core/service/JobRunner.java[JobRunner]
+
+Verified by (the launch and the probes): link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/PmExecLauncherTest.java[PmExecLauncherTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerTest.java[SubprocessJobRunnerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[ProbeJobTest],
+link:../pm-core/src/test/java/de/planmarshall/core/service/JobRunnerTest.java[JobRunnerTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_launch_and_launch_report[Job Runtime Developer Guide § Launch and Launch Report],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Developer Guide § Probe Jobs],
+link:../pm-core/doc/developer/core-service.adoc#_job_runner[Service Interfaces Developer Guide § The Job Runner]
 
 [#PM-EXEC-2]
 === PM-EXEC-2: Operator Enrolment & Verify-Not-Resolve Contract
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-2[PM-EXEC-2]
 
-Implementation (the enrolment file of a project as a closed, typed record with its strict reading and canonical bytes, the store under the project's own lock, the integrity sidecar record with the HMAC under the operator-lane key in the keyring or the key file, the enrolment check whose `enrolment_tampered` refusal is audited and blocks only its project, the runtime's `enrol` write, the `unenrol` refused with `scope_active` naming the live work and leaving the machine store untouched, and the re-baseline; the verify-not-resolve check of a build, host tool or project script job, which runs the enrolment check first and then verifies the working directory, the executable's absolute path and digest and the argument vector, each refusal a value with its closed reason; the operator verbs and their endpoints, the check in the recovery, a live-work source, the sweep, the store root check, the harness enrolment, the verify-not-resolve check of a model job, and the `refused` outcome of the job record are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java[ProjectEnrolment],
+Implementation (the enrolment file of a project as a closed, typed record with its strict reading and canonical bytes, the store under the project's own lock, the integrity sidecar record with the HMAC under the operator-lane key in the keyring or the key file, the enrolment check whose `enrolment_tampered` refusal is audited and blocks only its project, the runtime's `enrol` write, the `unenrol` refused with `scope_active` naming the live work and leaving the machine store untouched, and the re-baseline; the verify-not-resolve check of a build, host tool or project script job, which runs the enrolment check first and then verifies the working directory, the executable's absolute path and digest and the argument vector, each refusal a value with its closed reason; the operator verbs and their endpoints, the check in the recovery, a live-work source, the sweep, the store root check, the harness enrolment, and the verify-not-resolve check of a model job are not implemented yet; the `refused` outcome of the job record is traced under <<PM-EXEC-4>>): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java[ProjectEnrolment],
 link:../pm-core/src/main/java/de/planmarshall/core/store/EnrolmentCodec.java[EnrolmentCodec],
 link:../pm-core/src/main/java/de/planmarshall/core/store/EnrolmentSidecar.java[EnrolmentSidecar],
 link:../pm-core/src/main/java/de/planmarshall/core/store/EnrolmentStore.java[EnrolmentStore],
@@ -346,13 +377,78 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.ado
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-3[PM-EXEC-3]
 
-Implementation (the start of a project script, of `pw` and of the script host tool `asciidoctor` through its enrolled interpreter with both digests verified, the project script allowlist with its binding and the validation of its arguments against its argument schema, and the refusal `executable_digest_mismatch` as a value; the `refused` outcome of the job record and the launch are not implemented yet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ExecutableCheck.java[ExecutableCheck],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ArgumentSchemaValidator.java[ArgumentSchemaValidator]
+Implementation (the start of a project script, of `pw` and of the script host tool `asciidoctor` through its enrolled interpreter with both digests verified, the project script allowlist with its binding and the validation of its arguments against its argument schema, and the refusal `executable_digest_mismatch` as a value; the launch of the verified vector, interpreter first, through the launcher with the refusal recorded as the job's fate `refused`, and the probe of a checkout's script verified against the digests of the script and of its interpreter in its candidate record): link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ExecutableCheck.java[ExecutableCheck],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ArgumentSchemaValidator.java[ArgumentSchemaValidator],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java[ProbeVerification]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ExecutableCheckTest.java[ExecutableCheckTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ArgumentSchemaValidatorTest.java[ArgumentSchemaValidatorTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ArgumentSchemaValidatorTest.java[ArgumentSchemaValidatorTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerTest.java[SubprocessJobRunnerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)]
+Documentation: link:../pm-runtime/doc/developer/runtime-job.adoc[Developer Guide § Job Verification (`runtime.job`)],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_the_runner[Job Runtime Developer Guide § The Runner],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[Job Runtime Developer Guide § Probe Jobs]
+
+[#PM-EXEC-4]
+=== PM-EXEC-4: Direct Host Subprocess Management & Process-Group Isolation
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-4[PM-EXEC-4]
+
+Implementation (as far as the library modules `pm-core` and `pm-runtime` carry it and not yet wired into the runtime `pm-mcpd`: the job record of every job in the store of its scope (a project, the machine scope, an onboarding entry) with its identifier and its fixed write points, written ahead of the launch and replaced with the PID and the process start once the launcher reports them, each under the lock of the owning scope; the job runner service and its implementation, which verifies a job in a lock transaction of its own, launches it through `pm-exec` with in-memory `stdin`, takes the job PID as its process-group ID, reads and strips the launch report, keeps the job log readable while the job runs, terminates the job's process group for every cause (`SIGTERM`, the grace period, `SIGKILL` to every member left, the cancel before the group exists) through FFM, derives the fate by the closed 13-row outcome table with the child's wall time, and settles the job in the fixed write order; probe jobs with their fixed budgets. Not implemented yet: the launcher `pm-exec` itself, the confinement and the environment of a job, the wait of a queued job for its build or model slot, the launch of workers, the settlement steps that are seams (a worker's token and generation, its queue task record, the metrics row, the change-ledger row, the timing observation, its job-private directory), the in-process operations of the native variant, the parsers that supply the success markers and diagnostics, and the budgets of the other job kinds): link:../pm-core/src/main/java/de/planmarshall/core/store/JobId.java[JobId],
+link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java[JobRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordCodec.java[JobRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/JobRecordStore.java[JobRecordStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/LockKey.java[LockKey],
+link:../pm-core/src/main/java/de/planmarshall/core/service/JobRunner.java[JobRunner],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java[SubprocessJobRunner],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/PmExecLauncher.java[PmExecLauncher],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/LaunchReport.java[LaunchReport],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobLog.java[JobLog],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobBudget.java[JobBudget],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/TerminationProtocol.java[TerminationProtocol],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java[ProcessGroupSignals],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobEvidence.java[JobEvidence],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/OutcomeDerivation.java[OutcomeDerivation],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobSettlement.java[JobSettlement],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/SettlementStep.java[SettlementStep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java[ProbeCandidate],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java[ProbeVerification],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java[ProbeBudget],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java[JobRecoveryStep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobDrainParticipant.java[JobDrainParticipant]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/JobIdTest.java[JobIdTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/JobRecordCodecTest.java[JobRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/JobRecordStoreTest.java[JobRecordStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/JobRecordSchemaParityTest.java[JobRecordSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LockKeyTest.java[LockKeyTest],
+link:../pm-core/src/test/java/de/planmarshall/core/service/JobRunnerTest.java[JobRunnerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/SubprocessJobRunnerTest.java[SubprocessJobRunnerTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/PmExecLauncherTest.java[PmExecLauncherTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/LaunchReportTest.java[LaunchReportTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java[JobLogTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/TerminationProtocolTest.java[TerminationProtocolTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/OutcomeDerivationTest.java[OutcomeDerivationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/JobSettlementTest.java[JobSettlementTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java[ProbeJobTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeVerificationTest.java[ProbeVerificationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryStepTest.java[JobRecoveryStepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobRecoveryKilledRuntimeIT.java[JobRecoveryKilledRuntimeIT],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/JobDrainParticipantTest.java[JobDrainParticipantTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_job_records[Scope Stores Developer Guide § Job Records],
+link:../pm-core/doc/developer/core-service.adoc#_job_runner[Service Interfaces Developer Guide § The Job Runner],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_the_runner[Job Runtime Developer Guide § The Runner],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_launch_and_launch_report[§ Launch and Launch Report],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_job_log[§ Job Log],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_termination[§ Termination],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_outcome_derivation[§ Outcome Derivation],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_settlement[§ Settlement],
+link:../pm-runtime/doc/developer/runtime-job.adoc#_probe_jobs[§ Probe Jobs],
+link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
+link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[§ The Job Drain Participant]
 
 [#PM-EXEC-5]
 === PM-EXEC-5: Git & Provider Operations: Native and CLI Variants

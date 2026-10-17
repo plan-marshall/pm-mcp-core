@@ -43,7 +43,7 @@ import de.planmarshall.runtime.job.ProcessGroupSignals.Signal;
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
  * Cancellation Protocol, steps 1 to 4); {@code doc/specification/timeouts/01-job-budgets-and-waits.adoc} (Termination
- * grace period, Cancel-before-group retry).
+ * grace period). The retry of step 4 is carried by the constants of this class alone.
  *
  * @since 0.1
  */

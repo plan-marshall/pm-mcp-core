@@ -51,16 +51,10 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |nothing
 |Milestones 2 and 3
 
-|link:job-runner.adoc[`job-runner`]
-|Subprocess job runner
-|`open`
-|nothing
-|Milestone 4
-
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
 |Job confinement and job environment in the daemon
 |`open`
-|link:job-runner.adoc[`job-runner`]; link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]; link:profile-loader.adoc[`profile-loader`]
+|link:../../../pm-mcp-clients/doc/plans/exec-read-denied-paths.adoc[`pm-mcp-clients` / `exec-read-denied-paths`]; link:profile-loader.adoc[`profile-loader`]
 |Milestone 4
 
 |link:waits.adoc[`waits`]
@@ -84,7 +78,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:worker-launch.adoc[`worker-launch`]
 |Worker launch and harness enrolment
 |`open`
-|link:job-runner.adoc[`job-runner`]; link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
+|link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Milestone 4
 
 |link:supervisor.adoc[`supervisor`]
@@ -258,13 +252,13 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:runtime-control.adoc[`runtime-control`]
 |Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, the update check, the upgrade
 |`blocked`
-|link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
+|link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the consent store); link:../../../pm-mcp-clients/doc/plans/installation-layout.adoc[`pm-mcp-clients` / `installation-layout`]; the operator's answer to the open question of the registry credential, for the update check and the fetch (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:runtime-metrics.adoc[`runtime-metrics`]
 |What the runtime is doing: the metrics registry maintained where things happen, the closed catalogue, the snapshot endpoints and the stream
 |`blocked`
-|link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:job-runner.adoc[`job-runner`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); the operator's choice of the metrics library (no work package)
+|link:https://github.com/plan-marshall/pm-mcp-core/blob/603d4f7/doc/plans/lock-manager-and-leases.adoc[`lock-manager-and-leases`]; link:supervisor.adoc[`supervisor`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:slots-usage-and-budgets.adoc[`slots-usage-and-budgets`]; link:token-usage.adoc[`token-usage`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (held and paused); the operator's choice of the metrics library (no work package)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |link:process-designer.adoc[`process-designer`]
@@ -276,7 +270,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:cleanup.adoc[`cleanup`]
 |One cleanup of the machine: the durations per kind of work history, the daily check with its report, the cleanup job with its summary and details, delete with its audit, remind, and the kept list; the retention of work history replaced, the technical residue left to the sweeps with its figures shown
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:job-runner.adoc[`job-runner`] (the job logs); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values); link:removed-concepts.adoc[`removed-concepts`] (the present steps of the periodic sweep)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values); link:removed-concepts.adoc[`removed-concepts`] (the present steps of the periodic sweep)
 |Milestone 10; the client work of `pm-mcp-clients`
 
 |link:differential-test-harness.adoc[`differential-test-harness`]

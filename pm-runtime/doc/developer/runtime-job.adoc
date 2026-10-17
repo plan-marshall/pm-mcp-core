@@ -253,7 +253,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
 
 `OutcomeDerivation.derive(evidence)` turns what the runtime observed of a job (`JobEvidence`) into its fate and the row of the closed 13-row table that decided it; the first matching row decides.
 The evidence is `RefusedBeforeSpawn`, `NeverStarted` (queued at drain, or left by a previous runtime instance), `ProcessEnded` (kind, termination, wait status, log state, parse result, the exit codes a probe declares, whether the exit code is reliable) or `InProcessEnded`.
-The rows are listed in the Javadoc of link:{src}/OutcomeDerivation.java[`OutcomeDerivation`] and in the specification; this guide does not repeat the table.
+The rows are listed in the Javadoc of link:{src}/OutcomeDerivation.java[`OutcomeDerivation`], the one place that states the table; the specification keeps only the evidence the parts still to be built supply to it.
 
 * Rows 2 to 4 are the terminations: an engine cancel, a pause of the plan that holds now and a supervisor end give `cancelled` (row 2), the budget `timed_out` (row 3), the drain and the termination of an orphan `killed` (row 4), whatever the exit status. Any other signal ends a job `killed` by row 4 as well.
 * A status a job reports about itself is evidence, never the outcome: a project script whose report contradicts the evidence is `indeterminate` (row 6), and the success of row 7 needs the kind's positive success marker.
