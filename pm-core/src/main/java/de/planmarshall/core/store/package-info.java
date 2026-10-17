@@ -47,7 +47,9 @@
  * {@link de.planmarshall.core.store.WorkflowStatusCodec}: the members the engine owns are typed (position, call
  * stack, loop-back accounting, bindings, condition overlay), every other member of the closed schema is kept as raw
  * JSON and written back unchanged. The retry counts of the server-rule retries are typed as
- * {@link de.planmarshall.core.store.RetryCounters} and never reset by a restart (PM-WF-7).
+ * {@link de.planmarshall.core.store.RetryCounters} and never reset by a restart (PM-WF-7). The waiver requests of a
+ * plan are typed as its member {@code waiver_requests[]} ({@link de.planmarshall.core.store.WaiverRequest} with the
+ * closed {@link de.planmarshall.core.store.WaiverRequestOutcome}), without a time limit (PM-SEC-3).
  * {@link de.planmarshall.core.store.WorkflowStatusStore} reads the store without a lock and writes it only as a
  * target of the caller's {@link de.planmarshall.core.store.ScopeTransaction}.</li>
  * <li><em>The scope session log</em> (PM-ARCH-4, PM-CLIENT-3): {@code sessions.jsonl} of a plan, epic or workspace
@@ -83,20 +85,44 @@
  * index are the runtime's, behind the seam {@link de.planmarshall.core.store.AuditAnchor} the log calls under the
  * audit lock. {@link de.planmarshall.core.store.AuditLogSink} is the production audit sink: every record a component
  * hands over becomes one record of the chain.</li>
+ * <li><em>The operator's waivers</em> (PM-SEC-3): the append-only waiver log {@code waivers.jsonl} of a plan
+ * ({@link de.planmarshall.core.store.WaiverLog} of {@link de.planmarshall.core.store.WaiverRecord}, read and written
+ * by {@link de.planmarshall.core.store.WaiverRecordCodec}) and its consumption log {@code waiver-consumptions.jsonl}
+ * ({@link de.planmarshall.core.store.WaiverConsumptionLog} of
+ * {@link de.planmarshall.core.store.WaiverConsumptionRecord}, read and written by
+ * {@link de.planmarshall.core.store.WaiverConsumptionCodec}), each appended only as a target of the plan's
+ * {@link de.planmarshall.core.store.ScopeTransaction}; a revocation is a new line, and the last readable line of a
+ * waiver is its current state.</li>
+ * <li><em>The question log</em> (PM-WF-12): the append-only {@code questions.jsonl} of a plan, an epic, the workspace
+ * and a pending entry ({@link de.planmarshall.core.store.QuestionLog} of
+ * {@link de.planmarshall.core.store.QuestionRecord}, read and written by
+ * {@link de.planmarshall.core.store.QuestionRecordCodec}), which holds under the scope lock that a question is closed
+ * by exactly one line and that an answer names the current revision, returning a broken invariant as a
+ * {@link de.planmarshall.core.store.QuestionRefusal}; an entry's log moves into the scope the entry creates.</li>
+ * <li><em>The per-project machine store</em> (PM-ARCH-1): {@code projects/<project_id>/} with its directories and its
+ * identity record {@code store.json} ({@link de.planmarshall.core.store.ProjectStore},
+ * {@link de.planmarshall.core.store.ProjectStoreIdentity}, read and written by
+ * {@link de.planmarshall.core.store.ProjectStoreIdentityCodec}), created under the workspace lock and read as present,
+ * absent or unreadable; nothing with state lies below the repository.</li>
  * </ul>
  * <p>
  * The package also holds the path confinement to the workspace root and its worktrees (PM-SEC-2): a project path is
  * accepted only when its canonical form lies inside the enrolled repository root or inside a live linked git worktree
  * of it ({@link de.planmarshall.core.store.PathConfinement}). The machine files below the instance directory are
- * outside this rule and have their own.
+ * outside this rule and have their own. The Project Resolution Rule maps a checkout path to its enrolled project and
+ * to the main checkout or the worktree it lies in ({@link de.planmarshall.core.store.ProjectResolver},
+ * {@link de.planmarshall.core.store.ProjectResolution}), reading the pointer files git writes with the recognition of a
+ * linked worktree the confinement uses, and running no git process.
  * <p>
  * Specification:
  * <ul>
  * <li>{@code doc/specification/store-schemas/01-format-and-session-log.adoc}</li>
  * <li>{@code doc/specification/store-schemas/02-workflow-state-store.adoc}</li>
  * <li>{@code doc/specification/store-schemas/10-job-and-lesson-records.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/11-enrolment-store.adoc}</li>
  * <li>{@code doc/specification/store-schemas/12-machine-stores.adoc}</li>
  * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc}</li>
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>
  * </ul>
  */
