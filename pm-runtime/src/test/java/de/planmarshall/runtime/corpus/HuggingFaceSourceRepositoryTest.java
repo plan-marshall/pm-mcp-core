@@ -467,10 +467,10 @@ class HuggingFaceSourceRepositoryTest {
                     List.of(new SourceFile(FILE, Sha256.hex(CSV), false)))));
             Files.write(directory.resolve(CorpusImport.OVERLAY), SourceOverlayCodec.write(new SourceOverlay("gamma",
                     FILE, "question_id", LocalDate.of(2026, 10, 14), List.of(new Row("q-1", "q-1", "screening/gamma",
-                            "screening", "closed question", List.of("imported"), "{question}", "", null, null,
+                            "screening", "closed question", List.of("imported"), null, "{question}", "", null, null,
                             new Target(null, "the first holds", List.of(), List.of(), false),
                             new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
-                            new Review(ReviewStatus.DRAFT, null, null, null))))));
+                            new Review(ReviewStatus.DRAFT, null, null, null), null)))));
         }
 
         private CorpusImport corpusImport() {
