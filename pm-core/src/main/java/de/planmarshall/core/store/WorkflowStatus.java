@@ -87,7 +87,7 @@ Map<String, String> retained) {
 
     /** The remediation policy classes that key {@code policy_counters}. */
     public static final Set<String> POLICY_CLASSES = Set.of("ci-failure", "review-findings", "build-failure",
-            "merge-conflict", "qgate-findings", "analysis", "spend");
+            "merge-conflict", "qgate-findings", "analysis");
 
     private static final Pattern SCOPE_ID = Pattern.compile("^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$");
     private static final Pattern SCOPE_JOB_ID = Pattern.compile("^[bcgp]-[0-9a-f]{16}$");
