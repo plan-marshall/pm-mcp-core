@@ -224,7 +224,7 @@ class WorkflowStatusCodecTest {
                 Arguments.of("no scope id for a plan", DOCUMENT.replace("\"scope_id\":\"workflow-engine\"",
                         "\"scope_id\":null"), "'scope_id' must be set for a plan scope"),
                 Arguments.of("a policy class outside the closed set", DOCUMENT.replace(
-                        "\"policy_counters\":{\"ci-failure\":", "\"policy_counters\":{\"spend\":"),
+                                "\"policy_counters\":{\"ci-failure\":", "\"policy_counters\":{\"spend\":"),
                         "'policy_counters key' has the undeclared value 'spend'"),
                 Arguments.of("a retry rule outside the closed set", DOCUMENT.replace("\"sync_failed\":",
                         "\"re_enter\":"), "'retry_counters' has the undeclared key 're_enter'"),

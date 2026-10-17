@@ -265,7 +265,7 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertFalse(unitIds.contains("remediation.spend")),
                     () -> unitIds.forEach(unitId -> assertEquals(List.of(), checkProjectUnit(unitId).stream()
-                            .filter(violation -> REMEDIATION_INVARIANTS.contains(violation.id())).toList(),
+                                    .filter(violation -> REMEDIATION_INVARIANTS.contains(violation.id())).toList(),
                             unitId)));
         }
 

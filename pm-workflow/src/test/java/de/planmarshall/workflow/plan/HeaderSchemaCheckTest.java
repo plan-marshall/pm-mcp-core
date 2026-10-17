@@ -188,9 +188,9 @@ class HeaderSchemaCheckTest {
         @Test
         @DisplayName("the policy units are exactly the six remediation policy units")
         void policyUnitsEnumerated() {
-            assertEquals(List.of("remediation.ci-failure", "remediation.review-findings", "remediation.build-failure",
-                    "remediation.merge-conflict", "remediation.qgate-findings", "remediation.analysis"),
-                    HeaderSchemaCheck.POLICY_UNITS);
+            assertEquals(
+                    HeaderSchemaCheck.POLICY_UNITS, List.of("remediation.ci-failure", "remediation.review-findings", "remediation.build-failure",
+                            "remediation.merge-conflict", "remediation.qgate-findings", "remediation.analysis"));
         }
 
         @Test
