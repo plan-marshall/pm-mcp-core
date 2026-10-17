@@ -1,0 +1,49 @@
+= ADR 005: The Author `plan-marshall` Is Reserved to the Units of the Binary
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+The frontmatter of every unit names its `author`: `plan-marshall` for the units compiled into the binary and only for
+them, the name of a person for every other unit. The specification refuses a unit outside the binary whose author is
+`plan-marshall`, so a placed unit never passes as a delivered one. Whether a unit is outside the binary is not a
+property of its text but of the level it is loaded from: the compiled defaults, the machine level
+(`<PM_MCP_BASE>/workflows/`) or the project level (`.marshall/config/`). This repository loads the compiled defaults
+(`DefaultUnitLoader`) and the project level (`ProjectUnitLoader`); `UnitOrigin` knows `DEFAULT` and `PROJECT` only.
+
+== Decision
+
+* The frontmatter reader checks only the length of the author, 1 to 100 characters; it does not know the level.
+* `ProjectUnitLoader` refuses, in its parse stage, a project unit whose author is `plan-marshall`
+  (`ProjectUnitLoader.RESERVED_AUTHOR`): a `UnitFinding` of the kind `RULE` with the new code `author_reserved`
+  (`UnitFinding.AUTHOR_RESERVED`), located at the line of the frontmatter's `author` key.
+* The unit is verified on after the finding, so a load reports every other finding of the unit as well, and the load is
+  refused with `config_invalid` like any other.
+* `DefaultUnitLoader` does not read the author.
+* The machine level is not checked: it has no loader in this repository yet. Its author check follows with that loader.
+
+Rationale not recorded beyond the specification of the field `author`.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A project unit copied from a default unit must change its author before it loads; the copy keeps its other fields.
+* `ProjectUnitLoaderTest` refuses a project unit with the author `plan-marshall` with `author_reserved` at its file and
+  line, and loads one with a person's name.
+
+== Source
+
+* Pull request `feat(workflow): unit frontmatter, unit types and unit entries` (PLAN-69)
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/e47becc/doc/plans/unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants]
+* link:../../developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit]

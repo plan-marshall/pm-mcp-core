@@ -1,0 +1,66 @@
+= ADR 026: The Interface Rules and the Type Check Are Members of Rules 3 and 6
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+The specification gives every unit an interface, the entries and exits its frontmatter declares, and a type that,
+with the unit's scope, fixes the shape of that interface. Six interface rules hold for every unit: a starting point or
+entries, stop points or exits, called units return, every entry and exit used, a call names its entry, and the type
+fits. The specification assigns each violation to the static verification Rules 3 and 6, with the file, the line and
+the column. The verifier had to decide where these checks live.
+
+== Decision
+
+* Each interface rule is a member of `VerificationRule`, the only source of the rule vocabulary, carrying the
+  specification rule it is a part of:
+** `INTERFACE_START_OR_ENTRIES` (Rule 3), interface rule 1;
+** `INTERFACE_STOP_POINTS_OR_EXITS` (Rule 3), interface rule 2;
+** `INTERFACE_EXIT_REACHED` (Rule 3), interface rule 4 for the exits;
+** `INTERFACE_CALLED_UNIT` (Rule 6), interface rule 3;
+** `INTERFACE_CALL_ENTRY` (Rule 6), interface rule 5;
+** `TYPE_FITS` (Rule 6), interface rule 6.
+* `WorkflowValidator` runs them with every other check of the unit, and a violation is a `Violation` like any other.
+* A part of an interface rule that an existing member already checks stays with that member: a binding to a missing
+  state is `STATE_EXISTS`, the reachability of every state from the starting point or an entry is `REACHABILITY`, a
+  call that leaves an exit of its callee unrouted is `SUBWORKFLOW_CALL_CONTRACT`. The textual checks, a `start` line
+  beside an `entry` line and an entry bound twice, are the parser's; no member repeats them.
+* The exit contract of a sub-workflow for Rule 6 is the exits its frontmatter declares plus `stepped_out`, no longer
+  the outcomes of its terminals.
+* The tree marks neither a landing variant nor the adjudication unit, so both exceptions are recognised by name: a
+  landing variant by the id prefix `landing.`, the adjudication unit by the id `adjudicate.decisions`.
+* The row of the type `system` with scope `machine`, and the machine unit as a resident unit of rule 2, are not
+  checked: the tree has no `machine` scope yet. They follow with the work package that adds the scope,
+  `operator-wait-and-machine-scope`.
+
+Rationale not recorded beyond the specification's assignment of the interface rules to Rules 3 and 6.
+
+== Alternatives Considered
+
+1. **A separate interface validator beside `WorkflowValidator`**:
+*Rejected*: the specification makes the interface rules parts of Rules 3 and 6, so they belong to the result the
+verifier returns for those rules; a second validator would give a unit two results to combine and a second rule
+vocabulary beside `VerificationRule`.
+
+== Consequences
+
+* `VerificationRule` has 32 members. `WorkflowValidatorTest` accounts for every one of them: each new member has a
+  refusing fixture below `verify/refused/` (`interface-*.pmwf`, `type-*.pmwf`), and every type row has a passing control
+  below `verify/passing/`.
+* Every refusing fixture of the interface rules parses, because the parser compares nothing with the frontmatter.
+* A new unit kind that needs an exception to a type row is either recognised by its id as the two above, or the tree
+  gains a marker for it; a new scope extends the switch of `TYPE_FITS`.
+
+== Source
+
+* Pull request `feat(workflow): unit frontmatter, unit types and unit entries` (PLAN-69)
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/e47becc/doc/plans/unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rules 3 and 6)
+* link:../../developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types]

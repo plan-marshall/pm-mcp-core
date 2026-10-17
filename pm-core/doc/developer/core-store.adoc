@@ -113,6 +113,38 @@ format change:
 
 A document written before the change still reads, because the member was declared and kept verbatim all along.
 
+[#_the_call_stack]
+== The Call Stack
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`call_stack` holds the active sub-workflow call frames of a scope, bottom to top, at most four. A frame is the record
+`WorkflowStatus.CallFrame`: `callerWorkflowId`, `callerStateId`, `callerPhase`, `subworkflowId`, `entry`, `boundArgs`
+(the `BoundArg` values by parameter name, in their order) and `pushedAt`.
+
+`entry` is the entry of the called sub-workflow the call went through: the entry the call names, or the callee's sole
+entry when the call names none; for a phase sub-workflow the point at which the phase is entered. The engine resolves
+it when it pushes the frame (link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_entering_a_callee_through_its_entry[Workflow
+Engine § Entering a Callee Through Its Entry]) and writes it with the status in the transaction of the call.
+
+* *Required and non-blank*: the record's constructor refuses a blank entry with `IllegalArgumentException`, as it does
+  a blank identifier.
+* *Strict read*: `WorkflowStatusCodec` reads `entry` as a declared member of the frame with one JSON type, a string;
+  a frame without it, or with it as another type, is a `StoreRefusal` naming the file, like every other required frame
+  member.
+* *Schema order*: the codec writes `entry` after `subworkflow_id` and before `bound_args`, the order of the frame's
+  properties in the schema, so a frame round-trips byte for byte.
+* *Format version 1 unchanged*: the member is added to format 1 in place. There is no format bump, no reader of an
+  earlier frame shape and no migration; a frame without `entry` is refused
+  (link:../adr/core-store/029-call-frame-records-its-entry.adoc[ADR 029]).
+
+The pending entry record holds its bootstrap's call frames in the same shape and reads and writes them through the same
+package-private readers and writers of the codec (<<_pending_entry_record>>), so its frames carry the entry without a
+change of `PendingEntryRecord` or `PendingEntryCodec`.
+
+Tested by `WorkflowStatusCodecTest` (a frame with an entry round-trips byte for byte; a frame without the entry, or
+with a number, `null` or a blank as entry, is refused) and `PendingEntryCodecTest` (the entry of a bootstrap's frame
+is read, and a frame without it is refused).
+
 [#_retry_counters]
 == Retry Counters
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -666,3 +698,5 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   the audit log is written into the log by its own in-log sink before the intent is deleted.
 * link:../adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[ADR 028]: a create target is
   refused at the commit, under the scope lock, when its store exists.
+* link:../adr/core-store/029-call-frame-records-its-entry.adoc[ADR 029]: a call frame records the entry the call went
+  through; the member is added to format version 1 in place.

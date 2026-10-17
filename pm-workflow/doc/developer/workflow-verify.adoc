@@ -8,6 +8,7 @@
 Package `de.planmarshall.workflow.verify` implements the static AST verifier and the transition fuzzer for the Workflow Domain-Specific Language (Workflow DSL) of Plan Marshall (PM-IMPL-5, PM-TEST-3).
 The static verifier inspects a parsed `WorkflowDefinition` and its transition graph ahead of execution and reports every violation of the static verification rules it checks.
 A unit has one of the scopes of `WorkflowScope`: `plan`, `epic`, `workspace`, `entity` and `subworkflow`.
+Among the checks are the interface rules and the type check, which compare a unit with the type, the entries and the exits its frontmatter declares (<<interface-rules>>).
 The package also holds the compiled invariants every project-owned unit satisfies and the compiled bounds of the declarations a unit may change (<<_compiled_invariants>>); the loader of the project-owned units in `workflow.unit` runs both.
 
 This guide states what the code checks of Rules 1 to 12 and names, with its ADR, every part of those rules that it does not check (a _seam_); the role and skill checks of Rules 13 and 14 are not part of the verifier (link:../adr/workflow-verify/016-left-out-rules-tracked-as-an-open-package.adoc[ADR 016]).
@@ -17,11 +18,13 @@ The rules themselves are defined by the specification, link:../../../doc/specifi
 
 [horizontal]
 `WorkflowValidator`:: The entry point. Runs every check over one unit and returns a `VerificationResult`; no check stops at the first violation.
-`VerificationRule`:: The closed set of checks, 26 constants; each names the number of the specification rule it implements a part of.
+`VerificationRule`:: The closed set of checks, 32 constants; each names the number of the specification rule it implements a part of.
 `Violation`:: One finding: its `VerificationRule`, the state it concerns, its `SourceLocation` (resource and line) and a message.
 `VerificationResult`:: The record of the `violations` alone, immutable and ordered. `passed()` is `true` when there is no violation. Every finding of the verifier refuses the unit; the advisories channel PLAN-54 added was removed with the only check that used it (link:../adr/workflow-verify/008-verification-result-advisories.adoc[ADR 008]).
-`UnitGraph`:: The transition graph of one unit: successors and predecessors, forward and backward closures, simple cycles, the reachability without a producer, and the implicit exits of a state.
-`TransitionFuzzer`:: A seeded explorer that draws Boolean assignments for the guard atoms of a unit and reports the states in which no exit holds (`FuzzConfiguration`: seed, runs, greatest number of steps).
+`UnitGraph`:: The transition graph of one unit: successors and predecessors, forward and backward closures, simple cycles, the reachability without a producer, the implicit exits of a state, and the outcomes of the terminals reachable from the entry-bound states (`outcomesReachedFromEntries`).
+`TransitionFuzzer`:: A seeded explorer that draws Boolean assignments for the guard atoms of a unit and reports the states in which no exit holds (`FuzzConfiguration`: seed, runs, greatest number of steps). Each run walks from the start state, or under the same assignment from each entry-bound state in turn.
+
+Every walk of the package starts at the starting states of the unit, `WorkflowDefinition.startingStates()`: the start state of a unit without entries, every entry-bound state of a unit with entries.
 `WorkflowCatalog`:: The registered units a `call` may name and an entity kind's entity unit must name.
 `EntityKindRegistry`:: The entity kinds with their optional entity unit and return-evaluation primitive. The defaults carry no test identifier: `screen` has no entity unit, `task` runs `worker-task`, `decision`, `triage` and `simplify` run `entity`, and the multi-submit lesson review `lessons-review` (return evaluation `lessons-review.evaluate`) runs `entity-multi`, named as the State Catalogue's `job llm lessons-review role lessons` (link:../adr/workflow-verify/012-lesson-review-kind-named-lessons-review.adoc[ADR 012]). The entity kind is not the question class `review` below.
 `QuestionClassRegistry`:: The question classes and their closed resolution outcomes: `init`, `clarification`, `review`, `task`, `setup` and `ask` (`answered`, `assumed`).
@@ -68,12 +71,13 @@ Seam (link:../adr/workflow-verify/010-primitive-spi-each-seam.adoc[ADR 010]): th
 === Rule 3: The State Graph
 
 * `STATE_ID_UNIQUE`: the engine-made `<state>.asked` of an `ask` state collides with no declared state.
-* `STATE_EXISTS`: the start state and every transition target are states of the unit; the abort terminals and the reserved targets are left to their own checks.
-* `REACHABILITY`: every state is reachable from the start state; the abort terminals `plan.aborted` and `epic.aborted` count as reachable.
+* `STATE_EXISTS`: the start state, the state of every entry binding (at the binding's line) and every transition target are states of the unit; the abort terminals and the reserved targets are left to their own checks.
+* `REACHABILITY`: every state is reachable from the start state or from at least one entry-bound state (interface rule 4); the abort terminals `plan.aborted` and `epic.aborted` count as reachable.
 * `ABORT_TERMINAL_TARGETING`: no transition targets `plan.aborted`; `epic.aborted` is targeted only by `abort_landed` of `epic.next-work`, and by at most one transition.
 * `TARGET_NOT_RESERVED`: no transition targets a condition kind or a state id ending in `.blocked`, `.footprint-violation` or `.config-drift`.
-* `EXIT_PATH`: in a `workspace` unit every non-terminal state has a path back to the start state; in every other unit every state has a path to a terminal state or to an implicit exit (the `step_out` of a link state of a sub-workflow, and the default `lost` route of a `job llm` state that declares no `lost`, only where Rule 2 admits that default: `UnitGraph.hasImplicitExit`, link:../adr/workflow-verify/025-rule-2-lost-in-plan-only-sub-workflows.adoc[ADR 025]).
+* `EXIT_PATH`: in a `workspace` unit every non-terminal state has a path back to its starting point; in every other unit every state has a path to a terminal state or to an implicit exit (the `step_out` of a link state of a sub-workflow, and the default `lost` route of a `job llm` state that declares no `lost`, only where Rule 2 admits that default: `UnitGraph.hasImplicitExit`, link:../adr/workflow-verify/025-rule-2-lost-in-plan-only-sub-workflows.adoc[ADR 025]).
 * `LINK_ID_UNIQUE`: the link identifiers of a state are unique, and no declared link repeats an implicit one (`ack`, `consult:<role>`, `answer:<question_id>`, and `step_out` on a link state of a sub-workflow).
+* `INTERFACE_START_OR_ENTRIES`, `INTERFACE_STOP_POINTS_OR_EXITS`, `INTERFACE_EXIT_REACHED`: interface rules 1, 2 and 4 (<<interface-rules>>).
 
 Seam (link:../adr/workflow-verify/006-rule-3-value-activation-gap.adoc[ADR 006], link:../adr/workflow-verify/004-rule-3-configuration-reachability.adoc[ADR 004]): configuration reachability is not implemented. The enumeration of the values of the `depends_on_config` keys, the rule by which a value activates a guard, the report of a state or transition that some combinations do not reach, and the refusal of one that no combination reaches are not checked; the specification gives the key domains but no activation rule. The check `CONFIG_REACHABILITY`, which judged reachability under an all-keys-true activation of its own and could refuse nothing, is removed with its advisories.
 
@@ -92,12 +96,14 @@ Seams (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 
 `SUBWORKFLOW_CALL_CONTRACT`:
 
 * the called unit is registered in the `WorkflowCatalog` and has the scope `subworkflow`;
-* the exit contract of a callee is the outcomes of its terminals plus `stepped_out`, which every sub-workflow returns implicitly (link:../adr/workflow-verify/009-rule-6-implicit-stepped-out.adoc[ADR 009]); a call routes each exit outcome once and no other outcome;
+* the exit contract of a callee is the exits its frontmatter declares plus `stepped_out`, which every sub-workflow returns implicitly (link:../adr/workflow-verify/009-rule-6-implicit-stepped-out.adoc[ADR 009]); it is no longer derived from the callee's terminals, which interface rule 2 ties to the declared exits; a call routes each exit outcome once and no other outcome;
 * a result guard sits only on the `done` of a call: a result guard on the transition of any state that is no call, its declared links included, and on a call outcome other than `done` is refused, and so is a result guard on a call whose callee declares no `result` schema, once per call (link:../adr/workflow-verify/023-rule-6-result-guards-on-a-schema-callee-done.adoc[ADR 023]); a guarded `done` is admitted only as the complementary pair `guard result.<f>` / `guard not result.<f>`;
 * the parameter bindings name declared parameters only, bind every declared parameter, and fit its type (enum value, integer range, non-empty list of enum values);
 * `phase inherit` occurs only in `subworkflow` and `entity` units, and a resting link state of a sub-workflow declares a skill;
 * only a terminal of class `STEPPED_OUT` declares the outcome `stepped_out`;
 * the `stepped_out` route of a call never targets a terminal of class `SUCCESS`; in a plan unit it targets `plan.return` or `finalize.hand-back`, in an epic, workspace or entity unit a resting state, in a sub-workflow a terminal of class `STEPPED_OUT` or `FAILURE` or a link state, and inside a remediation unit also the unit's budget re-check, the state whose id ends in `.budget-check` and which is `auto remediation.check-budgets`; every other target is refused (link:../adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR 024]).
+
+`INTERFACE_CALLED_UNIT`, `INTERFACE_CALL_ENTRY` and `TYPE_FITS` are interface rules 3, 5 and 6 (<<interface-rules>>).
 
 Seams: that the guarded field is a boolean or optional field of the callee's result schema is not checked, `SchemaRegistry` holds names only (link:../adr/workflow-verify/010-primitive-spi-each-seam.adoc[ADR 010]); in a plan unit, which of the two fallback states, `plan.return` or `finalize.hand-back`, belongs to the phase of the calling state is not checked, either is admitted (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 001]).
 
@@ -107,13 +113,13 @@ Seams: that the guarded field is a boolean or optional field of the callee's res
 
 === Rule 8: Gate Producers
 
-* `GATE_PRODUCER_COVERAGE`: every path from the start state to a state or link that requires an artifact (through its `auto`, `job` or `facts` primitive, its `do` primitive or a `predicate:` of its guard) passes a state whose primitive produces it.
+* `GATE_PRODUCER_COVERAGE`: every path from a starting state to a state or link that requires an artifact (through its `auto`, `job` or `facts` primitive, its `do` primitive or a `predicate:` of its guard) passes a state whose primitive produces it.
 
 === Rule 9: Step Completion
 
 `STEP_COMPLETION` (link:../adr/workflow-verify/002-rule-9-firing-model.adoc[ADR 002], link:../adr/workflow-verify/007-rule-9-derived-firing-openings.adoc[ADR 007], link:../adr/workflow-verify/021-rule-9-firing-per-step.adoc[ADR 021], link:../adr/workflow-verify/022-rule-9-cycle-measures-as-specified.adoc[ADR 022]):
 
-* *Firings*, judged per step (ADR 021): the openings are the start state, the region entry states (`finalize.review-cap-check`, `finalize.merge-evidence-wait`) and the link targets of the unit's `STEP_LIST` hub. An opening begins the steps completed on a path from it before another opening is reached, less every step completed on a transition into it from a state outside that reach; a step completed on a loop-back into the opening from a state the opening reaches stays begun there. A firing of a step ends at the next opening of the same step once the step is completed, on entry into `finalize.merge-gate` or a terminal state, and early on an outcome of class `UNSETTLED` or `STEPPED_OUT`; it passes the opening of another step without ending, and a re-entry into an opening of the step while the step is open continues it. Entering `plan.aborted`, `plan.return` or `finalize.hand-back` records the open step `failed`. Every path of a firing completes its step exactly once: a second completion, also one after another step's opening, is refused at the second completion, a path without one at its last transition; a completion on the transition into an implicit-`failed` state and a step completed twice on one transition are refused.
+* *Firings*, judged per step (ADR 021): the openings are the starting states (the start state, or every entry-bound state), the region entry states (`finalize.review-cap-check`, `finalize.merge-evidence-wait`) and the link targets of the unit's `STEP_LIST` hub. An opening begins the steps completed on a path from it before another opening is reached, less every step completed on a transition into it from a state outside that reach; a step completed on a loop-back into the opening from a state the opening reaches stays begun there. A firing of a step ends at the next opening of the same step once the step is completed, on entry into `finalize.merge-gate` or a terminal state, and early on an outcome of class `UNSETTLED` or `STEPPED_OUT`; it passes the opening of another step without ending, and a re-entry into an opening of the step while the step is open continues it. Entering `plan.aborted`, `plan.return` or `finalize.hand-back` records the open step `failed`. Every path of a firing completes its step exactly once: a second completion, also one after another step's opening, is refused at the second completion, a path without one at its last transition; a completion on the transition into an implicit-`failed` state and a step completed twice on one transition are refused.
 * *Class admission*: `done` only on `SUCCESS`; `skipped` on `SUCCESS` or `SKIP`, on `lost` and on a task's `infeasible`; `failed` on every class but `UNSETTLED` and `STEPPED_OUT`; `waived` only on the `waived` outcome of a call to a unit of the namespace `remediation.`. An outcome whose class cannot be established, such as a question resolution outcome or the outcome of an unregistered primitive, admits no completion.
 * *Cycle measures*, derived from the primitive and naming no state id (ADR 022): `STEP_LIST` only in a unit with a step list, and every pass of the hub settles exactly one step (a pass leaves the hub on one of its outcomes and returns to it; each outcome with a pass that settles none, or more than one distinct step, is refused at its transition, and so is a pass of it that completes a step twice, naming the first step a path of the pass completes a second time (a pass repeating two steps names the first only and is also refused as settling more than one distinct step), whether or not a firing also refuses the second completion: a step whose completions sit only on transitions into openings is begun by no opening and judged by no firing, and where a firing does judge it both violations stand, agreeing in what they state); `ARCHIVE_STEPS` only in an epic unit, on a state with a path to a terminal state, and on an archive path that commits (a cycle through the state passes a call of `git.commit_and_push`) and lands (a cycle through it passes a `job` or `composite_job` state); the exhaustion transition of an `ATTEMPT_CAP` leaves every cycle through its state. That an `ATTEMPT_CAP` primitive names an exhaustion outcome of class `FAILURE` is refused at registration by `PrimitiveRegistry`.
 
@@ -137,6 +143,76 @@ Seam (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 0
 * `LINK_COMPATIBILITY`: the engine-owned relations `consult` and `abort` are never declared; the form of a link is one its relation admits; a `submit` link declares parameters and a `noop` link none; an `escalate` link has the identifier `request_waiver`.
 
 Seam (link:../adr/workflow-verify/001-static-verifier-remaining-rules.adoc[ADR 001]): the specification admits as an `escalate` link a `submit` link whose primitive files a waiver request and never waits for or applies an operator answer; the verifier tells that link by its identifier `request_waiver`, because the primitive SPI does not declare that a primitive files a waiver request.
+
+[#interface-rules]
+== Interface Rules and Unit Types
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+The entries and the exits a frontmatter declares are the unit's interface (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit Frontmatter]); the type, with the scope, fixes its shape (link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]).
+The verifier checks six interface rules for every unit, each as a member of `VerificationRule` under specification Rule 3 or Rule 6 (link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules]), so the result of a unit lists them beside every other violation (link:../adr/workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR 026]).
+Each violation is a value naming its rule, its state and its source location, as every other violation.
+
+. *A starting point or entries.* A unit without entries declares exactly one `start <state_id>`, where the server starts it. A unit whose frontmatter declares entries declares no `start`, binds every declared entry exactly once with `entry <name> -> <state_id>`, and binds no undeclared name; a bound state exists in the unit.
+. *Stop points or exits.* A unit without exits declares at least one terminal state; its terminals are stop points that end the unit's scope. The resident workspace unit (scope `workspace`) is the exception: it declares no terminal and returns from every state to its resting state. A unit with exits declares the outcome of every terminal as one of its exits, or as `stepped_out` on a terminal of class `stepped_out`, and every declared exit is the outcome of at least one terminal. A landing variant, composed into the finalize phase rather than called, declares one entry per step it holds and no exit and no terminal, because its states continue in the phase.
+. *Called units return.* A unit with entries declares at least one exit, a landing variant excepted; only a unit with entries is the target of a `call`. A unit without entries is started by the server or run by the engine in a frame of its own (`worker-task`, the entity units, `adjudicate.decisions`), never called.
+. *Every entry and exit is used.* Every state is reachable from the starting point or from at least one entry, and every exit is reached from at least one entry.
+. *A call names its entry.* `call <unit> entry <name> (…)` names an entry the callee declares; a call to a unit with exactly one entry may omit it, a call to a unit with several names one. The call routes every exit of the callee and `stepped_out`.
+. *The type fits.* The unit's scope and the presence of its entries and exits match the row of its type.
+
+[cols="1,3,1,3"]
+|===
+|Rule |Member |Spec rule |Refusing fixtures (`verify/refused/`)
+
+|1
+|`INTERFACE_START_OR_ENTRIES`: a `start` beside declared entries, a declared entry without a binding, a binding of an undeclared name. `STATE_EXISTS`: a binding to a missing state.
+|3
+|`interface-start-with-entries`, `interface-entry-unbound`, `interface-entry-undeclared`; `interface-entry-state-missing`
+
+|2
+|`INTERFACE_STOP_POINTS_OR_EXITS`: neither an exit nor a terminal, a terminal outcome that is no exit, an exit no terminal reports, a landing variant with an exit or a terminal
+|3
+|`interface-no-terminal`, `interface-terminal-not-exit`, `interface-exit-without-terminal`, `interface-landing-variant-terminal`
+
+|3
+|`INTERFACE_CALLED_UNIT`: a unit with entries and no exit; a call to a unit without entries, at the call
+|6
+|`interface-entries-without-exit`, `interface-call-target-without-entries`
+
+|4
+|`REACHABILITY`: a state no starting state reaches. `INTERFACE_EXIT_REACHED`: an exit that a terminal reports, but no terminal reachable from an entry
+|3
+|`interface-state-unreachable-from-entries`, `interface-exit-unreached-from-entry`
+
+|5
+|`INTERFACE_CALL_ENTRY`: a named entry the callee does not declare, an omitted entry of a callee with several. `SUBWORKFLOW_CALL_CONTRACT`: a declared exit of the callee left unrouted
+|6
+|`interface-call-entry-unknown`, `interface-call-entry-omitted`; `interface-call-exit-unrouted`
+
+|6
+|`TYPE_FITS`: the scope, the entries or the exits outside the row of the type, one violation per mismatch
+|6
+|`type-workflow-wrong-scope`, `type-workflow-with-entries`, `type-recipe-wrong-scope`, `type-subworkflow-wrong-scope`, `type-system-wrong-scope`, `type-task-with-entries`, `type-instance-wrong-scope`
+|===
+
+The passing controls `verify/passing/interface-entries-and-exits.pmwf` (a called unit with two entries and two exits) and one `type-<type>.pmwf` per type verify clean.
+
+One owner per check: the parser refuses what the text alone decides, a `start` line beside an `entry` line and an entry bound twice (link:workflow-dsl.adoc[Workflow DSL]); no `VerificationRule` member repeats them.
+A check that another member already makes is not repeated either: a missing bound state is `STATE_EXISTS`, the reachability of the states is `REACHABILITY`, a call that leaves an exit of its callee unrouted is `SUBWORKFLOW_CALL_CONTRACT`, a terminal `stepped_out` of another class is `SUBWORKFLOW_CALL_CONTRACT`, and an exit no terminal reports is rule 2's and not rule 4's.
+
+=== The Exit Contract
+
+The exit contract of a sub-workflow is the exits its frontmatter declares plus the implicit control exit `stepped_out`.
+Rule 6 checks every call against it, and the compiled invariant `INV-GIT-1` reads the declared exits of `git.commit_and_push` (exactly `done`) the same way; neither derives the contract from the terminals any more.
+Interface rule 2 keeps the terminals and the declared exits in agreement within the callee.
+
+=== The Type Rows as Checked
+
+`TYPE_FITS` reads the rows of link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]: `workflow` with scope `plan` or `epic`, `recipe` and `instance` with scope `plan`, each without entries and exits; `subworkflow` with entries and exits; `system` started (scope `workspace` or `entity`, no entries, no exits) or called (scope `subworkflow`, entries and exits); `task` with scope `subworkflow` or `entity`, no entries and one or more exits.
+
+The tree marks neither a landing variant nor the adjudication unit, so both exceptions are recognised by name: a landing variant by the id prefix `landing.` (no exit, no terminal, and no `INTERFACE_CALLED_UNIT` violation for its missing exit), the adjudication unit by the id `adjudicate.decisions` (the `subworkflow` without entries).
+
+Not checked, and left in the specification: the row of the machine unit, type `system` with scope `machine`, and the machine unit as a resident unit of rule 2, because the tree has no `machine` scope yet (link:../../../doc/specification/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]); both follow with link:../../../doc/plans/operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`].
 
 == Compiled Invariants
 
@@ -171,6 +247,26 @@ Two invariants take a result computed elsewhere.
 The violations are ordered by the declaration order of their state, violations of the unit as a whole after every state, and within a state by invariant.
 No configuration switches a check off, and no check stops at the first violation.
 
+[#_inv_gen_1_over_type_and_interface]
+=== INV-GEN-1 over Type and Interface
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+The interface is part of what a unit promises its callers, so a project's unit keeps the interface of the default unit it replaces, and a call site never meets an entry or an exit it does not know.
+Beside the Rule 1-12 violations, the scope, the start state and the terminal states, `GeneralInvariants` compares four elements of the unit with those of its default unit, and reports each difference once as `INV-GEN-1`, naming the differing element (link:../adr/workflow-verify/027-inv-gen-1-compares-type-and-interface.adoc[ADR 027]):
+
+* the type of the frontmatter;
+* the names of the entries, in declaration order;
+* the names of the exits, in declaration order;
+* the entry bindings, each entry with the state it binds, compared as a map, so the order of the binding lines does not matter.
+
+The descriptions of the entries and exits are not compared.
+A start state is compared as before, a unit that binds entries instead reading as having none.
+A plan instance version declares the type `instance` and is checked against the template it is composed from: its type passes the comparison when the default unit is of the type `workflow` or `recipe`, because that difference is the composition's, not a replacement's (link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]).
+
+Not checked here: the machine level (`<PM_MCP_BASE>/workflows/`) has no loader in this repository, `UnitOrigin` knows `DEFAULT` and `PROJECT` only, so `INV-GEN-1` compares a project's unit with the default unit; the comparison of a machine's unit follows with its loader.
+The author part of `INV-GEN-1` (no project unit names the author `plan-marshall`) is checked by the project loader (link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
+
 === Named Hooks
 
 The part of an invariant that the syntax tree cannot decide is a named hook: the reason, as a code constant on the `InvariantId` (`namedHook()`), that the part is deferred to a runtime owner.
@@ -197,9 +293,9 @@ The class lives in `workflow.verify` because the invariants use it and the loade
 
 == Testing
 
-`WorkflowValidatorTest` counts the refusing fixtures of `src/test/resources/verify/refused` against an enumerated checklist of atomic checks: every checklist entry names exactly one fixture, no fixture is named twice, the fixtures on disk are exactly the named ones, and each fixture is refused with the rule of its entry. Each fixture states its expected violations in leading `# expect: <RULE> state <state> line <line>` comments and is refused with exactly those. Beside the checklist, the test lists by name the checks no fixture can plant (the language or `PrimitiveRegistry` refuses the input first) and the seams of this guide, each with its ADR, and asserts that the three lists together account for all 26 `VerificationRule` constants. `every-construct.pmwf` passes every check, and inline units are the matched controls of the exemptions.
+`WorkflowValidatorTest` counts the refusing fixtures of `src/test/resources/verify/refused` against an enumerated checklist of atomic checks: every checklist entry names exactly one fixture, no fixture is named twice, the fixtures on disk are exactly the named ones, and each fixture is refused with the rule of its entry. Each fixture states its expected violations in leading `# expect: <RULE> state <state> line <line>` comments and is refused with exactly those. Beside the checklist, the test lists by name the checks no fixture can plant (the language or `PrimitiveRegistry` refuses the input first) and the seams of this guide, each with its ADR, and asserts that the three lists together account for all 32 `VerificationRule` constants. The interface rules and the type check have their refusing fixtures (`interface-*.pmwf`, `type-*.pmwf`, <<interface-rules>>), each parseable, and their passing controls below `src/test/resources/verify/passing`; `AdditionalRulesTest` adds the Rule 6 call contract over the callee's declared exits. `every-construct.pmwf` passes every check, and inline units are the matched controls of the exemptions.
 
-`CompiledInvariantsTest` and `DeclarationBoundsTest` run over the units of `src/test/resources/unit-fixtures/defaults/`, which are written for the tests and never copied from the shipped content (link:../adr/workflow-verify/018-invariants-over-test-written-units.adoc[ADR 018]); `InvariantFixtures` loads them with the primitives and entity kinds written for them. Every passing unit passes Rules 1-12 and every invariant; every invariant and every declaration bound has a refusing case at its file and line.
+`CompiledInvariantsTest` and `DeclarationBoundsTest` run over the units of `src/test/resources/unit-fixtures/defaults/`, which are written for the tests and never copied from the shipped content (link:../adr/workflow-verify/018-invariants-over-test-written-units.adoc[ADR 018]); `InvariantFixtures` loads them with the primitives and entity kinds written for them. Every passing unit passes Rules 1-12 and every invariant; every invariant and every declaration bound has a refusing case at its file and line. `CompiledInvariantsTest` refuses a project unit that differs from its default unit in its type, an entry, an exit or an entry binding with `INV-GEN-1`, beside an identical control that passes.
 
 == Usage
 
@@ -243,4 +339,4 @@ QuestionClassRegistry customQuestions = QuestionClassRegistry.defaults()
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-5[PM-WF-5], link:../../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-4[PM-WORK-4], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]
 * Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules], link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/08-remediation-units.adoc#remediation-invariants[Workflow DSL § Compiled Invariants of Remediation Units]
-* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 025
+* Decisions: `pm-workflow/doc/adr/workflow-verify/` ADRs 001 to 027; the interface rules and the type check in link:../adr/workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR 026], `INV-GEN-1` over type and interface in link:../adr/workflow-verify/027-inv-gen-1-compares-type-and-interface.adoc[ADR 027]

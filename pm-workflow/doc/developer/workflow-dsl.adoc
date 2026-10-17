@@ -1,0 +1,316 @@
+= Workflow DSL (`workflow.dsl`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+Package `de.planmarshall.workflow.dsl` is the line-oriented Workflow DSL: it reads the text of a unit into the
+immutable tree of `workflow.ast` (link:workflow-ast.adoc[Workflow AST]) and prints a tree back to text. Every `.pmwf`
+file opens with a frontmatter, which a reader of its own reads, and continues with the body, which the parser reads.
+A refusal is a value with a rule, the resource, the line and the column; nothing in the package throws for a bad unit.
+
+The grammar of the body is link:{spec}/workflow-dsl/01-grammar.adoc[Workflow DSL § Grammar]. This guide states the
+format of the frontmatter, which the reader implements, and what the parser and the printer do with the frontmatter, the
+entry bindings and the entry of a call. The decisions are recorded in `pm-workflow/doc/adr/workflow-dsl/`.
+
+== Main Types
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+[horizontal]
+`UnitFrontmatterReader`:: Reads the frontmatter of a unit, and nothing else: `read(resourceName, source)` returns the
+sealed `UnitFrontmatterReader.Result`, either `Read` with the `UnitFrontmatter` and the line the body starts at, or
+`Refused` with a `Diagnostic` of the rule `FRONTMATTER`. It stops at the closing `---`, so the body need not parse.
+`WorkflowParser`:: `parse(resourceName, source, origin)` reads a whole unit and returns the sealed `ParseResult`:
+`Parsed` with the `WorkflowDefinition`, or `Refused` with the first `Diagnostic`.
+`WorkflowPrinter`:: Prints a `WorkflowDefinition` as canonical source, so that parsing the printed text yields the same
+tree, source locations aside (the round trip).
+`Diagnostic`:: A refusal: the `RefusalRule`, the resource, the line, the column and what is wrong.
+`RefusalRule`:: The closed set of the reasons a unit is refused: `FRONTMATTER`, `STRUCTURE`, `RESERVED_KEYWORD`,
+`MISSING_SCOPE`, `DUPLICATE_ID` and `INSTANCE_HEADER`.
+
+[source]
+----
+.pmwf text ──► UnitFrontmatterReader ── Refused(FRONTMATTER) ─────────────────► ParseResult.Refused
+                     │ Read(frontmatter, bodyLine)
+                     ▼
+               WorkflowParser (body from bodyLine) ── Refused(STRUCTURE, …) ──► ParseResult.Refused
+                     │
+                     ▼
+               ParseResult.Parsed(WorkflowDefinition) ──► WorkflowPrinter ──► canonical text
+----
+
+== The Read Order
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+`WorkflowParser.parse` reads in two steps:
+
+. *Frontmatter first.* The parser hands the whole text to `UnitFrontmatterReader.read`. A missing or refused frontmatter
+  is returned as the parser's refusal, with the rule `FRONTMATTER`; the body is not read.
+. *Then the body.* The lexer cuts the whole text into lines, and the parser keeps the lines from the reader's `bodyLine`,
+  the line after the closing `---`. Line numbers are those of the file, so every refusal of the body names the line
+  as an editor shows it. A body without a token is refused at `bodyLine`, column 1.
+
+The lines of the frontmatter, which the lexer cuts with the rest of the text, are dropped before the parser reads a
+line, so the lexer's comment rule (`#` to the end of the line) never applies to them: inside the frontmatter a comment
+is refused.
+
+[#unit-frontmatter]
+== The Unit Frontmatter
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+The frontmatter is the first part of every `.pmwf` file: what the unit is for a person, its type, its interface (the
+entries through which control arrives and the exits through which it leaves), and where it comes from. It is read
+without the body, so a list of units, a catalogue of building blocks or a process view shows a unit's name,
+description, type and interface from it alone, and a `call` is checked against the interface of its callee.
+
+[source,yaml]
+----
+---
+name: Commit and Push
+description: Commits the changes of the plan's worktree and pushes its branch as the push mode says.
+type: subworkflow
+entry: commit
+entry_description: The worktree holds the changes to commit, or is clean.
+exit: done
+exit_description: Commit and push are settled; the result record says what was committed, pushed, or landed.
+modification_date: 2026-10-14
+version: 1.0.0
+author: plan-marshall
+---
+workflow git.commit_and_push version 1 format 1
+scope subworkflow
+…
+entry commit -> git.inspect-worktree
+----
+
+=== Format
+
+The frontmatter is a closed, line-oriented subset of YAML between two lines `---`, the first of which is the first line
+of the file. `UnitFrontmatterReader` reads it with a parser of its own and never with a general YAML loader, so no tag,
+anchor, alias or merge key is ever resolved
+(link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR 005]).
+
+* *One field per line*: every line is `key: value` at column 1. There is no blank line, comment, indentation, nesting,
+  flow collection, block scalar or document marker other than the two delimiters, and no value contains a control
+  character.
+* *Values*: a value is plain or double-quoted. A plain value has no leading or trailing blank, does not start with a
+  YAML indicator character (`-?:,[]{}#&*!|>'"%@` and the backquote), and contains neither `": "` nor `" #"`. A
+  double-quoted value is one line between `"` and `"` with the escapes `\"` and `\\` only. A value a plain scalar
+  cannot carry is written double-quoted.
+* *Closed keys*: the keys are `name`, `description`, `type`, `entry`, `entry_description`, `exit`, `exit_description`,
+  `modification_date`, `version`, `author` and `signature`; any other key is refused. `name`, `description`, `type`,
+  `modification_date`, `version` and `author` occur exactly once, `signature` at most once.
+* *Repeated `entry` and `exit`*: a unit declares zero or more entries and zero or more exits, one name per line, the key
+  repeated per name, kept in order and never collapsed. This is the one point where the frontmatter is not a YAML
+  mapping.
+* *Descriptions*: an `entry_description` stands directly below its `entry` line and an `exit_description` directly below
+  its `exit` line, at most one each. A description below another key, below another description or as the first line is
+  refused.
+* *Order*: apart from the descriptions, the order of the lines is free. The printer writes the order of the field table
+  below.
+
+=== Fields
+
+[cols="2,1,6"]
+|===
+|Key |Occurs |Value and check
+
+|`name`
+|1
+|The display name of the unit, 3 to 100 characters.
+
+|`description`
+|1
+|What the unit does and when it is used, 1 to 1000 characters.
+
+|`type`
+|1
+|One of the wire names of `UnitType`: `workflow`, `recipe`, `subworkflow`, `system`, `task`, `instance`
+(link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]).
+
+|`entry`
+|0..n
+|The name of an entry: a DSL identifier `[a-z][a-z0-9_-]{0,31}` of the
+link:{spec}/identifiers/01-general-rules-and-registry.adoc#id-dsl-identifier[Identifier Registry], unique among the
+unit's entries. The header binds it with `entry <name> -> <state_id>`.
+
+|`entry_description`
+|0..1 per entry
+|What a caller hands over or may assume when it enters through the entry on the line before, 1 to 500 characters.
+
+|`exit`
+|0..n
+|The name of an exit, an outcome id of the same grammar, unique among the unit's exits, never `stepped_out` (the
+implicit control exit of every sub-workflow).
+
+|`exit_description`
+|0..1 per exit
+|What the caller can rely on when the unit leaves through the exit on the line before, 1 to 500 characters.
+
+|`modification_date`
+|1
+|The date of the last change of the file, `YYYY-MM-DD`, a valid calendar date not after the day of the validation,
+taken in UTC.
+
+|`version`
+|1
+|The plan-marshall release the unit was created with or delivered by, in the
+link:{spec}/identifiers/02-registry-stores-to-web.adoc#id-release-version[release version] grammar
+(`[0-9]+.[0-9]+.[0-9]+` with an optional `-` suffix of `[A-Za-z0-9.-]`, at most 64 characters). It is not the unit's
+revision, which the `version` of the `workflow` header counts.
+
+|`author`
+|1
+|Who made the unit, 1 to 100 characters: `plan-marshall` for the units compiled into the binary and only for them. The
+reader checks the length; the reserved name is checked per level by the loader
+(link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
+
+|`signature`
+|0..1
+|Reserved for a signature over the file's content. It is carried with the unit and not verified; a missing one is no
+finding.
+|===
+
+=== Refusals
+
+The reader stops at the first refusal and reports it with the rule `FRONTMATTER`, the line and the column:
+
+[cols="3,2"]
+|===
+|Refused |Where
+
+|No frontmatter: the first line is not `---`
+|line 1, column 1
+
+|The frontmatter is not closed by a line `---`
+|the last line, column 1
+
+|A blank line, an indented line, a merge key (`<<`), a line that is not `key: value`, an unknown key, a repeated single
+key, a description that does not stand directly below its element, a second description of one element
+|the line, column 1
+
+|A tag (`!`), an anchor (`&`), an alias (`*`), a flow collection (`[`, `{`), a block scalar (`\|`, `>`), a comment (`#`),
+or another YAML indicator at the start of a line or of a value
+|the line, column 1 or the column of the value
+
+|A comment (`" #"`) or a mapping (`": "`) inside a plain value, a trailing blank, an escape other than `\"` and `\\`,
+content after the closing quote, an unclosed double-quoted value
+|the line, the column of the offending character
+
+|A control character
+|the line, its column
+
+|A field outside its bounds: a length, an unknown type, an entry or exit that is no identifier or is declared twice, the
+exit `stepped_out`, an invalid or future date, a version outside the release version grammar
+|the line, the column of the value
+
+|A missing single key
+|the closing line, column 1
+|===
+
+== The Body: Start State or Entry Bindings
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+After its declarations, the header of the body carries either one `start <state_id>` line or one or more
+`entry <name> -> <state_id>` lines (the EBNF `start_decl | entry_decl , { entry_decl }`):
+
+* a body with a `start` line and an `entry` line, in either order, is refused as `STRUCTURE` at the second of the two;
+* a body with neither is refused as `STRUCTURE` where the one or the other is expected;
+* an entry name bound twice is refused as `DUPLICATE_ID` at the second binding.
+
+The parser keeps what the body says and compares nothing with the frontmatter. A unit whose frontmatter declares entries
+but whose body has a `start` line, a declared entry without a binding, a binding of a name the frontmatter does not
+declare, and a binding to a state the unit does not have all parse, and the verifier refuses them
+(link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface Rules], rule 1). One owner per check keeps
+every verifier fixture parseable.
+
+A `call` clause may name the callee's entry: `call <unit> entry <name> (…)`. The entry is kept as `Optional<String>`
+on `StateBehavior.SubWorkflowCall`; whether the callee declares it, and whether the call may omit it, is the verifier's
+(rule 5).
+
+The keyword `entry` is positional, not reserved: it is read only at the start of a header line and after the callee of a
+`call`, so a state id such as `setup.entry` stays valid. The keyword `start` is reserved.
+
+== The Printer and the Round Trip
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+`WorkflowPrinter` writes the frontmatter first, between its two `---` lines, in the order of the field table: `name`,
+`description`, `type`, each `entry` followed by its `entry_description`, each `exit` followed by its `exit_description`,
+`modification_date`, `version`, `author` and `signature`. A value is written plain when a plain scalar can carry it and
+double-quoted otherwise, with `\` written as `\\` and `"` as `\"`. Then come the unit header and the declarations, the
+`start` line or the entry bindings in source order, the migrations and the states; a `call` names the entry it names in
+the tree.
+
+Parsing the printed text yields the same tree, source locations aside: the frontmatter, the order of the entries and
+exits, the entry bindings and the entry of every call survive the round trip. A frontmatter whose lines were in another
+order is printed in the order of the table, and the descriptions stay with their elements.
+
+== Adding a Refusal
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+. Decide who owns the check. The parser refuses only what the text alone decides: the grammar and the uniqueness of an
+  identifier within the file. Everything that compares two parts of a unit, or a unit with another, is a rule of the
+  verifier.
+. Refuse it where it is found, with the line and the column of the offending token: in the frontmatter reader for the
+  frontmatter, in the parser for the body. Reuse a `RefusalRule` when one names the reason; add a member, with its
+  Javadoc, only for a new kind of reason.
+. Add a malformed fixture below `src/test/resources/dsl/malformed/`. It opens with a valid frontmatter, unless the
+  frontmatter itself is what is refused, and states its expectation in a comment
+  `# expect: <RULE> line <n> column <n>` directly below the closing `---` (as the first line of a fixture without
+  frontmatter). `WorkflowParserRefusalTest` refuses every fixture of the directory with exactly that rule, line and
+  column.
+. A refusal of the frontmatter is also a case of `UnitFrontmatterReaderTest`.
+
+== Testing
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+[cols="1,3"]
+|===
+|Test |Guards
+
+|`UnitFrontmatterReaderTest`
+|Every field read, three entries kept in order with their descriptions, every refused form and every field bound with
+rule, line and column, a future and an invalid calendar date, the signature carried and not verified, and the
+frontmatter of a text whose body does not parse.
+
+|`WorkflowParserTest`
+|The frontmatter read into the tree, entry bindings and `call … entry` parsed, a unit with three entries, and a unit with
+declared entries and a `start` line, or a binding of an undeclared name, parsed without refusal.
+
+|`WorkflowParserRefusalTest`
+|Every fixture of `dsl/malformed/`, among them one per refused form of the frontmatter (`frontmatter-*.pmwf`),
+`start-beside-entry-binding.pmwf` (`STRUCTURE`) and `entry-binding-repeated.pmwf` (`DUPLICATE_ID`), refused with its
+rule, file, line and column.
+
+|`WorkflowPrinterTest`
+|Parse, print and parse again to the same tree, for a unit with descriptions, quoted values, a signature and three
+entries.
+|===
+
+== Developer Pitfalls
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+* *Never read the frontmatter with a general YAML loader.* A YAML loader resolves tags, anchors, aliases and merge keys,
+  collapses the repeated `entry` and `exit` keys into one, and accepts what the closed format refuses. Read it through
+  `UnitFrontmatterReader` only, also where only the name or the type of a unit is wanted.
+* *Count lines from the file.* The body's line numbers are those of the file, the frontmatter's lines included. A
+  fixture's expected line moves with every line its frontmatter gains.
+* *Do not compare in the parser.* A check of the bindings against the declared entries in the parser would refuse the
+  verifier's fixtures before the verifier sees them.
+
+== Decisions
+
+* link:../adr/workflow-dsl/001-parse-result-is-a-sealed-value.adoc[ADR 001]: the parse result is a sealed value.
+* link:../adr/workflow-dsl/002-line-oriented-parser-and-round-trip-printer.adoc[ADR 002]: a line-oriented lexer and
+  parser, and a production printer that round-trips.
+* link:../adr/workflow-dsl/003-unit-without-scope-refused.adoc[ADR 003]: a unit without scope is refused.
+* link:../adr/workflow-dsl/004-instance-header-json-kept-as-a-string.adoc[ADR 004]: the instance header JSON is kept as
+  a string.
+* link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR 005]: the frontmatter is read by a line
+  parser of its own, its refusals are values of the rule `FRONTMATTER`, and the frontmatter of a merged plan unit and
+  of a composed instance is derived from a part.

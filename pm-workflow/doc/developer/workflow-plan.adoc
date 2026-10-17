@@ -98,6 +98,9 @@ A `met` waiver adds its gate to `waived_gates`.
 . *Position rule.* The kept states must contain the current state and every calling state of the call stack; otherwise the result is `Refused(position_not_contained)` with one line per missing state, and nothing else is checked.
 . *Header.* The version is the one after the version in force (`1` for `start`); the inputs name the templates, the sub-units the kept states reach through their calls (transitively), the rules' revision and digest, and the facts' digest.
 The composed unit has the id `plan`, the version as revision and the header as its `instance` line.
+Its frontmatter is the template's with the type `instance`, the type of a plan instance version, which only the server composes (link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]); name, description, entries, exits, modification date, release, author and signature are the template's.
+Its start state and entry bindings are the template's as well.
+The printed text of the version therefore opens with that frontmatter, and the verification below checks the type `instance` against the row of its type (scope `plan`, no entries, no exits) and, in `INV-GEN-1`, admits it against a default unit of the type `workflow` or `recipe` (link:workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification § INV-GEN-1 over Type and Interface]).
 . *Verify.* `HeaderSchemaCheck`, the static verification Rules 1-12 (`WorkflowValidator` over the compiled units and the request's sub-units, without a released baseline), `FinalizePipelineValidator` over the default descriptors of the kept Phase 6 steps, and `CompiledInvariants` against the default units, dropping the violations an invariant only re-reports.
 Any violation gives `Refused(invariant_failed)` with every violation found, one line each.
 . *Composed.* Otherwise the result is `Composed` with the version and its printed text.

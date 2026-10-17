@@ -88,7 +88,9 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `PlanUnitMerger.merge(parts)` takes the parsed phase files in merge order and returns a `Merge` of an optional unit and its findings:
 
 * the states and the migrations of the unit are the union of those of its parts, in part order;
-* the start state, the header location, the scope, the format and the origin are those of the first part, the init file;
+* the frontmatter, the optional start state, the entry bindings, the header location, the scope, the format and the
+  origin are those of the first part, the init file; the frontmatter takes the type `workflow`, the type of the merged
+  plan unit, whatever the part declares (link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR workflow-dsl 005]);
 * the version is the sum of the part versions, and `partVersions` records each part version under the resource name of its file;
 * `derivedFrom` records, under the resource name of each file, the default revision the file's header names with `derived_from`. The parser records the clause only for a project unit and refuses it on a default unit, so a default plan unit has an empty map.
 
@@ -109,7 +111,7 @@ Reading `workflow.json` and the enrolment to produce the last two is left to the
 A load runs these stages and collects every finding before it decides:
 
 . *Read.* Every file is read from `.marshall/config/<file>` (`CONFIG_DIRECTORY`). The path is confined to the workspace by `PathConfinement.confine` of `pm-core`; a refused path, such as a symbolic link to a file outside the project, is a `CONFINEMENT` finding `path_traversal_rejected` at line `0`. A file that does not exist is `MISSING` `unit_missing`, one that cannot be read `MISSING` `unit_unreadable`.
-. *Parse and format.* Every file is parsed as a project unit. A refused file is a `PARSE` finding at the line of the diagnostic. A unit whose DSL format is not the compiled one (`COMPILED_FORMAT_VERSION`, `1`) is a `FORMAT` finding at its header: `format_newer` for a later format, `format_outdated` for an earlier one. The grammar admits no format below `1`, so while the compiled format is `1` an earlier format is refused by the parser instead, and `format_outdated` is first reached when a release compiles format `2`. A file that declares the identifier of an earlier file, or `plan`, is a `RULE` finding `duplicate_unit_id` at its header and replaces nothing, as in the default load.
+. *Parse and format.* Every file is parsed as a project unit. A refused file is a `PARSE` finding at the line of the diagnostic. A unit whose DSL format is not the compiled one (`COMPILED_FORMAT_VERSION`, `1`) is a `FORMAT` finding at its header: `format_newer` for a later format, `format_outdated` for an earlier one. The grammar admits no format below `1`, so while the compiled format is `1` an earlier format is refused by the parser instead, and `format_outdated` is first reached when a release compiles format `2`. A unit whose frontmatter names the author `plan-marshall` is a `RULE` finding `author_reserved` at its `author` line (<<_the_author_of_a_unit>>). A file that declares the identifier of an earlier file, or `plan`, is a `RULE` finding `duplicate_unit_id` at its header and replaces nothing, as in the default load.
 . *Merge and Rules 1-12.* The phase files are merged as above, and every unit is verified with Rules 1-12. Rule 5 is left out: a project unit has no released baseline. The catalog holds the compiled units of the context and the project's own sub-workflows, so a sub-workflow that was refused in stage 1 or 2 also leaves its callers with a Rule 6 finding.
 . *Declarations.* `DeclarationBounds.check` checks the `declare` and `decide` lines; each finding is `DECLARATION` `declaration_invalid` at the offending line, or at the unit header for a missing declaration.
 . *Finalize pipeline.* For the plan unit, the project roster is built from the default descriptors of the steps the unit completes, in the order of the default roster, followed by the declared project steps; `FinalizePipelineValidator.validate` checks it. A `PIPELINE` finding carries the name of the `PipelineRule` and is located at the first state, in declaration order, with a transition that completes the step, or at the unit header when no state does (link:../adr/workflow-finalize/002-project-roster-and-violation-location.adoc[ADR 002 of `workflow.finalize`]).
@@ -133,12 +135,42 @@ A project step is a finalize step whose id starts with `project:`. The plan unit
 |a declared step is completed by no state of the unit |the header of the plan unit
 |===
 
+[#_the_author_of_a_unit]
+== The Author of a Unit
+
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+The `author` of a frontmatter (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit Frontmatter]) is
+`plan-marshall` for the units compiled into the binary, and only for them; every other unit names the person who made
+or last changed it. The name is reserved so that a unit placed by an operator never passes as a delivered one
+(link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005]).
+
+The frontmatter reader checks only the length of the author, 1 to 100 characters; who may name `plan-marshall` depends
+on the level a unit is loaded from, so the check belongs to the loader of that level:
+
+[cols="1,3",options="header"]
+|===
+|Level |Check
+
+|Default units (`DefaultUnitLoader`, origin `DEFAULT`)
+|None: the loader of the compiled units does not read the author; a compiled unit names `plan-marshall`.
+
+|Project units (`ProjectUnitLoader`, origin `PROJECT`)
+|A unit whose author is `plan-marshall` (`ProjectUnitLoader.RESERVED_AUTHOR`) is a `RULE` finding with the code
+`author_reserved` (`UnitFinding.AUTHOR_RESERVED`) at the line of its `author` key, in stage 2. The unit is verified on,
+so the load reports every other finding of it as well, and the load is refused with `config_invalid` like any other.
+
+|Machine units (`<PM_MCP_BASE>/workflows/`)
+|Not checked: this repository has no loader of the machine level yet (`UnitOrigin` knows `DEFAULT` and `PROJECT`
+only). The check follows with that loader, together with `INV-GEN-1` for a machine's unit.
+|===
+
 == Findings and the Lifecycle Refusal
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 `UnitFinding.Kind` is the closed set `PARSE`, `FORMAT`, `MISSING`, `RULE`, `INVARIANT`, `DECLARATION`, `PIPELINE`, `PROJECT_STEP_UNBOUND` and `CONFINEMENT`.
-The code of a finding is the name of the parser refusal or verification rule, the wire id of the invariant, `format_outdated` or `format_newer`, `declaration_invalid`, the name of the pipeline rule, `project_step_unbound`, `unit_missing`, `unit_unreadable`, `duplicate_unit_id` or `path_traversal_rejected`, or one of the merge codes `not_a_plan_part`, `mixed_formats`, `mixed_origins` and `declaration_in_plan_part`.
+The code of a finding is the name of the parser refusal or verification rule, the wire id of the invariant, `format_outdated` or `format_newer`, `declaration_invalid`, the name of the pipeline rule, `project_step_unbound`, `unit_missing`, `unit_unreadable`, `duplicate_unit_id`, `author_reserved` or `path_traversal_rejected`, or one of the merge codes `not_a_plan_part`, `mixed_formats`, `mixed_origins` and `declaration_in_plan_part`.
 
 `UnitLoadResult` holds either units or findings: its constructor refuses a result with both, `verified(units)` builds the one and `refused(findings)` the other, and a refused result needs at least one finding.
 `refusal()` is empty for a verified result and otherwise the `Refusal` `config_invalid` naming the file, line and message of the first finding.
@@ -187,9 +219,11 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `UnitFixtures` builds a fixture project in a `@TempDir`: the units of `unit-fixtures/defaults/` (shared with the invariant tests through `InvariantFixtures`) in its `.marshall/config/`, with named mutations applied.
 `DefaultUnitLoaderTest` loads the fixture defaults from that root and writes broken defaults into a temporary directory read through its own class loader.
 `PlanUnitMergerTest`, `ProjectUnitLoaderTest` and `ProjectStepBindingTest` cover the merge, every refusal of a project load and every binding disagreement; the log records are asserted with cui-test-juli-logger.
+The merged unit carries the frontmatter and the optional start state of its first part (`PlanUnitMergerTest`); a project unit with the author `plan-marshall` is refused with `author_reserved` at its file and line, and one with a person's name loads (`ProjectUnitLoaderTest`).
+Every unit text of the tests opens with its frontmatter: `plan-marshall` as author for a unit loaded as a default, a person's name for a unit loaded as a project unit.
 
 == Specification Tracing
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
 * Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]
-* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 004
+* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 005; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005]
