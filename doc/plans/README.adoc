@@ -183,11 +183,17 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |Milestone 7; the client work of `pm-mcp-clients`
 
-|link:start-from-clients.adoc[`start-from-clients`]
-|Starting work from the clients: the entry as a directory with its decision stores and transcript, sources as a list, the source directory, screened once stored and failing closed, options asked when needed, a claimed lesson ending with the landing
+|link:start-source-intake.adoc[`start-source-intake`]
+|The entry as a directory with its decision stores and transcript, the source directory and the move at creation, screened once stored and failing closed, rate limits, documents copied or moved, a claimed lesson ending with the landing
 |`open`
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:removed-concepts.adoc[`removed-concepts`]
-|Milestones 3, 7, 10, and 12; the client work of `pm-mcp-clients`
+|Milestones 3, 10, and 12; the client work of `pm-mcp-clients`
+
+|link:start-from-clients.adoc[`start-from-clients`]
+|Starting work from the clients: the bootstraps of a plan and an epic driven by the clients, the setup gate, sources as a list and the other sources, options asked when needed
+|`open`
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:removed-concepts.adoc[`removed-concepts`]; link:start-source-intake.adoc[`start-source-intake`] (coupling: its rate limits, documents copy or move, source directory and move at creation, screening, failing closed, and claimed lesson build on the setup gate, the sources as a list, and the other sources built here; recorded on this edge, not as a reverse dependency)
+|Milestones 7, 10, and 12; the client work of `pm-mcp-clients`
 
 |link:forgejo-provider.adoc[`forgejo-provider`]
 |Codeberg and Forgejo as a provider
