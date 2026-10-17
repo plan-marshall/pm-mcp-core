@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -125,6 +126,27 @@ class WorkflowStatusStoreTest {
                             DigestSidecar.load(scope.sidecarFile()).digest(STATUS)),
                     () -> assertFalse(Files.exists(scope.journalFile()), "the journal is closed"),
                     () -> assertEquals(Optional.of(status), store.read()));
+        }
+
+        @Test
+        @DisplayName("the waiver requests of a status are written through the transaction and read back typed")
+        void waiverRequestsThroughTransaction() {
+            var pending = new WaiverRequest("WR-2", "retry_budget:ci-failure", null, "the runner is flaky", null,
+                    Instant.parse("2026-10-12T11:00:00Z"), null, null, null, null);
+            var declined = pending.toBuilder().requestId("WR-1").outcome(WaiverRequestOutcome.DECLINED)
+                    .answered(new WaiverRequest.Answered(WaiverRecord.Channel.CLI, null, "not now",
+                            Instant.parse("2026-10-12T11:30:00Z")))
+                    .build();
+            var status = planStatus("finalize.merge-gate").withWaiverRequests(List.of(declined, pending));
+
+            commit(status);
+
+            var read = new WorkflowStatusStore(JournalScope.plan(base, PROJECT, PLAN)).read().orElseThrow();
+            assertAll(
+                    () -> assertEquals(List.of(declined, pending), read.waiverRequests()),
+                    () -> assertEquals(status, read),
+                    () -> assertArrayEquals(WorkflowStatusCodec.write(status),
+                            Files.readAllBytes(scope.resolve(STATUS))));
         }
 
         @Test

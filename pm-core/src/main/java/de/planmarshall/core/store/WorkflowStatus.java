@@ -30,9 +30,9 @@ import lombok.With;
  * <p>
  * The members the workflow engine owns are typed: the position ({@code scope_type}, {@code scope_id}, {@code phase},
  * {@code state}, {@code call_stack}), the loop-back accounting ({@code loop_back_iteration},
- * {@code outline_loop_backs}, {@code policy_counters}), the retry counts ({@code retry_counters}), the bindings of the
- * current state ({@code active_job}, {@code active_jobs}, {@code active_tasks}), the condition overlay
- * ({@code pending_condition}) and {@code updated_at}. Every other member of the closed schema is kept as the raw JSON
+ * {@code outline_loop_backs}, {@code policy_counters}), the waiver requests ({@code waiver_requests}), the retry counts
+ * ({@code retry_counters}), the bindings of the current state ({@code active_job}, {@code active_jobs},
+ * {@code active_tasks}), the condition overlay ({@code pending_condition}) and {@code updated_at}. Every other member of the closed schema is kept as the raw JSON
  * text it was read with ({@link #retained()}) and written back unchanged, so the engine never rewrites what another
  * component owns; a later component types a member by moving it from the retained set to the typed set, without a
  * format change.
@@ -49,6 +49,8 @@ import lombok.With;
  * @param loopBackIteration  the loop-back iterations begun; never reset
  * @param outlineLoopBacks   the {@code loop_back_outline} transitions taken; plan scopes only, 0 otherwise
  * @param policyCounters     the consumed budgets per remediation policy class; plan scopes only, empty otherwise
+ * @param waiverRequests     the waiver requests filed in the plan, in the order of the document; plan scopes only,
+ *                           empty otherwise and when none was filed
  * @param retryCounters      the attempts of the server-rule retries and the condition budgets outside a condition
  * @param activeJob          the binding of the current job, composite job or task state; {@code null} when the
  *                           current state is none of them
@@ -70,6 +72,7 @@ List<CallFrame> callStack,
 long loopBackIteration,
 long outlineLoopBacks,
 Map<String, PolicyCounter> policyCounters,
+List<WaiverRequest> waiverRequests,
 RetryCounters retryCounters,
 ActiveJob activeJob,
 Map<String, JobEntry> activeJobs,
@@ -115,7 +118,8 @@ Map<String, String> retained) {
      * @throws IllegalArgumentException if a value lies outside the schema: the lesson store as scope type, a scope id
      *                                  missing for a plan or epic or present for the workspace, a phase outside the
      *                                  schema, a blank state, more than {@value #MAX_CALL_DEPTH} frames, a negative
-     *                                  counter, loop-back accounting outside a plan scope, an unknown policy class, or
+     *                                  counter, loop-back accounting or waiver requests outside a plan scope, an
+     *                                  unknown policy class, or
      *                                  a binding of another state than the current one
      */
     public WorkflowStatus {
@@ -143,9 +147,11 @@ Map<String, String> retained) {
         requireNotNegative(outlineLoopBacks, "outline_loop_backs");
         policyCounters = orderedCopy(policyCounters, "policyCounters",
                 (policyClass, counter) -> requireOneOf(POLICY_CLASSES, policyClass, "policy_counters key"));
-        if (scopeType != JournalScopeType.PLAN && (outlineLoopBacks != 0 || !policyCounters.isEmpty())) {
+        waiverRequests = List.copyOf(Objects.requireNonNull(waiverRequests, "waiverRequests"));
+        if (scopeType != JournalScopeType.PLAN
+                && (outlineLoopBacks != 0 || !policyCounters.isEmpty() || !waiverRequests.isEmpty())) {
             throw new IllegalArgumentException(
-                    "'outline_loop_backs' and 'policy_counters' are kept for plan scopes only");
+                    "'outline_loop_backs', 'policy_counters' and 'waiver_requests' are kept for plan scopes only");
         }
         Objects.requireNonNull(retryCounters, "retryCounters");
         if (activeJob != null && !activeJob.stateId().equals(state)) {
