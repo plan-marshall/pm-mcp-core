@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -228,6 +229,72 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertFalse(found.isEmpty()),
                     () -> assertEquals(positions.stream().sorted().toList(), positions));
+        }
+    }
+
+    @Nested
+    @DisplayName("Without the spend limit")
+    class WithoutSpendLimit {
+
+        private static final Set<InvariantId> REMEDIATION_INVARIANTS = EnumSet.of(InvariantId.INV_REM_1,
+                InvariantId.INV_REM_2, InvariantId.INV_REM_3, InvariantId.INV_REM_4, InvariantId.INV_REM_5,
+                InvariantId.INV_REM_6, InvariantId.INV_REM_7);
+
+        private static List<InvariantViolation> checkProjectUnit(String unitId) {
+            var unit = InvariantFixtures.units(InvariantFixtures.sources(), UnitOrigin.PROJECT).get(unitId);
+            return InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
+                    pipelineOf(unit, InvariantFixtures.defaultRoster()));
+        }
+
+        @Test
+        @DisplayName("the plan unit whose merge gate routes no spend_overrun passes INV-FIN-5")
+        void mergeGateWithoutOverrunPasses() {
+            var found = checkProjectUnit(PLAN_UNIT);
+
+            assertAll(
+                    () -> assertFalse(InvariantFixtures.read(FINALIZE_FILE).contains("spend_overrun")),
+                    () -> assertEquals(List.of(), found.stream()
+                            .filter(violation -> violation.id() == InvariantId.INV_FIN_5).toList()));
+        }
+
+        @Test
+        @DisplayName("the remediation units without remediation.spend pass INV-REM-1 to INV-REM-7")
+        void remediationUnitsWithoutSpendPass() {
+            var unitIds = InvariantFixtures.defaultUnits().keySet();
+
+            assertAll(
+                    () -> assertFalse(unitIds.contains("remediation.spend")),
+                    () -> unitIds.forEach(unitId -> assertEquals(List.of(), checkProjectUnit(unitId).stream()
+                            .filter(violation -> REMEDIATION_INVARIANTS.contains(violation.id())).toList(),
+                            unitId)));
+        }
+
+        @Test
+        @DisplayName("a unit named remediation.spend gets no exemption from the remediation contract")
+        void spendUnitHasNoExemption() {
+            var source = """
+                    workflow remediation.spend version 1 format 1
+                    scope subworkflow
+                    param waiver_wait_seconds : int[0..86400]
+                    start remediation-spend.resolved
+
+                    state remediation-spend.resolved terminal resolved success
+                        phase inherit
+                    """;
+            var reference = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.DEFAULT);
+            var unit = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.PROJECT);
+            var defaults = new ArrayList<>(InvariantFixtures.defaultUnits().values());
+            defaults.add(reference);
+            var invariants = new CompiledInvariants(InvariantFixtures.registry(), defaults,
+                    InvariantFixtures.defaultRoster());
+
+            var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of());
+
+            assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
+                            "the unit does not declare the parameter 'fix_budget'",
+                            "the unit does not declare the parameter 'actions'"),
+                    found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
+                            .map(InvariantViolation::message).collect(Collectors.toSet()));
         }
     }
 
