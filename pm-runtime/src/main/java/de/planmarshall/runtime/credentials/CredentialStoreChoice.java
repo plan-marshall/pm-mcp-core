@@ -313,6 +313,7 @@ public final class CredentialStoreChoice {
      *                                                 unreadable; nothing was written then
      * @throws UncheckedIOException                    if the document cannot be read or written
      */
+    @SuppressWarnings("java:S6213") // record is the domain verb of the recorded store (ADR runtime-credentials/001, /002)
     public void record(LockTransaction transaction, Store store, Writer writer) {
         Objects.requireNonNull(transaction, "transaction");
         Objects.requireNonNull(store, "store");
@@ -376,6 +377,7 @@ public final class CredentialStoreChoice {
      * @throws UncheckedIOException                    if the record of a move or the machine configuration cannot be
      *                                                 read or written
      */
+    @SuppressWarnings("java:S6213") // record is the domain verb of the recorded store (ADR runtime-credentials/001, /002)
     public void record(LockManager locks, String user, Store store) {
         Objects.requireNonNull(locks, "locks");
         Objects.requireNonNull(user, "user");
