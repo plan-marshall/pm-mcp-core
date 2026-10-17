@@ -16,15 +16,11 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import javax.crypto.SecretKey;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -36,7 +32,6 @@ import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
 import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Phase;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
-import de.planmarshall.runtime.enrolment.EnrolmentSidecars;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
@@ -135,17 +130,13 @@ public final class CredentialStoreMove {
         void after(Step step);
     }
 
-    private final Path base;
-    private final Path stateDirectory;
     private final CredentialStoreChoice choice;
     private final LockManager locks;
     private final AuditSink auditSink;
-    private final String user;
     private final Clock clock;
     private final StepHook hook;
-    private final EnrolmentSidecars sidecars;
+    private final IntegrityKeyCarry keyCarry;
     private final AtomicStoreFile recordFile;
-    private final SecureRandom random = new SecureRandom();
 
     /**
      * @param base      the base directory {@code <PM_MCP_BASE>} of the runtime
@@ -166,16 +157,14 @@ public final class CredentialStoreMove {
      */
     CredentialStoreMove(Path base, CredentialStoreChoice choice, LockManager locks, AuditSink auditSink, String user,
             Clock clock, StepHook hook) {
-        this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
-        this.stateDirectory = this.base.resolve("state");
+        var root = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.choice = Objects.requireNonNull(choice, "choice");
         this.locks = Objects.requireNonNull(locks, "locks");
         this.auditSink = Objects.requireNonNull(auditSink, "auditSink");
-        this.user = Objects.requireNonNull(user, "user");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.hook = Objects.requireNonNull(hook, "hook");
-        this.sidecars = new EnrolmentSidecars(this.base, user);
-        this.recordFile = new AtomicStoreFile(CredentialStoreMoveRecord.file(this.base), LockKey.credentials(this.base));
+        this.keyCarry = new IntegrityKeyCarry(root, locks, Objects.requireNonNull(user, "user"));
+        this.recordFile = new AtomicStoreFile(CredentialStoreMoveRecord.file(root), LockKey.credentials(root));
     }
 
     /**
@@ -281,19 +270,9 @@ public final class CredentialStoreMove {
             copyEntry(from, target, account);
         }
         hook.after(Step.ENTRIES_COPIED);
-        var key = copyKey(record);
+        var key = keyCarry.copy(from, target);
         hook.after(Step.KEY_COPIED);
-        if (key.isPresent()) {
-            Optional<EnrolmentSidecars.Failure> failure;
-            try (var verification = locks.openTransaction()) {
-                failure = sidecars.verify(verification, key.get());
-            }
-            if (failure.isPresent()) {
-                throw new SecretStoreException(SecretStoreException.Reason.FAILED,
-                        "%s does not verify under the moved integrity key: %s".formatted(failure.get().file(),
-                                failure.get().reason()));
-            }
-        }
+        key.ifPresent(keyCarry::verifySidecars);
     }
 
     private static void copyEntry(SecretStore from, SecretStore target, CredentialAccount account) {
@@ -303,37 +282,6 @@ public final class CredentialStoreMove {
         if (!target.get(account).map(secret::equals).orElse(false)) {
             throw new SecretStoreException(SecretStoreException.Reason.FAILED,
                     "entry '%s' does not read back from '%s'".formatted(account.account(), target.name()));
-        }
-    }
-
-    /**
-     * Copies the integrity key into the target and reads it back.
-     *
-     * @return the key read back from the target; empty if the old store holds no key, so there is nothing signed
-     */
-    private Optional<SecretKey> copyKey(CredentialStoreMoveRecord record) {
-        var key = keyIn(record.from()).read();
-        if (key.isEmpty()) {
-            return key;
-        }
-        var target = keyIn(record.to());
-        target.write(key.get());
-        var back = target.read();
-        if (back.isEmpty() || !sameKey(key.get(), back.get())) {
-            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
-                    "the integrity key does not read back from '%s'".formatted(record.to().value()));
-        }
-        return back;
-    }
-
-    private static boolean sameKey(SecretKey expected, SecretKey actual) {
-        var expectedBytes = expected.getEncoded();
-        var actualBytes = actual.getEncoded();
-        try {
-            return MessageDigest.isEqual(expectedBytes, actualBytes);
-        } finally {
-            Arrays.fill(expectedBytes, (byte) 0);
-            Arrays.fill(actualBytes, (byte) 0);
         }
     }
 
@@ -436,7 +384,7 @@ public final class CredentialStoreMove {
 
     /** @return the integrity key as it lives in the store: its keyring entry, or the key file below {@code state/} */
     private EnrolmentKey keyIn(Store store) {
-        return new EnrolmentKey(choice.store(store), stateDirectory, user, random);
+        return keyCarry.keyIn(choice.store(store));
     }
 
     private Optional<CredentialStoreMoveRecord> readRecord(LockTransaction transaction) {

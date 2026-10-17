@@ -119,6 +119,10 @@ class CredentialStoreMoveResumeTest {
     }
 
     private void record(Store store, Writer writer) {
+        if (writer == Writer.CREDENTIAL_STORE_ASPECT) {
+            choice.record(locks, USER, store);
+            return;
+        }
         try (var transaction = locks.openTransaction()) {
             choice.record(transaction, store, writer);
         }

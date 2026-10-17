@@ -27,9 +27,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import de.planmarshall.api.MachinePaths;
+import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.AtomicStoreFile;
 import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.StoreRefusal;
 import de.planmarshall.core.store.StoreSnapshot;
 import de.planmarshall.core.store.StrictJson;
 import de.planmarshall.runtime.credentials.dbus.DbusConnection;
@@ -41,10 +43,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * {@code <PM_MCP_BASE>/machine-config.json}, {@code os} or {@code file}, absent until the operator chose. The runtime
  * never chooses a store by itself and never serves from another store than the recorded one.
  * <p>
- * <b>The setting.</b> {@link #record(LockTransaction, Store, Writer)} writes the key under
- * {@code locks/machine-config.lock}: inside the lock it re-reads the document, keeps every other member, increments
- * {@code revision} and replaces the file in one atomic write, so two writers of the file never interleave and no
- * check-then-act window opens outside the lock. An absent document is created with {@code format_version} 1,
+ * <b>The setting.</b> The credential-store aspect records through {@link #record(LockManager, String, Store)}, the
+ * store move through {@link #record(LockTransaction, Store, Writer)}; both write the key under
+ * {@code locks/machine-config.lock}: inside the lock the document is re-read, every other member kept,
+ * {@code revision} incremented and the file replaced in one atomic write, so two writers of the file never interleave
+ * and no check-then-act window opens outside the lock. An absent document is created with {@code format_version} 1,
  * {@code revision} 1 and the other required keys at their schema defaults ({@code max_build_slots}
  * {@value #DEFAULT_MAX_BUILD_SLOTS}, {@code lsp_idle_timeout_seconds} {@value #DEFAULT_LSP_IDLE_TIMEOUT_SECONDS}). Only
  * the credential-store aspect of the machine's onboarding and the store move write the key; every other writer is
@@ -64,7 +67,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <b>The integrity key before the choice.</b> {@link #integrityKeyStore()} gives the store the enrolment integrity key
  * lives in: the active store once a store is recorded, and before that the store the runtime finds, the OS store where
  * one is available, else the file store, for which the key is the key file below {@code state/}. That store is found
- * once per instance and kept, so a transient outage of the OS store never moves the key to another store.
+ * once per instance and kept, so a transient outage of the OS store never moves the key to another store. The first
+ * recording of the other store carries the key into it before the switch, so once a store is recorded it holds the key
+ * every sidecar was signed under.
  *
  * @since 0.1
  */
@@ -218,6 +223,7 @@ public final class CredentialStoreChoice {
         }
     };
 
+    private final Path base;
     private final AtomicStoreFile file;
     private final AtomicStoreFile moveRecord;
     private final String service;
@@ -239,7 +245,8 @@ public final class CredentialStoreChoice {
     CredentialStoreChoice(Path base, String service, MachinePaths.Os os, Map<String, String> environment,
             Keyrings keyrings) {
         var root = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
-        this.file = new AtomicStoreFile(root.resolve(FILE_NAME), LockKey.machineConfiguration(root));
+        this.base = root;
+        this.file =new AtomicStoreFile(root.resolve(FILE_NAME), LockKey.machineConfiguration(root));
         this.moveRecord = new AtomicStoreFile(CredentialStoreMoveRecord.file(root), LockKey.credentials(root));
         this.service = Objects.requireNonNull(service, "service");
         this.os = Objects.requireNonNull(os, "os");
@@ -278,24 +285,24 @@ public final class CredentialStoreChoice {
     }
 
     /**
-     * Records the operator's store: under {@code locks/credentials.lock}, which this call acquires first, a writer
-     * other than the store move is refused while the record of a move exists; then under the lock of the machine
-     * configuration, which this call acquires next, the document is re-read, {@code credentials.store} set,
-     * {@code revision} incremented, and the file replaced in one atomic write; every other member is kept. The move
-     * holds the credentials lock for its whole duration, so its own write takes no lock anew.
+     * Records a store in the transaction of the store move, the switch of a move: under {@code locks/credentials.lock},
+     * which the move holds already, and the lock of the machine configuration, which this call acquires, the document
+     * is re-read, {@code credentials.store} set, {@code revision} incremented, and the file replaced in one atomic
+     * write; every other member is kept. A writer that does not own the key is refused; the credential-store aspect
+     * records through {@link #record(LockManager, String, Store)}, which refuses it while a move is open and carries
+     * the integrity key at the first recording.
      *
      * @param transaction the transaction of the write; it holds no lock that sorts after the credentials lock other
      *                    than the machine configuration lock
-     * @param store       the store the operator chose
+     * @param store       the store to record
      * @param writer      who writes the key
-     * @throws Refusal                                 with {@code aspect_owned} if the writer does not own the key,
-     *                                                 and nothing was acquired or written then; or if the writer is not
-     *                                                 the store move while the record of a move exists, and nothing was
-     *                                                 written then
+     * @throws Refusal                                 with {@code aspect_owned} if the writer does not own the key;
+     *                                                 nothing was acquired or written then
+     * @throws IllegalArgumentException                if the writer is the credential-store aspect; nothing was
+     *                                                 acquired or written then
      * @throws de.planmarshall.core.store.StoreRefusal if the document on disk is in another format version or
      *                                                 unreadable; nothing was written then
-     * @throws UncheckedIOException                    if the record of a move, or the document, cannot be read, or the
-     *                                                 document cannot be written
+     * @throws UncheckedIOException                    if the document cannot be read or written
      */
     public void record(LockTransaction transaction, Store store, Writer writer) {
         Objects.requireNonNull(transaction, "transaction");
@@ -305,12 +312,125 @@ public final class CredentialStoreChoice {
                     "credentials.store of %s is written only by the credential-store aspect and the store move"
                             .formatted(file.store()));
         }
+        if (writer == Writer.CREDENTIAL_STORE_ASPECT) {
+            throw new IllegalArgumentException("the credential-store aspect records its store through "
+                    + "record(LockManager, String, Store), which carries the integrity key at the first recording");
+        }
         transaction.acquire(moveRecord.lockKey());
-        if (writer != Writer.STORE_MOVE && moveRecord.read(transaction).isPresent()) {
+        write(transaction, store, writer);
+    }
+
+    /**
+     * Records the store the operator chose in the credential-store aspect of the machine's onboarding, in a
+     * transaction of its own: under {@code locks/credentials.lock} it is refused while the record of a move exists,
+     * and then {@code credentials.store} is written as {@link #record(LockTransaction, Store, Writer)} writes it.
+     * <p>
+     * <b>The first recording carries the integrity key.</b> Before a store is recorded the key lives in the store the
+     * runtime found ({@link #integrityKeyStore()}). Where that is the other store and holds a key, the key is carried
+     * into the store being recorded before {@code credentials.store} is switched, with the discipline of the move
+     * (ADR runtime-credentials/004): the key is copied and read back from the target, every HMAC sidecar is verified
+     * under the key read back, the store is switched in one write, and only then is the key deleted from the store it
+     * was found in. The recorded store therefore holds the key every sidecar was signed under, and no second key is
+     * created there. Where no key exists yet nothing is carried; where the target holds the same key already it is not
+     * copied again.
+     *
+     * @param locks the lock manager; the calling thread holds no lock that sorts after the credentials lock
+     * @param user  the name of the running user, the owner of the key file and of every file the verification reads
+     * @param store the store the operator chose
+     * @throws Refusal                                 with {@code aspect_owned} while the record of a move exists;
+     *                                                 nothing was written then
+     * @throws SecretStoreException                    with {@code credential_store_failed} if the key cannot be carried:
+     *                                                 the target holds another key, the key does not read back, or a
+     *                                                 sidecar does not verify under it; nothing was recorded then, the
+     *                                                 copy was removed from the target and the found store keeps the
+     *                                                 key. With the reason of the store if the key cannot be deleted
+     *                                                 from the found store after the switch: the recording stands, and
+     *                                                 the key is in both stores
+     * @throws de.planmarshall.core.store.StoreRefusal if the machine configuration cannot be read as its format; nothing
+     *                                                 was written then
+     * @throws UncheckedIOException                    if the record of a move or the machine configuration cannot be
+     *                                                 read or written, or a sidecar cannot be read
+     */
+    public void record(LockManager locks, String user, Store store) {
+        Objects.requireNonNull(locks, "locks");
+        Objects.requireNonNull(user, "user");
+        Objects.requireNonNull(store, "store");
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(moveRecord.lockKey());
+            requireNoMove(transaction);
+            var found = recorded().isEmpty() ? Optional.of(integrityKeyStore()) : Optional.<SecretStore>empty();
+            var from = found.filter(foundStore -> storeOf(foundStore) != store);
+            if (from.isEmpty()) {
+                write(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
+                return;
+            }
+            var keyCarry = new IntegrityKeyCarry(base, locks, user);
+            var carried = carryKey(keyCarry, from.get(), store(store));
+            write(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
+            if (carried) {
+                keyCarry.keyIn(from.get()).delete();
+            }
+        }
+    }
+
+    /**
+     * Carries the key from the found store into the target before the switch, and verifies the sidecars under it.
+     *
+     * @return whether a key was carried, which the found store is to give up after the switch
+     */
+    private boolean carryKey(IntegrityKeyCarry keyCarry, SecretStore from, SecretStore target) {
+        var copied = false;
+        try {
+            var key = keyCarry.keyIn(from).read();
+            if (key.isEmpty()) {
+                return false;
+            }
+            var held = keyCarry.keyIn(target).read();
+            if (held.isPresent() && !IntegrityKeyCarry.sameKey(key.get(), held.get())) {
+                throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                        "'%s' holds another integrity key than '%s'".formatted(target.name(), from.name()));
+            }
+            if (held.isEmpty()) {
+                copied = true;
+                held = keyCarry.copy(from, target);
+            }
+            held.ifPresent(keyCarry::verifySidecars);
+            return true;
+        } catch (SecretStoreException | UncheckedIOException | StoreRefusal e) {
+            if (copied) {
+                removeCopy(keyCarry, target, e);
+            }
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                    "the first recording of '%s' failed, nothing was recorded and the integrity key stays in '%s': %s"
+                            .formatted(storeOf(target).value(), from.name(), e.getMessage()),
+                    e);
+        }
+    }
+
+    private static void removeCopy(IntegrityKeyCarry keyCarry, SecretStore target, RuntimeException cause) {
+        try {
+            keyCarry.keyIn(target).delete();
+        } catch (SecretStoreException e) {
+            cause.addSuppressed(e);
+        }
+    }
+
+    /** @return the store the given store is: the file store, or the OS store */
+    private Store storeOf(SecretStore store) {
+        return store == fileStore ? Store.FILE : Store.OS;
+    }
+
+    /** Refuses every writer but the move while the record of a move exists; the transaction holds its lock. */
+    private void requireNoMove(LockTransaction transaction) {
+        if (moveRecord.read(transaction).isPresent()) {
             throw new Refusal(Refusal.Reason.ASPECT_OWNED,
                     "a move between the credential stores is open in %s; until it ends only the move records %s"
                             .formatted(moveRecord.store(), "credentials.store of " + file.store()));
         }
+    }
+
+    /** Writes {@code credentials.store} under the machine configuration lock, which this call acquires. */
+    private void write(LockTransaction transaction, Store store, Writer writer) {
         transaction.acquire(file.lockKey());
         var current = file.read(transaction);
         var revision = current.map(document -> parse(document).revision()).orElse(0L) + 1;

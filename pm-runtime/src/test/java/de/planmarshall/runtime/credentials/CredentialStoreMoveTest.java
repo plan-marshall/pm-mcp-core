@@ -55,7 +55,6 @@ import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
-import de.planmarshall.runtime.credentials.CredentialStoreChoice.Writer;
 import de.planmarshall.runtime.credentials.CredentialStoreMove.Step;
 import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Phase;
 import de.planmarshall.runtime.enrolment.EnrolmentHmac;
@@ -114,9 +113,7 @@ class CredentialStoreMoveTest {
 
     /** Records the store, fills it with two entries and the key, and signs every sidecar under that key. */
     private SecretKey machineOn(Store store) throws IOException {
-        try (var transaction = locks.openTransaction()) {
-            choice.record(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
-        }
+        choice.record(locks, USER, store);
         var secrets = store == Store.OS ? osStore : fileStore;
         secrets.put(GITHUB, GITHUB_SECRET);
         secrets.put(SONAR, SONAR_SECRET);
@@ -503,8 +500,8 @@ class CredentialStoreMoveTest {
             var refusals = new ArrayList<CredentialStoreChoice.Refusal>();
             var mover = move(step -> {
                 if (step == Step.KEY_COPIED) {
-                    try (var transaction = locks.openTransaction()) {
-                        choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+                    try {
+                        choice.record(locks, USER, Store.FILE);
                     } catch (CredentialStoreChoice.Refusal refusal) {
                         refusals.add(refusal);
                     }
@@ -527,16 +524,11 @@ class CredentialStoreMoveTest {
             machineOn(Store.OS);
             assertThrows(Stop.class, () -> move(stopAfter(Step.ENTRIES_COPIED)).move(Store.FILE));
 
-            var refusal = assertThrows(CredentialStoreChoice.Refusal.class, () -> {
-                try (var transaction = locks.openTransaction()) {
-                    choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
-                }
-            });
+            var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
+                    () -> choice.record(locks, USER, Store.FILE));
             var recordedWhileOpen = choice.recorded();
             move().resume();
-            try (var transaction = locks.openTransaction()) {
-                choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
-            }
+            choice.record(locks, USER, Store.FILE);
 
             assertAll(
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),

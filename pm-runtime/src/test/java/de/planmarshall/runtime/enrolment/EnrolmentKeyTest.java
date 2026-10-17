@@ -59,12 +59,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice;
 import de.planmarshall.runtime.credentials.CredentialStoreChoiceFixture;
@@ -796,17 +796,37 @@ class EnrolmentKeyTest {
         @DisplayName("with file recorded the store of the integrity key of the choice is the key file")
         void recordedFileStore() throws Exception {
             var base = Files.createDirectories(state.resolve("pm-base"));
-            var choice = CredentialStoreChoice.of(new MachinePaths(base, MachinePaths.Os.LINUX));
-            try (var transaction = new FileLockManager(event -> {
-                 }).openTransaction()) {
-                choice.record(transaction, CredentialStoreChoice.Store.FILE,
-                        CredentialStoreChoice.Writer.CREDENTIAL_STORE_ASPECT);
-            }
+            var choice = CredentialStoreChoiceFixture.withOsStore(base, "de.planmarshall.mcp", new InMemoryKeyring());
+            choice.record(new FileLockManager(event -> {
+            }), USER, CredentialStoreChoice.Store.FILE);
             var key = new EnrolmentKey(choice::integrityKeyStore, state, USER, new SecureRandom());
 
             key.readOrCreate();
 
             assertTrue(Files.exists(key.keyFile()));
+        }
+
+        @Test
+        @DisplayName("the first recording of the file store carries the key the OS store held: it is read from the key "
+                + "file afterwards and no second key is created")
+        void firstRecordingCarriesTheKey() throws Exception {
+            var base = Files.createDirectories(state.resolve("pm-base"));
+            var stateDirectory = Files.createDirectories(base.resolve("state"));
+            Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
+            Files.createDirectories(AuditHead.headFile(base).getParent());
+            var keyring = new InMemoryKeyring();
+            var choice = CredentialStoreChoiceFixture.withOsStore(base, "de.planmarshall.mcp", keyring);
+            var key = new EnrolmentKey(choice::integrityKeyStore, stateDirectory, USER, new SecureRandom());
+            var created = key.readOrCreate();
+
+            choice.record(new FileLockManager(event -> {
+            }), USER, CredentialStoreChoice.Store.FILE);
+            var afterwards = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), afterwards.getEncoded()),
+                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertFalse(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)));
         }
 
         @Test
