@@ -1,0 +1,80 @@
+= ADR 007: The Group and the Contamination Note Written Literally
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+Task 4 of the plan `question-corpus-public-datasets` of plan-marshall-mcp (`question/ask-or-proceed`) generates several
+items from one source row, which link:006-source-fetch-kind-repeated-rows-and-answer-schema.adoc[ADR 006] made possible
+by letting a key repeat. Those items have to share a `group`, and each item's `contamination` note has to name the
+others. The members are functional: the warm form of the role grading never gives one worker items that an item's
+`contamination` note names, and a control is the original of a modified problem and gives its answer away.
+
+Neither member could be generated. The overlay row and the imported item of
+link:001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] are closed formats
+(`additionalProperties: false`) and had neither member, and the `ImportedItem` record stated that the generation never
+writes them. The item schema of the corpus in plan-marshall-mcp admits both as optional members, so the corpus's own
+items could carry them and the generated ones could not. The work package left open how the overlay gives them: as
+literal text, or as a template over the fields of the row.
+
+== Decision
+
+The overlay row and the imported item gain `group` and `contamination`, each in its record, its codec and its schema
+resource together.
+
+* Both members are *literal*: `ItemGenerator` copies them from the overlay row into the item unchanged, as it copies the
+  rationale, the rubric items, the judge and the review. They are never templates, so a brace in them is a brace.
+* On the overlay row both are required-but-nullable, like every other declared field of the closed overlay format:
+  `null` when not given, never absent. `group` follows `tags`, `contamination` follows `review`.
+* In the imported item both are optional members: `ImportedItemCodec` writes `group` directly after `tags` and
+  `contamination` directly after `review` when they have a value, and leaves them out when they are `null`; the codec
+  refuses a `null` that is written.
+* A present value has one shape: it holds a character other than a line feed, the schema pattern `.` compiled with
+  `PythonRegex` as `ImportedItem.TEXT_PATTERN`. `CorpusPatternParityTest` pins the record pattern to the pattern of both
+  members in both schemas.
+* The rule `transient_name` of `CorpusValidator` covers `group` and `contamination` beside provenance, review, grading
+  and tags. This goes beyond `validate.py` of the corpus, which checks only the first four. It was taken because
+  `ProductCorpusValidationTest` stays green with it against the corpus of the plan-marshall-mcp checkout: the corpus's
+  own items with either member name no transient tool, stage or local path in it.
+
+== Reason
+
+The overlay row names its source row by a literal key and its item by a literal `topic/slug`, so the ids of its
+siblings and the name of their shared group are known when the overlay is written. A template would add nothing that
+the author does not already have. It would also make a brace in prose a refusal case, since a single brace that names
+no field refuses the row at import. And the contamination note is prose for the corpus author and the grader, not text
+the model reads, so nothing in it has to vary with the row.
+
+== Alternatives Considered
+
+1. *Both members as templates over the row's fields.* Not taken, for the reason above: nothing to fill in, and braces
+   in prose would refuse the row.
+2. *The members optional on the overlay row as well.* Not taken: every declared field of the overlay is present, with
+   `null` for a value not given, so an overlay has one shape and the codec can refuse a missing field.
+3. *`transient_name` left at the four members of `validate.py`.* Not taken: the corpus of the product stays valid with
+   the extension, and a group or a note naming a local path is the same leak as a review naming one.
+
+== Consequences
+
+* Compatibility is breaking: the constructors of `SourceOverlay.Row` and `ImportedItem` gain two members, so every
+  construction site changes. The tests of `pm-core`, `pm-provider-git` and `pm-runtime` are changed with it.
+* The codec refuses an overlay row without `group` or `contamination`. No existing overlay is invalidated: the corpus of
+  the product has no `sources/` yet.
+* Several overlay rows of one source row can now generate items that share a group and name each other, and an overlay
+  row without the members generates an item without them.
+
+== Source
+
+* Work package `corpus-group-contamination` of `doc/plans/` and its pull request
+* link:001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] (the closed formats, changed together as
+  record, codec and schema) and link:006-source-fetch-kind-repeated-rows-and-answer-schema.adoc[ADR 006] (one source row
+  selected by several overlay rows, the case these members serve)
+* Developer documentation: link:../../developer/core-role-corpus.adoc[`core-role-corpus.adoc`] § Formats, § Fetch and
+  Import, § Testing
