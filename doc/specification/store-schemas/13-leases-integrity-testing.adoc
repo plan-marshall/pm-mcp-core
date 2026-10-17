@@ -116,7 +116,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 * *Sibling Lock Files*: Every store that is replaced by atomic rename is guarded by a sibling lock file, never by a lock on the store file itself (a rename replaces the inode, so a lock on the old file excludes nobody). The machine stores and their lock files are:
 ** `<PM_MCP_BASE>/locks/build-slots.lock`: `state/build-slots.json`
 ** `<PM_MCP_BASE>/locks/consents.lock`: `consents.json`
-** `<PM_MCP_BASE>/locks/credentials.lock`: the file store `credentials/` (every credential write), the move between the stores, and the creation of the enrolment integrity key, taken before any enrolment lock
+** `<PM_MCP_BASE>/locks/credentials.lock`: the file store `credentials/` (every credential write), the move between the stores with its record `state/credential-store-move.json` (xref:12-machine-stores.adoc#credential-store-move-record[Machine State Records]), and the creation of the enrolment integrity key, taken before any enrolment lock
 ** `<PM_MCP_BASE>/locks/enrolments/<project_id>.lock`: `enrolments/<project_id>.json` and its sidecar `enrolments/<project_id>.json.hmac` (one lock per enrolment file)
 ** `<PM_MCP_BASE>/locks/explorer.lock`: `explorer.json`
 ** `<PM_MCP_BASE>/locks/harnesses.lock`: `harnesses.json` and its sidecar `harnesses.json.hmac`
