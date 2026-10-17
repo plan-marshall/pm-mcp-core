@@ -543,11 +543,11 @@ class LfsBatchClientTest {
                     List.of(new SourceFile("data/rows.jsonl", POINTER.oid(), true)))));
             Files.write(directory.resolve(CorpusImport.OVERLAY), SourceOverlayCodec.write(new SourceOverlay("beta",
                     "data/rows.jsonl", null, LocalDate.of(2026, 10, 14), List.of(new Row("2", "d-2", "review/beta",
-                            "review", "open question 2", List.of(), "Review: {diff}", "", null, null,
+                            "review", "open question 2", List.of(), null, "Review: {diff}", "", null, null,
                             new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
                                     false),
                             new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
-                            new Review(ReviewStatus.DRAFT, null, null, null))))));
+                            new Review(ReviewStatus.DRAFT, null, null, null), null)))));
         }
 
         private CorpusImport corpusImport() {
