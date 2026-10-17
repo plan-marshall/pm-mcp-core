@@ -9,12 +9,14 @@
  */
 package de.planmarshall.runtime.credentials;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -107,15 +109,42 @@ class FileSecretStoreTest {
             store.put(CredentialAccount.project("p1", "sonar"), "project");
             store.put(CredentialAccount.global("sonar"), "global");
             store.put(CredentialAccount.global("github"), "global");
-            Files.createFile(directory.resolve(".tmp-123.json"),
+            Files.createFile(directory.resolve(FileSecretStore.TEMP_PREFIX + "123.json"),
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
-            Files.createFile(directory.resolve("p1").resolve(".tmp-456.json"),
+            Files.createFile(directory.resolve("p1").resolve(FileSecretStore.TEMP_PREFIX + "456.json"),
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
 
             var entries = store.entries();
 
             assertEquals(List.of(CredentialAccount.global("github"), CredentialAccount.project("p1", "sonar"),
                     CredentialAccount.global("sonar")), entries);
+        }
+
+        @Test
+        @DisplayName("lists and reads an entry and a project named .tmp-ci, and skips a temporary file a crash left")
+        void legalNamesLikeTemporaryFiles() throws Exception {
+            var key = CredentialAccount.global(".tmp-ci");
+            var project = CredentialAccount.project(".tmp-ci", "sonar");
+            store.put(key, "global");
+            store.put(project, "project");
+            Files.writeString(directory.resolve(FileSecretStore.TEMP_PREFIX + "789.json"), "{\"format_version\":1,",
+                    StandardCharsets.UTF_8);
+            Files.setPosixFilePermissions(directory.resolve(FileSecretStore.TEMP_PREFIX + "789.json"),
+                    PosixFilePermissions.fromString("rw-------"));
+
+            var entries = store.entries();
+
+            assertAll(
+                    () -> assertEquals(List.of(key, project), entries),
+                    () -> assertEquals(List.of(Optional.of("global"), Optional.of("project")),
+                            entries.stream().map(store::get).toList()));
+        }
+
+        @Test
+        @DisplayName("a temporary file of an atomic write carries a name no account can have")
+        void temporaryNameNoAccount() {
+            assertThrows(InvalidCredentialNameException.class,
+                    () -> CredentialAccount.global(FileSecretStore.TEMP_PREFIX + "123"));
         }
 
         @Test

@@ -45,7 +45,12 @@ public final class FileSecretStore implements SecretStore {
     static final int FORMAT_VERSION = 1;
 
     private static final String SUFFIX = ".json";
-    private static final String TEMP_PREFIX = ".tmp-";
+
+    /**
+     * The name prefix of the temporary file of an atomic write. It begins with {@code ~}, which is outside the alphabet
+     * of {@link CredentialAccount}, so no credential file and no project directory ever carries it.
+     */
+    static final String TEMP_PREFIX = "~tmp-";
 
     private static final Set<PosixFilePermission> DIRECTORY_MODE = PosixFilePermissions.fromString("rwx------");
     private static final Set<PosixFilePermission> FILE_MODE = PosixFilePermissions.fromString("rw-------");
@@ -115,8 +120,9 @@ public final class FileSecretStore implements SecretStore {
 
     /**
      * Lists {@code <dir>/<key>.json} and {@code <dir>/<project>/<key>.json} without following a
-     * link; the temporary files of an atomic write ({@code .tmp-*}) are skipped. An absent directory
-     * is an empty store.
+     * link; the temporary files of an atomic write ({@code ~tmp-*}, a name no account can have, also
+     * one a crash left behind) are skipped, so every legal account is listed, {@code .tmp-ci} among
+     * them. An absent directory is an empty store.
      *
      * @throws SecretStoreException {@code credentials_file_insecure} for a directory that fails the
      *                              private-mode check or a symbolic link, {@code credentials_file_invalid}
