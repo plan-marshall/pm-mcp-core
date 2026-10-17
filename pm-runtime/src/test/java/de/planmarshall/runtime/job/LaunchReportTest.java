@@ -32,7 +32,7 @@ import de.planmarshall.runtime.job.LaunchReport.Unreported;
 /**
  * The launch report of {@code pm-exec} (PM-EXEC-4): its fields are taken from exactly the first line of the job log,
  * the job's own output follows it unchanged, a report-shaped first line of the job is kept, and a log without a report
- * with the launcher's own exit code is a launcher failure (PM-WATCH-JOB-37).
+ * with the launcher's own exit code is a launcher failure.
  */
 @DisplayName("Launch report")
 class LaunchReportTest {

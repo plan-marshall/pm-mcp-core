@@ -285,7 +285,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/01
 A seam does nothing and reports `not implemented in this runtime`, like the seams of the per-project recovery.
 The first step that fails stops the settlement, and no later step runs, so a released slot never precedes the recorded fate.
 The runner settles its own jobs without a slot; the slot of a job is named by the caller of `JobSettlement`, such as the recovery of `runtime.start`.
-A settlement that stops is logged at ERROR as `PM_RUNTIME-207` (`JOB_SETTLEMENT_STEP_FAILED`); a recorded fate at INFO as `PM_RUNTIME-027` (`JOB_SETTLED`), a job that counts as running as `PM_RUNTIME-026` (`JOB_STARTED`).
+A settlement that stops is logged at ERROR as `PM_RUNTIME-207` (`JOB_SETTLEMENT_STEP_FAILED`); a recorded fate at INFO as `PM_RUNTIME-27` (`JOB_SETTLED`), a job that counts as running as `PM_RUNTIME-26` (`JOB_STARTED`).
 
 [#_probe_jobs]
 == Probe Jobs

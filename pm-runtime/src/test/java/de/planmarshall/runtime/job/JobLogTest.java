@@ -35,7 +35,7 @@ import de.planmarshall.runtime.job.JobLog.Unavailable;
 
 /**
  * The job log (PM-EXEC-4): it is read while the job still writes it, a read continues at the offset the previous read
- * answered, the launch report is stripped exactly once (PM-WATCH-JOB-37), and a log that cannot be read is one of the
+ * answered, the launch report is stripped exactly once, and a log that cannot be read is one of the
  * states of row 5 of the outcome derivation, never an exception.
  */
 @DisplayName("Job log")

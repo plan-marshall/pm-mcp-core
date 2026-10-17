@@ -34,10 +34,10 @@ registered for native image in the reachability metadata of the assembly in the 
   already ended, so nothing further is signalled and the report ends `GROUP_NOT_REACHED`; `ESRCH` from the group alone is
   the window before `setpgid`, retried against the group.
 * The native-image metadata of the `kill` downcall (two `int` parameters, an `int` result, `errno` captured) is not
-  registered in `pm-runtime`. It is registered in the reachability metadata of the assembly in `plan-marshall-mcp`, where
-  the descriptors of `MacSecurity` are, and verified by the native build of `pm-mcpd` against the deployed `SNAPSHOT`.
-  An earlier sentence of the plan's outline that the metadata travels with `pm-runtime` was wrong (Q-Gate finding
-  1a85eb of PLAN-20). The registration is a follow-up in `plan-marshall-mcp`.
+  registered in `pm-runtime`, and it is not registered anywhere yet. It is to be registered in the reachability metadata
+  of the assembly in `plan-marshall-mcp`, where the descriptors of `MacSecurity` are, and verified by the native build of
+  `pm-mcpd` against the deployed `SNAPSHOT`. An earlier sentence of the plan's outline that the metadata travels with
+  `pm-runtime` was wrong (Q-Gate finding 1a85eb of PLAN-20). The registration is a follow-up in `plan-marshall-mcp`.
 
 == Alternatives Considered
 
