@@ -214,7 +214,10 @@ A client profile is the one configuration document of a harness: `classpath:/pro
             "signer": { "type": ["string", "null"], "maxLength": 256, "description": "For code_signature, the signer identity the signature must name (on macOS the Developer ID team identifier); for package_provenance, the source repository the provenance must name; null for none." }
           },
           "required": ["method", "signer"],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "if": { "properties": { "method": { "const": "none" } } },
+          "then": { "properties": { "signer": { "type": "null" } } },
+          "else": { "properties": { "signer": { "type": "string", "minLength": 1 } } }
         },
         "agent_mode": {
           "type": "string",
@@ -339,7 +342,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
         "endpoints": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "pattern": "^[a-z0-9.-]+:[0-9]{1,5}$" },
+          "items": { "type": "string", "pattern": "^[a-z0-9.-]+:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$" },
           "description": "The host:port destinations a worker of this harness needs (its model provider, its login refresh), the only ones its egress proxy admits (Job Runtime Specification, Worker Egress Proxy); measured by the egress stage of the profile verification."
         },
         "writable_paths": {
@@ -739,6 +742,7 @@ Harnesses update themselves, so the digest of an enrolled harness executable cha
 * *`code_signature`*: the runtime checks the platform code signature of the file without running it (on macOS the signature, its Developer ID chain, and the notarisation, the signing identity's team identifier equal to `signer`). A platform without code signatures, an unsigned file, an invalid signature, or another signer fails the evidence.
 * *`package_provenance`*: the runtime has the package manager that installed the executable verify the installed package's signed provenance (its source repository equal to `signer`), as a probe job of that enrolled host tool, and checks that the executable is a file of that package with that digest. A package manager that is not enrolled, a package without provenance, or a mismatch fails the evidence.
 * *`none`*: there is no evidence; every change waits for the operator.
+* *Validation*: profile validation refuses `code_signature` or `package_provenance` without a `signer`, and `none` with one (the schema's `if`/`then`/`else`), so no profile declares a method that checks against nothing.
 * *Outcome*: passed evidence lets the version probe run, and a version inside `supported_versions` is accepted and audited (`harness_updated`, naming the evidence); failed or missing evidence refuses the launch before spawn with `harness_update_unverified`, never running the changed file, and the act that resolves it is the operator's enrolment of the harness, which shows the recorded and the new version and digest (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]).
 * *Shipped values*: a shipped profile declares a method only where the release has checked it on that harness; every other profile ships `none`.
 
@@ -876,7 +880,7 @@ pm-operator profile remove <client_id> [--project]                              
 |`headless.events`, recorded per activity kind as `reported` or `missing`
 
 |`egress`
-|Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell. Checks that the base task passes through the proxy and that the decoy request reached the proxy and was refused.
+|Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell, once through the configured proxy and once directly (proxy variables unset). Checks that the base task passes through the proxy, that the proxied decoy request reached the proxy and was refused, and that the direct request found no route (on a platform with enforced egress; with unenforced egress the stage records `unenforced` and the direct request is not scored).
 |`headless.endpoints`
 
 |`isolation`
@@ -931,6 +935,7 @@ pm-operator profile remove <client_id> [--project]                              
     "detection": { "status": "passed" },
     "launch":    { "status": "passed" },
     "events":    { "status": "passed", "results": { "text": "reported", "tool_call": "reported", "tool_result": "reported", "file_changed": "missing", "turn": "reported" } },
+    "egress":    { "status": "passed" },
     "isolation": { "status": "passed" },
     "classes":   { "status": "passed" },
     "limits":    { "status": "passed" },

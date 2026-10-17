@@ -141,7 +141,7 @@ The usage of the models is recorded and reported in tokens, never in money, and 
 
 * *Cache-read share*: the cache-read tokens over the context tokens (input, cache read, cache creation) of the task's turns; `unmeasured` where the harness does not report cache reads.
 * *Revisits*: the reads of a file the worker had already read earlier in the same plan task, from the targets of the `tool_call` entries of its activity whose tool is a file-reading tool of the harness, over all such reads.
-* *Language-server use*: the `pm_lsp` read operations against the calls of the harness's own search tools in the same task.
+* *Language-server use*: the share of `pm_lsp` read operations among all code lookups of the task, `pm_lsp read operations / (pm_lsp read operations + calls of the harness's own search tools)`; `indeterminate` where the task made no lookup.
 * *Fallback-to-read rate*: the `pm_lsp` lookups followed, in the same plan task, by a whole-file read of the file the lookup answered with, over all lookups; a read of a part of that file is the expected next step and does not count.
 
 The section _tokens_ of a completion report shows them per task, per role, and per plan; they are evidence for the evaluation of a skill or a role configuration (link:../workflow-dsl/07-loop-back-diagrams-verification.adoc#comparison-footprint[Workflow DSL Specification, Comparison Footprint]), never a limit.
