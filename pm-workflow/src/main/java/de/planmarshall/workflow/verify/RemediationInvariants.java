@@ -38,8 +38,8 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * <ul>
  * <li>{@link InvariantId#INV_REM_1}: the unit declares {@code retry_budget} and {@code fix_budget} as
  * {@code int[0..5]}, {@code waiver_wait_seconds} as {@code int[0..86400]} and {@code actions} as a
- * {@code list<enum[...]>} of the default unit's actions, a subset of {@code retry}, {@code fix} and {@code loop_back}
- * ({@code remediation.spend}: {@code waiver_wait_seconds} only), and no other parameter; its terminals are among
+ * {@code list<enum[...]>} of the default unit's actions, a subset of {@code retry}, {@code fix} and {@code loop_back},
+ * and no other parameter; its terminals are among
  * {@code resolved} ({@code success}), {@code waived} ({@code success}, only for a class with a {@code met}-waivable
  * gate), {@code exhausted} ({@code failure}) and {@code fix_requested} ({@code unsettled}), each reachable.</li>
  * <li>{@link InvariantId#INV_REM_2}: {@code budget-check} is the only state that enters {@code decide};
@@ -56,14 +56,14 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * {@code budget-check}. The charging in the transaction of the fix task's submit is the primitive's.</li>
  * <li>{@link InvariantId#INV_REM_5}: every call of a remediation unit in the plan unit routes {@code stepped_out} to the
  * phase's fallback ({@code plan.return} in Phases 1-4, {@code finalize.hand-back} afterwards) and {@code exhausted} to
- * it as well, or, from Phase 5 outside the {@code land} lane and from Phase 6 before the merge, and for every unit but
- * {@code remediation.spend}, to a call of the re-planning unit {@code replan}; routes {@code waived} and
+ * it as well, or, from Phase 5 outside the {@code land} lane and from Phase 6 before the merge, to a call of the
+ * re-planning unit {@code replan}; routes {@code waived} and
  * {@code fix_requested} as the default unit does at the same call; and binds {@code retry_budget} and
  * {@code fix_budget} at most 5 and {@code waiver_wait_seconds} at most 86400.</li>
  * <li>{@link InvariantId#INV_REM_6}, tree part: no unit but a remediation unit runs a primitive of the
  * {@code remediation.} namespace, and a remediation unit runs none that its default unit does not run. The rest is the
  * named hook of the invariant.</li>
- * <li>{@link InvariantId#INV_REM_7}: every unit but {@code remediation.spend} declares {@code gather} (a
+ * <li>{@link InvariantId#INV_REM_7}: every unit declares {@code gather} (a
  * {@code composite_job}, or an {@code auto} state that no cycle returns to), {@code budget-check}, {@code decide}
  * ({@code auto remediation.offer-actions}, routing {@code choice} to {@code choose}), {@code choose} (a
  * {@code job llm remediation-decision} state) and {@code conservative}, plus {@code rerun} where its actions include
@@ -76,12 +76,9 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  */
 final class RemediationInvariants {
 
-    /** The degenerate remediation unit of a spend overrun, which has no action. */
-    static final String SPEND_UNIT = "remediation.spend";
-
     /** The remediation units of the classes with a {@code met}-waivable gate. */
     static final Set<String> WAIVABLE_UNITS = Set.of("remediation.ci-failure", "remediation.review-findings",
-            "remediation.analysis", "remediation.qgate-findings", SPEND_UNIT);
+            "remediation.analysis", "remediation.qgate-findings");
 
     /** The parameter of the retry budget. */
     static final String RETRY_BUDGET = "retry_budget";
@@ -161,7 +158,7 @@ final class RemediationInvariants {
 
     private static void contract(Context context) {
         var unit = context.unit();
-        var expected = expectedParams(unit);
+        var expected = expectedParams();
         for (var param : unit.params()) {
             checkParam(context, expected, param);
         }
@@ -177,13 +174,11 @@ final class RemediationInvariants {
     /**
      * @return the parameters of the contract but {@code actions}, by name, with their declared types
      */
-    private static Map<String, ParamType> expectedParams(WorkflowDefinition unit) {
+    private static Map<String, ParamType> expectedParams() {
         var expected = new LinkedHashMap<String, ParamType>();
         expected.put(WAIVER_WAIT, WAIT_TYPE);
-        if (!SPEND_UNIT.equals(unit.id())) {
-            expected.put(RETRY_BUDGET, BUDGET_TYPE);
-            expected.put(FIX_BUDGET, BUDGET_TYPE);
-        }
+        expected.put(RETRY_BUDGET, BUDGET_TYPE);
+        expected.put(FIX_BUDGET, BUDGET_TYPE);
         return expected;
     }
 
@@ -194,7 +189,7 @@ final class RemediationInvariants {
     private static void checkParam(Context context, Map<String, ParamType> expected, ParamDecl param) {
         var id = InvariantId.INV_REM_1;
         var unitId = context.unit().id();
-        if (ACTIONS.equals(param.name()) && !SPEND_UNIT.equals(unitId)) {
+        if (ACTIONS.equals(param.name())) {
             checkActions(context, param.type(), param.location());
             return;
         }
@@ -218,7 +213,7 @@ final class RemediationInvariants {
         unit.params().forEach(param -> declared.add(param.name()));
         expectedNames.stream().filter(name -> !declared.contains(name)).forEach(name -> context.reportUnit(id,
                 "the unit does not declare the parameter '%s'".formatted(name)));
-        if (!SPEND_UNIT.equals(unit.id()) && !declared.contains(ACTIONS)) {
+        if (!declared.contains(ACTIONS)) {
             context.reportUnit(id, "the unit does not declare the parameter '%s'".formatted(ACTIONS));
         }
     }
@@ -440,7 +435,7 @@ final class RemediationInvariants {
             Set<String> afterMerge) {
         var early = CompiledInvariants.PHASES_BEFORE_EXECUTE.contains(state.phase());
         var fallback = early ? CompiledInvariants.PLAN_RETURN : CompiledInvariants.HAND_BACK;
-        var replanAdmitted = replanAdmitted(state, call, afterMerge);
+        var replanAdmitted = replanAdmitted(state, afterMerge);
         for (var transition : Context.transitions(state)) {
             checkCallerRoute(context, state, transition, fallback, replanAdmitted);
         }
@@ -449,14 +444,11 @@ final class RemediationInvariants {
 
     /**
      * @return {@code true} when the call may route {@code exhausted} to the re-planning unit: from Phase 5 outside
-     *         the {@code land} lane and from Phase 6 before the merge, for every unit but {@code remediation.spend}
+     *         the {@code land} lane and from Phase 6 before the merge
      */
-    private static boolean replanAdmitted(StateNode state, StateBehavior.SubWorkflowCall call,
-            Set<String> afterMerge) {
-        return !SPEND_UNIT.equals(call.subWorkflowId()) && (
-                CompiledInvariants.PHASE_EXECUTE.contains(state.phase()) && !state.id().startsWith("land.")
-                        || CompiledInvariants.PHASE_FINALIZE.equals(state.phase())
-                        && !afterMerge.contains(state.id()));
+    private static boolean replanAdmitted(StateNode state, Set<String> afterMerge) {
+        return CompiledInvariants.PHASE_EXECUTE.contains(state.phase()) && !state.id().startsWith("land.")
+                || CompiledInvariants.PHASE_FINALIZE.equals(state.phase()) && !afterMerge.contains(state.id());
     }
 
     /**
@@ -568,9 +560,6 @@ final class RemediationInvariants {
     private static void fullTemplate(Context context) {
         var id = InvariantId.INV_REM_7;
         var unit = context.unit();
-        if (SPEND_UNIT.equals(unit.id())) {
-            return;
-        }
         var required = new LinkedHashSet<>(List.of(GATHER, BUDGET_CHECK, DECIDE, CHOOSE, CONSERVATIVE));
         var actions = actionsOf(unit).orElse(Set.of());
         if (actions.contains("retry")) {

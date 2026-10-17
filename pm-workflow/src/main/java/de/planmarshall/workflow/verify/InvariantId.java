@@ -96,7 +96,7 @@ public enum InvariantId {
     /** The push barrier is the only push before the pull request; {@code finalize.create-pr} is reached. */
     INV_FIN_4("INV-FIN-4", List.of(InvariantId.PLAN_UNIT), null),
 
-    /** Every path to the merge passes {@code finalize.merge-gate}; an overrun calls {@code remediation.spend}. */
+    /** Every path to the merge passes {@code finalize.merge-gate}. */
     INV_FIN_5("INV-FIN-5", List.of(InvariantId.PLAN_UNIT), null),
 
     /** Branch cleanup on the merge, the one fallback, the landing, and {@code finalize.archive-plan} last. */

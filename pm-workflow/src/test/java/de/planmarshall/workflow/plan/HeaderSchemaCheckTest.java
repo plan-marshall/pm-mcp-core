@@ -51,6 +51,11 @@ class HeaderSchemaCheckTest {
     private static final String DIGEST_C = "c".repeat(64);
     private static final String DIGEST_D = "d".repeat(64);
 
+    /** The reason a policy call naming a unit outside the six remediation policy units is refused with. */
+    private static final String POLICY_UNITS_REASON = "must be one of [remediation.ci-failure,"
+            + " remediation.review-findings, remediation.build-failure, remediation.merge-conflict,"
+            + " remediation.qgate-findings, remediation.analysis]";
+
     /** A header that satisfies the schema, with one element in every list and both optional argument members. */
     private static final String VALID = """
             {
@@ -169,6 +174,15 @@ class HeaderSchemaCheckTest {
         void dateTimeEdges(String composedAt) {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/composed_at",
                     Optional.of(json("\"" + composedAt + "\"")))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"remediation.ci-failure", "remediation.review-findings", "remediation.build-failure",
+                "remediation.merge-conflict", "remediation.qgate-findings", "remediation.analysis"})
+        @DisplayName("a policy call may name each of the six remediation policy units")
+        void sixPolicyUnits(String unit) {
+            assertEquals(List.of(), HeaderSchemaCheck.check(edited("/policy_calls/0/unit",
+                    Optional.of(json("\"" + unit + "\"")))));
         }
 
         @Test
@@ -413,9 +427,9 @@ class HeaderSchemaCheckTest {
                                 + " recipe_override, local_only, land_lane, adopt, auto_merge_off, empty_harvest,"
                                 + " returned, handed_back]"),
                 Arguments.of("policy unit enumeration", "/policy_calls/0/unit", "\"remediation.other\"",
-                        "must be one of [remediation.ci-failure, remediation.review-findings,"
-                                + " remediation.build-failure, remediation.merge-conflict, remediation.qgate-findings,"
-                                + " remediation.analysis, remediation.spend]"),
+                        POLICY_UNITS_REASON),
+                Arguments.of("policy unit remediation.spend", "/policy_calls/0/unit", "\"remediation.spend\"",
+                        POLICY_UNITS_REASON),
                 Arguments.of("args type", "/policy_calls/0/args", "[]", HeaderSchemaCheck.NOT_OBJECT),
                 Arguments.of("argument type", "/policy_calls/0/args/fix_budget", "4", HeaderSchemaCheck.NOT_OBJECT),
                 Arguments.of("argument source enumeration", "/policy_calls/0/args/fix_budget/source",

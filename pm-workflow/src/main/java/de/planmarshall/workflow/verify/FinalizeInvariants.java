@@ -10,7 +10,6 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -43,8 +42,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * request binds; {@code finalize.create-pr} is a state of the unit and lies on every path into
  * {@code finalize.merge-gate} where it does so in the default unit.</li>
  * <li>{@link InvariantId#INV_FIN_5}: {@code finalize.merge-gate} is a state of the unit and lies on every path into a
- * state that routes the outcome {@code merged} (other than {@code finalize.archive-plan}); its outcome
- * {@code spend_overrun}, routed where the default unit routes it, enters a call of {@code remediation.spend}.</li>
+ * state that routes the outcome {@code merged} (other than {@code finalize.archive-plan}).</li>
  * <li>{@link InvariantId#INV_FIN_6}: every transition on {@code merged} (other than that of
  * {@code finalize.archive-plan}) completes {@code default:branch-cleanup} as {@code done}; every {@code call} state of
  * Phases 5 and 6 routes {@code stepped_out} to {@code finalize.hand-back}, the only fallback after Phase 4; the unit
@@ -74,14 +72,8 @@ final class FinalizeInvariants {
     /** The landing step that runs for every plan. */
     static final String EMIT_LANDING = "default:emit-landing";
 
-    /** The degenerate remediation unit of a spend overrun. */
-    static final String SPEND_REMEDIATION = "remediation.spend";
-
     /** The outcome of the merge. */
     static final String MERGED = "merged";
-
-    /** The outcome of the pre-merge barrier on a spend overrun. */
-    static final String SPEND_OVERRUN = "spend_overrun";
 
     /** The parameter of {@code git.commit_and_push} that decides whether it pushes. */
     static final String PUSH_MODE = "push_mode";
@@ -250,23 +242,6 @@ final class FinalizeInvariants {
                         .formatted(state.id(), MERGE_GATE));
             }
         }
-        gate.ifPresent(mergeGate -> {
-            var overruns = Context.transitionsOn(mergeGate, SPEND_OVERRUN);
-            var referenceOverruns = context.referenceState(MERGE_GATE)
-                    .map(counterpart -> Context.transitionsOn(counterpart, SPEND_OVERRUN)).orElse(List.of());
-            if (overruns.isEmpty() && !referenceOverruns.isEmpty()) {
-                context.reportState(id, mergeGate, "'%s' routes no '%s'".formatted(MERGE_GATE, SPEND_OVERRUN));
-            }
-            for (var transition : overruns) {
-                var callsSpend = context.state(transition.targetStateId()).flatMap(Context::callee)
-                        .filter(SPEND_REMEDIATION::equals).isPresent();
-                if (!callsSpend) {
-                    context.reportTransition(id, mergeGate, transition,
-                            "the outcome '%s' enters '%s', which does not call '%s'".formatted(SPEND_OVERRUN,
-                                    transition.targetStateId(), SPEND_REMEDIATION));
-                }
-            }
-        });
     }
 
     private static void cleanupFallbackAndLanding(Context context) {

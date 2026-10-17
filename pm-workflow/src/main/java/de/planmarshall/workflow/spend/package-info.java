@@ -8,7 +8,7 @@
  * the root of this repository.
  */
 /**
- * The completion of a task, its usage and the spend accounting.
+ * The completion of a task and its usage.
  * <p>
  * Specification: {@code doc/specification/model-work/09-completion-usage-and-spend.adoc}.
  */

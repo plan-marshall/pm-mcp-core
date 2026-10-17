@@ -227,6 +227,29 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParit
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]
 
+[#PM-WF-14]
+=== PM-WF-14: Task Envelopes, Model Slots & Usage per Task
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-14[PM-WF-14]
+
+Implementation (the part of the third bullet by which usage limits nothing, as far as the library modules carry it: no policy class `spend`, so a status document with `policy_counters.spend` is refused on read and `LoopBackBudget` refuses the class; no remediation unit `remediation.spend`, so the remediation invariants give it no exemption and the plan instance header refuses it as a policy call unit; no `spend_overrun` route of the merge gate checked by `INV-FIN-5`; and the package `workflow.spend` stating the completion of a task and its usage only. The envelopes, the model slots and the recording of the usage from the harness output are not traced here): link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java[FinalizeInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java[HeaderSchemaCheck],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/LoopBackBudget.java[LoopBackBudget],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/spend/package-info.java[package-info of `workflow.spend`]
+
+Verified by (no spend limit): link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java[HeaderSchemaCheckTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRulesTest.java[CompositionRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest]
+
+Documentation: link:../pm-workflow/README.adoc[`pm-workflow` README] (the package `workflow.spend`),
+link:../pm-workflow/doc/adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR workflow-verify/024]
+
 [#PM-WF-16]
 === PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push
 
@@ -577,16 +600,19 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/TransitionFuzz
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/WorkflowEngineTest.java[WorkflowEngineTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/GuardEvaluatorTest.java[GuardEvaluatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTest.java[EngineEventTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/LoopBackBudgetTest.java[LoopBackBudgetTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/StateKindTest.java[StateKindTest]
 
-Implementation (the project-owned units and the compiled invariants: the loader of the default units from a classpath root the assembly names, the merge of the phase files into the plan unit with its part versions and the recorded `derived_from`, and the loader of a project's units from `.marshall/config/`, which confines every path, refuses another DSL format, verifies Rules 1-12, the declarations within their compiled bounds, the finalize pipeline over the project roster, the thirty compiled invariants against the default unit of the same id and the binding of the project steps, and returns every verified unit or every finding with file and line, refusing the lifecycle with `config_invalid` and never falling back to a default unit; the finalize step descriptor and the validator of the pipeline rules; the parts of `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6` that need runtime facts, the `work_performed` clause of the validator's rule 6, its rule 7, the write-time refusal of its rule 8, the reading of `workflow.json` and the enrolment for the project steps, and the check of the shipped default units are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java[DefaultUnitLoader],
+Implementation (the project-owned units and the compiled invariants: the loader of the default units from a classpath root the assembly names, the merge of the phase files into the plan unit with its part versions and the recorded `derived_from`, and the loader of a project's units from `.marshall/config/`, which confines every path, refuses another DSL format, verifies Rules 1-12, the declarations within their compiled bounds, the finalize pipeline over the project roster, the thirty compiled invariants against the default unit of the same id (among them the remediation invariants over the six remediation units, without a spend unit, and `INV-FIN-5`, which checks only that every path to the merge passes `finalize.merge-gate`) and the binding of the project steps, and returns every verified unit or every finding with file and line, refusing the lifecycle with `config_invalid` and never falling back to a default unit; the finalize step descriptor and the validator of the pipeline rules; the parts of `INV-GEN-2`, `INV-GEN-4` and `INV-REM-6` that need runtime facts, the `work_performed` clause of the validator's rule 6, its rule 7, the write-time refusal of its rule 8, the reading of `workflow.json` and the enrolment for the project steps, and the check of the shipped default units are not implemented yet): link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/DefaultUnitLoader.java[DefaultUnitLoader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/PlanUnitMerger.java[PlanUnitMerger],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java[ProjectUnitLoader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/UnitFinding.java[UnitFinding],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/UnitLoadResult.java[UnitLoadResult],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InvariantId.java[InvariantId],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java[CompiledInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/RemediationInvariants.java[RemediationInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/FinalizeInvariants.java[FinalizeInvariants],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[DeclarationBounds],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptor.java[FinalizeStepDescriptor],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/finalize/FinalizePipelineValidator.java[FinalizePipelineValidator],
@@ -641,6 +667,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 link:../pm-workflow/doc/developer/workflow-diagram.adoc[Workflow Diagrams Developer Guide],
 link:../pm-workflow/doc/developer/workflow-unit.adoc[Workflow Units Developer Guide],
 link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
+link:../pm-workflow/doc/adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR workflow-verify/024],
 link:../pm-workflow/doc/developer/workflow-finalize.adoc[Finalize Pipeline Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow Diagrams Developer Guide § Instance forms],

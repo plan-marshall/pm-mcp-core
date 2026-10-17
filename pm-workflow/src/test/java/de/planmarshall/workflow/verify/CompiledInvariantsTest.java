@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -228,6 +229,71 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertFalse(found.isEmpty()),
                     () -> assertEquals(positions.stream().sorted().toList(), positions));
+        }
+    }
+
+    @Nested
+    @DisplayName("Without the spend limit")
+    class WithoutSpendLimit {
+
+        private static List<InvariantViolation> checkMutatedPlanUnit(String file, String find, String replace) {
+            var unit = InvariantFixtures.mutatedUnit(new Mutation("spend limit removal", file, find, replace));
+            return InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
+                    pipelineOf(unit, InvariantFixtures.defaultRoster()));
+        }
+
+        @Test
+        @DisplayName("a merge gate that routes spend_overrun to the hand-back, calling no remediation unit, passes INV-FIN-5")
+        void mergeGateOverrunNeedsNoRemediationCall() {
+            var found = checkMutatedPlanUnit(FINALIZE_FILE, "        done -> finalize.merge\n",
+                    "        done -> finalize.merge\n        spend_overrun -> finalize.hand-back\n");
+
+            assertEquals(List.of(), found.stream().filter(violation -> violation.id() == InvariantId.INV_FIN_5)
+                    .toList());
+        }
+
+        @Test
+        @DisplayName("a call of remediation.spend may route exhausted to the re-planning call like any remediation call")
+        void spendCallRoutesExhaustedToReplan() {
+            var found = checkMutatedPlanUnit(EXECUTE_FILE,
+                    "call remediation.qgate-findings(retry_budget = 3, fix_budget = 3, waiver_wait_seconds = 3600,"
+                            + " actions = [retry, fix, loop_back])",
+                    "call remediation.spend(waiver_wait_seconds = 3600)");
+
+            assertEquals(List.of(), found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_5)
+                    .map(InvariantViolation::message).filter(message -> message.contains("routes 'exhausted'"))
+                    .toList());
+        }
+
+        @Test
+        @DisplayName("a unit named remediation.spend gets no exemption from the remediation contract")
+        void spendUnitHasNoExemption() {
+            var source = """
+                    workflow remediation.spend version 1 format 1
+                    scope subworkflow
+                    param waiver_wait_seconds : int[0..86400]
+                    start remediation-spend.resolved
+
+                    state remediation-spend.resolved terminal resolved success
+                        phase inherit
+                    """;
+            var reference = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.DEFAULT);
+            var unit = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.PROJECT);
+            var defaults = new ArrayList<>(InvariantFixtures.defaultUnits().values());
+            defaults.add(reference);
+            var invariants = new CompiledInvariants(InvariantFixtures.registry(), defaults,
+                    InvariantFixtures.defaultRoster());
+
+            var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of());
+
+            assertAll(
+                    () -> assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
+                                    "the unit does not declare the parameter 'fix_budget'",
+                                    "the unit does not declare the parameter 'actions'"),
+                            found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_1)
+                                    .map(InvariantViolation::message).collect(Collectors.toSet())),
+                    () -> assertFalse(found.stream().filter(violation -> violation.id() == InvariantId.INV_REM_7)
+                            .toList().isEmpty(), "the unit is no longer exempt from the full template of INV-REM-7"));
         }
     }
 

@@ -43,7 +43,6 @@ Every other target is refused at the line of the transition, a terminal of class
 
 * The refusing fixture `stepped-out-remediation-budget-check.pmwf` pins the refusal; a matched control routes `stepped_out` to the unit's `remediation-<class>.budget-check` and passes.
 * The test registry registers `remediation.check-budgets` with the outcomes of the Unit Template (`budget_left`, `exhausted_wait`, `exhausted`).
-* `remediation.spend`, whose `budget-check` runs `remediation.check-spend-budget`, has no nested commit, so no call in it routes `stepped_out` to that state.
 * ADR 010 no longer names the budget re-check as a seam.
 
 == Source

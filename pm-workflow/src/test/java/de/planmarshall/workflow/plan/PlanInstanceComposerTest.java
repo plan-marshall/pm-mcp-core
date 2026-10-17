@@ -338,10 +338,10 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "fix_budget:x",
                             Waiver.Mode.RAISE, Optional.empty())),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "spend",
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Waiver("W-1", "ci_check:build",
                             Waiver.Mode.MET, Optional.of(1))),
                     () -> assertEquals(Optional.of(Waiver.Mode.RAISE), Waiver.Mode.fromWireName("raise")),
-                    () -> assertEquals(Optional.empty(), Waiver.met("W-1", "spend").raisedUnit()));
+                    () -> assertEquals(Optional.empty(), Waiver.met("W-1", "ci_check:build").raisedUnit()));
         }
     }
 

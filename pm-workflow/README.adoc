@@ -29,7 +29,7 @@ All packages lie below `de.planmarshall.workflow`. Each line is the first senten
 * `question`: the question records, their adjudication and their deadlines.
 * `screening`: the screening of untrusted text and the triage states.
 * `setup`: the state machine of the project setup.
-* `spend`: the completion of a task, its usage and the spend accounting.
+* `spend`: the completion of a task and its usage.
 * `task`: the task protocol unit `worker-task`: offers, acknowledgement, leases and fencing, task outcomes and re-offers.
 * `unit`: the loaders of the workflow units (PM-IMPL-5): the default units compiled into the release and the units a project owns.
 * `verify`: the verification of workflow units.

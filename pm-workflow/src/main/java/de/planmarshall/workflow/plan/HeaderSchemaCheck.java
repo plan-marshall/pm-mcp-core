@@ -62,7 +62,7 @@ public final class HeaderSchemaCheck {
     /** The remediation policy units a policy call may name. */
     static final List<String> POLICY_UNITS = List.of("remediation.ci-failure", "remediation.review-findings",
             "remediation.build-failure", "remediation.merge-conflict", "remediation.qgate-findings",
-            "remediation.analysis", "remediation.spend");
+            "remediation.analysis");
 
     private static final Pattern PLAN_ID = Pattern.compile("^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$");
     private static final Pattern DIGEST = Pattern.compile("^[0-9a-f]{64}$");

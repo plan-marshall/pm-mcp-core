@@ -307,11 +307,11 @@ class CompositionRulesTest {
                         "then": {"prune": [{"element": "gate", "id": "ci_check:build", "reason": "posture"}]}"""),
                         Refusal.NAMES_GATE, "rule 'r'"),
                 refusal("a rule that waives a gate", rule("""
-                        "then": {"waive": [{"gate": "spend"}]}"""), Refusal.NAMES_GATE, "rule 'r'"),
+                        "then": {"waive": [{"gate": "ci_check:build"}]}"""), Refusal.NAMES_GATE, "rule 'r'"),
                 refusal("a rule with a gate member", rule("""
-                        "then": {"gate": "spend"}"""), Refusal.NAMES_GATE, "rule 'r'"),
+                        "then": {"gate": "ci_check:build"}"""), Refusal.NAMES_GATE, "rule 'r'"),
                 refusal("a rule that binds a gate", rule("""
-                        "then": {"bind": [{"call_site": "*", "argument": "gate", "value": "spend"}]}"""),
+                        "then": {"bind": [{"call_site": "*", "argument": "gate", "value": "ci_check:build"}]}"""),
                         Refusal.NAMES_GATE, "rule 'r'"),
                 refusal("no JSON", "{", Refusal.MALFORMED, "not valid JSON"),
                 refusal("a root that is no object", "[]", Refusal.MALFORMED, "must be an object"),

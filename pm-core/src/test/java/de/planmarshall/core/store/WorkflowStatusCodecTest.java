@@ -19,9 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -221,6 +223,9 @@ class WorkflowStatusCodecTest {
                         "\"scope_id\":\"workspace\""), "'scope_id' must be null for the workspace scope"),
                 Arguments.of("no scope id for a plan", DOCUMENT.replace("\"scope_id\":\"workflow-engine\"",
                         "\"scope_id\":null"), "'scope_id' must be set for a plan scope"),
+                Arguments.of("a policy class outside the closed set", DOCUMENT.replace(
+                                "\"policy_counters\":{\"ci-failure\":", "\"policy_counters\":{\"spend\":"),
+                        "'policy_counters key' has the undeclared value 'spend'"),
                 Arguments.of("a retry rule outside the closed set", DOCUMENT.replace("\"sync_failed\":",
                         "\"re_enter\":"), "'retry_counters' has the undeclared key 're_enter'"),
                 Arguments.of("negative attempts", DOCUMENT.replace("\"attempts\":1}", "\"attempts\":-1}"),
@@ -293,6 +298,35 @@ class WorkflowStatusCodecTest {
             var status = read(WORKSPACE).withRetained(Map.of("engine_cache", "{}"));
 
             assertThrows(IllegalArgumentException.class, () -> WorkflowStatusCodec.write(status));
+        }
+    }
+
+    @Nested
+    @DisplayName("the policy classes")
+    class PolicyClasses {
+
+        private static final Set<String> SIX_CLASSES = Set.of("ci-failure", "review-findings", "build-failure",
+                "merge-conflict", "qgate-findings", "analysis");
+
+        @Test
+        @DisplayName("the closed set holds exactly the six remediation policy classes")
+        void exactlySix() {
+            assertEquals(SIX_CLASSES, WorkflowStatus.POLICY_CLASSES);
+        }
+
+        @Test
+        @DisplayName("a status with counters for each of the six classes round-trips")
+        void sixClassesRoundTrip() {
+            var counters = new LinkedHashMap<String, WorkflowStatus.PolicyCounter>();
+            SIX_CLASSES.stream().sorted().forEach(
+                    policyClass -> counters.put(policyClass, new WorkflowStatus.PolicyCounter(1, 2, null, null)));
+            var status = read(DOCUMENT).withPolicyCounters(counters);
+
+            var reread = read(written(status));
+
+            assertAll(
+                    () -> assertEquals(counters, reread.policyCounters()),
+                    () -> assertEquals(written(status), written(reread)));
         }
     }
 
