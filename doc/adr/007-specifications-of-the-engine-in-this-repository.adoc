@@ -41,7 +41,7 @@ written there once per milestone exit. A done work package leaves the index of `
 
 Links between the documents of this repository are relative; a link into the documentation is a relative sibling path,
 and the documentation links here with absolute `https://github.com/plan-marshall/pm-mcp-core/blob/main/doc/...` URLs.
-`trace.py` of the documentation checks both trees, and the workflow `links.yml` runs it here as well as there. The
+`trace.py` of the documentation checks both trees, and the workflow `links.yml` of the documentation runs it. The
 schema parity tests read the specification of this repository (`pm.specification.root`).
 
 This ADR amends ADR link:004-module-documentation-layout.adoc[004], which kept the specifications in the

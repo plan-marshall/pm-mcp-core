@@ -27,7 +27,7 @@ only to correct a requirement or to change `cross-cutting.adoc` or a specificati
 implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
 the same names here only point to them. Links here are relative, also into the documentation (sibling paths); check
 them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
-(`BROKEN LINKS 0`), which the workflow `links.yml` runs as well.
+(`BROKEN LINKS 0`); the workflow `links.yml` of the documentation runs it over both trees.
 
 ## Module Documentation
 
