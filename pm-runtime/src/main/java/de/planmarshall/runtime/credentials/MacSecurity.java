@@ -29,7 +29,7 @@ import java.util.List;
  * the {@code SecItem} functions, the CoreFoundation types they take ({@code CFString},
  * {@code CFData}, {@code CFDictionary}), and the framework constants, read as data symbols. All
  * downcall descriptors are registered for native image in
- * {@code META-INF/native-image/de.planmarshall/pm-mcp-server-credentials/reachability-metadata.json}.
+ * {@code META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json} of this module.
  */
 final class MacSecurity {
 

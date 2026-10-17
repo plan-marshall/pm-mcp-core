@@ -1,5 +1,5 @@
 {
-  "comment": "FFM downcalls of de.planmarshall.mcp.server.credentials (MacSecurity, Posix), one entry per descriptor",
+  "comment": "FFM downcalls of pm-runtime, one entry per descriptor: de.planmarshall.runtime.credentials (MacSecurity, Posix) and de.planmarshall.runtime.job (ProcessGroupSignals: kill, errno captured)",
   "foreign": {
     "downcalls": [
       { "returnType": "void*", "parameterTypes": ["void*", "void*", "jint"] },
@@ -11,7 +11,8 @@
       { "returnType": "void*", "parameterTypes": ["void*"] },
       { "returnType": "jint", "parameterTypes": ["void*", "void*"] },
       { "returnType": "jint", "parameterTypes": ["void*"] },
-      { "returnType": "jint", "parameterTypes": [] }
+      { "returnType": "jint", "parameterTypes": [] },
+      { "returnType": "jint", "parameterTypes": ["jint", "jint"], "options": { "captureCallState": true } }
     ]
   }
 }

@@ -29,11 +29,11 @@ import java.lang.invoke.VarHandle;
  * {@code kill} through FFM (no JNI library).
  * <p>
  * Native image: the foreign downcall descriptor of {@code kill} (two {@code int} parameters, an {@code int} result,
- * {@code errno} captured) is not registered in this module, and it is not registered anywhere yet. It is to be registered
- * in the reachability metadata of the assembly in the repository {@code plan-marshall-mcp}, where the descriptors of the
- * FFM bindings of the credentials package are, and verified by the native build of {@code pm-mcpd} against the deployed
- * {@code SNAPSHOT}. That registration is a follow-up in {@code plan-marshall-mcp}; until it lands, a native
- * {@code pm-mcpd} cannot signal a job.
+ * {@code errno} captured, so the entry carries the linker option {@code captureCallState}) is registered in the
+ * reachability metadata of this module,
+ * {@code META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json}, next to the
+ * descriptors of the FFM bindings of the credentials package. It is verified by the native build of {@code pm-mcpd} in
+ * the repository {@code plan-marshall-mcp} against the deployed {@code SNAPSHOT}.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
  * Cancellation Protocol).
