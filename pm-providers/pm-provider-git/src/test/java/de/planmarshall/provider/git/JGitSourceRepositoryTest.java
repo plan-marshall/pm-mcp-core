@@ -112,19 +112,19 @@ class JGitSourceRepositoryTest {
                         FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false),
                                 new SourceFile("data/big.jsonl", Sha256.hex(JSONL), true))),
                 new SourceOverlay("alpha", "data/big.jsonl", null, CREATED, List.of(new Row("1", "d-1", "review/alpha",
-                        "review", "missing null check", List.of(), "Review: {diff}", "", null, null,
+                        "review", "missing null check", List.of(), null, "Review: {diff}", "", null, null,
                         new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")),
                                 false),
                         new Grading(GradingMethod.RUBRIC_ITEMS, null, null),
-                        new Review(ReviewStatus.DRAFT, null, null, null)))));
+                        new Review(ReviewStatus.DRAFT, null, null, null), null))));
         writeSource(new SourceManifest("beta", URI.create("https://github.com/example/beta"), betaCommit, "MIT",
                         FetchKind.GIT, List.of(new SourceFile("data/test.csv", Sha256.hex(CSV.getBytes(UTF_8)), false))),
                 new SourceOverlay("beta", "data/test.csv", "question_id", CREATED, List.of(new Row("q-1", "q-1",
-                        "screening/beta", "screening", "sky question", List.of("imported"), "{question}", "",
+                        "screening/beta", "screening", "sky question", List.of("imported"), null, "{question}", "",
                         List.of("{option_a}", "{option_b}"), null, new Target("{option_a}", "the first holds",
                                 List.of(), List.of(), false),
                         new Grading(GradingMethod.EXACT_CHOICE, null, null),
-                        new Review(ReviewStatus.DRAFT, null, null, null)))));
+                        new Review(ReviewStatus.DRAFT, null, null, null), null))));
         Files.writeString(corpus.resolve(CorpusValidator.ATTRIBUTION), "## alpha\n\nMIT\n\n## beta\n\nMIT\n");
         var schema = corpus.resolve(CorpusValidator.ITEM_SCHEMA);
         Files.createDirectories(schema.getParent());

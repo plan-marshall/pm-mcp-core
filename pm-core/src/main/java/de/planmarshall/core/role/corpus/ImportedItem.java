@@ -33,27 +33,32 @@ import java.util.regex.Pattern;
  * repository follows the rule of the manifest's repository (an absolute {@code https} URI without user information,
  * query or fragment), so every source a manifest names produces items this format accepts. Every optional
  * member of the corpus item format has one shape only: an absent list is empty and a present one is not,
- * {@code expected_empty} is present only when {@code true}. Members the generation never writes (a group, context
- * files, the contamination note, the location of a rubric item) are not part of it. So an imported
- * item is accepted by the item schema of the corpus and by {@code imported-item.schema.json} of this package;
- * {@link ImportedItemCodec} reads and writes it. Each pattern of the record is the pattern of the schema, compiled with
- * {@link PythonRegex} and matched against the whole value, as {@link SourceManifest} does.
+ * {@code expected_empty} is present only when {@code true}, an absent group or contamination note is {@code null} and a
+ * present one holds a character other than a line feed. The group and the contamination note are literal text copied
+ * from the overlay row, never templates. Members the generation never writes (context files, the location of a rubric
+ * item) are not part of it. So an imported item is accepted by the item schema of the corpus and by
+ * {@code imported-item.schema.json} of this package; {@link ImportedItemCodec} reads and writes it. Each pattern of the
+ * record is the pattern of the schema, compiled with {@link PythonRegex} and matched against the whole value, as
+ * {@link SourceManifest} does; only {@link #TEXT_PATTERN} is found anywhere in the value, as the schema's {@code .} is.
  *
- * @param id         {@code <topic>/<slug>}, the path of the item below the corpus without {@code .json}
- * @param topic      the directory of the item
- * @param role       the configured role that answers the item
- * @param title      the title, at most 120 characters
- * @param tags       the tags; unmodifiable, empty if there are none
- * @param input      what the model sees
- * @param target     the reference answer
- * @param grading    how an answer is graded
- * @param provenance where the item comes from
- * @param review     who reviewed the reference
- * @param canary     the corpus canary
+ * @param id            {@code <topic>/<slug>}, the path of the item below the corpus without {@code .json}
+ * @param topic         the directory of the item
+ * @param role          the configured role that answers the item
+ * @param title         the title, at most 120 characters
+ * @param tags          the tags; unmodifiable, empty if there are none
+ * @param group         the group the item belongs to, literal text; {@code null} if it belongs to none
+ * @param input         what the model sees
+ * @param target        the reference answer
+ * @param grading       how an answer is graded
+ * @param provenance    where the item comes from
+ * @param review        who reviewed the reference
+ * @param contamination the contamination note, literal text; {@code null} if there is none
+ * @param canary        the corpus canary
  * @since 0.1
  */
-public record ImportedItem(String id, String topic, String role, String title, List<String> tags, Input input,
-Target target, Grading grading, Provenance provenance, Review review, String canary) {
+public record ImportedItem(String id, String topic, String role, String title, List<String> tags, String group,
+Input input, Target target, Grading grading, Provenance provenance, Review review, String contamination,
+String canary) {
 
     /** An item id: a topic path and a slug. */
     public static final Pattern ID_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$");
@@ -66,6 +71,12 @@ Target target, Grading grading, Provenance provenance, Review review, String can
 
     /** The longest title, in characters. */
     public static final int TITLE_MAX_LENGTH = 120;
+
+    /**
+     * A group and a contamination note, of an item and of an overlay row: the schema pattern {@code .} found anywhere
+     * in the value with Python's meaning, so a present value holds at least one character other than {@code \n}.
+     */
+    public static final Pattern TEXT_PATTERN = PythonRegex.compile(".");
 
     /**
      * What the model sees.
@@ -321,11 +332,13 @@ Target target, Grading grading, Provenance provenance, Review review, String can
             throw new IllegalArgumentException("'title' is longer than " + TITLE_MAX_LENGTH + " characters");
         }
         tags = List.copyOf(Objects.requireNonNull(tags, "tags"));
+        requireText(group, "group");
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(grading, "grading");
         Objects.requireNonNull(provenance, "provenance");
         Objects.requireNonNull(review, "review");
+        requireText(contamination, "contamination");
         Objects.requireNonNull(canary, "canary");
         var rubricIds = new HashSet<String>();
         for (var item : target.items()) {
@@ -338,5 +351,19 @@ Target target, Grading grading, Provenance provenance, Review review, String can
     /** @return the slug of the item: its id below the topic */
     public String slug() {
         return id.substring(id.lastIndexOf('/') + 1);
+    }
+
+    /**
+     * Checks a group or a contamination note, of an item or of an overlay row.
+     *
+     * @param value the value; {@code null} if not given
+     * @param field the name of the member, named by a refusal
+     * @throws IllegalArgumentException if a present value holds no character other than a line feed
+     */
+    static void requireText(String value, String field) {
+        if (value != null && !TEXT_PATTERN.matcher(value).find()) {
+            throw new IllegalArgumentException(
+                    "'%s' must hold a character other than a line feed: %s".formatted(field, value));
+        }
     }
 }
