@@ -162,7 +162,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:decision-engine.adoc[`decision-engine`]
 |Decisions as the operator meets them: structure, interpretation, support, channels
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:start-from-clients.adoc[`start-from-clients`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:start-source-intake.adoc[`start-source-intake`] (the entry's decision stores and their move)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
@@ -216,7 +216,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; link:process-and-overview.adoc[`process-and-overview`] (ended work)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:role-qualification.adoc[`role-qualification`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`] (chat while starting); link:start-source-intake.adoc[`start-source-intake`] (the entry's `chat/` and its move); link:process-and-overview.adoc[`process-and-overview`] (ended work)
 |Milestone 8; the client work of `pm-mcp-clients`
 
 |link:chat-plan-revision.adoc[`chat-plan-revision`]
@@ -240,13 +240,13 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:epic-decomposition.adoc[`epic-decomposition`]
 |The decomposition of an epic, reviewed by the operator; an epic's findings and watches, and their review
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archive check)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archive check, next plan)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-auto.adoc[`epic-auto`]
 |An epic runs by itself: its automatic mode, the overlap wait, its reactions on a finished plan
 |`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-decomposition.adoc[`epic-decomposition`]
+|link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the operator's acts on a plan); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (next plan, the toggle among the epic's actions, archive, the release); link:epic-decomposition.adoc[`epic-decomposition`]
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:token-usage.adoc[`token-usage`]
@@ -258,7 +258,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:operator-reports.adoc[`operator-reports`]
 |Reports to the operator: the record, its catalogue and store, read per machine, the endpoints, a plan's completion report with its Tokens section
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-from-clients.adoc[`start-from-clients`]; link:token-usage.adoc[`token-usage`]; link:worker-activity.adoc[`worker-activity`] (`task.off_track`)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the plan's outcomes, its end, and its holds); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the end of an epic, the release of a project); link:epic-auto.adoc[`epic-auto`]; link:decision-engine.adoc[`decision-engine`]; link:start-source-intake.adoc[`start-source-intake`] (a screened source flagged); link:token-usage.adoc[`token-usage`]; link:worker-activity.adoc[`worker-activity`] (`task.off_track`)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:runtime-control.adoc[`runtime-control`]
@@ -276,13 +276,13 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:process-designer.adoc[`process-designer`]
 |Designing a plan's process: the machine level of workflow units and its precedence, the validation with its composition dry-run, placing and removing at machine and project level (the project's as a short landing) with their audit, the catalogue of building blocks
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-from-clients.adoc[`start-from-clients`] (the short landings); link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`] (the effective role set); link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-source-intake.adoc[`start-source-intake`] (the short landings); link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`] (the effective role set); link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
 |Milestone 11; the client work of `pm-mcp-clients`
 
 |link:cleanup.adoc[`cleanup`]
 |One cleanup of the machine: the durations per kind of work history, the daily check with its report, the cleanup job with its summary and details, delete with its audit, remind, and the kept list; the retention of work history replaced, the technical residue left to the sweeps with its figures shown
 |`blocked`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives, the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:job-runner.adoc[`job-runner`] (the job logs); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values); link:removed-concepts.adoc[`removed-concepts`] (the present steps of the periodic sweep)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:job-runner.adoc[`job-runner`] (the job logs); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values); link:removed-concepts.adoc[`removed-concepts`] (the present steps of the periodic sweep)
 |Milestone 10; the client work of `pm-mcp-clients`
 
 |link:differential-test-harness.adoc[`differential-test-harness`]
