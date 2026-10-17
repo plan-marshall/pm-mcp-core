@@ -137,6 +137,38 @@ class ProjectUnitLoaderTest {
     }
 
     @Nested
+    @DisplayName("Author check")
+    class AuthorCheck {
+
+        @Test
+        @DisplayName("a project unit naming the author plan-marshall is refused with author_reserved at its author line")
+        void reservedAuthor() {
+            var mutation = UnitFixtures.RESERVED_AUTHOR;
+
+            var result = load(mutation);
+
+            var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.AUTHOR_RESERVED,
+                    configPath(mutation.file()),
+                    UnitFixtures.lineOf(mutation.file(), "author: " + UnitFixtures.DEFAULT_AUTHOR));
+            assertAll(
+                    () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR), finding::message),
+                    () -> assertEquals(1, result.findings().stream()
+                            .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
+                            "only the unit naming the reserved author is refused for it"));
+        }
+
+        @Test
+        @DisplayName("a project unit naming a person as its author loads")
+        void personAuthor() {
+            var result = load(UnitFixtures.OTHER_PERSON);
+
+            assertAll(
+                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertEquals("Max Mustermann", result.units().get("replan").frontmatter().author()));
+        }
+    }
+
+    @Nested
     @DisplayName("Verification refusals")
     class VerificationRefusals {
 

@@ -81,6 +81,28 @@ public final class InvariantFixtures {
     /** The identifier of the merged plan unit. */
     static final String PLAN_UNIT = "plan";
 
+    /** The project's re-planning unit is of another type than its default unit. */
+    static final Mutation INTERFACE_TYPE = new Mutation("another type", REPLAN_FILE, "type: subworkflow",
+            "type: task");
+
+    /**
+     * The project's re-planning unit declares the type of a plan instance, which only the plan unit's template, a
+     * workflow or a recipe, admits as its composed form.
+     */
+    static final Mutation INTERFACE_INSTANCE_TYPE = new Mutation("the type of a plan instance", REPLAN_FILE,
+            "type: subworkflow", "type: instance");
+
+    /** The project's re-planning unit declares another entry than its default unit. */
+    static final Mutation INTERFACE_ENTRY = new Mutation("another entry", REPLAN_FILE, "entry: main", "entry: begin");
+
+    /** The project's re-planning unit declares another exit than its default unit. */
+    static final Mutation INTERFACE_EXIT = new Mutation("another exit", REPLAN_FILE, "exit: declined",
+            "exit: refused");
+
+    /** The project's re-planning unit binds its entry to another state than its default unit. */
+    static final Mutation INTERFACE_BINDING = new Mutation("another entry binding", REPLAN_FILE,
+            "entry main -> replan.assess", "entry main -> replan.apply");
+
     private InvariantFixtures() {
     }
 

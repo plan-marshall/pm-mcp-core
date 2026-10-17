@@ -59,6 +59,17 @@ final class UnitFixtures {
     /** The author of the fixture units written into a project, a person. */
     static final String PROJECT_AUTHOR = "Erika Mustermann";
 
+    /** The author line of a fixture unit written into a project. */
+    static final String PROJECT_AUTHOR_LINE = "author: " + PROJECT_AUTHOR;
+
+    /** The re-planning unit placed in the project names the author of a delivered unit. */
+    static final Mutation RESERVED_AUTHOR = new Mutation("a project unit names the author plan-marshall",
+            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: " + DEFAULT_AUTHOR);
+
+    /** The re-planning unit placed in the project names another person as its author. */
+    static final Mutation OTHER_PERSON = new Mutation("a project unit names another person",
+            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: Max Mustermann");
+
     /** The project step of the binding tests. */
     static final String PROJECT_STEP = "project:lint";
 

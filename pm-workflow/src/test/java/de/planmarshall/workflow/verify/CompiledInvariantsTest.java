@@ -29,12 +29,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -240,6 +242,57 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertFalse(found.isEmpty()),
                     () -> assertEquals(positions.stream().sorted().toList(), positions));
+        }
+    }
+
+    @Nested
+    @DisplayName("Interface comparison of INV-GEN-1")
+    class InterfaceComparison {
+
+        static Stream<Arguments> differences() {
+            return Stream.of(
+                    Arguments.of(InvariantFixtures.INTERFACE_TYPE,
+                            "the type 'task' differs from the type 'subworkflow' of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_INSTANCE_TYPE,
+                            "the type 'instance' differs from the type 'subworkflow' of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_ENTRY,
+                            "the entries [begin] differ from the entries [main] of the default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_EXIT,
+                            "the exits [replanned, refused] differ from the exits [replanned, declined] of the"
+                                    + " default unit"),
+                    Arguments.of(InvariantFixtures.INTERFACE_BINDING,
+                            "the entry bindings {main=replan.apply} differ from the entry bindings"
+                                    + " {main=replan.assess} of the default unit"));
+        }
+
+        private static List<InvariantViolation> generalOne(WorkflowDefinition unit) {
+            return InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit), List.of())
+                    .stream().filter(violation -> violation.id() == InvariantId.INV_GEN_1).toList();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("differences")
+        @DisplayName("a project unit differing from its default unit in its type, an entry, an exit or an entry"
+                + " binding fails INV-GEN-1 at its header, naming the differing element")
+        void refusesDifference(Mutation mutation, String message) {
+            var unit = InvariantFixtures.mutatedUnit(mutation);
+
+            var found = generalOne(unit);
+
+            var matching = found.stream().filter(violation -> message.equals(violation.message())).toList();
+            assertAll(
+                    () -> assertEquals(1, matching.size(), found::toString),
+                    () -> assertEquals(new InvariantLocation(InvariantId.INV_GEN_1, REPLAN_FILE,
+                                    InvariantFixtures.lineOf(mutation.applied(), "workflow replan")),
+                            InvariantLocation.of(matching.getFirst())));
+        }
+
+        @Test
+        @DisplayName("a project unit with the interface of its default unit passes INV-GEN-1")
+        void passesIdentical() {
+            var unit = InvariantFixtures.units(InvariantFixtures.sources(), UnitOrigin.PROJECT).get("replan");
+
+            assertEquals(List.of(), generalOne(unit));
         }
     }
 
