@@ -736,7 +736,7 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/locks-and-lea
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 
-Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, and the validation of the corpus in Java; the grading, the qualification records and their invalidation, the fallback of unqualified roles, the calibration, and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
+Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, the group and the contamination note an overlay row gives its items literally, and the validation of the corpus in Java; the grading, the qualification records and their invalidation, the fallback of unqualified roles, the calibration, and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/ImportResult.java[ImportResult],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusValidator.java[CorpusValidator],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/SourceManifest.java[SourceManifest],
@@ -747,12 +747,14 @@ link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/corpus/HuggingFaceSourceRepository.java[HuggingFaceSourceRepository],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/corpus/LfsBatchClient.java[LfsBatchClient]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusImportTest.java[CorpusImportTest] (the complete, partial and failed imports),
-link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusValidatorTest.java[CorpusValidatorTest] (a negative fixture per rule and a matched valid corpus),
-link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ProductCorpusValidationTest.java[ProductCorpusValidationTest],
-link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ItemGeneratorTest.java[ItemGeneratorTest],
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusImportTest.java[CorpusImportTest] (the complete, partial and failed imports, and items of one source row that share a group and name each other in their contamination notes),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusValidatorTest.java[CorpusValidatorTest] (a negative fixture per rule and a matched valid corpus, the group and the contamination note included),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ProductCorpusValidationTest.java[ProductCorpusValidationTest] (the product corpus valid with `transient_name` over the group and the contamination note),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ItemGeneratorTest.java[ItemGeneratorTest] (the group and the contamination note carried unchanged),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/SourceOverlayCodecTest.java[SourceOverlayCodecTest] and link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ImportedItemCodecTest.java[ImportedItemCodecTest] (the group and the contamination note read, written in schema order and refused outside their format),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusSchemaResourcesTest.java[CorpusSchemaResourcesTest] and link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusPatternParityTest.java[CorpusPatternParityTest] (the schema resources with the two members, their pattern equal to the record's),
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitSourceRepositoryTest.java[JGitSourceRepositoryTest] (the import over fixture repositories on disk),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/HuggingFaceSourceRepositoryTest.java[HuggingFaceSourceRepositoryTest] (the HTTPS fetch against a mock web server),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/LfsBatchClientTest.java[LfsBatchClientTest] (the LFS download against a mock web server)
 
-Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide] (§ Formats, § Fetch and Import, § Testing for the group and the contamination note), link:../pm-core/doc/adr/core-role-corpus/007-group-and-contamination-written-literally.adoc[ADR 007 of `core.role.corpus`], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]
