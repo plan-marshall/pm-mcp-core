@@ -16,7 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.tools.logging.LogRecord;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -41,6 +44,9 @@ class RuntimeLogMessagesTest {
 
     private static final String QUEUE_LOCK = "/pm-base/projects/sample-project/locks/queue.lock";
     private static final String PLAN_LOCK = "/pm-base/projects/sample-project/locks/plan-plan-one.lock";
+
+    /** The documentation of every log message of the repository, from the module directory the tests run in. */
+    private static final Path LOG_MESSAGES = Path.of("..", "doc", "LogMessages.adoc");
 
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
     @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
@@ -123,6 +129,37 @@ class RuntimeLogMessagesTest {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
                 () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
+    static Stream<Arguments> jobRunnerRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.JOB_STARTED, "PM_RUNTIME-26",
+                        "Job '%s' of kind '%s' started (pid %s, budget %s seconds)"),
+                Arguments.of(RuntimeLogMessages.INFO.JOB_SETTLED, "PM_RUNTIME-27",
+                        "Job '%s' settled with fate '%s' (outcome row %s)"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_ESCALATED, "PM_RUNTIME-128",
+                        "Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')"),
+                Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",
+                        "Settlement of job '%s' stopped at step '%s': %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("jobRunnerRecords")
+    @DisplayName("the records of the subprocess job runner")
+    void jobRunner(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("jobRunnerRecords")
+    @DisplayName("the records of the subprocess job runner are documented in doc/LogMessages.adoc")
+    void jobRunnerDocumented(LogRecord logRecord, String identifier, String template) throws IOException {
+        var documentation = Files.readString(LOG_MESSAGES);
+
+        assertTrue(documentation.contains("|%s |SubprocessJobRunner |%s |".formatted(identifier, template)),
+                identifier);
     }
 
     @Nested

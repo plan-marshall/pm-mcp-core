@@ -8,6 +8,10 @@
  * the root of this repository.
  */
 /**
+ * The job runtime of a project's process jobs (PM-EXEC-1 to PM-EXEC-5, PM-ARCH-7, PM-SEC-2): the verification of a
+ * job, its launch through {@code pm-exec}, its job log, its termination, the derivation of its fate and its
+ * settlement, run by {@link de.planmarshall.runtime.job.SubprocessJobRunner}.
+ * <h2>Verification</h2>
  * The verify-not-resolve pipeline of a job (PM-EXEC-1, PM-EXEC-2, PM-EXEC-3, PM-SEC-2): the deterministic check that
  * turns a {@link de.planmarshall.runtime.job.JobRequest} into a
  * {@link de.planmarshall.runtime.job.JobVerification}, either a verified job whose working directory and absolute
@@ -33,11 +37,34 @@
  * <p>
  * The caller supplies what this package does not determine: the live linked worktrees of the project, which it has
  * verified, the module set of the project discovered for the {@code {module}} placeholder, and the default templates
- * of the build verbs ({@code DefaultTemplates}). Launching the verified job through {@code pm-exec} and its
- * confinement and environment belong to the job runner packages.
+ * of the build verbs ({@code DefaultTemplates}).
+ * <h2>The runner</h2>
+ * {@link de.planmarshall.runtime.job.SubprocessJobRunner} implements the service
+ * {@link de.planmarshall.core.service.JobRunner} and the engine port {@link de.planmarshall.core.spi.JobStarter}. It
+ * verifies a job in a transaction of its own and closes it before the launch, so no caller holds the enrolment lock
+ * while a job is launched or awaited. The job record ({@link de.planmarshall.core.store.JobRecordStore}) is written at
+ * its fixed points: a refused job in the one write of its fate {@code refused}; otherwise the write-ahead record
+ * ({@code running}, {@code pid: null}) before the launch, the post-spawn record with the PID and the process start of
+ * the launch report ({@link de.planmarshall.runtime.job.LaunchReport}) before the job counts as running, and the fate.
+ * The budget of a job ({@link de.planmarshall.runtime.job.JobBudget}) starts at its spawn.
+ * <p>
+ * {@link de.planmarshall.runtime.job.PmExecLauncher} starts the verified argument vector through the launcher
+ * {@code pm-exec}, which makes the job the leader of its own process group; its output goes to the job log
+ * ({@link de.planmarshall.runtime.job.JobLog}), which is readable while the job runs and whose launch report is
+ * stripped once.
+ * <h2>Termination and settlement</h2>
+ * A cancel names its cause, and the cause or the expiry of the budget is carried out by
+ * {@link de.planmarshall.runtime.job.TerminationProtocol} against the job's process group: {@code SIGTERM}, the grace
+ * period, {@code SIGKILL} when a member lives, and the cancel before the group exists. Every signal goes through
+ * {@link de.planmarshall.runtime.job.ProcessGroupSignals}, the lowest signalling primitive. Once the process has ended,
+ * {@link de.planmarshall.runtime.job.OutcomeDerivation} derives the fate from what the runtime observed
+ * ({@link de.planmarshall.runtime.job.JobEvidence}), never from what the job reports about itself, and
+ * {@link de.planmarshall.runtime.job.JobSettlement} writes it in the fixed write order: the fate first, the slot release
+ * after it, the steps whose stores do not exist yet as named seams.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Verify-Not-Resolve Execution
- * Pipeline).
+ * Pipeline; Subprocess Lifecycle & Process-Group Isolation; Process Termination & Cancellation Protocol; Outcome
+ * Derivation); {@code doc/specification/store-schemas/10-job-and-lesson-records.adoc} (Job Record).
  *
  * @since 0.1
  */

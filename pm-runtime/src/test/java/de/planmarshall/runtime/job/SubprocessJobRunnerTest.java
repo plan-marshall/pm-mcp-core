@@ -1,0 +1,671 @@
+/*
+ * Copyright © 2026-present Oliver Wolff
+ *
+ * SPDX-License-Identifier: LicenseRef-Proprietary
+ *
+ * All rights reserved. This file is part of plan-marshall-mcp, which is proprietary software.
+ * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
+ * the root of this repository.
+ */
+package de.planmarshall.runtime.job;
+
+import static de.planmarshall.runtime.job.JobEnrolmentFixture.PROJECT;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import de.cuioss.test.generator.Generators;
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.InstantSource;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+
+import de.planmarshall.core.service.JobRunner;
+import de.planmarshall.core.service.JobRunner.CancelCause;
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
+import de.planmarshall.core.spi.JobStarter;
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecord;
+import de.planmarshall.core.store.JobRecord.BudgetDerivation;
+import de.planmarshall.core.store.JobRecord.Fate;
+import de.planmarshall.core.store.JobRecord.Scope;
+import de.planmarshall.core.store.JobRecord.Status;
+import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.core.store.LockKey;
+import de.planmarshall.core.store.ProjectEnrolment.HostToolName;
+import de.planmarshall.runtime.job.JobEvidence.Exited;
+import de.planmarshall.runtime.job.JobEvidence.ParseResult;
+import de.planmarshall.runtime.job.JobEvidence.Signalled;
+import de.planmarshall.runtime.job.JobEvidence.Termination;
+import de.planmarshall.runtime.log.RuntimeLogMessages.ERROR;
+import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+
+/**
+ * The subprocess runner (PM-EXEC-4, PM-ARCH-7) over a real enrolment, a real job record store and the fake launcher
+ * {@link FakePmExec}: the write-ahead record exists before the launch, a start reports a job only once its post-spawn
+ * record carries the PID, a cancel decides the fate by its cause, the budget ends a job {@code timed_out}, a refused
+ * verification spawns nothing, and the enrolment lock is released before the launch. The enrolled host tool
+ * {@code git} of the fixture is a shell script whose first argument selects what the job does.
+ */
+@EnableTestLogger
+@EnableGeneratorController
+@DisplayName("SubprocessJobRunner")
+class SubprocessJobRunnerTest {
+
+    private static final Duration SETTLE_TIMEOUT = Duration.ofSeconds(20);
+    private static final Scope WORKSPACE = new Scope(Scope.Type.WORKSPACE, null);
+    private static final String BUDGET_KEY = "git:status";
+    private static final BudgetDerivation FLOOR = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
+    private static final Map<String, String> ENVIRONMENT = Map.of("PATH", "/usr/bin:/bin");
+    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, Optional.empty());
+
+    /** The enrolled {@code git} of the fixture: its first argument selects what the job does. */
+    private static final String GIT_SCRIPT = """
+            #!/bin/sh
+            case "$1" in
+              ok) echo done; exit 0 ;;
+              fail) echo broken; exit 3 ;;
+              sleep) exec @SLEEP@ "$2" ;;
+              stubborn) trap '' TERM; echo ready; while :; do @SLEEP@ 0.1; done ;;
+            esac
+            exit 2
+            """;
+
+    private JobEnrolmentFixture fixture;
+    private RecordingLocks locks;
+    private JobRecordStore jobs;
+    private Path home;
+    private final List<Observation> observations = new CopyOnWriteArrayList<>();
+    private SubprocessJobRunner runner;
+
+    /** What the runner had written and held when it asked for the environment, right before the launch. */
+    private record Observation(List<JobRecord> records, boolean enrolmentLockHeld) {
+    }
+
+    @BeforeEach
+    void setUp() throws IOException {
+        fixture = new JobEnrolmentFixture();
+        Files.writeString(fixture.tools.get(HostToolName.GIT),
+                GIT_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString()));
+        fixture.enrol();
+        locks = new RecordingLocks(fixture.locks);
+        jobs = JobRecordStore.ofProject(fixture.base, PROJECT);
+        home = fixture.base.resolve("home");
+        runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty());
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (runner != null) {
+            for (var jobId : runner.runningJobs()) {
+                runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+                runner.awaitSettled(jobId, SETTLE_TIMEOUT);
+            }
+        }
+        fixture.close();
+    }
+
+    private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives) {
+        return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
+                .launcher(new PmExecLauncher(home)).termination(termination).environment(job -> {
+                    observations.add(new Observation(jobs.records(),
+                            locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
+                    return ENVIRONMENT;
+                }).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
+                .primitives(primitives).build();
+    }
+
+    private JobRunner.StartRequest<JobRequest> git(long budgetSeconds, String... arguments) {
+        var request = fixture.request(fixture.root.toString(),
+                new JobRequest.HostToolCall(HostToolName.GIT, List.of(arguments)));
+        return new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, budgetSeconds, FLOOR, request,
+                Optional.empty());
+    }
+
+    private JobId started(JobRunner.StartResult result) {
+        return assertInstanceOf(JobRunner.StartResult.Started.class, result, "the job should be started").jobId();
+    }
+
+    private JobRecord settled(JobId jobId) {
+        return runner.awaitSettled(jobId, SETTLE_TIMEOUT)
+                .orElseThrow(() -> new AssertionError("job %s did not settle".formatted(jobId)));
+    }
+
+    /** Waits until the job's output holds a line, so a signal meets the job only once it is ready for it. */
+    private void awaitOutput(JobId jobId, String line) throws InterruptedException {
+        var log = new JobLog(jobs.logPath(jobId));
+        var deadline = Instant.now().plus(Duration.ofSeconds(10));
+        while (Instant.now().isBefore(deadline)) {
+            if (log.readLines(0) instanceof JobLog.Lines lines && lines.lines().contains(line)) {
+                return;
+            }
+            Thread.sleep(SubprocessJobRunner.REPORT_POLL_INTERVAL);
+        }
+        throw new AssertionError("job %s did not write '%s'".formatted(jobId, line));
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("records a job at its fixed points")
+    class RecordPoints {
+
+        @BeforeEach
+        void install() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+        }
+
+        @Test
+        @DisplayName("the write-ahead record exists, running without a PID, before the launch")
+        void writeAheadBeforeLaunch() {
+            var jobId = started(runner.start(git(30, "ok")));
+
+            settled(jobId);
+            assertEquals(1, observations.size(), "the environment is asked once, right before the launch");
+            var before = observations.getFirst().records();
+            assertAll(
+                    () -> assertEquals(1, before.size(), "one record before the launch"),
+                    () -> assertEquals(jobId, before.getFirst().jobId()),
+                    () -> assertEquals(Status.RUNNING, before.getFirst().status()),
+                    () -> assertNull(before.getFirst().pid(), "no PID before the launch"),
+                    () -> assertFalse(before.getFirst().isSpawnRecorded()));
+        }
+
+        @Test
+        @DisplayName("a start answers the job only once its record carries the PID and the process start")
+        void runningOnlyAfterPostSpawn() {
+            var jobId = started(runner.start(git(30, "sleep", "30")));
+
+            var record = runner.record(jobId).orElseThrow();
+
+            assertAll(
+                    () -> assertEquals(Status.RUNNING, record.status()),
+                    () -> assertTrue(record.isSpawnRecorded(), "the post-spawn record is written"),
+                    () -> assertNotNull(record.processStartedAt()),
+                    () -> assertNotNull(record.spawnedAt()),
+                    () -> assertTrue(runner.runningJobs().contains(jobId)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.JOB_STARTED.resolveIdentifierString()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            "Job '%s' of kind 'git' started (pid %s, budget 30 seconds)".formatted(jobId,
+                                    record.pid())));
+        }
+
+        @Test
+        @DisplayName("a job that exits 0 with its success marker settles succeeded, its child wall time within its own")
+        void childWallWithinWallTime() {
+            var jobId = started(runner.start(git(30, "ok")));
+
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> assertEquals(7, settled.outcomeRow()),
+                    () -> assertEquals(0L, settled.exitCode()),
+                    () -> assertNotNull(settled.childWallMs(), "an observed exit records the child's wall time"),
+                    () -> assertTrue(settled.childWallMs() <= settled.jobWallTime().orElseThrow().toMillis(),
+                            "child %s ms, job %s".formatted(settled.childWallMs(), settled.jobWallTime())),
+                    () -> assertEquals(Optional.of(settled), jobs.read(jobId)),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            "Job '%s' settled with fate 'succeeded' (outcome row 7)".formatted(jobId)));
+        }
+
+        @Test
+        @DisplayName("a job that exits non-zero without a diagnostic settles failed by row 10")
+        void failedExit() {
+            var jobId = started(runner.start(git(30, "fail")));
+
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.FAILED, settled.fate()),
+                    () -> assertEquals(10, settled.outcomeRow()),
+                    () -> assertEquals(3L, settled.exitCode()),
+                    () -> assertNull(settled.signal()));
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("terminates a job for the cause that decides its fate")
+    class Terminations {
+
+        @BeforeEach
+        void install() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+        }
+
+        @Test
+        @DisplayName("a pause of the plan that holds now ends the job cancelled")
+        void pauseNow() {
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+
+            var cancelled = runner.cancel(jobId, CancelCause.PLAN_PAUSED_NOW);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertTrue(cancelled, "the running job is cancelled by this call"),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertFalse(runner.runningJobs().contains(jobId)),
+                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL), "a settled job is not"));
+        }
+
+        @Test
+        @DisplayName("a job over its budget ends timed_out")
+        void budgetExpiry() {
+            var jobId = started(runner.start(git(1, "sleep", "60")));
+
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.TIMED_OUT, settled.fate()),
+                    () -> assertEquals(3, settled.outcomeRow()),
+                    () -> assertEquals(1, settled.budgetSeconds()));
+        }
+
+        @Test
+        @DisplayName("the drain ends the job killed")
+        void drain() {
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+
+            runner.cancel(jobId, CancelCause.DRAIN);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()));
+        }
+
+        @Test
+        @DisplayName("a group that outlives the grace period is sent SIGKILL and logged; the cause decides the fate")
+        void escalated() throws InterruptedException {
+            var now = new AtomicReference<>(Instant.now());
+            InstantSource clock = now::get;
+            TerminationProtocol.Pause pause = duration -> now.updateAndGet(instant -> instant.plus(duration));
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system(), clock, pause),
+                    request -> Optional.empty());
+            var jobId = started(runner.start(git(60, "stubborn")));
+            awaitOutput(jobId, "ready");
+
+            runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                    () -> assertEquals("SIGKILL", settled.signal()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.JOB_TERMINATION_ESCALATED.resolveIdentifierString()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            "(cause 'ENGINE_CANCEL')"));
+        }
+
+        @Test
+        @DisplayName("matched control: a job that ends on SIGTERM is never escalated")
+        void notEscalated() {
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+
+            runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                    () -> assertEquals("SIGTERM", settled.signal()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.JOB_TERMINATION_ESCALATED.resolveIdentifierString()));
+        }
+    }
+
+    @Nested
+    @DisplayName("verifies a job before anything is launched")
+    class Verification {
+
+        @Test
+        @DisplayName("a refused verification spawns nothing and records the fate refused by row 1")
+        void refusedSpawnsNothing() {
+            var request = fixture.gitStatus(fixture.beside.toString());
+
+            var result = runner.start(new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
+                    request, Optional.empty()));
+
+            var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result);
+            var records = jobs.records();
+            assertAll(
+                    () -> assertEquals("path_traversal_rejected", refused.reason()),
+                    () -> assertTrue(observations.isEmpty(), "nothing was launched"),
+                    () -> assertEquals(1, records.size()),
+                    () -> assertEquals(Status.REFUSED, records.getFirst().status()),
+                    () -> assertEquals(Fate.REFUSED, records.getFirst().fate()),
+                    () -> assertEquals(1, records.getFirst().outcomeRow()),
+                    () -> assertEquals("path_traversal_rejected", records.getFirst().refusalReason()),
+                    () -> assertNull(records.getFirst().childWallMs()),
+                    () -> assertNull(records.getFirst().pid()),
+                    () -> assertFalse(Files.exists(jobs.logPath(records.getFirst().jobId())), "no job log"),
+                    () -> assertEquals(Optional.of(records.getFirst()), runner.record(records.getFirst().jobId())),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            "settled with fate 'refused' (outcome row 1)"));
+        }
+
+        @Test
+        @EnabledOnOs(OS.LINUX)
+        @DisplayName("the enrolment lock of the verification is released before the launch")
+        void enrolmentLockReleased() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+
+            settled(started(runner.start(git(30, "ok"))));
+
+            var enrolmentLock = fixture.store.lockKey(PROJECT);
+            assertAll(
+                    () -> assertTrue(locks.acquired.contains(enrolmentLock), "the verification takes the lock"),
+                    () -> assertEquals(1, observations.size()),
+                    () -> assertFalse(observations.getFirst().enrolmentLockHeld(),
+                            "no transaction holds the enrolment lock at the launch"));
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("settles a job whose launcher failed from the launcher's exit")
+    class LauncherFailure {
+
+        @Test
+        @DisplayName("a launcher that exits 127 without a report leaves no PID and settles failed")
+        void launcherExit() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.EXIT_127);
+
+            var settled = settled(started(runner.start(git(30, "ok"))));
+
+            assertAll(
+                    () -> assertEquals(Fate.FAILED, settled.fate()),
+                    () -> assertEquals(10, settled.outcomeRow()),
+                    () -> assertEquals(127L, settled.exitCode()),
+                    () -> assertNull(settled.pid(), "no post-spawn record without a launch report"),
+                    () -> assertNull(settled.childWallMs(), "no reported process start"),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                            INFO.JOB_STARTED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("a launcher that cannot be started settles the job without a process")
+        void launcherMissing() {
+            var jobId = started(runner.start(git(30, "ok")));
+
+            var settled = runner.record(jobId).orElseThrow();
+
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertNotEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> assertNull(settled.exitCode(), "no exit was observed"),
+                    () -> assertNull(settled.spawnedAt()),
+                    () -> assertFalse(runner.runningJobs().contains(jobId)));
+        }
+
+        @Test
+        @DisplayName("a fate that cannot be written stops the settlement and is logged at ERROR")
+        void fateNotWritten() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+            var directory = jobs.directoryPath();
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
+            try {
+                runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+
+                var settled = runner.awaitSettled(jobId, SETTLE_TIMEOUT);
+
+                assertAll(
+                        () -> assertEquals(Optional.empty(), settled, "the fate was not recorded"),
+                        () -> assertFalse(runner.runningJobs().contains(jobId)),
+                        () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                                ERROR.JOB_SETTLEMENT_STEP_FAILED.resolveIdentifierString()),
+                        () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.ERROR,
+                                "Settlement of job '%s' stopped at step 'FATE'".formatted(jobId)),
+                        () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                                INFO.JOB_SETTLED.resolveIdentifierString()));
+            } finally {
+                Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("serves the engine port")
+    class EnginePort {
+
+        @Test
+        @DisplayName("a primitive without a job spec is refused")
+        void unknownPrimitive() {
+            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify",
+                    Generators.letterStrings(4, 12).next()));
+
+            var refused = assertInstanceOf(JobStarter.StartResult.Refused.class, result);
+            assertAll(
+                    () -> assertEquals(SubprocessJobRunner.PRIMITIVE_WITHOUT_JOB, refused.reason()),
+                    () -> assertTrue(observations.isEmpty()),
+                    () -> assertTrue(jobs.records().isEmpty()));
+        }
+
+        @Test
+        @EnabledOnOs(OS.LINUX)
+        @DisplayName("matched control: a primitive with a job spec is started with an id of the port's grammar")
+        void knownPrimitive() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var job = git(30, "ok");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
+
+            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify", "git.status"));
+
+            var started = assertInstanceOf(JobStarter.StartResult.Started.class, result);
+            assertAll(
+                    () -> assertEquals(JobStarter.JobKind.GIT, started.kind()),
+                    () -> assertEquals(Fate.SUCCEEDED, settled(new JobId(started.jobId())).fate()));
+        }
+
+        @Test
+        @DisplayName("the refusal of a job's verification is the refusal of the port")
+        void refusedPrimitive() {
+            var job = new JobRunner.StartRequest<>(JobId.Kind.GIT, WORKSPACE, BUDGET_KEY, 30, FLOOR,
+                    fixture.gitStatus(fixture.beside.toString()), Optional.<String>empty());
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.of(job));
+
+            var result = runner.start(new JobStarter.StartRequest(Optional.empty(), "verify", "git.status"));
+
+            assertEquals(new JobStarter.StartResult.Refused("path_traversal_rejected"), result);
+        }
+    }
+
+    @Nested
+    @DisplayName("refuses what it does not run")
+    class NotRun {
+
+        @Test
+        @DisplayName("a worker is not started by the runner")
+        void worker() {
+            var request = new JobRunner.StartRequest<>(JobId.Kind.LLM, new Scope(Scope.Type.PROJECT, null),
+                    BUDGET_KEY, 30, FLOOR, fixture.gitStatus(fixture.root.toString()), Optional.<String>empty());
+
+            assertThrows(IllegalArgumentException.class, () -> runner.start(request));
+        }
+
+        @Test
+        @DisplayName("an unknown job is neither cancelled nor read")
+        void unknownJob() {
+            var jobId = JobId.random(JobId.Kind.GIT);
+
+            assertAll(
+                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL)),
+                    () -> assertEquals(Optional.empty(), runner.record(jobId)),
+                    () -> assertEquals(Optional.empty(), runner.awaitSettled(jobId, Duration.ZERO)));
+        }
+    }
+
+    @Nested
+    @DisplayName("derives the record's values from what it observed")
+    class Values {
+
+        @ParameterizedTest(name = "exit value {0}")
+        @CsvSource({"0, 0", "3, 3", "128, 128", "200, 200"})
+        @DisplayName("an exit value outside 129 to 192 is an exit code")
+        void exitCode(int exitValue, int code) {
+            assertEquals(new Exited(code), SubprocessJobRunner.waitStatus(exitValue));
+        }
+
+        @ParameterizedTest(name = "exit value {0} is {1}")
+        @CsvSource({"129, SIGHUP", "134, SIGABRT", "137, SIGKILL", "139, SIGSEGV", "143, SIGTERM", "168, SIG40"})
+        @DisplayName("an exit value of 128 plus a signal number is that signal")
+        void signal(int exitValue, String signal) {
+            assertEquals(new Signalled(signal), SubprocessJobRunner.waitStatus(exitValue));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(CancelCause.class)
+        @DisplayName("every cancel cause is the termination of its name and decides the fate of its row")
+        void termination(CancelCause cause) {
+            var termination = SubprocessJobRunner.termination(cause);
+            var outcome = OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.GIT,
+                    Optional.of(termination), new Exited(0), JobEvidence.LogState.READABLE, SUCCESS, Set.of(), true));
+
+            assertAll(
+                    () -> assertEquals(cause.fate(), outcome.fate()),
+                    () -> assertEquals(cause.outcomeRow(), outcome.row()));
+        }
+
+        @Test
+        @DisplayName("a pause of the plan that holds now is the termination PAUSE_NOW")
+        void pauseNow() {
+            assertEquals(Termination.PAUSE_NOW, SubprocessJobRunner.termination(CancelCause.PLAN_PAUSED_NOW));
+        }
+
+        @Test
+        @DisplayName("the child's wall time runs from its reported start and never exceeds the job's")
+        void childWall() {
+            var spawnedAt = Instant.parse("2026-10-17T10:00:00Z");
+            var endedAt = spawnedAt.plusMillis(1500);
+
+            assertAll(
+                    () -> assertNull(SubprocessJobRunner.childWallMs(null, spawnedAt, endedAt), "no reported start"),
+                    () -> assertEquals(1400L, SubprocessJobRunner.childWallMs(spawnedAt.plusMillis(100), spawnedAt,
+                            endedAt)),
+                    () -> assertEquals(1500L, SubprocessJobRunner.childWallMs(spawnedAt.minusSeconds(1), spawnedAt,
+                            endedAt), "a start reported before the spawn is bounded by the job's wall time"),
+                    () -> assertEquals(0L, SubprocessJobRunner.childWallMs(endedAt.plusMillis(5), spawnedAt,
+                            endedAt)));
+        }
+
+        @Test
+        @DisplayName("the argument digest separates the elements of the vector")
+        void argvDigest() {
+            var element = Generators.letterStrings(2, 8).next();
+
+            var joined = SubprocessJobRunner.argvDigest(List.of(element + element));
+            var split = SubprocessJobRunner.argvDigest(List.of(element, element));
+
+            assertAll(
+                    () -> assertTrue(joined.matches("[0-9a-f]{64}"), joined),
+                    () -> assertNotEquals(joined, split),
+                    () -> assertEquals(split, SubprocessJobRunner.argvDigest(new ArrayList<>(List.of(element,
+                            element)))));
+        }
+    }
+
+    @Nested
+    @DisplayName("JobBudget")
+    class Budget {
+
+        @Test
+        @DisplayName("is the budget a start request names, counted in seconds")
+        void ofRequest() {
+            var seconds = Generators.integers(1, 3600).next();
+
+            var budget = JobBudget.of(git(seconds, "ok"));
+
+            assertAll(
+                    () -> assertEquals(new JobBudget(BUDGET_KEY, seconds, FLOOR), budget),
+                    () -> assertEquals(Duration.ofSeconds(seconds), budget.duration()));
+        }
+
+        @Test
+        @DisplayName("refuses a blank key, a budget below one second and missing parts")
+        void refusals() {
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(" ", 1, FLOOR)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(BUDGET_KEY, 0, FLOOR)),
+                    () -> assertThrows(NullPointerException.class, () -> new JobBudget(null, 1, FLOOR)),
+                    () -> assertThrows(NullPointerException.class, () -> new JobBudget(BUDGET_KEY, 1, null)));
+        }
+    }
+
+    /** A lock manager that records the keys acquired and knows which transactions are open. */
+    private static final class RecordingLocks implements LockManager {
+
+        private final LockManager delegate;
+        private final Set<LockTransaction> open = ConcurrentHashMap.newKeySet();
+        private final List<LockKey> acquired = new CopyOnWriteArrayList<>();
+
+        RecordingLocks(LockManager delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public LockTransaction openTransaction() {
+            var transaction = delegate.openTransaction();
+            var recording = new LockTransaction() {
+
+                @Override
+                public void acquire(LockKey key) {
+                    acquired.add(key);
+                    transaction.acquire(key);
+                }
+
+                @Override
+                public boolean holds(LockKey key) {
+                    return transaction.holds(key);
+                }
+
+                @Override
+                public void close() {
+                    open.remove(this);
+                    transaction.close();
+                }
+            };
+            open.add(recording);
+            return recording;
+        }
+
+        boolean anyOpenHolds(LockKey key) {
+            return open.stream().anyMatch(transaction -> transaction.holds(key));
+        }
+    }
+}

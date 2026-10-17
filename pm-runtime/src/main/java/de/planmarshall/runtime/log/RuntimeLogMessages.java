@@ -253,6 +253,23 @@ public final class RuntimeLogMessages {
                 .identifier(25)
                 .template("Audit log rotated to '%s' with %s records")
                 .build();
+
+        /**
+         * Logged when the record of a job carries its PID and process start (the post-spawn replace), from which on the
+         * job counts as running; names the job, its kind, its PID and its budget in seconds.
+         */
+        public static final LogRecord JOB_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(26)
+                .template("Job '%s' of kind '%s' started (pid %s, budget %s seconds)")
+                .build();
+
+        /** Logged when the fate of a job is recorded; names the job, its fate and the row of the outcome derivation. */
+        public static final LogRecord JOB_SETTLED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(27)
+                .template("Job '%s' settled with fate '%s' (outcome row %s)")
+                .build();
     }
 
     /** WARN level messages. */
@@ -520,6 +537,17 @@ public final class RuntimeLogMessages {
                 .identifier(127)
                 .template("HTTPS source '%s' not fetched: %s")
                 .build();
+
+        /**
+         * Logged when a member of a job's process group still lived at the end of the termination grace period after
+         * {@code SIGTERM}, and the group was sent {@code SIGKILL}; names the job, the process group and the cause of
+         * the termination.
+         */
+        public static final LogRecord JOB_TERMINATION_ESCALATED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(128)
+                .template("Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -584,6 +612,16 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(206)
                 .template("Enrolment integrity key unavailable from '%s': %s")
+                .build();
+
+        /**
+         * Logged when a step of the settlement of a job fails and the settlement stops there, so no later step runs;
+         * names the job, the step and the reason.
+         */
+        public static final LogRecord JOB_SETTLEMENT_STEP_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(207)
+                .template("Settlement of job '%s' stopped at step '%s': %s")
                 .build();
     }
 }
