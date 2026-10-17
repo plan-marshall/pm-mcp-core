@@ -1,0 +1,37 @@
+= A group and a contamination note on the overlay row and the imported item
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `corpus-group-contamination`
+
+[horizontal]
+Serves:: link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap] Milestone 4
+Where:: pm-core package `core.role.corpus` (`SourceOverlay`, `ImportedItem`, their codecs and schema resources `source-overlay.schema.json` and `imported-item.schema.json`, `ItemGenerator`, `CorpusValidator`); developer documentation link:../../pm-core/doc/developer/core-role-corpus.adoc[`core-role-corpus.adoc`]
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+Task 4 of link:../../../plan-marshall-mcp/doc/plans/question-corpus-public-datasets.adoc[`plan-marshall-mcp` / `question-corpus-public-datasets`] (`question/ask-or-proceed`) generates several items from one source row and needs them to share a `group` and their `contamination` notes to name each other. Neither member can be generated today:
+
+* The overlay row and the imported item have neither member, and both formats are closed (`additionalProperties: false`); the `ImportedItem` record states that the generation never writes a group or a contamination note.
+* The item schema of the corpus in `plan-marshall-mcp` allows both as optional members, so the corpus's own items can carry them and the generated ones cannot.
+* The members are functional, not descriptive: the warm form of the role grading never gives one worker items that an item's `contamination` note names (link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading]), and a control is the original of a modified problem and gives its answer away.
+
+The task:
+
+* The members `group` and `contamination` on the overlay row and on the imported item, written into the generated item.
+* *Formats changed together*: record, codec and schema resource of the overlay and of the imported item; the validator's rules follow; an ADR of `core.role.corpus` records the change against link:../../pm-core/doc/adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] and link:../../pm-core/doc/adr/core-role-corpus/006-source-fetch-kind-repeated-rows-and-answer-schema.adoc[ADR 006] of that package. `ProductCorpusValidationTest` stays green on the product corpus.
+
+Left open by this package: how the members are given in the overlay (literal, or a template over the row's fields). Required is only that items of one source row, generated from several overlay rows, can name each other.
+
+== Trace
+
+Requirements stay in `plan-marshall-documentation`; the specification sections and watch documents are those of this repository. They are the starting set; the trace matrix of `traced-implementation` is built from them before code (link:README.adoc#how[How to work a package]).
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/16-model-work.adoc#PM-WORK-6[PM-WORK-6], link:../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-6[PM-TEST-6]
+* Specification: link:../specification/model-work/01-roles-and-configuration.adoc#qualification-topics[Model Work § Qualification Topics], link:../specification/model-work/01-roles-and-configuration.adoc#grading[§ Grading]
+* Decisions: link:../../pm-core/doc/adr/core-role-corpus/001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] and link:../../pm-core/doc/adr/core-role-corpus/006-source-fetch-kind-repeated-rows-and-answer-schema.adoc[ADR 006] of `core.role.corpus`
+* Watch: link:../implementation-watch/model-work.adoc[Model Work]
+
+== Done When
+
+The codec and schema tests cover `group` and `contamination` on the overlay row and the imported item; `CorpusImportTest` generates, from several overlay rows of one source row, items that share one `group` and whose `contamination` notes name each other, and an overlay row without the members generates an item without them; `CorpusValidator` applies its rules to the members; the ADR is written; and `ProductCorpusValidationTest` stays green.
