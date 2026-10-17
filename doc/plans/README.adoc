@@ -225,16 +225,10 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:plan-instance-alignment.adoc[`plan-instance-alignment`]
 |Milestones 6, 10, and 12; the client work of `pm-mcp-clients`
 
-|link:epic-findings-review.adoc[`epic-findings-review`]
-|An epic's findings and watches, and their review
-|`open`
-|link:plan-and-epic-control.adoc[`plan-and-epic-control`]; link:chat.adoc[`chat`]
-|Milestone 12; the client work of `pm-mcp-clients`
-
 |link:epic-decomposition.adoc[`epic-decomposition`]
-|The decomposition of an epic, reviewed by the operator
+|The decomposition of an epic, reviewed by the operator; an epic's findings and watches, and their review
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archive check)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-auto.adoc[`epic-auto`]
