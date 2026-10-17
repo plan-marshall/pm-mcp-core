@@ -80,6 +80,7 @@ public class ImportedItemCodec {
     private static final String FIELD_ROLE = "role";
     private static final String FIELD_TITLE = "title";
     private static final String FIELD_TAGS = "tags";
+    private static final String FIELD_GROUP = "group";
     private static final String FIELD_INPUT = "input";
     private static final String FIELD_QUESTION = "question";
     private static final String FIELD_FACTS = "facts";
@@ -110,6 +111,7 @@ public class ImportedItemCodec {
     private static final String FIELD_BY = "by";
     private static final String FIELD_DATE = "date";
     private static final String FIELD_NOTES = "notes";
+    private static final String FIELD_CONTAMINATION = "contamination";
     private static final String FIELD_CANARY = "canary";
 
     /**
@@ -154,11 +156,13 @@ public class ImportedItemCodec {
             generator.writeStringField(FIELD_ROLE, item.role());
             generator.writeStringField(FIELD_TITLE, item.title());
             writeOptionalList(generator, FIELD_TAGS, item.tags());
+            writeOptionalString(generator, FIELD_GROUP, item.group());
             writeInput(generator, item.input());
             writeTarget(generator, item.target());
             writeGrading(generator, item.grading());
             writeProvenance(generator, item.provenance());
             writeReview(generator, item.review());
+            writeOptionalString(generator, FIELD_CONTAMINATION, item.contamination());
             generator.writeStringField(FIELD_CANARY, item.canary());
             generator.writeEndObject();
         } catch (IOException e) {
@@ -289,11 +293,13 @@ public class ImportedItemCodec {
                 case FIELD_ROLE -> values.role = string(parser, field);
                 case FIELD_TITLE -> values.title = string(parser, field);
                 case FIELD_TAGS -> values.tags = nonEmptyStringList(parser, field);
+                case FIELD_GROUP -> values.group = string(parser, field);
                 case FIELD_INPUT -> values.input = readInput(parser);
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_PROVENANCE -> values.provenance = readProvenance(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
+                case FIELD_CONTAMINATION -> values.contamination = string(parser, field);
                 case FIELD_CANARY -> values.canary = string(parser, field);
                 default -> throw undeclared(field);
             }
@@ -301,7 +307,8 @@ public class ImportedItemCodec {
         requireFields(seen, ITEM, FIELD_SCHEMA_VERSION, FIELD_ID, FIELD_TOPIC, FIELD_ROLE, FIELD_TITLE, FIELD_INPUT,
                 FIELD_TARGET, FIELD_GRADING, FIELD_PROVENANCE, FIELD_REVIEW, FIELD_CANARY);
         return construct(() -> new ImportedItem(values.id, values.topic, values.role, values.title, values.tags,
-                values.input, values.target, values.grading, values.provenance, values.review, values.canary));
+                values.group, values.input, values.target, values.grading, values.provenance, values.review,
+                values.contamination, values.canary));
     }
 
     private static Input readInput(JsonParser parser) throws IOException {
@@ -519,11 +526,13 @@ public class ImportedItemCodec {
         private String role;
         private String title;
         private List<String> tags = List.of();
+        private String group;
         private Input input;
         private Target target;
         private Grading grading;
         private Provenance provenance;
         private Review review;
+        private String contamination;
         private String canary;
     }
 }

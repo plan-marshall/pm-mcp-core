@@ -10,6 +10,7 @@
 package de.planmarshall.core.role.corpus;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -96,17 +97,27 @@ class CorpusSchemaResourcesTest {
     }
 
     static SourceOverlay overlay(String keyField, String firstKey, String secondKey) {
+        return overlay(keyField, firstKey, secondKey, null, null);
+    }
+
+    /**
+     * @param group         the group of both rows; {@code null} for none
+     * @param contamination the contamination note of the closed row; {@code null} for none
+     */
+    static SourceOverlay overlay(String keyField, String firstKey, String secondKey, String group,
+            String contamination) {
         var closed = new Row(firstKey, "q-1", "screening/sample-set", "screening", "closed question",
-                List.of("imported"), "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"),
+                List.of("imported"), group, "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"),
                 ANSWER_SCHEMA,
                 new Target("{option_a}", "the first holds", List.of(), List.of(), false),
-                new Grading(GradingMethod.LABEL, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
-        var open = new Row(secondKey, "q-2", "review/sample-set", "review", "open question", List.of(),
+                new Grading(GradingMethod.LABEL, null, null), new Review(ReviewStatus.DRAFT, null, null, null),
+                contamination);
+        var open = new Row(secondKey, "q-2", "review/sample-set", "review", "open question", List.of(), group,
                 "Review: {diff}", "", null, ANSWER_SCHEMA,
                 new Target(null, "one defect", List.of("alternative"), List.of(new RubricItem("d1", "the defect")),
                         false),
                 new Grading(GradingMethod.RUBRIC_PROPERTIES, "judge", new BigDecimal("0.5")),
-                new Review(ReviewStatus.CONFIRMED, "operator", LocalDate.of(2026, 10, 14), "checked"));
+                new Review(ReviewStatus.CONFIRMED, "operator", LocalDate.of(2026, 10, 14), "checked"), null);
         return new SourceOverlay("sample-set", "data/test.csv", keyField, LocalDate.of(2026, 10, 14),
                 List.of(closed, open));
     }
@@ -117,9 +128,12 @@ class CorpusSchemaResourcesTest {
                 Arguments.of("overlay with a key field", OVERLAY_SCHEMA,
                         SourceOverlayCodec.write(overlay("question_id", "q-1", "q-2"))),
                 Arguments.of("overlay by position", OVERLAY_SCHEMA, SourceOverlayCodec.write(overlay(null, "1", "2"))),
+                Arguments.of("overlay with a group and a contamination note", OVERLAY_SCHEMA,
+                        SourceOverlayCodec.write(overlay("question_id", "q-1", "q-2", "sample-set/pair",
+                                "shares its subject with review/sample-set/q-2"))),
                 Arguments.of("closed imported item", ITEM_SCHEMA,
                         ImportedItemCodec.write(ImportedItemCodecTest.closedItem())),
-                Arguments.of("open imported item", ITEM_SCHEMA,
+                Arguments.of("open imported item with a group and a contamination note", ITEM_SCHEMA,
                         ImportedItemCodec.write(ImportedItemCodecTest.openItem())));
     }
 
@@ -159,6 +173,20 @@ class CorpusSchemaResourcesTest {
                     .replace("\"status\" : \"draft\"", "\"status\" : \"draft\", \"extra\" : 1");
 
             assertFalse(validate(OVERLAY_SCHEMA, text.getBytes(UTF_8)).isEmpty());
+        }
+
+        @Test
+        @DisplayName("an overlay row with an empty group and an imported item with an empty contamination note are "
+                + "rejected")
+        void emptyGroupAndContamination() {
+            var overlay = new String(SourceOverlayCodec.write(overlay(null, "1", "2")), UTF_8)
+                    .replaceFirst("\"group\" : null", "\"group\" : \"\"");
+            var item = new String(ImportedItemCodec.write(ImportedItemCodecTest.closedItem()), UTF_8)
+                    .replace("\"canary\"", "\"contamination\" : \"\",\n  \"canary\"");
+
+            assertAll(
+                    () -> assertFalse(validate(OVERLAY_SCHEMA, overlay.getBytes(UTF_8)).isEmpty(), overlay),
+                    () -> assertFalse(validate(ITEM_SCHEMA, item.getBytes(UTF_8)).isEmpty(), item));
         }
     }
 

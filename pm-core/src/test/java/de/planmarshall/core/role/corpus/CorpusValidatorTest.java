@@ -79,6 +79,7 @@ class CorpusValidatorTest {
               "role":{"type":"string"},
               "title":{"type":"string","maxLength":120},
               "tags":{"type":"array","items":{"type":"string"}},
+              "group":{"type":"string"},
               "input":{"type":"object","additionalProperties":false,"required":["question","facts"],"properties":{
                "question":{"type":"string"},"facts":{"type":"string"},
                "choices":{"type":["array","null"],"items":{"type":"string"},"minItems":2},"answer_schema":{"type":"object"},
@@ -100,6 +101,7 @@ class CorpusValidatorTest {
               "review":{"type":"object","additionalProperties":false,"required":["status"],"properties":{
                "status":{"enum":["draft","confirmed"]},"by":{"type":"string"},"date":{"type":"string"},
                "notes":{"type":"string"}}},
+              "contamination":{"type":"string"},
               "canary":{"type":"string"}}}
             """;
 
@@ -227,8 +229,8 @@ class CorpusValidatorTest {
     /** Puts the members in the order of the item format. */
     private static Map<String, Object> reorder(Map<String, Object> item) {
         var ordered = new LinkedHashMap<String, Object>();
-        for (var key : List.of("schema_version", "id", "topic", "role", "title", "tags", "input", "target",
-                "grading", "provenance", "review", "canary")) {
+        for (var key : List.of("schema_version", "id", "topic", "role", "title", "tags", "group", "input", "target",
+                "grading", "provenance", "review", "contamination", "canary")) {
             if (item.containsKey(key)) {
                 ordered.put(key, item.get(key));
             }
@@ -278,11 +280,20 @@ class CorpusValidatorTest {
     }
 
     private static SourceOverlay overlay(String source, String file) {
-        var row = new Row("q-1", "q-1", "screening/alpha", "screening", "sky question", List.of("imported"),
+        var row = new Row("q-1", "q-1", "screening/alpha", "screening", "sky question", List.of("imported"), null,
                 "{question}", "", List.of("yes", "no"), null,
                 new Target("yes", "the sky is blue", List.of(), List.of(), false),
-                new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
+                new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null),
+                null);
         return new SourceOverlay(source, file, "question_id", LocalDate.of(2026, 10, 14), List.of(row));
+    }
+
+    /** @return the overlay of {@code alpha} with the row member, written {@code null}, replaced by a JSON value */
+    private static String overlayWith(String member, String value) {
+        var text = new String(SourceOverlayCodec.write(overlay("alpha", SOURCE_FILE)), UTF_8);
+        var written = "\"" + member + "\" : null";
+        assertTrue(text.contains(written), text);
+        return text.replace(written, "\"" + member + "\" : " + value);
     }
 
     /**
@@ -302,8 +313,9 @@ class CorpusValidatorTest {
      */
     private static String itemTwice() {
         var row = overlay("alpha", SOURCE_FILE).rows().getFirst();
-        var second = new Row("q-2", "q-2", row.topic(), row.role(), row.title(), row.tags(), row.question(),
-                row.facts(), row.choices(), row.answerSchema(), row.target(), row.grading(), row.review());
+        var second = new Row("q-2", "q-2", row.topic(), row.role(), row.title(), row.tags(), row.group(),
+                row.question(), row.facts(), row.choices(), row.answerSchema(), row.target(), row.grading(),
+                row.review(), row.contamination());
         var twoRows = new SourceOverlay("alpha", SOURCE_FILE, "question_id", LocalDate.of(2026, 10, 14),
                 List.of(row, second));
         return new String(SourceOverlayCodec.write(twoRows), UTF_8).replace("\"id\" : \"q-2\"", "\"id\" : \"q-1\"");
@@ -413,6 +425,21 @@ class CorpusValidatorTest {
         }
 
         @Test
+        @DisplayName("a group and a contamination note on an item, a generated item and an overlay row are accepted")
+        void groupAndContaminationAccepted() throws Exception {
+            fixture.item(reorder(with(with(closedItem(), "group", "topic pair"), "contamination",
+                    "shares its sky with review/topic/item-b")));
+            fixture.generated(reorder(with(with(importedItem("screening/imported/q-1"), "group", "alpha/q-1"),
+                    "contamination", "shares its row with screening/imported/q-2")));
+            fixture.write(OVERLAY, overlayWith("group", "\"alpha/q-1\"").replace("\"contamination\" : null",
+                    "\"contamination\" : \"shares its row with screening/alpha/q-2\""));
+
+            var violations = validate();
+
+            assertEquals(List.of(), violations, () -> report(violations));
+        }
+
+        @Test
         @DisplayName("a control without rubric items is accepted")
         void control() throws Exception {
             var item = with(rubricItem(), "target.items", null);
@@ -459,6 +486,29 @@ class CorpusValidatorTest {
                                 List.of("2026-10-14: written in Stage 2.")))),
                 Arguments.of("the tags name a local plan path", ITEM_B, Rule.TRANSIENT_NAME,
                         (Mutation) f -> f.item(with(rubricItem(), "tags", List.of(".plan/local")))),
+                Arguments.of("the group names a stage", ITEM_A, Rule.TRANSIENT_NAME,
+                        (Mutation) f -> f.item(reorder(with(closedItem(), "group", "Stage 2 pair")))),
+                Arguments.of("the contamination note names a transient tool", ITEM_B, Rule.TRANSIENT_NAME,
+                        (Mutation) f -> f.item(reorder(with(rubricItem(), "contamination",
+                                "found by judge.py beside screening/topic/item-a")))),
+                Arguments.of("an item has a group that is no string", ITEM_A, Rule.SCHEMA,
+                        (Mutation) f -> f.item(reorder(with(closedItem(), "group", 7)))),
+                Arguments.of("an item has a contamination note that is no string", ITEM_B, Rule.SCHEMA,
+                        (Mutation) f -> f.item(reorder(with(rubricItem(), "contamination", List.of("a"))))),
+                Arguments.of("a generated item has an empty group", "screening/imported/q-1", Rule.IMPORTED_ITEM,
+                        (Mutation) f -> f.generated(reorder(with(importedItem("screening/imported/q-1"), "group",
+                                "")))),
+                Arguments.of("a generated item has an empty contamination note", "screening/imported/q-1",
+                        Rule.IMPORTED_ITEM, (Mutation) f -> f.generated(reorder(with(
+                                importedItem("screening/imported/q-1"), "contamination", "")))),
+                Arguments.of("an overlay row has a group that is no string", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.write(OVERLAY, overlayWith("group", "7"))),
+                Arguments.of("an overlay row has an empty group", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.write(OVERLAY, overlayWith("group", "\"\""))),
+                Arguments.of("an overlay row has a contamination note that is no string", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.write(OVERLAY, overlayWith("contamination", "[ \"a\" ]"))),
+                Arguments.of("an overlay row has a contamination note of a line feed only", OVERLAY, Rule.OVERLAY,
+                        (Mutation) f -> f.write(OVERLAY, overlayWith("contamination", "\"\\n\""))),
                 Arguments.of("an imported item is stored below the corpus", ITEM_A, Rule.THIRD_PARTY_TEXT,
                         (Mutation) f -> f.item(with(importedItem(ITEM_A), "topic", "screening/topic"))),
                 Arguments.of("a source file is stored below the corpus", "context/rows.csv", Rule.THIRD_PARTY_TEXT,

@@ -82,6 +82,7 @@ public class SourceOverlayCodec {
     private static final String FIELD_ROLE = "role";
     private static final String FIELD_TITLE = "title";
     private static final String FIELD_TAGS = "tags";
+    private static final String FIELD_GROUP = "group";
     private static final String FIELD_QUESTION = "question";
     private static final String FIELD_FACTS = "facts";
     private static final String FIELD_CHOICES = "choices";
@@ -102,6 +103,7 @@ public class SourceOverlayCodec {
     private static final String FIELD_BY = "by";
     private static final String FIELD_DATE = "date";
     private static final String FIELD_NOTES = "notes";
+    private static final String FIELD_CONTAMINATION = "contamination";
 
     /**
      * @param file     the overlay file the document was read from, named by a refusal
@@ -150,6 +152,7 @@ public class SourceOverlayCodec {
         generator.writeStringField(FIELD_ROLE, row.role());
         generator.writeStringField(FIELD_TITLE, row.title());
         writeStringList(generator, FIELD_TAGS, row.tags());
+        writeNullableString(generator, FIELD_GROUP, row.group());
         generator.writeStringField(FIELD_QUESTION, row.question());
         generator.writeStringField(FIELD_FACTS, row.facts());
         if (row.choices() == null) {
@@ -166,6 +169,7 @@ public class SourceOverlayCodec {
         writeTarget(generator, row.target());
         writeGrading(generator, row.grading());
         writeReview(generator, row.review());
+        writeNullableString(generator, FIELD_CONTAMINATION, row.contamination());
         generator.writeEndObject();
     }
 
@@ -250,6 +254,7 @@ public class SourceOverlayCodec {
                 case FIELD_ROLE -> values.role = string(parser, field);
                 case FIELD_TITLE -> values.title = string(parser, field);
                 case FIELD_TAGS -> values.tags = stringList(parser, field);
+                case FIELD_GROUP -> values.group = nullableString(parser, field);
                 case FIELD_QUESTION -> values.question = string(parser, field);
                 case FIELD_FACTS -> values.facts = string(parser, field);
                 case FIELD_CHOICES -> values.choices = nullableStringList(parser, field);
@@ -257,15 +262,16 @@ public class SourceOverlayCodec {
                 case FIELD_TARGET -> values.target = readTarget(parser);
                 case FIELD_GRADING -> values.grading = readGrading(parser);
                 case FIELD_REVIEW -> values.review = readReview(parser);
+                case FIELD_CONTAMINATION -> values.contamination = nullableString(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, name, FIELD_KEY, FIELD_ID, FIELD_TOPIC, FIELD_ROLE, FIELD_TITLE, FIELD_TAGS,
+        requireFields(seen, name, FIELD_KEY, FIELD_ID, FIELD_TOPIC, FIELD_ROLE, FIELD_TITLE, FIELD_TAGS, FIELD_GROUP,
                 FIELD_QUESTION, FIELD_FACTS, FIELD_CHOICES, FIELD_ANSWER_SCHEMA, FIELD_TARGET, FIELD_GRADING,
-                FIELD_REVIEW);
+                FIELD_REVIEW, FIELD_CONTAMINATION);
         return construct(() -> new Row(values.key, values.slug, values.topic, values.role, values.title, values.tags,
-                values.question, values.facts, values.choices, values.answerSchema, values.target, values.grading,
-                values.review));
+                values.group, values.question, values.facts, values.choices, values.answerSchema, values.target,
+                values.grading, values.review, values.contamination));
     }
 
     private static JsonValue nullableValue(JsonParser parser, String field) throws IOException {
@@ -382,6 +388,7 @@ public class SourceOverlayCodec {
         private String role;
         private String title;
         private List<String> tags;
+        private String group;
         private String question;
         private String facts;
         private List<String> choices;
@@ -389,5 +396,6 @@ public class SourceOverlayCodec {
         private Target target;
         private Grading grading;
         private Review review;
+        private String contamination;
     }
 }
