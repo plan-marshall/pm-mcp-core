@@ -157,9 +157,9 @@ class CredentialStoreMoveResumeTest {
                 () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
                 () -> assertFalse(Files.exists(recordFile())),
                 () -> assertEquals(List.of(new AuditEvent(CredentialStoreMove.EVENT, AuditEvent.CATEGORY_OPERATOR,
-                        AuditEvent.OUTCOME_SUCCEEDED, Map.of(CredentialStoreMove.DETAIL_FROM, Store.OS.value(),
-                                CredentialStoreMove.DETAIL_TO, Store.FILE.value(), CredentialStoreMove.DETAIL_ENTRIES,
-                                2L))),
+                                AuditEvent.OUTCOME_SUCCEEDED, Map.of(CredentialStoreMove.DETAIL_FROM, Store.OS.value(),
+                                        CredentialStoreMove.DETAIL_TO, Store.FILE.value(), CredentialStoreMove.DETAIL_ENTRIES,
+                                        2L))),
                         movedEvents()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.CREDENTIAL_STORE_MOVE_RESUMED.resolveIdentifierString()),
@@ -169,7 +169,7 @@ class CredentialStoreMoveResumeTest {
 
     @Test
     @DisplayName("without a record no move is open and nothing happens")
-    void noRecord() throws IOException {
+    void noRecord() throws Exception {
         machineOnTheOsStore();
 
         var resumed = resume.run();
@@ -190,7 +190,7 @@ class CredentialStoreMoveResumeTest {
 
         @Test
         @DisplayName("is started again from the first entry and completed, the old store emptied")
-        void startedAgain() throws IOException {
+        void startedAgain() throws Exception {
             var key = machineOnTheOsStore();
             fileStore.put(GITHUB, GITHUB_SECRET);
             openMove(Phase.COPYING);
@@ -202,7 +202,7 @@ class CredentialStoreMoveResumeTest {
 
         @Test
         @DisplayName("a copy left in the target with a stale value is replaced by the entry of the old store")
-        void staleCopyReplaced() throws IOException {
+        void staleCopyReplaced() throws Exception {
             var key = machineOnTheOsStore();
             fileStore.put(SONAR, "a value the cut copy left behind");
             openMove(Phase.COPYING);
@@ -219,7 +219,7 @@ class CredentialStoreMoveResumeTest {
 
         @Test
         @DisplayName("finishes the deletion from the old store and ends the record")
-        void deletionFinished() throws IOException {
+        void deletionFinished() throws Exception {
             var key = machineOnTheOsStore();
             fileStore.put(GITHUB, GITHUB_SECRET);
             fileStore.put(SONAR, SONAR_SECRET);
@@ -235,7 +235,7 @@ class CredentialStoreMoveResumeTest {
 
         @Test
         @DisplayName("a deletion the old store refuses fails the resume and leaves the record for the next start")
-        void deletionRefused() throws IOException {
+        void deletionRefused() throws Exception {
             var key = machineOnTheOsStore();
             fileStore.put(GITHUB, GITHUB_SECRET);
             fileStore.put(SONAR, SONAR_SECRET);

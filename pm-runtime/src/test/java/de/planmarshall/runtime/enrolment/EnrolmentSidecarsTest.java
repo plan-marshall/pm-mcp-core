@@ -158,7 +158,7 @@ class EnrolmentSidecarsTest {
 
     @Test
     @DisplayName("a machine with no enrolment, no harnesses.json and no audit head has nothing to fail")
-    void nothingSigned() throws IOException {
+    void nothingSigned() throws Exception {
         for (var projectId : PROJECTS) {
             Files.delete(store.file(projectId));
             Files.delete(store.sidecar(projectId));
@@ -182,7 +182,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("a tampered enrolment file fails on its size or SHA-256")
-        void tamperedEnrolment() throws IOException {
+        void tamperedEnrolment() throws Exception {
             write(store.file("beta-project"), enrolment("gamma-project"));
 
             assertFailure(verify(key), store.file("beta-project"), EnrolmentCheck.DIGEST_MISMATCH);
@@ -190,7 +190,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("an enrolment file signed under another key fails on its HMAC")
-        void enrolmentUnderAnotherKey() throws IOException {
+        void enrolmentUnderAnotherKey() throws Exception {
             signed(store.file("beta-project"), store.sidecar("beta-project"), enrolment("beta-project"), newKey());
 
             assertFailure(verify(key), store.file("beta-project"), EnrolmentCheck.HMAC_MISMATCH);
@@ -198,7 +198,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("an enrolment file without its sidecar fails")
-        void enrolmentWithoutSidecar() throws IOException {
+        void enrolmentWithoutSidecar() throws Exception {
             Files.delete(store.sidecar("alpha-project"));
 
             assertFailure(verify(key), store.file("alpha-project"), EnrolmentCheck.FILE_WITHOUT_SIDECAR);
@@ -206,7 +206,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("an enrolment sidecar that fails its strict read fails as unreadable")
-        void unreadableEnrolmentSidecar() throws IOException {
+        void unreadableEnrolmentSidecar() throws Exception {
             write(store.sidecar("alpha-project"), "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
 
             assertFailure(verify(key), store.sidecar("alpha-project"), "unreadable");
@@ -214,7 +214,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("an enrolment file with mode 0644 fails a per-use check")
-        void insecureEnrolment() throws IOException {
+        void insecureEnrolment() throws Exception {
             Files.setPosixFilePermissions(store.file("alpha-project"), PosixFilePermissions.fromString("rw-r--r--"));
 
             assertFailure(verify(key), store.file("alpha-project"), "mode 0644 broader than 0600");
@@ -222,7 +222,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("a tampered harnesses.json fails")
-        void tamperedHarnesses() throws IOException {
+        void tamperedHarnesses() throws Exception {
             signed(harnesses(), harnessesSidecar(), HARNESSES, newKey());
 
             assertFailure(verify(key), harnesses(), EnrolmentCheck.HMAC_MISMATCH);
@@ -230,7 +230,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("an audit head signed under another key fails")
-        void tamperedAuditHead() throws IOException {
+        void tamperedAuditHead() throws Exception {
             writeHead(newKey());
 
             assertFailure(verify(key), AuditHead.headFile(base), EnrolmentSidecars.HEAD_HMAC_MISMATCH);
@@ -238,7 +238,7 @@ class EnrolmentSidecarsTest {
 
         @Test
         @DisplayName("an audit head that does not parse fails as unreadable")
-        void unreadableAuditHead() throws IOException {
+        void unreadableAuditHead() throws Exception {
             write(AuditHead.headFile(base), "{}".getBytes(StandardCharsets.UTF_8));
 
             assertFailure(verify(key), AuditHead.headFile(base), "unreadable");

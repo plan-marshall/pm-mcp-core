@@ -88,7 +88,7 @@ public final class CredentialStoreCheck {
      * @param answer     the store's own answer where there is one: the reason code and message of its failure
      */
     public record CheckLine(Step step, Outcome outcome, String messageKey, List<String> arguments,
-            Optional<String> answer) {
+    Optional<String> answer) {
 
         /** Keeps the arguments unmodifiable. */
         public CheckLine {

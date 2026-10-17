@@ -750,7 +750,7 @@ class EnrolmentKeyTest {
         @DisplayName("a switch of the supplier from the file store to a keyring reads the moved key")
         void movedKeyRead() {
             var keyring = new InMemoryKeyring();
-            var current = new SecretStore[] {new FileStoreName()};
+            var current = new SecretStore[]{new FileStoreName()};
             var key = new EnrolmentKey(() -> current[0], state, USER, new SecureRandom());
             var created = key.readOrCreate();
             keyring.entries.put(EnrolmentKey.ACCOUNT, encode(created.getEncoded()));
@@ -766,7 +766,7 @@ class EnrolmentKeyTest {
         @Test
         @DisplayName("a key that was not moved is absent in the newly given store, never taken from the old one")
         void notMovedAbsent() {
-            var current = new SecretStore[] {new FileStoreName()};
+            var current = new SecretStore[]{new FileStoreName()};
             var key = new EnrolmentKey(() -> current[0], state, USER, new SecureRandom());
             key.readOrCreate();
 
@@ -792,11 +792,11 @@ class EnrolmentKeyTest {
 
         @Test
         @DisplayName("with file recorded the store of the integrity key of the choice is the key file")
-        void recordedFileStore() throws IOException {
+        void recordedFileStore() throws Exception {
             var base = Files.createDirectories(state.resolve("pm-base"));
             var choice = CredentialStoreChoice.of(new MachinePaths(base, MachinePaths.Os.LINUX));
             try (var transaction = new FileLockManager(event -> {
-            }).openTransaction()) {
+                 }).openTransaction()) {
                 choice.record(transaction, CredentialStoreChoice.Store.FILE,
                         CredentialStoreChoice.Writer.CREDENTIAL_STORE_ASPECT);
             }

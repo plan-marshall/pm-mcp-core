@@ -143,7 +143,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("a document without the key records no store")
-        void absentKey() throws IOException {
+        void absentKey() throws Exception {
             writeMachineConfig(document(",\"web\":{\"enabled\":true}"));
 
             assertTrue(linux(true).recorded().isEmpty());
@@ -151,7 +151,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("credentials without a store record no store")
-        void absentStoreInCredentials() throws IOException {
+        void absentStoreInCredentials() throws Exception {
             writeMachineConfig(document(",\"credentials\":{}"));
 
             assertTrue(linux(true).recorded().isEmpty());
@@ -159,7 +159,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("os is the OS store")
-        void os() throws IOException {
+        void os() throws Exception {
             writeMachineConfig(document(",\"credentials\":{\"store\":\"os\"}"));
 
             assertEquals(Optional.of(Store.OS), linux(true).recorded());
@@ -167,7 +167,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("file is the file store")
-        void file() throws IOException {
+        void file() throws Exception {
             writeMachineConfig(document(",\"credentials\":{\"store\":\"file\"}"));
 
             assertEquals(Optional.of(Store.FILE), linux(true).recorded());
@@ -176,7 +176,7 @@ class CredentialStoreChoiceTest {
         @ParameterizedTest(name = "credentials.store {0}")
         @ValueSource(strings = {"\"keyring\"", "\"OS\"", "\"\"", "1", "null", "[\"os\"]"})
         @DisplayName("any other value is refused as unreadable, never read as no store")
-        void invalidValue(String value) throws IOException {
+        void invalidValue(String value) throws Exception {
             writeMachineConfig(document(",\"credentials\":{\"store\":" + value + "}"));
             var choice = linux(true);
 
@@ -192,7 +192,7 @@ class CredentialStoreChoiceTest {
                 "{\"format_version\":1,\"revision\":-1}", "{\"format_version\":1,\"revision\":1,\"revision\":2}",
                 "{\"format_version\":1} {}"})
         @DisplayName("a document that is not in the one shape of the file is refused as unreadable")
-        void unreadable(String content) throws IOException {
+        void unreadable(String content) throws Exception {
             writeMachineConfig(content);
             var choice = linux(true);
 
@@ -202,7 +202,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("a document of a newer format version is refused as newer")
-        void newerFormat() throws IOException {
+        void newerFormat() throws Exception {
             writeMachineConfig("{\"format_version\":2,\"revision\":1,\"credentials\":{\"store\":\"os\"}}");
             var choice = linux(true);
 
@@ -217,7 +217,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("an absent document is created with the required keys at their defaults and revision 1")
-        void creates() throws IOException {
+        void creates() throws Exception {
             linux(true).record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
 
             assertEquals("{\"format_version\":1,\"revision\":1,\"max_build_slots\":2,"
@@ -226,7 +226,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("a write keeps every foreign member as it is and increments the revision")
-        void keepsForeignMembers() throws IOException {
+        void keepsForeignMembers() throws Exception {
             writeMachineConfig("{\"format_version\":1,\"revision\":4,\"max_build_slots\":3,"
                     + "\"lsp_idle_timeout_seconds\":600,\"web\":{\"enabled\":true,\"port\":7500},"
                     + "\"credentials\":{\"store\":\"file\"},\"plan_defaults\":{\"posture\":\"full\"}}");
@@ -241,7 +241,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("a document without credentials gains the key after its other members")
-        void addsCredentials() throws IOException {
+        void addsCredentials() throws Exception {
             writeMachineConfig(document(",\"web\":{\"enabled\":false}"));
             var choice = linux(true);
 
@@ -289,7 +289,7 @@ class CredentialStoreChoiceTest {
 
         @Test
         @DisplayName("an unreadable document is refused and left as it is")
-        void unreadableKept() throws IOException {
+        void unreadableKept() throws Exception {
             writeMachineConfig("{\"format_version\":1,\"revision\":\"one\"}");
             var choice = linux(true);
 
@@ -427,7 +427,7 @@ class CredentialStoreChoiceTest {
             @Test
             @DisplayName("a store that becomes available later serves again")
             void availableLater() {
-                var available = new boolean[] {false};
+                var available = new boolean[]{false};
                 var choice = new CredentialStoreChoice(base, SERVICE, MachinePaths.Os.LINUX,
                         Map.of("DBUS_SESSION_BUS_ADDRESS", BUS), new CredentialStoreChoice.Keyrings() {
 

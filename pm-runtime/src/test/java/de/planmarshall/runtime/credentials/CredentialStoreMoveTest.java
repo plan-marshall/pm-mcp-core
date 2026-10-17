@@ -190,8 +190,8 @@ class CredentialStoreMoveTest {
                 () -> assertTrue(keyIn(old).read().isEmpty()),
                 () -> assertFalse(Files.exists(recordFile())),
                 () -> assertEquals(List.of(new AuditEvent(CredentialStoreMove.EVENT, AuditEvent.CATEGORY_OPERATOR,
-                        AuditEvent.OUTCOME_SUCCEEDED, Map.of(CredentialStoreMove.DETAIL_FROM, from.value(),
-                                CredentialStoreMove.DETAIL_TO, to.value(), CredentialStoreMove.DETAIL_ENTRIES, 2L))),
+                                AuditEvent.OUTCOME_SUCCEEDED, Map.of(CredentialStoreMove.DETAIL_FROM, from.value(),
+                                        CredentialStoreMove.DETAIL_TO, to.value(), CredentialStoreMove.DETAIL_ENTRIES, 2L))),
                         movedEvents()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.CREDENTIAL_STORE_MOVED.resolveIdentifierString()));
@@ -227,7 +227,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("from the OS store into the file store: every entry and the key move, the OS store is emptied")
-        void osToFile() throws IOException {
+        void osToFile() throws Exception {
             var key = machineOn(Store.OS);
 
             move().move(Store.FILE);
@@ -237,7 +237,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("from the file store into the OS store: every entry and the key file move, the file store is emptied")
-        void fileToOs() throws IOException {
+        void fileToOs() throws Exception {
             var key = machineOn(Store.FILE);
 
             move().move(Store.OS);
@@ -249,7 +249,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("the integrity key is copied last, after every Token Lane entry")
-        void keyLast() throws IOException {
+        void keyLast() throws Exception {
             machineOn(Store.FILE);
 
             move().move(Store.OS);
@@ -259,7 +259,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("a machine without harnesses.json moves")
-        void withoutHarnesses() throws IOException {
+        void withoutHarnesses() throws Exception {
             var key = machineOn(Store.OS);
             Files.delete(harnesses());
             Files.delete(harnessesSidecar());
@@ -271,7 +271,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("the start of the move is logged with both stores")
-        void startLogged() throws IOException {
+        void startLogged() throws Exception {
             machineOn(Store.OS);
 
             move().move(Store.FILE);
@@ -295,7 +295,7 @@ class CredentialStoreMoveTest {
         @ParameterizedTest(name = "a tampered {0}")
         @EnumSource(Tampered.class)
         @DisplayName("a sidecar that fails under the moved key")
-        void tamperedSidecar(Tampered tampered) throws IOException {
+        void tamperedSidecar(Tampered tampered) throws Exception {
             machineOn(Store.OS);
             var other = otherKey();
             switch (tampered) {
@@ -313,7 +313,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("a copy the target refuses")
-        void failingCopy() throws IOException {
+        void failingCopy() throws Exception {
             machineOn(Store.FILE);
             osStore.failPutOf = SONAR.account();
             var mover = move();
@@ -332,7 +332,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("an entry that reads back with another value")
-        void failingReadBack() throws IOException {
+        void failingReadBack() throws Exception {
             machineOn(Store.FILE);
             osStore.changedReadOf = GITHUB.account();
             var mover = move();
@@ -357,7 +357,7 @@ class CredentialStoreMoveTest {
         @ParameterizedTest(name = "stopped after {0}")
         @EnumSource(Step.class)
         @DisplayName("a stop after each step leaves a record from which the resume completes the move")
-        void stoppedAfter(Step stop) throws IOException {
+        void stoppedAfter(Step stop) throws Exception {
             var key = machineOn(Store.OS);
             var stopped = move(step -> {
                 if (step == stop) {
@@ -378,7 +378,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("without a record the resume does nothing")
-        void noRecord() throws IOException {
+        void noRecord() throws Exception {
             machineOn(Store.OS);
 
             assertAll(
@@ -407,7 +407,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("a move into the recorded store is refused")
-        void intoTheRecordedStore() throws IOException {
+        void intoTheRecordedStore() throws Exception {
             machineOn(Store.OS);
             var mover = move();
 
@@ -419,7 +419,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("while a move is open another one is refused")
-        void moveOpen() throws IOException {
+        void moveOpen() throws Exception {
             machineOn(Store.OS);
             var open = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING);
             write(recordFile(), open.write());
