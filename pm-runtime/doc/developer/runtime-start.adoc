@@ -147,8 +147,11 @@ link:runtime-credentials.adoc[`runtime.credentials`]) that a stop cut leaves its
 `state/credential-store-move.json`. `CredentialStoreMoveResume.run()` completes it through
 `CredentialStoreMove.resume()`:
 
-* phase `copying`: the copies are deleted from the target and the move runs again from the first entry, the old
-  store still recorded and holding every entry;
+* phase `copying` with the old store recorded: the copies are deleted from the target and the move runs again from the
+  first entry, the old store holding every entry;
+* phase `copying` with the target recorded (a stop between the switch and the rewrite of the record): the move is
+  treated as switched, nothing is deleted from or copied into the recorded target, and the deletion from the old store
+  is finished;
 * phase `switched`: the target is recorded; the deletion from the old store is finished and the record ended;
 * no record: no move is open, nothing happens.
 
@@ -212,7 +215,8 @@ removed; a project without a record; a record of another format version reported
 link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skipped projects and the failing steps,
 with recording steps.
 link:{test}/CredentialStoreMoveResumeTest.java[`CredentialStoreMoveResumeTest`]:: No record; a move cut before the
-switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut after the switch
+switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut between the switch
+and the rewrite of the record, treated as switched without touching the recorded target; a move cut after the switch
 completed by the deletion; a deletion the old store refuses leaving the record; each against a fake OS store
 (`CredentialStoreChoiceFixture`), with the target recorded afterwards and the old store empty.
 

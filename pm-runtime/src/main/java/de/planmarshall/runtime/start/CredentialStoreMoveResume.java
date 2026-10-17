@@ -25,10 +25,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * the per-project recovery: the assembly runs it once after the socket bind. It reads the record
  * {@code state/credential-store-move.json} through {@link CredentialStoreMove#resume()}:
  * <ul>
- * <li>in phase {@code copying} the copies are deleted from the target and the move starts again from the first entry,
- * the old store still being recorded and holding every entry;</li>
- * <li>in phase {@code switched} the target is recorded already, and the deletion from the old store is finished and
- * the record ended;</li>
+ * <li>in phase {@code copying} with the old store recorded, the copies are deleted from the target and the move starts
+ * again from the first entry, the old store holding every entry;</li>
+ * <li>in phase {@code switched}, or in phase {@code copying} while the target is recorded already (a stop between the
+ * switch and the rewrite of the record), the record is marked {@code switched}, the deletion from the old store is
+ * finished and the record ended; nothing is deleted from the recorded store;</li>
  * <li>without a record no move is open and nothing happens.</li>
  * </ul>
  * A resumed move is logged with the record it was resumed from; the move itself logs and audits its end.

@@ -21,6 +21,7 @@ import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.Serial;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -169,6 +171,15 @@ class CredentialStoreMoveTest {
     private CredentialStoreMove move(CredentialStoreMove.StepHook hook) {
         return new CredentialStoreMove(base, choice, locks, events::add, USER, Clock.fixed(STARTED, ZoneOffset.UTC),
                 hook);
+    }
+
+    /** @return a hook that stops the move after the step, as a killed process would */
+    private static CredentialStoreMove.StepHook stopAfter(Step stop) {
+        return step -> {
+            if (step == stop) {
+                throw new Stop();
+            }
+        };
     }
 
     private Path recordFile() {
@@ -348,6 +359,124 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
                     () -> assertFalse(Files.exists(recordFile())));
         }
+
+        @Test
+        @DisplayName("an integrity key that reads back as another key")
+        void failingKeyReadBack() throws Exception {
+            machineOn(Store.FILE);
+            osStore.readAs.put(EnrolmentKey.ACCOUNT,
+                    Base64.getUrlEncoder().withoutPadding().encodeToString(otherKey().getEncoded()));
+            var mover = move();
+
+            var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.OS));
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                    () -> assertTrue(failure.getMessage().contains("integrity key does not read back"),
+                            failure.getMessage()),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertTrue(keyIn(fileStore).read().isPresent()),
+                    () -> assertFalse(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("an entry the old store lists and no longer holds")
+        void vanishedEntry() throws Exception {
+            machineOn(Store.OS);
+            osStore.vanishedOf = SONAR.account();
+            var mover = move();
+
+            var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.FILE));
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                    () -> assertTrue(failure.getMessage().contains("vanished"), failure.getMessage()),
+                    () -> assertNoSecretIn(failure),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
+                    () -> assertFalse(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("a clean-up the target refuses is added to the cause, and the record is deleted")
+        void failingCleanUp() throws Exception {
+            machineOn(Store.FILE);
+            osStore.failPutOf = SONAR.account();
+            osStore.failDeleteOf = GITHUB.account();
+            var mover = move();
+
+            var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.OS));
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                    () -> assertNoSecretIn(failure),
+                    () -> assertEquals(1, failure.getCause().getSuppressed().length),
+                    () -> assertTrue(failure.getCause().getSuppressed()[0].getMessage().contains("refuses to delete"),
+                            failure.getCause().getSuppressed()[0].getMessage()),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertFalse(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("while another writer recorded the target, the clean-up deletes nothing from the recorded store")
+        void targetRecordedByAnotherWriter() throws Exception {
+            var key = machineOn(Store.OS);
+            signed(harnesses(), harnessesSidecar(), HARNESSES, otherKey());
+            var mover = move(step -> {
+                if (step == Step.KEY_COPIED) {
+                    try (var transaction = locks.openTransaction()) {
+                        choice.record(transaction, Store.FILE, Writer.CREDENTIAL_STORE_ASPECT);
+                    }
+                }
+            });
+
+            var failure = assertThrows(SecretStoreException.class, () -> mover.move(Store.FILE));
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                    () -> assertTrue(failure.getMessage().contains("'file' stays recorded"), failure.getMessage()),
+                    () -> assertNoSecretIn(failure),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(SONAR_SECRET), fileStore.get(SONAR)),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
+                    () -> assertTrue(keyIn(osStore).read().isPresent()),
+                    () -> assertFalse(Files.exists(recordFile())),
+                    () -> assertTrue(movedEvents().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a record that leaves phase copying under the move fails it before the switch")
+        void wrongPhase() throws Exception {
+            machineOn(Store.OS);
+            var mover = move(step -> {
+                if (step == Step.ENTRIES_COPIED) {
+                    rewriteRecord(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.SWITCHED));
+                }
+            });
+
+            var failure = assertThrows(IllegalStateException.class, () -> mover.move(Store.FILE));
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("not in phase 'copying'"), failure.getMessage()),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertTrue(movedEvents().isEmpty()));
+        }
+    }
+
+    private void rewriteRecord(CredentialStoreMoveRecord record) {
+        try {
+            write(recordFile(), record.write());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Nested
@@ -359,11 +488,7 @@ class CredentialStoreMoveTest {
         @DisplayName("a stop after each step leaves a record from which the resume completes the move")
         void stoppedAfter(Step stop) throws Exception {
             var key = machineOn(Store.OS);
-            var stopped = move(step -> {
-                if (step == stop) {
-                    throw new Stop();
-                }
-            });
+            var stopped = move(stopAfter(stop));
 
             assertThrows(Stop.class, () -> stopped.move(Store.FILE));
             var record = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
@@ -374,6 +499,70 @@ class CredentialStoreMoveTest {
                             record.phase()),
                     () -> assertEquals(Optional.of(record), resumed),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
+        }
+
+        @Test
+        @DisplayName("a stop between the switch and the rewrite of the record: the resume copies nothing and finishes the "
+                + "deletion from the old store")
+        void stoppedBetweenSwitchAndRecord() throws Exception {
+            var key = machineOn(Store.FILE);
+            var stopped = move(stopAfter(Step.STORE_RECORDED));
+            assertThrows(Stop.class, () -> stopped.move(Store.OS));
+            var record = CredentialStoreMoveRecord.read(recordFile(), Files.readAllBytes(recordFile()));
+            osStore.puts.clear();
+
+            var resumed = move().resume();
+
+            assertAll(
+                    () -> assertEquals(Phase.COPYING, record.phase()),
+                    () -> assertEquals(Optional.of(record), resumed),
+                    () -> assertTrue(osStore.puts.isEmpty(), osStore.puts.toString()),
+                    () -> assertMoved(Store.FILE, Store.OS, osStore, fileStore, key));
+        }
+
+        @Test
+        @DisplayName("a target that refuses a copy after a stop between the switch and the rewrite of the record keeps "
+                + "every entry, since the recorded store is never emptied")
+        void recordedTargetNeverEmptied() throws Exception {
+            var key = machineOn(Store.FILE);
+            var stopped = move(stopAfter(Step.STORE_RECORDED));
+            assertThrows(Stop.class, () -> stopped.move(Store.OS));
+            osStore.failPutOf = SONAR.account();
+
+            move().resume();
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), osStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of(SONAR_SECRET), osStore.get(SONAR)),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(fileStore.entries().isEmpty(), fileStore.entries().toString()),
+                    () -> assertFalse(Files.exists(recordFile())),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.CREDENTIAL_STORE_MOVE_FAILED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("a resume before the switch whose copy fails again leaves the old store recorded and holding "
+                + "every entry")
+        void failingResume() throws Exception {
+            machineOn(Store.FILE);
+            var stopped = move(stopAfter(Step.ENTRIES_COPIED));
+            assertThrows(Stop.class, () -> stopped.move(Store.OS));
+            osStore.failPutOf = SONAR.account();
+            var mover = move();
+
+            var failure = assertThrows(SecretStoreException.class, mover::resume);
+
+            assertAll(
+                    () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
+                    () -> assertNoSecretIn(failure),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertEquals(List.of(GITHUB, SONAR), fileStore.entries()),
+                    () -> assertTrue(keyIn(fileStore).read().isPresent()),
+                    () -> assertFalse(Files.exists(recordFile())),
+                    () -> assertTrue(movedEvents().isEmpty()));
         }
 
         @Test
@@ -453,13 +642,19 @@ class CredentialStoreMoveTest {
         }
     }
 
-    /** An OS store in memory that records its writes and can fail one write or change one read. */
+    /**
+     * An OS store in memory that records its writes and can fail one write or one deletion, change one read, answer
+     * one read with another value, or lose one entry it still lists.
+     */
     private static final class FakeOsStore implements SecretStore {
 
         private final Map<String, String> secrets = new TreeMap<>();
         private final List<String> puts = new ArrayList<>();
+        private final Map<String, String> readAs = new TreeMap<>();
         private String failPutOf;
+        private String failDeleteOf;
         private String changedReadOf;
+        private String vanishedOf;
 
         @Override
         public String name() {
@@ -478,12 +673,22 @@ class CredentialStoreMoveTest {
 
         @Override
         public Optional<String> get(CredentialAccount account) {
+            if (account.account().equals(vanishedOf)) {
+                return Optional.empty();
+            }
+            if (readAs.containsKey(account.account())) {
+                return Optional.of(readAs.get(account.account()));
+            }
             var secret = Optional.ofNullable(secrets.get(account.account()));
             return account.account().equals(changedReadOf) ? secret.map(value -> value + "-changed") : secret;
         }
 
         @Override
         public boolean delete(CredentialAccount account) {
+            if (account.account().equals(failDeleteOf)) {
+                throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                        "the fake store refuses to delete " + account.account());
+            }
             return secrets.remove(account.account()) != null;
         }
 

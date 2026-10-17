@@ -214,6 +214,50 @@ class CredentialStoreMoveResumeTest {
     }
 
     @Nested
+    @DisplayName("a move cut between the switch and the rewrite of the record")
+    class CutBetweenTheSwitchAndTheRecord {
+
+        /** Arranges what the stop leaves: the target recorded and complete, the record still in phase copying. */
+        private SecretKey switchedWithACopyingRecord() throws IOException {
+            var key = machineOnTheOsStore();
+            fileStore.put(GITHUB, GITHUB_SECRET);
+            fileStore.put(SONAR, SONAR_SECRET);
+            keyIn(fileStore).write(key);
+            record(Store.FILE, Writer.STORE_MOVE);
+            openMove(Phase.COPYING);
+            return key;
+        }
+
+        @Test
+        @DisplayName("is treated as switched: the deletion from the old store is finished and the record ended")
+        void treatedAsSwitched() throws Exception {
+            var key = switchedWithACopyingRecord();
+
+            var resumed = resume.run();
+
+            assertCompleted(resumed, Phase.COPYING, key);
+        }
+
+        @Test
+        @DisplayName("deletes nothing from the recorded target and copies nothing over it")
+        void recordedTargetKept() throws Exception {
+            var key = switchedWithACopyingRecord();
+            fileStore.put(SONAR, "a value written into the recorded store after the switch");
+
+            resume.run();
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)),
+                    () -> assertEquals(Optional.of("a value written into the recorded store after the switch"),
+                            fileStore.get(SONAR)),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(osStore.secrets.isEmpty(), osStore.secrets.keySet().toString()),
+                    () -> assertFalse(Files.exists(recordFile())));
+        }
+    }
+
+    @Nested
     @DisplayName("a move cut after the switch")
     class CutAfterTheSwitch {
 

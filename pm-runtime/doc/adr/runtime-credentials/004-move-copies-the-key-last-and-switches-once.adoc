@@ -25,11 +25,13 @@ move could land in the old store after it was copied, and a stop may cut the mov
 * The record `state/credential-store-move.json` (`CredentialStoreMoveRecord`: `from`, `to`, `started_at`, `phase`) is
   written under the credentials lock in phase `copying`, rewritten once in phase `switched`, and deleted when the
   move ends.
-* `credentials.store` is switched before the record is marked `switched`. A stop between the two leaves a record in
-  phase `copying`, from which the resume copies again from the old store, which still holds every entry; a stop never
-  deletes the only copy of an entry.
-* A failure before the switch deletes the copies and the record and fails with `credential_store_failed`; the old
-  store stays recorded.
+* `credentials.store` is switched before the record is marked `switched`, and only after every entry and the key were
+  copied and verified. A stop between the two leaves a record in phase `copying` while the target is recorded; the
+  resume decides the phase from the recorded store as well as from the record, treats that move as switched and
+  finishes the deletion from the old store. A stop before the switch leaves the old store recorded and holding every
+  entry, from which the resume copies again; a stop never deletes the only copy of an entry.
+* A failure before the switch deletes the record and fails with `credential_store_failed`; it deletes the copies only
+  while the old store is recorded, so the clean-up never deletes from the recorded store.
 * `EnrolmentKey` gained the public `write(SecretKey)` and `delete()` for the copy and the deletion of the key.
 * The `operator` audit record `credential_store_moved` (`from`, `to`, `entries`) is built directly as an `AuditEvent`;
   no factory was added to `AuditEvent` of `pm-core`.
@@ -44,8 +46,8 @@ Rationale not recorded beyond the order the specification gives and the stop tha
 == Consequences
 
 * No credential is written while a move runs; a writer waits for the credentials lock.
-* `resume()` decides on the phase of the record alone: `copying` starts again from the first entry, `switched`
-  finishes the deletion.
+* `resume()` decides on the phase of the record and the recorded store: `copying` with the old store recorded starts
+  again from the first entry; `switched`, or `copying` with the target recorded, finishes the deletion.
 * A later change keeps the lock order: credentials before the enrolment locks, `harnesses` and `machine-config`.
 
 == Source

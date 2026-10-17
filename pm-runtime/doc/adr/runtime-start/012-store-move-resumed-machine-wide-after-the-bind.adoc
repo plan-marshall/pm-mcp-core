@@ -19,8 +19,9 @@ package had to decide where its resume runs (question q1 of the work package).
 == Decision
 
 * The resume is the machine-wide class `CredentialStoreMoveResume` of `runtime.start`, run once after the bind and
-  wired by the assembly. It calls `CredentialStoreMove.resume()`: in phase `copying` the move runs again from the first
-  entry, in phase `switched` the deletion from the old store is finished; without a record nothing happens. A resumed
+  wired by the assembly. It calls `CredentialStoreMove.resume()`: in phase `copying` with the old store recorded the
+  move runs again from the first entry; in phase `switched`, or in phase `copying` with the target recorded, the
+  deletion from the old store is finished; without a record nothing happens. A resumed
   move is logged as `PM_RUNTIME-29`.
 * `StartupSequence`, `RecoveryStep` and `ProjectRecovery` are unchanged.
 
