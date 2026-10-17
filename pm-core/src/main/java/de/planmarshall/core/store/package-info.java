@@ -64,6 +64,16 @@
  * {@link de.planmarshall.core.store.PendingEntryStore} allocates a fresh id and creates, replaces and removes a record
  * as a target of the caller's workspace {@link de.planmarshall.core.store.ScopeTransaction}, and lists only the names
  * that parse as entry ids.</li>
+ * <li><em>The job records</em> (PM-EXEC-4, PM-ARCH-7): {@code jobs/<job_id>.json} of a project, of the machine scope
+ * and of an onboarding entry ({@link de.planmarshall.core.store.JobRecord}, read and written by
+ * {@link de.planmarshall.core.store.JobRecordCodec}), the write-ahead journal of one job named by its
+ * {@link de.planmarshall.core.store.JobId}, which owns the job kinds: every member this package writes is typed,
+ * {@code worker} and {@code gate_facts} kept as raw JSON. {@link de.planmarshall.core.store.JobRecordStore} allocates a
+ * fresh id and writes the record at its fixed points (queued, write-ahead, post-spawn, fate), each an atomic replace
+ * under the lock of the scope that owns the job: the plan, epic or workspace lock, the project's queue lock for a
+ * worker, the machine queue lock {@code machine/locks/queue.lock} for the machine scope and the entry lock
+ * {@code onboardings/locks/<entry_id>.lock} for a probe of an onboarding entry. The raw log {@code <job_id>.log} lies
+ * beside the record.</li>
  * <li><em>The audit log</em> (PM-SEC-6): {@code logs/audit.jsonl} as a hash chain
  * ({@link de.planmarshall.core.store.AuditLog}) of records ({@link de.planmarshall.core.store.AuditRecord}), each
  * naming the SHA-256 of the line before it, appended through the JSONL append path under the audit lock, the leaf of
@@ -84,6 +94,7 @@
  * <ul>
  * <li>{@code doc/specification/store-schemas/01-format-and-session-log.adoc}</li>
  * <li>{@code doc/specification/store-schemas/02-workflow-state-store.adoc}</li>
+ * <li>{@code doc/specification/store-schemas/10-job-and-lesson-records.adoc}</li>
  * <li>{@code doc/specification/store-schemas/12-machine-stores.adoc}</li>
  * <li>{@code doc/specification/store-schemas/13-leases-integrity-testing.adoc}</li>
  * <li>{@code doc/specification/filesystem-layout.adoc}</li>

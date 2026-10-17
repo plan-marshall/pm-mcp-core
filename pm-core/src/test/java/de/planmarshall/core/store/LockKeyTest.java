@@ -212,6 +212,78 @@ class LockKeyTest {
     }
 
     @Nested
+    @DisplayName("machine scope and onboarding entries")
+    class MachineScopeAndEntries {
+
+        @Test
+        @DisplayName("the machine queue lock lies in machine/locks/ at the level of the queue locks")
+        void machineQueue() {
+            var key = LockKey.machineQueue(BASE);
+
+            assertAll(
+                    () -> assertEquals(LockLevel.QUEUE, key.level()),
+                    () -> assertEquals(BASE.resolve("machine/locks/queue.lock"), key.lockFile()),
+                    () -> assertFalse(key.lockFile().startsWith(BASE.resolve("machine/jobs")),
+                            "below the job records it guards"));
+        }
+
+        @Test
+        @DisplayName("the lock of an entry lies in onboardings/locks/ at the level of the workspace scope")
+        void onboardingEntry() {
+            var key = LockKey.onboardingEntry(BASE, "ent-0011");
+
+            assertAll(
+                    () -> assertEquals(LockLevel.WORKSPACE, key.level()),
+                    () -> assertEquals(BASE.resolve("onboardings/locks/ent-0011.lock"), key.lockFile()),
+                    () -> assertEquals("ent-0011", key.id()),
+                    () -> assertFalse(key.lockFile().startsWith(BASE.resolve("onboardings/ent-0011")),
+                            "below the entry it guards"));
+        }
+
+        @Test
+        @DisplayName("an entry lock is taken before a plan lock, the machine queue lock after the build timings "
+                + "and before every machine store lock")
+        void placeInTheOrder() {
+            var entry = LockKey.onboardingEntry(BASE, "ent-0011");
+            var plan = LockKey.plan(BASE, PROJECT, "plan-one");
+            var buildTimings = LockKey.buildTimings(BASE, PROJECT);
+            var machineQueue = LockKey.machineQueue(BASE);
+            var buildSlots = LockKey.buildSlots(BASE);
+
+            var sorted = sortedAfterShuffle(List.of(buildSlots, machineQueue, plan, buildTimings, entry));
+
+            assertEquals(List.of(entry, plan, buildTimings, machineQueue, buildSlots), sorted);
+        }
+
+        @Test
+        @DisplayName("the machine queue lock and a project's queue lock are distinct keys of one level")
+        void distinctFromProjectQueue() {
+            var machine = LockKey.machineQueue(BASE);
+            var project = LockKey.queue(BASE, PROJECT);
+
+            assertAll(
+                    () -> assertNotEquals(machine, project),
+                    () -> assertEquals(machine.level(), project.level()),
+                    () -> assertNotEquals(0, machine.compareTo(project)));
+        }
+
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"", "ab", "../other", "a/b", "Upper-case", "-leading", "trailing-"})
+        @DisplayName("an entry id outside the grammar never reaches a lock path")
+        void invalidEntryId(String entryId) {
+            assertThrows(IllegalArgumentException.class, () -> LockKey.onboardingEntry(BASE, entryId));
+        }
+
+        @Test
+        @DisplayName("a missing base directory or entry id is refused")
+        void missingArguments() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.machineQueue(null)),
+                    () -> assertThrows(NullPointerException.class, () -> LockKey.onboardingEntry(BASE, null)));
+        }
+    }
+
+    @Nested
     @DisplayName("refusals")
     class Refusals {
 

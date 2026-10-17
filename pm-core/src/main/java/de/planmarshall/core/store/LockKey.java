@@ -23,8 +23,10 @@ import java.util.regex.Pattern;
  * A store that is replaced by atomic rename is never locked itself, because the rename replaces the inode and a lock
  * on the old file excludes nobody; its key names a sibling lock file. The locks of a project lie below
  * {@code projects/<project_id>/locks/} and those of the machine stores below {@code locks/}, outside the directories
- * they protect, so archiving a plan directory or working on an epic in a worktree never splits a lock. Only the two
- * leaf keys name the guarded file: an append-only file is never replaced by rename.
+ * they protect, so archiving a plan directory or working on an epic in a worktree never splits a lock. The queue lock
+ * of the machine scope lies below {@code machine/locks/} and the lock of an onboarding entry below
+ * {@code onboardings/locks/}. Only the two leaf keys name the guarded file: an append-only file is never replaced by
+ * rename.
  * <p>
  * Keys are ordered by level, then by {@link #id()}, then by lock path. The id is the plan id of a plan lock and the
  * epic id of an epic lock, so several of them sort lexicographically by that id. The id of a machine store lock is
@@ -50,6 +52,11 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
     private static final String LOCK_DIRECTORY = "locks";
     private static final String LOCK_SUFFIX = ".lock";
     private static final String ENROLMENTS = "enrolments";
+    private static final String MACHINE = "machine";
+    private static final String ONBOARDINGS = "onboardings";
+
+    /** The id of the machine queue lock; it orders the key among the queue locks of the projects. */
+    private static final String MACHINE_QUEUE_ID = "machine/queue";
 
     /**
      * @throws NullPointerException     if a component is {@code null}
@@ -148,6 +155,33 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
      */
     public static LockKey queue(Path base, String projectId) {
         return ofProject(LockLevel.QUEUE, base, projectId, "queue");
+    }
+
+    /**
+     * The scope lock of an onboarding entry of a project before its enrolment, which also guards the records of the
+     * entry's probe jobs. It stands at the level of the workspace scope it becomes at the enrolment; entry locks are
+     * ordered by their entry id.
+     *
+     * @param base    the base directory of the runtime
+     * @param entryId the onboarding entry
+     * @return the key of the lock {@code onboardings/locks/<entry_id>.lock}
+     * @throws IllegalArgumentException if the entry id is not a valid identifier
+     */
+    public static LockKey onboardingEntry(Path base, String entryId) {
+        return new LockKey(LockLevel.WORKSPACE, canonical(base).resolve(ONBOARDINGS).resolve(LOCK_DIRECTORY)
+                .resolve(identifier(entryId, "entryId") + LOCK_SUFFIX), entryId);
+    }
+
+    /**
+     * The queue lock of the machine scope, which guards the machine's task queue and the records of the jobs of the
+     * machine scope (its probes, the steward's workers). It stands at the level of the queue lock of a project.
+     *
+     * @param base the base directory of the runtime
+     * @return the key of the lock {@code machine/locks/queue.lock}
+     */
+    public static LockKey machineQueue(Path base) {
+        return new LockKey(LockLevel.QUEUE, canonical(base).resolve(MACHINE).resolve(LOCK_DIRECTORY)
+                .resolve("queue" + LOCK_SUFFIX), MACHINE_QUEUE_ID);
     }
 
     /**
