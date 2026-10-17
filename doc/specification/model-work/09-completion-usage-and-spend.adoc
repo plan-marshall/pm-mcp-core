@@ -137,6 +137,15 @@ The usage of the models is recorded and reported in tokens, never in money, and 
 * *What the operator sees*: wherever usage is shown (a plan's completion report and its running process, an epic's resource, the system view; link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator], link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#process-resource[Process Resource], link:../runtime-lifecycle/03-runtime-metrics.adoc#runtime-metrics[The Runtime's Metrics]) it is `total_tokens` with its split, `tokens_in` and `tokens_out`, and its coverage (<<post-completion-invariants>> item 1), never a cost and never `priced_units`. `priced_units` stays the internal figure of the migration trigger _Priced units_ (link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#migration-trigger-evaluation[Phase Workflows Specification, Migration Trigger Evaluation]).
 * *A plan's tokens*: the section _tokens_ of a plan's completion report gives the total with its split and the plan's wall time; per phase; per role (a role pins harness, model, and effort); per model and harness; the waste, the tokens of tasks that produced nothing (class `no_product` below) and of retries and remediation per cause class (<<cause-class>>); and the coverage. `worker_idle` rows belong to no plan and are reported apart as idle usage.
 
+[[navigation-figures]]*Navigation Figures*: Beside the tokens, the server derives from a task's records what the work cost to navigate, each figure with its population (the turns, the reads, or the lookups it counts over) and `indeterminate` where that population cannot be read:
+
+* *Cache-read share*: the cache-read tokens over the context tokens (input, cache read, cache creation) of the task's turns; `unmeasured` where the harness does not report cache reads.
+* *Revisits*: the reads of a file the worker had already read earlier in the same plan task, from the targets of the `tool_call` entries of its activity whose tool is a file-reading tool of the harness, over all such reads.
+* *Language-server use*: the `pm_lsp` read operations against the calls of the harness's own search tools in the same task.
+* *Fallback-to-read rate*: the `pm_lsp` lookups followed, in the same plan task, by a whole-file read of the file the lookup answered with, over all lookups; a read of a part of that file is the expected next step and does not count.
+
+The section _tokens_ of a completion report shows them per task, per role, and per plan; they are evidence for the evaluation of a skill or a role configuration (link:../workflow-dsl/07-loop-back-diagrams-verification.adoc#comparison-footprint[Workflow DSL Specification, Comparison Footprint]), never a limit.
+
 *Spend Classes*: The spend classes report what the tokens were spent on. Every task row is classified by what its task produced, from the entity and findings records the server holds, never from a worker's fate or its `job-result`:
 
 [cols="1,4"]

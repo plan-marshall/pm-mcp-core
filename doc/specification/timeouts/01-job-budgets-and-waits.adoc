@@ -399,7 +399,7 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |link:../model-work/03-supervision-and-recycling.adoc#start-collisions[Model Work, Starts of One Harness]
 
 |[[off-track-thresholds]]Off-track signal thresholds
-|Compiled per signal, computed by the runtime from the task's activity and records: `repeating`: `5` identical tool calls (same tool, same target) in a row; `no_progress`: `40` turns without a link of the task followed; `over_size`: the tokens spent on the current plan task above `3 ×` its `predicted_cost_tokens`; `outside_footprint`: `3` unplanned changed files recorded for the task.
+|Compiled per signal, computed by the runtime from the task's activity and records: `repeating`: `5` identical tool calls (same tool, same target) in a row; `no_progress`: `40` turns without a link of the task followed; `over_size`: the tokens spent on the current plan task above `3 ×` its `predicted_cost_tokens`; `outside_footprint`: `3` unplanned changed files recorded for the task; `agent_started`: `1`, fixed (no role artifact changes it or its action).
 |role artifact, which may lower each threshold and never raise it
 |the compiled values are the caps; `repeating` and `outside_footprint` at least `1`, `no_progress` at least `5` turns, `over_size` at least `1.5 ×`
 |every worker whose harness reports activity events (link:../client-profiles/01-profile-schema.adoc#worker-activity[Client Profiles, What a Worker Does])
