@@ -1,4 +1,4 @@
-= Sweep Steps and the Audit Chain Seam (`runtime.start`) Developer Guide
+= Sweep Steps, the Audit Chain Seam and Job Recovery (`runtime.start`) Developer Guide
 :toc:
 :toclevels: 3
 :nofooter:
@@ -28,6 +28,9 @@ pending-record step owes.
 The periodic sweep has no seam factory any more: the two steps are real classes, and the assembly `pm-mcp-server`
 registers them when it builds the `PeriodicSweep`
 (link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
+
+The work package `job-runner` added the jobs part of recovery step 3 (<<_jobs_recovery_step>>), whose worker part stays
+a seam, and the drain participant of the job runner (<<_job_drain_participant>>).
 
 == Core Types
 
@@ -136,6 +139,81 @@ counts in; only the log does. The outcome is carried in `Outcome.Ready`, and the
 `Outcome.Broken` was changed in place from a record with one diagnostic, without a compatibility constructor
 (link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
 
+[#_jobs_recovery_step]
+== The Jobs Part of Step 3
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
+
+Step 3 of the per-project recovery, `RecoveryStep.Name.JOBS_AND_WORKERS`, settles the jobs and workers a previous
+runtime instance left. `JobRecoveryStep` is its jobs part: it reads every record of the project's job records
+(`JobRecordStore.ofProject`) without a lock and settles every one left `queued` or `running` as `ended`/`killed` by
+outcome row 4. A job is never adopted and never executed again. A record left `queued` never started: nothing is
+signalled. A record left `running` is settled by the first matching rule:
+
+[cols="1,2,2"]
+|===
+|Rule |When |What is signalled
+
+|(a) |its `execution` is `in_process`: the operation died with the previous runtime |nothing; no orphan note
+|(b) |its `spawned_at` lies before the boot time of the system: the process cannot have survived the reboot |nothing
+|(c) |its `pid` is `null`: the runtime ended between the spawn and the post-spawn replace |nothing; the step hands the
+audit sink one `job_recovered` record (category `store`, outcome `succeeded`, details `project_id`, `job_id` and
+`note: orphan unidentifiable`), which it builds itself
+|(d) |otherwise |the group is probed with `kill(-pgid, 0)`; a live group, which within one boot is the job's group, is
+terminated with steps 1 to 3 of the `TerminationProtocol`; a group that no longer exists needs no termination
+|===
+
+The settled record carries the signal `runtime_restart` for a job nothing was sent to, the signal the termination
+ended with for a terminated group (`SIGTERM` for a group that exited, `SIGKILL` for one that was killed, `runtime_restart`
+when no signal reached it or one was refused), and none for an in-process operation. The settlement runs through
+`JobSettlement`: the fate first, then the release of the slot that the caller's `JobRecoveryStep.Slots` names for the
+job; `Slots.NONE` names none. Every signal goes through `ProcessGroupSignals`, so a test asserts at the lowest signalling
+call that rules (a) to (c) send none.
+
+The step reports the jobs settled per rule, the groups terminated and the workers among them. The *worker part* of the
+step (the fence of a worker's generation, the revocation of its token, the release of its task lease and the removal of
+its job-private directory) belongs to the launch of workers and is a seam: a worker's record is settled like every
+other, and the report names the part `not implemented in this runtime`
+(link:../adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012]).
+
+The step fails, and the recovery of its project stops there, when the job records cannot be read, an orphan note
+cannot be handed over, or a fate cannot be recorded; a job whose fate was not recorded is settled by the next recovery.
+
+`ProjectRecovery.withEnrolment` has an overload that takes the `JobRecoveryStep`: it places the step as step 3 in place
+of any step named `JOBS_AND_WORKERS` in the list, as the two enrolment steps are placed. The overload without it is
+unchanged and keeps the step the list holds, a seam included:
+
+[source,java]
+----
+var signals = ProcessGroupSignals.system();
+var jobs = new JobRecoveryStep(base, lockManager, signals, new TerminationProtocol(signals), auditSink, bootTime,
+        JobRecoveryStep.Slots.NONE, clock);
+var recovery = ProjectRecovery.withEnrolment(store, check, enrolments, lockManager, jobs, otherSteps, executor);
+----
+
+The boot time of the system and the slots of the jobs are the caller's: this package reads neither.
+
+[#_job_drain_participant]
+== The Job Drain Participant
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
+
+`JobDrainParticipant` (name `jobs`) is the `DrainParticipant` of `SubprocessJobRunner`:
+
+[horizontal]
+`stopAdmitting()`:: The runner stops admitting jobs under its admission lock, the lock every admission decision takes;
+from now on a job whose start is asked for is recorded `queued` and never spawned.
+`endIdle()`:: Nothing: a job is never idle.
+`awaitQuiet(deadline)`:: Waits for every running job until the drain timeout's deadline and answers whether none runs
+any more.
+`terminateRemaining()`:: Cancels every job still running with the cause `DRAIN`, which the runner carries out with the
+termination protocol and settles `killed` (row 4), and waits for each settlement at most the grace period and 10 seconds
+(`TERMINATION_WAIT`). It answers the jobs it terminated.
+`close()`:: Settles every job still `queued` as `killed` by row 4, without a signal; a queued job holds no slot.
+
+Because the stop and every admission decision take one lock, a job admitted before the stop is among the running jobs
+the drain waits for, and a job created after it is among the queued jobs `close()` settles.
+
 == Registering the Steps
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
@@ -178,6 +256,19 @@ the instant removed and then unknown; one fenced later and the current ones kept
 removed; a project without a record; a record of another format version reported as a failure and left as it is.
 link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skipped projects and the failing steps,
 with recording steps.
+link:{test}/JobRecoveryStepTest.java[`JobRecoveryStepTest`]:: One case per rule over a real job record store and a
+recording `ProcessGroupSignals`: zero `kill()` calls and no orphan note for rule (a), none for rule (b), the orphan note
+and none for rule (c), no signal for a queued job, and the matched control (d), a same-boot job with a PID whose group
+lives, probed and terminated; the slot released after the fate, and the failures.
+link:{test}/JobDrainParticipantTest.java[`JobDrainParticipantTest`]:: Probes through `FakePmExec`: a job created during
+the drain recorded `queued` and settled `killed` at close without a signal, a job running past the drain timeout
+terminated and killed, and the matched control, a job admitted before the drain that finishes normally.
+link:{test}/JobRecoveryKilledRuntimeIT.java[`JobRecoveryKilledRuntimeIT`]:: A runtime child killed with `SIGKILL` after
+the write-ahead record, after the spawn of the job's group and before the post-spawn replace, while the job runs, and
+after its fate and before its slot release; the next instance recovers the project with the real step and the signals
+of the system (Linux).
+link:{test}/ProjectRecoveryTest.java[`ProjectRecoveryTest`]:: The jobs step placed as step 3 by the overload of
+`withEnrolment`, and the overload without it keeping the list's step.
 
 == Pitfalls
 
@@ -194,6 +285,10 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
    `transaction.transactionId()`.
 5. **Fence age, not issue age**: a generation is removed by the age of its fence; a current generation is never old
    enough.
+6. **Never signal a job nobody can identify**: an in-process operation, a job spawned before the boot and a job whose
+   record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
+   recorded PID of an earlier boot may belong to anyone now.
+7. **Never adopt a job of a previous runtime**: every unsettled job is settled `killed`, never resumed or started again.
 
 == Specification Tracing
 
@@ -205,10 +300,15 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
   Entry Record], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session
   Generation Record], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
   Sequence] (step 4.1), link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition
-  Audit Log] (hash chain)
-* Stores: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (delete mode, pending entry record),
-  link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`] (session generations)
+  Audit Log] (hash chain), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime
+  Model § Per-Project Recovery] (step 3), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Model §
+  Drain, Stop & Upgrade] (the jobs participant), link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store
+  Schemas § Job Record]
+* Stores: link:../../../pm-core/doc/developer/core-store.adoc[`core.store`] (delete mode, pending entry record, job
+  records), link:../../../pm-core/doc/developer/core-queue.adoc[`core.queue`] (session generations)
+* Job runtime: link:runtime-job.adoc[`runtime.job`] (the runner, the termination protocol, the settlement)
 * Decisions: link:../adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR 001],
   link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002],
-  link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]
+  link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011],
+  link:../adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012]
 * Audit trail: link:runtime-audit.adoc[`runtime.audit`]

@@ -1,0 +1,64 @@
+= ADR 012: The Jobs Part of Recovery Step 3 Is Real, Its Worker Part a Seam
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+Step 3 of the per-project recovery, `JOBS_AND_WORKERS`, settles what a previous runtime instance left of its jobs and
+workers. Until this work package it was a named seam (ADR 006). The job record store and the job runner now exist; the
+launch of workers, with the fence of a worker's generation, its job token, its task lease and its job-private directory,
+does not. The step also has to get into the recovery: `ProjectRecovery.withEnrolment(store, check, enrolments,
+lockManager, steps, executor)` builds the two enrolment steps from the enrolment store and takes every other step from
+the caller's list, and the assembly `pm-mcp-server` in `plan-marshall-mcp` calls it today with a seam for step 3. That
+repository builds against the deployed `SNAPSHOT` of this one.
+
+== Decision
+
+* `JobRecoveryStep` is the jobs part of `JOBS_AND_WORKERS`: every job left `queued` or `running` in the project's job
+  records is settled `ended`/`killed` by outcome row 4, never adopted and never executed again. A queued job is not
+  signalled; a running one is settled by the first matching rule: (a) an in-process operation, not signalled and no
+  orphan note; (b) spawned before the boot time of the system, not signalled; (c) no recorded PID, not signalled, with
+  the audit record `job_recovered` noting `orphan unidentifiable`, which the step builds itself
+  (`JobRecoveryStep.orphanNote`); (d) otherwise the group is probed with `kill(-pgid, 0)` and a live group terminated with
+  steps 1 to 3 of the termination protocol.
+* The settlement runs through `JobSettlement`: the fate first, then the slot the caller's `JobRecoveryStep.Slots` names;
+  `Slots.NONE` names none. The boot time and the slots are the caller's.
+* The worker part of the step stays a seam: a worker's record is settled like every other job's, and the report of the
+  step names the worker part `not implemented in this runtime` with the number of workers it settled. It is filled by the
+  work package that launches workers.
+* `ProjectRecovery.withEnrolment` keeps its signature unchanged and source-compatible: it still takes the step of
+  `JOBS_AND_WORKERS` from the list, a seam included. An additive overload takes a `JobRecoveryStep` and places it as
+  step 3 in place of any step of that name in the list. No coordinated release of `plan-marshall-mcp` is needed; the
+  assembly switches to the overload in a follow-up there (Q-Gate finding 3f46fc of PLAN-20).
+* The runner's `DrainParticipant`, `JobDrainParticipant`, joins the drain through the seam ADR 006 left for it.
+
+== Alternatives Considered
+
+1. *Change the signature of `withEnrolment` to require the jobs step.*
+_Rejected_: the assembly in `plan-marshall-mcp` builds against the `SNAPSHOT` and would break until a coordinated change
+there (finding 3f46fc); further reasons not recorded.
+
+== Consequences
+
+* A project whose previous runtime left jobs unsettled gets them settled before its recovery finishes; a step that cannot
+  read the records, hand over an orphan note or record a fate fails, and the recovery of that project stops there.
+* A worker left running by a previous runtime keeps its fence, token, task lease and job-private directory until the
+  worker part is filled.
+* `JobRecoveryKilledRuntimeIT` proves the step against a runtime killed at each point of a job's life.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* Q-Gate finding 3f46fc of PLAN-20 (the contract of `ProjectRecovery.withEnrolment`)
+* link:006-lifecycle-engines-behind-narrow-seams.adoc[ADR 006]
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Model § Per-Project Recovery] (step 3)
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record] (Recovery)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java`, `ProjectRecovery.java`,
+  `JobDrainParticipant.java`

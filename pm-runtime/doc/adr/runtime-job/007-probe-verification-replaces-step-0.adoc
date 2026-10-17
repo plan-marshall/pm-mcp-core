@@ -1,0 +1,54 @@
+= ADR 007: A Probe Is Verified Against Its Candidate Record Under a Fixed Budget
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+A probe (kind `probe`, `job_id` prefix `v`) runs a program a scan of the machine or the detection of a project's
+onboarding found and that is not enrolled yet: the version, models or login probe of a harness or host tool, or a
+script of a checkout. Step 0 of the verify-not-resolve pipeline is the enrolment check, which such a program cannot
+pass. The scan wrote a candidate record of what it found: the executable and its interpreter by path and digest, the
+declared arguments, the exit codes the probe declares as its success, the owning scope and the working directory. The
+specification gives each probe kind a fixed budget, without learning, and lets a probe run only after the operator's
+consent of its kind.
+
+== Decision
+
+* `ProbeVerification` is step 0 of a probe in place of the enrolment check: the digests of the executable and of a
+  script's interpreter (`executable_digest_mismatch`), the working directory, the canonical git top-level of the checkout
+  or the probe's own job-private `cwd/` (`path_traversal_rejected`), and exactly the declared argument vector
+  (`argument_rejected`). The first check that refuses decides. Nothing is resolved at launch: the vector starts with the
+  absolute path the candidate record names.
+* `SubprocessJobRunner.startProbe` refuses a probe without the consent of its kind with `consent_required` and records
+  nothing. Otherwise the allocation of the `v-` id, the verification and the first record are one transaction under the
+  lock of the probe's scope, the machine queue lock or the entry lock; a refusal is recorded as the fate `refused`.
+* `ProbeBudget` holds the budgets as compiled constants, `probe:version` 15, `probe:models` 30, `probe:login` 120 and
+  `probe:script` 600 seconds, recorded with the derivation `floor_default`; they are never learned or escalated.
+* Rows 1 to 4 of the outcome derivation and an exit code the probe declares decide its fate; any other end leaves the
+  exit code and the output to the step that asked, and the runner's output parser does not read a probe's log. The
+  runner never starts a probe again, also not one that ended `timed_out`.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A probe of a program whose file changed after the scan is refused and recorded, and nothing is spawned.
+* The record and the log of a probe lie in the store of its scope, `machine/jobs/` or `onboardings/<entry_id>/jobs/`.
+* `floor_default` is the derivation of the job record closest to a compiled constant; the schema has no derivation of
+  its own for a probe budget.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime § Probe Jobs]
+* link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#probe-budget[Timeouts § Probe Budget]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeVerification.java`, `ProbeCandidate.java`, `ProbeBudget.java`

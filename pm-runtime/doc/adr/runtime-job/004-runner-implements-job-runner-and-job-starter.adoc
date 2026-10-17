@@ -1,0 +1,51 @@
+= ADR 004: One Runner Class Implements `JobRunner` and `JobStarter`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+`pm-core` declares two interfaces through which a job is started: the engine port `JobStarter` of `core.spi`, which
+starts the job of a `job` state of the workflow for a state and a primitive and answers a `job_id` of the grammar
+`^[bcgp]-[0-9a-f]{16}$`, and the service `JobRunner<R, C>` of `core.service`, which starts a job of any kind or a probe,
+cancels a job by its cause and reads its record (ADR core-service/001 of `pm-core`). Both start the same jobs: verified,
+recorded, launched through `pm-exec`, terminated and settled the same way. A workflow primitive does not yet carry the
+job spec its job would need: which build verb, which tool, which arguments.
+
+== Decision
+
+* `SubprocessJobRunner` implements `JobRunner<JobRequest, ProbeCandidate>` and `JobStarter` in one class; both ports
+  reach the same verification, records, launch, termination and settlement.
+* `JobStarter` is not changed. `JobStarter.start(StartRequest)` maps the state and its primitive to a job through the
+  caller's `PrimitiveJobs`; a primitive for which it answers no job spec, and a worker, is refused
+  `primitive_without_job` as a value. The id it answers keeps the port's grammar.
+* The runner starts no worker: `start` refuses the kind `llm`, whose launch belongs to the supervisor.
+* The runner verifies a job in a lock transaction it opens and closes itself before the launch, so the enrolment lock
+  of the verification is never held while a job is launched or awaited.
+* The admission of a job and the stop of the admission for the drain are decided under one lock (`stopAdmitting`), so
+  a job admitted before the stop is among the running jobs the drain waits for; a job asked for afterwards is recorded
+  `queued`, never spawned, and settled `killed` without a signal when the drain closes.
+
+== Alternatives Considered
+
+Alternatives not recorded beyond those of ADR core-service/001 of `pm-core`.
+
+== Consequences
+
+* The engine can start the job of a state as soon as the caller's `PrimitiveJobs` answers a job spec for its primitive;
+  until then the port refuses it with `primitive_without_job`, and no job is recorded.
+* A job started through either port is the same job: one record, one log, one cancel.
+* A later supervisor launches workers itself and records them in the same job record store.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../pm-core/doc/adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR core-service/001] of `pm-core`
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`

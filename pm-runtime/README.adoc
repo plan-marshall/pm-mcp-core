@@ -19,7 +19,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
 * `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`.
 * `ingest`: the level-1 ingestion validator for external text.
-* `job`: the verify-not-resolve pipeline of a job: the deterministic check that turns a job request into a verified job or a refusal.
+* `job`: the job runtime of a project's process jobs: the verification of a job, its launch through `pm-exec`, its job log, its termination, the derivation of its fate and its settlement, run by `SubprocessJobRunner`.
 * `launch`: the launch composition of a worker: the harness templates, the job token and generation, the launch prompt and the model slots.
 * `lock`: the lock manager of the runtime and the stale lease sweep: the implementation of the locking interface of `pm-core`.
 * `log`: the log messages of the module, `RuntimeLogMessages` with the prefix `PM_RUNTIME`, and the messages of the assembly `pm-mcp-server` until it takes them over.
@@ -43,22 +43,34 @@ The HTTP tests run against the mock web server of `cui-test-mockwebserver-junit5
 
 == Test JAR
 
-The module builds a test JAR with the fixtures the tests of the assembly share: `TestBases`, `FakeBus` and
-`FakeSecretService`. It is deployed with the `SNAPSHOT`.
+The module builds a test JAR with the fixtures the tests of the assembly share: `TestBases`, `FakeBus`,
+`FakeSecretService` and `FakePmExec`, the test launcher of the job runtime. It is deployed with the `SNAPSHOT`.
 
 == Developer Documentation
 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
 * link:doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources (`runtime.corpus`)]
-* link:doc/developer/runtime-job.adoc[Job Verification (`runtime.job`)]
-* link:doc/developer/runtime-start.adoc[Sweep Steps and the Audit Chain Seam (`runtime.start`)]
+* link:doc/developer/runtime-job.adoc[Job Runtime (`runtime.job`)]
+* link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam and Job Recovery (`runtime.start`)]
 
 == ADRs
 
 * link:doc/adr/runtime-audit/[`doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
 * link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
-* link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job.
+* link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job and the job runner:
+** link:doc/adr/runtime-job/004-runner-implements-job-runner-and-job-starter.adoc[ADR 004] one runner class implements
+   `JobRunner` and `JobStarter`;
+** link:doc/adr/runtime-job/005-launch-report-parsed-and-stripped-once.adoc[ADR 005] exactly the first line of the job
+   log is the launch report, stripped once;
+** link:doc/adr/runtime-job/006-settlement-as-ordered-steps-with-named-seams.adoc[ADR 006] the settlement as ordered
+   steps, the missing stores named seams;
+** link:doc/adr/runtime-job/007-probe-verification-replaces-step-0.adoc[ADR 007] a probe verified against its candidate
+   record under a fixed budget;
+** link:doc/adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR 008] process-group signals through FFM behind
+   a replaceable primitive.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
-* link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime.
+* link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime;
+  link:doc/adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012] the jobs part of recovery step 3,
+  its worker part a seam.
 
 The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].
