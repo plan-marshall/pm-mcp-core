@@ -125,6 +125,39 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> credentialStoreRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_SELECTED, "PM_RUNTIME-9",
+                        "Credential store '%s' recorded, service name '%s'"),
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_RECORDED, "PM_RUNTIME-26",
+                        "Credential store '%s' recorded by %s, machine configuration revision %s"),
+                Arguments.of(RuntimeLogMessages.WARN.RECORDED_OS_STORE_UNAVAILABLE, "PM_RUNTIME-128",
+                        "Recorded credential store '%s' unavailable, no other store serves: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("credentialStoreRecords")
+    @DisplayName("the records of the recorded credential store")
+    void credentialStore(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
+    @Test
+    @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
+    void fileStoreFallbackRemoved() throws Exception {
+        var all = new ArrayList<LogRecord>();
+        for (String level : List.of("INFO", "WARN", "ERROR")) {
+            all.addAll(records(level));
+        }
+
+        assertAll(
+                () -> assertTrue(all.stream().noneMatch(logRecord -> logRecord.getIdentifier() == 104)),
+                () -> assertTrue(all.stream()
+                        .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves"))));
+    }
+
     @Nested
     @DisplayName("locks and leases")
     class LocksAndLeases {

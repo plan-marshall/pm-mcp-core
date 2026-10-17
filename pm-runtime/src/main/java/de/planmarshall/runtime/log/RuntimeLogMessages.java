@@ -120,14 +120,15 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged at start with the one active credential backend and the keyring service name.
+         * Logged at start with the credential store the operator recorded ({@code os}, {@code file}, or
+         * {@code none} before the choice) and the keyring service name.
          * <p>
          * Used by the assembly {@code pm-mcp-server}.
          */
         public static final LogRecord CREDENTIAL_STORE_SELECTED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(9)
-                .template("Credential store '%s' active, service name '%s'")
+                .template("Credential store '%s' recorded, service name '%s'")
                 .build();
 
         /** Logged when a language server of the LSP pool answered {@code initialize}. */
@@ -253,6 +254,16 @@ public final class RuntimeLogMessages {
                 .identifier(25)
                 .template("Audit log rotated to '%s' with %s records")
                 .build();
+
+        /**
+         * Logged by {@code CredentialStoreChoice} when {@code credentials.store} of {@code machine-config.json} is
+         * written, with the store, the writer (the credential-store aspect or the store move) and the new revision.
+         */
+        public static final LogRecord CREDENTIAL_STORE_RECORDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(26)
+                .template("Credential store '%s' recorded by %s, machine configuration revision %s")
+                .build();
     }
 
     /** WARN level messages. */
@@ -301,17 +312,6 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(103)
                 .template("Web listener on port %s: connection failed before a request (TLS handshake or connection setup): %s")
-                .build();
-
-        /**
-         * Logged at start when no OS keyring is usable and the file credential store serves.
-         * <p>
-         * Used by the assembly {@code pm-mcp-server}.
-         */
-        public static final LogRecord KEYRING_UNAVAILABLE = LogRecordModel.builder()
-                .prefix(PREFIX)
-                .identifier(104)
-                .template("No OS keyring usable, the file credential store serves: %s")
                 .build();
 
         /** Logged when a language server does not end cleanly on {@code shutdown} / {@code exit}. */
@@ -519,6 +519,17 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(127)
                 .template("HTTPS source '%s' not fetched: %s")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreChoice} when the recorded OS store (Keychain or Secret Service) is
+         * unavailable for an operation, with the store and the cause; the operation fails and no other store serves
+         * in its place. Identifier 104, the removed record of the former file-store fallback, is not reused.
+         */
+        public static final LogRecord RECORDED_OS_STORE_UNAVAILABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(128)
+                .template("Recorded credential store '%s' unavailable, no other store serves: %s")
                 .build();
     }
 

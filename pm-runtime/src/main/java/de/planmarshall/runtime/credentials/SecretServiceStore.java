@@ -44,7 +44,10 @@ public final class SecretServiceStore implements SecretStore {
     static final String PROPERTIES = "org.freedesktop.DBus.Properties";
     static final String NO_PROMPT = "/";
 
-    /** The bound of every Secret Service exchange of the runtime. */
+    /**
+     * The bound of every Secret Service exchange of the runtime: the store {@link CredentialStoreChoice} gives when
+     * {@code os} is recorded on Linux is bounded by it, and so is the integration test against the session keyring.
+     */
     public static final Duration BUS_TIMEOUT = Duration.ofSeconds(2);
 
     private final Path busSocket;
