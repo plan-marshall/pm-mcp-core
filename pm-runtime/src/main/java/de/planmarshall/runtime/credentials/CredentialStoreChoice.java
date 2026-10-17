@@ -337,6 +337,18 @@ public final class CredentialStoreChoice {
         return osStoreOrReason().store();
     }
 
+    /**
+     * Probes the OS store of the platform for its check before it is recorded.
+     *
+     * @return the OS store
+     * @throws SecretStoreException with {@code credential_store_unavailable} and the cause if it is unavailable now
+     */
+    SecretStore requireOsStore() {
+        var probe = osStoreOrReason();
+        return probe.store().orElseThrow(() -> new SecretStoreException(SecretStoreException.Reason.UNAVAILABLE,
+                "the OS credential store '%s' is unavailable: %s".formatted(osStoreName(), probe.reason())));
+    }
+
     private Probe osStoreOrReason() {
         if (os == MachinePaths.Os.MACOS) {
             try {
