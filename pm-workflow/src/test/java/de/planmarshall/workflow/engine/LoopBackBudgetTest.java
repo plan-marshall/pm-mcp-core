@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 
@@ -168,6 +169,23 @@ class LoopBackBudgetTest {
                             () -> LoopBackBudget.policyRetry(plan, "ci-failure", -1)),
                     () -> assertThrows(NullPointerException.class, () -> new Charge.Granted(null)),
                     () -> assertEquals(Map.of(), plan.policyCounters()));
+        }
+
+        @Test
+        @DisplayName("Should refuse the retired policy class spend for a loop-back, a retry and the counters")
+        void shouldRefuseSpend() {
+            var loopBack = assertThrows(IllegalArgumentException.class,
+                    () -> LoopBackBudget.policyLoopBack(plan, "spend", 1));
+            var retry = assertThrows(IllegalArgumentException.class,
+                    () -> LoopBackBudget.policyRetry(plan, "spend", 1));
+            var builder = plan.toBuilder()
+                    .policyCounters(Map.of("spend", new WorkflowStatus.PolicyCounter(0, 0, null, null)));
+
+            assertAll(
+                    () -> assertTrue(loopBack.getMessage().contains("no remediation policy class"),
+                            loopBack.getMessage()),
+                    () -> assertTrue(retry.getMessage().contains("no remediation policy class"), retry.getMessage()),
+                    () -> assertThrows(IllegalArgumentException.class, builder::build));
         }
     }
 }
