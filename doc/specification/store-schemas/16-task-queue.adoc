@@ -120,13 +120,15 @@ One record per task. A `job llm <entity_kind> role <role> [each <primitive>]` st
         "required": ["signal", "attempt", "action", "measurement", "threshold", "at"],
         "additionalProperties": false,
         "properties": {
-          "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint"] },
+          "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] },
           "attempt": { "type": "integer", "minimum": 1 },
           "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] },
           "measurement": { "type": "number", "description": "The measured value: repeated calls in a row, turns without a link followed, the tokens spent on the plan task as a multiple of its predicted_cost_tokens, or the unplanned changes recorded." },
           "threshold": { "type": "number", "description": "The threshold in force: the compiled one, or the lower one of the role artifact." },
           "at": { "type": "string", "format": "date-time" }
-        }
+        },
+        "if": { "properties": { "signal": { "const": "agent_started" } } },
+        "then": { "properties": { "action": { "const": "restart" } } }
       }
     },
     "consultations": {
@@ -199,7 +201,7 @@ What a worker does while it serves a task, one entry per activity, in an append-
     "usage": { "type": ["object", "null"], "description": "turn only: the turn's token components, each a measured integer, unmeasured, or not_applicable (store-schemas/05, Usage Columns)." },
     "link": { "type": ["object", "null"], "required": ["rel", "target"], "additionalProperties": false, "description": "link only.", "properties": { "rel": { "type": "string", "enum": ["ack", "submit", "ask", "consult", "yield", "infeasible"] }, "target": { "type": ["string", "null"], "maxLength": 128, "description": "The entity or role the link names, for example TASK-007 or a consulted role." } } },
     "question_id": { "type": ["string", "null"], "pattern": "^Q-[0-9]{3,6}$", "description": "question and answer_ack only." },
-    "signal": { "type": ["object", "null"], "required": ["signal", "action"], "additionalProperties": false, "description": "signal only: the same entry as the queue task record's signals[].", "properties": { "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint"] }, "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] } } },
+    "signal": { "type": ["object", "null"], "required": ["signal", "action"], "additionalProperties": false, "description": "signal only: the same entry as the queue task record's signals[].", "properties": { "signal": { "type": "string", "enum": ["repeating", "no_progress", "over_size", "outside_footprint", "agent_started"] }, "action": { "type": "string", "enum": ["show", "nudge", "yield", "restart"] } }, "if": { "properties": { "signal": { "const": "agent_started" } } }, "then": { "properties": { "action": { "const": "restart" } } } },
     "end": { "type": ["string", "null"], "description": "attempt_end only: the attempt's end (Queue Task Record, attempts[].end)." },
     "unmapped_lines": { "type": ["integer", "null"], "minimum": 0, "description": "attempt_end only: output lines of the attempt that matched no mapping." },
     "at": { "type": "string", "format": "date-time" }

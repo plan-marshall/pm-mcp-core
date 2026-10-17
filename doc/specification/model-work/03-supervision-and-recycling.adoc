@@ -86,6 +86,9 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 
 |`outside_footprint`
 |The unplanned changes already recorded for the current plan task of an envelope task (changes inside the worktree beyond its declared footprint, link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]) reach `N` files. Only for envelope tasks.
+
+|`agent_started`
+|A process of the worker's recorded process tree (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_process_termination_cancellation_protocol[Job Runtime Specification, Process Termination & Cancellation Protocol], step 3a) runs an enrolled harness executable or the operator binary `pm-operator`, compared by path and digest with the harness enrolment and the installation. Its threshold is `1` and fixed, its action is always `restart` whatever the role artifact names, and it writes a `security` audit record `agent_started` naming the executable: a second agent started by a worker would run outside every task, tool set, and usage record.
 |===
 
 * *Thresholds*: every `N` is a compiled threshold (link:../timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds[Timeouts & Budgets Specification, Off-track signal thresholds]); a role artifact may lower it in its `off_track` member and never raise it (xref:01-roles-and-configuration.adoc#role-artifact[Role Artifact Schema]). The compiled values are set from the activity of real plans once it is recorded.

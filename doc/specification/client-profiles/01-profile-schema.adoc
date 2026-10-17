@@ -204,7 +204,20 @@ A client profile is the one configuration document of a harness: `classpath:/pro
         "supported_versions": {
           "type": "string",
           "minLength": 1,
-          "description": "Version range of the harness CLI (for example '>=2.1.0 <3.0.0'), probed with identity.version_probe; a self-updated harness inside the range is accepted and audited, outside it every worker launch is refused harness_version_unsupported."
+          "description": "Version range of the harness CLI (for example '>=2.1.0 <3.0.0'), probed with identity.version_probe; a self-updated harness is probed only after its update_evidence passed, then accepted and audited inside the range, and outside it every worker launch is refused harness_version_unsupported."
+        },
+        "update_evidence": {
+          "type": "object",
+          "description": "How a changed executable of this harness is shown to be the vendor's, without running it (Update Evidence below).",
+          "properties": {
+            "method": { "type": "string", "enum": ["code_signature", "package_provenance", "none"], "description": "code_signature: the platform code signature of the executable is valid and names signer. package_provenance: the package manager that installed it verifies the package's signed provenance and the executable is the package's file. none: no check; every change waits for the operator's enrolment." },
+            "signer": { "type": ["string", "null"], "maxLength": 256, "description": "For code_signature, the signer identity the signature must name (on macOS the Developer ID team identifier); for package_provenance, the source repository the provenance must name; null for none." }
+          },
+          "required": ["method", "signer"],
+          "additionalProperties": false,
+          "if": { "properties": { "method": { "const": "none" } } },
+          "then": { "properties": { "signer": { "type": "null" } } },
+          "else": { "properties": { "signer": { "type": "string", "minLength": 1 } } }
         },
         "agent_mode": {
           "type": "string",
@@ -268,9 +281,9 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "enum": ["result_schema", "ephemeral", "usage_fields", "cost_field", "exit_reliable", "project_settings_control"]
+            "enum": ["result_schema", "ephemeral", "usage_fields", "cost_field", "exit_reliable", "project_settings_control", "extension_isolation"]
           },
-          "description": "Declared capabilities of the headless run that the server adapts to (result parsing, session residue, usage and cost recording, exit handling, settings control). None of them decides whether a role class is runnable; classes does."
+          "description": "Declared capabilities of the headless run that the server adapts to (result parsing, session residue, usage and cost recording, exit handling, settings control). extension_isolation: the launch of the writer and read_only classes loads the project's instruction files and skill directories and no plugin, hook, or MCP server from any settings file (Role Classes below). Only project_settings_control and extension_isolation take part in whether a class is runnable, through the rules of Role Classes."
         },
         "model_efforts": {
           "type": "object",
@@ -325,6 +338,12 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           },
           "required": ["kind_pointer", "kinds"],
           "additionalProperties": false
+        },
+        "endpoints": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z0-9.-]+:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$" },
+          "description": "The host:port destinations a worker of this harness needs (its model provider, its login refresh), the only ones its egress proxy admits (Job Runtime Specification, Worker Egress Proxy); measured by the egress stage of the profile verification."
         },
         "writable_paths": {
           "type": "array",
@@ -384,7 +403,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           "description": "Harness fallback of the context budget of a worker, used only for a role artifact that does not set context_budget_tokens (Model Work, Role Artifact Schema); the per-envelope packing budget is derived from the effective value (Model Work, Envelopes), compiled fallback 400000 when neither sets it, operator override envelope_budget_tokens in local-config.json."
         }
       },
-      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "model_tiers", "supported_versions", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "writable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
+      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "endpoints", "writable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
       "additionalProperties": false
     },
     "connection": {
@@ -554,8 +573,9 @@ A harness exists for the system as its profile document and as nothing else. The
 `headless.classes` states, per role class, whether the harness can run it and how far it holds a worker to the tools of its role.
 
 * *The screener needs a harness without tools*: `zero_tool` is the class of the screener and the judge, which read untrusted or ungraded text (link:../model-work/07-untrusted-text-screening.adoc#screener[Model Work Specification, Screener]). It is the one class for which the harness must restrict the worker, and the restriction is total: no tool, no MCP connection, project and user settings off. A harness that cannot be started that way declares `zero_tool: null`, and no screener or judge role may name it. This is the only class restriction the system depends on.
-* *For the other classes a restriction is welcome and not required*: `writer` and `read_only` workers act on text that has passed the screener, inside the confinement of the job launcher, and the server limits what they can reach of `PM-MCP` on every request (link:../model-work/04-worker-launch.adoc#job-tool-sets[Model Work Specification, Tool Sets]). `tool_set: enforced` means the harness also limits the worker to the tools of its role; `tool_set: advisory` means it cannot, the worker runs with every tool of the harness, and the role's tool set only tells it which to use. Both are runnable. `pm-operator roles show <role>` reports an advisory tool set, so the operator sees which roles run unrestricted.
-* *Rules*, checked by profile validation: a non-null `zero_tool` requires `capabilities` to hold `project_settings_control`; a profile whose `mcp_config.exclusive` is `false` declares `zero_tool: null`, since such a harness cannot be kept from connecting; `worker.restricted_models` is non-null exactly when a class is `enforced`.
+* *The other classes run no code the harness fetches or runs on its own*: a `writer` or `read_only` worker loads the project's instruction files and skill directories and no plugin, no hook, no MCP server, no environment value, and no model endpoint or proxy from any settings file of the project, the checkout, or the user, and connects to no MCP server but its job relay. Plugins update and run themselves, and hooks run without a tool call, so neither the role's tool set nor the job's confinement keeps their code out of the worktree that becomes the pull request. A harness whose launch of the class cannot be held to that declares the class `null`.
+* *Beyond that, a tool restriction is welcome and not required*: `writer` and `read_only` workers act on text that has passed the screener, inside the confinement of the job launcher, and the server limits what they can reach of `PM-MCP` on every request (link:../model-work/04-worker-launch.adoc#job-tool-sets[Model Work Specification, Tool Sets]). `tool_set: enforced` means the harness also limits the worker to the tools of its role; `tool_set: advisory` means it cannot, the worker runs with every tool of the harness, and the role's tool set only tells it which to use. Both are runnable. `pm-operator roles show <role>` reports an advisory tool set, so the operator sees which roles run unrestricted.
+* *Rules*, checked by profile validation: a non-null `zero_tool` requires `capabilities` to hold `project_settings_control`; a non-null `writer` or `read_only` requires `capabilities` to hold `extension_isolation`; a profile whose `mcp_config.exclusive` is `false` declares `writer`, `read_only`, and `zero_tool` all `null`, since such a harness cannot be kept from connecting; `worker.restricted_models` is non-null exactly when a class is `enforced`.
 
 [cols="2,2,2,2,3"]
 |===
@@ -574,8 +594,8 @@ A harness exists for the system as its profile document and as nothing else. The
 |`slot`, exclusive
 
 |`antigravity`
-|`advisory`
-|`advisory`
+|`null`: not exclusive
+|`null`: not exclusive
 |`null`: `agy` has no start without tools
 |`file` `.agents/mcp_config.json`, not exclusive
 
@@ -712,6 +732,20 @@ A harness is logged in through its own login, never through `PM-MCP` (*No harnes
 * *Without a probe*: a harness whose profile declares `auth_probe: null` is probed by one minimal headless call of its `launch` form (one turn, no tool, no MCP connection, a fixed prompt), whose expected tokens are shown in the consent before it runs; its success means logged in, and a start failure is shown with the harness's error text like a logged-out probe.
 * A harness that is logged out later makes its workers fail before their first call, which the start-failure guard reports (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]).
 
+[#update-evidence]
+=== Update Evidence
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-1[PM-EXEC-1: Wrapper-First Execution & Enrolled Host Tools], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
+
+Harnesses update themselves, so the digest of an enrolled harness executable changes without the operator. A changed executable is never its own witness: its version probe runs only after evidence from outside it shows it is the vendor's.
+
+* *When*: at a worker's spawn, when the SHA-256 of the enrolled executable differs from the enrolment (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Verify-Not-Resolve Execution Pipeline]).
+* *`code_signature`*: the runtime checks the platform code signature of the file without running it (on macOS the signature, its Developer ID chain, and the notarisation, the signing identity's team identifier equal to `signer`). A platform without code signatures, an unsigned file, an invalid signature, or another signer fails the evidence.
+* *`package_provenance`*: the runtime has the package manager that installed the executable verify the installed package's signed provenance (its source repository equal to `signer`), as a probe job of that enrolled host tool, and checks that the executable is a file of that package with that digest. A package manager that is not enrolled, a package without provenance, or a mismatch fails the evidence.
+* *`none`*: there is no evidence; every change waits for the operator.
+* *Validation*: profile validation refuses `code_signature` or `package_provenance` without a `signer`, and `none` with one (the schema's `if`/`then`/`else`), so no profile declares a method that checks against nothing.
+* *Outcome*: passed evidence lets the version probe run, and a version inside `supported_versions` is accepted and audited (`harness_updated`, naming the evidence); failed or missing evidence refuses the launch before spawn with `harness_update_unverified`, never running the changed file, and the act that resolves it is the operator's enrolment of the harness, which shows the recorded and the new version and digest (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-enrol-harness[CLI, Coordination & Security Specification, Harness Enrolment]).
+* *Shipped values*: a shipped profile declares a method only where the release has checked it on that harness; every other profile ships `none`.
+
 [#harness-icons]
 === Harness Icons
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5: Versioned Client Profile Schema & Override Hierarchy], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-8[PM-SEC-8: Consent Before Acting]_
@@ -845,9 +879,13 @@ pm-operator profile remove <client_id> [--project]                              
 |Only for a draft whose `headless.events` is not `null`. Runs the base task and a task that calls a tool, fails one call, changes a file, and asks, and checks that every mapping of `headless.events` resolves on the real output and every expected activity kind appears (<<worker-activity>>).
 |`headless.events`, recorded per activity kind as `reported` or `missing`
 
+|`egress`
+|Starts the `launch` base task with the worker's egress proxy admitting only the draft's `headless.endpoints`, then a task that asks the worker to fetch a decoy host through its shell, once through the configured proxy and once directly (proxy variables unset). Checks that the base task passes through the proxy, that the proxied decoy request reached the proxy and was refused, and that the direct request found no route (on a platform with enforced egress; with unenforced egress the stage records `unenforced` and the direct request is not scored).
+|`headless.endpoints`
+
 |`isolation`
-|Starts a worker beside a decoy MCP server entered in a harness configuration file of the probe workspace, and a decoy instruction file of the project. Records whether the worker listed or called a decoy tool and whether it followed the decoy instruction.
-|`mcp_config.exclusive`, `capabilities` (`project_settings_control`)
+|Starts a worker beside a decoy MCP server entered in a harness configuration file of the probe workspace, and a decoy instruction file of the project; for each of `writer` and `read_only`, with the class's launch, also beside a decoy hook and a decoy plugin enabled in the project's and in the user's harness settings, each of which writes a canary file when it runs, a decoy `env` block that sets a model endpoint, a proxy, and a canary variable, and a project instruction file and skill the task asks about. Records whether the worker listed or called a decoy tool, whether it followed the decoy instruction, whether a canary file exists, and whether the worker knew the project instruction and skill.
+|`mcp_config.exclusive`, `capabilities` (`project_settings_control`, `extension_isolation`: no decoy tool, no canary file, no request to the decoy endpoint or proxy, the canary variable absent, and the project instruction and skill loaded)
 
 |`classes`
 |For each class with `args` in the draft. `writer` and `read_only`: the task asks for one tool inside the role's tool set and one outside it; the tool set is `enforced` when the outside call is refused or the tool is absent, `advisory` when it succeeds. `zero_tool`: the task text asks the worker to read a canary file, to run a command, and to call a tool of the probe server; the class is runnable only when the output shows no tool call, the probe server saw no connection, the decoy instruction was not followed, and the answer does not contain the canary.
@@ -870,7 +908,7 @@ pm-operator profile remove <client_id> [--project]                              
 |`worker.eligible`, `ack_deadline_seconds`, `ack_informational`, `silence_grace_seconds`, `idle_wakeups`; `connection` timing values
 
 |`usage`
-|Over the worker output of the `launch` stage: checks that every declared usage pointer resolves on the real output; a declared pointer that does not resolve fails the stage (<<token-usage>>).
+|Over the worker output of the `launch` stage: checks that every declared usage pointer resolves on the real output; a declared pointer that does not resolve fails the stage (<<token-usage>>). Where the harness keeps its own record of the session's turns (a session log in its data home), the stage also compares the figures parsed for the run with that record, field by field over the turns of the run; a difference fails the stage, because the parsing then drops or double-counts a figure.
 |`headless.usage`, recorded per figure as `reported`, `not_applicable`, or `missing`; the result is the harness's `usage_report`
 |===
 
@@ -897,6 +935,7 @@ pm-operator profile remove <client_id> [--project]                              
     "detection": { "status": "passed" },
     "launch":    { "status": "passed" },
     "events":    { "status": "passed", "results": { "text": "reported", "tool_call": "reported", "tool_result": "reported", "file_changed": "missing", "turn": "reported" } },
+    "egress":    { "status": "passed" },
     "isolation": { "status": "passed" },
     "classes":   { "status": "passed" },
     "limits":    { "status": "passed" },
@@ -918,13 +957,13 @@ pm-operator profile remove <client_id> [--project]                              
 * *What ran is tracked exactly*: `tool` names the release and the commit of the `pm-mcpd` that ran the verification, taken from the binary and never from an argument; `harness` names the executable by its name, the exact version its version probe printed, the SHA-256 of the executable file the run started, and every model a stage ran with; `platform` names operating system, architecture, and confinement. The record holds no path, no host name, no user name, no environment value, and no model output.
 * *The record is closed data*: its schema admits no free text. `code` is a value of the closed list of outcome codes of its stage, `figures` holds integers under a closed set of keys (`min_ms`, `max_ms`, `trials`, `chars`, `count`), and the `results` of the stages `events` and `usage` hold, under the closed activity kinds and usage figures, one of `reported`, `missing`, and (for a usage figure) `not_applicable`. A record with an unknown member, an unknown code, or a string that is not one of its closed forms is refused.
 * *The candidate claims only what was measured*:
-** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement; otherwise it is `false`, whatever the draft says.
+** `worker.eligible` is `true` only when `faults` passed every fault with at least 10 trials on a platform with a confinement (Landlock on Linux, the sandbox profile on macOS) and `egress` passed or recorded `unenforced`; otherwise it is `false`, whatever the draft says. A record with `egress: unenforced` makes the harness eligible only while the operator's acceptance of unenforced egress holds for the machine (see *Runtime check on load* below).
 ** `headless.classes.zero_tool` is non-null only when the `classes` stage passed it and `isolation` measured an exclusive configuration with settings control; otherwise `null`.
-** A `writer` or `read_only` class is non-null when its base task passed, with the `tool_set` the stage measured.
+** A `writer` or `read_only` class is non-null when its base task passed and `isolation` measured an exclusive configuration with extension isolation for its launch, with the `tool_set` the stage measured.
 ** `tool_result_limit_chars` is the largest size that passed when a larger one failed, else `null`.
 ** A value whose stage did not run keeps the draft's value with `status: declared` where the schema requires one, and the three claims above fall back to their closed side.
 * *Install*: `pm-operator profile install <client_id>` shows the candidate against the effective profile value by value, lists every value that is `declared` or `not_measured`, asks the operator to confirm the proposed detection signals, and on confirmation moves candidate and record into the machine set (<<profile-sets>>) under the lock of the machine store. The runtime loads it for workers started afterwards; running workers keep the profile of their job record.
-* *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on; a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers.
+* *Runtime check on load*: the runtime honours a machine profile's `worker.eligible: true` and a non-null `zero_tool` only when its record shows the stages above as `passed` for the platform the runtime runs on, the `egress` stage as `passed` or as `unenforced` while the operator's acceptance of unenforced egress holds for the machine (link:../job-runtime/02-confinement-and-environment.adoc#worker-egress[Job Runtime Specification, Worker Egress Proxy]; when the acceptance is withdrawn, no further worker of that harness starts); a record from another platform leaves the profile usable for detection and rendering and its harness ineligible for workers.
 
 [#unknown-harness]
 === Unknown Harness

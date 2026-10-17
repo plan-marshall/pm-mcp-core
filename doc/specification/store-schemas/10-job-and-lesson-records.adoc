@@ -118,7 +118,7 @@ The write-ahead job journal: one record per job, written at three points (four f
     "signal": { "type": ["string", "null"], "description": "Terminating signal, if any." },
     "landlock_abi": { "type": ["integer", "null"], "minimum": 2, "description": "Landlock ABI version of the ruleset applied to the job (Linux, confinement confined or partial(container_engine)); null when no ruleset was applied (partial(abi=1), unavailable, not_applicable, macOS)." },
     "outcome_row": { "type": ["integer", "null"], "minimum": 1, "maximum": 13, "description": "Row of the closed outcome derivation table (job-runtime.adoc#outcome-derivation) that decided the fate; null iff status is queued or running." },
-    "refusal_reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "The refusal reason (for example enrolment_tampered, build_config_changed, path_traversal_rejected, harness_not_enrolled, harness_version_unsupported); non-null iff fate == refused." },
+    "refusal_reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "The refusal reason (for example enrolment_tampered, build_config_changed, path_traversal_rejected, harness_not_enrolled, harness_update_unverified, harness_version_unsupported); non-null iff fate == refused." },
     "cancel_before_group": { "type": "boolean", "description": "true when a termination signal met ESRCH before the launcher called setpgid and was sent to the PID directly (job-runtime.adoc Process Termination, step 4)." },
     "self_report_contradiction": {
       "type": ["object", "null"],
