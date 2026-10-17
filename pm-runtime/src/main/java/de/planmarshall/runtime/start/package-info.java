@@ -32,7 +32,11 @@
  * the drain timeout or have what still runs terminated, and close. The drain then removes the runtime record, the
  * token and the socket and releases the singleton lock. The drain timeout is {@code drain_timeout_seconds} of
  * {@code machine-config.json} ({@link de.planmarshall.runtime.start.DrainTimeout}), 600 seconds by default; an
- * invalid value falls back to the default.
+ * invalid value falls back to the default. The job runner joins as
+ * {@link de.planmarshall.runtime.start.JobDrainParticipant}: a job created during the drain is recorded
+ * {@code queued} and never spawned, the running jobs are waited for up to the drain timeout, those still running after
+ * it are terminated and recorded {@code killed}, and every job still queued is settled {@code killed} without a signal
+ * when the drain closes the participant.
  * <p>
  * The per-project recovery ({@link de.planmarshall.runtime.start.ProjectRecovery}) runs after the bind, never
  * before: lazily on the first call addressing a project, which waits at most the project recovery wait of 10 seconds
@@ -45,9 +49,10 @@
  * worktree sweep; a failed step stops the recovery of its project only. A step whose store or component does not
  * exist yet is a named seam that reports that it is not implemented in this runtime.
  * {@link de.planmarshall.runtime.start.ProjectRecovery#withEnrolment} builds the two enrolment steps from the
- * enrolment store; a constructor given a step list without them uses a seam for each.
+ * enrolment store; a constructor given a step list without them uses a seam for each. Its overload that takes a
+ * {@link de.planmarshall.runtime.start.JobRecoveryStep} places it as step 3.
  * <p>
- * Five steps are implemented:
+ * Six steps are implemented:
  * <ul>
  * <li>{@link de.planmarshall.runtime.start.EnrolmentIntegrityStep}, step 1, settles a stopped write of the enrolment
  * pair and runs the enrolment check under the project's enrolment lock; a refusal fails the step and blocks only its
@@ -55,6 +60,11 @@
  * <li>{@link de.planmarshall.runtime.start.OwedEnrolmentAuditStep}, step 2, hands over the audit records the
  * project's enrolment writes still owe under the project's lock; a record the sink refuses again stays owed and is no
  * failure. Its {@code unenrolledPass} is the background task for the projects no longer enrolled.</li>
+ * <li>{@link de.planmarshall.runtime.start.JobRecoveryStep}, the jobs part of step 3, settles every job the previous
+ * runtime left {@code queued} or {@code running} as {@code killed}, never adopting or executing one again: a queued
+ * job, an in-process operation and a job spawned before the system boot are not signalled, a job without a recorded
+ * PID is not signalled and gets the audit note {@code orphan unidentifiable}, and a live process group of any other
+ * job, found by {@code kill(-pgid, 0)}, is terminated. The worker part of the step is a seam.</li>
  * <li>{@link de.planmarshall.runtime.start.LeaseRecoveryStep}, over a seam that a later store fills, marks the leases of the project whose holder is dead
  * as orphaned in the machine lease stores it is given, and releases one only on positive evidence of abandonment
  * ({@link de.planmarshall.runtime.start.LeaseRecoveryStep.AbandonmentEvidence}, which finds none by default).</li>

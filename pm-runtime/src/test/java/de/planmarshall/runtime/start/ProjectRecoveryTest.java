@@ -22,7 +22,9 @@ import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,6 +47,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecord;
+import de.planmarshall.core.store.JobRecordStore;
+import de.planmarshall.runtime.job.ProcessGroupSignals;
+import de.planmarshall.runtime.job.TerminationProtocol;
 import de.planmarshall.runtime.start.ProjectRecovery.ProjectOutcome;
 import de.planmarshall.runtime.start.ProjectRecovery.Result;
 import de.planmarshall.runtime.start.ProjectRecovery.StepResult;
@@ -547,6 +554,93 @@ class ProjectRecoveryTest {
                     () -> assertInstanceOf(Result.NotEnrolled.class, recovery.awaitRecovered("not-enrolled")),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             "Recovery of project '" + CLEAN + "' finished: 11 steps done"));
+        }
+
+        /** A signalling primitive the jobs step must not use for a queued job. */
+        private static final ProcessGroupSignals NO_SIGNALS = new ProcessGroupSignals() {
+
+            @Override
+            public Answer signalGroup(long pgid, Signal signal) {
+                throw new AssertionError("no kill() for a queued job");
+            }
+
+            @Override
+            public Answer signalProcess(long pid, Signal signal) {
+                throw new AssertionError("no kill() for a queued job");
+            }
+        };
+
+        private JobRecoveryStep jobStep() {
+            return new JobRecoveryStep(base, fixture.locks, NO_SIGNALS, new TerminationProtocol(NO_SIGNALS),
+                    fixture.sink, Instant.EPOCH, JobRecoveryStep.Slots.NONE, Clock.systemUTC());
+        }
+
+        /** Leaves a job of the clean project queued, as a runtime that ended before its slot was acquired does. */
+        private JobRecord queuedJob() {
+            var store = JobRecordStore.ofProject(base, CLEAN);
+            var scope = new JobRecord.Scope(JobRecord.Scope.Type.WORKSPACE, null);
+            try (var transaction = fixture.locks.openTransaction()) {
+                var job = JobRecord.builder().jobId(store.allocate(transaction, JobId.Kind.BUILD, scope))
+                        .execution(JobRecord.Execution.PROCESS).scope(scope).budgetKey("maven:verify")
+                        .budgetSeconds(600).budgetDerivation(new JobRecord.BudgetDerivation(
+                                JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                        .status(JobRecord.Status.QUEUED).confinement(JobRecord.Confinement.UNAVAILABLE)
+                        .createdAt(Instant.EPOCH.plusSeconds(1)).clampedValues(List.of()).build();
+                store.writeQueued(transaction, job);
+                return job;
+            }
+        }
+
+        private List<RecoveryStep> seamsWithRecordingJobsStep() {
+            var steps = new ArrayList<RecoveryStep>();
+            for (var name : Name.values()) {
+                steps.add(name == Name.JOBS_AND_WORKERS ? new RecordingStep(name, runs, _ -> new Outcome.Done("seam"))
+                        : RecoveryStep.notImplemented(name));
+            }
+            return steps;
+        }
+
+        @Test
+        @DisplayName("the overload with the jobs step runs it as step 3, after the enrolment steps, before the leases")
+        void jobStepRunsThird() {
+            var job = queuedJob();
+            var recovery = ProjectRecovery.withEnrolment(fixture.store, fixture.check, fixture.enrolments,
+                    fixture.locks, jobStep(), seamsWithRecordingJobsStep(), INLINE);
+
+            var clean = recovered(recovery.awaitRecovered(CLEAN));
+
+            var settled = JobRecordStore.ofProject(base, CLEAN).read(job.jobId()).orElseThrow();
+            assertAll(
+                    () -> assertFalse(clean.failed()),
+                    () -> assertEquals(Arrays.asList(Name.values()),
+                            clean.steps().stream().map(StepResult::name).toList()),
+                    () -> assertEquals(new StepResult(Name.JOBS_AND_WORKERS, new Outcome.Done(
+                            "1 jobs settled killed {QUEUED=1}, 0 groups terminated; worker part of 0 workers "
+                                    + RecoveryStep.NOT_IMPLEMENTED)), clean.steps().get(2)),
+                    () -> assertEquals(List.of(Name.ENROLMENT_INTEGRITY, Name.OWED_ENROLMENT_AUDIT),
+                            clean.steps().subList(0, 2).stream().map(StepResult::name).toList()),
+                    () -> assertEquals(Name.LEASES, clean.steps().get(3).name()),
+                    () -> assertEquals(List.of(), runs, "the seam of the list was replaced"),
+                    () -> assertEquals(JobRecord.Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()));
+        }
+
+        @Test
+        @DisplayName("the overload without the jobs step keeps the JOBS_AND_WORKERS step of the list unchanged")
+        void existingSignatureKeepsListStep() {
+            var job = queuedJob();
+            var recovery = ProjectRecovery.withEnrolment(fixture.store, fixture.check, fixture.enrolments,
+                    fixture.locks, seamsWithRecordingJobsStep(), INLINE);
+
+            var clean = recovered(recovery.awaitRecovered(CLEAN));
+
+            assertAll(
+                    () -> assertFalse(clean.failed()),
+                    () -> assertEquals(new StepResult(Name.JOBS_AND_WORKERS, new Outcome.Done("seam")),
+                            clean.steps().get(2)),
+                    () -> assertEquals(List.of(Name.JOBS_AND_WORKERS + " " + CLEAN), runs),
+                    () -> assertEquals(JobRecord.Status.QUEUED,
+                            JobRecordStore.ofProject(base, CLEAN).read(job.jobId()).orElseThrow().status()));
         }
 
         @Test

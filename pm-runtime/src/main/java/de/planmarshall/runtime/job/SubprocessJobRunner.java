@@ -20,6 +20,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -31,11 +32,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import lombok.Builder;
 
 import de.planmarshall.core.service.JobRunner;
 import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
@@ -95,6 +98,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * child's {@code child_wall_ms} from {@code process_started_at} to the exit the runner observed. The child's start is
  * reported by the launcher on the clock of the operating system and is coarser than the runner's clock; the child's
  * wall time is therefore bounded by the job's, and it is {@code null} for a job whose launcher reported no start.
+ * <p>
+ * While the runtime drains ({@link #stopAdmitting()}), no job is admitted: a job whose start is asked for then is
+ * verified and recorded {@code queued}, never spawned, and settled {@code killed} without a signal at exit
+ * ({@link #settleQueued()}). The admission decision and the stop of the admission are taken under one lock, so a job
+ * admitted before the stop is among {@link #runningJobs()} when the drain waits for them.
  * <p>
  * The engine port maps a {@link JobStarter.StartRequest} to a job through the caller's {@link PrimitiveJobs}; a
  * primitive with no job spec is refused {@value #PRIMITIVE_WITHOUT_JOB}. The id it answers keeps the port's grammar
@@ -165,6 +173,21 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final InstantSource clock;
     private final Map<JobId, JobRecordStore> stores = new ConcurrentHashMap<>();
     private final Map<JobId, RunningJob> running = new ConcurrentHashMap<>();
+    private final Map<JobId, QueuedJob> queued = new ConcurrentHashMap<>();
+
+    /** Guards every admission decision against {@link #stopAdmitting()}. */
+    private final ReentrantLock admission = new ReentrantLock();
+
+    /** Whether the runtime drains; read and written under {@link #admission}. */
+    private boolean draining;
+
+    /** The outcome of a job still queued at drain: {@code killed}, row 4, nothing signalled. */
+    private static final OutcomeDerivation.Outcome QUEUED_AT_DRAIN =
+            OutcomeDerivation.derive(new JobEvidence.NeverStarted(JobEvidence.NeverStarted.Cause.QUEUED_AT_DRAIN));
+
+    /** A job recorded {@code queued} during the drain, never spawned. */
+    private record QueuedJob(JobRecord record, JobRecordStore store) {
+    }
 
     /**
      * @param base        the base directory of the runtime, below which the job records of a project lie
@@ -313,6 +336,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 : JobRecordStore.ofEntry(base, scope.id());
         JobRecord first;
         ProbeVerification.Result verification;
+        RunningJob job = null;
+        admission.lock();
         try (var transaction = lockManager.openTransaction()) {
             var jobId = store.allocate(transaction, JobId.Kind.PROBE, scope);
             var jobPrivate = jobPrivateCwd(jobId);
@@ -328,31 +353,59 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 first = record.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
                         .refusalReason(refusal.reason().code()).endedAt(now).build();
                 store.writeFate(transaction, first);
+                stores.put(jobId, store);
             } else {
-                var verified = (ProbeVerification.Verified) verification;
-                first = record.argvDigest(argvDigest(verified.argv())).status(Status.RUNNING).build();
-                store.writeAhead(transaction, first);
+                record.argvDigest(argvDigest(((ProbeVerification.Verified) verification).argv()));
+                first = admit(transaction, store, record);
+                if (first.status() == Status.RUNNING) {
+                    job = new RunningJob(first, store, budget, candidate.successExitCodes());
+                    running.put(jobId, job);
+                }
             }
+        } finally {
+            admission.unlock();
         }
-        stores.put(first.jobId(), store);
-        return switch (verification) {
-            case ProbeVerification.Refused(var refusal) -> {
-                LOGGER.info(INFO.JOB_SETTLED, first.jobId(), first.fate().wireName(), first.outcomeRow());
-                yield new JobRunner.StartResult.Refused(refusal.reason().code());
-            }
-            case ProbeVerification.Verified(var workingDirectory, var argv) -> run(new RunningJob(first, store, budget,
-                    candidate.successExitCodes()), log -> new Launch(workingDirectory, argv,
-                            probeEnvironment.of(candidate), Optional.empty(), log));
-        };
+        if (verification instanceof ProbeVerification.Refused(var refusal)) {
+            LOGGER.info(INFO.JOB_SETTLED, first.jobId(), first.fate().wireName(), first.outcomeRow());
+            return new JobRunner.StartResult.Refused(refusal.reason().code());
+        }
+        if (job == null) {
+            return new JobRunner.StartResult.Started(first.jobId());
+        }
+        var verified = (ProbeVerification.Verified) verification;
+        return run(job, log -> new Launch(verified.workingDirectory(), verified.argv(), probeEnvironment.of(candidate),
+                Optional.empty(), log));
     }
 
     /**
-     * Cancels a running job: its termination is carried out by the virtual thread that waits for the job, and the
-     * cause decides the fate.
+     * The admission of a verified job, under the admission lock and in the transaction that allocated its id: the
+     * write-ahead record while the runner admits, otherwise the queued record of a job created during the drain, which
+     * is never spawned and settled {@code killed} at exit.
+     *
+     * @return the record written, {@code running} or {@code queued}
+     */
+    private JobRecord admit(LockTransaction transaction, JobRecordStore store, JobRecord.JobRecordBuilder record) {
+        JobRecord first;
+        if (draining) {
+            first = record.status(Status.QUEUED).build();
+            store.writeQueued(transaction, first);
+            queued.put(first.jobId(), new QueuedJob(first, store));
+        } else {
+            first = record.status(Status.RUNNING).build();
+            store.writeAhead(transaction, first);
+        }
+        stores.put(first.jobId(), store);
+        return first;
+    }
+
+    /**
+     * Cancels a job. A running job's termination is carried out by the virtual thread that waits for it, and the cause
+     * decides the fate; a queued job is settled at once without a signal, by its cause, and as {@code killed} for the
+     * drain.
      *
      * @param jobId the job
      * @param cause why the job is cancelled
-     * @return whether the job was running and this call decided its termination; {@code false} for a job that has
+     * @return whether the job was running or queued and this call decided its end; {@code false} for a job that has
      *         ended, is cancelled already or is unknown
      */
     @Override
@@ -360,7 +413,58 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         Objects.requireNonNull(jobId, "jobId");
         Objects.requireNonNull(cause, "cause");
         var job = running.get(jobId);
-        return job != null && job.cancel(termination(cause));
+        if (job != null) {
+            return job.cancel(termination(cause));
+        }
+        var waiting = queued.remove(jobId);
+        if (waiting == null) {
+            return false;
+        }
+        settleQueued(waiting, cause == CancelCause.DRAIN ? QUEUED_AT_DRAIN
+                : new OutcomeDerivation.Outcome(cause.fate(), cause.outcomeRow()));
+        return true;
+    }
+
+    /**
+     * Stops the admission of jobs for the drain: from now on a job whose start is asked for is verified and recorded
+     * {@code queued}, and never spawned. The decision is taken under the admission lock, so no start admitted before
+     * this call is missing from {@link #runningJobs()} after it.
+     */
+    public void stopAdmitting() {
+        admission.lock();
+        try {
+            draining = true;
+        } finally {
+            admission.unlock();
+        }
+    }
+
+    /** @return the jobs recorded {@code queued} and not settled yet */
+    public Set<JobId> queuedJobs() {
+        return Set.copyOf(queued.keySet());
+    }
+
+    /**
+     * Settles every job still {@code queued} as {@code killed} without a signal (outcome row 4), as the drain does at
+     * exit.
+     *
+     * @return the jobs settled by this call
+     */
+    public List<JobId> settleQueued() {
+        var settled = new ArrayList<JobId>();
+        for (var jobId : queuedJobs()) {
+            var waiting = queued.remove(jobId);
+            if (waiting != null) {
+                settleQueued(waiting, QUEUED_AT_DRAIN);
+                settled.add(jobId);
+            }
+        }
+        return settled;
+    }
+
+    private void settleQueued(QueuedJob waiting, OutcomeDerivation.Outcome outcome) {
+        settleRecord(waiting.store(), waiting.record().toBuilder().status(Status.ENDED).fate(outcome.fate())
+                .outcomeRow(outcome.row()).endedAt(clock.instant()).build());
     }
 
     /**
@@ -448,16 +552,24 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** Writes the write-ahead record, launches the job and writes its post-spawn record. */
     private JobRunner.StartResult launch(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
             JobRecordStore store, VerifiedJob verified) {
-        JobRecord ahead;
+        JobRecord first;
+        RunningJob job = null;
+        admission.lock();
         try (var transaction = lockManager.openTransaction()) {
             var jobId = store.allocate(transaction, request.kind(), request.scope());
-            ahead = newRecord(jobId, request.scope(), budget, argvDigest(verified.argv()), clock.instant())
-                    .status(Status.RUNNING).build();
-            store.writeAhead(transaction, ahead);
+            first = admit(transaction, store, newRecord(jobId, request.scope(), budget, argvDigest(verified.argv()),
+                    clock.instant()));
+            if (first.status() == Status.RUNNING) {
+                job = new RunningJob(first, store, budget, Set.of());
+                running.put(jobId, job);
+            }
+        } finally {
+            admission.unlock();
         }
-        stores.put(ahead.jobId(), store);
-        return run(new RunningJob(ahead, store, budget, Set.of()),
-                log -> Launch.of(verified, environment.of(verified), request.stdin(), log));
+        if (job == null) {
+            return new JobRunner.StartResult.Started(first.jobId());
+        }
+        return run(job, log -> Launch.of(verified, environment.of(verified), request.stdin(), log));
     }
 
     /**
@@ -466,7 +578,6 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
         var jobId = job.record.jobId();
-        running.put(jobId, job);
         var log = new JobLog(job.store.logPath(jobId));
         var spawnedAt = clock.instant();
         Launched launched;
@@ -673,16 +784,28 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
     }
 
-    /** Runs the settlement of a settled record and logs its result. */
+    /** Runs the settlement of a running job's settled record. */
     private void settle(RunningJob job, JobRecord settled) {
-        var report = JobSettlement.of(job.store, lockManager).settle(new Settled(settled, Optional.empty()));
-        var steps = report.steps();
-        if (!steps.isEmpty() && steps.getFirst().outcome() instanceof Outcome.Done) {
+        if (settleRecord(job.store, settled)) {
             job.record = settled;
+        }
+    }
+
+    /**
+     * Runs the settlement of a settled record and logs its result.
+     *
+     * @return whether the fate was recorded
+     */
+    private boolean settleRecord(JobRecordStore store, JobRecord settled) {
+        var report = JobSettlement.of(store, lockManager).settle(new Settled(settled, Optional.empty()));
+        var steps = report.steps();
+        var recorded = !steps.isEmpty() && steps.getFirst().outcome() instanceof Outcome.Done;
+        if (recorded) {
             LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
         }
         report.stoppedAt().ifPresent(step -> LOGGER.error(ERROR.JOB_SETTLEMENT_STEP_FAILED, settled.jobId(), step,
                 ((Outcome.Failed) steps.getLast().outcome()).reason()));
+        return recorded;
     }
 
     /**
