@@ -1,0 +1,10 @@
+{
+  "id": "PLAN-75",
+  "slug": "work-package-redistribution",
+  "workstream": "WS-10",
+  "status": "shipped",
+  "plan_marshall_plan_id": "work-package-redistribution",
+  "pr": "#85",
+  "landing": "landings/PLAN-75.md",
+  "seq": 75
+}

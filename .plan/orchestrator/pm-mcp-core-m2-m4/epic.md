@@ -82,6 +82,102 @@ decision or a dependency outside this repository.
 - PLAN-55 — parked: `chat`, added by #46 (2026-10-13), blocked; PLAN-51, PLAN-52 and PLAN-53 now also depend on it.
 - PLAN-46 to PLAN-53 — parked: blocked packages added by #39 to #42 (2026-10-12), specs generated from their package files; re-ground before emitting.
 - PLAN-37 — parked: `blocked` in the index on the operator's tool decision.
+- Corpus reconciled by `cleanup` on 2026-10-16 at 238c823 (documentation 6881b7e), after documentation #81 (the specifications
+  moved here) and pm-mcp-core #79 and #80:
+  - The specifications themselves did not change after the work packages were aligned (#77, 13:20Z); documentation #81 is the
+    counterpart of #77. What had drifted is the snapshot each spec carries of the repository, not the specification.
+  - Re-grounding: 278 verdicts stamped at 238c823 for every claim of the 47 live specs (167 corroborated, 47 unverifiable,
+    64 contradicted and re-scoped in place), 0 blocking, none stale for a live spec. The 95 stale rows left belong to shipped
+    and retired specs, which are frozen. Corrections made: the log-holder counts (3, 54, 3 became 5, 60, 5; 16 specs), the
+    index-row snapshots of dependencies that are done and dropped or were added since (28 specs), the `core.store`/`runtime.start`
+    listings, `core.role` no longer greenfield (PLAN-26, PLAN-34: the `corpus` subpackage of #74 and #80), PLAN-35 and PLAN-37
+    add no log record (test scope), PLAN-50 named `core/profile` for the recipe descriptor (now `core/recipe`), PLAN-40 counted
+    ten developer files (now fifteen).
+  - Expected Surface completed in 20 specs (`claimed_count` 942 to 976, verified by membership of the added paths in `claimed[]`).
+    The new overlaps that matter for `next`: PLAN-69, 70, 71, 72, 65, 43 and 62 share `core.store`, `workflow.ast` and
+    `workflow.plan` (up to 18 shared files per pair) and are sequenced, not paired.
+  - PLAN-23 was the one live spec never regenerated after #77: its body still described the documentation pull request, the row
+    set to `done`, `doc/LogMessages.adoc` in the documentation repository and the dependencies PLAN-06 and PLAN-13. Regenerated.
+  - PLAN-40 — parked (was staged): it has no package file and no index row, and never had one, so the index, the only place that
+    states a package's status, says nothing about it. The work is real (15 developer files exist, 25 packages with production code
+    have none, none of the seven guides of the documentation repository has moved), so it is not retired. It returns to `staged`
+    when a `docs(plans)` change adds `doc/plans/module-developer-docs.adoc` and its row.
+  - Ready by the index: PLAN-14, 15, 20, 23, 64, 65, 69, 70, 72 and 74 (all `open`, depending on nothing). Recommended first:
+    PLAN-64, as before.
+- Distribution of the plans, 2026-10-17 (operator: 8 to 12 deliverables per plan are authorized; the distribution must let at
+  least three plans run in parallel). Measured on 48 live plans / 318 deliverables: 8 plans have 3 or fewer deliverables, 24 have 4
+  to 7, 13 are in the band, 2 are above it (PLAN-48: 21, PLAN-51: 14). The index is 15 waves deep and hub-and-spoke (PLAN-42 is
+  waited on by 11 plans, PLAN-28 by 8, PLAN-26 by 7), and 28 of 47 specs declared `core/store/` as a directory, which made every
+  plan one conflict component. Merging siblings that do not conflict, or merging along a dependency edge, does not help.
+  - PLAN-75 `work-package-redistribution` (WS-10, staged, docs only): merges `project-machine-store` into
+    `operator-and-question-stores`, `lane-route-pruning` into `plan-instance-alignment`, `stalled-scope-detection` into
+    `removed-concepts`, `epic-findings-review` into `epic-decomposition`, and splits `start-from-clients` (21: 9 + 12) and
+    `plan-and-epic-control` (14: 7 + 7). It runs first and alone among the plans of the ten changed packages; PLAN-14, 15, 23, 64,
+    65, 70, 48, 51, 52 and 53 name it in their _Depends on_. Afterwards the orchestrator regenerates the merged specs (surface
+    = union), stages the two new rows and supersedes the four absorbed ones. It shipped as #85 on 2026-10-17 (see "Landing of
+    PLAN-75" below); the regeneration is under way, one merged package at a time.
+  - Class-level Expected Surface for the ten ready plans (drafted by read-only leaves from the code at 238c823, new file names
+    inferred, so every entry is a HYPOTHESIS unless the file exists and is certain). Result: 23 triples and 4 quadruples of the
+    ready plans share no code file (before: one triple, 15/65/74). Real code collisions that remain: the plan-instance cluster
+    (65/69/70 share `PlanInstanceComposer`, `InstancePruner` and fixtures; 65/72 and 69/72 share `InvariantId`, `HeaderSchemaCheckTest`,
+    `WorkflowStatus`), PLAN-64 with 14/20/23, PLAN-20 with PLAN-74 (`RecoveryStep`, `StartupSequence`). PLAN-69 is a repo-wide
+    refactor of `pm-workflow` (85 files, six fixture folders edited in full; its surface had omitted `plan`, `diagram`, `scenario`):
+    run it alone and early, or last in its cluster.
+  - A class-level surface cannot be drafted for the later plans before the earlier ones exist; the plans after wave 1 keep their
+    directory-level surface until they are refined. Rule from now on: before a plan is emitted by `next`, its Expected Surface is
+    sharpened to files from the code at that HEAD.
+- Landing of PLAN-72, 2026-10-17 (`landings/PLAN-72.md`):
+  - PLAN-72 `spend-removal` — shipped as pm-mcp-core #83 (acb5bba, merge queue). All six bullets delivered; the two items in
+    `plan-marshall-documentation` (roadmap check-off, `token-usage` "remaining" statement) are owed to the milestone exit. It declared
+    29 surface entries and touched 18 files; three were not declared (`CompositionRulesTest`, `PlanInstanceComposerTest`,
+    `doc/plans/token-usage.adoc`). No collision with PLAN-74 or PLAN-75 (both rebased on acb5bba, 0 behind). PLAN-61's deliverable 9
+    follows the reworded package file ("was removed by `spend-removal`").
+  - After #83 only PLAN-20 and PLAN-69 have every dependency met; every other staged plan waits for PLAN-75, PLAN-19 or a staged plan.
+    Emitted together on the operator's answers to two overlap prompts (PLAN-20 with PLAN-74: 3 declared files, 1 real; PLAN-20 with
+    PLAN-69: the `core-store` ADR directory and guide). PLAN-69 starts now because the plan-instance cluster (65, 70, 71) cannot
+    start before PLAN-75 lands anyway; while it runs, plans that edit `pm-workflow` wait.
+  - PLAN-75's branch (11 commits, 20:03) names its two splits `start-source-intake` and `epic-resource-and-release`, not the
+    `start-entry-and-screening` and `epic-actions` of the spec, and edits `CompositionEvent.java` (Javadoc) beside the package files.
+    Reconcile both at its landing; the specs of the two new packages take the names the branch used.
+- Landing of PLAN-75, 2026-10-17 (`landings/PLAN-75.md`):
+  - PLAN-75 `work-package-redistribution` — shipped as pm-mcp-core #85 (`c281f6c`). All nine deliverables corroborated from the merged
+    tree: 9 + 12 + 7 + 7 + 6 + 11 + 8 + 12 = 72 bullets, the README holds no deleted name. The two new packages are named
+    `start-source-intake` (12 bullets, from `start-from-clients`) and `epic-resource-and-release` (7, from `plan-and-epic-control`), the
+    names the branch used (refine decision), not `start-entry-and-screening` and `epic-actions`. The plan's sibling PR
+    plan-marshall-documentation #85 re-pointed `roadmap.adoc:233`; the owed corrections in `pm-mcp-clients` and `plan-marshall-mcp` (the
+    packages they name were merged or renamed) are not made: they are listed in the PR body and are the operator's.
+  - Index after #85: `operator-and-question-stores` (6 bullets), `removed-concepts` (8), `plan-instance-alignment` (11) and
+    `unit-frontmatter-and-types` are `open` and depend on nothing; `epic-decomposition` (12) waits for `chat`, `operator-wait-and-machine-scope`
+    and `epic-resource-and-release`; `start-from-clients` (9) waits for `start-source-intake` among others; `epic-resource-and-release` waits
+    for `plan-and-epic-control`. The four absorbed rows are `superseded`: PLAN-15 by PLAN-14 (spec merged), PLAN-23 by PLAN-64, PLAN-65 by
+    PLAN-70, PLAN-52 by PLAN-53. The specs were merged and split the same day and `cleanup` ran (see "Regeneration and cleanup after
+    PLAN-75" below); the two new rows are PLAN-76 `start-source-intake` and PLAN-77 `epic-resource-and-release`.
+  - Emit: PLAN-14 with PLAN-15 merged in (six deliverables, 60 declared surface entries, declarative). Its spec was regenerated from the package
+    file at `c281f6c` and all ten claims re-grounded (`corpus verdicts`: 0 blocking). Operator answered the overlap prompt (5 files shared with
+    PLAN-20 and 6 with PLAN-69, README row included; PLAN-74 the README row only): emit. PLAN-64 (16 files shared with PLAN-20, 6 with PLAN-74)
+    was the other candidate; PLAN-70 shares 15 files with PLAN-69. Both wait.
+  - Candidate lessons `work-package-redistribution-001` to `-008`: seven concern `plan-marshall:*` components and went to plan-marshall's
+    `lessons-routing` inbox (`pm-mcp-core-m2-m4-296` to `-302`). `-006` (a plan that deletes a package file linked from the documentation
+    repository fails the `Links` check until the sibling fix merges) is folded into PLAN-70, the one plan whose package file
+    `roadmap.adoc:233` still links.
+- Regeneration and cleanup after PLAN-75, 2026-10-17 (operator: do all splits and merges, then cleanup, then land):
+  - Merged specs, regenerated from the package files at `c281f6c` with every claim re-grounded and stamped `pm-mcp-core-m2-m4/analyze`:
+    PLAN-14 (+15: 6 deliverables), PLAN-64 (+23: 8), PLAN-70 (+65: 11; it still waits for PLAN-69, the plan-instance cluster), PLAN-53
+    (+52: 12). Rows 15, 23, 52, 65 are `superseded`; their specs stay in `plans/`. Split: PLAN-48 `start-from-clients` (9) and the new
+    PLAN-76 `start-source-intake` (12, `parked`); PLAN-51 `plan-and-epic-control` (7) and the new PLAN-77 `epic-resource-and-release` (7,
+    `parked`). The surfaces of the splits are partitioned by the `Where` lines of the package files (HYPOTHESIS; the `pm-runtime`
+    package for the endpoints is a guess: `web`). Dependents re-pointed to the new rows: PLAN-47, 55, 57, 58, 62, 63.
+  - PLAN-78 `spec-obligation-owners` staged (the amendment of the package files for the obligations of pm-mcp-core #84; its Standing
+    Constraints order the PR with the label `skip-bot-review`).
+  - Re-grounding scope: the verify-first clause of every staged or parked spec was re-checked mechanically against the index and the three
+    open PRs (32 stamped); the index claims of six dependents were rewritten from the rows. The claims about code were NOT re-read: PLAN-72,
+    #84 and #85 changed no code the specs cite beyond `WorkflowStatus*` (named in PLAN-14) and the specification parts, and
+    `corpus verdicts` reports staleness without promoting it (313 stale of 544, 0 blocking). The executing plan re-reads at its branch point.
+  - `corpus surfaces`: 78 specs, 0 indeterminate. `corpus cross-check`: 78 comparable; the only source-origin matches are the four live
+    plans. `compact`: both invariants ok; settled-narrative relocation deferred (it needs the operator's confirmation on a first run).
+    Restart verdict `not_ready`: four plans running, and the registry pins 0.1.1932/0.1.1955 against executor 0.1.1953.
+  - Known gaps: `PLAN-40 module-developer-docs` is parked with no index row (the package row was left behind by its own plan, found
+    by PLAN-75); `corpus-overlay-extensions` has no queue row; `corpus-group-contamination` has none either (PR #86 open).
 
 ## Decisions
 
@@ -510,6 +606,30 @@ decision or a dependency outside this repository.
   rewritten for the one-pull-request flow; the specification parts each package links added to its Expected
   Surface); earlier claims kept. The specs point at package files that reach `main` with #77, so no command is
   emitted before it merges.
+- 2026-10-17 — Rule (operator): a lesson or finding about a component of another repository goes to that repository's
+  `lessons-routing` inbox, and is then archived here. `manage-lessons add` refuses such a lesson in this store (`wrong_store`);
+  the guard is never bypassed with `--allow-foreign-store`. For the `plan-marshall:*` components the inbox is
+  `/home/oliver/git/plan-marshall/.plan/local/worktrees/_orchestrator/.plan/orchestrator/lessons-routing/inbox`; the message is
+  written from that repository with `orchestrator inbox write --slug lessons-routing --sender-type orchestrator --sender-id
+  pm-mcp-core-m2-m4 --kind candidate-lesson --payload-file {body}`, the body verbatim. First use: the nine candidate lessons of
+  PLAN-72 (`spend-removal-001` to `-009`: provider URL error, finalize refire after a fix commit, outline criterion on the PR body,
+  executor version skew, removal tests that pass on the old code, sweep criteria over resource trees, worktree-relative commands,
+  task completed before its verification, persona skills against `CLAUDE.md`) are queued there as `pm-mcp-core-m2-m4-287` to
+  `-295`, uncommitted in that ledger worktree until its `land`. Second use, 2026-10-17: seven of the eight candidate lessons of
+  PLAN-75 (`pm-mcp-core-m2-m4-296` to `-302`).
+- 2026-10-17 — After the landing of PLAN-75 the merged packages are regenerated one at a time, the emitted one first: the spec of
+  PLAN-14 now carries the six deliverables of `operator-and-question-stores` and the former `project-machine-store`, its surface is
+  the union of both specs minus the deleted package file, and PLAN-15 is `superseded`. Rationale for not regenerating all six pairs
+  in the act of `analyze`: a spec that no one emits is re-grounded by `cleanup` anyway, and `cleanup` also owes the surface check
+  for pm-mcp-core #84. Consequence: the three other absorbed rows (PLAN-23, 52, 65) are `superseded` at once, because `next` walks the
+  staged rows by the sequencing notes of their specs, which name only PLAN-75 (shipped) and would have let it emit a package whose file no
+  longer exists. Their specs stay in `plans/` as the source of the merge. The survivors PLAN-64, 70 and 53 absorbed the deliverables
+  (PLAN-23: 1, PLAN-65: 5, PLAN-52: 6) later the same day, at the operator's order to do all splits and merges.
+- 2026-10-17 — Operator, overlap prompt of the `next` after PLAN-75: emit PLAN-14 (with PLAN-15 merged in) into the one free slot,
+  with 5 declared files shared with PLAN-20 and 6 with PLAN-69 (the README row counted in each). Accepted on the terms written into
+  the spec: next free ADR number of `core-store` at commit and after each rebase (029 and 030 are already claimed), the guide extended
+  in a section of its own, and the typed `waiver_requests[]` member on `WorkflowStatus` decided at refine (the raw reading leaves the
+  three shared `WorkflowStatus*` files untouched).
 
 ## Open Defects
 
@@ -549,6 +669,38 @@ decision or a dependency outside this repository.
 - `AsciiDocValidator` treats `!===` as the nested-table delimiter; CodeRabbit named `!==`. Neither
   was checked against the AsciiDoc documentation. If `!==` is valid, such a nested table is read
   as ordinary text — source: landing PLAN-02 and lesson 2026-10-10-07-010.
+- **`corpus-overlay-extensions` outlived its implementation.** pm-mcp-core #80 (238c823) implemented the package (HTTPS fetch for
+  `huggingface`, several items per row, `answer_schema`; `HuggingFaceSourceRepository`, ADR `core-role-corpus/006`), but
+  `doc/plans/corpus-overlay-extensions.adoc` and its row in `doc/plans/README.adoc` are still there, although a plan's pull
+  request removes both. It has no queue row. Its Done When asks for one import of the three sources against `huggingface.co`,
+  run by hand and recorded in the pull request; whether #80 recorded it was not verified. A small `docs(plans)` change in
+  pm-mcp-core removes file and row once that is confirmed — source: cleanup of 2026-10-16.
+- **Watch link of `doc/plans/stalled-scope-detection.adoc`.** The package file links the watch `Runtime Model` of the documentation
+  repository, which holds no stalled item; the items PM-WATCH-RUN-2 and PM-WATCH-RUN-8 are in
+  `doc/implementation-watch/runtime-lifecycle.adoc` here. PLAN-23 names the right file; the package file is owed a one-line fix
+  — source: cleanup of 2026-10-16.
+- **`doc/Traceability.adoc` cites two tests that do not prove the spend removal.** Lines 247 and 248 list `CompositionRulesTest`
+  and `PlanInstanceComposerTest` under PM-WF-14 "Verified by (no spend limit)", although #83 only renamed a gate name in their
+  fixtures. Two entries to remove: the advisory code-review finding PLAN-72 left open (verified on acb5bba). Fold it into the next
+  plan that edits the PM-WF-14 block (PLAN-61 `token-usage` implements PM-WF-14) or into a one-line `docs` change — source:
+  landing PLAN-72.
+- **New specification obligations that no package file owns (pm-mcp-core #84, merged `5197490`; documentation #84, merged). Operator
+  said yes on 2026-10-17: staged as PLAN-78 `spec-obligation-owners`, docs only, ready, not yet emitted (no free slot).** The change adds
+  to the engine specifications: the worker egress proxy and macOS (Seatbelt) confinement (`job-runtime/02`); the launcher staying
+  as the job's process with descendants ended (step 3a) and the refusal reason `harness_update_unverified` (`job-runtime/01`,
+  `store-schemas/10`); update evidence, `endpoints`, `extension_isolation` and the `egress` and `isolation` profile stages
+  (`client-profiles/01`); the writing skill, the byte-identical shared launch prefix and harness-extension isolation
+  (`model-work/04`); the `agent_started` signal (`model-work/03`, `store-schemas/16`, `timeouts/01`); navigation figures
+  (`model-work/09`); the comparison footprint (`workflow-dsl/07`); the upgrade checked against the build attestation
+  (`runtime-lifecycle/01`). Only `runtime-control.adoc` was amended. A search of `doc/plans/` finds none of `egress`, update
+  evidence, `agent_started`, navigation figures, the writing skill or the attestation in any other package file. Likely owners:
+  `job-confinement-and-environment` (27: Seatbelt and egress, probably the largest growth, may need a split to stay within 12
+  deliverables), `profile-loader` (19), `worker-launch` (29), `supervisor` (30) with `worker-activity` (66) and
+  `task-queue-and-protocol` (28), `token-usage` (61), `role-qualification` (34) with `differential-test-harness` (37). The git
+  identity check of PM-WATCH-GEN-59 (documentation watch, PM-EXEC-5) has no owner either (27 and 49 cite PM-EXEC-5). For the
+  operator: one `docs(plans)` change that adds the obligations to those package files; then `cleanup` regenerates the specs.
+  Without it the specs of these plans are regenerated from package files that omit the new scope — source: analysis of
+  2026-10-17.
 
 
 ## Watches
@@ -610,8 +762,52 @@ decision or a dependency outside this repository.
 > ↪ Relocated to `settled.md` § "Watch: code-analysis-base at decompose" — it joined as PLAN-36 and shipped as #31
 > ↪ Relocated to `settled.md` § "Watch: the two files nearly every package edits" — settled by the per-workstream identifier block decision of 2026-10-09
 - About eleven packages land in `pm-core` package `core.store` — re-check at each pairing decision.
+- Design choices that change the file set and are therefore for the operator at refine, found by the cleanup of 2026-10-16: PLAN-14
+  (the home of the question store: `core.store`, `runtime` per the Javadoc of `QuestionRecordReader`, or `workflow.question` per the
+  module structure) and PLAN-19 (where the HMAC sidecar is verified: the HMAC and key code exists only in `pm-runtime`, which
+  `pm-core` cannot depend on, yet the surface lists only `core/profile`).
+- The local checkout of `plan-marshall-mcp` is five commits behind `origin/main` (#78 to #83, among them the split of
+  `question-corpus-public-datasets`); the links of `corpus-overlay-extensions` and `question-continuation` into its `doc/plans/`
+  resolve on `origin/main` but not in the stale checkout.
 - Cross-repository blockers: `profile-loader` waits on `pm-mcp-clients` / `profile-documents`;
   `job-confinement-and-environment` waits on `pm-mcp-clients` / `exec-read-denied-paths` —
   re-check when those merge and their `SNAPSHOT` is deployed.
 - `differential-test-harness` is `blocked` on an operator tool decision (a Python interpreter in
   the test environment and a `plan-marshall` checkout at the pinned inventory commit).
+- Owed to the milestone exit by PLAN-72 (listed in the body of #83): in `plan-marshall-documentation`, the roadmap item of the
+  spend removal checked off, and the removal no longer stated as remaining in the roadmap item of `token-usage`. Retire when
+  the Milestone 3 exit batch is written.
+- The executor of this checkout pins plugin 0.1.1916 while 0.1.1947 is installed and the registry pins 0.1.1932/0.1.1947. PLAN-72's
+  run met `unknown_verb` for `git-workflow commit` and `manage-solution-outline deliverable-hashes` and committed with plain `git`
+  (lesson forwarded to plan-marshall). The same skew keeps the restart verdict `indeterminate`. Regenerate the executor before the
+  next plan starts; PLAN-20 and PLAN-69 inherit the pin otherwise.
+- The check command of `CLAUDE.md` (`../plan-marshall-documentation/…`) does not resolve inside a plan worktree, three
+  directories deeper: PLAN-72's functional review graded the link criteria on indirect evidence until the command was run by hand.
+  The Standing Constraints of PLAN-20 and PLAN-69 now carry the absolute-path command; add the same bullet to every other spec
+  when it is emitted, or change `CLAUDE.md` (operator's call).
+- The run of PLAN-72 cost about 3.9M tokens against a budget of 2.5M for its plan class; 41% fell in finalize, caused by one
+  operator-requested fix commit that re-fired both reviews, the gates, CI, the bot and Sonar. Plan-reported, not re-measured. Fix
+  advisory findings in the same commit as the reviewed change, or accept them for a follow-up, to avoid a second full finalize.
+- Documentation #82, #83, #84 and pm-mcp-core #84 (analysed 2026-10-17; the local documentation checkout was pulled to 595a525):
+  - #82 (use cases) and #83 (requirements and specifications aligned): no plan scope changes. The companion engine change is
+    pm-mcp-core #82 (28d04ef), already on `main`, where the plan files differ only in link labels ("CLI, Coordination & Security" is
+    now "Credentials & Enrolment", "Runtime Model" is "Runtime Lifecycle"); the specs of PLAN-45, 46, 48, 49, 51, 60 and 64 carry the old
+    labels, which regeneration corrects. Small semantic edits: PM-ARCH-1 (`pm-operator` reads `language.interface` from
+    `machine-config.json` while no runtime answers; PLAN-26, 63, 74 mention that file), PM-WF-19 (the decision store of a
+    pending entry before its scope exists, moving into the scope at creation; PLAN-47 and PLAN-48), PM-WF-1 (the workspace scope
+    rests in `project.completed`, `setup.completed` is the sub-workflow's terminal; PLAN-45). The roadmap changed labels only.
+  - #84 (articles, non-functional findings) changes requirements PM-SKILL-1/2/4, PM-SEC-5, PM-CLIENT-2, PM-EXEC-1/5, PM-DIST-1, PM-SVC-2,
+    PM-WORK-6/7, PM-WF-14, PM-TEST-6. Its engine counterpart, pm-mcp-core #84, MERGED on 2026-10-17 (`5197490`), so `corpus verdicts` now
+    reports 379 stale claims (every spec declares the README row, which every merge touches; staleness is reported, never promoted). It touches 16 files, among them parts
+    declared by PLAN-19, 20, 26, 27, 28, 29, 30, 34, 35, 45, 46, 48, 49, 51, 58, 59, 60, 61, 63, 64, 66, 73 and 74. A trial merge
+    (`git merge-tree`) with the branches of PLAN-74 and PLAN-75 shows no conflict.
+  - Running plans: PLAN-20 (job runner, plan `plan-20-job-runner`) is the one concerned. Its package covers termination and the
+    outcome table; #84 adds termination step 3a (launcher stays as job process, subreaper), the refusal reason
+    `harness_update_unverified` and the `agent_started` signal's process-tree basis. The launcher itself is `pm-exec` in
+    `pm-mcp-clients`. PLAN-20 works from a worktree cut before #84; at the landing of PLAN-75 it was already in `5-execute`
+    (3 commits, 2 behind `main`), so #84 merged AFTER its outline: the plan has not read the new termination step 3a, the refusal reason
+    or the signal unless it is told. Not sent: the operator's word is owed (heads-up to `plan-20-job-runner`'s mailbox).
+    PLAN-74 shares two lines of `store-schemas/11` and `/12` with #84 (a digest description and the self-update paragraph); no
+    conflict. PLAN-69 and PLAN-75 (PR #85) are not concerned.
+  - After pm-mcp-core #84 merges: run `cleanup` (it flags every spec whose declared surface moved), then hand-check the owners
+    named in the Open Defect "New specification obligations that no package file owns".
