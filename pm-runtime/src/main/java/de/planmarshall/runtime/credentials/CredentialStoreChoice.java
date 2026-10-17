@@ -70,8 +70,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * lives in: the active store once a store is recorded, and before that the store the runtime finds, the OS store where
  * one is available, else the file store, for which the key is the key file below {@code state/}. That store is found
  * once per instance and kept, so a transient outage of the OS store never moves the key to another store. The first
- * recording of the other store carries the key into it before the switch, so once a store is recorded it holds the key
- * every sidecar was signed under.
+ * recording of the other store carries the key into it before the switch, so the recorded store holds the key every
+ * sidecar was signed under where that key was created in the store this instance found. The carry looks at that store
+ * only: where the key was created in the other store, a key file written while the OS store was unavailable, say, and
+ * this instance found the OS store, the first recording carries nothing, a limitation of the discovery before the
+ * choice.
  *
  * @since 0.1
  */

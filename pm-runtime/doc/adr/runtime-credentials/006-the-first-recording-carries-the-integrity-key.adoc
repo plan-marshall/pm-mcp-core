@@ -31,8 +31,12 @@ it in the work package.
   read back, every HMAC sidecar verified under the key read back in a transaction of its own (`EnrolmentSidecars`),
   `credentials.store` switched in one write, and only then the key deleted from the found store.
 * A target that holds the same key already is not written again. A target that holds another key, a key that does not
-  read back, or a sidecar that does not verify fails with `credential_store_failed`: nothing is recorded, the copy is
-  removed from the target and the found store keeps the key. Where no key exists yet nothing is carried.
+  read back, or a sidecar that does not verify fails with `credential_store_failed`, a store that fails while the key
+  is read or written with its own reason: nothing is recorded, the copy is removed from the target and the found store
+  keeps the key. Where no key exists yet nothing is carried.
+* The aspect records a store the first time only. Once a store is recorded, a change of the recorded store is a move
+  (ADR 004): the aspect is refused for the other store with `aspect_owned` and writes nothing, and the recorded store
+  again is a no-op that writes, carries and deletes nothing.
 * The copy, read-back and sidecar verification the move and the first recording share are `IntegrityKeyCarry`.
 
 The decision is the operator's, taken at the finalize of the work package.
@@ -46,12 +50,19 @@ The decision is the operator's, taken at the finalize of the work package.
 
 == Consequences
 
-* Once a store is recorded it holds the key every sidecar was signed under, and no second key is created there.
+* Once a store is recorded it holds the key every sidecar was signed under where that key was created in the store the
+  recording instance found, and no second key is created there. The carry looks only at the store that instance found
+  before the choice, once per instance: where a later instance finds another store than the one the key was created
+  in, for example the key file created while the OS store was unavailable and the OS store found by the instance that
+  records `os`, the first recording carries nothing. That is a limitation of the discovery before the choice, not one
+  the recording causes.
+* A later change of the store keeps the key with the entries, since only the move changes a recorded store.
 * The lock order of the move holds for the first recording: credentials, then, in the transaction of the
   verification, the enrolment locks, `harnesses` and the audit leaf, then `machine-config` in the recording's
   transaction.
-* A key that cannot be deleted from the found store after the switch fails the call with the reason of that store; the
-  recording stands, and the key is in both stores.
+* A key that cannot be deleted from the found store after the switch fails the call with the reason of that store and
+  a message that the recording stands and the key is in both stores. No later call retries the deletion, since the
+  aspect for the recorded store carries nothing; the operator deletes the key from the found store by hand.
 
 == Source
 

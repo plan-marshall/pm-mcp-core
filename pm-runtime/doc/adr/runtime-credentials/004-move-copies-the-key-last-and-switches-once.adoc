@@ -56,6 +56,10 @@ Rationale not recorded beyond the order the specification gives and the stop tha
 * No credential is written while a move runs; a writer waits for the credentials lock.
 * No store is recorded while a move record exists, also after a stop until the resume ends the move; the aspect is
   refused with `aspect_owned` until then.
+* The move is the only change of a recorded store: the aspect records a store the first time only, and with a store
+  recorded it is refused with `aspect_owned` for the other store, also after the move ended, and is a no-op for the
+  recorded one (ADR 006). An aspect that waited for the credentials lock of a running move therefore never writes over
+  the move's switch.
 * `resume()` decides on the phase of the record and the recorded store: `copying` with the old store recorded starts
   again from the first entry; `switched`, or `copying` with the target recorded, finishes the deletion.
 * A later change keeps the lock order: credentials before the enrolment locks, `harnesses` and `machine-config`.
