@@ -6,7 +6,9 @@ modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 14
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 16
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 19
+# expect: INTERFACE_CALLED_UNIT state verify.entry line 16
 workflow verify.subworkflow-callee-scope version 1 format 1
 scope plan
 start verify.entry

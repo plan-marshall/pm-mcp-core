@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.JournalScopeType;
@@ -52,6 +53,9 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.engine.EngineFixtures.StepOutcome;
+import de.planmarshall.workflow.verify.VerificationRule;
+import de.planmarshall.workflow.verify.Violation;
+import de.planmarshall.workflow.verify.WorkflowCatalog;
 
 /**
  * Sub-workflow calls (PM-WF-16): a call pushes a frame with its bound arguments and {@code pushed_at}, the callee's
@@ -262,6 +266,23 @@ class SubWorkflowExecutionTest {
                 """.formatted(callLine)), parse("two.pmwf", SUB_TWO_ENTRIES));
     }
 
+    /**
+     * An engine over a plan whose state {@code execute.invoke} calls {@code sub.two} with the given call line, verified
+     * against {@code verifiedCallee} while its catalog holds {@link #SUB_TWO_ENTRIES}.
+     */
+    private WorkflowEngine catalogEngine(String callLine, WorkflowDefinition verifiedCallee) {
+        var plan = callingPlan("execute.invoke", """
+                state execute.invoke
+                    phase execute
+                    %s
+                        done -> completed
+                        stepped_out -> plan.return
+                """.formatted(callLine));
+        return new WorkflowEngine(plan, WorkflowCatalog.of(parse("two.pmwf", SUB_TWO_ENTRIES)),
+                fixtures.validator(verifiedCallee), fixtures.registry(),
+                (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+    }
+
     static Stream<Arguments> namedEntries() {
         return Stream.of(Arguments.of("review", "two.review"), Arguments.of("repair", "two.repair"));
     }
@@ -387,10 +408,28 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals("main", resting.status().callStack().getFirst().entry()));
         }
 
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"call sub.two", "call sub.two entry recheck"})
+        @DisplayName("Should refuse a caller whose call names no entry of several or an entry the callee lacks")
+        void shouldRefuseCallerWithoutDeclaredEntry(String callLine) {
+            var unverified = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
+                    () -> twoEntriesEngine(callLine));
+
+            assertEquals(List.of(VerificationRule.INTERFACE_CALL_ENTRY), unverified.verification().violations()
+                    .stream().map(Violation::rule).toList());
+        }
+
+        /*
+         * A verified caller names an entry its callee declares, so the engine meets a call without an entry of several,
+         * or through an entry the callee does not bind, only when its catalog holds another callee than the one the
+         * verifier checked the caller against; it then fails instead of guessing a state.
+         */
         @Test
-        @DisplayName("Should fault on a call that names no entry of a callee with several entries")
+        @DisplayName("Should fault on a call that names no entry of a catalog callee with several entries")
         void shouldFaultOnMissingEntryOfSeveral() {
-            var engine = twoEntriesEngine("call sub.two");
+            var verifiedCallee = parse("two.pmwf", SUB_TWO_ENTRIES
+                    .replace("entry: repair\nentry_description: The review rejected the change.\n", ""));
+            var engine = catalogEngine("call sub.two", verifiedCallee);
 
             var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
 
@@ -398,9 +437,12 @@ class SubWorkflowExecutionTest {
         }
 
         @Test
-        @DisplayName("Should fault on a call through an entry the callee does not bind")
+        @DisplayName("Should fault on a call through an entry the catalog callee does not bind")
         void shouldFaultOnUnboundEntry() {
-            var engine = twoEntriesEngine("call sub.two entry recheck");
+            var verifiedCallee = parse("two.pmwf", SUB_TWO_ENTRIES
+                    .replace("entry_description: The review rejected the change.\n",
+                            "entry_description: The review rejected the change.\nentry: recheck\n"));
+            var engine = catalogEngine("call sub.two entry recheck", verifiedCallee);
 
             var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
 

@@ -172,6 +172,12 @@ final class TestPrimitives {
      */
     static final String MIXED_CALLERS = "verify.model-job-lost-mixed-callers";
 
+    /** A sub-workflow with the two entries {@code review} and {@code repair}, so a call names one of them. */
+    static final String TWO_ENTRIES = "test.two-entries";
+
+    /** A unit of the type {@code task} and the scope {@code subworkflow}, which declares no entry. */
+    static final String TASK_UNIT = "test.task-unit";
+
     private TestPrimitives() {
     }
 
@@ -226,7 +232,8 @@ final class TestPrimitives {
      *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, the workspace unit {@link #WORKSPACE_UNIT}, and the
      *         caller chains of Rule 2's {@code lost} omission: the plan unit {@link #PLAN_CALLER} calling
      *         {@link #PLAN_ONLY_OUTER}, which calls {@link #PLAN_ONLY_INNER}, and {@link #MIXED_CALLERS}, which
-     *         {@link #EPIC_CALLER} calls as well
+     *         {@link #EPIC_CALLER} calls as well, the sub-workflow {@link #TWO_ENTRIES} with two entries and the
+     *         entry-less {@link #TASK_UNIT}
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
@@ -424,7 +431,70 @@ final class TestPrimitives {
                 """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
                 remediation, entity, linksInner, linksOuter, workspaceUnit, planCaller(), epicCaller(),
-                planOnlyOuter(), planOnlyInner()));
+                planOnlyOuter(), planOnlyInner(), twoEntries(), taskUnit()));
+    }
+
+    /** The sub-workflow {@link #TWO_ENTRIES}: the entries {@code review} and {@code repair}, the exit {@code done}. */
+    private static WorkflowDefinition twoEntries() {
+        return VerifyFixtures.parseSource("test.two-entries.pmwf", """
+                ---
+                name: test.two-entries
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: review
+                entry: repair
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow test.two-entries version 1 format 1
+                scope subworkflow
+                entry review -> two.review
+                entry repair -> two.repair
+
+                state two.review
+                    phase inherit
+                    auto test.prepare
+                        done -> two.done
+                        skipped -> two.stepped-out
+
+                state two.repair
+                    phase inherit
+                    auto test.prepare
+                        done -> two.done
+                        skipped -> two.stepped-out
+
+                state two.done terminal done success
+                    phase inherit
+
+                state two.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """);
+    }
+
+    /**
+     * The unit {@link #TASK_UNIT} of the type {@code task} and the scope {@code subworkflow}: it starts without an
+     * entry and returns through the exit {@code done}, so no call may name it (interface rule 3).
+     */
+    private static WorkflowDefinition taskUnit() {
+        return VerifyFixtures.parseSource("test.task-unit.pmwf", """
+                ---
+                name: test.task-unit
+                description: A unit written for the tests of pm-workflow.
+                type: task
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow test.task-unit version 1 format 1
+                scope subworkflow
+                start task.done
+
+                state task.done terminal done success
+                    phase inherit
+                """);
     }
 
     /** The plan unit {@link #PLAN_CALLER}: it calls {@link #PLAN_ONLY_OUTER}, then {@link #MIXED_CALLERS}. */

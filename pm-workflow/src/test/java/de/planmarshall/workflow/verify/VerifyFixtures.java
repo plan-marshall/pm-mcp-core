@@ -47,7 +47,11 @@ final class VerifyFixtures {
     private static final String FRONTMATTER_DELIMITER = "---";
 
     private static final Pattern EXPECTATION =
-            Pattern.compile("^#\\s*expect:\\s*([A-Z_]+)\\s+state\\s+(\\S+)\\s+line\\s+(\\d+)\\s*$");
+            Pattern.compile("^#\\s*expect:\\s*([A-Z_]+)\\s+state\\s+(\\S+)\\s+line\\s+(\\d+)(?:\\s+column\\s+(\\d+))?\\s*$");
+
+    /** The outcome a terminal state declaration reports: {@code state <id> terminal <outcome> <class>}. */
+    private static final Pattern TERMINAL_OUTCOME =
+            Pattern.compile("^\\s*state\\s+\\S+\\s+terminal\\s+(\\S+)\\s", Pattern.MULTILINE);
 
     private VerifyFixtures() {
     }
@@ -90,10 +94,10 @@ final class VerifyFixtures {
 
     /**
      * Reads the expected violations of a refusing fixture: one comment line
-     * {@code # expect: <RULE> state <state id> line <line>} per violation, in the order the verifier reports them.
-     * The expectation lines open the body, directly below the closing {@code ---} of the frontmatter, where a comment
-     * is admitted; the first line that is not one ends them. The line of an expectation counts the lines of the
-     * frontmatter.
+     * {@code # expect: <RULE> state <state id> line <line>}, optionally followed by {@code column <column>}, per
+     * violation, in the order the verifier reports them. The expectation lines open the body, directly below the
+     * closing {@code ---} of the frontmatter, where a comment is admitted; the first line that is not one ends them.
+     * The line of an expectation counts the lines of the frontmatter.
      *
      * @param resource the classpath resource of a refusing fixture
      * @return the expected violations, each located in the fixture; empty when the fixture states none
@@ -106,8 +110,9 @@ final class VerifyFixtures {
             if (!matcher.matches()) {
                 break;
             }
+            var column = matcher.group(4) == null ? Expectation.UNSTATED : Integer.parseInt(matcher.group(4));
             expectations.add(new Expectation(VerificationRule.valueOf(matcher.group(1)), matcher.group(2), resource,
-                    Integer.parseInt(matcher.group(3))));
+                    Integer.parseInt(matcher.group(3)), column));
         }
         return List.copyOf(expectations);
     }
@@ -127,7 +132,8 @@ final class VerifyFixtures {
 
     /**
      * Asserts that a refusing fixture is refused with exactly the violations its {@code # expect:} lines state: the
-     * same rules, states, resource and lines, in the same order, and no other violation.
+     * same rules, states, resource and lines, the columns where an expectation states one, in the same order, and no
+     * other violation.
      *
      * @param resource the classpath resource of a refusing fixture
      * @param found    the violations the verifier reported for it
@@ -135,7 +141,13 @@ final class VerifyFixtures {
     static void assertRefusedExactly(String resource, List<Violation> found) {
         var expected = expectations(resource);
         assertFalse(expected.isEmpty(), () -> resource + " states no expectation");
-        assertEquals(expected, found.stream().map(Expectation::of).toList(), () -> resource + " reported " + found);
+        var reported = new ArrayList<Expectation>();
+        for (var index = 0; index < found.size(); index++) {
+            var violation = Expectation.of(found.get(index));
+            var columnStated = index < expected.size() && expected.get(index).column() != Expectation.UNSTATED;
+            reported.add(columnStated ? violation : violation.withoutColumn());
+        }
+        assertEquals(expected, reported, () -> resource + " reported " + found);
     }
 
     /**
@@ -145,12 +157,20 @@ final class VerifyFixtures {
      * @param stateId      the state it names
      * @param resourceName the fixture it is located in
      * @param line         the line it is located at
+     * @param column       the column it is located at, {@link #UNSTATED} when the fixture does not state it
      */
-    record Expectation(VerificationRule rule, String stateId, String resourceName, int line) {
+    record Expectation(VerificationRule rule, String stateId, String resourceName, int line, int column) {
+
+        /** The column of an expectation that states none. */
+        static final int UNSTATED = 0;
 
         static Expectation of(Violation violation) {
             return new Expectation(violation.rule(), violation.stateId(), violation.location().resourceName(),
-                    violation.location().line());
+                    violation.location().line(), violation.location().column());
+        }
+
+        Expectation withoutColumn() {
+            return new Expectation(rule, stateId, resourceName, line, UNSTATED);
         }
     }
 
@@ -177,6 +197,52 @@ final class VerifyFixtures {
                 author: plan-marshall
                 ---
                 """.formatted(type.wireName());
+    }
+
+    /**
+     * A unit the verifier tests write inline, starting at the state {@code verify.entry}. A unit of the scope
+     * {@code subworkflow} is a called unit of the type {@code subworkflow}: it declares the one entry {@code main},
+     * bound to {@code verify.entry}, and as its exits the outcomes of its terminal states, {@code stepped_out} aside
+     * (interface rules 1 to 3). A unit of any other scope declares no entry and no exit and starts at
+     * {@code verify.entry}, of the type {@link #frontmatter(String)} assigns to its scope.
+     *
+     * @param id     the id of the unit
+     * @param scope  the keyword of the unit's scope
+     * @param states the states of the unit
+     * @return the text of the unit
+     */
+    static String inlineUnit(String id, String scope, String states) {
+        if (!"subworkflow".equals(scope)) {
+            return frontmatter(scope) + """
+                    workflow %s version 1 format 1
+                    scope %s
+                    start verify.entry
+
+                    %s""".formatted(id, scope, states);
+        }
+        var exits = new StringBuilder();
+        var terminal = TERMINAL_OUTCOME.matcher(states);
+        while (terminal.find()) {
+            var exit = "exit: " + terminal.group(1) + "\n";
+            if (!"stepped_out".equals(terminal.group(1)) && exits.indexOf(exit) < 0) {
+                exits.append(exit);
+            }
+        }
+        return """
+                ---
+                name: Inline unit
+                description: A unit written for the verifier tests.
+                type: subworkflow
+                entry: main
+                %smodification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow %s version 1 format 1
+                scope subworkflow
+                entry main -> verify.entry
+
+                %s""".formatted(exits, id, states);
     }
 
     /**

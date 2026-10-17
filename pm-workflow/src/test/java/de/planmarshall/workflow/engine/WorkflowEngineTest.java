@@ -545,7 +545,8 @@ class WorkflowEngineTest {
         @DisplayName("Should fail with undeclared_outcome when the catalog's callee returns an outcome the caller lacks")
         void shouldFaultOnOutcomeOutsideVerifiedContract() {
             var verifiedCallee = parse("sub.pmwf", SUB_COMMIT);
-            var catalogCallee = parse("sub.pmwf", SUB_COMMIT.replace("terminal done success", "terminal pushed success"));
+            var catalogCallee = parse("sub.pmwf", SUB_COMMIT.replace("terminal done success", "terminal pushed success")
+                    .replace("exit: done", "exit: pushed"));
             var engine = new WorkflowEngine(callingPlan("execute.commit", CALL_COMMIT),
                     WorkflowCatalog.of(catalogCallee), fixtures.validator(verifiedCallee), fixtures.registry(),
                     (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());

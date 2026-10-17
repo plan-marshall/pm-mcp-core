@@ -41,7 +41,7 @@ public enum VerificationRule {
     STATE_ID_UNIQUE(3),
     /** The start state and every transition target exist in the unit's states. */
     STATE_EXISTS(3),
-    /** Every state is reachable from the start state. */
+    /** Every state is reachable from the start state or from at least one entry (interface rule 4). */
     REACHABILITY(3),
     /** {@code plan.aborted} is never targeted, and {@code epic.aborted} only by {@code abort_landed} of {@code epic.next-work}. */
     ABORT_TERMINAL_TARGETING(3),
@@ -51,12 +51,39 @@ public enum VerificationRule {
     EXIT_PATH(3),
     /** The link identifiers of a state are unique, the implicit links included. */
     LINK_ID_UNIQUE(3),
+    /**
+     * Interface rule 1, a starting point or entries: a unit whose frontmatter declares entries declares no start
+     * state, binds every declared entry, and binds no name its frontmatter does not declare. That a bound state exists
+     * is {@link #STATE_EXISTS}; a start beside an entry line and an entry bound twice the parser refuses.
+     */
+    INTERFACE_START_OR_ENTRIES(3),
+    /**
+     * Interface rule 2, stop points or exits: a unit without exits declares a terminal (the resident workspace unit
+     * excepted); in a unit with exits every terminal's outcome is an exit, or {@code stepped_out} on a terminal of that
+     * class, and every exit is the outcome of a terminal; a landing variant declares no exit and no terminal.
+     */
+    INTERFACE_STOP_POINTS_OR_EXITS(3),
+    /** Interface rule 4: every exit of a unit with entries is reached from at least one of its entries. */
+    INTERFACE_EXIT_REACHED(3),
     /** Worker units contain no model jobs, and consultation tasks offer no consult links. */
     LEAF_TASK_CONSTRAINT(4),
     /** Every released state name is a state, or is migrated directly to a state. */
     RELEASED_STATE(5),
     /** Sub-workflow exit contracts, parameter bindings, phase inherit, and guided step-in skills. */
     SUBWORKFLOW_CALL_CONTRACT(6),
+    /**
+     * Interface rule 3, called units return: a unit with entries declares an exit (a landing variant excepted), and
+     * only a unit with entries is the target of a {@code call}.
+     */
+    INTERFACE_CALLED_UNIT(6),
+    /**
+     * Interface rule 5, a call names its entry: the entry a call names is one its callee declares, and a call omits it
+     * only for a callee with exactly one entry. That the call routes every exit of the callee is
+     * {@link #SUBWORKFLOW_CALL_CONTRACT}.
+     */
+    INTERFACE_CALL_ENTRY(6),
+    /** Interface rule 6, the type fits: the scope and the presence of entries and exits match the row of the type. */
+    TYPE_FITS(6),
     /** The static call graph forms an acyclic DAG with maximum depth at most 4. */
     CALL_GRAPH_DAG(7),
     /** Every path to a guard or state with required artifacts passes a producer state. */

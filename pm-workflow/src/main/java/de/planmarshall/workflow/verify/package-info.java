@@ -13,8 +13,11 @@
  * <li><b>Static verifier</b>: {@link de.planmarshall.workflow.verify.WorkflowValidator} checks one parsed
  * {@link de.planmarshall.workflow.ast.WorkflowDefinition} against the registered primitives and the released state
  * names its caller passes: primitive binding and parameter equivalence, outcome coverage, reachability, exit paths,
- * unique link identifiers and released states. The checks are the constants of
- * {@link de.planmarshall.workflow.verify.VerificationRule}, the only source of the rule vocabulary.</li>
+ * unique link identifiers and released states, the interface rules (a starting point or entries, stop points or
+ * exits, called units return, every exit reached from an entry, a call names its entry), which compare the unit with
+ * the entries and exits its frontmatter declares, and the type check, which compares its scope and interface with the
+ * row of its type. The call contract reads the exits the callee declares, not its terminals. The checks are the
+ * constants of {@link de.planmarshall.workflow.verify.VerificationRule}, the only source of the rule vocabulary.</li>
  * <li><b>Result</b>: {@link de.planmarshall.workflow.verify.VerificationResult} lists every
  * {@link de.planmarshall.workflow.verify.Violation}, each naming its rule, its state and the source location of the
  * offending node. A violation is a value, never an exception, and no check stops at the first one.</li>

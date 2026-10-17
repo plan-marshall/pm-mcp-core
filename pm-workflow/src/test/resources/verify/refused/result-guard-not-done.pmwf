@@ -2,15 +2,16 @@
 name: verify.result-guard-not-done
 description: A unit written for the verifier tests.
 type: subworkflow
+entry: main
 exit: done
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 19
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 20
 workflow verify.result-guard-not-done version 1 format 1
 scope subworkflow
-start verify.entry
+entry main -> verify.entry
 
 state verify.entry
     phase inherit

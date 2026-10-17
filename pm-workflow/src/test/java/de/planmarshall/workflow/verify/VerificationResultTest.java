@@ -63,9 +63,15 @@ class VerificationResultTest {
                 Map.entry(VerificationRule.TARGET_NOT_RESERVED, 3),
                 Map.entry(VerificationRule.EXIT_PATH, 3),
                 Map.entry(VerificationRule.LINK_ID_UNIQUE, 3),
+                Map.entry(VerificationRule.INTERFACE_START_OR_ENTRIES, 3),
+                Map.entry(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, 3),
+                Map.entry(VerificationRule.INTERFACE_EXIT_REACHED, 3),
                 Map.entry(VerificationRule.LEAF_TASK_CONSTRAINT, 4),
                 Map.entry(VerificationRule.RELEASED_STATE, 5),
                 Map.entry(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, 6),
+                Map.entry(VerificationRule.INTERFACE_CALLED_UNIT, 6),
+                Map.entry(VerificationRule.INTERFACE_CALL_ENTRY, 6),
+                Map.entry(VerificationRule.TYPE_FITS, 6),
                 Map.entry(VerificationRule.CALL_GRAPH_DAG, 7),
                 Map.entry(VerificationRule.GATE_PRODUCER_COVERAGE, 8),
                 Map.entry(VerificationRule.STEP_COMPLETION, 9),
@@ -132,6 +138,7 @@ class VerificationResultTest {
                 name: verify.ordering-state
                 description: A unit written for the tests of pm-workflow.
                 type: subworkflow
+                entry: main
                 exit: done
                 modification_date: 2026-01-15
                 version: 0.1.0
@@ -140,7 +147,7 @@ class VerificationResultTest {
                 workflow verify.ordering-state version 1 format 1
                 scope subworkflow
                 result schema[unregistered-schema]
-                start verify.begin
+                entry main -> verify.begin
 
                 state verify.a
                     phase verify
@@ -179,13 +186,13 @@ class VerificationResultTest {
                 ---
                 name: verify.ordering-rule
                 description: A unit written for the tests of pm-workflow.
-                type: subworkflow
+                type: system
                 modification_date: 2026-01-15
                 version: 0.1.0
                 author: plan-marshall
                 ---
                 workflow verify.ordering-rule version 1 format 1
-                scope subworkflow
+                scope workspace
                 start verify.entry
 
                 state verify.entry

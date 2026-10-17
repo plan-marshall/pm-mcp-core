@@ -1,0 +1,20 @@
+---
+name: verify.type-recipe
+description: A started plan unit of the type recipe, written for the verifier tests.
+type: recipe
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+workflow verify.type-recipe version 1 format 1
+scope plan
+start verify.entry
+
+state verify.entry
+    phase verify
+    auto test.prepare
+        done -> verify.done
+        skipped -> verify.done
+
+state verify.done terminal done success
+    phase verify

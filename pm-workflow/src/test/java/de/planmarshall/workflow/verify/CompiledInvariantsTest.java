@@ -202,6 +202,7 @@ class CompiledInvariantsTest {
                     name: test.unknown
                     description: A project unit written for the invariant tests.
                     type: subworkflow
+                    entry: main
                     exit: done
                     modification_date: 2026-01-15
                     version: 0.1.0
@@ -209,7 +210,7 @@ class CompiledInvariantsTest {
                     ---
                     workflow test.unknown version 1 format 1
                     scope subworkflow
-                    start unknown.done
+                    entry main -> unknown.done
 
                     state unknown.done terminal done success
                         phase inherit
