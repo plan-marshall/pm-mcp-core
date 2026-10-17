@@ -98,7 +98,7 @@ assert_state refine.analyze            # task state: one queued task of the role
 assert_links                           # the view offers no link
 worker_wait refine                     # a fixture worker of the role waits and receives the offer
 worker_do ack {}
-worker_do submit:refine {"clarified_request":"Add a null-safe header parser ...","correctness":98,"completeness":96,"consistency":100,"non_duplication":100,"ambiguity":95,"module_mapping":100,"evidence_class":"self_assessment","pr_title":"feat(http): add null-safe header parser"}
+worker_do submit:refine {"intent":{"why":"Requests with a missing header crash the parser in the gateway.","goal":"A request without the header is parsed without an error.","criteria":[{"id":"AC-1","text":"WHEN a request lacks the header THE parser SHALL return an empty value","kind":"new","verified_by":"test"}],"current_behaviour":null,"non_goals":[{"id":"NG-1","text":"No change to the header names."}],"constraints":[],"decisions":[],"assumptions":[],"open_questions":[],"deferred":[],"source_claims":[{"claim":"Add a null-safe header parser","landed_in":"AC-1","reason":null}]},"correctness":98,"completeness":96,"consistency":100,"non_duplication":100,"ambiguity":95,"module_mapping":100,"evidence_class":"self_assessment","pr_title":"feat(http): add null-safe header parser"}
 assert_task_outcome submitted
 assert_state outline.deep
 ...

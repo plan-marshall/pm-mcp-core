@@ -76,7 +76,7 @@ The epic's identity and descriptive header. It carries no FSM state and no queue
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/epic.json",
   "title": "EpicHeader",
   "type": "object",
-  "required": ["format_version", "epic_id", "title", "created_at", "sources", "workstreams", "parallelization_scope", "auto_start", "overlap_max_files", "lifecycle", "terminal_reason", "archived_at"],
+  "required": ["format_version", "epic_id", "title", "created_at", "sources", "intent", "workstreams", "parallelization_scope", "auto_start", "overlap_max_files", "lifecycle", "terminal_reason", "archived_at"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
@@ -97,6 +97,10 @@ The epic's identity and descriptive header. It carries no FSM state and no queue
           "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
         }
       }
+    },
+    "intent": {
+      "oneOf": [{ "type": "null" }, { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/epic-intent-v1.json" }],
+      "description": "The epic's intent (model-work/08, Epic Intent): null until the first decomposition the operator agreed writes it; afterwards changed only by a decomposition the operator agreed."
     },
     "workstreams": {
       "type": "array",
@@ -121,6 +125,27 @@ The epic's identity and descriptive header. It carries no FSM state and no queue
 }
 ----
 
+
+*Epic intent* (`epic-intent`, the named parameter schema of the `decompose` entity's `submit intent`; model-work/08, Epic Intent):
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/epic-intent-v1.json",
+  "title": "EpicIntent",
+  "type": "object",
+  "required": ["destination", "done_when", "non_goals", "not_yet_specified"],
+  "additionalProperties": false,
+  "properties": {
+    "destination": { "type": "string", "minLength": 10, "maxLength": 300, "description": "One sentence: where the epic ends." },
+    "done_when": { "type": "array", "minItems": 3, "maxItems": 6, "items": { "type": "string", "minLength": 10, "maxLength": 300 }, "description": "Checks the operator can run; the completion review judges each against evidence." },
+    "non_goals": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "type": "string", "minLength": 5, "maxLength": 500 }, "description": "Inherited by every plan of the epic as required source claims." },
+    "not_yet_specified": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 10, "maxLength": 500 }, "description": "Questions that can be stated but are not yet answered." }
+  }
+}
+----
+
 [#epic-queue-row]
 === Queue Row (`queue/<plan_id>.json`)
 _Implementation watch: link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-53[PM-WATCH-STORE-53], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-54[PM-WATCH-STORE-54], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-55[PM-WATCH-STORE-55]_
@@ -137,7 +162,7 @@ One file per staged plan, created with `CREATE_NEW` and updated row-locally; the
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/queue-row.json",
   "title": "EpicQueueRow",
   "type": "object",
-  "required": ["format_version", "plan_id", "ordinal", "workstream_id", "status", "held", "prerequisites", "declared_surface", "spec_section", "regrounded_at_sha", "reground_verdict", "staged_at", "started_at", "updated_at"],
+  "required": ["format_version", "plan_id", "ordinal", "workstream_id", "status", "held", "prerequisites", "declared_surface", "spec_section", "done_when", "regrounded_at_sha", "reground_verdict", "staged_at", "started_at", "updated_at"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
@@ -170,6 +195,7 @@ One file per staged plan, created with `CREATE_NEW` and updated row-locally; the
       }
     },
     "spec_section": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$", "description": "Anchor of the row's section in spec.md (identifiers.adoc, epic specification section anchor)." },
+    "done_when": { "type": "string", "minLength": 10, "maxLength": 300, "description": "The row's observable completion criterion, as staged; a required source claim of the plan the row starts (phase-workflows/01, The Intent Record)." },
     "regrounded_at_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "Commit the row's specification was last re-grounded against; null when never re-grounded." },
     "reground_verdict": {
       "type": ["object", "null"],
@@ -314,7 +340,7 @@ An open decomposition and an open review of an epic's registers keep what is not
 [#epic-decomposition-draft]
 === Decomposition Draft (`decomposition.json`)
 
-Written by the `stage`, `spec_section`, `workstream`, `drop`, and `reorder` submits of the drafting task and by the operator's edits in `decomposition.review`; read by the epic's resource while it is open.
+Written by the `intent`, `stage`, `spec_section`, `workstream`, `drop`, and `reorder` submits of the drafting task and by the operator's edits in `decomposition.review`; read by the epic's resource while it is open.
 
 [source,json]
 ----
@@ -323,17 +349,21 @@ Written by the `stage`, `spec_section`, `workstream`, `drop`, and `reorder` subm
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/decomposition-draft.json",
   "title": "EpicDecompositionDraft",
   "type": "object",
-  "required": ["format_version", "run", "instruction", "rows", "sections", "workstreams", "dropped", "updated_at"],
+  "required": ["format_version", "run", "instruction", "intent", "rows", "sections", "workstreams", "dropped", "updated_at"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
     "run": { "type": "string", "enum": ["first", "again", "recut"], "description": "first: the epic's first decomposition; again: the operator's decompose again; recut: a re-cut with its proposal as input." },
     "instruction": { "type": ["string", "null"], "maxLength": 4000, "description": "The operator's instruction of a decompose again or a draft again; null otherwise." },
+    "intent": {
+      "oneOf": [{ "type": "null" }, { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/epic-intent-v1.json" }],
+      "description": "The epic intent of the draft, from the intent submit or the operator's edits; a later run starts from the committed intent."
+    },
     "rows": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["plan_id", "replaces", "workstream_id", "prerequisites", "declared_surface", "spec_section", "edited_by_operator"],
+        "required": ["plan_id", "replaces", "workstream_id", "prerequisites", "declared_surface", "spec_section", "done_when", "edited_by_operator"],
         "additionalProperties": false,
         "properties": {
           "plan_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "From the stage submit's plan_slug." },
@@ -342,6 +372,7 @@ Written by the `stage`, `spec_section`, `workstream`, `drop`, and `reorder` subm
           "prerequisites": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" } },
           "declared_surface": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/queue-row.json#/properties/declared_surface" },
           "spec_section": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,127}$" },
+          "done_when": { "type": "string", "minLength": 10, "maxLength": 300 },
           "edited_by_operator": { "type": "boolean" }
         }
       }

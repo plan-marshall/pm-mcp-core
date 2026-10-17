@@ -19,6 +19,7 @@ All server-owned state of one project lives in its per-project machine store `<P
 ├── plans/                               # Every live plan directory (never moved before its archive)
 │   └── <plan_id>/
 │       ├── request.md                   # Its original input composed from the descriptions and a reference to each other source
+│       ├── intent.json                  # Its intent record and the record's earlier revisions
 │       ├── outline.md
 │       ├── sources/                     # The plan's source directory, moved here from its entry at start.create-scope
 │       ├── instance/                    # Plan instance: immutable plan.v<N>.pmwf and <unit>.v<N>.pmwf versions, composition.jsonl
@@ -177,7 +178,7 @@ sources/
 * *Order for an external source*: fetched by a bounded job, passed through the level-1 validator, stored here marked `unscreened` in one transaction, then screened over the stored copy, with its verdict written into the manifest. No model but the screener reads it before its verdict is `clean` or the operator accepted it. The recovery after a stop between storing and screening finds the source `unscreened` and screens it again; it never treats it as screened.
 * *Documents*: copied or moved into `documents/<n>/` after the server checked them (regular files, readable, within the compiled bounds of size and count, no link followed out of a directory); a move deletes a file outside git where it was and removes a tracked file through the short landing `git.land-removal`, which runs on after the source is stored (link:../state-catalogue/09-bootstrap-and-lessons.adoc#documents-source[State Catalogue Specification, Documents as a Source]). A refused source is answered with `not_found`, `not_readable`, `too_large`, or `outside_allowed`, and nothing is stored.
 * *An issue and a pull request*: title and body as text through the guard in `issue.md`; labels, milestone, assignees, state, and URL as structured fields in `issue.json`, never as text for a model to follow. A pull request's changed files are stored as its head and marked untrusted unless the operator authored it (link:../state-catalogue/09-bootstrap-and-lessons.adoc#issues[State Catalogue Specification, Issues by Number or URL]).
-* *`request.md`* keeps its sections; its original input is composed by the server from the descriptions and a reference to each other source, and the models of the plan read the sources here (link:../phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows Specification, Planning Phases 1–2]).
+* *`request.md`* keeps its sections; its original input is composed by the server from the descriptions and a reference to each other source, and its `## Clarified Request` is rendered from `intent.json` (link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]), and the models of the plan read the sources here (link:../phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows Specification, Planning Phases 1–2]).
 
 [#workspace-home]
 === Workspace Home (`<PM_MCP_BASE>/projects/<project_id>/workspace/`)
