@@ -210,7 +210,7 @@ class CredentialStoreMoveTest {
         assertAll(
                 () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
                 () -> assertTrue(failure.getMessage().contains(
-                        "failed before the switch, the copies were removed from 'file' and 'os' stays recorded"),
+                                "failed before the switch, the copies were removed from 'file' and 'os' stays recorded"),
                         failure.getMessage()),
                 () -> assertNoSecretIn(failure),
                 () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
@@ -414,7 +414,7 @@ class CredentialStoreMoveTest {
                     () -> assertEquals(SecretStoreException.Reason.FAILED, failure.reason()),
                     () -> assertNoSecretIn(failure),
                     () -> assertTrue(failure.getMessage().contains(
-                            "the copies could not all be removed from 'os' and 'file' stays recorded"),
+                                    "the copies could not all be removed from 'os' and 'file' stays recorded"),
                             failure.getMessage()),
                     () -> assertEquals(1, failure.getCause().getSuppressed().length),
                     () -> assertTrue(failure.getCause().getSuppressed()[0].getMessage().contains("refuses to delete"),

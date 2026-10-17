@@ -246,7 +246,7 @@ public final class CredentialStoreChoice {
             Keyrings keyrings) {
         var root = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.base = root;
-        this.file =new AtomicStoreFile(root.resolve(FILE_NAME), LockKey.machineConfiguration(root));
+        this.file = new AtomicStoreFile(root.resolve(FILE_NAME), LockKey.machineConfiguration(root));
         this.moveRecord = new AtomicStoreFile(CredentialStoreMoveRecord.file(root), LockKey.credentials(root));
         this.service = Objects.requireNonNull(service, "service");
         this.os = Objects.requireNonNull(os, "os");
