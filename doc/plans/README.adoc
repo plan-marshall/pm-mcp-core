@@ -21,12 +21,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |nothing
 |none
 
-|link:stalled-scope-detection.adoc[`stalled-scope-detection`]
-|Stalled-scope detection
-|`open`
-|nothing
-|Milestone 2
-
 |link:profile-loader.adoc[`profile-loader`]
 |Profile loader and validation
 |`open`
@@ -58,7 +52,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |Milestone 3
 
 |link:removed-concepts.adoc[`removed-concepts`]
-|Code of concepts the specification removed: the scope session log, the session generations, the sweep step of fenced generations, the scenario directive `expire_question`
+|Code of concepts the specification removed: the scope session log, the session generations, the sweep step of fenced generations, the scenario directive `expire_question`; then the stalled-scope detection
 |`open`
 |nothing
 |Milestones 2 and 3
