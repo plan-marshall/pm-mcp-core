@@ -18,7 +18,7 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 * Use case: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-5[UC-STA-5]
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-4[PM-EXT-4]
-* Specification: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions § A Recipe Is a Workflow]; link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-recipe[State Catalogue § Recipe Choice]; link:../specification/workflow-dsl/01-grammar.adoc#unit-types[Workflow DSL § Unit Types]; link:../specification/phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows] (the recipe source and states); link:../specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]
+* Specification: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions § A Recipe Is a Workflow]; link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#state-catalogue-recipe[State Catalogue § Recipe Choice]; the unit types, implemented: link:../../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types]; link:../specification/phase-workflows/01-planning-phases-1-2.adoc[Phase Workflows] (the recipe source and states); link:../specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]
 
 == Done When
 
