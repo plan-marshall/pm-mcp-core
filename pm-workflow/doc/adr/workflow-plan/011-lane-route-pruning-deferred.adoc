@@ -22,7 +22,7 @@ The DSL marks no state with a lane, and the prune reasons have none for the othe
 
 * This package prunes no lane route. The composer composes the `outline` version like any other; a `deep` instance keeps the `light` route.
 * The lane is recorded in the header (`lane`).
-* The work is moved to the work package `doc/plans/lane-route-pruning.adoc`, which opens with a discussion of the current design, its limitations and the next steps before any implementation.
+* The work is moved to the work package `doc/plans/plan-instance-alignment.adoc`, which opens with a discussion of the current design, its limitations and the next steps before any implementation.
 
 == Alternatives Considered
 
@@ -50,4 +50,4 @@ _Rejected_: it needs engine support that does not exist, and a new event in the 
 * link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], Versions & Composition Events (`outline`)
 * link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.route-rework[State Catalogue, `outline.route-rework`], link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-outline.light-regate[`outline.light-regate`]
 * link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc[Workflow DSL § AST Node Model], compiled invariant `INV-INIT-2`
-* `doc/plans/plan-instance.adoc`; follow-up `doc/plans/lane-route-pruning.adoc`; operator decision during execution (split into a follow-up work package)
+* `doc/plans/plan-instance.adoc`; follow-up `doc/plans/plan-instance-alignment.adoc`; operator decision during execution (split into a follow-up work package)
