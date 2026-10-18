@@ -443,7 +443,9 @@ The refine task does not submit the clarified request as prose. It submits the p
 *Refine role skill*: Besides the record's rules, the role skill of `refine` states, as guidance (class `guidance`):
 
 * *Anchored scores*: for each of the six dimensions an example sentence for the levels `0`, `25`, `50`, `75`, and `100`; the role scores the record it submits, never the conversation that led to it, and between two levels it takes the lower.
+* *Framing*: a request that names a solution without the need it serves cannot fill the record's `why`; the role asks for the need (who has the problem, what they do today, why now) before it scores, and never writes the solution's description into `why`.
 * *Specification sources*: a source written in another framework's format (a Spec Kit `spec.md`, an OpenSpec proposal and its spec deltas, read through the `documents` source) is mapped, not copied: its functional requirements, success criteria, and scenarios become criteria in EARS form, its out-of-scope items non-goals, its clarifications decisions with the decider they name, and every requirement it states is a source claim.
+* *Searching what is known*: the planning roles (`refine`, `outline`, `replan`, `decompose`) may search the project's knowledge, its lessons, architecture decision records, capability requirements, and decision records, through the resource `pm://project/knowledge` (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#knowledge-resource[MCP Tools Specification, Knowledge Search]); their role skills say when: before a decision of the record that an earlier plan may have taken.
 * *Settled decisions*: the task's facts carry the project's architecture decision records as an index (`facts.adr_index`: identifier, title, status, the modules it names). A decision of the record that follows or departs from an accepted record names it (`adr`: its identifier and `follows` or `contradicts`); the server refuses a `contradicts` decision whose decider is not `operator`, so a settled decision is reopened only by the operator.
 
 [#capability-specs]
@@ -465,7 +467,7 @@ Refine scores its own record. Before a deep-lane plan leaves refine, one task te
 
 * `answered`: the record answers it; the entry names the item (`AC-<n>`, `DC-<n>`, …).
 * `minor`: the builder's own call, with the decision it would take. The server adds it to the record as a decision of decider `model`, marked as from the builder check, in a new revision.
-* `operator`: only the operator can answer it, as a part of a `decision-envelope`.
+* `operator`: only the operator can answer it, as a part of a `decision-envelope`. Two criteria that cannot both hold (restated as condition and response, one demands what the other excludes) are always such a question, naming both criteria.
 
 *Routing*: the state runs once per plan, entered where `refine.analyze` would leave for `refine.qgate` or `refine.ready`. Its return evaluation: `operator` questions while the refine relaunch is unused go to `refine.awaiting_answers` as the one batch (at most four parts, the rest listed) and back to `refine.analyze`, whose next exit skips the builder check; `operator` questions after the relaunch was spent are kept as `facts.builder_open_questions`, shown in the outline review and the pull-request body, and the plan continues; otherwise the plan continues to `refine.qgate` or `refine.ready`. Every pass appends a `refine.builder-check` decision record with the counts per sort. While `qgate` is unqualified, or when the task ends `infeasible` or `lost`, the check is recorded `not_run` with its reason and the plan continues: the builder check adds evidence and never holds a plan.
 

@@ -137,6 +137,17 @@ A `git` or `ci` operation of the native variant (JGit, provider HTTP clients) ru
 * *Budget & Cancellation*: The operation runs under the budget of its operation class; at budget expiry, on a cancel by the engine, and at the expiry of the drain timeout it is cancelled cooperatively (JGit `ProgressMonitor`, interruption of the HTTP exchange), every HTTP request carries the compiled per-request connect and read timeout, and an operation that does not return within the grace period is abandoned with its late result discarded (link:../timeouts/01-job-budgets-and-waits.adoc#in-process-operations[Timeouts & Budgets Specification, In-Process Operations]). A partial result is never used.
 * *Outcome*: Rows 1 to 4 of <<outcome-derivation>> apply unchanged (`refused` before the operation starts, `cancelled`, `timed_out` as `no_verdict`, `killed` at drain or for a record left `running` by a previous runtime instance; nothing is probed or adopted). Otherwise rows 11 to 13 decide: `succeeded` for a domain outcome of its closed contract enumeration, `failed` for a transport outcome, `indeterminate` for an end outside its contract. A provider rate limit (`rate_limited{reset_at}`, or a `Retry-After`) is neither a failure nor a timeout: the operation is re-issued after the stated instant, the time until then does not count against its budget, and the wait records `provider_rate_limit` (<<_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4>>).
 
+[#git-identities]
+=== Git Identities (`PM-EXEC-5`)
+_Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-59[PM-WATCH-GEN-59]_
+
+Every operation of the git contract, in the native variant over JGit and in the CLI variant over `git`, treats a pinned commit as an identity that is checked, never as a name that is looked up:
+
+* *Commits are object ids*: a commit the server pins (the entry baseline and the capture snapshot, the `head_sha` of a pull request, the merge base, an epic's landing, `head_at_completion`) is passed and compared as its full 40-character object id, never abbreviated and never as a ref name.
+* *Refs by their full name*: a branch is addressed as `refs/heads/<name>`, a ref of the runtime as `refs/pm-mcp/<…>`, a remote branch as `refs/remotes/<remote>/<name>`; the CLI variant passes the full name and, where `git` would also accept a commit, the `--end-of-options` form, so a branch named like a commit hash is never taken for the commit.
+* *Ambiguity is an error*: a name that resolves both as a ref and as an object id, or as two refs, is refused (`git_identity_ambiguous`, naming the name), never resolved by one reading.
+* *Checked after it arrives*: after every fetch, checkout, reset, rebase, and worktree creation, the commit reached is compared with the pin the operation was meant to reach; a mismatch refuses the operation (`git_identity_mismatch`, with both ids) before anything runs on the result.
+
 === Bounded Long-Poll & Progress-Reset Waiting Primitives (`PM-WF-8`, `PM-IMPL-4`)
 _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-5[PM-WATCH-JOB-5], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-6[PM-WATCH-JOB-6], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-19[PM-WATCH-JOB-19], link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-30[PM-WATCH-JOB-30]_
 

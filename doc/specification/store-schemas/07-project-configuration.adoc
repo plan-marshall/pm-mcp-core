@@ -232,7 +232,7 @@ Which finalize steps exist is decided by the project's `phase-6-finalize.pmwf` u
               "type": "array",
               "uniqueItems": true,
               "items": { "$ref": "#/$defs/step_id" },
-              "description": "End-of-phase-5 verification steps; default derived from the build systems' verbs. Server rule: each id a shipped verification step or an enrolled project step."
+              "description": "End-of-phase-5 verification steps; default derived from the build systems' verbs, never including default:mutation, which a project opts into here. Server rule: each id a shipped verification step or an enrolled project step."
             }
           }
         },
@@ -286,7 +286,7 @@ Which finalize steps exist is decided by the project's `phase-6-finalize.pmwf` u
     "step_id": { "type": "string", "pattern": "^(default|project):[a-z][a-z0-9-]{0,63}$" },
     "build_verb": {
       "type": "string",
-      "enum": ["clean", "compile", "test-compile", "module-tests", "integration-tests", "e2e", "coverage", "benchmark", "quality-gate", "arch-gate", "verify", "install", "clean-install", "package"]
+      "enum": ["clean", "compile", "test-compile", "module-tests", "integration-tests", "e2e", "coverage", "mutation", "benchmark", "quality-gate", "arch-gate", "verify", "install", "clean-install", "package"]
     }
   }
 }

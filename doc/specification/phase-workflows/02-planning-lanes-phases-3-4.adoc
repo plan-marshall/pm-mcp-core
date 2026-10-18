@@ -190,6 +190,8 @@ A deliverable names the parts of the plan's intent record it implements in its `
 * a criterion of the record is named by no deliverable (every criterion is covered);
 * a deliverable has an empty `satisfies`.
 
+*Outline role skill*: where the intent record marks a `riskiest` assumption that is `unverified`, the outline's first deliverable (one without a dependency) carries the assumption's test, so a wrong premise fails before the work that rests on it; the role skill states this as guidance (class `guidance`), and the Q-Gate judges it with the other outline findings.
+
 The coverage is computed, never judged: the Q-Gate judges whether a deliverable does what its list claims (the validator `Task description fidelity` and the outline review), not whether the list is complete. A plan with no intent record (a recipe workflow that does not call refine) submits empty `satisfies`, and § 6 does not apply to it. The union of the lists is carried into the derived tasks of each deliverable and listed in the pull-request body, each criterion with the deliverables that satisfy it.
 
 [#outline-interfaces]
