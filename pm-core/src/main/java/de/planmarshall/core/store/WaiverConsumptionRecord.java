@@ -35,7 +35,7 @@ List<String> covered) {
     /** The format version of a waiver consumption record that is read and written. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Pattern WAIVER_ID = Pattern.compile("W-[0-9]+");
+    private static final Pattern WAIVER_ID = Pattern.compile("W-\\d+");
     private static final Pattern HEAD_SHA = Pattern.compile("[0-9a-f]{40}");
 
     /**

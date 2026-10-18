@@ -50,6 +50,9 @@ class WaiverRecordCodecTest {
     private static final Path FILE = Path.of("/base/projects/pm-mcp-core/plans/a-plan/waivers.jsonl");
     private static final Instant AT = Instant.parse("2026-10-17T09:00:00Z");
 
+    /** One character outside the Basic Multilingual Plane, two UTF-16 units: U+1F600. */
+    static final String SUPPLEMENTARY = Character.toString(0x1F600);
+
     /** A met waiver set by the operator from the terminal client. */
     static WaiverRecord met() {
         return WaiverRecord.builder().event(Event.WAIVED).waiverId("W-1").gate("ci-verify").mode(Mode.MET)
@@ -295,6 +298,22 @@ class WaiverRecordCodecTest {
             assertAll(
                     () -> assertEquals(2000, WaiverRecordCodec.read(FILE, document(longest)).reason().length()),
                     () -> assertRefused(Outcome.UNREADABLE, document(tooLong)));
+        }
+
+        @ParameterizedTest(name = "{0} supplementary characters, accepted: {1}")
+        @CsvSource({"1500, true", "2000, true", "2001, false"})
+        @DisplayName("a reason is counted in characters, as the schema counts them, not in UTF-16 units")
+        void reasonLengthInCodePoints(int characters, boolean accepted) {
+            var reason = SUPPLEMENTARY.repeat(characters);
+            var members = members();
+            members.put("reason", "\"" + reason + "\"");
+            var document = document(members);
+
+            if (accepted) {
+                assertEquals(reason, WaiverRecordCodec.read(FILE, document).reason());
+            } else {
+                assertRefused(Outcome.UNREADABLE, document);
+            }
         }
 
         @Test

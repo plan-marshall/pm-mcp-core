@@ -14,6 +14,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -72,6 +73,13 @@ public final class QuestionLog {
     public static final String FILE_NAME = "questions.jsonl";
 
     private static final String WORKSPACE_DIRECTORY = "workspace";
+
+    /** The name of the workspace transaction or scope parameter, which a {@code null} argument is reported by. */
+    private static final String WORKSPACE_PARAMETER = WORKSPACE_DIRECTORY;
+
+    /** The events whose line names the current revision of its decision. */
+    private static final Set<QuestionEvent> NAMES_CURRENT_REVISION = EnumSet.of(QuestionEvent.ADJUDICATED,
+            QuestionEvent.DELIVERED, QuestionEvent.ANSWERED);
 
     private final JournalScope scope;
     private final String storePath;
@@ -190,7 +198,7 @@ public final class QuestionLog {
      * @throws IllegalArgumentException if the scope is no workspace scope
      */
     public static QuestionLog ofEntry(JournalScope workspace, EntryId entryId) {
-        Objects.requireNonNull(workspace, "workspace");
+        Objects.requireNonNull(workspace, WORKSPACE_PARAMETER);
         Objects.requireNonNull(entryId, "entryId");
         if (workspace.type() != JournalScopeType.WORKSPACE) {
             throw new IllegalArgumentException("The question log of an entry belongs to the workspace scope, not to "
@@ -389,7 +397,7 @@ public final class QuestionLog {
      * @throws UncheckedIOException     if the entry's log exists and cannot be read
      */
     public static int moveEntryQuestions(ScopeTransaction workspace, EntryId entryId, ScopeTransaction target) {
-        Objects.requireNonNull(workspace, "workspace");
+        Objects.requireNonNull(workspace, WORKSPACE_PARAMETER);
         Objects.requireNonNull(target, "target");
         var entry = ofEntry(workspace.scope(), entryId);
         var type = target.scope().type();
@@ -457,13 +465,12 @@ public final class QuestionLog {
                 }
                 question.revision = line.revision();
             }
-            case ADJUDICATED, DELIVERED, ANSWERED -> {
-                if (line.revision() != question.revision) {
-                    return Optional.of(new Conflict(id, question.revision));
-                }
+            case QuestionEvent event when NAMES_CURRENT_REVISION.contains(event)
+                    && line.revision() != question.revision -> {
+                return Optional.of(new Conflict(id, question.revision));
             }
             default -> {
-                // withdrawn, cancelled: no revision to check
+                // a line of the current revision; withdrawn, cancelled: no revision to check
             }
         }
         question.closed = line.closes();

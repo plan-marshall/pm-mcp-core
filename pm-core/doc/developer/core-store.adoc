@@ -927,7 +927,9 @@ process (link:../adr/core-store/034-project-resolution-file-based-from-the-point
 worktree moved by hand with its stale `gitdir` record among them
 |`NotEnrolled(NO_ENROLMENT)` |no enrolment names the main checkout: an unenrolled repository, a nested repository
 inside the root, a main checkout moved away from its `project_root`
-|`NotEnrolled(BASELINE_WORKTREE)` |the toplevel is a baseline scratch worktree `baseline-<plan_id>-<sha12>`
+|`NotEnrolled(BASELINE_WORKTREE)` |the toplevel is a baseline scratch worktree `baseline-<plan_id>-<sha12>`: any
+name below the worktrees with the prefix `baseline-`, refused by the prefix alone, so that no copy of the plan id
+grammar decides it and no such name is ever taken for a plan worktree
 |`NotEnrolled(FOREIGN_TOPLEVEL)` |a worktree of the project elsewhere, or below the worktrees with another name
 |`RootConflict(projectIds)` |more than one readable enrolment names the main checkout (`enrolment_root_conflict`)
 |`EnrolmentRefused(refusal)` |no readable enrolment names the main checkout and an enrolment file was refused

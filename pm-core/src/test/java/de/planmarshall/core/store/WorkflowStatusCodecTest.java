@@ -380,6 +380,12 @@ class WorkflowStatusCodecTest {
                 Arguments.of("a decline reason over 2000 characters", request("\"declined\"", "null",
                         ANSWERED_CLI.replace("not now", "r".repeat(2001))),
                         "The reason of an answer has at most 2000 characters, not 2001"),
+                Arguments.of("a rationale over 2000 supplementary characters", PENDING.replace(
+                                "the check fails on the runner only", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001)),
+                        "The rationale of a waiver request has 1 to 2000 characters, not 2001"),
+                Arguments.of("a decline reason over 2000 supplementary characters", request("\"declined\"", "null",
+                                ANSWERED_CLI.replace("not now", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001))),
+                        "The reason of an answer has at most 2000 characters, not 2001"),
                 Arguments.of("a request that is no object", "\"WR-1\"", "'waiver_requests[0]' must be an object"));
     }
 
@@ -422,6 +428,21 @@ class WorkflowStatusCodecTest {
                     () -> assertEquals("dev-0123456789ab", request.answered().deviceId()),
                     () -> assertNull(request.answered().reason()),
                     () -> assertEquals(Instant.parse("2026-10-12T09:40:00Z"), request.answered().at()));
+        }
+
+        @ParameterizedTest(name = "{0} supplementary characters")
+        @ValueSource(ints = {1, 1500, 2000})
+        @DisplayName("a rationale and a decline reason are counted in characters, as the schema counts them")
+        void textLengthInCodePoints(int characters) {
+            var text = WaiverRecordCodecTest.SUPPLEMENTARY.repeat(characters);
+            var declined = request("\"declined\"", "null", ANSWERED_CLI.replace("not now", text))
+                    .replace("the check fails on the runner only", text);
+
+            var request = read(withRequests(declined)).waiverRequests().getFirst();
+
+            assertAll(
+                    () -> assertEquals(text, request.rationale()),
+                    () -> assertEquals(text, request.answered().reason()));
         }
 
         @Test

@@ -51,8 +51,8 @@ ReasonClass reasonClass, String requestId, Operator operator, Instant at) {
     /** The longest reason a waiver record holds. */
     public static final int MAX_REASON_LENGTH = 2000;
 
-    private static final Pattern WAIVER_ID = Pattern.compile("W-[0-9]+");
-    private static final Pattern REQUEST_ID = Pattern.compile("WR-[0-9]+");
+    private static final Pattern WAIVER_ID = Pattern.compile("W-\\d+");
+    private static final Pattern REQUEST_ID = Pattern.compile("WR-\\d+");
     private static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
 
     /**
@@ -219,9 +219,10 @@ ReasonClass reasonClass, String requestId, Operator operator, Instant at) {
             throw new IllegalArgumentException("The gate of a waiver record is empty");
         }
         Objects.requireNonNull(reason, "reason");
-        if (reason.isEmpty() || reason.length() > MAX_REASON_LENGTH) {
+        var reasonLength = reason.codePointCount(0, reason.length());
+        if (reasonLength == 0 || reasonLength > MAX_REASON_LENGTH) {
             throw new IllegalArgumentException("The reason of a waiver record has 1 to %d characters, not %d"
-                    .formatted(MAX_REASON_LENGTH, reason.length()));
+                    .formatted(MAX_REASON_LENGTH, reasonLength));
         }
         if (requestId != null) {
             requireMatch(REQUEST_ID, requestId, "waiver request id (WR- and digits)");

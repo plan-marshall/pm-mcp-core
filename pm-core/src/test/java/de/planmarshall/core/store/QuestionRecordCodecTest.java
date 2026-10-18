@@ -387,6 +387,21 @@ class QuestionRecordCodecTest {
                     () -> assertRefused(tooLong));
         }
 
+        @ParameterizedTest(name = "{0} supplementary characters, accepted: {1}")
+        @CsvSource({"61, true", "120, true", "121, false"})
+        @DisplayName("a decision title is counted in characters, as the schema counts them, not in UTF-16 units")
+        void titleLengthInCodePoints(int characters, boolean accepted) {
+            var title = WaiverRecordCodecTest.SUPPLEMENTARY.repeat(characters);
+            var members = askedMembers();
+            members.put("decision", DECISION_JSON.replace("Keep the cache", title));
+
+            if (accepted) {
+                assertEquals(title, QuestionRecordCodec.read(FILE, document(members)).decision().title());
+            } else {
+                assertRefused(members);
+            }
+        }
+
         @Test
         @DisplayName("an undeclared member, a deadline or an expiry among them, is refused naming it")
         void undeclaredMember() {

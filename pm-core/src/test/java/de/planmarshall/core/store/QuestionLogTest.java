@@ -192,8 +192,8 @@ class QuestionLogTest {
 
             assertAll(
                     () -> assertEquals(Optional.of(new AlreadyAnswered("Q-001")), again),
-                    () -> assertEquals(AlreadyAnswered.CODE, again.orElseThrow().code()),
-                    () -> assertEquals("already_answered", AlreadyAnswered.CODE),
+                    () -> assertEquals(AlreadyAnswered.ERROR_CODE, again.orElseThrow().code()),
+                    () -> assertEquals("already_answered", AlreadyAnswered.ERROR_CODE),
                     () -> assertEquals(Optional.of(new AlreadyAnswered("Q-001")), withdrawal),
                     () -> assertArrayEquals(before, content()));
         }

@@ -36,6 +36,10 @@ public sealed interface QuestionRefusal
      */
     String code();
 
+    private static void requireQuestionId(String questionId) {
+        Objects.requireNonNull(questionId, "questionId");
+    }
+
     /**
      * The question is closed already: it has an {@code answered}, {@code withdrawn} or {@code cancelled} line, or the
      * appended lines close it twice.
@@ -46,16 +50,16 @@ public sealed interface QuestionRefusal
     record AlreadyAnswered(String questionId) implements QuestionRefusal {
 
         /** The error code of the refusal. */
-        public static final String CODE = "already_answered";
+        public static final String ERROR_CODE = "already_answered";
 
         /** @throws NullPointerException if the question id is {@code null} */
         public AlreadyAnswered {
-            Objects.requireNonNull(questionId, "questionId");
+            requireQuestionId(questionId);
         }
 
         @Override
         public String code() {
-            return CODE;
+            return ERROR_CODE;
         }
     }
 
@@ -69,14 +73,14 @@ public sealed interface QuestionRefusal
     record Conflict(String questionId, int currentRevision) implements QuestionRefusal {
 
         /** The error code of the refusal. */
-        public static final String CODE = "conflict";
+        public static final String ERROR_CODE = "conflict";
 
         /**
          * @throws NullPointerException     if the question id is {@code null}
          * @throws IllegalArgumentException if the revision is less than 1
          */
         public Conflict {
-            Objects.requireNonNull(questionId, "questionId");
+            requireQuestionId(questionId);
             if (currentRevision < 1) {
                 throw new IllegalArgumentException("A revision counts from 1: " + currentRevision);
             }
@@ -84,7 +88,7 @@ public sealed interface QuestionRefusal
 
         @Override
         public String code() {
-            return CODE;
+            return ERROR_CODE;
         }
     }
 
@@ -101,14 +105,14 @@ public sealed interface QuestionRefusal
     record Unreadable(String questionId, long refusedLine) implements QuestionRefusal {
 
         /** The error code of the refusal. */
-        public static final String CODE = "unreadable";
+        public static final String ERROR_CODE = "unreadable";
 
         /**
          * @throws NullPointerException     if the question id is {@code null}
          * @throws IllegalArgumentException if the line number is less than 1
          */
         public Unreadable {
-            Objects.requireNonNull(questionId, "questionId");
+            requireQuestionId(questionId);
             if (refusedLine < 1) {
                 throw new IllegalArgumentException("Line numbers count from 1: " + refusedLine);
             }
@@ -116,7 +120,7 @@ public sealed interface QuestionRefusal
 
         @Override
         public String code() {
-            return CODE;
+            return ERROR_CODE;
         }
     }
 }

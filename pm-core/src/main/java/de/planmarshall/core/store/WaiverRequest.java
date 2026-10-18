@@ -43,8 +43,8 @@ Instant requestedAt, WaiverRequestOutcome outcome, String waiverId, Answered ans
     /** The longest rationale, and the longest reason of a decline, a request holds. */
     public static final int MAX_TEXT_LENGTH = 2000;
 
-    private static final Pattern REQUEST_ID = Pattern.compile("WR-[0-9]+");
-    private static final Pattern WAIVER_ID = Pattern.compile("W-[0-9]+");
+    private static final Pattern REQUEST_ID = Pattern.compile("WR-\\d+");
+    private static final Pattern WAIVER_ID = Pattern.compile("W-\\d+");
 
     /**
      * The operator's act that answered a request: a waiver or a decline.
@@ -65,9 +65,9 @@ Instant requestedAt, WaiverRequestOutcome outcome, String waiverId, Answered ans
         public Answered {
             Objects.requireNonNull(channel, "channel");
             WaiverRecord.requireDeviceId(deviceId);
-            if (reason != null && reason.length() > MAX_TEXT_LENGTH) {
+            if (reason != null && codePoints(reason) > MAX_TEXT_LENGTH) {
                 throw new IllegalArgumentException("The reason of an answer has at most %d characters, not %d"
-                        .formatted(MAX_TEXT_LENGTH, reason.length()));
+                        .formatted(MAX_TEXT_LENGTH, codePoints(reason)));
             }
             Objects.requireNonNull(at, "at");
         }
@@ -82,14 +82,23 @@ Instant requestedAt, WaiverRequestOutcome outcome, String waiverId, Answered ans
         requireMatch(REQUEST_ID, Objects.requireNonNull(requestId, "requestId"), "waiver request id (WR- and digits)");
         Objects.requireNonNull(gate, "gate");
         Objects.requireNonNull(rationale, "rationale");
-        if (rationale.isEmpty() || rationale.length() > MAX_TEXT_LENGTH) {
+        if (rationale.isEmpty() || codePoints(rationale) > MAX_TEXT_LENGTH) {
             throw new IllegalArgumentException("The rationale of a waiver request has 1 to %d characters, not %d"
-                    .formatted(MAX_TEXT_LENGTH, rationale.length()));
+                    .formatted(MAX_TEXT_LENGTH, codePoints(rationale)));
         }
         Objects.requireNonNull(requestedAt, "requestedAt");
         if (waiverId != null) {
             requireMatch(WAIVER_ID, waiverId, "waiver id (W- and digits)");
         }
+    }
+
+    /**
+     * @param text a text
+     * @return its length in characters as the schema counts them, Unicode code points, so a character outside the
+     *         Basic Multilingual Plane counts once
+     */
+    private static int codePoints(String text) {
+        return text.codePointCount(0, text.length());
     }
 
     private static void requireMatch(Pattern pattern, String value, String name) {

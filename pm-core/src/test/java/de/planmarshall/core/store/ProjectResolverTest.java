@@ -217,6 +217,29 @@ class ProjectResolverTest {
                     () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(plan.resolve("src/Main.java"))));
         }
 
+        @ParameterizedTest(name = "baseline directory {0}")
+        @ValueSource(strings = {"baseline-" + PLAN, "baseline-" + PLAN + "-0123", "baseline-ab-0123456789ab",
+                "baseline-" + PLAN + "-0123456789AB", "baseline-Plan-Upper-0123456789ab", "baseline-"})
+        @DisplayName("refuses every name with the prefix baseline- as a baseline worktree, beside a plan worktree that"
+                + " resolves")
+        void baselinePrefixHasNoProject(String name) throws Exception {
+            var baseline = worktreeOfMain(name);
+            var plan = worktreeOfMain(PLAN);
+
+            assertAll(
+                    () -> assertNotEnrolled(NotEnrolled.Reason.BASELINE_WORKTREE,
+                            resolver.resolve(baseline.resolve("src/Main.java"))),
+                    () -> assertEquals(new Worktree(PROJECT, PLAN), resolver.resolve(plan.resolve("src/Main.java"))));
+        }
+
+        @Test
+        @DisplayName("resolves a plan worktree whose name only begins like the baseline prefix to its plan")
+        void nameWithoutBaselinePrefix() throws Exception {
+            var worktree = worktreeOfMain("baselines-plan");
+
+            assertEquals(new Worktree(PROJECT, "baselines-plan"), resolver.resolve(worktree.resolve("src/Main.java")));
+        }
+
         @ParameterizedTest(name = "worktree directory {0}")
         @ValueSource(strings = {"Plan-Upper", "x", "_shared", "plan-"})
         @DisplayName("resolves a worktree below .marshall/local/worktrees whose name is no plan id to no project")

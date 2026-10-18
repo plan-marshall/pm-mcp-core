@@ -110,7 +110,10 @@ public sealed interface ProjectResolution permits ProjectResolution.MainCheckout
             UNRECOGNISED_GIT,
             /** The main checkout is the project root of no enrolment. */
             NO_ENROLMENT,
-            /** The toplevel is a baseline scratch worktree {@code baseline-<plan_id>-<sha12>}, which has no project. */
+            /**
+             * The toplevel is a baseline scratch worktree, written {@code baseline-<plan_id>-<sha12>}: any name with
+             * the prefix {@code baseline-}, which has no project.
+             */
             BASELINE_WORKTREE,
             /**
              * The toplevel is neither the main checkout nor a worktree below its {@code .marshall/local/worktrees/}:

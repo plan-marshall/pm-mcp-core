@@ -160,13 +160,13 @@ public final class WaiverLog {
     }
 
     /**
-     * @param record the JSON object of one line, without a newline
+     * @param json the JSON object of one line, without a newline
      * @return the line, ending with a newline
      */
-    static byte[] line(byte[] record) {
-        var block = new byte[record.length + 1];
-        System.arraycopy(record, 0, block, 0, record.length);
-        block[record.length] = '\n';
+    static byte[] line(byte[] json) {
+        var block = new byte[json.length + 1];
+        System.arraycopy(json, 0, block, 0, json.length);
+        block[json.length] = '\n';
         return block;
     }
 }

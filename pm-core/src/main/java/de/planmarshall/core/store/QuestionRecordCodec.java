@@ -73,6 +73,9 @@ public class QuestionRecordCodec {
 
     private static final String RECORD = "question record";
 
+    /** The message of a refused value: what was read, and why its record refused it. */
+    private static final String REFUSED_VALUE = "%s: %s";
+
     private static final String FIELD_EVENT = "event";
     private static final String FIELD_QUESTION_ID = "question_id";
     private static final String FIELD_CLASS = "class";
@@ -317,7 +320,7 @@ public class QuestionRecordCodec {
         try {
             return question.build();
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(RECORD, e.getMessage()), e);
+            throw unreadable(REFUSED_VALUE.formatted(RECORD, e.getMessage()), e);
         }
     }
 
@@ -347,7 +350,7 @@ public class QuestionRecordCodec {
         try {
             return new Decision(title, header, description, evidence, blocks, reversibility);
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(FIELD_DECISION, e.getMessage()), e);
+            throw unreadable(REFUSED_VALUE.formatted(FIELD_DECISION, e.getMessage()), e);
         }
     }
 
@@ -370,7 +373,7 @@ public class QuestionRecordCodec {
         try {
             return new Evidence(kind, ref, label);
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(name, e.getMessage()), e);
+            throw unreadable(REFUSED_VALUE.formatted(name, e.getMessage()), e);
         }
     }
 
@@ -403,7 +406,7 @@ public class QuestionRecordCodec {
         try {
             return new Answer(kind, branchKeys, value, ownWords, note, interpretation, afterChat);
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(FIELD_ANSWER, e.getMessage()), e);
+            throw unreadable(REFUSED_VALUE.formatted(FIELD_ANSWER, e.getMessage()), e);
         }
     }
 
@@ -437,7 +440,7 @@ public class QuestionRecordCodec {
         try {
             return new Interpretation(result, condition, passages, queueTaskId);
         } catch (IllegalArgumentException e) {
-            throw unreadable("%s: %s".formatted(FIELD_INTERPRETATION, e.getMessage()), e);
+            throw unreadable(REFUSED_VALUE.formatted(FIELD_INTERPRETATION, e.getMessage()), e);
         }
     }
 

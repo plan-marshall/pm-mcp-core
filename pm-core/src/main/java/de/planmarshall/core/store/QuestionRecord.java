@@ -82,15 +82,18 @@ String amendmentId, String reason, Instant at) {
     /** The format version of a question record that is read and written. */
     public static final int FORMAT_VERSION = 1;
 
-    private static final Pattern QUESTION_ID = Pattern.compile("Q-[0-9]{3,6}");
+    private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
     private static final Pattern ROLE = Pattern.compile("[a-z][a-z0-9-]{1,31}");
-    private static final Pattern PLAN_TASK_ID = Pattern.compile("TASK-[0-9]{3,}");
-    private static final Pattern DECISION_ID = Pattern.compile("D-[0-9]{4,7}");
+    private static final Pattern PLAN_TASK_ID = Pattern.compile("TASK-\\d{3,}");
+    private static final Pattern DECISION_ID = Pattern.compile("D-\\d{4,7}");
     private static final Pattern DEVICE_ID = Pattern.compile("dev-[0-9a-f]{12}");
-    private static final Pattern AMENDMENT_ID = Pattern.compile("A-[0-9]+");
-    private static final Pattern REASON = Pattern.compile("[a-z][a-z0-9_]*");
+    private static final Pattern AMENDMENT_ID = Pattern.compile("A-\\d+");
+    private static final Pattern REASON_FORM = Pattern.compile("[a-z][a-z0-9_]*");
     private static final Pattern BRANCH_KEY = Pattern.compile("[a-z][a-z0-9_]{1,31}");
     private static final Pattern QUEUE_TASK_ID = Pattern.compile("qt-[0-9a-f]{16}");
+
+    /** The name of the source entity in a record and in the messages that refuse it. */
+    private static final String SOURCE_ENTITY = "source_entity";
 
     private static final Set<QuestionEvent> ASKED = EnumSet.of(QuestionEvent.ASKED);
     private static final Set<QuestionEvent> WITH_ENVELOPE = EnumSet.of(QuestionEvent.ASKED, QuestionEvent.REVISED);
@@ -408,7 +411,7 @@ String amendmentId, String reason, Instant at) {
         Objects.requireNonNull(at, "at");
         onlyOn(event, ASKED, questionClass, "class");
         onlyOn(event, ASKED, origin, "origin");
-        onlyOn(event, ASKED, sourceEntity, "source_entity");
+        onlyOn(event, ASKED, sourceEntity, SOURCE_ENTITY);
         onlyOn(event, ASKED, askingRole, "asking_role");
         onlyOn(event, ASKED, phase, "phase");
         onlyOn(event, ASKED, questionSet, "question_set");
@@ -443,7 +446,7 @@ String amendmentId, String reason, Instant at) {
             Decision decision) {
         Objects.requireNonNull(questionClass, "class");
         Objects.requireNonNull(origin, "origin");
-        requireLength(Objects.requireNonNull(sourceEntity, "source_entity"), "source_entity", 1, Integer.MAX_VALUE);
+        requireLength(Objects.requireNonNull(sourceEntity, SOURCE_ENTITY), SOURCE_ENTITY, 1, Integer.MAX_VALUE);
         requireMatch(QUESTION_ID, Objects.requireNonNull(questionSet, "question_set"), "question set");
         if (revision != 1) {
             throw new IllegalArgumentException("An asked line has the revision 1, not " + revision);
@@ -481,7 +484,7 @@ String amendmentId, String reason, Instant at) {
             requireMatch(AMENDMENT_ID, amendmentId, "amendment id (A- and digits)");
         }
         if (reason != null) {
-            requireMatch(REASON, reason, "reason (lower case and underscores)");
+            requireMatch(REASON_FORM, reason, "reason (lower case and underscores)");
         }
     }
 
@@ -532,10 +535,15 @@ String amendmentId, String reason, Instant at) {
         }
     }
 
+    /** Counts the characters as the schema counts them, Unicode code points, not UTF-16 code units. */
     private static void requireLength(String value, String name, int min, int max) {
-        if (value != null && (value.length() < min || value.length() > max)) {
+        if (value == null) {
+            return;
+        }
+        var length = value.codePointCount(0, value.length());
+        if (length < min || length > max) {
             throw new IllegalArgumentException("'%s' has %d to %d characters, not %d".formatted(name, min, max,
-                    value.length()));
+                    length));
         }
     }
 }

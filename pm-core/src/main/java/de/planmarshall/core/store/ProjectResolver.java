@@ -19,7 +19,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
-import java.util.regex.Pattern;
 
 import de.planmarshall.core.store.ConfinementOutcome.Reason;
 import de.planmarshall.core.store.ConfinementOutcome.Rejected;
@@ -43,8 +42,9 @@ import de.planmarshall.core.store.ProjectResolution.Worktree;
  * <li>The main checkout must be the {@code project_root} of exactly one enrolment file of the enrolment store
  * ({@link EnrolmentStore}, {@link EnrolmentCodec}); that file names the project.</li>
  * <li>The toplevel is the main checkout, or a worktree {@code <project_root>/.marshall/local/worktrees/<x>/} of a plan
- * id or of the shared epic worktree {@code _epics}; a baseline scratch worktree {@code baseline-<plan_id>-<sha12>} and
- * any other toplevel resolve to no project.</li>
+ * id or of the shared epic worktree {@code _epics}; a baseline scratch worktree, written
+ * {@code baseline-<plan_id>-<sha12>} and recognised by its prefix {@code baseline-} alone, so that no such directory is
+ * ever taken for a plan worktree whatever follows the prefix, and any other toplevel resolve to no project.</li>
  * </ol>
  * Every refusal is a {@link ProjectResolution} value. The enrolment files are read without a lock, as they are at the
  * moment of the resolution; their integrity against the sidecar is the runtime's per-use check and not decided here.
@@ -57,8 +57,11 @@ public final class ProjectResolver {
 
     private static final String GIT = ".git";
 
-    private static final Pattern BASELINE_WORKTREE =
-            Pattern.compile("baseline-[a-z0-9][a-z0-9-]{1,62}[a-z0-9]-[0-9a-f]{12}");
+    /**
+     * The prefix of a baseline scratch worktree. A name is refused by the prefix alone, not by a copy of the plan id
+     * grammar, so a name the grammar would reject is never taken for a plan worktree either.
+     */
+    private static final String BASELINE_PREFIX = "baseline-";
 
     private final EnrolmentStore enrolments;
 
@@ -176,7 +179,7 @@ public final class ProjectResolver {
             return new NotEnrolled(NotEnrolled.Reason.FOREIGN_TOPLEVEL);
         }
         var name = toplevel.getFileName().toString();
-        if (BASELINE_WORKTREE.matcher(name).matches()) {
+        if (name.startsWith(BASELINE_PREFIX)) {
             return new NotEnrolled(NotEnrolled.Reason.BASELINE_WORKTREE);
         }
         try {
