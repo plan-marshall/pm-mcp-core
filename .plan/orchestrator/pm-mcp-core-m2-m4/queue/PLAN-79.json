@@ -1,0 +1,10 @@
+{
+  "id": "PLAN-79",
+  "slug": "corpus-overlay-extensions",
+  "workstream": "WS-05",
+  "status": "shipped",
+  "plan_marshall_plan_id": "corpus-overlay-extensions",
+  "pr": "#80",
+  "landing": "landings/PLAN-79.md",
+  "seq": 79
+}

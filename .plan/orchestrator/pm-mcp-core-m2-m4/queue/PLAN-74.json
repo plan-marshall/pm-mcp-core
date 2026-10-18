@@ -2,9 +2,9 @@
   "id": "PLAN-74",
   "slug": "credential-store-choice",
   "workstream": "WS-01",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-74-credential-store-choice",
+  "pr": "#90",
+  "landing": "landings/PLAN-74.md",
   "seq": 74
 }

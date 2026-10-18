@@ -2,9 +2,9 @@
   "id": "PLAN-20",
   "slug": "job-runner",
   "workstream": "WS-04",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-20-job-runner",
+  "pr": "#92",
+  "landing": "landings/PLAN-20.md",
   "seq": 20
 }

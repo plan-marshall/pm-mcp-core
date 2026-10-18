@@ -2,9 +2,9 @@
   "id": "PLAN-14",
   "slug": "operator-and-question-stores",
   "workstream": "WS-02",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-14-operator-and-question-stores",
+  "pr": "#93",
+  "landing": "landings/PLAN-14.md",
   "seq": 14
 }
