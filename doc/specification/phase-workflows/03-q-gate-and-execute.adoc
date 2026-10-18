@@ -66,6 +66,11 @@ Quality Gate (`Q-Gate`) validation runs at the tail of Phase 3 (deep lane only; 
 |plan
 |worker
 |Blocking per the worker's severity.
+
+|Scope held: no deliverable or task narrows a criterion of the intent record (a placeholder, a stub, a value "for now", a case left for later) without moving it to `deferred`; a scope that does not fit is proposed as a split, for one of three reasons only: the work exceeds what one plan's context holds, information is missing, or a dependency conflicts
+|outline, plan
+|worker
+|Blocking.
 |===
 
 The validator population is part of the binary and is re-verified against `plan-marshall`'s Q-Gate workflow before implementing.

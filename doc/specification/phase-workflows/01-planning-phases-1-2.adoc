@@ -466,7 +466,7 @@ Refine scores its own record. Before a deep-lane plan leaves refine, one task te
 
 * `answered`: the record answers it; the entry names the item (`AC-<n>`, `DC-<n>`, …).
 * `minor`: the builder's own call, with the decision it would take. The server adds it to the record as a decision of decider `model`, marked as from the builder check, in a new revision.
-* `operator`: only the operator can answer it, as a part of a `decision-envelope`.
+* `operator`: only the operator can answer it, as a part of a `decision-envelope`. Two criteria that cannot both hold (restated as condition and response, one demands what the other excludes) are always such a question, naming both criteria.
 
 *Routing*: the state runs once per plan, entered where `refine.analyze` would leave for `refine.qgate` or `refine.ready`. Its return evaluation: `operator` questions while the refine relaunch is unused go to `refine.awaiting_answers` as the one batch (at most four parts, the rest listed) and back to `refine.analyze`, whose next exit skips the builder check; `operator` questions after the relaunch was spent are kept as `facts.builder_open_questions`, shown in the outline review and the pull-request body, and the plan continues; otherwise the plan continues to `refine.qgate` or `refine.ready`. Every pass appends a `refine.builder-check` decision record with the counts per sort. While `qgate` is unqualified, or when the task ends `infeasible` or `lost`, the check is recorded `not_run` with its reason and the plan continues: the builder check adds evidence and never holds a plan.
 
