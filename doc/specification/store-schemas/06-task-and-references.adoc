@@ -294,7 +294,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
       "type": "array", "maxItems": 30,
       "items": {
         "type": "object",
-        "required": ["id", "text", "options_weighed", "decider", "question_id", "evidence"],
+        "required": ["id", "text", "options_weighed", "decider", "question_id", "evidence", "adr"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
@@ -302,7 +302,17 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
           "options_weighed": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
           "decider": { "type": "string", "enum": ["operator", "quorum", "model", "fact"] },
           "question_id": { "type": ["string", "null"], "description": "The answered part, for decider operator or quorum; null otherwise." },
-          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." }
+          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." },
+          "adr": {
+            "type": ["object", "null"],
+            "required": ["adr_id", "relation"],
+            "additionalProperties": false,
+            "properties": {
+              "adr_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "relation": { "type": "string", "enum": ["follows", "contradicts"] }
+            },
+            "description": "The architecture decision record the decision follows or contradicts; a contradicts decision must have decider operator."
+          }
         }
       }
     },

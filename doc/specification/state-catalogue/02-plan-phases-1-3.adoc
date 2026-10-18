@@ -94,16 +94,24 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`job`
 |`refine.baseline-reconcile`; `refine.awaiting_answers` (the single second task); `refine.remediate-qgate` (`fix_requested`: a remediation pass with `facts.qgate_findings`).
 |`job llm refine role refine`: the task's entity submits `submit:refine` (`intent`, the intent record, `pr_title`, six dimension scores, `evidence_class`, `compatibility`, `simplicity`, per-claim hypothesis verdicts of a plan of an epic, open questions in the optional `decision:schema[decision-envelope]?`).
-|Return evaluation: `qgate` (confidence at or above threshold, a lesson-derived plan) -> `refine.qgate`; `ready` (confidence at or above threshold, any other plan) -> `refine.ready`; `ask` (below threshold on the first pass, or a refuted hypothesis) -> `refine.awaiting_answers`; `refuted_again` (a claim refuted again) -> `refine.hypothesis-refuted`; below threshold on the second pass or in a remediation pass: `qgate` or `ready` with `low_confidence_manual_review: true`; `infeasible`, `lost` -> `plan.return`.
+|Return evaluation: `builder_check` (where `qgate` or `ready` would follow and no builder check ran for the plan) -> `refine.builder-check`; `qgate` (confidence at or above threshold, a lesson-derived plan) -> `refine.qgate`; `ready` (confidence at or above threshold, any other plan) -> `refine.ready`; `ask` (below threshold on the first pass, or a refuted hypothesis) -> `refine.awaiting_answers`; `refuted_again` (a claim refuted again) -> `refine.hypothesis-refuted`; below threshold on the second pass or in a remediation pass: `qgate` or `ready` with `low_confidence_manual_review: true`; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_five_quality_dimensions_fixed_weight_confidence_aggregation[Phase Workflows Specification, Five Quality Dimensions]; link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Single-Batch Clarification & Relaunch Ceiling]
 
 |[[state-refine.awaiting_answers]]`refine.awaiting_answers`
 |`phase-2-refine`
 |`call`
-|`refine.analyze` (at most once).
+|`refine.analyze` (at most once); `refine.builder-check` (`ask`, while the relaunch is unused).
 |As xref:01-conventions-generic-conditions.adoc#state-phase.awaiting_answers[`<phase>.awaiting_answers`]; at most 4 questions in one batch. `operator_answered` evidence requires a round of this state answered by the operator (not by the quorum).
 |`refine.analyze` (writes `## Clarifications` and records `all_recommended`, increments `refine_relaunch_count`; the second task carries the answers).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Phase Workflows Specification, Single-Batch Clarification]
+
+|[[state-refine.builder-check]]`refine.builder-check`
+|`phase-2-refine`
+|`job`
+|`refine.analyze` (`builder_check`, once per plan).
+|`job llm builder role qgate`: `facts` carry the intent record only; the entity submits `submit:builder-check` (`questions:schema[builder-questions]`). The server adds the `minor` answers to the record as decisions of decider `model` and appends a `refine.builder-check` decision record.
+|`ask` (operator questions, relaunch unused) -> `refine.awaiting_answers`; `continue` (none, or the relaunch spent: kept as `facts.builder_open_questions`) -> `refine.qgate` (lesson-derived) or `refine.ready`; `infeasible`, `lost`, and an unqualified `qgate` record `not_run` and continue the same way.
+|link:../phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows Specification, Builder Check]
 
 |[[state-refine.hypothesis-refuted]]`refine.hypothesis-refuted`
 |`phase-2-refine`
@@ -124,7 +132,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |[[state-refine.qgate]]`refine.qgate`
 |`phase-2-refine`
 |`job`
-|`refine.analyze` (`qgate`: lesson-derived deep-lane plans only).
+|`refine.analyze` (`qgate`: lesson-derived deep-lane plans only); `refine.builder-check` (`continue`, for such a plan).
 |`job llm qgate role qgate` (entity `submit:qgate` of assessments and findings), whose return-evaluation primitive runs the compiled mechanical checks (narrative vs code) and decides from the persisted findings alone: `stale` findings are non-blocking, `invalid` ones blocking.
 |`clean` -> `refine.ready`; `blocking` -> `refine.remediate-qgate`; `infeasible`, `lost` (no verdict) -> `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
@@ -140,7 +148,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |[[state-refine.ready]]`refine.ready`
 |`phase-2-refine`
 |`auto`
-|`refine.analyze` (`ready`), `refine.qgate` (`clean`), `refine.remediate-qgate` (`resolved`, `waived`), `refine.apply-narrowing`.
+|`refine.analyze` (`ready`), `refine.builder-check` (`continue`), `refine.qgate` (`clean`), `refine.remediate-qgate` (`resolved`, `waived`), `refine.apply-narrowing`.
 |Phase 2 exit guards: artifact gate (a valid intent record and the `## Clarified Request` rendered from it, non-empty `pr_title`), Blocking Findings Guard, Clean Main Checkout Guard.
 |`outline.detect-change-type` (phase `phase-3-outline`).
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Planning Transition Guards]

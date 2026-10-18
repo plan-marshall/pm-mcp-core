@@ -125,6 +125,10 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |The solution outline of a plan: `summary`, `overview`, `scope_estimate`, and its `deliverables` with their fields (`number`, `title`, `intent_gloss`, `change_type`, `execution_mode`, `domain`, `module`, `depends`, `design_notes`, `profiles`, `affected_files` with intents, `change_per_file`, `verification`, `satisfies`, `added_dependencies` with justification, `interfaces`, `key_links`); definition in link:../store-schemas/06-task-and-references.adoc#outline-record-store[Store Schemas Specification, Outline Record]
 |`submit:outline` (`outline:schema[outline-record]`), deep and light
 
+|`builder-questions`
+|The questions of the builder check, each with its `question` text and its `sort`: `answered` (with the record item that answers it), `minor` (with the decision the builder would take), or `operator` (with its part as a `question-envelope`); definition in link:../phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows Specification, Builder Check]
+|`submit:builder-check` of `refine.builder-check` (`questions:schema[builder-questions]`)
+
 |`epic-intent`
 |The intent of an epic: `destination`, `done_when` (three to six checks), `non_goals`, `not_yet_specified`; definition in link:../store-schemas/04-epic-and-change-ledger.adoc#epic-header[Store Schemas Specification, Epic Header]
 |`submit intent` of the `decompose` entity (`intent:schema[epic-intent]`)
