@@ -82,7 +82,7 @@ class ProjectStoreNoStateInRepositoryTest {
 
     @Test
     @DisplayName("the new stores write below the base directory and leave the repository's files as they were")
-    void noFileBelowTheRepository() throws IOException {
+    void noFileBelowTheRepository() throws Exception {
         var before = files(repository);
         var store = new ProjectStore(base, PROJECT);
         var plan = JournalScope.plan(base, PROJECT, PLAN);
@@ -124,7 +124,7 @@ class ProjectStoreNoStateInRepositoryTest {
 
     @Test
     @DisplayName("matched control: a file written below the repository is seen by the comparison")
-    void comparisonSeesRepositoryFiles() throws IOException {
+    void comparisonSeesRepositoryFiles() throws Exception {
         var before = files(repository);
 
         Files.writeString(repository.resolve(".marshall/local/state.json"), "{}");

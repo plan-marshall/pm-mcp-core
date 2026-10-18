@@ -359,7 +359,7 @@ class WorkflowStatusCodecTest {
                 Arguments.of("a time limit member", PENDING.replace("\"pr_comment_ref\"",
                         "\"expires_at\":\"2026-10-13T09:30:00Z\",\"pr_comment_ref\""), "undeclared field 'expires_at'"),
                 Arguments.of("a missing rationale", PENDING.replace(
-                        "\"rationale\":\"the check fails on the runner only\",", ""),
+                                "\"rationale\":\"the check fails on the runner only\",", ""),
                         "field 'rationale' of the waiver request 'waiver_requests[0]' is missing"),
                 Arguments.of("an empty rationale", PENDING.replace("the check fails on the runner only", ""),
                         "The rationale of a waiver request has 1 to 2000 characters, not 0"),

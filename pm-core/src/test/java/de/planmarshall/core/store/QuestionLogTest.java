@@ -109,7 +109,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("appends a revised line for every question of its set, all with the new revision")
-        void revisesWholeSet() throws IOException {
+        void revisesWholeSet() throws Exception {
             askSet();
             var before = content();
 
@@ -143,7 +143,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("of a closed question is refused already_answered, and nothing is appended")
-        void closedQuestion() throws IOException {
+        void closedQuestion() throws Exception {
             askSet();
             write(t -> log.answer(t, List.of(answered("Q-002", 1))));
             var before = content();
@@ -158,7 +158,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("of a part of the set, with two revisions, or not above the current one is a fault of the caller")
-        void malformedRevision() throws IOException {
+        void malformedRevision() throws Exception {
             askSet();
             var before = content();
 
@@ -181,7 +181,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("a second one is refused already_answered, and nothing is appended")
-        void secondClosingLine() throws IOException {
+        void secondClosingLine() throws Exception {
             askSet();
             write(t -> log.answer(t, List.of(answered("Q-001", 1))));
             var before = content();
@@ -199,7 +199,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("two of them in one append are refused, and neither is appended")
-        void twoInOneAppend() throws IOException {
+        void twoInOneAppend() throws Exception {
             askSet();
             var before = content();
 
@@ -212,7 +212,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("an answer after cancelled is refused, and nothing is appended")
-        void answerAfterCancelled() throws IOException {
+        void answerAfterCancelled() throws Exception {
             askSet();
             write(t -> log.cancel(t, List.of(cancelled("Q-001"), cancelled("Q-002"), cancelled("Q-003"))));
             var before = content();
@@ -232,7 +232,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("of an older revision is refused conflict, carrying the current revision")
-        void olderRevision() throws IOException {
+        void olderRevision() throws Exception {
             askSet();
             write(t -> log.revise(t, List.of(revised("Q-001", 2), revised("Q-002", 2), revised("Q-003", 2))));
             var before = content();
@@ -286,7 +286,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("is the last readable line, each change a new line that leaves the lines before it as they were")
-        void lastLineIsCurrent() throws IOException {
+        void lastLineIsCurrent() throws Exception {
             askSet();
             var asked = content();
             write(t -> log.deliver(t, List.of(delivered("Q-001", 1))));
@@ -308,7 +308,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("is read past a refused line, which keeps its line number, and before a torn tail")
-        void refusedLineAndTornTail() throws IOException {
+        void refusedLineAndTornTail() throws Exception {
             askSet();
             Files.write(log.store(), "{\"format_version\":1,\"event\":\"expired\"}\n".getBytes(UTF_8),
                     StandardOpenOption.APPEND);
@@ -368,7 +368,7 @@ class QuestionLogTest {
 
         @Test
         @DisplayName("an append through a transaction of another scope is refused")
-        void otherScope() throws IOException {
+        void otherScope() throws Exception {
             var other = JournalScope.plan(base, PROJECT, "other-plan");
             Files.createDirectories(other.journalFile().getParent());
             try (var transaction = locks.openTransaction()) {

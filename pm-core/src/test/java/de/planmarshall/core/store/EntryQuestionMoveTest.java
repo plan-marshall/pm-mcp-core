@@ -97,7 +97,7 @@ class EntryQuestionMoveTest {
 
     @Test
     @DisplayName("moves the entry's log into the new plan, where it is read, and leaves no file below the entry")
-    void movedIntoPlan() throws IOException {
+    void movedIntoPlan() throws Exception {
         askInEntry();
         var entryBytes = Files.readAllBytes(entryLog.store());
 
@@ -151,7 +151,7 @@ class EntryQuestionMoveTest {
 
     @Test
     @DisplayName("is refused at a repeated move after a stop between the two commits, and writes the lines once")
-    void repeatedMoveAfterStop() throws IOException {
+    void repeatedMoveAfterStop() throws Exception {
         askInEntry();
         try (var transaction = locks.openTransaction()) {
             var creation = open(transaction, plan);
@@ -180,7 +180,7 @@ class EntryQuestionMoveTest {
 
     @Test
     @DisplayName("moves the complete lines only, not a torn tail")
-    void tornTailNotMoved() throws IOException {
+    void tornTailNotMoved() throws Exception {
         askInEntry();
         var complete = Files.readAllBytes(entryLog.store());
         Files.write(entryLog.store(), "{\"format_version\":1,".getBytes(UTF_8), StandardOpenOption.APPEND);
@@ -216,7 +216,7 @@ class EntryQuestionMoveTest {
 
     @Test
     @DisplayName("removes an entry's log of a torn tail alone without creating a log in the new scope")
-    void onlyTornTail() throws IOException {
+    void onlyTornTail() throws Exception {
         Files.write(entryLog.store(), "{\"format_version\":1,".getBytes(UTF_8));
         try (var transaction = locks.openTransaction()) {
             var creation = open(transaction, plan);
@@ -233,7 +233,7 @@ class EntryQuestionMoveTest {
 
     @Test
     @DisplayName("moves into an epic as into a plan")
-    void movedIntoEpic() throws IOException {
+    void movedIntoEpic() throws Exception {
         var epic = JournalScope.epic(base, PROJECT, "an-epic");
         Files.createDirectories(epic.pathBase());
         askInEntry();

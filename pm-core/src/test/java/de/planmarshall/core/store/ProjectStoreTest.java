@@ -18,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -105,7 +104,7 @@ class ProjectStoreTest {
 
         @Test
         @DisplayName("creates every directory and writes the identity, under the workspace lock")
-        void createsStore() throws IOException {
+        void createsStore() throws Exception {
             Creation creation;
             try (var transaction = locks.openTransaction()) {
                 creation = store.create(transaction, identity);
@@ -118,14 +117,14 @@ class ProjectStoreTest {
                     () -> assertArrayEquals(ProjectStoreIdentityCodec.write(identity),
                             Files.readAllBytes(store.identityFile())),
                     () -> assertTrue(Arrays.stream(Directory.values())
-                            .allMatch(directory -> Files.isDirectory(store.directory(directory))),
+                                    .allMatch(directory -> Files.isDirectory(store.directory(directory))),
                             "every directory exists"),
                     () -> assertEquals(new ProjectStore.Present(identity), store.readIdentity()));
         }
 
         @Test
         @DisplayName("writes store.json once: a second creation leaves the recorded identity as it is")
-        void writesOnce() throws IOException {
+        void writesOnce() throws Exception {
             create(identity);
             var recorded = Files.readAllBytes(store.identityFile());
             var renamed = new ProjectStoreIdentity(PROJECT, "/elsewhere/pm-mcp-core", "renamed",
@@ -140,7 +139,7 @@ class ProjectStoreTest {
 
         @Test
         @DisplayName("leaves an unreadable identity record as it is")
-        void keepsUnreadableRecord() throws IOException {
+        void keepsUnreadableRecord() throws Exception {
             Files.createDirectories(store.root());
             Files.writeString(store.identityFile(), "{\"format_version\":1", UTF_8);
 
@@ -187,7 +186,7 @@ class ProjectStoreTest {
 
         @Test
         @DisplayName("of a store directory without store.json is absent, never an empty record")
-        void directoryWithoutRecord() throws IOException {
+        void directoryWithoutRecord() throws Exception {
             Files.createDirectories(store.root());
 
             assertEquals(new ProjectStore.Absent(store.identityFile()), store.readIdentity());
@@ -195,7 +194,7 @@ class ProjectStoreTest {
 
         @Test
         @DisplayName("matched control: an unenrolled identity is present with its unenrolment")
-        void presentUnenrolled() throws IOException {
+        void presentUnenrolled() throws Exception {
             Files.createDirectories(store.root());
             Files.writeString(store.identityFile(), ProjectStoreIdentityCodecTest.UNENROLLED, UTF_8);
 
@@ -208,7 +207,7 @@ class ProjectStoreTest {
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.store.ProjectStoreTest#unreadableRecords")
         @DisplayName("of a store.json that cannot be read is unreadable with the refusal, never an empty record")
-        void unreadable(String name, String content, Outcome outcome) throws IOException {
+        void unreadable(String name, String content, Outcome outcome) throws Exception {
             Files.createDirectories(store.root());
             Files.writeString(store.identityFile(), content, UTF_8);
 

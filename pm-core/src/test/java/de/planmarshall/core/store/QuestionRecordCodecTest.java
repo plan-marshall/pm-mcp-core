@@ -107,7 +107,7 @@ class QuestionRecordCodecTest {
     static QuestionRecord answered(String questionId, int revision) {
         return QuestionRecord.builder().event(QuestionEvent.ANSWERED).questionId(questionId).revision(revision)
                 .decisionId("D-0002").answer(new Answer(AnswerKind.CHOSEN, List.of("keep"), null, null, null, null,
-                        false))
+                false))
                 .channel(QuestionChannel.CLI).at(AT).build();
     }
 
@@ -183,7 +183,7 @@ class QuestionRecordCodecTest {
 
     static Stream<Arguments> everyEvent() {
         var interpreted = new Answer(AnswerKind.INTERPRETED, List.of("keep"), new AnswerValue.Numeric(
-                new BigDecimal("2.50")), "keep it, but only for this plan", "asked twice", new Interpretation(
+                        new BigDecimal("2.50")), "keep it, but only for this plan", "asked twice", new Interpretation(
                         InterpretationResult.OPTION_WITH_CONDITION, "only for this plan", List.of("only for this"),
                         "qt-0123456789abcdef"),
                 true);
@@ -204,7 +204,7 @@ class QuestionRecordCodecTest {
                         .answer(interpreted).build()),
                 Arguments.of("answered with a text by the quorum", answered("Q-001", 1).toBuilder()
                         .channel(QuestionChannel.QUORUM).answer(new Answer(AnswerKind.CHOSEN, List.of(),
-                                new AnswerValue.Text("v2"), null, null, null, false))
+                        new AnswerValue.Text("v2"), null, null, null, false))
                         .build()),
                 Arguments.of("withdrawn without a reason", withdrawn("Q-001").toBuilder().reason(null).build()),
                 Arguments.of("cancelled", cancelled("Q-001")));
@@ -523,7 +523,7 @@ class QuestionRecordCodecTest {
                         .values().stream().flatMap(List::stream).toList())),
                 () -> assertEquals(EnumSet.of(QuestionEvent.ANSWERED, QuestionEvent.WITHDRAWN,
                         QuestionEvent.CANCELLED), EnumSet.copyOf(Stream.of(QuestionEvent.values())
-                                .filter(QuestionEvent::closes).toList())));
+                        .filter(QuestionEvent::closes).toList())));
     }
 
     @ParameterizedTest(name = "{0}")
