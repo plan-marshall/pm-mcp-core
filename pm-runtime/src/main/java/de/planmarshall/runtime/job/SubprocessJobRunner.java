@@ -361,7 +361,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Starts a job of a project, waiting until its post-spawn record is written.
+     * Starts a job of a project, waiting for its launch report for at most {@link #REPORT_WAIT}: the post-spawn record
+     * is written when the report arrives in time, otherwise the job keeps its write-ahead record (without a PID).
      *
      * @param request what to start
      * @return the id of the started job, also of one whose launcher failed and which is settled already; or the
@@ -398,8 +399,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Starts a probe of a program that is not enrolled yet, waiting until its post-spawn record is written. Its
-     * allocation, its verification against its candidate record and its first record are one transaction under the
+     * Starts a probe of a program that is not enrolled yet, waiting for its launch report for at most
+     * {@link #REPORT_WAIT} like {@link #start(JobRunner.StartRequest)}. Its allocation, its verification against its candidate record and its first record are one transaction under the
      * lock of its scope.
      *
      * @param request the candidate and whether the operator consented to its kind
@@ -685,7 +686,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Launches a job whose write-ahead record is written, waits for its post-spawn record and hands it to the virtual
+     * Launches a job whose write-ahead record is written, waits for its launch report for at most
+     * {@link #REPORT_WAIT}, writes the post-spawn record when the report arrived and hands the job to the virtual
      * thread that waits for its end.
      * <p>
      * A job whose launch cannot be composed or whose launcher cannot be started had no process: it is settled as the

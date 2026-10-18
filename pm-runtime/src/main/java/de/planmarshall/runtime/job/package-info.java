@@ -45,7 +45,8 @@
  * while a job is launched or awaited. The job record ({@link de.planmarshall.core.store.JobRecordStore}) is written at
  * its fixed points: a refused job in the one write of its fate {@code refused}; otherwise the write-ahead record
  * ({@code running}, {@code pid: null}) before the launch, the post-spawn record with the PID and the process start of
- * the launch report ({@link de.planmarshall.runtime.job.LaunchReport}) before the job counts as running, and the fate.
+ * the launch report ({@link de.planmarshall.runtime.job.LaunchReport}) when the report arrives within the bounded
+ * wait (otherwise the job keeps the write-ahead record), and the fate.
  * The budget of a job ({@link de.planmarshall.runtime.job.JobBudget}) starts at its spawn.
  * <p>
  * {@link de.planmarshall.runtime.job.PmExecLauncher} starts the verified argument vector through the launcher
