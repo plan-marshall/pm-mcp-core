@@ -674,6 +674,35 @@ class SubprocessJobRunnerTest {
             assertCancelledWithoutProcess(jobs.records().getFirst().jobId(), cancelled);
         }
 
+        @Test
+        @DisplayName("a cancel that arrives while the unlaunched job settles is answered false, the job settles failed")
+        void cancelDuringSettlementIsAnsweredFalse() {
+            var late = new AtomicReference<Boolean>();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
+                    job -> {
+                        var jobId = jobs.records().getFirst().jobId();
+                        // the settlement of the unlaunched job opens its transaction after it has taken the cause of
+                        // the cancels and before the job leaves the running jobs: the window of a late cancel
+                        locks.beforeNextTransaction(() -> late.set(runner.cancel(jobId, CancelCause.ENGINE_CANCEL)));
+                        return ENVIRONMENT;
+                    });
+
+            var jobId = started(runner.start(git(30, "ok")));
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertEquals(Boolean.FALSE, late.get(),
+                            "the cancel did not run, or was answered true although it cannot decide the fate"),
+                    () -> assertEquals(jobId, settled.jobId()),
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Fate.FAILED, settled.fate(), "the late cancel did not decide the fate"),
+                    () -> assertEquals(10, settled.outcomeRow()),
+                    () -> assertNull(settled.exitCode(), "no exit was observed"),
+                    () -> assertNull(settled.pid(), "no process was started"),
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "no job is left running"),
+                    () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL), "a settled job is not"));
+        }
+
         private void assertCancelledWithoutProcess(JobId jobId, AtomicBoolean cancelled) {
             var settled = jobs.records().getFirst();
             assertAll(

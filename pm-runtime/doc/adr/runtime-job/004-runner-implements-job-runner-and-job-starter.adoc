@@ -33,8 +33,10 @@ job spec its job would need: which build verb, which tool, which arguments.
   `queued`, never spawned, and settled `killed` without a signal when the drain closes.
 * A job leaves the running jobs only after its settlement has run, on every path the runner owns: a launch that
   cannot be composed or a launcher that cannot be started settles it as the launcher's exit `127`, unless a cancel was
-  answered as deciding its end in the meantime, whose cause then decides it as on every other path (`cancelled`, row 2);
-  a post-spawn record
+  answered `true` before the settlement closed the job's cancel door (the first thing it does, one atomic point that
+  decides both the answer and the cause it reads), whose cause then decides it as on every other path (`cancelled`,
+  row 2); a cancel after the door closed is answered `false`, so the answer `true` and the fate by the cause are the
+  same fact; a post-spawn record
   that cannot be written, or a waiting thread that cannot be started, terminates its process group, awaits the end of
   the process and settles it from that end before the failure is passed on to the caller of the start; and a failure
   of the waiting thread itself (an exception or error of the output parser, of the settled record or of the

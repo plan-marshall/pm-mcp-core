@@ -184,8 +184,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * The launcher's own exit for a failed {@code execve}; a launcher that cannot be started at all is settled by the
-     * same exit, because the job had no process either way, unless a cancel decided the end of the job first, whose cause
-     * then decides it.
+     * same exit, because the job had no process either way, unless a cancel was answered {@code true} before the
+     * settlement closed the job's cancel door, whose cause then decides it.
      */
     static final int EXECVE_FAILED = 127;
 
@@ -522,12 +522,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Cancels a job. A running job's termination is carried out by the virtual thread that waits for it, and the cause
      * decides the fate; a queued job is settled at once without a signal, by its cause, and as {@code killed} for the
-     * drain.
+     * drain. A job whose launch failed (it has no process) is cancelled until its settlement closes the cancel door,
+     * which is the first thing it does: a cancel answered {@code true} before then settles the job by its cause, and one
+     * that arrives after is answered {@code false} and cannot change the fate.
      *
      * @param jobId the job
      * @param cause why the job is cancelled
-     * @return whether the job was running or queued and this call decided its end; {@code false} for a job that has
-     *         ended, is cancelled already or is unknown
+     * @return whether the job was running or queued and this call decided its end, so that the fate follows the cause;
+     *         {@code false} for a job that has ended, is cancelled already or is unknown, and for a job whose launch
+     *         failed and whose settlement has closed the cancel door
      */
     @Override
     public boolean cancel(JobId jobId, CancelCause cause) {
@@ -701,9 +704,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * thread that waits for its end.
      * <p>
      * A job whose launch cannot be composed or whose launcher cannot be started had no process: it is settled as the
-     * launcher's exit {@value #EXECVE_FAILED}, unless a cancel was answered as deciding its end in the meantime, which
-     * settles it by the cause of that cancel as on every other path ({@code settleUnlaunched}); it leaves the running
-     * jobs before this method returns or throws. A launcher that cannot be started answers the started job; an
+     * launcher's exit {@value #EXECVE_FAILED}, unless a cancel was answered {@code true} before its settlement closed
+     * the cancel door, which settles it by the cause of that cancel as on every other path
+     * ({@code settleUnlaunched}); a cancel after the door closed is answered {@code false}. It leaves the running jobs
+     * before this method returns or throws. A launcher that cannot be started answers the started job; an
      * exception of the composition of the launch (the caller's environment, the {@link Launch} it is checked by, the
      * process builder) is passed on to the caller of the start once the job is settled.
      * <p>
@@ -1084,17 +1088,22 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * Settles a job whose launcher could not be started: it had no process, and the launcher's exit
-     * {@value #EXECVE_FAILED} decides its fate, unless a cancel decided the end of the job first. A cancel that was
-     * answered {@code true} while the launch was composed or started has decided it, and its cause decides the fate as
-     * on every other path of the runner ({@code cancelled}, outcome row 2). A missing job log is what a launch that was
-     * never started leaves and counts as an empty one; a log that exists and cannot be read still decides row 5.
+     * {@value #EXECVE_FAILED} decides its fate, unless a cancel decided the end of the job first. The first act is to
+     * close the cancel door of the job ({@code RunningJob.closeCancelDoor}), one atomic point that decides which cancel
+     * was answered {@code true} and which cause is read here: a cancel answered {@code true} before the door closed
+     * (while the launch was composed or started) has decided the end, and its cause decides the fate as on every other
+     * path of the runner ({@code cancelled}, outcome row 2); a cancel that arrives after the door closed is answered
+     * {@code false}, because the fate is no longer open to it. The answer {@code true} and the fate by the cause are
+     * therefore the same fact. A missing job log is what a launch that was never started leaves and counts as an empty
+     * one; a log that exists and cannot be read still decides row 5.
      */
     private void settleUnlaunched(RunningJob job, JobLog log) {
         try {
+            var cause = job.closeCancelDoor();
             var current = job.latest;
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
-            var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), cancelCause(job),
+            var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), cause,
                     new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, job.successExitCodes, true));
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                     .endedAt(clock.instant()).build());
@@ -1248,6 +1257,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         private boolean settling;
 
         /**
+         * Whether the launch of the job failed and {@link #closeCancelDoor()} read its cause; guarded by the monitor of
+         * this job, like the completion of {@link #cause} by {@link #cancel(Termination)}.
+         */
+        private boolean cancelDoorClosed;
+
+        /**
          * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
          */
         RunningJob(JobRecord latest, JobRecordStore store, JobBudget budget, Set<Integer> successExitCodes) {
@@ -1261,10 +1276,29 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             this.process = launched;
         }
 
-        /** @return whether this call decided the termination of the job */
-        boolean cancel(Termination termination) {
+        /**
+         * @return whether this call decided the termination of the job; {@code false} once the cancel door is closed,
+         *         because the cause of a job whose launch failed is read once and no later cancel can be applied
+         */
+        synchronized boolean cancel(Termination termination) {
+            if (cancelDoorClosed) {
+                return false;
+            }
             var current = process;
             return (current == null || current.isAlive()) && cause.complete(termination);
+        }
+
+        /**
+         * Closes the door of a job whose launch failed: from this call on {@link #cancel(Termination)} answers
+         * {@code false}, and the cause this call returns is the last one a cancel can have decided. The one atomic point
+         * that settles both which cancel was answered {@code true} and which cause the settlement of the unlaunched job
+         * applies; the monitor is held for these two reads and writes only, never across I/O.
+         *
+         * @return the cause of the cancel that was answered {@code true} before the door closed; empty if none was
+         */
+        synchronized Optional<Termination> closeCancelDoor() {
+            cancelDoorClosed = true;
+            return cause.isDone() ? Optional.of(cause.join()) : Optional.empty();
         }
     }
 }
