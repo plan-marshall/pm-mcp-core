@@ -91,8 +91,8 @@ public class OutcomeDerivation {
             case NeverStarted _ -> new Outcome(Fate.KILLED, 4);
             case ProcessEnded process -> process.termination().map(OutcomeDerivation::terminated)
                     .orElseGet(() -> ended(process));
-            case InProcessEnded operation -> operation.termination().map(OutcomeDerivation::terminated)
-                    .orElseGet(() -> switch (operation.result()) {
+            case InProcessEnded(var termination, var result) -> termination.map(OutcomeDerivation::terminated)
+                    .orElseGet(() -> switch (result) {
                         case DOMAIN -> new Outcome(Fate.SUCCEEDED, 11);
                         case TRANSPORT -> new Outcome(Fate.FAILED, 12);
                         case OUT_OF_CONTRACT -> new Outcome(Fate.INDETERMINATE, 13);

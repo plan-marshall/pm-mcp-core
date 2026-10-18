@@ -141,22 +141,54 @@ public final class JobRecoveryStep implements RecoveryStep {
     }
 
     /**
-     * @param base        the base directory of the runtime, below which the job records of a project lie
-     * @param lockManager the lock manager of the runtime
+     * The two collaborators that signal a job group in rule (d): the probe and the termination of a live group.
+     *
      * @param signals     the lowest signalling primitive, for the probe of rule (d)
      * @param termination the termination protocol for a live group of rule (d)
+     * @since 0.1
+     */
+    public record Signalling(ProcessGroupSignals signals, TerminationProtocol termination) {
+
+        /** @throws NullPointerException if a component is {@code null} */
+        public Signalling {
+            Objects.requireNonNull(signals, "signals");
+            Objects.requireNonNull(termination, "termination");
+        }
+    }
+
+    /**
+     * What the recovery decided for one unsettled job: the rule that settles it, the signal its record will carry, and
+     * whether a live group was terminated for it.
+     *
+     * @param rule       the rule that settled the job
+     * @param signal     the signal to record; {@code null} for an in-process operation, which records none
+     * @param terminated whether a live group was terminated
+     * @param failure    why the job cannot be settled; empty when it can
+     */
+    private record Handling(Rule rule, String signal, boolean terminated, Optional<String> failure) {
+
+        static Handling failed(Rule rule, String reason) {
+            return new Handling(rule, null, false, Optional.of(reason));
+        }
+    }
+
+    /**
+     * @param base        the base directory of the runtime, below which the job records of a project lie
+     * @param lockManager the lock manager of the runtime
+     * @param signalling  the signalling collaborators, for the probe and the termination of rule (d)
      * @param audit       where the orphan note of rule (c) is handed over
      * @param bootTime    the boot time of the system
      * @param slots       the slots of the jobs, released by their settlement
      * @param clock       the clock of the settled records
      * @throws NullPointerException if an argument is {@code null}
      */
-    public JobRecoveryStep(Path base, LockManager lockManager, ProcessGroupSignals signals,
-            TerminationProtocol termination, AuditSink audit, Instant bootTime, Slots slots, InstantSource clock) {
+    public JobRecoveryStep(Path base, LockManager lockManager, Signalling signalling, AuditSink audit,
+            Instant bootTime, Slots slots, InstantSource clock) {
         this.base = Objects.requireNonNull(base, "base");
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
-        this.signals = Objects.requireNonNull(signals, "signals");
-        this.termination = Objects.requireNonNull(termination, "termination");
+        Objects.requireNonNull(signalling, "signalling");
+        this.signals = signalling.signals();
+        this.termination = signalling.termination();
         this.audit = Objects.requireNonNull(audit, "audit");
         this.bootTime = Objects.requireNonNull(bootTime, "bootTime");
         this.slots = Objects.requireNonNull(slots, "slots");
@@ -192,26 +224,16 @@ public final class JobRecoveryStep implements RecoveryStep {
             if (job.status().isSettled()) {
                 continue;
             }
-            var rule = rule(job);
-            String signal = job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART;
-            if (rule == Rule.UNIDENTIFIABLE) {
-                try {
-                    audit.append(orphanNote(projectId, job.jobId()));
-                } catch (UncheckedIOException e) {
-                    return new Outcome.Failed("the orphan note of job %s was not handed over: %s".formatted(
-                            job.jobId(), e.getMessage()));
-                }
-            } else if (rule == Rule.PROBED && signals.signalGroup(job.pid(), Signal.PROBE) instanceof Delivered) {
-                var report = termination.terminate(job.pid());
+            var handling = handle(projectId, job);
+            if (handling.failure().isPresent()) {
+                return new Outcome.Failed(handling.failure().get());
+            }
+            var rule = handling.rule();
+            if (handling.terminated()) {
                 terminated++;
-                signal = switch (report.ending()) {
-                    case GROUP_KILLED -> Signal.SIGKILL.name();
-                    case GROUP_EXITED -> Signal.SIGTERM.name();
-                    case GROUP_NOT_REACHED, SIGNAL_REFUSED -> RUNTIME_RESTART;
-                };
             }
             var settled = job.toBuilder().status(Status.ENDED).fate(KILLED.fate()).outcomeRow(KILLED.row())
-                    .endedAt(clock.instant()).signal(signal).childWallMs(null).build();
+                    .endedAt(clock.instant()).signal(handling.signal()).childWallMs(null).build();
             var report = JobSettlement.of(store, lockManager).settle(new SettlementStep.Settled(settled,
                     slots.of(job)));
             if (report.stoppedAt().isPresent()) {
@@ -224,6 +246,33 @@ public final class JobRecoveryStep implements RecoveryStep {
             }
         }
         return new Outcome.Done(report(counts, terminated, workers));
+    }
+
+    /**
+     * Applies the rule of a job left unsettled: the orphan note of rule (c), the probe and the termination of rule (d).
+     *
+     * @return the rule, the signal to record and whether a group was terminated, or why the orphan note failed
+     */
+    private Handling handle(String projectId, JobRecord job) {
+        var rule = rule(job);
+        if (rule == Rule.UNIDENTIFIABLE) {
+            try {
+                audit.append(orphanNote(projectId, job.jobId()));
+            } catch (UncheckedIOException e) {
+                return Handling.failed(rule, "the orphan note of job %s was not handed over: %s".formatted(
+                        job.jobId(), e.getMessage()));
+            }
+        } else if (rule == Rule.PROBED && signals.signalGroup(job.pid(), Signal.PROBE) instanceof Delivered) {
+            var report = termination.terminate(job.pid());
+            var signal = switch (report.ending()) {
+                case GROUP_KILLED -> Signal.SIGKILL.name();
+                case GROUP_EXITED -> Signal.SIGTERM.name();
+                case GROUP_NOT_REACHED, SIGNAL_REFUSED -> RUNTIME_RESTART;
+            };
+            return new Handling(rule, signal, true, Optional.empty());
+        }
+        return new Handling(rule, job.execution() == Execution.IN_PROCESS ? null : RUNTIME_RESTART, false,
+                Optional.empty());
     }
 
     /** @return the rule that settles a job left unsettled, the first that matches */

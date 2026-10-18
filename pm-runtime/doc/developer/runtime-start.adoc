@@ -186,7 +186,8 @@ unchanged and keeps the step the list holds, a seam included:
 [source,java]
 ----
 var signals = ProcessGroupSignals.system();
-var jobs = new JobRecoveryStep(base, lockManager, signals, new TerminationProtocol(signals), auditSink, bootTime,
+var jobs = new JobRecoveryStep(base, lockManager,
+        new JobRecoveryStep.Signalling(signals, new TerminationProtocol(signals)), auditSink, bootTime,
         JobRecoveryStep.Slots.NONE, clock);
 var recovery = ProjectRecovery.withEnrolment(store, check, enrolments, lockManager, jobs, otherSteps, executor);
 ----

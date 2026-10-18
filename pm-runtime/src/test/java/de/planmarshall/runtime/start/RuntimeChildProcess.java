@@ -235,7 +235,8 @@ final class RuntimeChildProcess {
      */
     static JobRecoveryStep jobStep(Path base, LockManager lockManager, AuditSink audit) {
         var signals = ProcessGroupSignals.system();
-        return new JobRecoveryStep(base, lockManager, signals, new TerminationProtocol(signals), audit, bootTime(),
+        return new JobRecoveryStep(base, lockManager,
+                new JobRecoveryStep.Signalling(signals, new TerminationProtocol(signals)), audit, bootTime(),
                 JobRecoveryStep.Slots.NONE, Clock.systemUTC());
     }
 

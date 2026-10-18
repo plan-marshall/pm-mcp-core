@@ -46,7 +46,7 @@ cannot be settled from this repository.
   `signalProcess(pid, signal)` answer what the call answered as a value, `Delivered`, `NoSuchProcess` for `ESRCH` or
   `Refused(errno)`, for the signals `PROBE` (0), `SIGKILL` and `SIGTERM`.
 * `ProcessGroupSignals.system()` binds `kill(2)` of the C library through FFM (`Linker`, `captureCallState("errno")`),
-  no JNI library. It refuses a PID of 1 or less and one above the range of `pid_t` with `IllegalArgumentException`,
+  no JNI library, in the package-private class `KillBinding`. It refuses a PID of 1 or less and one above the range of `pid_t` with `IllegalArgumentException`,
   because such an id would address every process, the caller's own group or `init`.
 * Everything that signals a job goes through the interface: `TerminationProtocol`, and the recovery step of
   `runtime.start`. A test replaces it with a recording fake and asserts at the lowest signalling call, also that none was
@@ -95,5 +95,5 @@ option on the entry; an entry without it describes a downcall without captured s
 * `pm-runtime/src/main/resources/META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json`
 * GraalVM reachability-metadata schema 1.2.0, `lib/svm/schemas/reachability-metadata-schema.json` of GraalVM CE 25.4.4.1
 * link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses] (Process Termination & Cancellation Protocol)
-* `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java`, `TerminationProtocol.java`,
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java`, `KillBinding.java`, `TerminationProtocol.java`,
   `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java`, `Posix.java`

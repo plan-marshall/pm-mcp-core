@@ -42,23 +42,14 @@ import de.planmarshall.runtime.job.JobEvidence.LogState;
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process-Group Creation via
  * the {@code pm-exec} Launcher, launch report; Outcome Derivation, row 5).
  *
+ * @param path the job log, {@code <job_id>.log} beside the job record
  * @since 0.1
  */
-public final class JobLog {
+public record JobLog(Path path) {
 
-    private final Path path;
-
-    /**
-     * @param path the job log, {@code <job_id>.log} beside the job record
-     * @throws NullPointerException if the path is {@code null}
-     */
-    public JobLog(Path path) {
-        this.path = Objects.requireNonNull(path, "path");
-    }
-
-    /** @return the path of the job log */
-    public Path path() {
-        return path;
+    /** @throws NullPointerException if the path is {@code null} */
+    public JobLog {
+        Objects.requireNonNull(path, "path");
     }
 
     /**

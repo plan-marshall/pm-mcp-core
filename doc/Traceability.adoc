@@ -409,6 +409,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobLog.java[JobLog]
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobBudget.java[JobBudget],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/TerminationProtocol.java[TerminationProtocol],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java[ProcessGroupSignals],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/KillBinding.java[KillBinding],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobEvidence.java[JobEvidence],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/OutcomeDerivation.java[OutcomeDerivation],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/job/JobSettlement.java[JobSettlement],

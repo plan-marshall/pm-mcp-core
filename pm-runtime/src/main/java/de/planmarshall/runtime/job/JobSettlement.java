@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.job;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -74,16 +75,12 @@ public final class JobSettlement {
      * @return the settlement
      */
     public static JobSettlement of(JobRecordStore store, LockManager lockManager) {
-        var steps = new ArrayList<SettlementStep>();
-        for (var name : Name.values()) {
-            steps.add(switch (name) {
-                case FATE -> SettlementStep.fate(store, lockManager);
-                case SLOT_RELEASE -> SettlementStep.slotRelease();
-                case WORKER_QUEUE_TASK, METRICS_ROW, CHANGE_LEDGER_ROW, TIMING_OBSERVATION, JOB_PRIVATE_DIRECTORY ->
-                    SettlementStep.notImplemented(name);
-            });
-        }
-        return new JobSettlement(steps);
+        return new JobSettlement(Arrays.stream(Name.values()).<SettlementStep>map(name -> switch (name) {
+            case FATE -> SettlementStep.fate(store, lockManager);
+            case SLOT_RELEASE -> SettlementStep.slotRelease();
+            case WORKER_QUEUE_TASK, METRICS_ROW, CHANGE_LEDGER_ROW, TIMING_OBSERVATION, JOB_PRIVATE_DIRECTORY ->
+                SettlementStep.notImplemented(name);
+        }).toList());
     }
 
     /**

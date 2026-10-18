@@ -136,7 +136,8 @@ class JobRecoveryStepTest {
     }
 
     private JobRecoveryStep step(AuditSink sink, JobRecoveryStep.Slots slots) {
-        return new JobRecoveryStep(base, lockManager, signals, new TerminationProtocol(signals), sink, BOOT, slots,
+        return new JobRecoveryStep(base, lockManager,
+                new JobRecoveryStep.Signalling(signals, new TerminationProtocol(signals)), sink, BOOT, slots,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 

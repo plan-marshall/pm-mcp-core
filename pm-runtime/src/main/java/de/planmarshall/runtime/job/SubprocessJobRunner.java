@@ -150,6 +150,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** The refusal of a probe whose kind the operator did not consent to. */
     public static final String CONSENT_REQUIRED = "consent_required";
 
+    /** The name of the {@code request} parameter in a null check. */
+    private static final String ARG_REQUEST = "request";
+
+    /** The name of the {@code jobId} parameter in a null check. */
+    private static final String ARG_JOB_ID = "jobId";
+
     /** The directory of the job-private directories below the base directory. */
     static final String JOB_PRIVATE_DIRECTORIES = "run/jobs";
 
@@ -364,7 +370,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     @Override
     public JobRunner.StartResult start(JobRunner.StartRequest<JobRequest> request) {
-        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(request, ARG_REQUEST);
         if (request.kind() == JobId.Kind.LLM) {
             throw new IllegalArgumentException("A worker is launched by the supervisor with its worker block");
         }
@@ -404,7 +410,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     @Override
     public JobRunner.StartResult startProbe(ProbeRequest<ProbeCandidate> request) {
-        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(request, ARG_REQUEST);
         if (!request.consented()) {
             return new JobRunner.StartResult.Refused(CONSENT_REQUIRED);
         }
@@ -506,7 +512,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     @Override
     public boolean cancel(JobId jobId, CancelCause cause) {
-        Objects.requireNonNull(jobId, "jobId");
+        Objects.requireNonNull(jobId, ARG_JOB_ID);
         Objects.requireNonNull(cause, "cause");
         var job = running.get(jobId);
         if (job != null) {
@@ -573,7 +579,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     @Override
     public Optional<JobRecord> recordOf(JobId jobId) {
-        Objects.requireNonNull(jobId, "jobId");
+        Objects.requireNonNull(jobId, ARG_JOB_ID);
         return Optional.ofNullable(stores.get(jobId)).flatMap(store -> store.read(jobId));
     }
 
@@ -586,7 +592,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     @Override
     public JobStarter.StartResult start(JobStarter.StartRequest request) {
-        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(request, ARG_REQUEST);
         var job = primitives.resolve(request).filter(resolved -> resolved.kind() != JobId.Kind.LLM);
         if (job.isEmpty()) {
             return new JobStarter.StartResult.Refused(PRIMITIVE_WITHOUT_JOB);
@@ -611,7 +617,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *         interrupted, or the runner does not know the job
      */
     public Optional<JobRecord> awaitSettled(JobId jobId, Duration timeout) {
-        Objects.requireNonNull(jobId, "jobId");
+        Objects.requireNonNull(jobId, ARG_JOB_ID);
         Objects.requireNonNull(timeout, "timeout");
         var job = running.get(jobId);
         if (job == null) {
@@ -846,9 +852,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         try {
             while (true) {
                 var alive = process.isAlive();
-                if (log.readLines(0) instanceof JobLog.Lines lines
-                        && (lines.report().isPresent() || !lines.lines().isEmpty())) {
-                    return new AwaitedReport(lines.report(), lines.nextOffset());
+                if (log.readLines(0) instanceof JobLog.Lines(var lines, var nextOffset, var report)
+                        && (report.isPresent() || !lines.isEmpty())) {
+                    return new AwaitedReport(report, nextOffset);
                 }
                 if (!alive || interrupted || !clock.instant().isBefore(deadline)) {
                     return new AwaitedReport(Optional.empty(), 0);

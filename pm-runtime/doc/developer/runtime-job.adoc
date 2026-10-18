@@ -245,7 +245,7 @@ The `Report` names how the protocol ended:
 An interrupt of the waiting thread cuts the wait short and goes straight to `SIGKILL`, so no group is left running; the interrupt status is kept.
 
 Every signal goes through `ProcessGroupSignals`, the lowest signalling primitive: `signalGroup(pgid, signal)` and `signalProcess(pid, signal)` answer `Delivered`, `NoSuchProcess` (`ESRCH`) or `Refused(errno)` as values.
-`ProcessGroupSignals.system()` binds the C library's `kill(2)` through FFM, capturing `errno`, and refuses a PID of 1 or less, which would address every process, the caller's group or `init` (see link:../adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR 008]).
+`ProcessGroupSignals.system()` binds the C library's `kill(2)` through FFM, capturing `errno`, in the package-private class `KillBinding`, and refuses a PID of 1 or less, which would address every process, the caller's group or `init` (see link:../adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR 008]).
 A test replaces the primitive with a recording fake and asserts at the lowest signalling call, also that none was made.
 
 [#_outcome_derivation]

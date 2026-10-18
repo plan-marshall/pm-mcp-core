@@ -9,16 +9,6 @@
  */
 package de.planmarshall.runtime.job;
 
-import static java.lang.foreign.ValueLayout.JAVA_INT;
-
-import java.lang.foreign.Arena;
-import java.lang.foreign.FunctionDescriptor;
-import java.lang.foreign.Linker;
-import java.lang.foreign.MemoryLayout;
-import java.lang.foreign.StructLayout;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.VarHandle;
-
 /**
  * The lowest signalling primitive of the job runtime (PM-EXEC-4, PM-TECH-4): {@code kill(2)} against a job's process
  * group ({@code kill(-pgid, sig)}) or its PID ({@code kill(pid, sig)}), answering what the call answered as a value:
@@ -125,79 +115,6 @@ public interface ProcessGroupSignals {
      * @throws IllegalStateException if the C library offers no {@code kill}
      */
     static ProcessGroupSignals system() {
-        return new Kill();
-    }
-
-    /**
-     * The FFM binding of {@code kill(2)}, capturing {@code errno} of each call.
-     *
-     * @since 0.1
-     */
-    final class Kill implements ProcessGroupSignals {
-
-        /** {@code ESRCH} on Linux and macOS. */
-        static final int ESRCH = 3;
-
-        /** The largest PID: {@code pid_t} is a 32-bit signed integer. */
-        private static final long MAX_PID = Integer.MAX_VALUE;
-
-        private static final String ERRNO = "errno";
-
-        private final MethodHandle kill;
-        private final StructLayout callState;
-        private final VarHandle errno;
-
-        private Kill() {
-            var linker = Linker.nativeLinker();
-            var symbol = linker.defaultLookup().find("kill")
-                    .orElseThrow(() -> new IllegalStateException("The C library offers no kill"));
-            kill = linker.downcallHandle(symbol, FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT),
-                    Linker.Option.captureCallState(ERRNO));
-            callState = Linker.Option.captureStateLayout();
-            errno = callState.varHandle(MemoryLayout.PathElement.groupElement(ERRNO));
-        }
-
-        @Override
-        public Answer signalGroup(long pgid, Signal signal) {
-            return kill(-checkedPid(pgid), signal);
-        }
-
-        @Override
-        public Answer signalProcess(long pid, Signal signal) {
-            return kill(checkedPid(pid), signal);
-        }
-
-        @SuppressWarnings("java:S1181") // MethodHandle.invokeExact declares Throwable; Errors are rethrown
-        private Answer kill(int target, Signal signal) {
-            try (var arena = Arena.ofConfined()) {
-                var state = arena.allocate(callState);
-                int result;
-                try {
-                    result = (int) kill.invokeExact(state, target, signal.number());
-                    // cui-rewrite:disable InvalidExceptionUsageRecipe
-                } catch (Throwable t) {
-                    if (t instanceof Error e) {
-                        throw e;
-                    }
-                    throw new IllegalStateException("kill(%d, %d) failed".formatted(target, signal.number()), t);
-                }
-                if (result == 0) {
-                    return new Delivered();
-                }
-                var code = (int) errno.get(state, 0L);
-                return code == ESRCH ? new NoSuchProcess() : new Refused(code);
-            }
-        }
-
-        /**
-         * A PID of {@code 1} or less would address every process, the caller's own group or {@code init}; none is a
-         * job.
-         */
-        private static int checkedPid(long pid) {
-            if (pid <= 1 || pid > MAX_PID) {
-                throw new IllegalArgumentException("Not the PID of a job: " + pid);
-            }
-            return (int) pid;
-        }
+        return new KillBinding();
     }
 }

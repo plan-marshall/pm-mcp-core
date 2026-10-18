@@ -12,7 +12,6 @@ package de.planmarshall.runtime.start;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -105,13 +104,9 @@ public final class JobDrainParticipant implements DrainParticipant {
 
     @Override
     public List<String> terminateRemaining() {
-        var terminated = new ArrayList<String>();
         var remaining = runner.runningJobs();
-        for (var jobId : remaining) {
-            if (runner.cancel(jobId, CancelCause.DRAIN)) {
-                terminated.add("job " + jobId);
-            }
-        }
+        var terminated = remaining.stream().filter(jobId -> runner.cancel(jobId, CancelCause.DRAIN))
+                .map(jobId -> "job " + jobId).toList();
         for (var jobId : remaining) {
             runner.awaitSettled(jobId, TERMINATION_WAIT);
         }

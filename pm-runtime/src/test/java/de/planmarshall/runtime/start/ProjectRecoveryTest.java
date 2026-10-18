@@ -571,8 +571,9 @@ class ProjectRecoveryTest {
         };
 
         private JobRecoveryStep jobStep() {
-            return new JobRecoveryStep(base, fixture.locks, NO_SIGNALS, new TerminationProtocol(NO_SIGNALS),
-                    fixture.sink, Instant.EPOCH, JobRecoveryStep.Slots.NONE, Clock.systemUTC());
+            return new JobRecoveryStep(base, fixture.locks,
+                    new JobRecoveryStep.Signalling(NO_SIGNALS, new TerminationProtocol(NO_SIGNALS)), fixture.sink,
+                    Instant.EPOCH, JobRecoveryStep.Slots.NONE, Clock.systemUTC());
         }
 
         /** Leaves a job of the clean project queued, as a runtime that ended before its slot was acquired does. */

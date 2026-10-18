@@ -60,7 +60,7 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
             throw new IllegalArgumentException("pid must be at least 1: " + pid);
         }
         Objects.requireNonNull(processStartedAt, "processStartedAt");
-        Objects.requireNonNull(confinement, "confinement");
+        Objects.requireNonNull(confinement, CONFINEMENT_MEMBER);
     }
 
     /**

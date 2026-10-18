@@ -107,7 +107,7 @@ String gateFacts) {
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern REASON = Pattern.compile("[a-z][a-z0-9_]*");
     private static final Pattern SCOPE_ID = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
-    private static final Pattern NUMBER = Pattern.compile("-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?");
+    private static final Pattern NUMBER = Pattern.compile("-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?");
     private static final int MIN_LANDLOCK_ABI = 2;
 
     /**
