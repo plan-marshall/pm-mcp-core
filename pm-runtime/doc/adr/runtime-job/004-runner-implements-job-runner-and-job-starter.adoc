@@ -1,0 +1,86 @@
+= ADR 004: One Runner Class Implements `JobRunner` and `JobStarter`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+`pm-core` declares two interfaces through which a job is started: the engine port `JobStarter` of `core.spi`, which
+starts the job of a `job` state of the workflow for a state and a primitive and answers a `job_id` of the grammar
+`^[bcgp]-[0-9a-f]{16}$`, and the service `JobRunner<R, C>` of `core.service`, which starts a job of any kind or a probe,
+cancels a job by its cause and reads its record (ADR core-service/001 of `pm-core`). Both start the same jobs: verified,
+recorded, launched through `pm-exec`, terminated and settled the same way. A workflow primitive does not yet carry the
+job spec its job would need: which build verb, which tool, which arguments.
+
+== Decision
+
+* `SubprocessJobRunner` implements `JobRunner<JobRequest, ProbeCandidate>` and `JobStarter` in one class; both ports
+  reach the same verification, records, launch, termination and settlement.
+* `JobStarter` is not changed. `JobStarter.start(StartRequest)` maps the state and its primitive to a job through the
+  caller's `PrimitiveJobs`; a primitive for which it answers no job spec, and a worker, is refused
+  `primitive_without_job` as a value. The id it answers keeps the port's grammar.
+* The runner starts no worker: `start` refuses the kind `llm`, whose launch belongs to the supervisor.
+* The runner verifies a job in a lock transaction it opens and closes itself before the launch, so the enrolment lock
+  of the verification is never held while a job is launched or awaited.
+* The admission of a job and the stop of the admission for the drain are decided under one lock (`stopAdmitting`), so
+  a job admitted before the stop is among the running jobs the drain waits for; a job asked for afterwards is recorded
+  `queued`, never spawned, and settled `killed` without a signal when the drain closes.
+* A job leaves the running jobs only after its settlement has run, on every path the runner owns: a launch that
+  cannot be composed or a launcher that cannot be started settles it as the launcher's exit `127`, unless a cancel was
+  answered `true` before the settlement closed the job's cancel door (the first thing it does, one atomic point that
+  decides both the answer and the cause it reads), whose cause then decides it as on every other path (`cancelled`,
+  row 2; `timed_out`, row 3, for the budget; `killed`, row 4, for the drain); a cancel after the door closed is answered `false`, so the answer `true` and the fate by the cause are the
+  same fact. The door is the one arbiter of every job, not of the unlaunched job alone: the runner closes it when it
+  observes the end of the process (the waiting thread when it sees the exit, and the settlement from the observed end
+  after the process group was terminated) and reads the cause then, so a cancel answered `true` before the door closed
+  decides the fate by its cause (row 2, 3 or 4) whatever the exit status, also when the process had exited by itself
+  before the waiting thread was scheduled, and a cancel after it is answered `false`; a post-spawn record
+  that cannot be written, or a waiting thread that cannot be started, terminates its process group, awaits the end of
+  the process and settles it from that end before the failure is passed on to the caller of the start; and a failure
+  of the waiting thread itself (an exception or error of the output parser, of the settled record or of the
+  termination protocol) is followed by a fallback settlement. After the end of the process was observed, the fallback
+  settles the job from the same observation without the parser's finding and never calls the parser again; before it,
+  the fallback terminates the group again by the PID of the process handle, destroys the process through its handle
+  when the protocol fails or its signal is refused, awaits its end and settles the job from what it observed then. The
+  failure is passed on to the thread's handler and logged (`PM_RUNTIME-208`). The runner keeps the invariant with
+  `try`/`finally` and a flag that records whether the settlement has started, not by catching a generic exception.
+* What is guaranteed is that the settlement ran, not that it succeeded: the job is settled, or its settlement stopped
+  at a failed step (a fate that cannot be written, `PM_RUNTIME-207`), or a fault of the lock manager inside the
+  settlement was passed on. In the last two cases the record stays `running` and the recovery of the next runtime
+  start settles it. A failure of the fallback settlement itself replaces the failure it follows.
+* No row of the outcome derivation names the termination of a job whose post-spawn record failed, and the runner
+  invents none: it records no termination cause, and the evidence decides. A process ended by the runner's signal is
+  `killed` by row 4, which the specification names for a process ended by any other signal and which is the closest
+  row; a process that had exited before the signal is decided by its exit, and a cancel answered `true` before the
+  settlement closed the job's cancel door, which it does once the end of the process is observed, by its cause; a
+  cancel after the door closed is answered `false`. The settled record carries the PID and the process start of the launch report, because the process ran.
+
+== Alternatives Considered
+
+Alternatives not recorded beyond those of ADR core-service/001 of `pm-core`.
+
+== Consequences
+
+* The engine can start the job of a state as soon as the caller's `PrimitiveJobs` answers a job spec for its primitive;
+  until then the port refuses it with `primitive_without_job`, and no job is recorded.
+* A job started through either port is the same job: one record, one log, one cancel.
+* A later supervisor launches workers itself and records them in the same job record store.
+* `recordOf(jobId)` and `awaitSettled(jobId, timeout)` answer the settled record of every job that left the running
+  jobs, unless its fate could not be written or the lock manager failed inside its settlement; no record stays
+  `running` until the next runtime start because one post-spawn write failed, the output parser threw or the
+  termination protocol failed.
+* A job whose output parser fails is settled without the parser's finding: an exit `0` is then `indeterminate` by
+  row 8, a non-zero exit decided by row 10.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../pm-core/doc/adr/core-service/001-job-runner-service-interface-beside-the-engine-port.adoc[ADR core-service/001] of `pm-core`
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`

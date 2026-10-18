@@ -35,7 +35,9 @@
  * <li>{@code doc/specification/store-schemas/03-findings-and-review-records.adoc} (Analysis Result Record)</li>
  * <li>{@code doc/specification/phase-workflows/04-finalize-step-bands.adoc}</li>
  * <li>{@code doc/specification/hypermedia-format/03-composite-wait-and-encoder.adoc} ({@code analysis_status})</li>
- * <li>{@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Outcome Derivation)</li>
+ * <li>{@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Outcome Derivation, the domain and
+ * transport outcomes of an in-process operation); the outcome table itself is carried by {@code OutcomeDerivation} of
+ * {@code pm-runtime} ({@code pm-runtime/doc/developer/runtime-job.adoc}, Outcome Derivation)</li>
  * </ul>
  */
 package de.planmarshall.core.analysis;

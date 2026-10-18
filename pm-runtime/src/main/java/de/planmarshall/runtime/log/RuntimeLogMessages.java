@@ -297,6 +297,23 @@ public final class RuntimeLogMessages {
                 .identifier(29)
                 .template("Credential store move from '%s' to '%s' resumed from phase '%s' and completed")
                 .build();
+
+        /**
+         * Logged when the record of a job carries its PID and process start (the post-spawn replace), from which on the
+         * job counts as running; names the job, its kind, its PID and its budget in seconds.
+         */
+        public static final LogRecord JOB_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(30)
+                .template("Job '%s' of kind '%s' started (pid %s, budget %s seconds)")
+                .build();
+
+        /** Logged when the fate of a job is recorded; names the job, its fate and the row of the outcome derivation. */
+        public static final LogRecord JOB_SETTLED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(31)
+                .template("Job '%s' settled with fate '%s' (outcome row %s)")
+                .build();
     }
 
     /** WARN level messages. */
@@ -578,6 +595,39 @@ public final class RuntimeLogMessages {
                 .identifier(129)
                 .template("Credential store move from '%s' to '%s' failed before the switch, %s: %s")
                 .build();
+
+        /**
+         * Logged when a member of a job's process group still lived at the end of the termination grace period after
+         * {@code SIGTERM}, and the group was sent {@code SIGKILL}; names the job, the process group and the cause of
+         * the termination.
+         */
+        public static final LogRecord JOB_TERMINATION_ESCALATED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(130)
+                .template("Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')")
+                .build();
+
+        /**
+         * Logged when the launcher of a job cannot be started, or the launch of a job cannot be composed, so the job
+         * had no process and is settled as the launcher's exit 127, unless a cancel was answered true before the
+         * settlement closed the job's cancel door, whose cause then decides it; names the job and why.
+         */
+        public static final LogRecord JOB_LAUNCHER_NOT_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(131)
+                .template("Launcher of job '%s' not started, the job had no process: %s")
+                .build();
+
+        /**
+         * Logged when the termination protocol fails with an exception for a job whose end the runner has not observed
+         * (a refused PID or a failed signal call), before its process is destroyed through its handle and the job is
+         * settled; names the job and the reason.
+         */
+        public static final LogRecord JOB_TERMINATION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(132)
+                .template("Termination of job '%s' failed, its process is destroyed through its handle: %s")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -642,6 +692,26 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(206)
                 .template("Enrolment integrity key unavailable from '%s': %s")
+                .build();
+
+        /**
+         * Logged when a step of the settlement of a job fails and the settlement stops there, so no later step runs;
+         * names the job, the step and the reason.
+         */
+        public static final LogRecord JOB_SETTLEMENT_STEP_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(207)
+                .template("Settlement of job '%s' stopped at step '%s': %s")
+                .build();
+
+        /**
+         * Logged when the virtual thread that waits for a job fails with an exception or an error, after its fallback
+         * settlement from what the runner observed has run; names the job and the failure.
+         */
+        public static final LogRecord JOB_SUPERVISION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(208)
+                .template("Supervision of job '%s' failed, its settlement ran from what the runner observed: %s")
                 .build();
     }
 }

@@ -161,19 +161,6 @@ with `Retry-After` or a reset instant defers the next request to that instant, t
 because of it.
 Source:: design review.
 
-[#PM-WATCH-JOB-22]
-=== PM-WATCH-JOB-22: Recovery signals only a process it can identify
-
-Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#_process_termination_cancellation_protocol[Job Runtime § Process Termination & Cancellation Protocol] (Live Orphans after a Runtime Crash),
-link:../specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record] (Post-spawn, Recovery)
-Hazard:: A job counted as running before its record names the PID leaves an orphan the recovery cannot identify; a
-recovery that trusts a PID from before the last boot, or guesses one, signals an unrelated process that reuses it.
-Guard:: Crash injection between spawn and the post-spawn replace: after restart the record (`pid: null`) is marked
-`killed` with the audit note "orphan unidentifiable" and no signal is sent; a `running` record whose `spawned_at` lies
-before the system boot time is marked `killed` and no signal is sent; control: a same-boot record with `pid` and
-`process_started_at` is probed and its process group terminated as specified.
-Source:: design review.
-
 [#PM-WATCH-JOB-30]
 === PM-WATCH-JOB-30: Every wait maps to exactly one `wait_reason`, and every reason is used
 
@@ -188,44 +175,6 @@ provider rate-limit deferral, prerequisite wait) maps to exactly one value of th
 is the reason of at least one of them; `deliberate` is `true` exactly for the operator wait, the pause, the
 prerequisite wait, and the rate-window waits. Matched control: a fixture state that waits without a mapped reason fails the test.
 Source:: design review.
-
-[#PM-WATCH-JOB-31]
-=== PM-WATCH-JOB-31: The child wall time is null without an observed exit and never exceeds the job's wall time
-
-Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#job-wall-times[Job Runtime § Wall times]
-Hazard:: A child wall time guessed for a job without an observed exit, or one longer than the job's own wall time,
-skews the build-overhead trigger of `PM-MIG-5` (negative or inflated overhead).
-Guard:: Test: a job `killed` by recovery, a `refused` job, and an in-process operation record `child_wall_ms: null`;
-every settled job with a child process records `child_wall_ms` no greater than its wall time (`spawned_at` to
-`ended_at`). Matched control: an ordinary build job records a non-null value.
-Source:: design review.
-
-[#PM-WATCH-JOB-32]
-=== PM-WATCH-JOB-32: Recovery never signals the PID of an in-process operation
-
-Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#in-process-operations[Job Runtime § In-Process Operations (Native Variant)]
-Hazard:: A record of an in-process operation left `running` by a crashed runtime carries no process of its own; a
-recovery that probes or signals its recorded process data hits the previous runtime's PID, which the OS may have reused
-for an unrelated process, or writes an orphan note for a process that never existed.
-Guard:: Recovery fixture with a record `execution: in_process`, `status: running`: it is settled `killed` by the first
-recovery rule, no `kill()` call is made (asserted at the lowest signalling primitive), and no orphan note is written;
-matched control: a subprocess record left `running` with a live process group is probed and terminated.
-Source:: design review.
-
-[#PM-WATCH-JOB-37]
-=== PM-WATCH-JOB-37: The launcher's report line never reaches a parser or a log reader
-
-Anchor:: link:../specification/job-runtime/01-pipeline-and-subprocesses.adoc#launch-report[Job Runtime § Process-Group Creation via the `pm-exec` Launcher] (Launch report)
-Hazard:: The launcher has no channel of its own: its report (PID, start instant, applied confinement, Landlock ABI)
-is the first line of the job's `stderr`. Left in the job log it is parsed as build output, shown in a log excerpt
-to a model, or counted as a non-JSON line of a harness's structured output; a job whose own first line looks like
-a report is taken for one.
-Guard:: Table test over the job kinds: the job record takes `pid`, `process_started_at`, `confinement`, and
-`landlock_abi` from the report, and the stored job log, every log resource, and every evidence excerpt start with
-the job's own first line; a job that prints a report-shaped JSON line as its own first output keeps that line in
-its log (exactly one line is stripped, the first); a launcher that exits `64`, `126`, or `127` before `execve`
-leaves no report, and the job's fate is derived from that exit, never from a missing report alone.
-Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Gates 3 and 13 (launch report).
 
 == Linux Filesystem Confinement (Landlock)
 

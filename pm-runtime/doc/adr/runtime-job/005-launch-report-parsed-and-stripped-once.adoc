@@ -1,0 +1,54 @@
+= ADR 005: Exactly the First Line of the Job Log Is the Launch Report, Stripped Once
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+`pm-exec` writes one launch report line to `stderr` right before `execve`: the job PID, which is its process-group id,
+the process start, the confinement applied and the Landlock ABI. `stdout` and `stderr` of the job go to the same job
+log, so the report is its first line, and everything after it is the job's own output. The job log is read while the
+job runs, from a byte offset onward, and once more after it has ended. A job can print a line that looks like a report,
+and a launcher that fails before `execve` (exit `64` usage, `126` confinement not applied, `127` `execve` failed) writes
+no report at all.
+
+== Decision
+
+* `LaunchReport.read(log)` takes exactly the first line of a log as the report when it parses as one and answers the
+  job's output as everything after it, byte for byte; a log whose first line is no report keeps all of its content.
+* `JobLog.readLines(offset)` strips the report only on a read from offset `0`; a read from any later offset never strips
+  a line. A first output line of the job that looks like a report therefore stays in the output.
+* A log without a report whose launcher exited `64`, `126` or `127` is a launcher failure
+  (`LaunchReport.isLauncherFailure`): its output is not handed to the parser, and the outcome derivation takes the fate
+  from the exit code. A launcher that cannot be started at all, or whose launch cannot be composed, is settled as an
+  exit `127` (row 10), unless a cancel was answered `true` before the settlement closed the job's cancel door, whose
+  cause then decides it (`cancelled`, row 2; a cancel after the door closed is answered `false`); a job log the never-started launcher did not create counts as empty, not as `MISSING`. Such a
+  job keeps its write-ahead record without a PID.
+* A log that is shorter than what the runtime already read from it is `TRUNCATED`: shorter than the offset of an
+  incremental read, or than the length the runner observed when it found the report. With `MISSING` and `UNREADABLE` it
+  is a value `JobLog.Unavailable` and leads to row 5 of the outcome derivation, `indeterminate`.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* The output a parser reads is the job's own, never the launcher's.
+* A job cannot pass itself off as having a different PID or confinement by printing a line, because only the first line
+  is ever read as a report.
+* A launcher failure has no PID in its record; were the runtime to end before it is settled, the recovery would treat
+  the record by its rule for a job without a PID and send no signal.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses] (Process-Group Creation via the `pm-exec` Launcher)
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation] (row 5)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/LaunchReport.java`, `JobLog.java`

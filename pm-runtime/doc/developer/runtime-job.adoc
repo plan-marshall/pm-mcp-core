@@ -1,4 +1,4 @@
-= Job Verification (`runtime.job`) Developer Guide
+= Job Runtime (`runtime.job`) Developer Guide
 :toc:
 :toclevels: 3
 :nofooter:
@@ -10,14 +10,16 @@
 
 == Purpose
 
-_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2]
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2]
 
-Package `de.planmarshall.runtime.job` of `pm-runtime` implements the verify-not-resolve pipeline of a job: the deterministic check that turns what a caller asks to run into either a verified job or a refusal.
+Package `de.planmarshall.runtime.job` of `pm-runtime` runs a project's process jobs from their verification to their settlement.
+Its first part is the verify-not-resolve pipeline of a job: the deterministic check that turns what a caller asks to run into either a verified job or a refusal.
 Nothing is resolved at launch.
 No executable is looked up through `PATH`, no shebang decides an interpreter, no template is read from a file a model can write.
 Everything that ends up in the argument vector and the working directory comes from the project's verified enrolment or from the caller's own, trusted defaults.
 
-Launching the verified job through `pm-exec`, its confinement and its environment are not part of this package; they belong to the job runner packages.
+Its second part is the runner (<<_the_runner>>): the launch of a verified job through `pm-exec`, the job record at its fixed points, the job log, the termination of the job's process group, the derivation of its fate and its settlement, and the probe jobs.
+The content of a job's confinement and of its environment is not part of this package; the caller supplies the environment allowlist of a job.
 
 == Core Types
 
@@ -143,6 +145,179 @@ switch (verification) {
 
 The enrolment lock the transaction acquires in stage 0 is held until the caller closes the transaction; the pipeline cannot release it before stage 3 (see Pitfall 7).
 
+[#_the_runner]
+== The Runner
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
+
+`SubprocessJobRunner` implements the service `JobRunner<JobRequest, ProbeCandidate>` of `core.service` and the engine port `JobStarter` of `core.spi` in one class (see link:../adr/runtime-job/004-runner-implements-job-runner-and-job-starter.adoc[ADR 004]).
+It is built with `SubprocessJobRunner.builder()` from the base directory, the lock manager, the `VerifyNotResolvePipeline`, the `PmExecLauncher`, the `TerminationProtocol`, the caller's `Environment` and `ProbeEnvironment` (the allowlists a job and a probe run with), the `OutputParser` of the job kinds, the `PrimitiveJobs` of the engine port and an optional clock.
+
+A start of `start(StartRequest<JobRequest>)` runs in this order:
+
+. The budget (`JobBudget`) is the budget key, seconds and derivation the request names; the runner neither allocates nor learns a budget.
+. The job is verified by the pipeline in a lock transaction the runner opens and closes itself, before anything is launched, so no caller holds the enrolment lock while the job is launched or awaited.
+. A refusal settles the job `refused` (outcome row 1) in the one write of its fate, without a process and with `child_wall_ms: null`; the start answers `Refused(reason)`.
+. Under the admission lock and in one lock transaction, the job id is allocated and the write-ahead record (`running`, `pid: null`) is written; while the runtime drains, the queued record is written instead and nothing is spawned (<<_drain>>).
+. The job is launched through `PmExecLauncher` (<<_launch_and_launch_report>>), and its budget starts at the spawn.
+. The launch report is awaited for at most `REPORT_WAIT` (10 seconds from the spawn, and never beyond the budget; a cancel ends the wait at once, see link:../adr/runtime-job/009-launch-report-wait-bounded-apart-from-the-budget.adoc[ADR 009]), and the post-spawn record with `pid`, `process_started_at`, `spawned_at`, `confinement` and `landlock_abi` replaces the write-ahead record, and the start answers `Started(jobId)`. When no report arrives within the wait, or the job is cancelled during it, the start answers `Started(jobId)` with the write-ahead record (no PID) unchanged (see the launch report below). A post-spawn record that cannot be written terminates the job's group; the runner waits for the end of the process, settles the job from what it observed with no termination cause (a process ended by the runner's signal is `killed` by row 4, a process that had exited before it is decided by its exit, and a cancel answered `true` before the settlement closed the job's cancel door, once it has observed the end of the process, decides by its cause), with the PID and process start of the launch report, and only then passes the failure of the write on to the caller. A waiting thread that cannot be started takes the same path.
+. A virtual thread per job waits for the end of its process, for its budget or for a cancel, whichever comes first, terminates the group for a cause (<<_termination>>), derives the fate (<<_outcome_derivation>>) and settles the job (<<_settlement>>). When the thread fails (an exception or error of the `OutputParser`, of the settled record or of the termination protocol), a fallback settlement runs before the job leaves the running jobs: after the end of the process was observed, the job is settled from the same observation without the parser's finding, and the parser is not called again (an exit `0` is then `indeterminate` by row 8); before it, the group is terminated again by the PID of the process handle, the process is destroyed through its handle when the protocol fails (logged at WARN as `PM_RUNTIME-132`) or its signal is refused, and the job is settled from the end observed then, a cancel or budget that was decided deciding by its cause. The failure is passed on to the thread's handler and logged at ERROR as `PM_RUNTIME-208`.
+
+A job that leaves the running jobs has had its settlement run: it is settled, or its settlement stopped at a failed step (`PM_RUNTIME-207`), or a fault of the lock manager inside the settlement was passed on; in the last two cases its record stays `running` and the recovery of the next runtime start settles it. A failure of the fallback settlement itself replaces the failure it follows. A job is registered among the running jobs only once the transaction of its write-ahead record is closed.
+
+The argument digest `argv_digest` is the SHA-256 of the verified vector, every element as UTF-8 followed by a `NUL` byte, so two vectors never share a digest by splitting an element differently.
+
+[horizontal]
+`cancel(jobId, cause)`:: A running job's termination is carried out by its waiting thread with the termination of the cause (`ENGINE_CANCEL`, `PLAN_PAUSED_NOW`, `SUPERVISOR_END`, `BUDGET_EXPIRED`, `DRAIN`); a queued job is settled at once without a signal, by the row of its cause, and as `killed` for the drain. The answer is whether this call decided the job's end, so that the fate follows the cause; it is `false` for a job that has settled, is cancelled already or is unknown, and for a job whose cancel door is closed. The job's cancel door (`RunningJob.closeCancelDoor`) is the one atomic point that decides, for every job, which cancel is answered `true` and which cause the settlement reads. The runner closes it when it has observed the end of the process: the waiting thread when it sees the exit (a cause already completed is returned whichever of the two was seen first), the settlement from the observed end after the termination of a job that was never handed to a waiting thread, and the settlement of a job whose launch failed (it has no process) as its first act. A cancel answered `true` before the door closed is the cause that decides the fate by the outcome derivation whatever the exit status (`cancelled`, row 2; `timed_out`, row 3; `killed`, row 4), also when the process had exited by itself before the waiting thread was scheduled; a cancel after it is answered `false` and cannot change the fate. The budget is itself a cause: it is completed on the same future, so exactly one of a cancel and the expiry wins, and the settlement reads the winner once the door is closed.
+`recordOf(jobId)`, `awaitSettled(jobId, timeout)`, `runningJobs()`, `queuedJobs()`:: The record of a job this runner started, a bounded wait for its settlement, and the jobs not yet settled.
+`JobStarter.start(StartRequest)`:: The engine port maps the state's primitive to a job through the caller's `PrimitiveJobs`; a primitive without a job spec, and a worker, is refused `primitive_without_job`. The id it answers keeps the port's grammar `^[bcgp]-[0-9a-f]{16}$`.
+
+A worker is never started by this runner: its launch belongs to the supervisor, and `start` refuses the kind `llm` with `IllegalArgumentException`.
+
+[#_drain]
+=== Admission and the Drain
+
+`stopAdmitting()` sets the runner draining under the admission lock, the same lock every admission decision of a start takes, so a job admitted before the stop is among `runningJobs()` when the drain waits for them.
+A job whose start is asked for afterwards is verified and recorded `queued`, never spawned; `settleQueued()` settles every job still queued as `killed` by row 4, without a signal, as the drain does when it closes the runner's participant (link:runtime-start.adoc#_job_drain_participant[Runtime Start § The Job Drain Participant]).
+
+[#_launch_and_launch_report]
+== Launch and Launch Report
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/06-execution.adoc#PM-EXEC-5[PM-EXEC-5], link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1]
+
+`PmExecLauncher` starts `<PM_MCP_HOME>/bin/pm-exec -- <verified argv…>` by its absolute path, never through `PATH`.
+The launcher makes itself the leader of a new process group, writes its launch report as the first line of the job log and replaces itself with the target, so the PID of the started process is both the job PID and its process-group id.
+The working directory is the verified one; the environment is cleared and filled from exactly the allowlist the caller supplies; `stdout` and `stderr` go to the job log; `stdin` is `/dev/null` unless the job carries an in-memory payload, which a virtual thread writes as UTF-8 and then closes, so the child sees EOF and the payload never enters the argument vector, a file or a shell.
+`pm-runtime` depends on no native `pm-exec` artifact.
+
+`LaunchReport` is the one JSON line the launcher writes before `execve`: `pid`, `process_started_at`, `confinement` and `landlock_abi`.
+Exactly the first line of the log is the report, and the job's own output is everything after it, byte for byte (see link:../adr/runtime-job/005-launch-report-parsed-and-stripped-once.adoc[ADR 005]):
+
+* `LaunchReport.read(log)` answers `Reported(report, jobOutput)` when the first line parses as a report, else `Unreported(detail, jobOutput)` with the whole log.
+* A log without a report whose launcher exited `64` (usage), `126` (confinement could not be applied) or `127` (`execve` failed) is a launcher failure (`LaunchReport.isLauncherFailure`); its output is not parsed, and the outcome derivation takes the fate from the exit code. A launcher that cannot be started at all is settled as an exit `127` (row 10) and logged at WARN as `PM_RUNTIME-131`, unless a cancel was answered `true` before the settlement closed the job's cancel door (`RunningJob.closeCancelDoor`, its first step, one atomic point for the answer and the cause read): the cause of that cancel then decides the fate as on every other path (`cancelled`, row 2; `timed_out`, row 3, for the budget; `killed`, row 4, for the drain), and the job still carries no PID. A cancel that arrives after the door closed is answered `false`, so the answer `true` and the fate by the cause are the same fact. A job log it never created counts as empty, not as missing. The same holds for a launch that cannot be composed (an exception of the caller's environment, of `Launch` or of the process builder): the job is settled and leaves the running jobs, and the exception is passed on to the caller of the start.
+* A job whose launcher wrote no report keeps the write-ahead record, without a PID, and is settled from the launcher's exit. The same holds for a launcher that writes none within the wait of `REPORT_WAIT`, which the start no longer waits out for the budget, and for a job that is cancelled during the wait: the start answers `Started(jobId)` and hands the job to the thread that waits for it, which settles it by its exit, its cancel or its budget.
+
+[#_job_log]
+== Job Log
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
+
+`JobLog` is the file `<job_id>.log` beside the job record that receives `stdout` and `stderr`.
+It is readable while the job runs: `readLines(offset)` reads the complete lines written after a byte offset and answers the offset to continue from, so a reader follows the log as it grows; a line still being written is not answered.
+A read from offset `0` strips the first line when it parses as a launch report; a read from a later offset never strips a line.
+`readWhole(observedLength)` reads the log of an ended job for the outcome derivation.
+
+A log that cannot serve a read is a value, `Unavailable(state, detail)`, never an exception, and its state is the one row 5 of the outcome derivation reads:
+
+[cols="1,3"]
+|===
+|State |When
+
+|`MISSING` |the file does not exist
+|`TRUNCATED` |the file is shorter than what the runtime already read from it: shorter than the offset of `readLines`, or than the length `readWhole` is given, which the runner takes from the read that found the launch report
+|`UNREADABLE` |the file exists and cannot be read
+|===
+
+[#_termination]
+== Termination
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/09-technology.adoc#PM-TECH-4[PM-TECH-4]
+
+`TerminationProtocol.terminate(pid)` carries out steps 1 to 4 of the termination protocol against the job's process group, for every cause the runtime terminates a job for:
+
+. `SIGTERM` to the group (`kill(-pgid, SIGTERM)`);
+. the grace period of 5 seconds (`GRACE_PERIOD`), in which the group is probed every 100 ms and a group that exits early is not waited for;
+. `SIGKILL` to the group when any member still lives, also when only descendants of the leader remain;
+. the cancel before the group exists: `SIGTERM` to the group meets `ESRCH` because `pm-exec` calls `setpgid` after it starts, so `SIGTERM` goes to the PID itself and the group is retried every 100 ms for at most 10 attempts; once the group answers, steps 2 and 3 follow. The report says `cancelBeforeGroup` either way.
+
+The `Report` names how the protocol ended:
+
+[cols="1,3"]
+|===
+|Ending |When
+
+|`GROUP_EXITED` |`SIGTERM` reached the group and no member was left at the end of the grace period
+|`GROUP_KILLED` |`SIGTERM` reached the group and `SIGKILL` followed; the runner logs `PM_RUNTIME-130` (`JOB_TERMINATION_ESCALATED`)
+|`GROUP_NOT_REACHED` |no signal reached the group: the process had already ended (`ESRCH` from the group and from the PID, so it is not in the window of step 4), or the group did not form within the attempts of step 4
+|`SIGNAL_REFUSED` |a `kill` call failed with an `errno` other than `ESRCH`; the report carries the `errno`, and the runner ends the launcher process forcibly
+|===
+
+An interrupt of the waiting thread cuts the wait short and goes straight to `SIGKILL`, so no group is left running; the interrupt status is kept.
+
+Every signal goes through `ProcessGroupSignals`, the lowest signalling primitive: `signalGroup(pgid, signal)` and `signalProcess(pid, signal)` answer `Delivered`, `NoSuchProcess` (`ESRCH`) or `Refused(errno)` as values.
+`ProcessGroupSignals.system()` binds the C library's `kill(2)` through FFM, capturing `errno`, in the package-private class `KillBinding`, and refuses a PID of 1 or less, which would address every process, the caller's group or `init` (see link:../adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR 008]).
+A test replaces the primitive with a recording fake and asserts at the lowest signalling call, also that none was made.
+
+[#_outcome_derivation]
+== Outcome Derivation
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
+
+`OutcomeDerivation.derive(evidence)` turns what the runtime observed of a job (`JobEvidence`) into its fate and the row of the closed 13-row table that decided it; the first matching row decides.
+The evidence is `RefusedBeforeSpawn`, `NeverStarted` (queued at drain, or left by a previous runtime instance), `ProcessEnded` (kind, termination, wait status, log state, parse result, the exit codes a probe declares, whether the exit code is reliable) or `InProcessEnded`.
+The rows are listed in the Javadoc of link:{src}/OutcomeDerivation.java[`OutcomeDerivation`], the one place that states the table; the specification keeps only the evidence the parts still to be built supply to it.
+
+* Rows 2 to 4 are the terminations: an engine cancel, a pause of the plan that holds now and a supervisor end give `cancelled` (row 2), the budget `timed_out` (row 3), the drain and the termination of an orphan `killed` (row 4), whatever the exit status. Any other signal ends a job `killed` by row 4 as well.
+* A status a job reports about itself is evidence, never the outcome: a project script whose report contradicts the evidence is `indeterminate` (row 6), and the success of row 7 needs the kind's positive success marker.
+* For a probe, an exit code it declares is its success marker and stands in for exit code 0; for a worker whose harness declares its exit code unreliable, the final result event replaces the exit code.
+
+The runner reads the wait status from the exit value Java reports: a value of 128 plus a signal number from 1 to 64 is that signal, every other value an exit code.
+The signal is named by the closed table of the operating system the runtime runs on (`SubprocessJobRunner.SignalTable`, Linux or macOS, signals 1 to 31), because the two systems name 12 of these numbers differently: 7, 10, 12, 16 to 20, 23 and 29 to 31 (macOS, for example: 7 `SIGEMT`, 10 `SIGBUS`, 12 `SIGSYS`, 30 and 31 `SIGUSR1` and `SIGUSR2`); they agree on 1 to 6, 8, 9, 11, 13 to 15, 21, 22 and 24 to 28. A number above the table is named `SIG<n>`.
+The child's wall time `child_wall_ms` runs from the `process_started_at` of the launch report to the exit the runner observed and is clamped to the job's own wall time from `spawned_at` to `ended_at`, because the reported start is coarser than the runner's clock; it is `null` for a job whose launcher reported no start.
+
+[#_settlement]
+== Settlement
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
+
+`JobSettlement` runs the `SettlementStep` of every `SettlementStep.Name` in the fixed write order of the specification, whatever order they are given in, and needs exactly one step per name (see link:../adr/runtime-job/006-settlement-as-ordered-steps-with-named-seams.adoc[ADR 006]):
+
+[cols="1,3"]
+|===
+|Step |In this runtime
+
+|`FATE` |the settled record replaces the job's record in one transaction under the owning lock (`SettlementStep.fate`); for a worker, the revocation of its token and the fence of its generation are reported as a seam
+|`WORKER_QUEUE_TASK` |seam
+|`METRICS_ROW` |seam
+|`CHANGE_LEDGER_ROW` |seam
+|`TIMING_OBSERVATION` |seam
+|`SLOT_RELEASE` |the build or model slot the job held is released through `LeaseStore.release(key, expectedOwner)`, only while the lease still has the owner the job claimed it with (`SettlementStep.slotRelease`)
+|`JOB_PRIVATE_DIRECTORY` |seam
+|===
+
+A seam does nothing and reports `not implemented in this runtime`, like the seams of the per-project recovery.
+The first step that fails stops the settlement, and no later step runs, so a released slot never precedes the recorded fate.
+The runner settles its own jobs without a slot; the slot of a job is named by the caller of `JobSettlement`, such as the recovery of `runtime.start`.
+For the runner's own jobs, a settlement that stops is logged at ERROR as `PM_RUNTIME-207` (`JOB_SETTLEMENT_STEP_FAILED`); a recorded fate at INFO as `PM_RUNTIME-31` (`JOB_SETTLED`), a job that counts as running as `PM_RUNTIME-30` (`JOB_STARTED`).
+A settlement the recovery runs logs neither `PM_RUNTIME-31` nor `PM_RUNTIME-207`; one that stops fails the recovery step, logged as `PM_RUNTIME-204`.
+Of the steps after the fate, only the slot release is implemented: the worker queue task record with its task lease release is a seam, and the slot is the caller's (none for the runner, `Slots.NONE` in the recovery until slots exist).
+The jobs part of the recovery in this runtime skips every settled job, so it does not release the slot of a job whose fate is recorded and whose slot release did not run; that release is the part of link:../../../doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-23[PM-WATCH-JOB-23] that stays open.
+
+[#_probe_jobs]
+== Probe Jobs
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4]
+
+A probe (kind `probe`, `job_id` prefix `v`) runs a program found on the machine or in a checkout that is not enrolled yet (see link:../adr/runtime-job/007-probe-verification-replaces-step-0.adoc[ADR 007]).
+
+* `ProbeCandidate` is the candidate record a scan or a detection wrote: the kind (`version`, `models`, `login`, `script`), the executable and for a script its interpreter by absolute path and SHA-256 (`DigestedFile`), the declared arguments, the exit codes the probe declares as its success, the owning scope (the machine or an onboarding entry) and the working directory (`CheckoutRoot` or `JobPrivate`).
+* `startProbe(ProbeRequest)` refuses a probe without the operator's consent of its kind with `consent_required` and records nothing.
+* `ProbeVerification` is step 0 of a probe in place of the enrolment check, run under the lock of the probe's scope together with the allocation of its id and its first record: the digests (`executable_digest_mismatch`; a missing file, a link or no regular file never matches), the working directory, the canonical git top-level of the checkout or the probe's own `cwd/` (`path_traversal_rejected`), and a requested argument vector against the declared one (`argument_rejected`). The runner launches the declared vector of the candidate by construction (`startProbe` passes the candidate's own arguments as the requested ones), so `argument_rejected` is a property of `ProbeVerification.verify` that can fire only for a caller that supplies a different vector, not a control of the runner path. A refusal settles the probe `refused` by row 1.
+* `ProbeBudget` holds the fixed budgets as compiled constants, recorded with the derivation `floor_default` and never learned or escalated: `probe:version` 15, `probe:models` 30, `probe:login` 120 and `probe:script` 600 seconds.
+* The record and the log lie in the store of the probe's scope, `machine/jobs/` or `onboardings/<entry_id>/jobs/`. A probe that does not run in a checkout runs in the empty `cwd/` of its job-private directory `<base>/run/jobs/<job_id>/`, with the environment of the caller's `ProbeEnvironment`. The runner builds that directory below the real path of the base directory, so a base reached through a symbolic link passes the verification; a symbolic link below the base, from `run/` on, is still refused `path_traversal_rejected`.
+* Rows 1 to 4 and the declared exit codes decide its fate (`succeeded` by row 7); any other end leaves the exit code and the output to the step that asked, and the runner's output parser does not read it. A probe over its budget ends `timed_out` and is never started again by the runner.
+
+[#_fake_pm_exec]
+== Test Fixture `FakePmExec`
+
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/12-testing.adoc#PM-TEST-3[PM-TEST-3]
+
+link:{test}/FakePmExec.java[`FakePmExec`] is the test launcher of the job runtime, shared through the test JAR of `pm-runtime`: a `/bin/sh` script written to `<PM_MCP_HOME>/bin/pm-exec` of a temporary directory.
+Like the real launcher it accepts only `-- <absolute executable> [args…]` (exit `64` otherwise), makes itself the leader of a new process group with `setsid` without changing its PID, writes one launch report line with its PID, the start instant and the confinement `unavailable`, and replaces itself with the target by `exec`.
+It applies no confinement and verifies nothing.
+`FakePmExec.Mode` selects the launcher failures: `NO_REPORT`, `EXIT_64`, `EXIT_126` and `EXIT_127`.
+It runs on Linux only, so every test that starts it carries `@EnabledOnOs(OS.LINUX)`; `FakePmExec.tool(name)` names a tool of the base system by its absolute path, and `awaitLines` waits for a job log on the process instead of a fixed sleep.
+
 == Testing
 
 _Requirements:_ link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5], link:{req}/12-testing.adoc#PM-TEST-3[PM-TEST-3]
@@ -156,6 +331,12 @@ link:{test}/WrapperVerificationTest.java[`WrapperVerificationTest`]:: Every way 
 link:{test}/ArgumentCheckTest.java[`ArgumentCheckTest`]:: Stage 3: the forbidden flags in build jobs, the metacharacters in every job kind, the refused interpreter host tool calls, templates and their sources, the module rules, project script arguments, and the stage order.
 link:{test}/ArgumentSchemaValidatorTest.java[`ArgumentSchemaValidatorTest`]:: One test per schema keyword, violating and conforming; a `pattern` without `maxLength` refused before any regex runs, and a string over `maxLength` refused by `maxLength` without the pattern being evaluated.
 link:{test}/VerifyNotResolveAdversarialTest.java[`VerifyNotResolveAdversarialTest`]:: The adversarial confinement suite over the whole pipeline: one group per pipeline fixture of PM-TEST-5 (tampered wrapper, un-enrolled host tool, unapproved arguments, out-of-tree working directory) plus a tampered enrolment file.
+link:{test}/SubprocessJobRunnerTest.java[`SubprocessJobRunnerTest`]:: The runner through `FakePmExec`: the write-ahead record before the launch, a start whose launcher reports answered only once the record carries the PID (and one whose launcher is silent answered at the bound, with the write-ahead record), the fates of a cause (a pause of the plan that holds now `cancelled`, the budget `timed_out`, the drain `killed`), the escalation to `SIGKILL` and its matched control, a refused verification that spawns nothing, the enrolment lock released before the launch, the launcher failures, a launch that cannot be composed, a cancel answered before either launch failure (the cause decides), the cancel door of a job with a process (a cancel answered before the exit is observed decides by its cause, one after it is answered `false`; its window is a few instructions wide, so it is driven through the package-private `RunningJob` and `awaitEndOrCause` with a stub process, beside an end-to-end job that ends by itself after an answered cancel), a post-spawn record that cannot be written (the job terminated and settled before the failure is passed on, with its matched control), a fate that cannot be written, the engine port, the wait status with the signal tables of Linux and macOS, the child wall time and the argument digest.
+link:{test}/ProbeJobTest.java[`ProbeJobTest`]:: Probes through `FakePmExec`: consent, the store of the scope, a declared exit code `succeeded`, another exit left to the step, the job-private `cwd/`, also below a base reached through a symbolic link, with a link below the base refused as its matched control, a probe over its budget `timed_out` and not started again, a changed executable refused.
+link:{test}/ProbeVerificationTest.java[`ProbeVerificationTest`]:: Step 0 of a probe: each refusal and its matched control.
+link:{test}/PmExecLauncherTest.java[`PmExecLauncherTest`], link:{test}/LaunchReportTest.java[`LaunchReportTest`], link:{test}/JobLogTest.java[`JobLogTest`]:: The launch, the in-memory `stdin`, the report taken from the first line only, the log read while it grows and its unavailable states.
+link:{test}/TerminationProtocolTest.java[`TerminationProtocolTest`]:: Steps 1 to 4 against a recording primitive, and against real process groups a job that ignores `SIGTERM` killed with its descendant after the grace period, with its matched control.
+link:{test}/OutcomeDerivationTest.java[`OutcomeDerivationTest`], link:{test}/JobSettlementTest.java[`JobSettlementTest`]:: The table row by row, and the settlement in the fixed order over real stores with a crash injected at every step.
 
 Every refused case has its matched positive control in the same configuration: the same enrolment and tree verify the job once the one thing that was wrong is right.
 
@@ -169,11 +350,14 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06
 4. **Refusals are values**: a refusal is a `JobVerification.Refused`, never an exception. A fault (the integrity key cannot be read, a lock order violation, a file that cannot be read) is no refusal and passes through as `SecretStoreException`, `InternalFaultException` or `UncheckedIOException`.
 5. **Verify-then-run window**: a wrapper or pinned file can change between the check and the launch. The job runner launches right after verification; closing the window belongs to the job confinement, not to this package.
 6. **No direct interpreter call**: an enrolled interpreter never runs as a host tool call of its own, so no caller-supplied code (`python3 -c ...`, `ruby -e ...`) reaches it. It runs only through what it interprets: a project script bound by its binding and argument schema, a script host tool or a wrapper, each started by stage 2 with the verified interpreter first. Do not admit an interpreter call "with safe arguments"; restrict what it runs through the enrolment instead.
-7. **No unbounded pattern, and the enrolment lock is the caller's**: stage 0 acquires the project's enrolment lock in the caller's `LockTransaction`, and a transaction releases its locks only all together when it is closed, so stages 1 to 3 run under that lock and the pipeline cannot release it in between. The time stage 3 spends in an enrolled `pattern` is bounded only because a `pattern` is matched against a string `maxLength` has bounded; do not match a `pattern` without `maxLength`, and do not add a regex check that runs before `maxLength`. The caller closes its transaction as soon as `verify` returns, never keeping the enrolment lock while it launches or waits for the job.
+7. **No unbounded pattern, and the enrolment lock is the caller's**: stage 0 acquires the project's enrolment lock in the caller's `LockTransaction`, and a transaction releases its locks only all together when it is closed, so stages 1 to 3 run under that lock and the pipeline cannot release it in between. The time stage 3 spends in an enrolled `pattern` is bounded only because a `pattern` is matched against a string `maxLength` has bounded; do not match a `pattern` without `maxLength`, and do not add a regex check that runs before `maxLength`. The caller closes its transaction as soon as `verify` returns, never keeping the enrolment lock while it launches or waits for the job. `SubprocessJobRunner` does exactly that.
+8. **The report line is stripped once**: only the first line of a job log is ever taken as the launch report, by a read from offset `0`. A first output line of the job that looks like a report stays in the output; do not strip a second line, and do not read a report from a later offset.
+9. **No signal to a job nobody can identify**: the recovery never signals an in-process operation, whose process is the runtime that ended with it, nor a job whose record carries no PID, whose group could be anyone's by now (link:runtime-start.adoc#_jobs_recovery_step[Runtime Start § The Jobs Part of Step 3]). Every signal goes through `ProcessGroupSignals`, so a test asserts that none was sent.
+10. **The child's wall time is bounded by the job's**: the child's start comes from the launch report on the clock of the operating system and is coarser than the runner's clock, so `child_wall_ms` is clamped to the job's own wall time and is `null` without a reported start. Do not compute it from `spawned_at`, and do not record it for a job whose exit was not observed.
 
 == Specification Tracing
 
-_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2], link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5]
+_Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2], link:{req}/06-execution.adoc#PM-EXEC-3[PM-EXEC-3], link:{req}/06-execution.adoc#PM-EXEC-4[PM-EXEC-4], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2], link:{req}/12-testing.adoc#PM-TEST-5[PM-TEST-5]
 
-* Specification: link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime § Verify-Not-Resolve Execution Pipeline], link:{spec}/domain-extensions/06-configuration.adoc#enrolled-argument-templates[Configuration § Enrolled Argument Templates]
-* Decisions: link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001], link:../adr/runtime-job/002-caller-supplied-default-templates.adoc[ADR 002], link:../adr/runtime-job/003-wrapper-verified-by-location-name-and-digest.adoc[ADR 003]
+* Specification: link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime § Verify-Not-Resolve Execution Pipeline], link:{spec}/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation], link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record], link:{spec}/domain-extensions/06-configuration.adoc#enrolled-argument-templates[Configuration § Enrolled Argument Templates]
+* Decisions: link:../adr/runtime-job/001-argument-check-last.adoc[ADR 001], link:../adr/runtime-job/002-caller-supplied-default-templates.adoc[ADR 002], link:../adr/runtime-job/003-wrapper-verified-by-location-name-and-digest.adoc[ADR 003], link:../adr/runtime-job/004-runner-implements-job-runner-and-job-starter.adoc[ADR 004], link:../adr/runtime-job/005-launch-report-parsed-and-stripped-once.adoc[ADR 005], link:../adr/runtime-job/006-settlement-as-ordered-steps-with-named-seams.adoc[ADR 006], link:../adr/runtime-job/007-probe-verification-replaces-step-0.adoc[ADR 007], link:../adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR 008], link:../adr/runtime-job/009-launch-report-wait-bounded-apart-from-the-budget.adoc[ADR 009]

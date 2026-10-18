@@ -32,6 +32,7 @@ The repository:
 * link:../../pm-core/doc/adr/core-findings/[`pm-core/doc/adr/core-findings/`]: the findings contract.
 * link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the task queue store and the session generations.
 * link:../../pm-core/doc/adr/core-role-corpus/[`pm-core/doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
+* link:../../pm-core/doc/adr/core-service/[`pm-core/doc/adr/core-service/`]: the service interfaces.
 * link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:../../pm-core/doc/adr/core-store/[`pm-core/doc/adr/core-store/`]: the state stores and the engine ports.
 
@@ -44,7 +45,7 @@ The repository:
 * link:../../pm-runtime/doc/adr/runtime-audit/[`pm-runtime/doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
 * link:../../pm-runtime/doc/adr/runtime-credentials/[`pm-runtime/doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
 * link:../../pm-runtime/doc/adr/runtime-enrolment/[`pm-runtime/doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
-* link:../../pm-runtime/doc/adr/runtime-job/[`pm-runtime/doc/adr/runtime-job/`]: the verification of a job.
+* link:../../pm-runtime/doc/adr/runtime-job/[`pm-runtime/doc/adr/runtime-job/`]: the verification of a job and the job runner.
 * link:../../pm-runtime/doc/adr/runtime-lock/[`pm-runtime/doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
 * link:../../pm-runtime/doc/adr/runtime-start/[`pm-runtime/doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime.
 

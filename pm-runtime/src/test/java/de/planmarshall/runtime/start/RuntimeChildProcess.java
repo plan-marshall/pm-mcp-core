@@ -24,10 +24,25 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import de.planmarshall.api.MachinePaths;
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecord;
+import de.planmarshall.core.store.JobRecord.BudgetDerivation;
+import de.planmarshall.core.store.JobRecord.Confinement;
+import de.planmarshall.core.store.JobRecord.Execution;
+import de.planmarshall.core.store.JobRecord.Status;
+import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.runtime.job.FakePmExec;
+import de.planmarshall.runtime.job.JobEvidence;
+import de.planmarshall.runtime.job.OutcomeDerivation;
+import de.planmarshall.runtime.job.ProcessGroupSignals;
+import de.planmarshall.runtime.job.TerminationProtocol;
 import de.planmarshall.runtime.lock.FileLockManager;
 
 /**
@@ -62,6 +77,13 @@ import de.planmarshall.runtime.lock.FileLockManager;
  * <li>{@value #VERSION}: a {@link RelayVersionCheck} of runtime version {@value #CHILD_RUNTIME_VERSION} that observed
  * the mismatching relay version {@value #MISMATCHING_RELAY} into the file-backed sink {@link #recordingSink(Path)},
  * blocked after the record.</li>
+ * <li>{@value #JOB_WRITE_AHEAD}, {@value #JOB_SPAWNED}, {@value #JOB_RUNNING} and {@value #JOB_FATE}: a build job of the
+ * plan {@value #ROLLED_PLAN} of {@link RecoveryStepFixtures#PROJECT_A}, its records written through the job record
+ * store as the runner writes them, blocked at one point of its life: after the write-ahead record and before the spawn;
+ * after the spawn of its process group ({@code setsid sleep}) and before the post-spawn replace; while it runs, after
+ * the post-spawn replace; and after its fate and before the release of the build slot it holds. The PID of the job's
+ * group is written to {@link #jobPid(Path)}. The next instance recovers it with {@link #jobStep}, the real jobs part of
+ * step 3.</li>
  * </ul>
  */
 final class RuntimeChildProcess {
@@ -108,6 +130,27 @@ final class RuntimeChildProcess {
     /** The relay version the mode {@value #VERSION} observes, different from {@value #CHILD_RUNTIME_VERSION}. */
     static final String MISMATCHING_RELAY = "0.3.2";
 
+    /** Mode: a job blocked after its write-ahead record, before the spawn. */
+    static final String JOB_WRITE_AHEAD = "job-write-ahead";
+
+    /** Mode: a job blocked after the spawn of its process group, before the post-spawn replace. */
+    static final String JOB_SPAWNED = "job-spawned";
+
+    /** Mode: a job blocked while it runs, after the post-spawn replace. */
+    static final String JOB_RUNNING = "job-running";
+
+    /** Mode: a job blocked after its fate was recorded, before the release of its build slot. */
+    static final String JOB_FATE = "job-fate";
+
+    /** The build slot the job of the mode {@value #JOB_FATE} holds. */
+    static final String JOB_SLOT = "slot-job";
+
+    /** The scope of the job of the job modes. */
+    static final JobRecord.Scope JOB_SCOPE = new JobRecord.Scope(JobRecord.Scope.Type.PLAN, ROLLED_PLAN);
+
+    /** How long the process group of a job sleeps; longer than any test. */
+    private static final String JOB_SLEEP_SECONDS = "300";
+
     /** The content the modes {@value #ROLLFORWARD} and {@value #ORDERED_WRITE} write. */
     static final byte[] WRITTEN = "{\"state\":\"written\"}".getBytes(StandardCharsets.UTF_8);
 
@@ -148,9 +191,10 @@ final class RuntimeChildProcess {
 
     /**
      * @param args the mode and the base directory of the runtime
-     * @throws IOException if the step fails
+     * @throws IOException          if the step fails
+     * @throws InterruptedException if the wait for the end of a job's process is interrupted
      */
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         var mode = args[0];
         var paths = new MachinePaths(Path.of(args[1]), MachinePaths.Os.current());
         var markers = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
@@ -167,8 +211,96 @@ final class RuntimeChildProcess {
             case ORDERED_WRITE -> orderedWrite(paths.base(), markers);
             case SWEEP -> sweep(paths.base(), markers);
             case VERSION -> version(paths.base(), markers);
+            case JOB_WRITE_AHEAD, JOB_SPAWNED, JOB_RUNNING, JOB_FATE -> job(paths.base(), mode, markers);
             default -> throw new IllegalArgumentException("unknown mode " + mode);
         }
+    }
+
+    /**
+     * @param base the base directory of the runtime
+     * @return the file the job modes write the PID of the job's process group to
+     */
+    static Path jobPid(Path base) {
+        return base.resolve("job-pid");
+    }
+
+    /**
+     * The jobs part of step 3 as the next instance runs it: the real {@link JobRecoveryStep} over the signals of the
+     * system, in place of the seam of {@link RecoveryStep.Name#JOBS_AND_WORKERS}.
+     *
+     * @param base        the base directory of the runtime
+     * @param lockManager the lock manager of the next instance
+     * @param audit       where the orphan note is handed over
+     * @return the jobs step
+     */
+    static JobRecoveryStep jobStep(Path base, LockManager lockManager, AuditSink audit) {
+        var signals = ProcessGroupSignals.system();
+        return new JobRecoveryStep(base, lockManager,
+                new JobRecoveryStep.Signalling(signals, new TerminationProtocol(signals)), audit, bootTime(),
+                JobRecoveryStep.Slots.NONE, Clock.systemUTC());
+    }
+
+    /** @return the start of {@code init}, which no job of this boot precedes; the epoch when it cannot be read */
+    private static Instant bootTime() {
+        return ProcessHandle.of(1).flatMap(init -> init.info().startInstant()).orElse(Instant.EPOCH);
+    }
+
+    private static void job(Path base, String mode, PrintStream markers) throws IOException, InterruptedException {
+        markers.println(before(mode));
+        var lockManager = new FileLockManager(_ -> {
+        });
+        var store = JobRecordStore.ofProject(base, RecoveryStepFixtures.PROJECT_A);
+        if (JOB_FATE.equals(mode)) {
+            RecoveryStepFixtures.claim(RecoveryStepFixtures.buildSlots(base, lockManager), JOB_SLOT,
+                    RecoveryStepFixtures.PROJECT_A, RecoveryStepFixtures.self());
+        }
+        JobRecord ahead;
+        try (var transaction = lockManager.openTransaction()) {
+            var jobId = store.allocate(transaction, JobId.Kind.BUILD, JOB_SCOPE);
+            ahead = JobRecord.builder().jobId(jobId).execution(Execution.PROCESS).scope(JOB_SCOPE)
+                    .budgetKey("maven:verify").budgetSeconds(600)
+                    .budgetDerivation(new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                    .argvDigest("ab".repeat(32)).status(Status.RUNNING).confinement(Confinement.UNAVAILABLE)
+                    .createdAt(Instant.now()).clampedValues(List.of()).build();
+            store.writeAhead(transaction, ahead);
+        }
+        if (JOB_WRITE_AHEAD.equals(mode)) {
+            blockInside(mode, markers);
+        }
+        // setsid execs sleep in place: the PID of the process is the id of its new group, as pm-exec leaves it
+        var process = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
+                JOB_SLEEP_SECONDS).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        var spawnedAt = Instant.now();
+        Files.writeString(jobPid(base), Long.toString(process.pid()));
+        if (JOB_SPAWNED.equals(mode)) {
+            blockInside(mode, markers);
+        }
+        var running = ahead.toBuilder().pid(process.pid())
+                .processStartedAt(process.info().startInstant().orElse(spawnedAt)).spawnedAt(spawnedAt).build();
+        try (var transaction = lockManager.openTransaction()) {
+            store.writePostSpawn(transaction, running);
+        }
+        if (JOB_RUNNING.equals(mode)) {
+            blockInside(mode, markers);
+        }
+        // an engine cancel ends the job; its fate is recorded, and the slot release would come next
+        process.destroy();
+        process.waitFor();
+        var outcome = OutcomeDerivation.derive(new JobEvidence.ProcessEnded(JobId.Kind.BUILD,
+                Optional.of(JobEvidence.Termination.ENGINE_CANCEL), new JobEvidence.Signalled("SIGTERM"),
+                JobEvidence.LogState.READABLE, JobEvidence.ParseResult.NOTHING, Set.of(), true));
+        var settled = running.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
+                .endedAt(Instant.now()).signal("SIGTERM").build();
+        try (var transaction = lockManager.openTransaction()) {
+            store.writeFate(transaction, settled);
+        }
+        blockInside(mode, markers);
+    }
+
+    private static void blockInside(String mode, PrintStream markers) {
+        markers.println(inside(mode));
+        awaitKill();
     }
 
     /**

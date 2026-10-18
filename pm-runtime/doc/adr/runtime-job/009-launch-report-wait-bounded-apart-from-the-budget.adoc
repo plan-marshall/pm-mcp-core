@@ -1,0 +1,66 @@
+= ADR 009: The Wait for the Launch Report Has a Bound of Its Own, Apart from the Budget
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+A start of `SubprocessJobRunner` is synchronous: it waits for the launch report, the first line of the job log (ADR 005),
+and answers once the report is read and the post-spawn record is written, or once the wait for the report has ended
+without one. It is also the engine port `JobStarter` (ADR 004), so a caller of the port waits for it. The wait ran until the report arrived, an output line arrived, the process exited or the
+budget of the job passed, and it did not look at a cancel. A launcher that hangs before it writes its report, for
+example while it applies the confinement, therefore held the start for the whole budget, up to 1800 seconds or more,
+and a cancel during the wait was noticed only after it.
+
+The specification fixes no bound for the launch report: it says the launcher writes it right before `execve` and that a
+launcher that fails before `execve` writes none and exits `64`, `126` or `127`. It names no consequence for a launcher
+that is alive and silent.
+
+== Decision
+
+* The wait for the launch report is bounded by `REPORT_WAIT`, 10 seconds from the spawn, and never beyond the budget of
+  the job when that is shorter. The launcher does only `setpgid`, the confinement and the write of one line before
+  `execve`, so the bound is generous for a healthy launcher and short against a hung one. It is a compiled constant,
+  stated in the Timeouts Specification (Launch report wait), not a configuration key.
+* The wait ends at once when the job is cancelled: it reads the cause of the running job, as the thread that waits for
+  the job's end does.
+* A wait that ends without a report, whether by the bound, by the cancel or by the exit of the launcher, hands the job
+  to the thread that waits for its end exactly as a launcher that wrote no report is handled today: the record keeps the
+  write-ahead state without a PID, the start answers `Started(jobId)`, and the job is settled by its exit, the cause of
+  a cancel or its budget. The runner does not terminate the job on the bound. A launcher that is alive and silent past
+  the bound is not known to be broken, and a termination on a guess would kill a healthy job on a loaded host; the
+  specification gives the bound no such consequence. A crash of the runtime in that state is covered by the recovery
+  rule for a record without a PID (rule (c)).
+* The interrupt handling of the wait is unchanged: an interrupt ends the wait after the current read and is restored.
+
+== Alternatives Considered
+
+1. *Terminate and settle the job (`settleUnsupervised`) when the bound passes without a report.*
+_Rejected_: the specification names no consequence for a silent live launcher, and the termination of a job the
+runner cannot identify by a report rests on the PID of the process handle alone; further reasons not recorded.
+2. *Keep the budget as the bound.*
+_Rejected_: the start, and with it the engine port, would be held for the whole budget by a launcher that never writes
+its report.
+
+== Consequences
+
+* A hung launcher no longer blocks the start for the budget, and a cancel during the wait takes effect at once.
+* A launcher that writes its report after the bound is not recorded as a post-spawn record; its report is still
+  stripped from the job's output when the job has ended.
+* The answer of the start for a job whose launcher wrote no report is unchanged, `Started(jobId)` with a record that
+  has no PID; only the time the start takes to give it is bounded.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* Review comment 4a97d2 of pull request 92 (the report wait ran up to the budget and ignored a cancel)
+* link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#launch-report-wait[Timeouts § Launch Report Wait]
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#launch-report[Job Runtime § Pipeline & Subprocesses] (Launch report)
+* link:005-launch-report-parsed-and-stripped-once.adoc[ADR 005]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`

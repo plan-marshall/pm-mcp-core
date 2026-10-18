@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.tools.logging.LogRecord;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -41,6 +43,9 @@ class RuntimeLogMessagesTest {
 
     private static final String QUEUE_LOCK = "/pm-base/projects/sample-project/locks/queue.lock";
     private static final String PLAN_LOCK = "/pm-base/projects/sample-project/locks/plan-plan-one.lock";
+
+    /** The documentation of every log message of the repository, from the module directory the tests run in. */
+    private static final Path LOG_MESSAGES = Path.of("..", "doc", "LogMessages.adoc");
 
     @ParameterizedTest(name = "{0} holds identifiers {1} to {2}")
     @CsvSource({"INFO, 1, 99", "WARN, 100, 199", "ERROR, 200, 299"})
@@ -165,6 +170,33 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> jobRunnerRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.JOB_STARTED, "PM_RUNTIME-30",
+                        "Job '%s' of kind '%s' started (pid %s, budget %s seconds)"),
+                Arguments.of(RuntimeLogMessages.INFO.JOB_SETTLED, "PM_RUNTIME-31",
+                        "Job '%s' settled with fate '%s' (outcome row %s)"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_ESCALATED, "PM_RUNTIME-130",
+                        "Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_LAUNCHER_NOT_STARTED, "PM_RUNTIME-131",
+                        "Launcher of job '%s' not started, the job had no process: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED, "PM_RUNTIME-132",
+                        "Termination of job '%s' failed, its process is destroyed through its handle: %s"),
+                Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",
+                        "Settlement of job '%s' stopped at step '%s': %s"),
+                Arguments.of(RuntimeLogMessages.ERROR.JOB_SUPERVISION_FAILED, "PM_RUNTIME-208",
+                        "Supervision of job '%s' failed, its settlement ran from what the runner observed: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("jobRunnerRecords")
+    @DisplayName("the records of the subprocess job runner")
+    void jobRunner(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     @Test
     @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
     void fileStoreFallbackRemoved() throws Exception {
@@ -177,6 +209,49 @@ class RuntimeLogMessagesTest {
                 () -> assertTrue(all.stream().noneMatch(logRecord -> logRecord.getIdentifier() == 104)),
                 () -> assertTrue(all.stream()
                         .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves"))));
+    }
+
+    @Test
+    @DisplayName("every record of the three holders is documented in doc/LogMessages.adoc by identifier and template")
+    void everyRecordDocumented() throws Exception {
+        var all = new ArrayList<LogRecord>();
+        for (String level : List.of("INFO", "WARN", "ERROR")) {
+            all.addAll(records(level));
+        }
+        var rows = Files.readAllLines(LOG_MESSAGES);
+
+        assertEquals(List.of(), undocumented(rows, all));
+    }
+
+    @Test
+    @DisplayName("the documentation check names a record without a row and a record whose template differs")
+    void undocumentedRecordsAreFound() {
+        var rows = List.of(
+                "|PM_RUNTIME-30 |SubprocessJobRunner |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |Logged",
+                "|PM_RUNTIME-31 |SubprocessJobRunner |Job '%s' settled with another template |Logged",
+                "|PM_RUNTIME-310 |Other |Job '%s' settled with fate '%s' (outcome row %s) |Another row, not row 31");
+        var records = List.of(RuntimeLogMessages.INFO.JOB_STARTED, RuntimeLogMessages.INFO.JOB_SETTLED,
+                RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED);
+
+        assertEquals(List.of("PM_RUNTIME-31", "PM_RUNTIME-132"), undocumented(rows, records));
+    }
+
+    /**
+     * The identifiers of the records that have no row in the table, or whose row does not carry their template. The
+     * component column is not compared, because it differs from record to record; the template is compared literally,
+     * with the table's escape for a pipe character.
+     */
+    private static List<String> undocumented(List<String> rows, List<LogRecord> records) {
+        var missing = new ArrayList<String>();
+        for (LogRecord logRecord : records) {
+            var identifier = logRecord.resolveIdentifierString();
+            var cell = " |" + logRecord.getTemplate().replace("|", "\\|") + " |";
+            var row = rows.stream().filter(line -> line.startsWith("|" + identifier + " |")).findFirst();
+            if (row.isEmpty() || !row.get().contains(cell)) {
+                missing.add(identifier);
+            }
+        }
+        return missing;
     }
 
     @Nested

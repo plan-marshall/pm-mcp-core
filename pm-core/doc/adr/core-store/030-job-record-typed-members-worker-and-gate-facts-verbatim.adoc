@@ -1,0 +1,62 @@
+= ADR 030: The Job Record Types Its Members, Keeps `worker` and `gate_facts` Verbatim and Owns Its Vocabulary
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The job record `jobs/<job_id>.json` is the write-ahead journal of one job (PM-EXEC-4, PM-ARCH-7). The runner of
+`runtime.job` writes it at four fixed points, and the recovery of `runtime.start` reads it after a runtime start to
+settle what a previous instance left. Two of its members belong to other components: `worker`, the launch contract and
+protocol state of a worker that the supervisor writes, and `gate_facts`, the coverage facts of a build job that a gate
+writes. Neither component exists in this repository yet.
+
+The record also needs two vocabularies that existing types of `pm-core` cover only in part. The kinds of a job are six
+(`build`, `ci`, `git`, `project_script`, `llm`, `probe`); the engine port `JobStarter.JobKind` of `core.spi` names the
+four the engine starts. The scopes that own a job are six (`plan`, `epic`, `workspace`, `project`, `machine`, `entry`);
+`ScopeType` of `core.store` names the four scopes of the workflow and of a lease owner.
+
+== Decision
+
+* `JobRecord` types every member this package writes, and its compact constructor refuses every combination the schema
+  of the job record rules out (the settlement members, the refusal reason, the rules of a worker, a probe and an
+  in-process operation, `pid` with `process_started_at`, a never-spawned queued or refused job, the bound of
+  `child_wall_ms`). A record outside them cannot be built and therefore cannot be written.
+* `worker` and `gate_facts` are kept as the raw JSON text they were read with; `JobRecordCodec` accepts an object or
+  `null` and writes them back byte for byte. The record parses each raw member (and the `configured` value of a clamped
+  value) with the `StrictJson` factory when it is built and refuses a text that is not exactly one JSON value of the
+  expected type, so a text that only starts and ends like an object cannot be written. This extends ADR 001 (only the engine-owned members are typed, the
+  remainder verbatim) to the job record.
+* `JobId.Kind` of `core.store` owns the full kind vocabulary of the job records, and `JobRecord.Scope` with its
+  `Scope.Type` the scope vocabulary of the record. `JobStarter.JobKind` and `ScopeType` are not widened.
+
+== Alternatives Considered
+
+1. *Widen `JobStarter.JobKind` by `llm` and `probe`, and `ScopeType` by `machine` and `entry`.*
+_Rejected_: the engine port starts only four of the kinds and keeps its own narrower vocabulary and its `job_id`
+grammar `^[bcgp]-[0-9a-f]{16}$`, as the Javadoc of `JobId` and `JobStarter` states; further reasons not recorded.
+
+Other alternatives are not recorded. Keeping `worker` and `gate_facts` verbatim follows the reason of ADR 001: this
+package never rewrites what another component owns.
+
+== Consequences
+
+* A record the runtime writes is valid by construction; `JobRecordSchemaParityTest` keeps the codec in line with the
+  schema of the specification.
+* What a supervisor or a gate writes into a record survives every rewrite by this package unchanged; the package that
+  brings either component types its member without a format change, as for the workflow state store.
+* The engine port and the job record keep two kind vocabularies; the runner maps the port's four kinds to `JobId.Kind`
+  and keeps the port's grammar in what it answers.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record]
+* link:001-engine-owned-members-typed-remainder-verbatim.adoc[ADR 001]
+* `pm-core/src/main/java/de/planmarshall/core/store/JobRecord.java`, `JobRecordCodec.java`, `JobId.java`

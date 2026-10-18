@@ -61,7 +61,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * {@code OWED_ENROLMENT_AUDIT}, are built from the enrolment store by {@link #withEnrolment}; a caller of a
  * constructor that leaves either out, as the step lists written before the enrolment store did, gets a seam that does
  * nothing for it, and the enrolment check then does not run. Any other missing name is an
- * {@link IllegalArgumentException} naming it.
+ * {@link IllegalArgumentException} naming it. The jobs part of step 3, {@code JOBS_AND_WORKERS}, is a
+ * {@link JobRecoveryStep}: the overload of {@code withEnrolment} that takes one places it in place of any step of that
+ * name in the list, and the overload without it keeps the step the list holds, a seam included.
  * <p>
  * "Recover once, whichever trigger comes first" is a claim on a shared slot: an atomic
  * {@link ConcurrentMap#computeIfAbsent} installs the future of a project's recovery, only the installer starts it,
@@ -228,6 +230,33 @@ public final class ProjectRecovery {
         all.add(owedAudit);
         steps.stream().filter(step -> !ENROLMENT_STEPS.contains(step.name())).forEach(all::add);
         return new ProjectRecovery(EnrolledProjects.of(store), all, executor, owedAudit.unenrolledPass());
+    }
+
+    /**
+     * The recovery with the two enrolment steps built from the enrolment store, as
+     * {@link #withEnrolment(EnrolmentStore, EnrolmentCheck, Enrolments, LockManager, List, Executor)} builds it, and
+     * the jobs step as step 3: a step named {@link RecoveryStep.Name#JOBS_AND_WORKERS} in the given list, such as the
+     * seam a caller passed before the job record store existed, is replaced by the given one, as the enrolment steps
+     * are.
+     *
+     * @param store       the enrolment store
+     * @param check       the enrolment check
+     * @param enrolments  the operator writes of the enrolment store
+     * @param lockManager the lock manager of the runtime
+     * @param jobs        the jobs step, built by the caller from the job records and the signalling primitive
+     * @param steps       the other recovery steps, one per other {@link RecoveryStep.Name}
+     * @param executor    the executor the recoveries and the background task run on
+     * @return the recovery
+     * @throws IllegalArgumentException if two steps have the same name, or another {@link RecoveryStep.Name} has no
+     *                                  step
+     */
+    public static ProjectRecovery withEnrolment(EnrolmentStore store, EnrolmentCheck check, Enrolments enrolments,
+            LockManager lockManager, JobRecoveryStep jobs, List<RecoveryStep> steps, Executor executor) {
+        Objects.requireNonNull(jobs, "jobs");
+        var all = new ArrayList<RecoveryStep>();
+        all.add(jobs);
+        steps.stream().filter(step -> step.name() != RecoveryStep.Name.JOBS_AND_WORKERS).forEach(all::add);
+        return withEnrolment(store, check, enrolments, lockManager, all, executor);
     }
 
     /**

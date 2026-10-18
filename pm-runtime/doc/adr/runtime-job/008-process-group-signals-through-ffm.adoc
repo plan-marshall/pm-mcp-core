@@ -1,0 +1,99 @@
+= ADR 008: Process-Group Signals Through FFM Behind a Replaceable Primitive
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+A job is the leader of its own process group, whose id is the job PID, and the termination protocol signals the group
+(`kill(-pgid, sig)`), probes it (`kill(-pgid, 0)`) and, in the window before the group exists, the PID itself (PM-EXEC-4,
+PM-TECH-4). Java's `Process` and `ProcessHandle` signal one process, never a group, and they report no `errno`, so
+`ESRCH` (no such process or group) cannot be told apart from a refused signal. The recovery after a runtime start must
+never signal a job it cannot identify, and its tests have to prove that no signal was sent. The module has bound C
+library functions through FFM before (`MacSecurity` and `Posix` of `runtime.credentials`), and their downcall
+descriptors are registered for native image in this module, in
+`pm-runtime/src/main/resources/META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json`.
+The assembly in the repository `plan-marshall-mcp` registers no foreign downcall, so it was never the precedent for
+registering one there; the rule of this repository is that the native-image metadata of a class travels with its
+module.
+
+An earlier version of this decision (Q-Gate finding 1a85eb of PLAN-20, carried out by TASK-7) said the opposite: that
+the descriptors of `MacSecurity` were registered in the assembly, that the `kill` descriptor belonged there as well, and
+that the sentence of the plan's outline that the metadata travels with `pm-runtime` was wrong. That premise came from
+the Javadoc of `MacSecurity`, which named the metadata path
+`META-INF/native-image/de.planmarshall/pm-mcp-server-credentials/`, a directory in the sources of neither repository;
+nobody read the metadata file itself. The functional review of PLAN-20 (findings 6a1367 and 3c3ebc) read
+it and found the descriptors in `pm-runtime`. The outline sentence was right, the earlier decision was not, and this
+version replaces it; the stale Javadoc of `MacSecurity` is corrected with it.
+
+The `kill` binding differs from the credentials bindings in one point: it links with the linker option
+`captureCallState("errno")`, which none of them uses. The reachability-metadata schema shipped with the GraalVM on the
+development machine (GraalVM CE 25.4.4.1, `lib/svm/schemas/reachability-metadata-schema.json`, schema version 1.2.0)
+gives a downcall entry an optional `options` object whose `captureCallState` is a boolean ("the specific states to
+capture are determined at run time"), so a descriptor linked with that option is registered with
+`"options": { "captureCallState": true }`. Whether the GraalVM of the native build of `pm-mcpd` reads the same schema
+cannot be settled from this repository.
+
+== Decision
+
+* `ProcessGroupSignals` is the lowest signalling primitive of the job runtime: `signalGroup(pgid, signal)` and
+  `signalProcess(pid, signal)` answer what the call answered as a value, `Delivered`, `NoSuchProcess` for `ESRCH` or
+  `Refused(errno)`, for the signals `PROBE` (0), `SIGKILL` and `SIGTERM`.
+* `ProcessGroupSignals.system()` binds `kill(2)` of the C library through FFM (`Linker`, `captureCallState("errno")`),
+  no JNI library, in the package-private class `KillBinding`. It refuses a PID of 1 or less and one above the range of `pid_t` with `IllegalArgumentException`,
+  because such an id would address every process, the caller's own group or `init`.
+* Everything that signals a job goes through the interface: `TerminationProtocol`, and the recovery step of
+  `runtime.start`. A test replaces it with a recording fake and asserts at the lowest signalling call, also that none was
+  made.
+* `TerminationProtocol` reads `ESRCH` as a fact: `ESRCH` from the group and then from the PID means the process has
+  already ended, so nothing further is signalled and the report ends `GROUP_NOT_REACHED`; `ESRCH` from the group alone is
+  the window before `setpgid`, retried against the group.
+* The descriptor of the `kill` downcall (two `int` parameters, an `int` result, `errno` captured) is registered in the
+  reachability metadata of `pm-runtime`, next to the descriptors of `MacSecurity` and `Posix`:
+  `{ "returnType": "jint", "parameterTypes": ["jint", "jint"], "options": { "captureCallState": true } }`. It is
+  verified by the native build of `pm-mcpd` in `plan-marshall-mcp` against the deployed `SNAPSHOT`, which cannot run in
+  this repository; no registration in `plan-marshall-mcp` is owed.
+
+== Alternatives Considered
+
+1. *Signal through `Process.destroy()` and `ProcessHandle.destroyForcibly()`.*
+_Rejected_: they signal one process, not its group, and report no `errno`, so neither a group with descendants nor the
+window before the group exists can be handled; further reasons not recorded.
+2. *Register the downcall descriptor in the reachability metadata of the assembly in `plan-marshall-mcp`.*
+_Rejected_: the native-image metadata of a class travels with its module, the FFM descriptors of the credentials
+package are registered in `pm-runtime`, and the assembly registers no foreign downcall. The earlier version of this
+decision chose this alternative on the premise of the stale `MacSecurity` Javadoc (finding 1a85eb); that premise was
+false (findings 6a1367 and 3c3ebc).
+3. *Register the `kill` descriptor without the `options` object, like the credentials descriptors.*
+_Rejected_: the binding links with `captureCallState("errno")`, and the schema of the installed GraalVM registers that
+option on the entry; an entry without it describes a downcall without captured state.
+
+== Consequences
+
+* The recovery tests assert zero `kill()` calls for the rules that must send none.
+* The descriptor ships with the `pm-runtime` `SNAPSHOT`; no follow-up in `plan-marshall-mcp` is owed. Whether a native
+  `pm-mcpd` links `kill` with the registered entry, including the `captureCallState` option, is shown only by the
+  native build of `pm-mcpd` against that `SNAPSHOT`; the JVM runtime and every test of this repository exercise the
+  binding without native image.
+* The comment of the metadata file and of its `native-image.properties` name the job signals beside the credential
+  backends.
+* A real `ProcessGroupSignals.system()` is exercised against real process groups by `TerminationProtocolTest` and
+  `JobRecoveryKilledRuntimeIT`, on Linux.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* Q-Gate finding 1a85eb of PLAN-20 (native-image metadata of the `kill` downcall; the earlier, superseded decision)
+* Functional review findings 6a1367 and 3c3ebc of PLAN-20 (the descriptors of the credentials bindings are registered
+  in `pm-runtime`)
+* `pm-runtime/src/main/resources/META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json`
+* GraalVM reachability-metadata schema 1.2.0, `lib/svm/schemas/reachability-metadata-schema.json` of GraalVM CE 25.4.4.1
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc[Job Runtime § Pipeline & Subprocesses] (Process Termination & Cancellation Protocol)
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProcessGroupSignals.java`, `KillBinding.java`, `TerminationProtocol.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java`, `Posix.java`

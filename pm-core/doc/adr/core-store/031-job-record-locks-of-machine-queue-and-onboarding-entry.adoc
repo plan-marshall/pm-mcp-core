@@ -1,0 +1,62 @@
+= ADR 031: Job Records of the Machine and of an Onboarding Entry Are Written Under Two New Lock Keys
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+A job record is written at fixed points (queued, write-ahead, post-spawn, fate), each an atomic replace under the lock
+of the scope that owns the job, and the id of a new job is allocated by a check-then-act on `jobs/` under the same lock
+(PM-EXEC-4, PM-IMPL-7). For a job of a project the lock exists: the plan, epic or workspace lock, and the queue lock of
+the project for a worker. Two homes of job records had no lock: the machine scope (`machine/jobs/`: its probes and the
+steward's workers) and an onboarding entry of a project before its enrolment (`onboardings/<entry_id>/jobs/`: the
+probes of its checkout). Every lock must have a place in the one total lock order that `LockTransaction.acquire`
+asserts (ADR 011).
+
+A write point also replaces a record that may have been written by an earlier point of the same job; nothing in the
+atomic replace itself keeps a later point from being overwritten by an earlier one.
+
+== Decision
+
+* `LockKey.machineQueue(base)` is the queue lock of the machine scope, `machine/locks/queue.lock`, at the level `QUEUE`
+  with the id `machine/queue`. It guards the machine's task queue and the records of the jobs of the machine scope. The
+  id orders it among the queue locks of the projects, whose id is the project id; it cannot equal one, because `/` is no
+  character of an identifier.
+* `LockKey.onboardingEntry(base, entryId)` is the lock of an onboarding entry, `onboardings/locks/<entry_id>.lock`, at
+  the level `WORKSPACE` of the scope the entry becomes at its enrolment, with the entry id as its id. It guards the
+  records of the entry's probe jobs.
+* `JobRecordStore.lockKey(scope)` maps every scope of the job record to its lock: `plan` and `epic` to their lock,
+  `workspace` to the workspace lock, `project` to the project's queue lock, `machine` to the machine queue lock, `entry`
+  to the entry lock. Every write and the allocation acquire it in the caller's transaction.
+* Each write point reads the record it replaces under that lock and refuses a record that does not follow it: the
+  queued record is the first, the write-ahead record replaces nothing or the queued record, the post-spawn record
+  replaces the write-ahead record once, the fate replaces a queued or running record or nothing. A replacement keeps
+  the job's scope and execution.
+
+== Alternatives Considered
+
+Alternatives not recorded. The levels follow the scopes the locks stand for, as the Javadoc of `LockKey` states: the
+machine queue lock guards the machine's task queue as the queue lock of a project guards the project's, and the entry
+lock stands at the level of the workspace scope the entry becomes at its enrolment.
+
+== Consequences
+
+* A probe of the machine and a probe of an entry are allocated and recorded under a lock of the total order, as every
+  job of a project is.
+* A transaction that holds a project's queue lock may take the machine queue lock after it only where the ids order
+  so; the order assertion refuses the rest with `InternalFaultException`.
+* A record moves only forward through its points: a settled record is never replaced, a post-spawn record never twice.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas § Lock-Free Snapshot Reads, Transaction Locks & Leases]
+* link:011-one-total-lock-order-asserted-at-acquisition.adoc[ADR 011]
+* `pm-core/src/main/java/de/planmarshall/core/store/LockKey.java`, `JobRecordStore.java`

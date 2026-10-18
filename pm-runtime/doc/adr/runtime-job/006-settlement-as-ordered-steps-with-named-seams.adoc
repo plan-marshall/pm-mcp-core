@@ -1,0 +1,63 @@
+= ADR 006: The Settlement Is an Ordered List of Steps, the Missing Stores Named Seams
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The specification fixes the write order at the end of a job: the fate of the job record first (for a worker with the
+revocation of its token and the fence of its generation), then the worker queue task, the metrics row, the
+change-ledger row and the timing observation, then the release of the build or model slot, and last the removal of a
+worker's job-private directory. A crash between two writes may lose only what the order allows; a released slot must
+never precede the recorded fate. Of these stores, this repository has the job record store and the machine lease
+stores; the others come with later work packages. The per-project recovery faced the same situation and made its
+missing steps named seams (ADR 006 of `runtime-start`).
+
+== Decision
+
+* `SettlementStep.Name` lists the steps in the fixed write order: `FATE`, `WORKER_QUEUE_TASK`, `METRICS_ROW`,
+  `CHANGE_LEDGER_ROW`, `TIMING_OBSERVATION`, `SLOT_RELEASE`, `JOB_PRIVATE_DIRECTORY`. `JobSettlement` needs exactly one
+  step per name, runs them in that order whatever order they are given in, and stops at the first step that fails.
+* Two steps are implemented: `SettlementStep.fate` writes the settled record in one transaction under the owning lock,
+  and `SettlementStep.slotRelease` releases the slot through `LeaseStore.release(key, expectedOwner)`, only while the
+  lease still has the owner the job claimed it with; a job without a slot releases nothing.
+* Every other step is `SettlementStep.notImplemented(name)`: it does nothing and reports `not implemented in this
+  runtime`, as the seams of the per-project recovery do. The revocation of a worker's token and the fence of its
+  generation are reported as such a seam by the fate step.
+* `JobSettlement.of(store, lockManager)` is the settlement of this runtime. What is settled is a `Settled` record: the
+  settled job and the slot it held, which the caller names; the runner settles its own jobs without a slot, and the
+  recovery names the slot through `JobRecoveryStep.Slots`, whose `Slots.NONE` names none.
+* A step reports what it did as a value, `Done` or `Failed`. A settlement the runner runs for its own job and that
+  stops is logged at ERROR as `PM_RUNTIME-207`; a settlement the recovery runs logs neither `PM_RUNTIME-31` nor
+  `PM_RUNTIME-207`, and one that stops fails the recovery step, which `ProjectRecovery` logs as `PM_RUNTIME-204`.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A later package that brings a store replaces its seam with a real step and leaves the order as it is; `JobSettlement`
+  refuses a list that misses a name or names one twice.
+* A crash injected at any step leaves the stores consistent: the fate is recorded before any slot is released.
+* The steps after the fate are seams or caller-supplied: the worker queue task record with its task lease release is
+  a named seam, and the slot is the one the caller of the settlement names (none for the runner's own jobs,
+  `Slots.NONE` in the recovery until slots exist).
+* The jobs part of the recovery in this runtime skips every settled job, so it does not release the slot of a job
+  whose fate is recorded and whose slot release did not run (a crash after the fate and before the release, or a
+  failed `SLOT_RELEASE`). That release is the part of
+  link:../../../../doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-23[PM-WATCH-JOB-23] that stays open; the
+  watch item and the specification are unchanged.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
+* link:../../../../doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc#outcome-derivation[Job Runtime § Outcome Derivation] (Write order at job end)
+* link:../runtime-start/006-lifecycle-engines-behind-narrow-seams.adoc[ADR runtime-start/006]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/SettlementStep.java`, `JobSettlement.java`
