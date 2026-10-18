@@ -1,0 +1,10 @@
+{
+  "id": "PLAN-80",
+  "slug": "corpus-group-contamination",
+  "workstream": "WS-05",
+  "status": "shipped",
+  "plan_marshall_plan_id": "corpus-group-contamination",
+  "pr": "#86",
+  "landing": "landings/PLAN-80.md",
+  "seq": 80
+}

@@ -2,9 +2,9 @@
   "id": "PLAN-69",
   "slug": "unit-frontmatter-and-types",
   "workstream": "WS-03",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-69-unit-frontmatter-and-types",
+  "pr": "#91",
+  "landing": "landings/PLAN-69.md",
   "seq": 69
 }

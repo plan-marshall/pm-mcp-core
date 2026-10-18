@@ -118,3 +118,19 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
   - PLAN-64 to PLAN-68 were staged for the five new packages.
   - `corpus-sources` was done by #74 outside the queue.
   - See the queue annotation in `epic.md` and the cleanup decision in the decision log.
+
+## Defect: corpus-overlay-extensions outlived its implementation
+
+- **`corpus-overlay-extensions` outlived its implementation.** pm-mcp-core #80 (238c823) implemented the package (HTTPS fetch for
+  `huggingface`, several items per row, `answer_schema`; `HuggingFaceSourceRepository`, ADR `core-role-corpus/006`), but
+  `doc/plans/corpus-overlay-extensions.adoc` and its row in `doc/plans/README.adoc` are still there, although a plan's pull
+  request removes both. It has no queue row. Its Done When asks for one import of the three sources against `huggingface.co`,
+  run by hand and recorded in the pull request; whether #80 recorded it was not verified. A small `docs(plans)` change in
+  pm-mcp-core removes file and row once that is confirmed — source: cleanup of 2026-10-16.
+
+## Defect: watch link of stalled-scope-detection.adoc
+
+- **Watch link of `doc/plans/stalled-scope-detection.adoc`.** The package file links the watch `Runtime Model` of the documentation
+  repository, which holds no stalled item; the items PM-WATCH-RUN-2 and PM-WATCH-RUN-8 are in
+  `doc/implementation-watch/runtime-lifecycle.adoc` here. PLAN-23 names the right file; the package file is owed a one-line fix
+  — source: cleanup of 2026-10-16.
