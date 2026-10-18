@@ -77,6 +77,7 @@ class ProbeJobTest {
 
     private JobEnrolmentFixture fixture;
     private Path probe;
+    private Path home;
     private SubprocessJobRunner runner;
 
     @BeforeEach
@@ -86,8 +87,12 @@ class ProbeJobTest {
         Files.createDirectories(probe.getParent());
         Files.writeString(probe, PROBE_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString()));
         Files.setPosixFilePermissions(probe, PosixFilePermissions.fromString("rwx------"));
-        var home = FakePmExec.install(fixture.base.resolve("home"), FakePmExec.Mode.REPORT);
-        runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(fixture.locks)
+        home = FakePmExec.install(fixture.base.resolve("home"), FakePmExec.Mode.REPORT);
+        runner = runner(fixture.base);
+    }
+
+    private SubprocessJobRunner runner(Path base) {
+        return SubprocessJobRunner.builder().base(base).lockManager(fixture.locks)
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                 .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
@@ -173,6 +178,42 @@ class ProbeJobTest {
                 () -> assertTrue(Files.isDirectory(cwd)),
                 () -> assertEquals(fixture.base.resolve("run/jobs").resolve(jobId.value()).resolve("cwd"), cwd),
                 () -> assertEquals(List.of(cwd.toString()), lines.lines()));
+    }
+
+    @Test
+    @DisplayName("a base reached through a symbolic link runs the probe in the job-private cwd below the real base")
+    void symlinkedBase() throws Exception {
+        var linkedBase = Files.createSymbolicLink(fixture.base.resolve("linked-base"), fixture.base);
+        runner = runner(linkedBase);
+        var jobId = started(onMachine(Set.of(0), "pwd"));
+
+        var settled = settled(jobId);
+
+        var cwd = runner.jobPrivateCwd(jobId);
+        var log = new JobLog(JobRecordStore.ofMachine(fixture.base).logPath(jobId));
+        var lines = assertInstanceOf(JobLog.Lines.class, log.readLines(0));
+        assertAll(
+                () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                () -> assertEquals(7, settled.outcomeRow()),
+                () -> assertEquals(fixture.base.resolve("run/jobs").resolve(jobId.value()).resolve("cwd"), cwd),
+                () -> assertEquals(List.of(cwd.toString()), lines.lines()));
+    }
+
+    @Test
+    @DisplayName("matched control: a symbolic link below the base, out of the job-private directory, is refused")
+    void symlinkBelowBaseRefused() throws Exception {
+        var elsewhere = Files.createDirectories(fixture.base.resolve("elsewhere"));
+        Files.createSymbolicLink(fixture.base.resolve("run"), elsewhere);
+
+        var result = runner.startProbe(new JobRunner.ProbeRequest<>(onMachine(Set.of(0), "pwd"), true));
+
+        var refused = assertInstanceOf(JobRunner.StartResult.Refused.class, result);
+        var records = JobRecordStore.ofMachine(fixture.base).records();
+        assertAll(
+                () -> assertEquals("path_traversal_rejected", refused.reason()),
+                () -> assertEquals(1, records.size()),
+                () -> assertEquals(Fate.REFUSED, records.getFirst().fate()),
+                () -> assertTrue(runner.runningJobs().isEmpty()));
     }
 
     @Test

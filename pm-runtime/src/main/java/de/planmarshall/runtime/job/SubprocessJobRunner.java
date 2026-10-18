@@ -26,6 +26,7 @@ import java.time.InstantSource;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -117,7 +118,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * allocation of its {@code v-} job id and its first record. Its record and log lie in the store of its scope: the
  * machine scope's {@code machine/jobs/} or the onboarding entry's {@code onboardings/<entry_id>/jobs/}. A probe that
  * does not run in a checkout runs in the empty {@code cwd/} of its job-private directory
- * {@code <base>/run/jobs/<job_id>/}. Its budget is the fixed budget of its kind ({@link ProbeBudget}); rows 1 to 4 of
+ * {@code <base>/run/jobs/<job_id>/}, below the real path of the base directory. Its budget is the fixed budget of its kind ({@link ProbeBudget}); rows 1 to 4 of
  * the outcome derivation and its success marker, an exit code the probe declares, decide its fate, and otherwise its
  * exit code and output are left to the step that asked for it, which the runner's output parser does not read. The
  * runner never starts a probe again.
@@ -161,12 +162,51 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** The exit value Java reports for a process ended by a signal is this base plus the signal number. */
     private static final int SIGNAL_EXIT_BASE = 128;
 
-    /** The highest signal number of Linux and macOS. */
+    /** The highest signal number of Linux, its real-time signals included; the numbers of macOS end at 31. */
     private static final int HIGHEST_SIGNAL = 64;
 
-    private static final List<String> SIGNAL_NAMES = List.of("SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP",
-            "SIGABRT", "SIGBUS", "SIGFPE", "SIGKILL", "SIGUSR1", "SIGSEGV", "SIGUSR2", "SIGPIPE", "SIGALRM",
-            "SIGTERM");
+    /** The signal names of the operating system the runtime runs on. */
+    private static final SignalTable SIGNALS = SignalTable.of(System.getProperty("os.name", ""));
+
+    /**
+     * The closed tables of the names of the signals 1 to 31 by their numbers. The two systems agree on 1 to 6, 8, 9,
+     * 11 and 13 to 15 and differ from there: on macOS 7 is {@code SIGEMT}, 10 {@code SIGBUS}, 12 {@code SIGSYS}, and
+     * 30 and 31 are {@code SIGUSR1} and {@code SIGUSR2}. A number above a table, such as a real-time signal of Linux,
+     * is named {@code SIG<n>}.
+     */
+    enum SignalTable {
+
+        /** The numbering of Linux (x86-64 and AArch64). */
+        LINUX(List.of("SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT", "SIGBUS", "SIGFPE", "SIGKILL",
+                "SIGUSR1", "SIGSEGV", "SIGUSR2", "SIGPIPE", "SIGALRM", "SIGTERM", "SIGSTKFLT", "SIGCHLD", "SIGCONT",
+                "SIGSTOP", "SIGTSTP", "SIGTTIN", "SIGTTOU", "SIGURG", "SIGXCPU", "SIGXFSZ", "SIGVTALRM", "SIGPROF",
+                "SIGWINCH", "SIGIO", "SIGPWR", "SIGSYS")),
+
+        /** The numbering of macOS. */
+        MACOS(List.of("SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT", "SIGEMT", "SIGFPE", "SIGKILL",
+                "SIGBUS", "SIGSEGV", "SIGSYS", "SIGPIPE", "SIGALRM", "SIGTERM", "SIGURG", "SIGSTOP", "SIGTSTP",
+                "SIGCONT", "SIGCHLD", "SIGTTIN", "SIGTTOU", "SIGIO", "SIGXCPU", "SIGXFSZ", "SIGVTALRM", "SIGPROF",
+                "SIGWINCH", "SIGINFO", "SIGUSR1", "SIGUSR2"));
+
+        private final List<String> names;
+
+        SignalTable(List<String> names) {
+            this.names = names;
+        }
+
+        /**
+         * @param osName the name of the operating system, as the system property {@code os.name} gives it
+         * @return the table of macOS for a name that starts with {@code Mac}, otherwise the table of Linux
+         */
+        static SignalTable of(String osName) {
+            return osName.toLowerCase(Locale.ROOT).startsWith("mac") ? MACOS : LINUX;
+        }
+
+        /** @return the name of a signal number, {@code SIG<n>} for a number the table does not list */
+        String name(int signal) {
+            return signal >= 1 && signal <= names.size() ? names.get(signal - 1) : "SIG" + signal;
+        }
+    }
 
     private final Path base;
     private final LockManager lockManager;
@@ -294,7 +334,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param request what to start
      * @return the id of the started job, also of one whose launcher failed and which is settled already; or the
      *         refusal of its verification, recorded as the job's fate {@code refused}
-     * @throws IllegalArgumentException if the kind is a worker, or the scope does not belong to a project
+     * @throws IllegalArgumentException if the kind is a worker, or the scope does not belong to a project; also, after
+     *                                  the job is settled as its launcher's exit {@value #EXECVE_FAILED}, if its
+     *                                  launch cannot be composed, for example for an environment variable the
+     *                                  operating system refuses
+     * @throws NullPointerException     after the job is settled as its launcher's exit {@value #EXECVE_FAILED}, if
+     *                                  the environment of its launch names a {@code null}
      * @throws UncheckedIOException     if a record cannot be written
      * @throws StoreRefusal             if a record of the job's store cannot be read
      */
@@ -327,8 +372,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @return the id of the started probe job, also of one whose launcher failed and which is settled already; the
      *         refusal {@value #CONSENT_REQUIRED} without a record for a probe without consent; or the refusal of its
      *         verification, recorded as the probe's fate {@code refused}
-     * @throws UncheckedIOException if a record or the job-private directory cannot be written
-     * @throws StoreRefusal         if a record of the probe's store cannot be read
+     * @throws UncheckedIOException     if a record or the job-private directory cannot be written, or the base
+     *                                  directory cannot be resolved to its real path
+     * @throws StoreRefusal             if a record of the probe's store cannot be read
+     * @throws IllegalArgumentException after the probe is settled as its launcher's exit {@value #EXECVE_FAILED}, if
+     *                                  its launch cannot be composed, for example for an environment variable the
+     *                                  operating system refuses
+     * @throws NullPointerException     after the probe is settled as its launcher's exit {@value #EXECVE_FAILED}, if
+     *                                  the environment of its launch names a {@code null}
      */
     @Override
     public JobRunner.StartResult startProbe(ProbeRequest<ProbeCandidate> request) {
@@ -582,18 +633,35 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Launches a job whose write-ahead record is written, waits for its post-spawn record and hands it to the virtual
      * thread that waits for its end.
+     * <p>
+     * A job whose launch cannot be composed or whose launcher cannot be started had no process: it is settled as the
+     * launcher's exit {@value #EXECVE_FAILED} and leaves the running jobs before this method returns or throws. A
+     * launcher that cannot be started answers the started job; an exception of the composition of the launch (the
+     * caller's environment, the {@link Launch} it is checked by, the process builder) is passed on to the caller of
+     * the start once the job is settled.
      */
     private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
         var jobId = job.record.jobId();
         var log = new JobLog(job.store.logPath(jobId));
         var spawnedAt = clock.instant();
         Launched launched;
+        var started = false;
+        var explained = false;
         try {
             launched = launcher.launch(launchOf.apply(log.path()));
+            started = true;
         } catch (IOException e) {
-            LOGGER.debug(e, "The launcher of job %s could not be started", jobId);
-            settleUnlaunched(job, log);
+            explained = true;
+            LOGGER.warn(e, WARN.JOB_LAUNCHER_NOT_STARTED, jobId, e.getMessage());
             return new JobRunner.StartResult.Started(jobId);
+        } finally {
+            if (!started) {
+                if (!explained) {
+                    LOGGER.warn(WARN.JOB_LAUNCHER_NOT_STARTED, jobId,
+                            "the launch could not be composed, the failure is passed on to the caller");
+                }
+                settleUnlaunched(job, log);
+            }
         }
         job.launched(launched.process());
         var deadline = spawnedAt.plus(job.budget.duration());
@@ -747,7 +815,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /** Derives the fate of an ended process job and settles it. */
     private void settle(RunningJob job, Ended ended, long observedLength) {
         var current = job.record;
-        var waitStatus = waitStatus(ended.exitValue());
+        var waitStatus = waitStatus(ended.exitValue(), SIGNALS);
         LogState logState;
         ParseResult parse;
         switch (new JobLog(job.store.logPath(current.jobId())).readWhole(observedLength)) {
@@ -775,12 +843,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         settle(job, settled);
     }
 
-    /** Settles a job whose launcher could not be started: it had no process, and its fate is the launcher's. */
+    /**
+     * Settles a job whose launcher could not be started: it had no process, and its fate is the launcher's exit
+     * {@value #EXECVE_FAILED}. A missing job log is what a launch that was never started leaves and counts as an empty
+     * one; a log that exists and cannot be read still decides row 5.
+     */
     private void settleUnlaunched(RunningJob job, JobLog log) {
         try {
             var current = job.record;
-            var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable ? unavailable.state()
-                    : LogState.READABLE;
+            var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
+                    && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
             var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), Optional.empty(),
                     new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, job.successExitCodes, true));
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
@@ -828,13 +900,19 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         return Math.clamp(childWall, 0, jobWall);
     }
 
-    /** The wait status of an exit value as Java reports it: a signal ended the process for {@code 128 + n}. */
-    static WaitStatus waitStatus(int exitValue) {
+    /**
+     * The wait status of an exit value as Java reports it: a signal ended the process for {@code 128 + n}.
+     *
+     * @param exitValue the exit value
+     * @param signals   the signal names of the operating system the process ran on
+     * @return the exit code, or the signal by its name
+     */
+    static WaitStatus waitStatus(int exitValue, SignalTable signals) {
         var signal = exitValue - SIGNAL_EXIT_BASE;
         if (signal < 1 || signal > HIGHEST_SIGNAL) {
             return new Exited(exitValue);
         }
-        return new Signalled(signal <= SIGNAL_NAMES.size() ? SIGNAL_NAMES.get(signal - 1) : "SIG" + signal);
+        return new Signalled(signals.name(signal));
     }
 
     /**
@@ -869,9 +947,24 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         };
     }
 
-    /** @return the {@code cwd/} of the job-private directory {@code <base>/run/jobs/<job_id>/} of a job */
+    /**
+     * The {@code cwd/} of the job-private directory {@code <base>/run/jobs/<job_id>/} of a job, below the real path of
+     * the base directory. A symbolic link on the way to the base is the operator's and is resolved here, so the
+     * {@link ProbeVerification} finds the directory canonical; a link below the base, from {@code run/} on, is not
+     * resolved and still refuses the probe.
+     *
+     * @param jobId the job
+     * @return the job-private {@code cwd/} of the job
+     * @throws UncheckedIOException if the base directory cannot be resolved to its real path
+     */
     Path jobPrivateCwd(JobId jobId) {
-        return base.resolve(JOB_PRIVATE_DIRECTORIES).resolve(jobId.value()).resolve(JOB_PRIVATE_CWD);
+        Path realBase;
+        try {
+            realBase = base.toRealPath();
+        } catch (IOException e) {
+            throw new UncheckedIOException("The base directory cannot be resolved: " + base, e);
+        }
+        return realBase.resolve(JOB_PRIVATE_DIRECTORIES).resolve(jobId.value()).resolve(JOB_PRIVATE_CWD);
     }
 
     private static Path createDirectories(Path directory) {

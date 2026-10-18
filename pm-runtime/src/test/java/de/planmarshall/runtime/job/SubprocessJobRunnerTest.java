@@ -139,11 +139,16 @@ class SubprocessJobRunnerTest {
     }
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives) {
+        return runner(termination, primitives, job -> ENVIRONMENT);
+    }
+
+    private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives,
+            SubprocessJobRunner.Environment environment) {
         return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
                 .launcher(new PmExecLauncher(home)).termination(termination).environment(job -> {
             observations.add(new Observation(jobs.records(),
                     locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
-            return ENVIRONMENT;
+            return environment.of(job);
         }).probeEnvironment(candidate -> ENVIRONMENT).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
                 .primitives(primitives).build();
     }
@@ -419,7 +424,7 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
-        @DisplayName("a launcher that cannot be started settles the job without a process")
+        @DisplayName("a launcher that cannot be started settles the job failed by row 10 without a process")
         void launcherMissing() {
             var jobId = started(runner.start(git(30, "ok")));
 
@@ -427,10 +432,16 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status()),
-                    () -> assertNotEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> assertEquals(Fate.FAILED, settled.fate()),
+                    () -> assertEquals(10, settled.outcomeRow()),
                     () -> assertNull(settled.exitCode(), "no exit was observed"),
+                    () -> assertNull(settled.pid()),
                     () -> assertNull(settled.spawnedAt()),
-                    () -> assertFalse(runner.runningJobs().contains(jobId)));
+                    () -> assertFalse(runner.runningJobs().contains(jobId)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.JOB_LAUNCHER_NOT_STARTED.resolveIdentifierString()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            "Launcher of job '%s' not started".formatted(jobId)));
         }
 
         @Test
@@ -457,6 +468,52 @@ class SubprocessJobRunnerTest {
             } finally {
                 Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("settles a job whose launch cannot be composed and passes the failure on")
+    class LaunchNotComposed {
+
+        @Test
+        @DisplayName("an environment that throws settles the job failed by row 10 and leaves no running job")
+        void environmentThrows() {
+            var failure = new IllegalArgumentException("environment refused");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
+                    job -> {
+                        throw failure;
+                    });
+
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(git(30, "ok")));
+
+            assertComposedFailureSettled(thrown, failure);
+        }
+
+        @Test
+        @DisplayName("an environment name the operating system refuses settles the job failed by row 10")
+        void environmentNameRefused() {
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
+                    job -> Map.of("NAME=VALUE", "x"));
+
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(git(30, "ok")));
+
+            assertComposedFailureSettled(thrown, thrown);
+        }
+
+        private void assertComposedFailureSettled(IllegalArgumentException thrown, IllegalArgumentException expected) {
+            var records = jobs.records();
+            assertAll(
+                    () -> assertEquals(expected, thrown, "the failure is passed on to the caller"),
+                    () -> assertEquals(1, records.size()),
+                    () -> assertEquals(Status.ENDED, records.getFirst().status()),
+                    () -> assertEquals(Fate.FAILED, records.getFirst().fate()),
+                    () -> assertEquals(10, records.getFirst().outcomeRow()),
+                    () -> assertNull(records.getFirst().pid()),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
+                    () -> assertEquals(Optional.of(records.getFirst()),
+                            runner.awaitSettled(records.getFirst().jobId(), Duration.ZERO)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.JOB_LAUNCHER_NOT_STARTED.resolveIdentifierString()));
         }
     }
 
@@ -539,14 +596,45 @@ class SubprocessJobRunnerTest {
         @CsvSource({"0, 0", "3, 3", "128, 128", "200, 200"})
         @DisplayName("an exit value outside 129 to 192 is an exit code")
         void exitCode(int exitValue, int code) {
-            assertEquals(new Exited(code), SubprocessJobRunner.waitStatus(exitValue));
+            assertAll(
+                    () -> assertEquals(new Exited(code),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX)),
+                    () -> assertEquals(new Exited(code),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS)));
         }
 
         @ParameterizedTest(name = "exit value {0} is {1}")
         @CsvSource({"129, SIGHUP", "134, SIGABRT", "137, SIGKILL", "139, SIGSEGV", "143, SIGTERM", "168, SIG40"})
-        @DisplayName("an exit value of 128 plus a signal number is that signal")
+        @DisplayName("an exit value of 128 plus a signal number that both systems share is that signal")
         void signal(int exitValue, String signal) {
-            assertEquals(new Signalled(signal), SubprocessJobRunner.waitStatus(exitValue));
+            assertAll(
+                    () -> assertEquals(new Signalled(signal),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX)),
+                    () -> assertEquals(new Signalled(signal),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS)));
+        }
+
+        @ParameterizedTest(name = "signal {0}: Linux {1}, macOS {2}")
+        @CsvSource({"7, SIGBUS, SIGEMT", "10, SIGUSR1, SIGBUS", "12, SIGUSR2, SIGSYS", "16, SIGSTKFLT, SIGURG",
+                "17, SIGCHLD, SIGSTOP", "18, SIGCONT, SIGTSTP", "19, SIGSTOP, SIGCONT", "20, SIGTSTP, SIGCHLD",
+                "23, SIGURG, SIGIO", "29, SIGIO, SIGINFO", "30, SIGPWR, SIGUSR1", "31, SIGSYS, SIGUSR2",
+                "32, SIG32, SIG32"})
+        @DisplayName("a signal number the two systems name differently is named by the table of the system")
+        void divergentSignal(int signal, String linux, String macos) {
+            var exitValue = 128 + signal;
+
+            assertAll(
+                    () -> assertEquals(new Signalled(linux),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.LINUX)),
+                    () -> assertEquals(new Signalled(macos),
+                            SubprocessJobRunner.waitStatus(exitValue, SubprocessJobRunner.SignalTable.MACOS)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @CsvSource({"Linux, LINUX", "Mac OS X, MACOS", "macOS, MACOS", "'', LINUX"})
+        @DisplayName("the table is chosen by the name of the operating system")
+        void signalTableOfOs(String osName, SubprocessJobRunner.SignalTable table) {
+            assertEquals(table, SubprocessJobRunner.SignalTable.of(osName));
         }
 
         @ParameterizedTest(name = "{0}")

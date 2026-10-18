@@ -73,9 +73,19 @@ class PmExecLauncherTest {
             var launch = new Launch(work, List.of("/usr/bin/git", "commit", "-F", "-"), Map.of(),
                     Optional.of(payload), work.resolve("job.log"));
 
-            var command = new PmExecLauncher(home).command(launch.argv());
+            var launcher = new PmExecLauncher(home);
 
-            assertTrue(command.stream().noneMatch(argument -> argument.contains("the message")));
+            var builder = launcher.processBuilder(launch);
+
+            assertAll(
+                    () -> assertEquals(launcher.command(launch.argv()), builder.command(),
+                            "the builder starts exactly the launcher, the separator and the verified vector"),
+                    () -> assertTrue(builder.command().stream().noneMatch(argument -> argument.contains(
+                            "the message"))),
+                    () -> assertTrue(builder.environment().values().stream().noneMatch(value -> value.contains(
+                            "the message"))),
+                    () -> assertEquals(ProcessBuilder.Redirect.PIPE, builder.redirectInput(),
+                            "the payload reaches the child through its stdin"));
         }
 
         @Test

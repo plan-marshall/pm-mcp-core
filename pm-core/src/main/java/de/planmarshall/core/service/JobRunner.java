@@ -39,7 +39,9 @@ import de.planmarshall.core.store.JobRecord.Scope;
 public interface JobRunner<R, C> {
 
     /**
-     * Starts a job. The job is verified, recorded and launched, or it waits for its slot recorded as queued.
+     * Starts a job. The job is verified, recorded and launched. While the runtime no longer admits jobs because it
+     * drains, a verified job is recorded as queued instead, never launched, and settled without a process. A start
+     * does not wait for a free build or model slot.
      *
      * @param request what to start
      * @return the id of the started job, or the refusal of the start

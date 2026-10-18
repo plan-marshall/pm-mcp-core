@@ -598,8 +598,9 @@ the first record of an empty log chained to `emptyLogPredecessor()` or to genesi
 _Requirements: link:{docs}/Requirements.adoc#PM-EXEC-4[PM-EXEC-4], link:{docs}/Requirements.adoc#PM-ARCH-7[PM-ARCH-7], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
 The job record `jobs/<job_id>.json` is the write-ahead journal of one job: every job the runtime starts, a worker and a
-probe included, has one, and the recovery after a runtime start reads it to settle what a previous instance left
-behind. This package holds the identifier, the record, its codec and its store; the runner that writes the record and
+probe included, has one. The recovery after a runtime start reads the records of a project's store
+(`JobRecordStore.ofProject`) to settle what a previous instance left behind; the records of the machine store and of
+an onboarding entry, where probes are recorded, are not recovered yet. This package holds the identifier, the record, its codec and its store; the runner that writes the record and
 the recovery that reads it live in `runtime.job` and `runtime.start` of `pm-runtime`.
 
 [horizontal]

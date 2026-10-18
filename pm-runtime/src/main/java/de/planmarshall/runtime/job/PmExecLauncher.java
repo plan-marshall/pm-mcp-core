@@ -153,6 +153,23 @@ public final class PmExecLauncher {
      */
     public Launched launch(Launch launch) throws IOException {
         Objects.requireNonNull(launch, "launch");
+        var builder = processBuilder(launch);
+        createLog(launch.log());
+        var process = builder.start();
+        launch.stdin().ifPresent(payload -> writeInput(process, payload.getBytes(StandardCharsets.UTF_8)));
+        return new Launched(process, process.pid());
+    }
+
+    /**
+     * The process builder {@link #launch(Launch)} starts: the command line, the working directory, exactly the
+     * environment of the launch, {@code stdin} from {@code /dev/null} or a pipe for the payload, and {@code stdout}
+     * and {@code stderr} appended to the job log. The payload is not part of it; it is written to the started process.
+     *
+     * @param launch what to launch
+     * @return the configured builder, not started
+     * @throws IllegalArgumentException if the operating system refuses a name or a value of the environment
+     */
+    ProcessBuilder processBuilder(Launch launch) {
         var builder = new ProcessBuilder(command(launch.argv()));
         builder.directory(launch.workingDirectory().toFile());
         var environment = builder.environment();
@@ -160,12 +177,9 @@ public final class PmExecLauncher {
         environment.putAll(launch.environment());
         builder.redirectInput(launch.stdin().isPresent() ? ProcessBuilder.Redirect.PIPE
                 : ProcessBuilder.Redirect.from(NO_INPUT));
-        createLog(launch.log());
         builder.redirectOutput(ProcessBuilder.Redirect.appendTo(launch.log().toFile()));
         builder.redirectErrorStream(true);
-        var process = builder.start();
-        launch.stdin().ifPresent(payload -> writeInput(process, payload.getBytes(StandardCharsets.UTF_8)));
-        return new Launched(process, process.pid());
+        return builder;
     }
 
     /** @return the command line of the launcher: its absolute path, the separator and the verified vector */
