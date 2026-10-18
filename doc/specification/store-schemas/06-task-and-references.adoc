@@ -253,13 +253,25 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
       "type": "array", "minItems": 1, "maxItems": 30,
       "items": {
         "type": "object",
-        "required": ["id", "text", "kind", "verified_by"],
+        "required": ["id", "text", "kind", "verified_by", "capability"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^AC-[0-9]{1,4}$" },
           "text": { "type": "string", "minLength": 10, "maxLength": 500, "description": "EARS form; checked by the server beyond this schema." },
           "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] },
-          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] }
+          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] },
+          "capability": {
+            "type": ["object", "null"],
+            "required": ["capability", "requirement", "change", "base"],
+            "additionalProperties": false,
+            "description": "The capability requirement the criterion changes (phase-workflows/01, Capability Specs); null for a criterion of the plan only.",
+            "properties": {
+              "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9](/[a-z0-9][a-z0-9-]{0,62}[a-z0-9]){0,3}$" },
+              "requirement": { "type": "string", "minLength": 3, "maxLength": 120 },
+              "change": { "type": "string", "enum": ["added", "modified", "removed"] },
+              "base": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "For modified and removed: the fingerprint of the requirement at the plan's base; null for added." }
+            }
+          }
         }
       }
     },
@@ -768,6 +780,113 @@ The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-
                 }
               }
             }
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+[#capability-spec]
+=== Capability Spec (`.marshall/capabilities/<capability>.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+A git-tracked team file of the project (link:../phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows Specification, Capability Specs]), written only by the finalize step `architecture-refresh` in a plan's worktree; a requirement's fingerprint is the SHA-256 of the RFC 8785 canonical JSON of its object without `plan_id`. A removed requirement leaves the file; a capability whose last requirement is removed is deleted.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/capability-spec-v1.json",
+  "title": "CapabilitySpec",
+  "type": "object",
+  "required": [
+    "format_version",
+    "capability",
+    "purpose",
+    "requirements"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "capability": {
+      "type": "string",
+      "description": "Equals the file's path below .marshall/capabilities/ without .json."
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 1000
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "text",
+          "scenarios",
+          "plan_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120,
+            "description": "Unique within the capability; the key of a change."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500,
+            "description": "EARS form."
+          },
+          "scenarios": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "given",
+                "when",
+                "then"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 120
+                },
+                "given": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 500
+                },
+                "when": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 500
+                },
+                "then": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 500
+                }
+              }
+            }
+          },
+          "plan_id": {
+            "type": "string",
+            "description": "The plan whose merge last changed the requirement."
           }
         }
       }

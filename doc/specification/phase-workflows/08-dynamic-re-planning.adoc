@@ -62,6 +62,11 @@ The server detects every trigger itself, at fixed checkpoints, from recorded or 
 |The plan's changed files or diff characters against the merge base exceed a `structural_caps` value that a team record declares for a *required* bot of the review-bot registry (compiled-in records declare none) (link:05-finalize-review-metrics-descriptor.adoc#_refusals_rate_windows[Refusals & Rate Windows], item 12). The projection counts the realized footprint united with the declared paths of the deliverables not yet done.
 |`HEAD` and the bot
 
+|`capability_conflict`
+|`finalize.architecture-refresh` before it writes the capability specs
+|A capability requirement the intent record changes no longer has the fingerprint (`base`) the record states: another plan changed it since.
+|The capability and the requirement
+
 |`ceiling`
 |The `exhausted` outcome of every remediation call of Phase 5 and of finalize before the merge (<<replan-existing-mechanisms>>)
 |The remediation policy spent its loop budget: a loop-back ceiling reached, a self-review or review that did not converge, a build, CI, analysis, or conflict fix that did not hold.
@@ -69,7 +74,7 @@ The server detects every trigger itself, at fixed checkpoints, from recorded or 
 |===
 
 * *Once per evidence*: A checkpoint raises a trigger only when no re-planning record of the plan carries the same trigger kind and evidence key, so a judged situation is never judged again; a later checkpoint with new evidence (a new base commit, a new `HEAD`) raises it anew. The `exhausted` outcome of a remediation call always enters the call state; when its `ceiling` key is already judged, the unit takes the fallback without a task.
-* *Order*: At one checkpoint the server raises at most one trigger, in the order `infeasible`, `ceiling`, `merge_conflict`, `base_advanced`, `downstream_limit`; the others are evaluated again at the next checkpoint.
+* *Order*: At one checkpoint the server raises at most one trigger, in the order `infeasible`, `ceiling`, `merge_conflict`, `capability_conflict`, `base_advanced`, `downstream_limit`; the others are evaluated again at the next checkpoint.
 * *Lanes without an outline*: A plan of the `land` or `adopt` lane has no outline to revise; its triggers take their conservative fallback without a task.
 * *Decision records*: Every evaluation of `base_advanced`, `merge_conflict`, or `downstream_limit` that measured its value appends a `replan.trigger` decision record with the measured value against its threshold and source, raised or not (link:../model-work/11-decision-records.adoc#decision-points[Model Work Specification, Decision Points]); an evaluation skipped (a failed fetch) records nothing.
 * *`execute.replan-check`*: An `auto` state between `execute.deliverable-build` (`succeeded`) and `execute.envelope-ready`; it fetches the base (the `git` network class budget) and evaluates `base_advanced` and the projected `downstream_limit`. A revision accepted in a chat that waits for the plan's next task boundary is applied here, before the next envelope task (<<replan-chat>>). A failed fetch skips `base_advanced` at this checkpoint, never raising it.
