@@ -203,7 +203,7 @@ Hazard:: Refuted findings could not be recorded: in-triage refutations were stor
 `accepted`, and a pull request with an 8.7% false-positive rate reported 0%.
 Guard:: Resolution derivation tests cover every row of the derivation table; the fixtures below replay as `rejected`
 with their evidence; the false-positive count per source reads `rejected` only; the legacy mapping of the
-differential tests maps all six resolutions 1:1.
+ported-primitive tests maps all six resolutions 1:1.
 Fixture:: PR #1387 `cde958` (accepted → rejected), `8a040a`, `652212`; PR #1447 `43956d`, `8d8a87` (CWE-78).
 Source:: plan-marshall truthful-signals (quality-aspect) PLAN-208 D4 / PLAN-214 D4.
 
@@ -588,7 +588,7 @@ Anchor:: link:../specification/store-schemas/10-job-and-lesson-records.adoc#less
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-2[PM-TEST-2]
 Hazard:: A port could silently drop the supersede and retirement semantics of the `plan-marshall` lesson store
 (redirect stub, permanent tombstone), which `PM-MCP` records in the lesson's own front matter instead of a tombstone file.
-Guard:: The differential corpus for the lesson store maps each legacy supersede and removal onto the in-file
+Guard:: The test data of the lesson store's ported tests maps each legacy supersede and removal onto the in-file
 retirement (`retired{at, by, verdict}` with verdict `superseded` and the successor named in `retired.into`, the record
 kept permanently), body purging of retired lessons (every retirement, whatever its verdict) after
 `retired_lesson_bodies_days` keeping the front matter, and the three removal

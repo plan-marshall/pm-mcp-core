@@ -131,7 +131,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
         },
         "load_directive_template": {
           "type": "string",
-          "description": "Template rendered when a skill references another skill (e.g. 'pm_skill(uri=\"{{uri}}\", <scope>)')."
+          "description": "Template rendered when a skill references another skill (e.g. 'pm_skill(uri=\"{{uri}}\")')."
         },
         "schema_residency": {
           "type": "string",
@@ -754,9 +754,7 @@ A harness is shown where the harness itself is shown (the harness lists, a role'
 
 * *Two forms*: the profile's `icon` names either `source`, the URL of the maker's official icon file, or `bundled`, the name of an icon shipped in the binary, which only an icon whose maker gave written permission to ship it may use.
 * *Fetched by the runtime, never by the browser*: an icon of the form `source` is fetched by the runtime, once, from its URL, through the proxy settings of the runtime's outbound requests, on the operator's consent `fetch_icons`, asked in `harness.icons-consent` after the scan; with _no_ the monograms are shown and the step goes on. The fetched file (SVG or PNG, at most `256` KiB, an SVG stripped of scripts, external references, and event attributes) is stored in the machine store `<PM_MCP_BASE>/icons/<client_id>.<ext>` (link:../store-schemas/12-machine-stores.adoc[Store Schemas Specification, Machine Stores]) and served to the web app from the runtime's own origin (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/03-web-server.adoc#web-security-headers[CLI, Coordination & Security Specification, Request Validation & Security Headers]). A browser never loads it from the maker's server, which would send the operator's address to that server on every view and break the content security policy.
-* *Monogram*: without a fetched or bundled icon, a harness is shown by a generated monogram, the initials of its `display_name` on a colour derived from its `client_id` (the first bytes of its SHA-256 as a hue), the same in both clients. The monogram is the icon of every harness until the open point below is settled; a profile gains its `source` icon only once its maker's terms or a confirmation allow it.
-
-Whether a maker's icon may be shown at all, and which icons may be bundled, is open: see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#harness-icons[Open Questions].
+* *Monogram*: without a fetched or bundled icon, a harness is shown by a generated monogram, the initials of its `display_name` on a colour derived from its `client_id` (the first bytes of its SHA-256 as a hue), the same in both clients. The monogram is the icon of every harness; a profile gains its `source` or `bundled` icon only once its maker's terms or a confirmation allow it. No shipped profile declares one; the bundling of makers' icons is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-21[Later Improvements, L-21]).
 
 [#token-usage]
 === Tokens, Not Money
