@@ -11,9 +11,9 @@ Accepted
 
 == Context
 
-A start of `SubprocessJobRunner` is synchronous: it answers only once the launch report, the first line of the job log,
-is read and the post-spawn record is written (ADR 005). It is also the engine port `JobStarter` (ADR 004), so a caller
-of the port waits for it. The wait ran until the report arrived, an output line arrived, the process exited or the
+A start of `SubprocessJobRunner` is synchronous: it waits for the launch report, the first line of the job log (ADR 005),
+and answers once the report is read and the post-spawn record is written, or once the wait for the report has ended
+without one. It is also the engine port `JobStarter` (ADR 004), so a caller of the port waits for it. The wait ran until the report arrived, an output line arrived, the process exited or the
 budget of the job passed, and it did not look at a cancel. A launcher that hangs before it writes its report, for
 example while it applies the confinement, therefore held the start for the whole budget, up to 1800 seconds or more,
 and a cancel during the wait was noticed only after it.

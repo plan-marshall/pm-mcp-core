@@ -88,9 +88,8 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * write-ahead record, and the start answers the job. A launcher that fails before {@code execve}, or that writes no
  * report within the wait, or whose job is cancelled during it, has no report to record; the start still answers the
  * job, which keeps the write-ahead record (without a PID) and is settled from the launcher's exit, the cancel or the
- * budget. A post-spawn record that
- * cannot be written terminates the job's process group, and the job is settled from its observed end before the
- * failure is passed on.</li>
+ * budget. A post-spawn record that cannot be written terminates the job's process group, and the job is settled from
+ * its observed end before the failure is passed on.</li>
  * </ol>
  * <p>
  * A virtual thread per job then waits for the end of its process, for its budget or for a cancel, whichever comes
@@ -400,8 +399,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * Starts a probe of a program that is not enrolled yet, waiting for its launch report for at most
-     * {@link #REPORT_WAIT} like {@link #start(JobRunner.StartRequest)}. Its allocation, its verification against its candidate record and its first record are one transaction under the
-     * lock of its scope.
+     * {@link #REPORT_WAIT} like {@link #start(JobRunner.StartRequest)}. Its allocation, its verification against its
+     * candidate record and its first record are one transaction under the lock of its scope.
      *
      * @param request the candidate and whether the operator consented to its kind
      * @return the id of the started probe job, also of one whose launcher failed and which is settled already; the
@@ -663,7 +662,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         return new JobRunner.StartResult.Refused(reason);
     }
 
-    /** Writes the write-ahead record, launches the job and writes its post-spawn record. */
+    /**
+     * Writes the write-ahead record, launches the job and, when its launch report arrives in time, writes its
+     * post-spawn record.
+     */
     private JobRunner.StartResult launch(JobRunner.StartRequest<JobRequest> request, JobBudget budget,
             JobRecordStore store, VerifiedJob verified) {
         JobRecord first;
