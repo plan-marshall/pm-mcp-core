@@ -225,6 +225,8 @@ _Implementation watch: link:../../implementation-watch/filesystem-layout.adoc#PM
 * The onboarding of a new project takes the answer `project_not_enrolled` as its start.
 * The resolved `project_id` is recorded with what the request created (an entry, a plan); no record holds the path.
 
+//
+
 * *Deterministic Location*: A plan has exactly one directory, so its resolution has no candidates to arbitrate:
 ** The project is the one a client's request names or, for a worker, the project of its job record; the plan is looked up only in that project's machine store. The client profile of a worker's call comes from its job record. The main checkout is the enrolled `project_root`; no scope record stores a path to it.
 ** If `plans/<plan_id>/mcp/status.json` exists, the plan is live. Its worktree is the recorded `worktree_path`, re-canonicalised and confinement-checked on every read; a recorded path that is not a live git worktree of `branch_name` is reconciled as described in xref:01-repository-workspace.adoc#worktree-lifecycle[Worktree Lifecycle], never followed.
