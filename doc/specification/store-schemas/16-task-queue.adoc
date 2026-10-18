@@ -293,7 +293,7 @@ The record of one grading of a role's configuration by the operator's grading in
           "type": "object",
           "minProperties": 1,
           "additionalProperties": false,
-          "description": "The agreement per topic: own, the items whose role names the role; generic, the generic items (role worker) of a writer or read_only role. A topic without items is absent; there is no pooled agreement.",
+          "description": "The agreement per topic. The topics of a role, own and generic, are defined by model-work/01, Corpus Topics of a Role; this object holds exactly the topics that definition gives the role and a topic without items is absent. There is no pooled agreement.",
           "properties": {
             "own": { "$ref": "#/$defs/topicResult" },
             "generic": { "$ref": "#/$defs/topicResult" }
