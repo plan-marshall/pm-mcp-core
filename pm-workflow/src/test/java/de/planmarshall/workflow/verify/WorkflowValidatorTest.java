@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -438,9 +440,10 @@ class WorkflowValidatorTest {
             var controls = passingFixtures().stream().map(WorkflowValidatorTest::fileName)
                     .collect(Collectors.toCollection(TreeSet::new));
 
-            assertEquals(new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf",
-                    "type-instance.pmwf", "type-recipe.pmwf", "type-subworkflow.pmwf", "type-system.pmwf",
-                    "type-task.pmwf", "type-workflow.pmwf")), controls);
+            var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf"));
+            Arrays.stream(UnitType.values()).map(type -> "type-" + type.wireName() + ".pmwf").forEach(expected::add);
+
+            assertEquals(expected, controls);
         }
     }
 

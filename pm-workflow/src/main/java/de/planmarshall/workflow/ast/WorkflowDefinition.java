@@ -9,12 +9,12 @@
  */
 package de.planmarshall.workflow.ast;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * The root of the tree: one complete definition unit, that is the merged plan workflow, a plan instance, a single-file
@@ -107,14 +107,9 @@ SourceLocation location) {
      * @return the identifiers of the starting states, without duplicates, in that order
      */
     public List<String> startingStates() {
-        var roots = new ArrayList<String>();
-        startState.ifPresent(roots::add);
-        for (var binding : entryBindings.values()) {
-            if (!roots.contains(binding.stateId())) {
-                roots.add(binding.stateId());
-            }
-        }
-        return List.copyOf(roots);
+        return Stream.concat(startState.stream(), entryBindings.values().stream().map(EntryBinding::stateId))
+                .distinct()
+                .toList();
     }
 
     /**
