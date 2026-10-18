@@ -59,7 +59,9 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * ({@link PathConfinement}), a refused path is a {@link UnitFinding.Kind#CONFINEMENT} finding and a missing file a
  * {@link UnitFinding.Kind#MISSING} finding.</li>
  * <li>Parse as a {@link UnitOrigin#PROJECT} unit and refuse a DSL format other than {@value #COMPILED_FORMAT_VERSION}
- * with {@value UnitFinding#FORMAT_OUTDATED} or {@value UnitFinding#FORMAT_NEWER}; a file that declares the identifier
+ * with {@value UnitFinding#FORMAT_OUTDATED} or {@value UnitFinding#FORMAT_NEWER}; a unit whose frontmatter names the
+ * author {@value #RESERVED_AUTHOR} is a {@value UnitFinding#AUTHOR_RESERVED} finding at its author line, so a placed
+ * unit never passes as a delivered one; a file that declares the identifier
  * of an earlier file, or {@value PlanUnitMerger#PLAN_UNIT}, is a {@value UnitFinding#DUPLICATE_UNIT_ID} finding and
  * never replaces the earlier unit.</li>
  * <li>Merge the phase files into the plan unit ({@link PlanUnitMerger}) and verify every unit with Rules 1-12, Rule 5
@@ -68,8 +70,10 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * <li>Build the project roster, the default descriptors of the steps the plan unit completes plus the declared
  * project steps, and run the {@link FinalizePipelineValidator}; a violation is located at the first state completing
  * the step, or at the unit header.</li>
- * <li>Check the compiled invariants against the default units ({@link CompiledInvariants}); a violation that only
- * re-reports a finding of the earlier stages is not listed again.</li>
+ * <li>Check the compiled invariants against the default units ({@link CompiledInvariants}) as project replacements
+ * ({@link CompiledInvariants.Subject#PROJECT_REPLACEMENT}), so a unit whose type differs from its default unit's, the
+ * type {@code instance} included, is refused; a violation that only re-reports a finding of the earlier stages is not
+ * listed again.</li>
  * <li>Report {@value UnitFinding#PROJECT_STEP_UNBOUND} where the unit, the declared steps and the bound step ids
  * disagree.</li>
  * </ol>
@@ -88,6 +92,15 @@ public final class ProjectUnitLoader {
 
     /** The prefix of the identifier of a project-local finalize step. */
     public static final String PROJECT_STEP_PREFIX = "project:";
+
+    /** The author only a unit compiled into the binary names; a project unit that names it is refused. */
+    public static final String RESERVED_AUTHOR = "plan-marshall";
+
+    /** The line that opens and closes the frontmatter of a unit. */
+    private static final String FRONTMATTER_DELIMITER = "---";
+
+    /** The key of the frontmatter line that names the author. */
+    private static final String AUTHOR_KEY = "author:";
 
     private static final CuiLogger LOGGER = new CuiLogger(ProjectUnitLoader.class);
 
@@ -135,7 +148,8 @@ public final class ProjectUnitLoader {
         var findings = new ArrayList<UnitFinding>();
         var units = parseUnits(roots, findings);
         var subUnits = units.values().stream().filter(unit -> !PlanUnitMerger.PLAN_UNIT.equals(unit.id())).toList();
-        var invariants = new CompiledInvariants(context.registry(), defaultUnits.values(), defaultRoster);
+        var invariants = new CompiledInvariants(context.registry(), defaultUnits.values(), defaultRoster,
+                CompiledInvariants.Subject.PROJECT_REPLACEMENT);
         for (var unit : units.values()) {
             var rules = context.validator(subUnits, List.of()).verify(unit);
             rules.violations().forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.RULE,
@@ -227,6 +241,7 @@ public final class ProjectUnitLoader {
                 yield Optional.empty();
             }
             case ParseResult.Parsed(var unit) -> {
+                checkAuthor(path, source, unit, findings);
                 if (unit.formatVersion() == COMPILED_FORMAT_VERSION) {
                     yield Optional.of(unit);
                 }
@@ -238,6 +253,41 @@ public final class ProjectUnitLoader {
                 yield Optional.empty();
             }
         };
+    }
+
+    /**
+     * Stage 2, the author: a project unit whose frontmatter names the author {@value #RESERVED_AUTHOR} is a
+     * {@value UnitFinding#AUTHOR_RESERVED} finding at its author line; the unit is verified on, so the load reports
+     * every other finding of it as well.
+     */
+    private static void checkAuthor(String path, String source, WorkflowDefinition unit, List<UnitFinding> findings) {
+        var frontmatter = unit.frontmatter();
+        if (RESERVED_AUTHOR.equals(frontmatter.author())) {
+            findings.add(new UnitFinding(UnitFinding.Kind.RULE, UnitFinding.AUTHOR_RESERVED, path,
+                    authorLine(source, frontmatter.location().line()),
+                    "the project unit '%s' names the author '%s', which only a delivered unit carries"
+                            .formatted(path, RESERVED_AUTHOR)));
+        }
+    }
+
+    /**
+     * @param source  the text of the unit file
+     * @param opening the line of the opening {@code ---} of the frontmatter, counted from 1
+     * @return the line of the {@code author} key of the frontmatter, counted from 1; the opening line when there is
+     *         none
+     */
+    private static int authorLine(String source, int opening) {
+        var lines = source.lines().toList();
+        for (var index = opening; index < lines.size(); index++) {
+            var line = lines.get(index);
+            if (FRONTMATTER_DELIMITER.equals(line.strip())) {
+                break;
+            }
+            if (line.startsWith(AUTHOR_KEY)) {
+                return index + 1;
+            }
+        }
+        return opening;
     }
 
     /**

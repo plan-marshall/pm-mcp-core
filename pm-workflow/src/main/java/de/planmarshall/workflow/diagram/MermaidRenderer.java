@@ -36,8 +36,9 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * composite come the state declarations ({@code state "<id>" as <alias>}), the description lines
  * ({@code <alias> : <kind> <target>}, see
  * {@link StateTransitions#description(StateNode)}) and the transitions between two states of that phase; every other
- * transition follows at the top level, after the arrow {@code [*]} into the start state, because Mermaid admits no
- * transition between inner states of different composites inside a composite block.
+ * transition follows at the top level, after the arrow {@code [*]} into the start state, or one such arrow into each
+ * entry-bound state labelled {@code entry <name>} for a unit with entries, because Mermaid admits no transition
+ * between inner states of different composites inside a composite block.
  * <p>
  * A transition is labelled {@code <rel> <link_id> [<form>] [<guard>] / <outcome>} when it routes the action of a
  * declared link, and {@code <trigger> [<guard>] / <outcome>} when the engine takes it, the trigger being the kind of
@@ -89,7 +90,9 @@ final class MermaidRenderer {
                 line(1, "}");
             }
         });
-        line(1, "[*] --> " + aliases.state(definition.startState()));
+        definition.startState().ifPresent(start -> line(1, "[*] --> " + aliases.state(start)));
+        definition.entryBindings().forEach((entry, binding) -> line(1, "[*] --> %s : entry %s"
+                .formatted(aliases.state(binding.stateId()), entry)));
         definition.states().values().stream().flatMap(state -> transitions.outgoing(state.id()).stream())
                 .filter(edge -> !isInsideComposite(definition, edge))
                 .forEach(edge -> line(1, transition(edge, aliases)));
@@ -146,7 +149,7 @@ final class MermaidRenderer {
      * is prefixed with {@code phase_}. When that identifier is already taken, the name gets the first free identifier
      * of the form {@code <preferred>_2}, {@code <preferred>_3}, … The names are allocated in a fixed order: the state
      * identifiers in the declaration order of the unit, then the phase values other than {@code inherit} in the order
-     * they are first declared, then any start state or transition target that names no declared state, in the order
+     * they are first declared, then any starting state or transition target that names no declared state, in the order
      * they are referenced. An allocated identifier is never handed out again, also not to a later name whose preferred
      * form it is.
      *
@@ -162,7 +165,7 @@ final class MermaidRenderer {
             definition.states().keySet().forEach(id -> states.put(id, allocate(preferred(id), taken)));
             phaseValues.stream().filter(phase -> !INHERIT.equals(phase))
                     .forEach(phase -> phases.put(phase, allocate(PHASE_PREFIX + preferred(phase), taken)));
-            Stream.concat(Stream.of(definition.startState()), definition.states().keySet().stream()
+            Stream.concat(definition.startingStates().stream(), definition.states().keySet().stream()
                     .flatMap(id -> transitions.outgoing(id).stream()).map(StateTransitions.Edge::target))
                     .forEach(id -> states.computeIfAbsent(id, unknown -> allocate(preferred(unknown), taken)));
             return new Aliases(Map.copyOf(states), Map.copyOf(phases));

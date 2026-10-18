@@ -25,6 +25,8 @@ import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.WorkflowPrinter;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
@@ -42,7 +44,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * version after the one in force, the event, every input by digest, the lane and posture, the kept step lists, every
  * pruned element with its reason and source fact, every policy call with its effective arguments and their provenance,
  * and the waived gates. The composed unit is the template's states under the id {@code plan}, with the version as its
- * revision and the header as its {@code instance} line.
+ * revision, the header as its {@code instance} line, the template's frontmatter with the type {@code instance}, and the
+ * template's start state.
  * <p>
  * The version is kept only if it passes every check, and is otherwise refused as a {@link CompositionResult.Refused}
  * value, the version in force staying:
@@ -52,7 +55,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <li>the header schema ({@link HeaderSchemaCheck}), the static verification Rules 1-12 ({@link WorkflowValidator},
  * over a catalog of the compiled units and the request's sub-units, without a released baseline), the finalize
  * pipeline over the default descriptors of the kept steps, and the compiled invariants ({@link CompiledInvariants},
- * against the default units), else {@code invariant_failed} with every violation found.</li>
+ * against the default units, as a {@link CompiledInvariants.Subject#COMPOSED_INSTANCE}, whose type {@code instance}
+ * INV-GEN-1 admits against its template), else {@code invariant_failed} with every violation found.</li>
  * </ol>
  * Rules 13 and 14, the resolution of roles and skills, are left to the packages that own them. The composer reads no
  * store and writes nothing; a refused input is never an exception.
@@ -87,7 +91,8 @@ public final class PlanInstanceComposer {
             List<FinalizeStepDescriptor> defaultRoster, CompositionRules rules, Clock clock) {
         this.context = Objects.requireNonNull(context, "context");
         this.defaultRoster = List.copyOf(defaultRoster);
-        this.invariants = new CompiledInvariants(context.registry(), defaultUnits, this.defaultRoster);
+        this.invariants = new CompiledInvariants(context.registry(), defaultUnits, this.defaultRoster,
+                CompiledInvariants.Subject.COMPOSED_INSTANCE);
         this.rules = Objects.requireNonNull(rules, "rules");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -164,10 +169,18 @@ public final class PlanInstanceComposer {
                                 inputs.compositionRulesDigest()), inputs.planFactsDigest(),
                         inputs.realizedFootprintDigest(), inputs.changeType(), inputs.providersDigest()),
                 HeaderJson.write(header));
-        return new WorkflowDefinition(PLAN_UNIT, header.version(), template.scope(), template.params(),
-                template.resultSchema(), Optional.of(instance), template.declarations(), template.decisions(), Map.of(),
-                template.formatVersion(), template.origin(), Map.of(), template.startState(), template.migrations(),
-                states, template.location());
+        return new WorkflowDefinition(instanceFrontmatter(template.frontmatter()), PLAN_UNIT, header.version(),
+                template.scope(), template.params(), template.resultSchema(), Optional.of(instance),
+                template.declarations(), template.decisions(), Map.of(), template.formatVersion(), template.origin(),
+                Map.of(), template.startState(), template.entryBindings(), template.migrations(), states,
+                template.location());
+    }
+
+    /** The frontmatter of a composed version: the template's, with the type {@link UnitType#INSTANCE}. */
+    private static UnitFrontmatter instanceFrontmatter(UnitFrontmatter template) {
+        return new UnitFrontmatter(template.name(), template.description(), UnitType.INSTANCE, template.entries(),
+                template.exits(), template.modificationDate(), template.version(), template.author(),
+                template.signature(), template.location());
     }
 
     private static List<InstanceInputs.UnitRef> unitRefs(List<UnitReference> references) {

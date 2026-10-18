@@ -1,3 +1,15 @@
+---
+name: adjudicate.decisions
+description: A unit written for the verifier tests.
+type: subworkflow
+exit: done
+exit: skipped
+exit: failed
+exit: aborted
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A sub-workflow written for the verifier tests, not taken from any default unit. It uses
 # every construct of the grammar: param and result
 # declarations of every type, declare, start and migrate, every state form (links,

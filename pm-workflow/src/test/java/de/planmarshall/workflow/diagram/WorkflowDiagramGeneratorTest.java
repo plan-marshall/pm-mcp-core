@@ -200,6 +200,15 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should label a task state whose roles a primitive returns")
         void shouldLabelRoleEachTaskState() {
             var unit = DiagramFixtures.parse("role-each.pmwf", """
+                    ---
+                    name: adjudicate.decisions
+                    description: A unit written for the tests of pm-workflow.
+                    type: subworkflow
+                    exit: done
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow adjudicate.decisions version 1 format 1
                     scope subworkflow
                     start decide.vote
@@ -221,6 +230,68 @@ class WorkflowDiagramGeneratorTest {
     }
 
     @Nested
+    @DisplayName("Entries")
+    class Entries {
+
+        /** A sub-workflow with three entries, two of which bind the same state. */
+        private static final WorkflowDefinition ENTRIES = DiagramFixtures.parse("entries.pmwf", """
+                ---
+                name: diagram.entries
+                description: A sub-workflow with three entries written for the diagram tests.
+                type: subworkflow
+                entry: review
+                entry: repair
+                entry: recheck
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow diagram.entries version 1 format 1
+                scope subworkflow
+                entry review -> build.review
+                entry repair -> build.repair
+                entry recheck -> build.review
+
+                state build.review
+                    phase inherit
+                    auto diagram.proceed
+                        done -> build.done
+
+                state build.repair
+                    phase inherit
+                    auto diagram.proceed
+                        done -> build.review
+
+                state build.done terminal done success
+                    phase inherit
+                """);
+
+        @Test
+        @DisplayName("Should draw an arrow from the start into every entry-bound state, labelled with its entry, and "
+                + "no unlabelled start arrow")
+        void shouldDrawEveryEntryAsStartingPoint() {
+            var rendered = WorkflowDiagramGenerator.renderMermaid(ENTRIES, Optional.empty());
+
+            assertAll(() -> assertTrue(rendered.contains("[*] --> build_review : entry review\n"), rendered),
+                    () -> assertTrue(rendered.contains("[*] --> build_repair : entry repair\n"), rendered),
+                    () -> assertTrue(rendered.contains("[*] --> build_review : entry recheck\n"), rendered),
+                    () -> assertEquals(3, rendered.lines().filter(line -> line.contains("[*] -->")).count(),
+                            rendered));
+        }
+
+        @Test
+        @DisplayName("Should name every entry that binds a state in its Entered from column, before its sources")
+        void shouldNameEntriesInEnteredFrom() {
+            var rendered = WorkflowDiagramGenerator.renderAsciiDocTables(ENTRIES);
+
+            assertAll(() -> assertTrue(rendered.contains("entry `review`, entry `recheck`, `build.repair`"), rendered),
+                    () -> assertTrue(rendered.contains("|entry `repair`\n"), rendered),
+                    () -> assertFalse(rendered.contains("|start"), rendered));
+        }
+    }
+
+    @Nested
     @DisplayName("Mermaid identifiers")
     class MermaidIdentifiers {
 
@@ -228,6 +299,14 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should give colliding state identifiers distinct nodes in declaration order")
         void shouldSeparateCollidingStateIdentifiers() {
             var unit = DiagramFixtures.parse("collision.pmwf", """
+                    ---
+                    name: diagram.collision
+                    description: A unit written for the tests of pm-workflow.
+                    type: system
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow diagram.collision version 1 format 1
                     scope workspace
                     start build.judge
@@ -264,6 +343,14 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should give a phase composite an identifier no state holds, never reusing an allocated one")
         void shouldSeparatePhaseFromStateAlias() {
             var unit = DiagramFixtures.parse("phase-collision.pmwf", """
+                    ---
+                    name: diagram.phases
+                    description: A unit written for the tests of pm-workflow.
+                    type: system
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow diagram.phases version 1 format 1
                     scope workspace
                     start phase-build
@@ -295,6 +382,14 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should give an undeclared target a node of its own after the declared states")
         void shouldSeparateUndeclaredTarget() {
             var unit = DiagramFixtures.parse("undeclared.pmwf", """
+                    ---
+                    name: diagram.undeclared
+                    description: A unit written for the tests of pm-workflow.
+                    type: system
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow diagram.undeclared version 1 format 1
                     scope workspace
                     start build_missing
@@ -440,6 +535,14 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should give the annotations Mermaid identifiers that no state of the unit can hold")
         void shouldSeparateAnnotationIdentifiersFromUnit() {
             var source = """
+                    ---
+                    name: plan
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow plan version 3 format 1
                     scope plan
                     start instance.pruned
@@ -623,6 +726,14 @@ class WorkflowDiagramGeneratorTest {
         @DisplayName("Should print every parameter type and escape the cell separator")
         void shouldPrintEveryParameterType() {
             var unit = DiagramFixtures.parse("parameters.pmwf", """
+                    ---
+                    name: diagram.parameters
+                    description: A unit written for the tests of pm-workflow.
+                    type: system
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow diagram.parameters version 1 format 1
                     scope workspace
                     start setup.choose

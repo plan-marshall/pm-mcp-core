@@ -1,7 +1,17 @@
-# expect: CYCLE_AWAITED_EVENT state verify.entry line 6
+---
+name: verify.cycle-noop-without-event
+description: A unit written for the verifier tests.
+type: subworkflow
+entry: main
+exit: done
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: CYCLE_AWAITED_EVENT state verify.entry line 16
 workflow verify.cycle-noop-without-event version 1 format 1
 scope subworkflow
-start verify.entry
+entry main -> verify.entry
 
 state verify.entry
     phase inherit

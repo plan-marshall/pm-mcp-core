@@ -1,4 +1,12 @@
-# expect: STEP_COMPLETION state verify.entry line 12
+---
+name: verify.step-completion-loop-back-opening
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: STEP_COMPLETION state verify.entry line 20
 # Step s is completed on a loop-back into its own opening, which its firing passes: the opening
 # still begins s, so the path that leaves it with the outcome skipped and no completion is refused.
 workflow verify.step-completion-loop-back-opening version 1 format 1

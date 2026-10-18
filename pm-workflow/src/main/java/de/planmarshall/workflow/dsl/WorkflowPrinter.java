@@ -28,6 +28,7 @@ import de.planmarshall.workflow.ast.ParamType;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -35,10 +36,13 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * Prints the tree of a unit back to the source of the workflow language (PM-IMPL-5), so that the parser reads the
  * printed source into the same tree, source locations aside.
  * <p>
- * The output is canonical: the unit header, the {@code instance} line with the header JSON exactly as it was read,
- * the {@code scope} clause (with the {@code param} and {@code result} declarations of a sub-workflow), the
- * {@code declare} lines, the {@code decide} lines, the {@code start} line, the {@code migrate} lines, and the states in
- * declaration order, each preceded by a blank line and followed by its clauses, indented by nesting. Every link names
+ * The output is canonical: the frontmatter between its two {@code ---} lines in the order of its field table (name,
+ * description, type, each entry with its description, each exit with its description, modification date, version,
+ * author, signature), each value plain when a plain scalar can carry it and double-quoted otherwise; the unit header,
+ * the {@code instance} line with the header JSON exactly as it was read, the {@code scope} clause (with the
+ * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} lines, the {@code decide} lines,
+ * the {@code start} line or the {@code entry <name> -> <state>} bindings, the {@code migrate} lines, and the states in
+ * declaration order, a {@code call} with the entry it names, each preceded by a blank line and followed by its clauses, indented by nesting. Every link names
  * its form explicitly, and a guard carries exactly the parentheses its precedence ({@code not} before {@code and}
  * before {@code or}, both operators left-associative) needs; a negated operand that is no single guard is always
  * parenthesised, because the grammar admits no {@code not not}.
@@ -83,7 +87,48 @@ public final class WorkflowPrinter {
         return printer.out.toString();
     }
 
+    /**
+     * Prints the frontmatter between its two {@code ---} lines, in the order of the field table: name, description,
+     * type, each entry with its description, each exit with its description, modification date, version, author and
+     * signature.
+     */
+    private void printFrontmatter(UnitFrontmatter frontmatter) {
+        line(0, UnitFrontmatterReader.DELIMITER);
+        field("name", frontmatter.name());
+        field("description", frontmatter.description());
+        field("type", frontmatter.type().wireName());
+        frontmatter.entries().forEach(entry -> {
+            field("entry", entry.name());
+            entry.description().ifPresent(description -> field("entry_description", description));
+        });
+        frontmatter.exits().forEach(exit -> {
+            field("exit", exit.name());
+            exit.description().ifPresent(description -> field("exit_description", description));
+        });
+        field("modification_date", frontmatter.modificationDate().toString());
+        field("version", frontmatter.version());
+        field("author", frontmatter.author());
+        frontmatter.signature().ifPresent(signature -> field("signature", signature));
+        line(0, UnitFrontmatterReader.DELIMITER);
+    }
+
+    private void field(String key, String value) {
+        line(0, key + ": " + scalar(value));
+    }
+
+    /**
+     * Writes a frontmatter value plain when a plain scalar can carry it ({@link UnitFrontmatterReader#isPlain}), and
+     * double-quoted with {@code \"} and {@code \\} escaped otherwise.
+     */
+    private static String scalar(String value) {
+        if (UnitFrontmatterReader.isPlain(value)) {
+            return value;
+        }
+        return '"' + value.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    }
+
     private void printUnit(WorkflowDefinition definition) {
+        printFrontmatter(definition.frontmatter());
         var unitHeader = new StringBuilder("workflow %s version %d format %d".formatted(definition.id(),
                 definition.version(), definition.formatVersion()));
         var derivedFrom = definition.derivedFrom().get(definition.id());
@@ -101,7 +146,9 @@ public final class WorkflowPrinter {
                 value(declaration.value()))));
         definition.decisions().forEach((kind, decision) -> line(0, "decide %s -> %s".formatted(kind,
                 decision(decision))));
-        line(0, "start " + definition.startState());
+        definition.startState().ifPresent(startState -> line(0, "start " + startState));
+        definition.entryBindings().forEach((entry, binding) -> line(0, "entry %s -> %s".formatted(entry,
+                binding.stateId())));
         definition.migrations().forEach(migration -> line(0, "migrate %s -> %s".formatted(migration.oldStateId(),
                 migration.newStateId())));
         definition.states().values().forEach(this::printState);
@@ -131,8 +178,9 @@ public final class WorkflowPrinter {
                 printTransitions(2, transitions);
             }
             case StateBehavior.ModelJob job -> printModelJob(job);
-            case StateBehavior.SubWorkflowCall(var subWorkflowId, var paramBindings, var transitions) -> {
-                line(1, "call " + subWorkflowId + bindings(paramBindings));
+            case StateBehavior.SubWorkflowCall(var subWorkflowId, var entry, var paramBindings, var transitions) -> {
+                line(1, "call " + subWorkflowId + entry.map(name -> " entry " + name).orElse("")
+                        + bindings(paramBindings));
                 printTransitions(2, transitions);
             }
             case StateBehavior.QuestionWait(var questionClass, var transitions, var links) -> {

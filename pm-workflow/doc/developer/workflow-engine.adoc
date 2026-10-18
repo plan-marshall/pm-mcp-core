@@ -75,9 +75,11 @@ sub-workflow the catalog does not hold is refused with `WorkflowEngine.Unverifie
 
 === One Advance
 
-`start(scopeType, scopeId)` builds the first status of a scope at the unit's start state. A start state that declares
-`phase inherit` is admitted for the workspace scope only, whose phase is then `workspace`; every other DSL phase is
-mapped to the value of the status store (`execute` to `phase-5-execute`, `epic` to `epic`, and so on).
+`start(scopeType, scopeId)` builds the first status of a scope at the unit's start state. Only a unit without entries
+has one: a unit with entries is called, never started, and its start is refused with `IllegalArgumentException`. A
+start state that declares `phase inherit` is admitted for the workspace scope only, whose phase is then `workspace`;
+every other DSL phase is mapped to the value of the status store (`execute` to `phase-5-execute`, `epic` to `epic`,
+and so on).
 
 `advance(status)` continues from the current state. From there the engine chains, state after state, in one advance:
 
@@ -85,7 +87,8 @@ mapped to the value of the status store (`execute` to `phase-5-execute`, `epic` 
   and task bindings of the state left are cleared;
 * an `auto` state binds the parameters of its primitive through the `ParameterBinder`, runs it, and takes the
   transition of the returned outcome;
-* a `call` state pushes a frame and enters the sub-workflow's start state (see <<_call_stack_and_exit_contracts>>);
+* a `call` state pushes a frame and enters the sub-workflow at the state its entry binds (see
+  <<_call_stack_and_exit_contracts>>);
 * a terminal state of a sub-workflow pops one frame and takes the calling state's transition of the returned outcome;
 * a terminal state of the top-level unit ends the run with `Ended`;
 * a link, job, composite job, task or question state rests with `Resting`, parked as described in
@@ -136,9 +139,13 @@ an outcome; this includes the `refused` outcome of a job start the `JobStarter` 
 primitive the closed job outcome set, `refused` included, and the verifier requires a route for every outcome the
 primitive declares; a primitive that declares fewer outcomes leaves the refusal without a route.
 
-|The status names a state, sub-workflow, phase or primitive the verified units do not hold, or a frame's calling
-state is no `call` state
+|The status names a state, sub-workflow, phase or primitive the verified units do not hold, a frame's calling
+state is no `call` state, or a call names an entry its callee does not bind, or names none of a callee that does not
+bind exactly one
 |`InternalFaultException` with the reason `unresolved_name`.
+
+|`start` is called on a unit without a start state, a unit with entries
+|`IllegalArgumentException` naming the unit; no status is built.
 
 |One advance chains more than `MAX_CHAIN` (1000) transitions
 |`InternalFaultException` with the reason `unbounded_chain`.
@@ -171,9 +178,10 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16], link:{docs}/Req
 Implements link:{dsl}/06-reusable-sub-workflows.adoc#_call_stack_execution_persistence_semantics[Workflow DSL § Call-Stack Execution & Persistence Semantics]
 items 1 to 4 and link:{dsl}/01-grammar.adoc#sub-workflow-exits[Workflow DSL § Result Guards & Sub-Workflow Exit Contract].
 
-* *Call*: a `call` state pushes the frame `(callerWorkflowId, callerStateId, callerPhase, subWorkflowId, boundArgs,
-  pushedAt)`, the bound arguments of the call site and `pushed_at` from the clock, and enters the sub-workflow's start
-  state. A sub-workflow state that declares `phase inherit` keeps the caller's phase.
+* *Call*: a `call` state pushes the frame `(callerWorkflowId, callerStateId, callerPhase, subWorkflowId, entry,
+  boundArgs, pushedAt)`, the bound arguments of the call site and `pushed_at` from the clock, and enters the
+  sub-workflow at the state its entry binds (<<_entering_a_callee_through_its_entry>>). A sub-workflow state that
+  declares `phase inherit` keeps the caller's phase.
 * *Resting inside a sub-workflow*: the status is written with the active call stack and the sub-workflow's state; the
   engine resolves the current state against the unit of the top frame, so the wait survives a restart.
 * *Return*: a terminal of the sub-workflow pops exactly one frame, restores the caller's phase, drops the retry counts
@@ -190,6 +198,30 @@ items 1 to 4 and link:{dsl}/01-grammar.adoc#sub-workflow-exits[Workflow DSL § R
 
 The push, the chained states, the pop and the caller's routing are one advance and therefore one write
 (link:../adr/workflow-engine/003-call-stack-in-one-transaction.adoc[ADR 003]).
+
+[#_entering_a_callee_through_its_entry]
+=== Entering a Callee Through Its Entry
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+A called unit has no start state: its frontmatter declares its entries, and its header binds each to a state
+(link:workflow-ast.adoc[Workflow AST], link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface
+Rules]). The engine resolves the entry of a call when it pushes the frame:
+
+* the entry the call names (`call <unit> entry <name>`), or
+* the callee's sole entry, when the call names none.
+
+It records that entry in the frame's `entry`, and enters the state the callee's entry binding names
+(`WorkflowDefinition.entryBindings()`). The frame and its entry are written with the status in the transaction of the
+call, like every other part of the frame (link:../adr/workflow-engine/011-call-enters-the-callee-through-its-entry.adoc[ADR 011]).
+`CallStack.toStore` and `fromStore` copy the entry to and from the store frame `WorkflowStatus.CallFrame`, whose codec
+writes and reads the member `entry` of every `call_stack` frame
+(link:../../../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores § The Call Stack]); a scope resumed
+from the store keeps the entry of every frame. The return into the caller does not read the entry: it pops the frame
+and routes the outcome as before.
+
+The verifier makes the resolution total for a verified unit: a call names an entry its callee declares, or omits it
+only for a callee with exactly one (rule 5). A call the engine still cannot resolve, an entry the callee does not bind,
+or no entry named while the callee binds none or several, is the internal fault `unresolved_name`.
 
 == Guards
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
@@ -434,14 +466,16 @@ are not allowed as any segment of a state, unit or primitive id.
 
 |`WorkflowEngineTest` |Every kind of end, auto-chaining in one advance, refusal of an unverified unit, internal faults,
 retry counts dropped on a frame pop and kept within the frame, exactly one transition per outcome of every fixture unit
-|`SubWorkflowExecutionTest` |Frame push with bound arguments and `pushed_at`, `phase inherit`, result guards, a
-step-out unwinding one frame, the unwind of every frame to the fallback, nesting depth 4
+|`SubWorkflowExecutionTest` |Frame push with bound arguments and `pushed_at`, a call through a named entry entering the
+bound state and pushing a frame with that entry, a call omitting the sole entry of its callee, the entry in the status
+written in the transaction of the call, `phase inherit`, result guards, a step-out unwinding one frame, the unwind of
+every frame to the fallback, nesting depth 4
 |`GuardEvaluatorTest` |The three guard values, their propagation, and `guard_indeterminate` with a matched control
 |`LoopBackBudgetTest` |Counts raised and never reset, the outline budget 1, policy counters per class
 |`EngineEventTest` |Parking and resuming of every resting kind by its own event only, refusal of a mismatched event, a
 killed job settled `killed` and never restarted
 |`EngineResumeTest` |A run stopped after each persisted step continues from the store with the same state, call stack
-and next step
+and next step; a frame resumed from the store keeps its entry and returns into the caller as before
 |`EntityAddressingTest` |Every entity kind of the workspace scope resolved in the workspace fixture unit
 (`bootstrap-plan`, `bootstrap-epic`, `enrich-<module_id>`, the lesson review of kind `lessons-review`), the grammar at
 its bounds, every address of another scope refused `scope_not_found` without a read of the port for a plan or epic
@@ -486,3 +520,5 @@ _Requirements: link:{docs}/Requirements.adoc#PM-WF-1[PM-WF-1], link:{docs}/Requi
 * link:../adr/workflow-engine/009-entity-id-forms-of-workspace-task-entities.adoc[ADR 009]: the entity kinds and
   identifier forms of the workspace task entities.
 * link:../adr/workflow-engine/010-no-log-records-for-addressing.adoc[ADR 010]: addressing writes no log record.
+* link:../adr/workflow-engine/011-call-enters-the-callee-through-its-entry.adoc[ADR 011]: a call enters the callee
+  through its entry, named or the sole one, and the frame records the entry in the transaction of the call.

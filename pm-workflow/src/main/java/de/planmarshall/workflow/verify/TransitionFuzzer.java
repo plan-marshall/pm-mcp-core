@@ -34,7 +34,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * each once, in the order of their first occurrence in the guards of the declared links, the states and their links
  * taken in declaration order and each guard read from left to right; an atom no guard names is not drawn. The atoms of
  * a guard are named by one exhaustive switch over {@link GuardExpr}, which the evaluation of a guard reads as well, so
- * what is drawn and what is looked up cannot diverge. The run then walks from the start state for at most
+ * what is drawn and what is looked up cannot diverge. The run then walks from the start state, or under the same
+ * assignment from each entry-bound state in turn for a unit with entries, each walk for at most
  * {@link FuzzConfiguration#maxSteps()} steps. A declared link holds when it has no guard or its guard is true under
  * the assignment; the transitions the engine takes on its own (of {@code auto}, {@code job},
  * {@code composite_job}, {@code job llm}, {@code call} and the resolution of a question) always hold, and so do the
@@ -72,18 +73,21 @@ public final class TransitionFuzzer {
             var assignment = new LinkedHashMap<String, Boolean>();
             atoms.forEach(atom -> assignment.put(atom, random.nextBoolean()));
             var witnessRun = index + 1;
-            walk(definition, configuration.maxSteps(), assignment, random).ifPresent(state -> deadStates
-                    .computeIfAbsent(state.id(), id -> new DeadState(id, state.location(), assignment, witnessRun)));
+            for (var root : definition.startingStates()) {
+                walk(definition, root, configuration.maxSteps(), assignment, random).ifPresent(state -> deadStates
+                        .computeIfAbsent(state.id(), id -> new DeadState(id, state.location(), assignment,
+                                witnessRun)));
+            }
         }
         return new FuzzReport(configuration, configuration.runs(), List.copyOf(deadStates.values()));
     }
 
     /**
-     * Walks one run and returns the dead state it stopped at, if any.
+     * Walks one run from a starting state and returns the dead state it stopped at, if any.
      */
-    private static Optional<StateNode> walk(WorkflowDefinition definition, int maxSteps,
+    private static Optional<StateNode> walk(WorkflowDefinition definition, String root, int maxSteps,
             Map<String, Boolean> assignment, RandomGenerator random) {
-        var current = definition.states().get(definition.startState());
+        var current = definition.states().get(root);
         for (var step = 0; step < maxSteps && current != null; step++) {
             if (current.behavior() instanceof StateBehavior.TerminalState) {
                 return Optional.empty();

@@ -117,6 +117,38 @@ format change:
 
 A document written before the change still reads, because the member was declared and kept verbatim all along.
 
+[#_the_call_stack]
+== The Call Stack
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`call_stack` holds the active sub-workflow call frames of a scope, bottom to top, at most four. A frame is the record
+`WorkflowStatus.CallFrame`: `callerWorkflowId`, `callerStateId`, `callerPhase`, `subworkflowId`, `entry`, `boundArgs`
+(the `BoundArg` values by parameter name, in their order) and `pushedAt`.
+
+`entry` is the entry of the called sub-workflow the call went through: the entry the call names, or the callee's sole
+entry when the call names none; for a phase sub-workflow the point at which the phase is entered. The engine resolves
+it when it pushes the frame (link:../../../pm-workflow/doc/developer/workflow-engine.adoc#_entering_a_callee_through_its_entry[Workflow
+Engine § Entering a Callee Through Its Entry]) and writes it with the status in the transaction of the call.
+
+* *Required and non-blank*: the record's constructor refuses a blank entry with `IllegalArgumentException`, as it does
+  a blank identifier.
+* *Strict read*: `WorkflowStatusCodec` reads `entry` as a declared member of the frame with one JSON type, a string;
+  a frame without it, or with it as another type, is a `StoreRefusal` naming the file, like every other required frame
+  member.
+* *Schema order*: the codec writes `entry` after `subworkflow_id` and before `bound_args`, the order of the frame's
+  properties in the schema, so a frame round-trips byte for byte.
+* *Format version 1 unchanged*: the member is added to format 1 in place. There is no format bump, no reader of an
+  earlier frame shape and no migration; a frame without `entry` is refused
+  (link:../adr/core-store/029-call-frame-records-its-entry.adoc[ADR 029]).
+
+The pending entry record holds its bootstrap's call frames in the same shape and reads and writes them through the same
+package-private readers and writers of the codec (<<_pending_entry_record>>), so its frames carry the entry without a
+change of `PendingEntryRecord` or `PendingEntryCodec`.
+
+Tested by `WorkflowStatusCodecTest` (a frame with an entry round-trips byte for byte; a frame without the entry, or
+with a number, `null` or a blank as entry, is refused) and `PendingEntryCodecTest` (the entry of a bootstrap's frame
+is read, and a frame without it is refused).
+
 [#_retry_counters]
 == Retry Counters
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-7[PM-WF-7], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
@@ -611,7 +643,7 @@ whether the id is free is decided by the store. `ofRecordFileName` parses the na
 parse is never a job.
 `JobRecord`:: The record in `format_version` 1. Every member this package writes is typed; `worker` (the block a
 supervisor writes) and `gate_facts` (the facts a gate writes) are kept as the raw JSON text they were read with
-(link:../adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029]). The record parses
+(link:../adr/core-store/030-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 030]). The record parses
 each raw member at construction and refuses a text that is not exactly one JSON value of its type (an object for `worker`
 and `gate_facts`, a number or a string for a `ClampedValue`'s `configured`; trailing content such as
 `{"a":1},"x":{}` is refused), because a member that only starts and ends like a value would be written and then refuse
@@ -650,7 +682,7 @@ refused before anything was written
 |===
 
 A replacement must keep the job's scope and execution. The lock of the owning scope is
-(link:../adr/core-store/030-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 030]):
+(link:../adr/core-store/031-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 031]):
 
 [cols="1,2"]
 |===
@@ -797,9 +829,11 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   the audit log is written into the log by its own in-log sink before the intent is deleted.
 * link:../adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[ADR 028]: a create target is
   refused at the commit, under the scope lock, when its store exists.
-* link:../adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029]: of the job record,
+* link:../adr/core-store/029-call-frame-records-its-entry.adoc[ADR 029]: a call frame records the entry the call went
+  through; the member is added to format version 1 in place.
+* link:../adr/core-store/030-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 030]: of the job record,
   every member this package writes is typed, `worker` and `gate_facts` kept verbatim, and the job kinds and scopes are
   the record's own vocabulary.
-* link:../adr/core-store/030-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 030]: the records of the
+* link:../adr/core-store/031-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 031]: the records of the
   machine scope are written under the machine queue lock, those of an onboarding entry under the entry lock, and each
   write point checks the record it replaces.

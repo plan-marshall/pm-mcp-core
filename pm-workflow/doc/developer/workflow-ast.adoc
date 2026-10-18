@@ -1,0 +1,242 @@
+= Workflow AST (`workflow.ast`) Developer Guide
+:spec: ../../../doc/specification
+:toc:
+:toclevels: 3
+:nofooter:
+
+:docs: ../../../../plan-marshall-documentation/doc
+
+== Purpose
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+Package `de.planmarshall.workflow.ast` is the immutable tree of the Workflow DSL. The parser of `workflow.dsl` builds it,
+the verifier of `workflow.verify` checks it, the engine of `workflow.engine` runs it, and the printer writes it back to
+text. The tree holds no behaviour beyond copying its collections and two derived views; every check of a unit lives in
+the verifier.
+
+This guide covers the parts of the tree that describe a unit to its callers: the frontmatter with the unit type, the
+entry bindings and the optional start state of the definition node, the entry of a call, and the entry of a call
+frame. The grammar the tree is read from is link:{spec}/workflow-dsl/01-grammar.adoc[Workflow DSL § Grammar]; the node
+model is link:{spec}/workflow-dsl/04-ast-node-model.adoc#_ast_node_model[Workflow DSL § AST Node Model]. How the text
+is read is described in link:workflow-dsl.adoc[Workflow DSL (`workflow.dsl`)], how the interface is checked in
+link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface Rules].
+
+== The Definition Node
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_
+
+`WorkflowDefinition` is the root of the tree: one complete unit, that is the merged plan unit, a plan instance version, a
+single-file top-level unit or one sub-workflow. Beside its header, scope, declarations, migrations and states it carries:
+
+[horizontal]
+`frontmatter`:: The `UnitFrontmatter` the unit opens with (<<_the_frontmatter>>).
+`startState`:: `Optional<String>`: the state a `start <state_id>` line names, where the server starts the unit. It is
+empty for a unit that binds entries instead; there is no empty-string stand-in
+(link:../adr/workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR 002]).
+`entryBindings`:: The `entry <name> -> <state_id>` lines, an ordered map from the entry name to a
+`WorkflowDefinition.EntryBinding`, which holds the bound state id and the `SourceLocation` of the line.
+
+`startingStates()` is the one place that answers where control enters a unit: the start state, followed by the state of
+every entry binding in source order, each once. The verifier takes its roots for reachability, exit paths, gate
+producers and step-completion openings from it, the fuzzer walks from each of them, and the diagram renderers allocate
+their names over it. A unit the verifier accepts has a start state or entry bindings, never both.
+
+Which of the two a unit declares, and that the bindings match the entries the frontmatter declares, is not a property of
+the tree: the parser keeps what the text says, and the verifier checks it
+(link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface Rules], rule 1).
+
+Two components of the definition are not read from the text of one file:
+
+* `PlanUnitMerger` of `workflow.unit` gives the merged plan unit the frontmatter of its first part, the init file, with
+  the type `workflow`, and that part's start state and entry bindings.
+* `PlanInstanceComposer` of `workflow.plan` gives a composed plan instance version the frontmatter of its template with
+  the type `instance`, and the template's start state and entry bindings.
+
+[#_the_frontmatter]
+== The Frontmatter
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+`UnitFrontmatter` is what a unit is for a person, what kind of unit it is, its interface, and where it comes from. It is
+read without the body (link:workflow-dsl.adoc#unit-frontmatter[Workflow DSL § The Unit Frontmatter]), so a list of units
+can show a unit's name, description, type and interface from it alone.
+
+[cols="2,2,5"]
+|===
+|Component |Type |Value
+
+|`name`
+|`String`
+|The display name, 3 to 100 characters. The DSL, the stores and every check use the unit id of the `workflow` header
+instead.
+
+|`description`
+|`String`
+|What the unit does and when it is used, 1 to 1000 characters.
+
+|`type`
+|`UnitType`
+|The kind of unit (<<unit-types>>).
+
+|`entries`
+|`List<InterfaceElement>`
+|The entries a caller enters the unit through, in declaration order.
+
+|`exits`
+|`List<InterfaceElement>`
+|The exits the unit returns to its caller through, in declaration order; never `stepped_out`, the implicit control exit
+of every sub-workflow.
+
+|`modificationDate`
+|`LocalDate`
+|The date of the last change of the file.
+
+|`version`
+|`String`
+|The plan-marshall release the unit was created with or delivered by, in the release version grammar. It is not the
+unit's revision, which the `workflow` header counts.
+
+|`author`
+|`String`
+|Who made the unit: `plan-marshall` for a unit compiled into the binary, the name of a person otherwise
+(link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
+
+|`signature`
+|`Optional<String>`
+|A signature over the file's content, carried with the unit and never verified.
+
+|`location`
+|`SourceLocation`
+|The opening `---` of the frontmatter: line 1, column 1 of the resource.
+|===
+
+`UnitFrontmatter.InterfaceElement` is one entry or one exit: its `name` (an identifier for an entry, an outcome id for
+an exit) and its optional `description`, the line directly below it. The descriptions are documentation: no check and
+no comparison reads them.
+
+[#unit-types]
+== Unit Types
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+`UnitType` is the closed set of the six unit types, in this declaration order. `wireName()` is the lower-case name of
+the constant, the value of the `type` line; `fromWireName(String)` looks a type up and is empty for any other value.
+Together with the unit's `scope` the type fixes the shape of the unit's interface; the verifier checks the row of the
+type as interface rule 6 (`TYPE_FITS`, link:workflow-verify.adoc#interface-rules[Workflow Verification § Interface
+Rules]).
+
+[cols="2,5,2,2,2"]
+|===
+|Type |What it is |Scope |Entries |Exits
+
+|`workflow`
+|The process of a scope that the server starts and that is never called: the plan unit, a workflow of the six phase
+sub-workflows, and the epic unit.
+|`plan`, `epic`
+|none
+|none
+
+|`recipe`
+|The workflow of a recipe, kept beside the recipe's descriptor: the process of a recipe's plan, started when the
+operator starts the recipe.
+|`plan`
+|none
+|none
+
+|`subworkflow`
+|A unit another unit calls with `call`: the phase sub-workflows, the sub-workflow of the `land` lane, the variants of
+the plan behaviour axes, `git.commit_and_push`, the remediation policy units and `replan`; and the adjudication unit
+`adjudicate.decisions`, which the engine runs in a frame of its own and no unit calls.
+|`subworkflow`
+|one or more; none for `adjudicate.decisions`
+|one or more; none for a landing variant (`landing.*`)
+
+|`system`
+|The runtime's own flows, compiled only: the workspace unit, the project onboarding unit and the bootstrap units
+(started), and the sub-workflows of these flows (called).
+|`workspace`, `entity` (started); `subworkflow` (called)
+|none (started); one or more (called)
+|none (started); one or more (called)
+
+|`task`
+|A unit a task runs in, compiled only: the task protocol unit `worker-task` and the entity units. The engine starts it for
+a task or an entity; its exits are the outcomes the task's state reads.
+|`subworkflow` (`worker-task`), `entity`
+|none
+|one or more
+
+|`instance`
+|A version of a plan instance, which only the server composes and writes.
+|`plan`
+|none
+|none
+|===
+
+The two exceptions within the `subworkflow` row are recognised by the unit id, because the tree marks neither: the
+adjudication unit by the id `adjudicate.decisions`, a landing variant by the prefix `landing.`
+(link:../adr/workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR workflow-verify 026]).
+
+The tree has no `machine` scope yet, so the row of the machine unit, type `system` with scope `machine`
+(link:{spec}/workflow-dsl/01-grammar.adoc#machine-scope[Workflow DSL § Machine Scope]), is neither expressed nor checked;
+it follows with the work package link:../../../doc/plans/operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`].
+
+== Entries and the Call Through an Entry
+_Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16], link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+A unit without entries is started by the server, or run by the engine in a frame of its own, at its `start` state. A
+unit with entries is called: the frontmatter declares each entry, and the header binds each one to the state a call
+through it enters.
+
+`StateBehavior.SubWorkflowCall` is the `call <unit> [entry <name>] (…)` clause of a state. Its components are
+`subWorkflowId`, `entry` (`Optional<String>`, the entry the call names; empty when the call omits it, which the verifier
+admits only for a callee with exactly one entry), `paramBindings` and `transitions`. The parameters belong to the
+callee, not to an entry: a call binds every declared parameter whichever entry it uses.
+
+`ast.CallFrame` is one frame of a scope's call stack: `callerWorkflowId`, `callerStateId`, `callerPhase`,
+`subWorkflowId`, `entry`, `boundArgs` and `pushedAt`. Its `entry` is the entry the frame was entered through: the entry
+the call names, or the callee's sole entry when the call names none. The engine resolves it when it pushes the frame,
+and `engine.CallStack` copies it to and from the store frame `WorkflowStatus.CallFrame` of `pm-core`
+(link:workflow-engine.adoc#_call_stack_and_exit_contracts[Workflow Engine § Call Stack and Exit Contracts]).
+
+== Invariants
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+* *Immutable copies*: every record copies its lists into immutable lists and its maps into unmodifiable maps that keep
+  their order; `UnitFrontmatter` copies its entries and exits, `WorkflowDefinition` its entry bindings, `CallFrame` its
+  bound arguments.
+* *Declaration order*: the entries, the exits and the entry bindings keep the order of the source, so the printer emits
+  them in that order and the round trip holds. An entry or an exit is never collapsed into another.
+* *Locations*: ten nodes carry the `SourceLocation` they were read at, among them the frontmatter (at its opening `---`)
+  and each entry binding; the entries and exits of the frontmatter carry none. The verifier therefore reports a declared
+  entry or exit at the frontmatter's location, and a binding of an undeclared entry or of a missing state at the
+  binding's.
+* *No empty start state*: a unit with entries has an empty `startState`; no reader passes or expects an empty string.
+
+== Testing
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+[cols="1,3"]
+|===
+|Test |Guards
+
+|`AstNodeModelTest`
+|The definition with its frontmatter, entry bindings and optional start state, the call with its entry and the call
+frame with its entry are built and compared, and the copies of their collections are immutable.
+
+|`AstVocabularyTest`
+|The unit types are the six of the language, in their declared order.
+|===
+
+== Developer Pitfalls
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
+
+* *Read the starting states, not the start state.* A check or a walk that starts at `startState()` alone sees nothing of
+  a unit with entries. Use `startingStates()` wherever a path from where control enters the unit is meant.
+* *A call frame's entry is never empty.* The store frame `WorkflowStatus.CallFrame` refuses a blank `entry`; a frame
+  built for a test names the entry of its callee.
+* *The descriptions are not part of the interface.* Two units whose entries and exits differ only in their descriptions
+  have the same interface (`INV-GEN-1`).
+
+== Decisions
+
+* link:../adr/workflow-ast/001-ast-as-records-sealed-interfaces-and-enums.adoc[ADR 001]: the tree as records, sealed
+  interfaces and enums.
+* link:../adr/workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR 002]: the start state is
+  `Optional<String>`, empty for a unit with entries.

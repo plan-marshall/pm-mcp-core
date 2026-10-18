@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,17 +39,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.RetryCounters;
 import de.planmarshall.core.store.RetryCounters.RetryRule;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
+import de.planmarshall.core.store.WorkflowStatusCodec;
 import de.planmarshall.workflow.ast.CallFrame;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.engine.EngineFixtures.StepOutcome;
+import de.planmarshall.workflow.verify.VerificationRule;
+import de.planmarshall.workflow.verify.Violation;
+import de.planmarshall.workflow.verify.WorkflowCatalog;
 
 /**
  * Sub-workflow calls (PM-WF-16): a call pushes a frame with its bound arguments and {@code pushed_at}, the callee's
@@ -60,12 +67,22 @@ import de.planmarshall.workflow.engine.EngineFixtures.StepOutcome;
 class SubWorkflowExecutionTest {
 
     private static final String SUB_ARGS = """
+            ---
+            name: sub.args
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow sub.args version 1 format 1
             scope subworkflow
             param mode : enum[strict|lenient]
             param rounds : int[1..5]
             param targets : list<enum[origin|mirror]>
-            start sub.wait
+            entry main -> sub.wait
 
             state sub.wait
                 phase inherit
@@ -82,9 +99,19 @@ class SubWorkflowExecutionTest {
             """;
 
     private static final String SUB_INNER = """
+            ---
+            name: sub.inner
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow sub.inner version 1 format 1
             scope subworkflow
-            start inner.choose
+            entry main -> inner.choose
 
             state inner.choose
                 phase inherit
@@ -108,9 +135,19 @@ class SubWorkflowExecutionTest {
      * continues the unwinding; so {@code outer.recover} is a link state, and the frame of {@code sub.outer} stays.
      */
     private static final String SUB_OUTER = """
+            ---
+            name: sub.outer
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow sub.outer version 1 format 1
             scope subworkflow
-            start outer.invoke
+            entry main -> outer.invoke
 
             state outer.invoke
                 phase inherit
@@ -134,6 +171,14 @@ class SubWorkflowExecutionTest {
             """;
 
     private static final String ENTITY_TOP = """
+            ---
+            name: ent.top
+            description: A unit written for the tests of pm-workflow.
+            type: system
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow ent.top version 1 format 1
             scope entity
             start ent.invoke
@@ -164,7 +209,83 @@ class SubWorkflowExecutionTest {
                     stepped_out -> plan.return
             """;
 
+    /**
+     * A sub-workflow with two entries, each bound to a job state of its own, so a call rests in the state of the entry
+     * it took.
+     */
+    private static final String SUB_TWO_ENTRIES = """
+            ---
+            name: sub.two
+            description: A sub-workflow with two entries written for the engine tests.
+            type: subworkflow
+            entry: review
+            entry_description: The change is ready for its review.
+            entry: repair
+            entry_description: The review rejected the change.
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
+            workflow sub.two version 1 format 1
+            scope subworkflow
+            entry review -> two.review
+            entry repair -> two.repair
+
+            state two.review
+                phase inherit
+                job test.build
+                    succeeded -> two.done
+                    failed -> two.stepped-out
+                    cancelled -> two.stepped-out
+
+            state two.repair
+                phase inherit
+                job test.build
+                    succeeded -> two.done
+                    failed -> two.stepped-out
+                    cancelled -> two.stepped-out
+
+            state two.done terminal done success
+                phase inherit
+
+            state two.stepped-out terminal stepped_out stepped_out
+                phase inherit
+            """;
+
     private final EngineFixtures fixtures = new EngineFixtures();
+
+    /** An engine over a plan whose state {@code execute.invoke} calls {@code sub.two} with the given call line. */
+    private WorkflowEngine twoEntriesEngine(String callLine) {
+        return fixtures.engine(callingPlan("execute.invoke", """
+                state execute.invoke
+                    phase execute
+                    %s
+                        done -> completed
+                        stepped_out -> plan.return
+                """.formatted(callLine)), parse("two.pmwf", SUB_TWO_ENTRIES));
+    }
+
+    /**
+     * An engine over a plan whose state {@code execute.invoke} calls {@code sub.two} with the given call line, verified
+     * against {@code verifiedCallee} while its catalog holds {@link #SUB_TWO_ENTRIES}.
+     */
+    private WorkflowEngine catalogEngine(String callLine, WorkflowDefinition verifiedCallee) {
+        var plan = callingPlan("execute.invoke", """
+                state execute.invoke
+                    phase execute
+                    %s
+                        done -> completed
+                        stepped_out -> plan.return
+                """.formatted(callLine));
+        return new WorkflowEngine(plan, WorkflowCatalog.of(parse("two.pmwf", SUB_TWO_ENTRIES)),
+                fixtures.validator(verifiedCallee), fixtures.registry(),
+                (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());
+    }
+
+    static Stream<Arguments> namedEntries() {
+        return Stream.of(Arguments.of("review", "two.review"), Arguments.of("repair", "two.repair"));
+    }
 
     private WorkflowEngine argsEngine() {
         return fixtures.engine(callingPlan("execute.invoke", CALL_ARGS), parse("sub.pmwf", SUB_ARGS));
@@ -193,9 +314,19 @@ class SubWorkflowExecutionTest {
                         cancelled -> d4.stepped-out
                 """;
         return parse("d%d.pmwf".formatted(depth), """
+                ---
+                name: sub.d%1$d
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow sub.d%1$d version 1 format 1
                 scope subworkflow
-                start d%1$d.step
+                entry main -> d%1$d.step
 
                 state d%1$d.step
                     phase inherit
@@ -214,7 +345,7 @@ class SubWorkflowExecutionTest {
     class Call {
 
         @Test
-        @DisplayName("Should push a frame with the bound arguments and pushed_at, and keep the caller's phase")
+        @DisplayName("Should push a frame with the sole entry, the arguments and pushed_at, and keep the caller's phase")
         void shouldPushFrame() {
             var pushedAt = fixtures.clock.tick(Duration.ofSeconds(5));
             var engine = argsEngine();
@@ -229,7 +360,101 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals("sub.wait", resting.stateId()),
                     () -> assertEquals(EXECUTE, resting.status().phase()),
                     () -> assertEquals(List.of(new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE,
-                            "sub.args", expectedArgs, pushedAt)), resting.status().callStack()));
+                            "sub.args", "main", expectedArgs, pushedAt)), resting.status().callStack()));
+        }
+
+        @ParameterizedTest(name = "entry {0} -> {1}")
+        @MethodSource("de.planmarshall.workflow.engine.SubWorkflowExecutionTest#namedEntries")
+        @DisplayName("Should enter the state the named entry binds and push a frame with that entry")
+        void shouldEnterNamedEntry(String entry, String expectedState) {
+            var engine = twoEntriesEngine("call sub.two entry " + entry);
+
+            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertAll(
+                    () -> assertEquals(expectedState, resting.stateId()),
+                    () -> assertEquals(List.of("sub.two"), resting.status().callStack().stream()
+                            .map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                    () -> assertEquals(List.of(entry), resting.status().callStack().stream()
+                            .map(WorkflowStatus.CallFrame::entry).toList()));
+        }
+
+        @ParameterizedTest(name = "entry {0}")
+        @MethodSource("de.planmarshall.workflow.engine.SubWorkflowExecutionTest#namedEntries")
+        @DisplayName("Should write the entry of the pushed frame with the status of the call")
+        void shouldWriteEntryWithStatus(String entry, String expectedState) {
+            var engine = twoEntriesEngine("call sub.two entry " + entry);
+
+            var status = engine.start(JournalScopeType.PLAN, PLAN_ID).status();
+            var written = new String(WorkflowStatusCodec.write(status), StandardCharsets.UTF_8);
+
+            assertAll(
+                    () -> assertEquals(expectedState, status.state()),
+                    () -> assertTrue(written.contains("\"subworkflow_id\":\"sub.two\",\"entry\":\"" + entry + "\""),
+                            written));
+        }
+
+        @Test
+        @DisplayName("Should enter the sole entry of a callee when the call names none, and record it on the frame")
+        void shouldEnterSoleEntry() {
+            var engine = argsEngine();
+            var callee = parse("sub.pmwf", SUB_ARGS);
+
+            var resting = assertInstanceOf(EngineStep.Resting.class, engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertAll(
+                    () -> assertEquals(List.of("main"), List.copyOf(callee.entryBindings().keySet())),
+                    () -> assertEquals(callee.entryBindings().get("main").stateId(), resting.stateId()),
+                    () -> assertEquals("main", resting.status().callStack().getFirst().entry()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"call sub.two", "call sub.two entry recheck"})
+        @DisplayName("Should refuse a caller whose call names no entry of several or an entry the callee lacks")
+        void shouldRefuseCallerWithoutDeclaredEntry(String callLine) {
+            var unverified = assertThrows(WorkflowEngine.UnverifiedUnitException.class,
+                    () -> twoEntriesEngine(callLine));
+
+            assertEquals(List.of(VerificationRule.INTERFACE_CALL_ENTRY), unverified.verification().violations()
+                    .stream().map(Violation::rule).toList());
+        }
+
+        /*
+         * A verified caller names an entry its callee declares, so the engine meets a call without an entry of several,
+         * or through an entry the callee does not bind, only when its catalog holds another callee than the one the
+         * verifier checked the caller against; it then fails instead of guessing a state.
+         */
+        @Test
+        @DisplayName("Should fault on a call that names no entry of a catalog callee with several entries")
+        void shouldFaultOnMissingEntryOfSeveral() {
+            var verifiedCallee = parse("two.pmwf", SUB_TWO_ENTRIES
+                    .replace("entry: repair\nentry_description: The review rejected the change.\n", ""));
+            var engine = catalogEngine("call sub.two", verifiedCallee);
+
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertTrue(fault.getMessage().contains("binds 2 entries"), fault::getMessage);
+        }
+
+        @Test
+        @DisplayName("Should fault on a call through an entry the catalog callee does not bind")
+        void shouldFaultOnUnboundEntry() {
+            var verifiedCallee = parse("two.pmwf", SUB_TWO_ENTRIES
+                    .replace("entry_description: The review rejected the change.\n",
+                            "entry_description: The review rejected the change.\nentry: recheck\n"));
+            var engine = catalogEngine("call sub.two entry recheck", verifiedCallee);
+
+            var fault = assertThrows(InternalFaultException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
+
+            assertTrue(fault.getMessage().contains("binds no entry 'recheck'"), fault::getMessage);
+        }
+
+        @Test
+        @DisplayName("Should refuse to start a unit that binds entries, which is called and never started")
+        void shouldRefuseToStartUnitWithEntries() {
+            var engine = fixtures.engine(parse("two.pmwf", SUB_TWO_ENTRIES));
+
+            assertThrows(IllegalArgumentException.class, () -> engine.start(JournalScopeType.PLAN, PLAN_ID));
         }
 
         @Test
@@ -252,7 +477,9 @@ class SubWorkflowExecutionTest {
                     () -> assertEquals(List.of("execute.invoke", "d1.step", "d2.step", "d3.step"),
                             frames.stream().map(WorkflowStatus.CallFrame::callerStateId).toList()),
                     () -> assertEquals(List.of("sub.d1", "sub.d2", "sub.d3", "sub.d4"),
-                            frames.stream().map(WorkflowStatus.CallFrame::subworkflowId).toList()));
+                            frames.stream().map(WorkflowStatus.CallFrame::subworkflowId).toList()),
+                    () -> assertEquals(List.of("main", "main", "main", "main"),
+                            frames.stream().map(WorkflowStatus.CallFrame::entry).toList()));
         }
     }
 
@@ -311,16 +538,26 @@ class SubWorkflowExecutionTest {
             // unit that reaches a link state through a call, so the top-level unit is an entity unit.
             var engine = fixtures.engine(parse("ent.pmwf", ENTITY_TOP.replace("call sub.outer", "call sub.mid")),
                     parse("mid.pmwf", """
+                            ---
+                            name: sub.mid
+                            description: A unit written for the tests of pm-workflow.
+                            type: subworkflow
+                            entry: main
+                            exit: done
+                            modification_date: 2026-01-15
+                            version: 0.1.0
+                            author: plan-marshall
+                            ---
                             workflow sub.mid version 1 format 1
                             scope subworkflow
-                            start mid.invoke
-                            
+                            entry main -> mid.invoke
+
                             state mid.invoke
                                 phase inherit
                                 call sub.commit
                                     done -> mid.done
                                     stepped_out -> mid.hold
-                            
+
                             state mid.hold
                                 phase inherit
                                 skill pm/test/hold
@@ -328,10 +565,10 @@ class SubWorkflowExecutionTest {
                                     do test.proceed
                                         done -> mid.done
                                         failed -> mid.stepped-out
-                            
+
                             state mid.done terminal done success
                                 phase inherit
-                            
+
                             state mid.stepped-out terminal stepped_out stepped_out
                                 phase inherit
                             """), parse("sub.pmwf", SUB_COMMIT));
@@ -424,7 +661,7 @@ class SubWorkflowExecutionTest {
     @DisplayName("CallStack value")
     class CallStackValue {
 
-        private final CallFrame frame = new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args",
+        private final CallFrame frame = new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
                 Map.of("mode", new CallValue.EnumValue("strict")), T0.toString());
 
         @Test
@@ -442,7 +679,7 @@ class SubWorkflowExecutionTest {
         @Test
         @DisplayName("Should pop exactly one frame, unwind every frame top first, and refuse to pop an empty stack")
         void shouldPopAndUnwind() {
-            var other = new CallFrame("sub.args", "sub.wait", EXECUTE, "sub.commit", Map.of(), T0.toString());
+            var other = new CallFrame("sub.args", "sub.wait", EXECUTE, "sub.commit", "main", Map.of(), T0.toString());
             var stack = CallStack.empty().push(frame).push(other);
 
             var popped = stack.pop();
@@ -458,22 +695,26 @@ class SubWorkflowExecutionTest {
         }
 
         @Test
-        @DisplayName("Should convert every kind of bound argument to the store and back")
+        @DisplayName("Should convert the entry and every kind of bound argument to the store and back")
         void shouldRoundTripThroughStore() {
             var args = new LinkedHashMap<String, CallValue>();
             args.put("mode", new CallValue.EnumValue("strict"));
             args.put("rounds", new CallValue.IntValue(3));
             args.put("targets", new CallValue.EnumList(List.of("origin", "mirror")));
-            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", args,
-                    T0.toString()));
+            var stack = CallStack.empty().push(new CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "repair",
+                    args, T0.toString()));
 
-            assertEquals(stack, CallStack.fromStore(stack.toStore()));
+            var stored = stack.toStore();
+
+            assertAll(
+                    () -> assertEquals("repair", stored.getFirst().entry()),
+                    () -> assertEquals(stack, CallStack.fromStore(stored)));
         }
 
         @Test
         @DisplayName("Should refuse a stored integer argument outside the range of a call value")
         void shouldRefuseOversizedInteger() {
-            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args",
+            var stored = new WorkflowStatus.CallFrame("plan", "execute.invoke", EXECUTE, "sub.args", "main",
                     Map.of("rounds", new BoundArg.IntegerArg(Long.MAX_VALUE)), T0);
             var storedFrames = List.of(stored);
 
@@ -488,7 +729,10 @@ class SubWorkflowExecutionTest {
 
             var stack = CallStack.fromStore(status.callStack());
 
-            assertEquals("sub.commit", stack.top().orElseThrow().subWorkflowId());
+            var top = stack.top().orElseThrow();
+            assertAll(
+                    () -> assertEquals("sub.commit", top.subWorkflowId()),
+                    () -> assertEquals(EngineFixtures.MAIN_ENTRY, top.entry()));
         }
     }
 }

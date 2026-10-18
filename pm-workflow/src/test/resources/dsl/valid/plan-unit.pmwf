@@ -1,3 +1,11 @@
+---
+name: Parser plan unit
+description: A plan unit written for the parser tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A plan unit written for the parser tests, not taken from any default unit.
 # It covers the header, declare lines, migrate lines and the
 # primitive-driven state bodies of a plan: auto, job, composite_job and call.

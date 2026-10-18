@@ -1,0 +1,47 @@
+---
+name: Review and repair
+description: "A sub-workflow written for the parser tests: three entries, each with its description."
+type: subworkflow
+entry: review
+entry_description: The change is ready for its review.
+entry: repair
+entry_description: "The review rejected the change; its findings are recorded as \"open\"."
+entry: recheck
+entry_description: The repair is done and the change is reviewed again.
+exit: done
+exit_description: The change is approved.
+exit: failed
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+signature: c2lnbmF0dXJlLW9mLXRoZS1maWxl
+---
+# A sub-workflow with three entries written for the parser tests, not taken from any default unit.
+# It covers the entry bindings, two entries bound to one state, and a call that names the callee's entry.
+workflow review.repair version 1 format 1
+scope subworkflow
+entry review -> review.check
+entry repair -> review.fix
+entry recheck -> review.check
+
+state review.check
+    phase inherit
+    job llm change role reviewer
+        approved -> review.done
+        rejected -> review.fix
+        lost -> review.failed
+
+state review.fix
+    phase inherit
+    call git.commit_and_push entry stage (push = enabled)
+        done -> review.check
+        stepped_out -> review.stepped-out
+
+state review.done terminal done success
+    phase inherit
+
+state review.failed terminal failed failure
+    phase inherit
+
+state review.stepped-out terminal stepped_out stepped_out
+    phase inherit

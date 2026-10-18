@@ -1,4 +1,12 @@
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 6
+---
+name: verify.subworkflow-exit-twice
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 14
 workflow verify.subworkflow-exit-twice version 1 format 1
 scope plan
 start verify.entry

@@ -81,6 +81,28 @@ public final class InvariantFixtures {
     /** The identifier of the merged plan unit. */
     static final String PLAN_UNIT = "plan";
 
+    /** The project's re-planning unit is of another type than its default unit. */
+    static final Mutation INTERFACE_TYPE = new Mutation("another type", REPLAN_FILE, "type: subworkflow",
+            "type: task");
+
+    /**
+     * The project's re-planning unit declares the type of a plan instance, which only the plan unit's template, a
+     * workflow or a recipe, admits as its composed form.
+     */
+    static final Mutation INTERFACE_INSTANCE_TYPE = new Mutation("the type of a plan instance", REPLAN_FILE,
+            "type: subworkflow", "type: instance");
+
+    /** The project's re-planning unit declares another entry than its default unit. */
+    static final Mutation INTERFACE_ENTRY = new Mutation("another entry", REPLAN_FILE, "entry: main", "entry: begin");
+
+    /** The project's re-planning unit declares another exit than its default unit. */
+    static final Mutation INTERFACE_EXIT = new Mutation("another exit", REPLAN_FILE, "exit: declined",
+            "exit: refused");
+
+    /** The project's re-planning unit binds its entry to another state than its default unit. */
+    static final Mutation INTERFACE_BINDING = new Mutation("another entry binding", REPLAN_FILE,
+            "entry main -> replan.assess", "entry main -> replan.apply");
+
     private InvariantFixtures() {
     }
 
@@ -121,9 +143,9 @@ public final class InvariantFixtures {
     }
 
     /**
-     * Merges the phase files of the plan unit for the tests: the states and migrations are the union, the start state,
-     * the header and the origin are those of the first part, the version is the sum of the part versions, recorded
-     * per file in {@code partVersions}.
+     * Merges the phase files of the plan unit for the tests: the states and migrations are the union, the frontmatter,
+     * the start state, the header and the origin are those of the first part, the version is the sum of the part
+     * versions, recorded per file in {@code partVersions}.
      *
      * @param parts the parsed phase files, in merge order
      * @return the merged plan unit
@@ -144,9 +166,10 @@ public final class InvariantFixtures {
             partVersions.put(part.location().resourceName(), part.version());
             version += part.version();
         }
-        return new WorkflowDefinition(PLAN_UNIT, version, first.scope(), List.of(), Optional.empty(),
-                Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(), first.origin(), Map.of(),
-                first.startState(), migrations, states, first.location());
+        return new WorkflowDefinition(first.frontmatter(), PLAN_UNIT, version, first.scope(), List.of(),
+                Optional.empty(), Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(),
+                first.origin(), Map.of(), first.startState(), first.entryBindings(), migrations, states,
+                first.location());
     }
 
     /**
@@ -275,6 +298,15 @@ public final class InvariantFixtures {
      */
     public static WorkflowDefinition entityUnit() {
         return parse("entity.pmwf", """
+                ---
+                name: Entity unit
+                description: The entity unit of the invariant tests.
+                type: task
+                exit: submitted
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow entity version 1 format 1
                 scope entity
                 start entity.completed
@@ -295,10 +327,20 @@ public final class InvariantFixtures {
     }
 
     /**
-     * @return the compiled invariants with the passing units as defaults and {@link #defaultRoster()}
+     * @return the compiled invariants for project replacements, with the passing units as defaults and
+     *         {@link #defaultRoster()}
      */
     static CompiledInvariants invariants() {
-        return new CompiledInvariants(registry(), defaultUnits().values(), defaultRoster());
+        return invariants(defaultUnits().values(), CompiledInvariants.Subject.PROJECT_REPLACEMENT);
+    }
+
+    /**
+     * @param defaults the default units, the reference of the checked units
+     * @param subject  what the checked units are
+     * @return the compiled invariants over the defaults, with {@link #defaultRoster()}
+     */
+    static CompiledInvariants invariants(Collection<WorkflowDefinition> defaults, CompiledInvariants.Subject subject) {
+        return new CompiledInvariants(registry(), defaults, defaultRoster(), subject);
     }
 
     /**

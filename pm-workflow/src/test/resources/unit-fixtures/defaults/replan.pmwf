@@ -1,3 +1,14 @@
+---
+name: replan
+description: A unit written for the invariant and unit-loader tests.
+type: subworkflow
+entry: main
+exit: replanned
+exit: declined
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The re-planning unit, written for the invariant and unit-loader tests, never copied from the product.
 # It declares the shipped values of its compiled schema and asks no question.
 workflow replan version 1 format 1
@@ -6,7 +17,7 @@ declare replan_budget = 3
 declare base_overlap_min_files = 5
 declare conflict_min_files = 10
 declare prerequisite_wait_seconds = 604800
-start replan.assess
+entry main -> replan.assess
 
 state replan.assess
     phase inherit

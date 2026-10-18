@@ -149,6 +149,14 @@ class WorkflowEngineTest {
         @DisplayName("Should end an epic in the abort terminal its one declared transition enters")
         void shouldEndInAbortTerminal() {
             var engine = fixtures.engine(parse("epic.pmwf", """
+                    ---
+                    name: epic
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow epic version 1 format 1
                     scope epic
                     start epic.next-work
@@ -246,6 +254,14 @@ class WorkflowEngineTest {
         @DisplayName("Should start an entity unit that inherits its phase in the workspace scope only")
         void shouldInheritWorkspacePhaseAtStart() {
             var engine = fixtures.engine(parse("entity.pmwf", """
+                    ---
+                    name: ent.inherited
+                    description: A unit written for the tests of pm-workflow.
+                    type: system
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow ent.inherited version 1 format 1
                     scope entity
                     start ent.wait
@@ -333,9 +349,19 @@ class WorkflowEngineTest {
     class RetryCounts {
 
         private static final String SUB_RETRY = """
+                ---
+                name: sub.retry
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow sub.retry version 1 format 1
                 scope subworkflow
-                start sub.attempt
+                entry main -> sub.attempt
 
                 state sub.attempt
                     phase inherit
@@ -519,7 +545,8 @@ class WorkflowEngineTest {
         @DisplayName("Should fail with undeclared_outcome when the catalog's callee returns an outcome the caller lacks")
         void shouldFaultOnOutcomeOutsideVerifiedContract() {
             var verifiedCallee = parse("sub.pmwf", SUB_COMMIT);
-            var catalogCallee = parse("sub.pmwf", SUB_COMMIT.replace("terminal done success", "terminal pushed success"));
+            var catalogCallee = parse("sub.pmwf", SUB_COMMIT.replace("terminal done success", "terminal pushed success")
+                    .replace("exit: done", "exit: pushed"));
             var engine = new WorkflowEngine(callingPlan("execute.commit", CALL_COMMIT),
                     WorkflowCatalog.of(catalogCallee), fixtures.validator(verifiedCallee), fixtures.registry(),
                     (primitive, status) -> new EngineFixtures.NoParams(), fixtures.ports());

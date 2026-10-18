@@ -1,0 +1,64 @@
+= ADR 027: INV-GEN-1 Compares the Type and the Interface
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+`INV-GEN-1` holds for every project-owned unit: Rules 1-12 hold, and the unit's scope, start state and terminal states
+equal those of the default unit it replaces. The specification extends it to the unit's type, its entries and exits,
+and its entry bindings: the interface is part of what a unit promises its callers, so a call site of the binary or of
+another unit never meets an entry or an exit it does not know.
+
+A composed plan instance version is checked against the default units as well, and it declares the type `instance`
+while its template, the plan unit or a recipe's workflow, declares `workflow` or `recipe`.
+
+== Decision
+
+* `GeneralInvariants` compares, beside the scope, the start state and the terminals, four elements of the unit with
+  those of its default unit: the type of the frontmatter, the names of the entries, the names of the exits, and the
+  entry bindings (each entry with the state it binds). The names of the entries and the exits are compared as lists in
+  declaration order, the bindings as a map from the entry to its state. Each difference is
+  reported once as `INV-GEN-1`, naming the differing element and both values.
+* The descriptions of the entries and exits are not compared.
+* A start state is compared as an optional value: a unit that binds entries instead reads as having none.
+* A composed plan instance of the type `instance` passes the type comparison when its default unit is of the type
+  `workflow` or `recipe`: the difference is the composition's, not a replacement's (Workflow DSL, Plan Instance). The
+  exception holds for the composition only. `CompiledInvariants` is built with a `Subject` its caller states:
+  `PlanInstanceComposer` with `COMPOSED_INSTANCE`, which admits the exception, and `ProjectUnitLoader` with
+  `PROJECT_REPLACEMENT`, which does not, so a project unit of the type `instance` that replaces a `workflow` or `recipe`
+  default unit is refused with `INV-GEN-1`. The subject is a constructor argument rather than a parameter of `check`, so
+  no third caller can admit the exception per call without saying at construction what it checks.
+* The machine level has no loader in this repository yet (`UnitOrigin` knows `DEFAULT` and `PROJECT` only), so the
+  comparison of a machine's unit with the default unit follows with that loader.
+
+Rationale not recorded beyond the specification of `INV-GEN-1`.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A project's unit that changes its type, adds, removes, renames or reorders an entry or an exit, or binds an entry to
+  another state, is refused with `INV-GEN-1`; one that changes only a description, or only the order of its binding
+  lines, passes.
+* `CompiledInvariantsTest` holds a refusing case for each of the four elements and a passing control; for the type
+  `instance` it refuses a project replacement of a `workflow` or `recipe` default and passes a composed instance of
+  either, and `ProjectUnitLoaderTest` refuses the replacement through the loader.
+* A later element of the interface is added to the same comparison, so `INV-GEN-1` stays the one place of the interface
+  promise.
+
+== Source
+
+* Pull request `feat(workflow): unit frontmatter, unit types and unit entries` (PLAN-69)
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/e47becc/doc/plans/unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-GEN-1`)
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]
+* link:../../developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification Developer Guide § INV-GEN-1 over Type and Interface]

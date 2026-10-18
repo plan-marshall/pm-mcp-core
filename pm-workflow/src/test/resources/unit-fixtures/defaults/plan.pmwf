@@ -1,3 +1,11 @@
+---
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The plan phase (Phase 4) of the plan unit, written for the invariant and unit-loader tests, never copied from the
 # product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
 # plan.qgate calls the Q-Gate remediation.

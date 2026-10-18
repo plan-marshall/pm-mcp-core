@@ -1,3 +1,13 @@
+---
+name: diagram.fixture
+description: A unit written for the diagram tests.
+type: task
+exit: done
+exit: failed
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A sub-workflow written for the diagram generator tests, not taken from any default unit. It
 # covers every state behaviour (links with guard and form, auto, job, composite_job, job llm
 # with a role, an each clause and a consult role, call with result guards, question with a

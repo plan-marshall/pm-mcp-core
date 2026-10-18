@@ -9,13 +9,19 @@
  */
 package de.planmarshall.workflow.verify;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
+import de.planmarshall.workflow.ast.UnitType;
+import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 
@@ -24,7 +30,10 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * <ul>
  * <li>{@link InvariantId#INV_GEN_1}: every violation of the static verifier (Rules 1-12) is reported, except the Rule 9
  * part of the plan unit, which is {@link InvariantId#INV_FIN_3}; the unit's scope and start state equal those of the
- * default unit, and so do its terminal states, each with its outcome and class. That no transition targets
+ * default unit, and so do its type (a composed plan instance against the workflow or recipe it is composed from
+ * excepted, never a project replacement), its
+ * entries, its exits and its entry bindings (each difference names the differing element) and its terminal states,
+ * each with its outcome and class. That no transition targets
  * {@code plan.aborted} is Rule 3's part of the verifier's result.</li>
  * <li>{@link InvariantId#INV_GEN_2}, tree part: a terminal with the outcome {@code waived} exists only in a remediation
  * unit, and a state that routes the outcome {@code waived} or {@code all_waived} of its own primitive runs a primitive
@@ -85,9 +94,10 @@ final class GeneralInvariants {
                     reference.scope()));
         }
         if (!unit.startState().equals(reference.startState())) {
-            context.reportUnit(id, "the start state '%s' differs from the start state '%s' of the default unit"
-                    .formatted(unit.startState(), reference.startState()));
+            context.reportUnit(id, "the start state %s differs from the start state %s of the default unit"
+                    .formatted(describeStart(unit.startState()), describeStart(reference.startState())));
         }
+        compareInterface(context, unit, reference);
         for (var terminal : reference.states().values()) {
             if (Context.isTerminal(terminal) && context.state(terminal.id()).filter(Context::isTerminal).isEmpty()) {
                 context.reportUnit(id, "the terminal state '%s' of the default unit is missing".formatted(terminal.id()));
@@ -106,6 +116,69 @@ final class GeneralInvariants {
                         .formatted(state.id(), describe(state), describe(counterpart.get())));
             }
         }
+    }
+
+    /**
+     * INV-GEN-1, the interface: the type, the entries, the exits and the entry bindings of the unit equal those of the
+     * default unit it replaces; each difference is reported once and names the differing element. The descriptions of
+     * the entries and exits are not compared.
+     */
+    private static void compareInterface(Context context, WorkflowDefinition unit, WorkflowDefinition reference) {
+        var id = InvariantId.INV_GEN_1;
+        var type = unit.frontmatter().type();
+        var referenceType = reference.frontmatter().type();
+        if (type != referenceType && !(context.composedInstance() && isInstanceOf(type, referenceType))) {
+            context.reportUnit(id, "the type '%s' differs from the type '%s' of the default unit"
+                    .formatted(type.wireName(), referenceType.wireName()));
+        }
+        var entries = names(unit.frontmatter().entries());
+        var referenceEntries = names(reference.frontmatter().entries());
+        if (!entries.equals(referenceEntries)) {
+            context.reportUnit(id, "the entries %s differ from the entries %s of the default unit"
+                    .formatted(entries, referenceEntries));
+        }
+        var exits = names(unit.frontmatter().exits());
+        var referenceExits = names(reference.frontmatter().exits());
+        if (!exits.equals(referenceExits)) {
+            context.reportUnit(id, "the exits %s differ from the exits %s of the default unit"
+                    .formatted(exits, referenceExits));
+        }
+        var bindings = bindings(unit);
+        var referenceBindings = bindings(reference);
+        if (!bindings.equals(referenceBindings)) {
+            context.reportUnit(id, "the entry bindings %s differ from the entry bindings %s of the default unit"
+                    .formatted(bindings, referenceBindings));
+        }
+    }
+
+    /**
+     * A plan instance declares the type {@code instance} and is checked against the template it is composed from, the
+     * plan unit of the type {@code workflow} or a recipe's workflow (Workflow DSL, Plan Instance); that difference of
+     * type is the composition's, not a replacement's. It is consulted only when the checker was built for
+     * {@link CompiledInvariants.Subject#COMPOSED_INSTANCE}; a project replacement of the type {@code instance} is
+     * refused like any other difference of type.
+     *
+     * @return {@code true} when the unit is an instance and the default unit a template of one
+     */
+    private static boolean isInstanceOf(UnitType type, UnitType referenceType) {
+        return type == UnitType.INSTANCE && (referenceType == UnitType.WORKFLOW || referenceType == UnitType.RECIPE);
+    }
+
+    /** @return the names of the entries or exits, in declaration order */
+    private static List<String> names(List<UnitFrontmatter.InterfaceElement> elements) {
+        return elements.stream().map(UnitFrontmatter.InterfaceElement::name).toList();
+    }
+
+    /** @return the state each entry of the unit binds, by entry, in declaration order */
+    private static Map<String, String> bindings(WorkflowDefinition unit) {
+        var bindings = new LinkedHashMap<String, String>();
+        unit.entryBindings().forEach((entry, binding) -> bindings.put(entry, binding.stateId()));
+        return bindings;
+    }
+
+    /** Names an optional start state for a message: quoted, or {@code none} for a unit that binds entries instead. */
+    private static String describeStart(Optional<String> startState) {
+        return startState.map("'%s'"::formatted).orElse("none");
     }
 
     private static String describe(StateNode terminal) {

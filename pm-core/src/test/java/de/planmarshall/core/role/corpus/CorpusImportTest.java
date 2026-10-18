@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -139,17 +140,24 @@ class CorpusImportTest {
     }
 
     private static Row closedRow(String key, String question, String topic, String slug) {
-        return new Row(key, slug, topic, "screening", "closed question " + key, List.of("imported"),
+        return closedRow(key, question, topic, slug, null, null);
+    }
+
+    private static Row closedRow(String key, String question, String topic, String slug, String group,
+            String contamination) {
+        return new Row(key, slug, topic, "screening", "closed question " + key, List.of("imported"), group,
                 question, "Subject: {subject}", List.of("{option_a}", "{option_b}"), ANSWER_SCHEMA,
                 new Target("{option_a}", "the first option holds", List.of(), List.of(), false),
-                new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
+                new Grading(GradingMethod.EXACT_CHOICE, null, null), new Review(ReviewStatus.DRAFT, null, null, null),
+                contamination);
     }
 
     private static Row openRow(String key, String topic, String slug) {
-        return new Row(key, slug, topic, "review", "open question " + key, List.of(), "Review: {diff}", "", null,
-                ANSWER_SCHEMA,
+        return new Row(key, slug, topic, "review", "open question " + key, List.of(), null, "Review: {diff}", "",
+                null, ANSWER_SCHEMA,
                 new Target(null, "one defect", List.of(), List.of(new RubricItem("d1", "the null check")), false),
-                new Grading(GradingMethod.RUBRIC_ITEMS, null, null), new Review(ReviewStatus.DRAFT, null, null, null));
+                new Grading(GradingMethod.RUBRIC_ITEMS, null, null), new Review(ReviewStatus.DRAFT, null, null, null),
+                null);
     }
 
     private void writeSource(SourceManifest manifest, SourceOverlay overlay) throws IOException {
@@ -294,6 +302,35 @@ class CorpusImportTest {
                             item("screening/alpha/q-b.json").provenance().origin()),
                     () -> assertEquals(new Origin(ALPHA_REPOSITORY, ALPHA_COMMIT, ALPHA_FILE, 2),
                             item("screening/alpha/q-c.json").provenance().origin()));
+        }
+
+        @Test
+        @DisplayName("items of one source row share a group and name each other in their contamination notes")
+        void groupAndContamination() throws Exception {
+            var group = "alpha/q-1";
+            writeSource(alphaManifest(ALPHA_FILE, CSV), new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED,
+                    List.of(closedRow("q-1", "{question}", "screening/alpha", "q-a", group,
+                            "shares its question with screening/alpha/q-b"),
+                            closedRow("q-1", "{question}", "screening/alpha", "q-b", group,
+                                    "shares its question with screening/alpha/q-a"),
+                            closedRow("q-2", "{question}", "screening/alpha", "q-2"))));
+
+            var result = run();
+
+            var first = item("screening/alpha/q-a.json");
+            var second = item("screening/alpha/q-b.json");
+            var alone = item(ALPHA_Q2);
+            assertAll(
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), result.missed()::toString),
+                    () -> assertEquals(group, first.group()),
+                    () -> assertEquals(group, second.group()),
+                    () -> assertEquals("shares its question with " + second.id(), first.contamination()),
+                    () -> assertEquals("shares its question with " + first.id(), second.contamination()),
+                    () -> assertEquals(first.provenance().origin(), second.provenance().origin()),
+                    () -> assertNull(alone.group()),
+                    () -> assertNull(alone.contamination()),
+                    () -> assertFalse(Files.readString(items().resolve(ALPHA_Q2)).contains("\"group\""),
+                            "an item without the members does not write them"));
         }
 
         @Test

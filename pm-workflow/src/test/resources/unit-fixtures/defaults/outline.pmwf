@@ -1,3 +1,11 @@
+---
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The outline phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
 # The deep lane passes outline.qgate before outline.gate; the light lane passes outline.light-regate, whose deep
 # outcome is the light -> deep ratchet; only outline.gate enters Phase 4.

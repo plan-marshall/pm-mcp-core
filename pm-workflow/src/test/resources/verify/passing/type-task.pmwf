@@ -1,0 +1,21 @@
+---
+name: verify.type-task
+description: A started entity unit of the type task that returns through its exit, written for the verifier tests.
+type: task
+exit: submitted
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+workflow verify.type-task version 1 format 1
+scope entity
+start verify.entry
+
+state verify.entry
+    phase inherit
+    auto test.prepare
+        done -> verify.submitted
+        skipped -> verify.submitted
+
+state verify.submitted terminal submitted success
+    phase inherit

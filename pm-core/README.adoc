@@ -65,9 +65,9 @@ resolve, pass the checkout, for example `-Dpm.product.root=/path/to/plan-marshal
   the engine port.
 * link:doc/adr/core-spi/[`doc/adr/core-spi/`]: the primitive SPI and the content validators.
 * link:doc/adr/core-store/[`doc/adr/core-store/`]: the state stores and the engine ports; of the job records
-  link:doc/adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029] the typed members
+  link:doc/adr/core-store/030-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 030] the typed members
   and the verbatim `worker` and `gate_facts`, and
-  link:doc/adr/core-store/030-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 030] the locks of the
+  link:doc/adr/core-store/031-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 031] the locks of the
   machine queue and of an onboarding entry.
 
 The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].

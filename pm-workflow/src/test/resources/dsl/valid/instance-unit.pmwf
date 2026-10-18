@@ -1,3 +1,11 @@
+---
+name: Parser plan instance
+description: A plan instance written for the parser tests.
+type: instance
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A plan instance written for the parser tests, not taken from any composed instance.
 # The instance header line follows the unit header and precedes the scope clause; its JSON follows the
 # PlanInstanceHeader schema, canonical (keys sorted, no insignificant whitespace), and keeps a '#' inside a string.

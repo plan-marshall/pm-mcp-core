@@ -14,13 +14,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * One frame of a scope's call stack: the calling state and the sub-workflow it called with its bound arguments
- * (PM-IMPL-5, PM-WF-16). The bound arguments are copied into an unmodifiable map that keeps their order.
+ * One frame of a scope's call stack: the calling state, the sub-workflow it called, the entry of the sub-workflow the
+ * call went through, and the bound arguments (PM-IMPL-5, PM-WF-16). The bound arguments are copied into an
+ * unmodifiable map that keeps their order.
  *
  * @param callerWorkflowId the identifier of the calling unit
  * @param callerStateId    the identifier of the calling state
  * @param callerPhase      the phase of the calling state
  * @param subWorkflowId    the identifier of the called sub-workflow
+ * @param entry            the entry of the called sub-workflow the frame was entered through: the entry the call
+ *                         names, or the sole entry of the callee when the call names none (PM-WF-16)
  * @param boundArgs        the bound arguments by parameter name
  * @param pushedAt         when the frame was pushed
  * @since 0.1
@@ -30,6 +33,7 @@ String callerWorkflowId,
 String callerStateId,
 String callerPhase,
 String subWorkflowId,
+String entry,
 Map<String, CallValue> boundArgs,
 String pushedAt) {
 
@@ -40,6 +44,7 @@ String pushedAt) {
      * @param callerStateId    the identifier of the calling state
      * @param callerPhase      the phase of the calling state
      * @param subWorkflowId    the identifier of the called sub-workflow
+     * @param entry            the entry of the called sub-workflow the frame was entered through
      * @param boundArgs        the bound arguments by parameter name
      * @param pushedAt         when the frame was pushed
      */

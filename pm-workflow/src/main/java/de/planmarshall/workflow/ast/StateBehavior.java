@@ -127,13 +127,16 @@ public sealed interface StateBehavior
     }
 
     /**
-     * {@code call <sub_workflow_id>}: the state calls a sub-workflow with bound parameters and routes its exits.
+     * {@code call <sub_workflow_id> [entry <name>]}: the state calls a sub-workflow through one of its entries with
+     * bound parameters and routes its exits.
      *
      * @param subWorkflowId the identifier of the called sub-workflow
+     * @param entry         the callee's entry the call names; empty when the call omits it, which only a callee with
+     *                      exactly one entry admits
      * @param paramBindings the bound parameters by name, in source order
      * @param transitions   the transitions of the callee's exits
      */
-    record SubWorkflowCall(String subWorkflowId, Map<String, CallValue> paramBindings,
+    record SubWorkflowCall(String subWorkflowId, Optional<String> entry, Map<String, CallValue> paramBindings,
     List<OutcomeTransition> transitions) implements StateBehavior {
 
         /**
@@ -141,6 +144,7 @@ public sealed interface StateBehavior
          * list.
          *
          * @param subWorkflowId the identifier of the called sub-workflow
+         * @param entry         the callee's entry the call names, or empty
          * @param paramBindings the bound parameters by name
          * @param transitions   the transitions of the callee's exits
          */

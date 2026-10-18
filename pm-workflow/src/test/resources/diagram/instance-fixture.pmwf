@@ -1,3 +1,11 @@
+---
+name: plan
+description: A unit written for the diagram tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The composed unit of a plan instance version, written for the instance diagram tests and not
 # taken from any default unit or instance of the product. Its header lives in DiagramFixtures:
 # it prunes a step, a state and a policy action and waives the gate finalize.merge-gate, so

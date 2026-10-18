@@ -32,7 +32,9 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the transitions of every {@link StateBehavior} variant and of every declared link. A target that is not a state of
  * the unit is kept as a successor; whether a target exists is not this graph's concern.
  * <p>
- * {@link WorkflowValidator} searches it for reachability and exit paths, and {@link TransitionFuzzer} reads the
+ * {@link WorkflowValidator} searches it for reachability and exit paths from its roots, the start state or every
+ * entry-bound state ({@link WorkflowDefinition#startingStates()}), and for the exits reached from the entries
+ * (interface rule 4, {@link #outcomesReachedFromEntries(WorkflowDefinition)}); {@link TransitionFuzzer} reads the
  * exits of a state from the same behaviour switches and the atoms of a guard from {@link #atomsOf(GuardExpr)}.
  */
 final class UnitGraph {
@@ -110,6 +112,28 @@ final class UnitGraph {
      */
     Set<String> backwardClosure(Set<String> ends) {
         return closure(ends, false);
+    }
+
+    /**
+     * Interface rule 4, the exits of a unit with entries: which outcomes the terminals reachable from at least one of
+     * its entries report. That every state is reachable from the starting point or from an entry is the reachability
+     * over {@link WorkflowDefinition#startingStates()}.
+     *
+     * @param definition the unit
+     * @return the outcome of every terminal reachable from an entry-bound state, in declaration order of the
+     *         terminals; empty for a unit that binds no entry
+     */
+    Set<String> outcomesReachedFromEntries(WorkflowDefinition definition) {
+        var entryStates = new LinkedHashSet<String>();
+        definition.entryBindings().values().forEach(binding -> entryStates.add(binding.stateId()));
+        var reached = forwardClosure(entryStates);
+        var outcomes = new LinkedHashSet<String>();
+        for (var state : definition.states().values()) {
+            if (reached.contains(state.id())) {
+                state.terminalOutcome().ifPresent(outcome -> outcomes.add(outcome.id()));
+            }
+        }
+        return Collections.unmodifiableSet(outcomes);
     }
 
     private Set<String> closure(Set<String> seeds, boolean forward) {
@@ -271,21 +295,18 @@ final class UnitGraph {
     }
 
     /**
-     * Finds all states reachable from {@code startState} without passing through any state in {@code producers}
-     * before reaching the state.
+     * Finds all states reachable from the roots without passing through any state in {@code producers} before
+     * reaching the state.
      *
-     * @param startState the start state
+     * @param roots     the states control enters the unit at: its start state or every entry-bound state
+     *                  ({@link WorkflowDefinition#startingStates()})
      * @param producers the set of states that produce the artifact
-     * @return the set of states reached without a preceding producer
+     * @return the set of states reached without a preceding producer, the roots included
      */
-    Set<String> reachableWithoutProducers(String startState, Set<String> producers) {
-        var seen = new LinkedHashSet<String>();
-        seen.add(startState);
-        if (producers.contains(startState)) {
-            return seen;
-        }
+    Set<String> reachableWithoutProducers(List<String> roots, Set<String> producers) {
+        var seen = new LinkedHashSet<>(roots);
         var queue = new ArrayDeque<String>();
-        queue.add(startState);
+        roots.stream().filter(root -> !producers.contains(root)).forEach(queue::add);
         while (!queue.isEmpty()) {
             var current = queue.poll();
             for (var next : successors(current)) {

@@ -292,9 +292,31 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest]
 
+Implementation (the entries of a called unit, as far as the library modules carry them: the `entry <name> -> <state>` bindings of a unit with entries and the entry a `call` names, parsed into and printed from the tree; a call enters the callee at the state its entry binds, the entry it names or the callee's sole entry, and the frame it pushes records that entry, which the workflow state store writes and reads in every `call_stack` frame in format version 1; the verifier refuses a call to a unit without entries and a call that names an unknown entry or omits the entry of a callee with several, and checks every call against the exits its callee declares plus `stepped_out`): link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/StateBehavior.java[StateBehavior],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/CallFrame.java[CallFrame],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.java[WorkflowPrinter],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java[WorkflowEngine],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/CallStack.java[CallStack],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java[WorkflowStatus],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java[WorkflowStatusCodec],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator]
+
+Verified by (the entries of a called unit): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineResumeTest.java[EngineResumeTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCodecTest.java[PendingEntryCodecTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java[AdditionalRulesTest]
+
 Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc[Developer Guide § The Workflow Language],
 link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
-link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide]
+link:../pm-workflow/doc/developer/workflow-engine.adoc#_entering_a_callee_through_its_entry[Workflow Engine Developer Guide § Entering a Callee Through Its Entry],
+link:../pm-workflow/doc/developer/workflow-ast.adoc[Workflow AST Developer Guide],
+link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
+link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
 
 == link:../../plan-marshall-documentation/doc/requirements/06-execution.adoc[Execution]
 
@@ -759,7 +781,37 @@ Verified by (the primitive contract and the registry): link:../pm-core/src/test/
 link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveRegistryTest.java[PrimitiveRegistryTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/SpiVocabularyTest.java[SpiVocabularyTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc[Developer Guide § The Workflow Language], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#verification[Developer Guide § Static Verification], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#fuzzer[Developer Guide § Transition Fuzzer], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification],
+Implementation (the unit frontmatter, the unit types and the interface of a unit, as far as the library module `pm-workflow` carries them: the frontmatter read by its own parser of the closed line subset, without the body, every refusal a value with file, line and column, and printed in the order of its field table so the round trip holds; the six unit types; a unit with entries binds them and declares no start state; the verifier's interface rules and the check of the type against the scope and the interface; `INV-GEN-1` over the type, the entries, the exits and the entry bindings; the refusal of a project unit whose author is `plan-marshall`. Not implemented yet: the machine unit's type row and its residence, the machine level's author check and `INV-GEN-1`, and the frontmatter written by the designer): link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/UnitFrontmatterReader.java[UnitFrontmatterReader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/UnitFrontmatter.java[UnitFrontmatter],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/ast/UnitType.java[UnitType],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowPrinter.java[WorkflowPrinter],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/UnitGraph.java[UnitGraph],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/GeneralInvariants.java[GeneralInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java[ProjectUnitLoader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/CallStack.java[CallStack],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java[WorkflowStatusCodec]
+
+Verified by (the unit frontmatter, the unit types and the interface of a unit): link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/UnitFrontmatterReaderTest.java[UnitFrontmatterReaderTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstVocabularyTest.java[AstVocabularyTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/ast/AstNodeModelTest.java[AstNodeModelTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRefusalTest.java[WorkflowParserRefusalTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTest.java[WorkflowPrinterTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/AdditionalRulesTest.java[AdditionalRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java[ProjectUnitLoaderTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/SubWorkflowExecutionTest.java[SubWorkflowExecutionTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest]
+
+Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc[Developer Guide § The Workflow Language], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#verification[Developer Guide § Static Verification],
+link:../pm-workflow/doc/developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter],
+link:../pm-workflow/doc/developer/workflow-ast.adoc#unit-types[Workflow AST Developer Guide § Unit Types],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification Developer Guide § INV-GEN-1 over Type and Interface],
+link:../pm-workflow/doc/developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit], link:../../plan-marshall-documentation/doc/developer/workflow-dsl.adoc#fuzzer[Developer Guide § Transition Fuzzer], link:../../plan-marshall-documentation/doc/concepts/workflow-verification.adoc[Concepts § Workflow Verification],
 link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc[Workflow Diagrams Developer Guide],
 link:../pm-workflow/doc/developer/workflow-unit.adoc[Workflow Units Developer Guide],
@@ -833,7 +885,7 @@ Documentation: link:../../plan-marshall-documentation/doc/concepts/locks-and-lea
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 
-Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, and the validation of the corpus in Java; the grading, the qualification records and their invalidation, the fallback of unqualified roles, the calibration, and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
+Implementation (in part: the corpus sources, the import of their items fetched at the pinned commits with its result, the group and the contamination note an overlay row gives its items literally, and the validation of the corpus in Java; the grading, the qualification records and their invalidation, the fallback of unqualified roles, the calibration, and the validation of the corpus in the build of the release are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusImport.java[CorpusImport],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/ImportResult.java[ImportResult],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/CorpusValidator.java[CorpusValidator],
 link:../pm-core/src/main/java/de/planmarshall/core/role/corpus/SourceManifest.java[SourceManifest],
@@ -844,12 +896,14 @@ link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/corpus/HuggingFaceSourceRepository.java[HuggingFaceSourceRepository],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/corpus/LfsBatchClient.java[LfsBatchClient]
 
-Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusImportTest.java[CorpusImportTest] (the complete, partial and failed imports),
-link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusValidatorTest.java[CorpusValidatorTest] (a negative fixture per rule and a matched valid corpus),
-link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ProductCorpusValidationTest.java[ProductCorpusValidationTest],
-link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ItemGeneratorTest.java[ItemGeneratorTest],
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusImportTest.java[CorpusImportTest] (the complete, partial and failed imports, and items of one source row that share a group and name each other in their contamination notes),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusValidatorTest.java[CorpusValidatorTest] (a negative fixture per rule and a matched valid corpus, the group and the contamination note included),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ProductCorpusValidationTest.java[ProductCorpusValidationTest] (the product corpus valid with `transient_name` over the group and the contamination note),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ItemGeneratorTest.java[ItemGeneratorTest] (the group and the contamination note carried unchanged),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/SourceOverlayCodecTest.java[SourceOverlayCodecTest] and link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/ImportedItemCodecTest.java[ImportedItemCodecTest] (the group and the contamination note read, written in schema order and refused outside their format),
+link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusSchemaResourcesTest.java[CorpusSchemaResourcesTest] and link:../pm-core/src/test/java/de/planmarshall/core/role/corpus/CorpusPatternParityTest.java[CorpusPatternParityTest] (the schema resources with the two members, their pattern equal to the record's),
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitSourceRepositoryTest.java[JGitSourceRepositoryTest] (the import over fixture repositories on disk),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/HuggingFaceSourceRepositoryTest.java[HuggingFaceSourceRepositoryTest] (the HTTPS fetch against a mock web server),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/corpus/LfsBatchClientTest.java[LfsBatchClientTest] (the LFS download against a mock web server)
 
-Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-role-corpus.adoc[Corpus Sources Developer Guide] (§ Formats, § Fetch and Import, § Testing for the group and the contamination note), link:../pm-core/doc/adr/core-role-corpus/007-group-and-contamination-written-literally.adoc[ADR 007 of `core.role.corpus`], link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc[Cache Repository Operations Developer Guide], link:../pm-runtime/doc/developer/runtime-corpus.adoc[Corpus Source Fetch Developer Guide]

@@ -11,12 +11,14 @@ package de.planmarshall.workflow.dsl;
 
 import static de.planmarshall.workflow.dsl.AstWithoutLocations.NOWHERE;
 import static de.planmarshall.workflow.dsl.AstWithoutLocations.strip;
+import static de.planmarshall.workflow.dsl.WorkflowParserTest.FRONTMATTER_LINES;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,7 +45,9 @@ import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -59,8 +63,47 @@ class WorkflowPrinterTest {
     private static final GuardExpr OPEN_FINDINGS = new GuardExpr.HasOpenFindings();
     private static final GuardExpr ALL_TASKS = new GuardExpr.AllTasksCompleted();
 
+    private static final LocalDate FIXTURE_DATE = LocalDate.of(2026, 1, 15);
+
+    private static final String THREE_ENTRIES_UNIT = "dsl/valid/three-entries-unit.pmwf";
+
+    /**
+     * The frontmatter of {@link #THREE_ENTRIES_UNIT} as the printer writes it: the fields in the order of the field
+     * table, each entry and exit followed by its description, the description that holds {@code ": "} double-quoted,
+     * and the entry description the fixture double-quotes plain, because a plain scalar can carry it.
+     */
+    private static final String THREE_ENTRIES_FRONTMATTER = """
+            ---
+            name: Review and repair
+            description: "A sub-workflow written for the parser tests: three entries, each with its description."
+            type: subworkflow
+            entry: review
+            entry_description: The change is ready for its review.
+            entry: repair
+            entry_description: The review rejected the change; its findings are recorded as "open".
+            entry: recheck
+            entry_description: The repair is done and the change is reviewed again.
+            exit: done
+            exit_description: The change is approved.
+            exit: failed
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            signature: c2lnbmF0dXJlLW9mLXRoZS1maWxl
+            ---
+            workflow review.repair version 1 format 1
+            """;
+
     /** Canonical source covering the header clauses and every state body form, as the printer writes it. */
     private static final String CANONICAL = """
+            ---
+            name: git.flow
+            description: A unit written for the tests of pm-workflow.
+            type: instance
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow git.flow version 2 format 1
             instance {"plan_id": "p", "version": 1, "event": "plan", "inputs": {"config_hash": "c", \
             "templates": [{"unit": "git.flow", "digest": "t", "origin": "default"}], "sub_units": [], \
@@ -143,11 +186,23 @@ class WorkflowPrinterTest {
 
     /** A workspace unit whose only state rests on the given links. */
     private static WorkflowDefinition unitWithLinks(LinkSpec... links) {
+        var frontmatter = new UnitFrontmatter("Demo unit", "A unit written for the printer tests.", UnitType.SYSTEM,
+                List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
+        return unitWith(frontmatter, links);
+    }
+
+    /** A workspace unit with the given frontmatter whose only state rests on the given links. */
+    private static WorkflowDefinition unitWith(UnitFrontmatter frontmatter, LinkSpec... links) {
         var state = new StateNode("demo.begin", "setup", Optional.empty(), Optional.empty(), Optional.empty(),
                 new StateBehavior.InteractiveLinks(List.of(links)), NOWHERE);
-        return new WorkflowDefinition("demo", 1, WorkflowScope.WORKSPACE, List.of(), Optional.empty(),
-                Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), "demo.begin",
-                List.of(), Map.of("demo.begin", state), NOWHERE);
+        return new WorkflowDefinition(frontmatter, "demo", 1, WorkflowScope.WORKSPACE, List.of(), Optional.empty(),
+                Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
+                Optional.of("demo.begin"), Map.of(), List.of(), Map.of("demo.begin", state), NOWHERE);
+    }
+
+    /** The line of the printed source that opens with the given text. */
+    private static String lineStartingWith(String printed, String prefix) {
+        return printed.lines().filter(line -> line.startsWith(prefix)).findFirst().orElseThrow();
     }
 
     private static LinkSpec link(LinkRelation rel, LinkForm form, Optional<GuardSpec> guard, ParamSpec... params) {
@@ -170,9 +225,9 @@ class WorkflowPrinterTest {
         }
 
         @Test
-        @DisplayName("runs over the five valid fixtures")
+        @DisplayName("runs over the six valid fixtures")
         void fixturesPresent() {
-            assertEquals(5, validFixtures().size());
+            assertEquals(6, validFixtures().size());
         }
 
         @ParameterizedTest(name = "{0}")
@@ -203,6 +258,62 @@ class WorkflowPrinterTest {
             var definition = parse("canonical.pmwf", CANONICAL);
 
             assertEquals(CANONICAL, WorkflowPrinter.print(definition));
+        }
+    }
+
+    @Nested
+    @DisplayName("Frontmatter and entries")
+    class FrontmatterAndEntries {
+
+        @Test
+        @DisplayName("prints the frontmatter of three described entries in the order of the field table, a value "
+                + "double-quoted only where a plain scalar cannot carry it, and reads it back to the same tree")
+        void frontmatterInFieldTableOrder() {
+            var definition = DslFixtures.parseValid(THREE_ENTRIES_UNIT);
+
+            var printed = WorkflowPrinter.print(definition);
+
+            assertAll(
+                    () -> assertTrue(printed.startsWith(THREE_ENTRIES_FRONTMATTER), printed),
+                    () -> assertEquals(strip(definition), strip(parse("printed-three-entries.pmwf", printed))));
+        }
+
+        @Test
+        @DisplayName("prints the entry bindings in source order in place of the start line, and a call's entry")
+        void entryBindingsAndCallEntry() {
+            var printed = WorkflowPrinter.print(DslFixtures.parseValid(THREE_ENTRIES_UNIT));
+
+            assertAll(
+                    () -> assertTrue(printed.contains("""
+
+                            scope subworkflow
+                            entry review -> review.check
+                            entry repair -> review.fix
+                            entry recheck -> review.check
+
+                            state\s"""), printed),
+                    () -> assertTrue(printed.lines().noneMatch(line -> line.startsWith("start ")), printed),
+                    () -> assertTrue(printed.contains("    call git.commit_and_push entry stage(push = enabled)\n"),
+                            printed));
+        }
+
+        @Test
+        @DisplayName("escapes a quote and a backslash in a double-quoted value and quotes a value that opens with an "
+                + "indicator, and reads both back")
+        void quotedValues() {
+            var frontmatter = new UnitFrontmatter("-leading dash", "Says: \"quoted\" and a \\ backslash.",
+                    UnitType.SYSTEM, List.of(), List.of(), FIXTURE_DATE, "0.1.0", "plan-marshall",
+                    Optional.of("sig-1"), NOWHERE);
+            var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
+
+            var printed = WorkflowPrinter.print(definition);
+
+            assertAll(
+                    () -> assertEquals("name: \"-leading dash\"", lineStartingWith(printed, "name: ")),
+                    () -> assertEquals("description: \"Says: \\\"quoted\\\" and a \\\\ backslash.\"",
+                            lineStartingWith(printed, "description: ")),
+                    () -> assertEquals("signature: sig-1", lineStartingWith(printed, "signature: ")),
+                    () -> assertEquals(strip(definition), strip(parse("quoted.pmwf", printed))));
         }
     }
 
@@ -280,7 +391,8 @@ class WorkflowPrinterTest {
             var lines = WorkflowPrinter.print(definition).lines().toList();
 
             assertAll(
-                    () -> assertEquals("instance " + header.json(), lines.get(1)),
+                    () -> assertEquals("workflow plan version 4 format 1", lines.get(FRONTMATTER_LINES)),
+                    () -> assertEquals("instance " + header.json(), lines.get(FRONTMATTER_LINES + 1)),
                     () -> assertTrue(header.json().contains("\"inputs\":{"), header::json),
                     () -> assertEquals(header, parse("printed-instance.pmwf", String.join("\n", lines))
                             .instance().orElseThrow()));
@@ -309,7 +421,7 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(definition);
 
             assertAll(
-                    () -> assertEquals("workflow plan version 3 format 1", printed.lines().findFirst().orElseThrow()),
+                    () -> assertEquals("workflow plan version 3 format 1", lineStartingWith(printed, "workflow ")),
                     () -> assertTrue(printed.contains("    call git.no_args\n"), printed));
         }
 
@@ -317,6 +429,14 @@ class WorkflowPrinterTest {
         @DisplayName("round-trips the derived_from revision of a project unit")
         void derivedFromRoundTrip() {
             var source = """
+                    ---
+                    name: demo
+                    description: A project unit written for the printer tests.
+                    type: workflow
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: Erika Mustermann
+                    ---
                     workflow demo version 4 format 1 derived_from 3
                     scope plan
                     start demo.end
@@ -330,7 +450,7 @@ class WorkflowPrinterTest {
 
             assertAll(
                     () -> assertEquals("workflow demo version 4 format 1 derived_from 3",
-                            printed.lines().findFirst().orElseThrow()),
+                            lineStartingWith(printed, "workflow ")),
                     () -> assertEquals(source, printed),
                     () -> assertEquals(strip(definition), strip(parseProject("printed.pmwf", printed))));
         }

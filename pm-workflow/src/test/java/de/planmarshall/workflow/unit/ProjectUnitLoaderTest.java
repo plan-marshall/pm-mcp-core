@@ -15,12 +15,14 @@ import static de.planmarshall.workflow.unit.UnitFixtures.configPath;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +44,9 @@ import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.RefusalRule;
+import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.PipelineRule;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 import de.planmarshall.workflow.verify.InvariantId;
@@ -137,6 +141,38 @@ class ProjectUnitLoaderTest {
     }
 
     @Nested
+    @DisplayName("Author check")
+    class AuthorCheck {
+
+        @Test
+        @DisplayName("a project unit naming the author plan-marshall is refused with author_reserved at its author line")
+        void reservedAuthor() {
+            var mutation = UnitFixtures.RESERVED_AUTHOR;
+
+            var result = load(mutation);
+
+            var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.AUTHOR_RESERVED,
+                    configPath(mutation.file()),
+                    UnitFixtures.lineOf(mutation.file(), "author: " + UnitFixtures.DEFAULT_AUTHOR));
+            assertAll(
+                    () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR), finding::message),
+                    () -> assertEquals(1, result.findings().stream()
+                                    .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
+                            "only the unit naming the reserved author is refused for it"));
+        }
+
+        @Test
+        @DisplayName("a project unit naming a person as its author loads")
+        void personAuthor() {
+            var result = load(UnitFixtures.OTHER_PERSON);
+
+            assertAll(
+                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertEquals("Max Mustermann", result.units().get("replan").frontmatter().author()));
+        }
+    }
+
+    @Nested
     @DisplayName("Verification refusals")
     class VerificationRefusals {
 
@@ -149,6 +185,38 @@ class ProjectUnitLoaderTest {
 
             assertRefused(result, UnitFinding.Kind.INVARIANT, InvariantId.INV_GEN_1.wireId(),
                     configPath(mutation.file()), mutation.lineOf("state returned terminal"));
+        }
+
+        @Test
+        @DisplayName("a project replacement of the type instance for a workflow default is refused with INV-GEN-1"
+                + " at its header, naming both types")
+        void instanceReplacement() {
+            var file = InvariantFixtures.REPLAN_FILE;
+            var mutation = new UnitFixtures.Mutation("the re-planning unit declares the type instance", file,
+                    "type: subworkflow", "type: instance");
+            UnitFixtures.writeProject(project, mutation);
+            var workflowDefault = new UnitFixtures.Mutation("the default re-planning unit is a workflow", file,
+                    "type: subworkflow", "type: workflow");
+            var parsed = WorkflowParser.parse(file, workflowDefault.apply(InvariantFixtures.read(file)),
+                    UnitOrigin.DEFAULT);
+            var defaults = new LinkedHashMap<>(UnitFixtures.defaultUnits());
+            defaults.put("replan", assertInstanceOf(ParseResult.Parsed.class, parsed).definition());
+            var loader = new ProjectUnitLoader(UnitFixtures.context(), defaults, InvariantFixtures.defaultRoster(),
+                    UnitFixtures.UNIT_FILES);
+
+            var result = loader.load(projectId, UnitFixtures.roots(project), List.of(), Set.of());
+
+            var expected = "the type 'instance' differs from the type 'workflow' of the default unit";
+            var matching = result.findings().stream()
+                    .filter(finding -> finding.kind() == UnitFinding.Kind.INVARIANT
+                            && InvariantId.INV_GEN_1.wireId().equals(finding.code())
+                            && finding.message().contains(expected))
+                    .toList();
+            assertAll(
+                    () -> assertFalse(result.isVerified()),
+                    () -> assertEquals(1, matching.size(), result.findings()::toString),
+                    () -> assertEquals(configPath(file), matching.getFirst().file()),
+                    () -> assertEquals(mutation.lineOf("workflow replan"), matching.getFirst().line()));
         }
 
         @Test

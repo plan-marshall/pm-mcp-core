@@ -55,7 +55,7 @@ class PendingEntryCodecTest {
     private static final String OPTIONS = "{ \"posture\":\"standard\" }";
     private static final String FRAME = "{\"caller_workflow_id\":\"bootstrap-plan\",\"caller_state_id\":"
             + "\"start.choose\",\"caller_phase\":\"phase-1-init\",\"subworkflow_id\":\"source-issue\","
-            + "\"bound_args\":{\"ref\":\"42\"},\"pushed_at\":\"2026-10-13T08:01:00Z\"}";
+            + "\"entry\":\"screen\",\"bound_args\":{\"ref\":\"42\"},\"pushed_at\":\"2026-10-13T08:01:00Z\"}";
     private static final String CONDITION = "{\"kind\":\"precondition_unmet\",\"remedy_attempts\":0,"
             + "\"integrity\":null,\"facts\":{ \"reason\" : \"config_dirty\" },\"raised_at\":\"2026-10-13T08:02:00Z\"}";
 
@@ -144,6 +144,7 @@ class PendingEntryCodecTest {
                     () -> assertEquals(Instant.parse("2026-10-13T08:00:00Z"), entry.createdAt()),
                     () -> assertEquals(ScopeSessionRowCodecTest.row(), entry.session()),
                     () -> assertEquals("source-issue", entry.bootstrap().callStack().getFirst().subworkflowId()),
+                    () -> assertEquals("screen", entry.bootstrap().callStack().getFirst().entry()),
                     () -> assertEquals("precondition_unmet", entry.bootstrap().condition().orElseThrow().kind()),
                     () -> assertEquals("config_dirty", entry.bootstrap().lastRefusal()));
         }
@@ -256,7 +257,9 @@ class PendingEntryCodecTest {
                 options as null             | options           | null
                 refusal of another form     | last_refusal      | "Config-Dirty"
                 unknown condition kind      | pending_condition | {"kind":"x","remedy_attempts":0,"integrity":null,"facts":{},"raised_at":"2026-10-13T08:02:00Z"}
-                frame without its phase     | call_stack        | [{"caller_workflow_id":"a","caller_state_id":"b","subworkflow_id":"c","bound_args":{},"pushed_at":"2026-10-13T08:01:00Z"}]
+                frame without its phase     | call_stack        | [{"caller_workflow_id":"a","caller_state_id":"b","subworkflow_id":"c","entry":"d","bound_args":{},"pushed_at":"2026-10-13T08:01:00Z"}]
+                frame without its entry     | call_stack        | [{"caller_workflow_id":"a","caller_state_id":"b","caller_phase":"phase-1-init","subworkflow_id":"c","bound_args":{},"pushed_at":"2026-10-13T08:01:00Z"}]
+                frame with a numeric entry  | call_stack        | [{"caller_workflow_id":"a","caller_state_id":"b","caller_phase":"phase-1-init","subworkflow_id":"c","entry":1,"bound_args":{},"pushed_at":"2026-10-13T08:01:00Z"}]
                 """)
         @DisplayName("a bootstrap member outside its one shape is refused")
         void bootstrapShape(String name, String member, String value) {

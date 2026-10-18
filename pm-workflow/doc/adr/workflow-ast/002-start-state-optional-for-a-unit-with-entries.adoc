@@ -1,0 +1,60 @@
+= ADR 002: The Start State Is Optional for a Unit With Entries
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+Until the work package `unit-frontmatter-and-types`, every unit declared one `start <state_id>` line, and
+`WorkflowDefinition.startState` was a `String` that every reader of the tree took as the one place where control
+enters a unit: the engine started and called a unit there, and the verifier, the fuzzer, the compiled invariants and
+the diagram renderers walked from there.
+
+The interface rules of the Workflow DSL change this: a unit with entries declares no `start`, and binds each entry its
+frontmatter declares to a state with `entry <name> -> <state_id>`; a call enters the callee through one of its entries.
+A called unit therefore has no start state, and the tree has to say so. The question was how.
+
+== Decision
+
+* `WorkflowDefinition.startState` is `Optional<String>`: the state of the `start` line of a unit without entries, empty
+  for a unit that binds entries instead. The bindings are the new component `entryBindings`, an ordered map from the
+  entry name to `WorkflowDefinition.EntryBinding` (the bound state and the source location of the line).
+* `WorkflowDefinition.startingStates()` returns where control enters the unit: the start state, followed by every
+  entry-bound state in source order, each once. Every reader that walks from where control enters a unit reads it.
+* Every reader is updated in the same change: the parser and the printer, the engine (which starts only a unit with a
+  start state and enters a callee at the state of its entry), the verifier, the fuzzer, the compiled invariants, the
+  plan unit merge, the plan instance composition and the diagram renderers. No reader passes or expects an empty string.
+
+The operator took this decision when the work package was refined.
+
+== Alternatives Considered
+
+1. **Keep `startState` a `String` and write an empty string for a unit with entries**:
+*Rejected*: an empty string is a stand-in that every reader would have to test for, and a reader that does not would
+walk from a state that does not exist. With `Optional` the compiler names every reader that has to decide what a unit
+without a start state means.
+
+== Consequences
+
+* A unit with entries cannot be started: `WorkflowEngine.start` refuses it with `IllegalArgumentException`; the server
+  starts only a unit without entries.
+* Reachability, exit paths, gate producers, step-completion openings, the fuzzer's walks and the compiled invariants'
+  dominance are computed from every starting state, so a state reachable from one entry only is reachable.
+* The verifier, not the tree, decides whether a unit declares a start state or bindings, and whether the bindings match
+  the declared entries (interface rule 1, link:../workflow-verify/026-interface-rules-within-rules-3-and-6.adoc[ADR workflow-verify 026]).
+* Pre-1.0, the change is a clean break: there is no transitional optional frontmatter and no shim for callers in
+  `plan-marshall-mcp`, whose units gain their frontmatter and bindings there.
+
+== Source
+
+* Pull request `feat(workflow): unit frontmatter, unit types and unit entries` (PLAN-69), and the operator decision at
+  its refine phase
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/e47becc/doc/plans/unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc[Workflow DSL § Grammar] (`start_decl`, `entry_decl`)
+* link:../../developer/workflow-ast.adoc[Workflow AST Developer Guide]

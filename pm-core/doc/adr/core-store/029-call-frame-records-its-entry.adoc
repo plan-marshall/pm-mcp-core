@@ -1,0 +1,54 @@
+= ADR 029: A Call Frame Records Its Entry, Added to Format Version 1 in Place
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+A call of a sub-workflow goes through one of the callee's entries, and its call frame records that entry (PM-WF-16).
+The schema of the workflow state store declared the frame property `entry` as required, marked not implemented;
+`WorkflowStatus.CallFrame` had no such component, and `WorkflowStatusCodec` refused the member as undeclared. The
+status document has the `format_version` 1, and the pending entry record holds its bootstrap's call frames in the same
+shape. The question was whether adding the member changes the format.
+
+== Decision
+
+* `WorkflowStatus.CallFrame` gains the component `entry`, the entry of the called sub-workflow the call went through;
+  the constructor refuses a blank one, as it refuses a blank identifier.
+* `WorkflowStatusCodec` reads `entry` strictly, a declared and required member of the frame with one JSON type, a
+  string, and writes it after `subworkflow_id`, in the order of the schema.
+* The member is added to format version 1 in place: `format_version` stays 1, there is no reader of the earlier frame
+  shape and no migration, and a frame without `entry` is refused as the schema requires. This is the operator's decision
+  of 2026-10-13.
+* The pending entry record reads and writes its frames through the same package-private readers and writers of the
+  codec, so `PendingEntryRecord` and `PendingEntryCodec` are unchanged.
+
+== Alternatives Considered
+
+1. **Raising the format version to 2, with a reader of version 1**:
+*Rejected*: pre-1.0 the product keeps no backward-compatibility shims, and the operator decided that the format
+versions stay 1.
+
+== Consequences
+
+* A status document written before the change, with a call frame, no longer reads: its frame lacks `entry`. A scope
+  with an active call stack is not carried over from an earlier build.
+* Every frame the engine pushes names an entry (link:../../../../pm-workflow/doc/adr/workflow-engine/011-call-enters-the-callee-through-its-entry.adoc[ADR workflow-engine 011]).
+* The number of this ADR is the next free one of `pm-core/doc/adr/core-store/` when it was written; a package that
+  writes into the same directory in parallel takes the next number after a rebase.
+
+== Source
+
+* Pull request `feat(workflow): unit frontmatter, unit types and unit entries` (PLAN-69), and the operator decision of
+  2026-10-13 that the format versions stay 1
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/e47becc/doc/plans/unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+  (`call_stack`, `entry`)
+* link:../../developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
+* `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java`

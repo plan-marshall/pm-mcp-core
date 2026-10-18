@@ -48,6 +48,7 @@ import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.TerminalOutcome;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 
@@ -59,7 +60,14 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * the released state names from the baseline its caller passes. No check stops at the first violation, so the result
  * lists all of them, ordered by the declaration order of their state and then by rule.
  * <p>
- * Reachability is graph reachability over every transition.
+ * Reachability is graph reachability over every transition, from the start state or from every entry-bound state.
+ * <p>
+ * The interface rules compare the unit with the entries, the exits and the type its frontmatter declares: rule 1 the
+ * start state and the entry bindings, rule 2 the terminals and the exits, rule 3 that a unit with entries returns and
+ * only such a unit is called, rule 4 that every exit is reached from an entry, rule 5 the entry a call names, and rule
+ * 6 the row of the type ({@link VerificationRule#TYPE_FITS}). The call contract of Rule 6 reads the exits the callee
+ * declares. The textual checks of the entry lines, a start beside an entry line and an entry bound twice, are the
+ * parser's, and no rule repeats them.
  * <p>
  * Rule 9 judges the firings of a unit one step at a time: a firing of a step ends at the next opening of the same
  * step, at {@code finalize.merge-gate} or at a terminal state, and passes the opening of another step without ending,
@@ -107,6 +115,12 @@ public final class WorkflowValidator {
 
     /** The control outcome every sub-workflow returns implicitly (Rule 6). */
     private static final String STEPPED_OUT = "stepped_out";
+
+    /** The namespace of the landing variants, composed into the finalize phase, never called (interface rule 2). */
+    private static final String LANDING_VARIANT_PREFIX = "landing.";
+
+    /** The adjudication unit, the sub-workflow without entries that the engine runs in a frame of its own. */
+    private static final String ADJUDICATION_UNIT = "adjudicate.decisions";
 
     /** The fallback states of the plan phases, the only targets of {@code stepped_out} in a plan unit (Rule 6). */
     private static final Set<String> PHASE_FALLBACK_STATES = Set.of("plan.return", "finalize.hand-back");
@@ -212,6 +226,11 @@ public final class WorkflowValidator {
             checkAbortTerminalTargeting(state, violations, targetedAbortTerminals);
             checkReservedTargets(state, violations);
         }
+        checkStartOrEntries(definition, violations);
+        checkStopPointsOrExits(definition, violations);
+        checkExitsReached(definition, graph, violations);
+        checkCalledUnitReturns(definition, violations);
+        checkTypeFits(definition, violations);
         checkSubWorkflowCallContract(definition, violations);
         checkCallGraphDag(definition, violations);
         checkGateProducerCoverage(definition, graph, violations);
@@ -242,15 +261,29 @@ public final class WorkflowValidator {
         };
     }
 
+    /**
+     * The state a violation of the unit as a whole is reported at: its first starting state, the start state or the
+     * state of its first entry binding; the unit's id when it declares neither.
+     */
+    private static String unitStateId(WorkflowDefinition definition) {
+        return definition.startingStates().stream().findFirst().orElse(definition.id());
+    }
+
+    /** Names where control enters the unit, for a message: its start state, or the states its entries bind. */
+    private static String startingPoint(WorkflowDefinition definition) {
+        return definition.startState().map("the start state '%s'"::formatted)
+                .orElseGet(() -> "the entry-bound states %s".formatted(definition.startingStates()));
+    }
+
     private void checkSchemaBinding(WorkflowDefinition definition, List<Violation> violations) {
         definition.resultSchema().ifPresent(schemaName -> {
             if (!schemas.contains(schemaName)) {
-                violations.add(new Violation(VerificationRule.SCHEMA_BINDING, definition.startState(),
+                violations.add(new Violation(VerificationRule.SCHEMA_BINDING, unitStateId(definition),
                         definition.location(), "the result schema '%s' is not registered".formatted(schemaName)));
             }
         });
         for (var param : definition.params()) {
-            checkParamSchema(param.name(), param.type(), param.location(), definition.startState(), violations);
+            checkParamSchema(param.name(), param.type(), param.location(), unitStateId(definition), violations);
         }
         for (var state : definition.states().values()) {
             for (var link : UnitGraph.declaredLinks(state.behavior())) {
@@ -275,10 +308,16 @@ public final class WorkflowValidator {
     }
 
     private static void checkStateExists(WorkflowDefinition definition, List<Violation> violations) {
-        if (!definition.states().containsKey(definition.startState())) {
-            violations.add(new Violation(VerificationRule.STATE_EXISTS, definition.startState(), definition.location(),
-                    "the start state '%s' does not exist in the unit".formatted(definition.startState())));
-        }
+        definition.startState().filter(start -> !definition.states().containsKey(start)).ifPresent(start ->
+                violations.add(new Violation(VerificationRule.STATE_EXISTS, start, definition.location(),
+                        "the start state '%s' does not exist in the unit".formatted(start))));
+        definition.entryBindings().forEach((entry, binding) -> {
+            if (!definition.states().containsKey(binding.stateId())) {
+                violations.add(new Violation(VerificationRule.STATE_EXISTS, binding.stateId(), binding.location(),
+                        "the state '%s' the entry '%s' binds does not exist in the unit".formatted(binding.stateId(),
+                                entry)));
+            }
+        });
         for (var state : definition.states().values()) {
             for (var transition : UnitGraph.allTransitions(state.behavior())) {
                 var target = transition.targetStateId();
@@ -289,6 +328,212 @@ public final class WorkflowValidator {
                                     .formatted(target, transition.outcomeName())));
                 }
             }
+        }
+    }
+
+    /** @return the names of the entries the frontmatter of the unit declares, in declaration order */
+    private static List<String> declaredEntries(WorkflowDefinition definition) {
+        return definition.frontmatter().entries().stream().map(UnitFrontmatter.InterfaceElement::name).toList();
+    }
+
+    /** @return the names of the exits the frontmatter of the unit declares, in declaration order */
+    private static List<String> declaredExits(WorkflowDefinition definition) {
+        return definition.frontmatter().exits().stream().map(UnitFrontmatter.InterfaceElement::name).toList();
+    }
+
+    /**
+     * A landing variant, a sub-workflow composed into the finalize phase rather than called: its entries are the steps
+     * it holds, and it declares no exit and no terminal (interface rule 2).
+     */
+    private static boolean isLandingVariant(WorkflowDefinition definition) {
+        return definition.id().startsWith(LANDING_VARIANT_PREFIX);
+    }
+
+    /**
+     * Interface rule 1: a unit whose frontmatter declares entries declares no start state and binds every declared
+     * entry; no unit binds a name its frontmatter does not declare. The parser refuses a start beside an entry line and
+     * an entry bound twice, and {@link VerificationRule#STATE_EXISTS} a bound state that does not exist, so neither is
+     * repeated here.
+     */
+    private static void checkStartOrEntries(WorkflowDefinition definition, List<Violation> violations) {
+        var entries = declaredEntries(definition);
+        var unitStateId = unitStateId(definition);
+        if (!entries.isEmpty()) {
+            definition.startState().ifPresent(start -> violations.add(new Violation(
+                    VerificationRule.INTERFACE_START_OR_ENTRIES, unitStateId, definition.location(),
+                    "the unit declares the entries %s and the start state '%s'; a unit with entries binds them instead"
+                            .formatted(entries, start))));
+            entries.stream().filter(entry -> !definition.entryBindings().containsKey(entry))
+                    .forEach(entry -> violations.add(new Violation(VerificationRule.INTERFACE_START_OR_ENTRIES,
+                            unitStateId, definition.frontmatter().location(),
+                            "the declared entry '%s' is bound to no state".formatted(entry))));
+        }
+        definition.entryBindings().forEach((entry, binding) -> {
+            if (!entries.contains(entry)) {
+                violations.add(new Violation(VerificationRule.INTERFACE_START_OR_ENTRIES, unitStateId,
+                        binding.location(), "the binding names the entry '%s', which the frontmatter does not declare"
+                        .formatted(entry)));
+            }
+        });
+    }
+
+    /**
+     * Interface rule 2: a unit without exits declares a terminal, its stop point, except the resident workspace unit; a
+     * unit with exits reports through its terminals exactly its exits, plus {@code stepped_out} on a terminal of that
+     * class; a landing variant declares neither an exit nor a terminal. A terminal {@code stepped_out} of another class
+     * is {@link VerificationRule#SUBWORKFLOW_CALL_CONTRACT}'s and is not repeated here.
+     */
+    private static void checkStopPointsOrExits(WorkflowDefinition definition, List<Violation> violations) {
+        var exits = declaredExits(definition);
+        var terminals = definition.states().values().stream().filter(WorkflowValidator::isTerminal).toList();
+        if (isLandingVariant(definition)) {
+            if (!exits.isEmpty()) {
+                violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, unitStateId(definition),
+                        definition.frontmatter().location(),
+                        "the landing variant declares the exits %s; it continues in the phase and declares none"
+                                .formatted(exits)));
+            }
+            terminals.forEach(terminal -> violations.add(new Violation(
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, terminal.id(), terminal.location(),
+                    "the landing variant declares the terminal '%s'; it continues in the phase and declares none"
+                            .formatted(terminal.id()))));
+            return;
+        }
+        if (exits.isEmpty()) {
+            if (terminals.isEmpty() && definition.scope() != WorkflowScope.WORKSPACE) {
+                violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, unitStateId(definition),
+                        definition.location(), "the unit declares neither an exit nor a terminal state"));
+            }
+            return;
+        }
+        var reported = new HashSet<String>();
+        for (var terminal : terminals) {
+            terminal.terminalOutcome().map(TerminalOutcome::id)
+                    .filter(outcome -> !exits.contains(outcome) && !STEPPED_OUT.equals(outcome))
+                    .ifPresent(outcome -> violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS,
+                            terminal.id(), terminal.location(),
+                            "the terminal '%s' reports the outcome '%s', which is none of the exits %s"
+                                    .formatted(terminal.id(), outcome, exits))));
+            terminal.terminalOutcome().ifPresent(outcome -> reported.add(outcome.id()));
+        }
+        exits.stream().filter(exit -> !reported.contains(exit))
+                .forEach(exit -> violations.add(new Violation(VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS,
+                        unitStateId(definition), definition.frontmatter().location(),
+                        "the exit '%s' is the outcome of no terminal state".formatted(exit))));
+    }
+
+    /**
+     * Interface rule 4: every exit of a unit with entries is reached from at least one entry. An exit no terminal
+     * reports is {@link VerificationRule#INTERFACE_STOP_POINTS_OR_EXITS}'s and is not repeated here.
+     */
+    private static void checkExitsReached(WorkflowDefinition definition, UnitGraph graph,
+            List<Violation> violations) {
+        if (definition.entryBindings().isEmpty()) {
+            return;
+        }
+        var reportedByTerminals = new HashSet<String>();
+        definition.states().values().forEach(state -> state.terminalOutcome()
+                .ifPresent(outcome -> reportedByTerminals.add(outcome.id())));
+        var reached = graph.outcomesReachedFromEntries(definition);
+        declaredExits(definition).stream()
+                .filter(exit -> reportedByTerminals.contains(exit) && !reached.contains(exit))
+                .forEach(exit -> violations.add(new Violation(VerificationRule.INTERFACE_EXIT_REACHED,
+                        unitStateId(definition), definition.frontmatter().location(),
+                        "the exit '%s' is reached from none of the entries %s".formatted(exit,
+                                definition.entryBindings().keySet()))));
+    }
+
+    /**
+     * Interface rule 3, the unit's own part: a unit with entries returns, so it declares an exit, a landing variant
+     * excepted. That only a unit with entries is the target of a call is checked at the call.
+     */
+    private static void checkCalledUnitReturns(WorkflowDefinition definition, List<Violation> violations) {
+        if (!declaredEntries(definition).isEmpty() && declaredExits(definition).isEmpty()
+                && !isLandingVariant(definition)) {
+            violations.add(new Violation(VerificationRule.INTERFACE_CALLED_UNIT, unitStateId(definition),
+                    definition.frontmatter().location(),
+                    "the unit declares the entries %s but no exit; a called unit returns through an exit"
+                            .formatted(declaredEntries(definition))));
+        }
+    }
+
+    /**
+     * Interface rule 6: the scope of the unit and the presence of its entries and exits match the row of its type in
+     * the Unit Types table. A {@code system} unit is started (scope {@code workspace} or {@code entity}, no entries, no
+     * exits) or called (scope {@code subworkflow}, entries and exits); the adjudication unit is the {@code subworkflow}
+     * without entries, a landing variant the one without exits. The row of a scope the tree does not have yet
+     * ({@code system} with scope {@code machine}) is not checked.
+     */
+    private static void checkTypeFits(WorkflowDefinition definition, List<Violation> violations) {
+        var type = definition.frontmatter().type();
+        var scope = definition.scope();
+        var hasEntries = !declaredEntries(definition).isEmpty();
+        var hasExits = !declaredExits(definition).isEmpty();
+        var row = switch (type) {
+            case WORKFLOW -> new TypeRow(Set.of(WorkflowScope.PLAN, WorkflowScope.EPIC), false, false);
+            case RECIPE, INSTANCE -> new TypeRow(Set.of(WorkflowScope.PLAN), false, false);
+            case SUBWORKFLOW -> new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW),
+                    !ADJUDICATION_UNIT.equals(definition.id()), !isLandingVariant(definition));
+            case SYSTEM -> scope == WorkflowScope.SUBWORKFLOW
+                    ? new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW), true, true)
+                    : new TypeRow(Set.of(WorkflowScope.WORKSPACE, WorkflowScope.ENTITY), false, false);
+            case TASK -> new TypeRow(Set.of(WorkflowScope.SUBWORKFLOW, WorkflowScope.ENTITY), false, true);
+        };
+        var location = definition.frontmatter().location();
+        var unitStateId = unitStateId(definition);
+        if (!row.scopes().contains(scope)) {
+            violations.add(new Violation(VerificationRule.TYPE_FITS, unitStateId, location,
+                    "a unit of the type '%s' has the scope %s, not %s"
+                            .formatted(type.wireName(), row.scopes(), scope)));
+        }
+        if (hasEntries != row.entries()) {
+            violations.add(new Violation(VerificationRule.TYPE_FITS, unitStateId, location,
+                    "a unit of the type '%s' and the scope %s declares %s, but this one declares %s"
+                            .formatted(type.wireName(), scope, row.entries() ? "entries" : "no entry",
+                                    hasEntries ? declaredEntries(definition) : "none")));
+        }
+        if (hasExits != row.exits()) {
+            violations.add(new Violation(VerificationRule.TYPE_FITS, unitStateId, location,
+                    "a unit of the type '%s' and the scope %s declares %s, but this one declares %s"
+                            .formatted(type.wireName(), scope, row.exits() ? "exits" : "no exit",
+                                    hasExits ? declaredExits(definition) : "none")));
+        }
+    }
+
+    /**
+     * One row of the Unit Types table as the verifier reads it.
+     *
+     * @param scopes  the scopes the type admits
+     * @param entries whether the unit declares entries
+     * @param exits   whether the unit declares exits
+     */
+    private record TypeRow(Set<WorkflowScope> scopes, boolean entries, boolean exits) {
+    }
+
+    /**
+     * Interface rules 3 and 5 at a call: the callee declares entries, and the call names one of them, or omits it for a
+     * callee with exactly one.
+     */
+    private static void checkCallEntry(StateNode state, StateBehavior.SubWorkflowCall call,
+            WorkflowDefinition callee, List<Violation> violations) {
+        var entries = declaredEntries(callee);
+        if (entries.isEmpty()) {
+            violations.add(new Violation(VerificationRule.INTERFACE_CALLED_UNIT, state.id(), state.location(),
+                    "the call targets '%s', which declares no entry; a unit without entries is never called"
+                            .formatted(callee.id())));
+            return;
+        }
+        if (call.entry().isPresent()) {
+            var entry = call.entry().get();
+            if (!entries.contains(entry)) {
+                violations.add(new Violation(VerificationRule.INTERFACE_CALL_ENTRY, state.id(), state.location(),
+                        "the call names the entry '%s', which '%s' does not declare; it declares %s"
+                                .formatted(entry, callee.id(), entries)));
+            }
+        } else if (entries.size() != 1) {
+            violations.add(new Violation(VerificationRule.INTERFACE_CALL_ENTRY, state.id(), state.location(),
+                    "the call names no entry of '%s', which declares the entries %s; it names one of them"
+                            .formatted(callee.id(), entries)));
         }
     }
 
@@ -710,12 +955,12 @@ public final class WorkflowValidator {
 
     private static void checkReachability(WorkflowDefinition definition, UnitGraph graph,
             List<Violation> violations) {
-        var reached = graph.forwardClosure(Set.of(definition.startState()));
+        var roots = definition.startingStates();
+        var reached = graph.forwardClosure(Set.copyOf(roots));
         for (var state : definition.states().values()) {
             if (!reached.contains(state.id()) && !ABORT_TERMINALS.contains(state.id())) {
                 violations.add(new Violation(VerificationRule.REACHABILITY, state.id(), state.location(),
-                        "the state '%s' is not reachable from the start state '%s'".formatted(state.id(),
-                                definition.startState())));
+                        "the state '%s' is not reachable from %s".formatted(state.id(), startingPoint(definition))));
             }
         }
     }
@@ -857,16 +1102,12 @@ public final class WorkflowValidator {
                                     .formatted(call.subWorkflowId(), callee.scope())));
                 }
 
-                var contractOutcomes = new LinkedHashSet<String>();
-                for (var calleeState : callee.states().values()) {
-                    if (calleeState.behavior() instanceof StateBehavior.TerminalState
-                            && calleeState.terminalOutcome().isPresent()) {
-                        contractOutcomes.add(calleeState.terminalOutcome().get().id());
-                    }
-                }
-                // Rule 6: the exit contract of every sub-workflow is its terminals' outcomes plus the control
-                // outcome stepped_out, which is part of it implicitly. Every call routes it, whatever the callee's
-                // states are.
+                checkCallEntry(state, call, callee, violations);
+
+                // Rule 6: the exit contract of every sub-workflow is the exits its frontmatter declares plus the
+                // control outcome stepped_out, which is part of it implicitly. Every call routes it, whatever the
+                // callee's states are.
+                var contractOutcomes = new LinkedHashSet<>(declaredExits(callee));
                 contractOutcomes.add(STEPPED_OUT);
 
                 // Rule 6: a result guard reads a field of the callee's result, so the callee declares a result
@@ -1183,11 +1424,11 @@ public final class WorkflowValidator {
 
     private void checkProducerCoverage(WorkflowDefinition definition, UnitGraph graph, StateNode state,
             SourceLocation location, String artifact, Set<String> producers, List<Violation> violations) {
-        var reachableWithout = graph.reachableWithoutProducers(definition.startState(), producers);
+        var reachableWithout = graph.reachableWithoutProducers(definition.startingStates(), producers);
         if (reachableWithout.contains(state.id())) {
             violations.add(new Violation(VerificationRule.GATE_PRODUCER_COVERAGE, state.id(), location,
-                    "the state '%s' requires the artifact '%s', but there is a path from the start state without a producer"
-                            .formatted(state.id(), artifact)));
+                    "the state '%s' requires the artifact '%s', but there is a path from %s without a producer"
+                            .formatted(state.id(), artifact, startingPoint(definition))));
         }
     }
 
@@ -1360,8 +1601,7 @@ public final class WorkflowValidator {
     }
 
     private Set<String> openingsOf(WorkflowDefinition definition) {
-        var openings = new LinkedHashSet<String>();
-        openings.add(definition.startState());
+        var openings = new LinkedHashSet<>(definition.startingStates());
         definition.states().keySet().stream().filter(REGION_ENTRY_STATES::contains).forEach(openings::add);
         for (var state : definition.states().values()) {
             if (cycleMeasureOf(state) == CycleMeasure.STEP_LIST) {
@@ -1990,12 +2230,13 @@ public final class WorkflowValidator {
     private static void checkExitPaths(WorkflowDefinition definition, UnitGraph graph, boolean defaultLostRoute,
             List<Violation> violations) {
         if (definition.scope() == WorkflowScope.WORKSPACE) {
-            var returning = graph.backwardClosure(Set.of(definition.startState()));
+            var roots = definition.startingStates();
+            var returning = graph.backwardClosure(Set.copyOf(roots));
             definition.states().values().stream()
                     .filter(state -> !isTerminal(state) && !returning.contains(state.id()))
                     .forEach(state -> violations.add(new Violation(VerificationRule.EXIT_PATH, state.id(),
-                            state.location(), "the state '%s' has no path back to the start state '%s'"
-                            .formatted(state.id(), definition.startState()))));
+                            state.location(), "the state '%s' has no path back to %s"
+                            .formatted(state.id(), startingPoint(definition)))));
             return;
         }
         var exits = new LinkedHashSet<String>();

@@ -21,12 +21,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:../../../pm-mcp-clients/doc/plans/profile-documents.adoc[`pm-mcp-clients` / `profile-documents`]
 |Milestone 2
 
-|link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
-|Unit frontmatter, unit types and the entry/exit interface: the closed frontmatter parser, the six unit types, named entries and `call … entry`, the interface rules
-|`open`
-|nothing
-|Milestone 3
-
 |link:plan-instance-alignment.adoc[`plan-instance-alignment`]
 |Discussion of the lane-route pruning design at the `outline` event first, then its per-lane routes and reachability pruning; the plan instance aligned with the specification: prune reasons and fallback causes, the composition rules `auto-merge-off` and `simplify-recipe` removed, plan axes and overrides in the composition, the adjudication unit in the header, `diff_summary`
 |`open`
@@ -111,18 +105,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:operator-and-question-stores.adoc[`operator-and-question-stores`]; link:profile-loader.adoc[`profile-loader`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
-|link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
-|Corpus sources on Hugging Face fetched over HTTPS, several items per source row, an answer schema in the overlay
-|`open`
-|nothing
-|Milestone 4
-
-|link:corpus-group-contamination.adoc[`corpus-group-contamination`]
-|A group and a contamination note on the overlay row and the imported item
-|`open`
-|link:corpus-overlay-extensions.adoc[`corpus-overlay-extensions`]
-|Milestone 4
-
 |link:role-qualification.adoc[`role-qualification`]
 |Role qualification
 |`open`
@@ -156,7 +138,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
 |The six phases as sub-workflows of the plan unit (the land lane's `land.*` states within `execute`), and the plan's history
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
 |Milestone 3; the client work of `pm-mcp-clients`
 
 |link:process-and-overview.adoc[`process-and-overview`]
@@ -198,7 +180,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:recipe-workflows.adoc[`recipe-workflows`]
 |A recipe is a workflow
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:start-from-clients.adoc[`start-from-clients`]; link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]; link:plan-instance-alignment.adoc[`plan-instance-alignment`]
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:start-from-clients.adoc[`start-from-clients`]; link:plan-instance-alignment.adoc[`plan-instance-alignment`]
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:chat.adoc[`chat`]
@@ -264,7 +246,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:process-designer.adoc[`process-designer`]
 |Designing a plan's process: the machine level of workflow units and its precedence, the validation with its composition dry-run, placing and removing at machine and project level (the project's as a short landing) with their audit, the catalogue of building blocks
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-source-intake.adoc[`start-source-intake`] (the short landings); link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`] (the effective role set); link:unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:recipe-workflows.adoc[`recipe-workflows`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the plan axes and their variants); link:start-source-intake.adoc[`start-source-intake`] (the short landings); link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`] (the effective role set)
 |Milestone 11; the client work of `pm-mcp-clients`
 
 |link:cleanup.adoc[`cleanup`]

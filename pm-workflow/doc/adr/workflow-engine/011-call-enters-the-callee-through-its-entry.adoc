@@ -1,0 +1,57 @@
+= ADR 011: A Call Enters the Callee Through Its Entry
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+A `call` state entered the callee at its start state. With the interface of a unit, a called unit declares entries in
+its frontmatter, binds each to a state with `entry <name> -> <state_id>`, and declares no `start`
+(link:../workflow-ast/002-start-state-optional-for-a-unit-with-entries.adoc[ADR workflow-ast 002]). A call names the
+entry it goes through, `call <unit> entry <name> (…)`, and may omit it only for a callee with exactly one entry; the
+call frame records the entry, and the status store keeps it with the frame (PM-WF-16). The engine had to decide which
+state a call enters and when the entry is written.
+
+== Decision
+
+* When a `call` state pushes its frame, the engine resolves the entry of the call: the entry the call names, or the
+  callee's sole entry when the call names none. It enters the state that entry binds
+  (`WorkflowDefinition.entryBindings()`).
+* The pushed `ast.CallFrame` records the resolved entry in its component `entry`; `CallStack` copies it to and from the
+  store frame `WorkflowStatus.CallFrame`, whose member `entry` the codec writes and reads.
+* The frame, its entry included, is written with the status in the transaction of the call, like every other part of
+  the frame; the call stack stays one write per advance
+  (link:003-call-stack-in-one-transaction.adoc[ADR 003] stays).
+* A call the engine cannot resolve, an entry the callee does not bind, or no entry named while the callee binds none or
+  several, is the internal fault `unresolved_name`. The verifier refuses such a call (interface rule 5), so the fault is
+  reachable only through a defect.
+
+Rationale not recorded beyond the interface rules of the specification.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* `WorkflowEngine.start` starts only a unit with a start state; a unit with entries is refused with
+  `IllegalArgumentException`.
+* A scope resumed from the store keeps the entry of every frame. The return into the caller does not read the entry; it
+  pops the frame and routes the outcome as before.
+* A frame always names an entry: the store frame refuses a blank one, and a frame without `entry` is refused when the
+  status is read (link:../../../../pm-core/doc/adr/core-store/029-call-frame-records-its-entry.adoc[ADR core-store 029]).
+
+== Source
+
+* Pull request `feat(workflow): unit frontmatter, unit types and unit entries` (PLAN-69)
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/e47becc/doc/plans/unit-frontmatter-and-types.adoc[`unit-frontmatter-and-types`]
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc[Workflow DSL § Grammar] (`call_clause`, `entry_decl`)
+* link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]
+  (`call_stack`, `entry`)
+* link:../../developer/workflow-engine.adoc#_entering_a_callee_through_its_entry[Workflow Engine Developer Guide § Entering a Callee Through Its Entry]

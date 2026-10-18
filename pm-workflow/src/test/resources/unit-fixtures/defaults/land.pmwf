@@ -1,3 +1,11 @@
+---
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The land lane of Phase 5 of the plan unit, written for the invariant and unit-loader tests, never copied from the
 # product. The worktree initialization precedes the verify sweep, which precedes the exit barrier into Phase 6.
 workflow plan version 1 format 1

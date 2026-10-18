@@ -178,6 +178,25 @@ class TransitionFuzzerTest {
         }
 
         @Test
+        @DisplayName("Should walk a unit with entries from each entry-bound state, under the same assignment")
+        void shouldWalkFromEachEntry() {
+            var bothEntries = VerifyFixtures.read(PLANTED).replace("start verify.entry",
+                    "entry first -> verify.done\nentry second -> " + DEAD_STATE);
+            var firstEntryOnly = VerifyFixtures.read(PLANTED).replace("start verify.entry",
+                    "entry first -> verify.done");
+
+            var report = fuzzer.fuzz(VerifyFixtures.parseSource(PLANTED, bothEntries), CONFIGURATION);
+            var control = fuzzer.fuzz(VerifyFixtures.parseSource(PLANTED, firstEntryOnly), CONFIGURATION);
+
+            assertAll(() -> assertEquals(List.of(DEAD_STATE),
+                            report.deadStates().stream().map(DeadState::stateId).toList(), report::toString),
+                    () -> assertEquals(Boolean.FALSE, report.deadStates().getFirst().assignment()
+                            .get(UnitGraph.IN_WORKTREE)),
+                    () -> assertFalse(control.foundDeadState(), control::toString),
+                    () -> assertEquals(RUNS, report.runsExecuted()));
+        }
+
+        @Test
         @DisplayName("Should stop a run at the greatest number of steps")
         void shouldStopAtTheGreatestNumberOfSteps() {
             var report = fuzzer.fuzz(planted(), new FuzzConfiguration(SEED, RUNS, 1));

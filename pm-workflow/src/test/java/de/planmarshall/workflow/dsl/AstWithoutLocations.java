@@ -22,6 +22,7 @@ import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
@@ -51,14 +52,24 @@ final class AstWithoutLocations {
                 new ValueDeclaration(declaration.value(), NOWHERE)));
         var decisions = new LinkedHashMap<String, DecisionDeclaration>();
         definition.decisions().forEach((kind, decision) -> decisions.put(kind, strip(decision)));
-        return new WorkflowDefinition(definition.id(), definition.version(), definition.scope(),
+        var entryBindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
+        definition.entryBindings().forEach((entry, binding) -> entryBindings.put(entry,
+                new WorkflowDefinition.EntryBinding(binding.stateId(), NOWHERE)));
+        return new WorkflowDefinition(strip(definition.frontmatter()), definition.id(), definition.version(),
+                definition.scope(),
                 definition.params().stream().map(p -> new ParamDecl(p.name(), p.type(), NOWHERE)).toList(),
                 definition.resultSchema(), definition.instance(), declarations, decisions,
                 definition.partVersions(), definition.formatVersion(), definition.origin(), definition.derivedFrom(),
-                definition.startState(),
+                definition.startState(), entryBindings,
                 definition.migrations().stream()
                         .map(m -> new StateMigration(m.oldStateId(), m.newStateId(), NOWHERE)).toList(),
                 states, NOWHERE);
+    }
+
+    private static UnitFrontmatter strip(UnitFrontmatter frontmatter) {
+        return new UnitFrontmatter(frontmatter.name(), frontmatter.description(), frontmatter.type(),
+                frontmatter.entries(), frontmatter.exits(), frontmatter.modificationDate(), frontmatter.version(),
+                frontmatter.author(), frontmatter.signature(), NOWHERE);
     }
 
     private static DecisionDeclaration strip(DecisionDeclaration decision) {
@@ -85,7 +96,7 @@ final class AstWithoutLocations {
                     job.fanOutPrimitiveId(), job.rolesPrimitiveId(), job.ask(), job.consultRoles(),
                     transitions(job.transitions()));
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
-                    call.paramBindings(), transitions(call.transitions()));
+                    call.entry(), call.paramBindings(), transitions(call.transitions()));
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),
                     transitions(question.transitions()), links(question.links()));
             case StateBehavior.TerminalState terminal -> terminal;
