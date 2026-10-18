@@ -16,7 +16,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,9 +56,11 @@ import de.planmarshall.core.store.QuestionRefusal.Unreadable;
  * Both are decided from the lines the log holds, and the check fails closed: when the log holds a line that was
  * refused when read, which names no question the log can read and may close or revise any of them, every append is
  * refused {@link Unreadable}, an {@code asked} line included, and nothing is added.
- * A revision appends a {@code revised} line for every open question of the set, all with the same, higher revision.
+ * A revision appends a {@code revised} line for every question of the set that is open when it begins, each with the
+ * next revision, the one after its current revision.
  * Whether an answer fits its part is checked by the engine, not here. A line that is malformed for the log (a question
- * asked twice, a line about a question the log does not have, a set revised in part) is a fault of the caller and is
+ * asked twice, a line about a question the log does not have, a revision that is not the next one, a set revised in
+ * part) is a fault of the caller and is
  * refused with an {@link IllegalArgumentException}.
  * <p>
  * A read without the lock ({@link #read()}) reports the log as it is at that moment: an append in progress shows as a
@@ -252,14 +254,15 @@ public final class QuestionLog {
     }
 
     /**
-     * Revises an open decision: a {@code revised} line for every open question of its set, with the new revision.
+     * Revises an open decision: a {@code revised} line for every open question of its set, with the next revision.
      *
      * @param transaction an open transaction of this log's scope
      * @param lines       the revised lines
      * @return {@link AlreadyAnswered} if a question of the lines is closed, {@link Unreadable} if the log holds a
      *         refused line; empty if the lines were added
-     * @throws IllegalArgumentException if a line is no revised line, or the lines do not revise every open question
-     *                                  of the set with one higher revision
+     * @throws IllegalArgumentException if a line is no revised line, a line names another revision than the one after
+     *                                  the current revision of its question, or the lines do not revise every open
+     *                                  question of the set with one revision
      * @see #append(ScopeTransaction, List)
      */
     public Optional<QuestionRefusal> revise(ScopeTransaction transaction, List<QuestionRecord> lines) {
@@ -363,13 +366,15 @@ public final class QuestionLog {
             return Optional.of(new Unreadable(toAppend.getFirst().questionId(), refused.getFirst().line()));
         }
         var questions = questions(log.records());
+        var openAtRevision = new LinkedHashMap<String, Set<String>>();
         for (var line : toAppend) {
+            snapshotOpenSet(questions, openAtRevision, line);
             var refusal = check(questions, line);
             if (refusal.isPresent()) {
                 return refusal;
             }
         }
-        requireWholeRevisions(questions, toAppend);
+        requireWholeRevisions(questions, openAtRevision, toAppend);
         var block = new ByteArrayOutputStream();
         toAppend.forEach(line -> block.writeBytes(WaiverLog.line(QuestionRecordCodec.write(line))));
         transaction.append(storePath, block.toByteArray());
@@ -459,9 +464,9 @@ public final class QuestionLog {
         }
         switch (line.event()) {
             case REVISED -> {
-                if (line.revision() <= question.revision) {
-                    throw new IllegalArgumentException("The revision %d of %s is not above its current revision %d"
-                            .formatted(line.revision(), id, question.revision));
+                if (line.revision() != question.revision + 1) {
+                    throw new IllegalArgumentException("The revision %d of %s is not the next revision %d"
+                            .formatted(line.revision(), id, question.revision + 1));
                 }
                 question.revision = line.revision();
             }
@@ -478,21 +483,38 @@ public final class QuestionLog {
     }
 
     /**
-     * A revision revises the whole set: every question of a set the lines revise that is open after the lines has a
-     * revised line among them, and all of them name one revision.
+     * Records, before the first revised line of a set is checked, the questions of that set that are open at that
+     * moment: the questions the revision has to cover. A question closed by a line before it is not among them.
      */
-    private static void requireWholeRevisions(Map<String, Question> questions, List<QuestionRecord> lines) {
+    private static void snapshotOpenSet(Map<String, Question> questions, Map<String, Set<String>> openAtRevision,
+            QuestionRecord line) {
+        if (line.event() != QuestionEvent.REVISED) {
+            return;
+        }
+        var question = questions.get(line.questionId());
+        if (question == null) {
+            return;
+        }
+        openAtRevision.computeIfAbsent(question.questionSet, set -> questions.entrySet().stream()
+                .filter(entry -> entry.getValue().questionSet.equals(set) && !entry.getValue().closed)
+                .map(Map.Entry::getKey).collect(Collectors.toSet()));
+    }
+
+    /**
+     * A revision revises the whole set: every question of a set the lines revise that was open when the revision
+     * began, at the first revised line of the set, has a revised line among them, and all of them name one revision.
+     * A question of the set the lines close after it was revised stays covered.
+     */
+    private static void requireWholeRevisions(Map<String, Question> questions, Map<String, Set<String>> openAtRevision,
+            List<QuestionRecord> lines) {
         var revised = lines.stream().filter(line -> line.event() == QuestionEvent.REVISED).toList();
-        var sets = revised.stream().map(line -> questions.get(line.questionId()).questionSet)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        for (var set : sets) {
+        for (var opened : openAtRevision.entrySet()) {
+            var set = opened.getKey();
             var ofSet = revised.stream().filter(line -> questions.get(line.questionId()).questionSet.equals(set))
                     .toList();
             Set<Integer> revisions = ofSet.stream().map(QuestionRecord::revision).collect(Collectors.toSet());
             Set<String> covered = ofSet.stream().map(QuestionRecord::questionId).collect(Collectors.toSet());
-            var open = questions.entrySet().stream()
-                    .filter(entry -> entry.getValue().questionSet.equals(set) && !entry.getValue().closed)
-                    .map(Map.Entry::getKey).collect(Collectors.toSet());
+            var open = opened.getValue();
             if (revisions.size() != 1 || !covered.equals(open)) {
                 throw new IllegalArgumentException(
                         "A revision of the set %s revises every open question %s with one revision, not %s"

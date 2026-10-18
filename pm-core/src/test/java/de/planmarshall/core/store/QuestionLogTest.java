@@ -174,6 +174,70 @@ class QuestionLogTest {
                                     revised("Q-003", 1))))),
                     () -> assertArrayEquals(before, content()));
         }
+
+        @Test
+        @DisplayName("that skips a revision is a fault of the caller naming the next revision, and appends nothing")
+        void skippedRevision() throws Exception {
+            askSet();
+            var before = content();
+
+            var fault = assertThrows(IllegalArgumentException.class,
+                    () -> write(t -> log.revise(t, List.of(revised("Q-001", 3), revised("Q-002", 3),
+                            revised("Q-003", 3)))));
+
+            assertAll(
+                    () -> assertTrue(fault.getMessage().contains("next revision 2"), fault.getMessage()),
+                    () -> assertArrayEquals(before, content()));
+        }
+
+        @Test
+        @DisplayName("that revises every open question and then answers one of them is appended whole")
+        void revisesWholeSetThenAnswers() {
+            askSet();
+
+            var refusal = write(t -> log.append(t, List.of(revised("Q-001", 2), revised("Q-002", 2),
+                    revised("Q-003", 2), answered("Q-002", 2))));
+
+            var lines = log.read();
+            assertAll(
+                    () -> assertEquals(Optional.empty(), refusal),
+                    () -> assertEquals(7, lines.records().size()),
+                    () -> assertTrue(lines.isClosed("Q-002")),
+                    () -> assertFalse(lines.isClosed("Q-003")),
+                    () -> assertEquals(OptionalInt.of(2), lines.currentRevision("Q-003")));
+        }
+
+        @Test
+        @DisplayName("that revises every open question and then withdraws one of them is appended whole")
+        void revisesWholeSetThenWithdraws() {
+            askSet();
+
+            var refusal = write(t -> log.append(t, List.of(revised("Q-001", 2), revised("Q-002", 2),
+                    revised("Q-003", 2), withdrawn("Q-003"))));
+
+            var lines = log.read();
+            assertAll(
+                    () -> assertEquals(Optional.empty(), refusal),
+                    () -> assertEquals(7, lines.records().size()),
+                    () -> assertEquals(Optional.of(withdrawn("Q-003")), lines.current("Q-003")),
+                    () -> assertFalse(lines.isClosed("Q-001")));
+        }
+
+        @Test
+        @DisplayName("that revises part of the open set and then answers the rest is a fault, and appends nothing")
+        void revisesPartThenAnswers() throws Exception {
+            askSet();
+            var before = content();
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> write(t -> log.append(t, List.of(revised("Q-001", 2), revised("Q-002", 2),
+                                    answered("Q-003", 1))))),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> write(t -> log.append(t, List.of(revised("Q-001", 2), revised("Q-002", 2),
+                                    answered("Q-002", 2))))),
+                    () -> assertArrayEquals(before, content()));
+        }
     }
 
     @Nested

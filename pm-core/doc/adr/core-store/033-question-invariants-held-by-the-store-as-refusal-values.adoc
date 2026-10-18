@@ -26,6 +26,11 @@ only a check made under the scope lock, right before the append, sees every line
 * An answer, an adjudication and a delivery name the current revision of their decision, the revision of the last
   `asked` or `revised` line of the question. Another revision is refused as
   `QuestionRefusal.Conflict(questionId, currentRevision)`.
+* A `revised` line names the revision after the current one of its question, never a revision that skips one, and a
+  revision covers the questions of its set that are open when it begins, at its first `revised` line within the
+  append: a question the same append closes after revising it stays covered, one closed before the revision began is
+  not part of it. A revised line that names another revision, or a revision that leaves out a question open when it
+  began, is a fault of the caller and an `IllegalArgumentException`.
 * A refusal is a value the method returns, and nothing of the append is added to the transaction. A line that is
   malformed for the log (a question asked twice, a line about a question the log does not have, a set revised in part)
   is a fault of the caller and an `IllegalArgumentException`.
