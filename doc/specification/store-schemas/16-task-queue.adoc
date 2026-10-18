@@ -254,7 +254,7 @@ The record of one grading of a role's configuration by the operator's grading in
         "warm": { "$ref": "#/$defs/formResult" }
       }
     },
-    "warm_fresh_gap": { "type": ["number", "null"], "description": "Fresh agreement minus warm agreement in percentage points; null when only one form was graded." },
+    "warm_fresh_gap": { "type": ["number", "null"], "description": "The largest, over the topics, of the topic's fresh agreement minus its warm agreement in percentage points; null when only one form was graded." },
     "ungraded": { "type": "integer", "minimum": 0, "description": "Items whose judge task closed lost; excluded from the agreement. A record with ungraded > 0 qualifies no form." },
     "graded_at": { "type": "string", "format": "date-time" },
     "items": {
@@ -275,13 +275,31 @@ The record of one grading of a role's configuration by the operator's grading in
     }
   },
   "$defs": {
-    "formResult": {
+    "topicResult": {
       "type": "object",
-      "required": ["agreement", "items", "total_tokens", "duration_ms"],
+      "required": ["agreement", "items"],
       "additionalProperties": false,
       "properties": {
-        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded topic items (review status draft or confirmed, ungraded items excluded) answered right in this form." },
-        "items": { "type": "integer", "minimum": 0 },
+        "agreement": { "type": "number", "minimum": 0, "maximum": 100, "description": "Percent of the graded items of the topic (review status draft or confirmed, ungraded items excluded) answered right in this form." },
+        "items": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "formResult": {
+      "type": "object",
+      "required": ["topics", "items", "total_tokens", "duration_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "topics": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "description": "The agreement per topic: own, the items whose role names the role; generic, the generic items (role worker) of a writer or read_only role. A topic without items is absent; there is no pooled agreement.",
+          "properties": {
+            "own": { "$ref": "#/$defs/topicResult" },
+            "generic": { "$ref": "#/$defs/topicResult" }
+          }
+        },
+        "items": { "type": "integer", "minimum": 0, "description": "The graded items of all topics of this form." },
         "total_tokens": { "oneOf": [ { "type": "integer", "minimum": 1 }, { "type": "string", "const": "unmeasured" } ], "description": "The tokens the form's items used, unmeasured when an item's are." },
         "duration_ms": { "type": "integer", "minimum": 0 }
       }

@@ -250,9 +250,9 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |Milestone 10
 
 |link:differential-test-harness.adoc[`differential-test-harness`]
-|Differential test harness
-|`blocked`
-|a checkout of `plan-marshall` at the pinned inventory commit, and a Python interpreter in the test environment (a tool decision for the operator) (no work package)
+|Tests of the ported primitives, derived from their original scripts
+|`open`
+|nothing
 |Milestone 4
 |===
 

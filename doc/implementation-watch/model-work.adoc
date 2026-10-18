@@ -34,7 +34,9 @@ qualification digest and invalidates it, and the role reports unqualified until 
 candidates all fall below the level ships pinned to its best-measured candidate (the lower cost breaking a tie),
 unqualified, with its record, and the setup run grades it on the machine; the setup run grades only roles without a
 valid record for their qualification digest. A quorum calibration record binds the listed roles' qualification
-digests.
+digests. Per-topic validity: a record whose `generic` topic reaches the level and whose `own` topic does not is not
+valid, and neither is the reverse; matched control: a record whose every topic reaches the level is valid; a role
+without items of its own is valid on the `generic` topic alone.
 Source:: design review.
 
 [#PM-WATCH-DISP-49]
@@ -760,7 +762,7 @@ list of missing facts; no path produces a narrative-only landing. Negative contr
 `deliverables_total = n/a` stays incomplete (`n/a` is legal at deliverable and task keys only for `local_changes` landings and for `pr` landings, which have no deliverables and tasks only from a loop-back). The landing records findings filed and findings
 transported, and a test with one dropped finding goes red. `merge_state` and the plan's `merge_outcome` come from one
 `ci.pr-observe` observation through the one mapping table (`MergeOutcomeMappingTest` asserts every row for both); a
-failed observation yields `merge_state: unknown` listed in `missing_facts` and never a `completed` plan. Differential test (`PM-TEST-2`): mapping the plan-marshall
+failed observation yields `merge_state: unknown` listed in `missing_facts` and never a `completed` plan. Ported-primitive test (`PM-TEST-2`): mapping the plan-marshall
 landings in test code yields records with unknown facts where facts are missing (the mapping exists in test code only; plan-marshall epics are never taken over).
 Fixture:: 9 of 13 process-compliance landings narrative-only (4 complete, two with inline `landing-check complete:
 true`); test-quality PLAN-180 carve-1: 2 landings `complete: false`, 9 of 9 keys missing. #1368 `31d42db871…`
@@ -779,7 +781,7 @@ link:../specification/model-work/08-epic-coordination.adoc#server-derived-landin
 Hazard:: The sibling filter deduplicated by exact name, so a live epic and its own dated archive were compared as
 siblings. Titles are no identity: the live "Automated PR review apparatus reliability" and the archived "Review
 Apparatus — archived 2026-09-21" share no substring, and neither plan-marshall `status.json` carries a slug or epic id.
-Guard:: Differential test (`PM-TEST-2`): both snapshots map to the same `epic_id`. Scenario test: an epic with a live directory and
+Guard:: Ported-primitive test (`PM-TEST-2`): both snapshots map to the same `epic_id`. Scenario test: an epic with a live directory and
 a dated archive of its own corpus yields zero self-candidates; matched negative control: a genuinely distinct
 sibling epic is still enumerated and compared.
 Fixture:: the two titles above verbatim.
@@ -791,9 +793,9 @@ Source:: plan-marshall orchestrator-refactor PLAN-11 D1, D2.
 Anchor:: link:../specification/model-work/08-epic-coordination.adoc#epic-surface-disjointness[Model Work § Staging-Time Surface Disjointness],
 link:../specification/filesystem-layout/03-project-store.adoc#archives[Filesystem Layout § Plan & Epic Archives],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-2[PM-TEST-2]
-Hazard:: Differential and gate tests over store ports alone never meet an archived root that holds dated snapshots of
+Hazard:: Ported-primitive and gate tests over store ports alone never meet an archived root that holds dated snapshots of
 live epics, which is where the self-collision arose.
-Guard:: Use the real corpus as differential-test and staging-check fixture: every dated snapshot maps to its live
+Guard:: Use the real corpus as ported-primitive-test and staging-check fixture: every dated snapshot maps to its live
 `epic_id`, and staging a row of a live epic compares it only against that epic's own non-terminal rows, never
 against a dated snapshot or a sibling epic; a surface the check cannot declare refuses with `surface_undeclared`
 per row, never as a population-wide indeterminate count.

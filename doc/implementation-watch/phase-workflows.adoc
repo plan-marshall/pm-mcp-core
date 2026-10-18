@@ -833,7 +833,7 @@ link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-2[PM-TES
 Hazard:: Bot comments were mis-ingested in every direction: acknowledgements kept as findings, findings dropped as
 noise, capped fetches silently truncated, one of three publishing surfaces ignored, bot resolution markers taken as
 answers, summary-folded findings miscounted, reviewer recall understated.
-Guard:: The ingestion classifier is tested on this corpus (PM-TEST-2 differential corpus), including the controls.
+Guard:: The ingestion classifier is tested on this corpus (the corpus of the `PM-TEST-2` tests), including the controls.
 Fixture:: noise killers `\blooks good\b`, `\bship it\b`, `\bno objection\b`, `\[bot\]`; controls: a bare "looks good
 to me" is dropped, the same phrase inside a quote or agent block survives. Status line then remainder: `f7de42`
 (Major) and `bde483`, `actionable_count` 15 vs 17. Capped fetch: API-Sheriff#255 (236 vs 237, review
@@ -1280,7 +1280,7 @@ overwrites a remote commit the plan never saw.
 Guard:: Fixture: the remote is observed at `A`, a concurrent push moves it to `B`, a fetch moves the tracking ref to
 `B`, then the forced push runs: it names `A` as the expected remote SHA and is rejected (`rejected_lease` ->
 `git.sync-required`, where the server fetches and rebases onto the observed remote head, keeping `B`, within the
-attempt cap and otherwise steps out); every retry re-verifies with `ls-remote` first; a differential test shows the
+attempt cap and otherwise steps out); every retry re-verifies with `ls-remote` first; a test shows the
 same in both variants. In `finalize.merge-sync` the same rejection resets the branch to the pre-rebase `HEAD` and
 calls `remediation.merge-conflict`, whose gather first rebases onto the observed remote head (a clean rebase ends the
 unit `resolved` without a task); on a conflict the server takes `fix` without a decision task (an `implement` task) and
@@ -1479,9 +1479,9 @@ Hazard:: A stage exit check that counts only `breached` triggers passes a stage 
 and a parallel-run criterion or a population-based trigger demanded before Stage 3 can never be met (no plans run in
 parallel before it).
 Guard:: The stage exit verification of a stage from Stage 3 on fails on any trigger evaluated `breached` or
-`indeterminate` and demands the parallel-run comparison; Stages 1 and 2 are gated by the differential tests and the
+`indeterminate` and demands the parallel-run comparison; Stages 1 and 2 are gated by the ported-primitive tests and the
 JUnit module tests alone. Test: a Stage 4 exit with every trigger `clear` except one `indeterminate` fails the exit
-check. Matched control: a Stage 2 exit with passing differential and module tests, no parallel run, and an
+check. Matched control: a Stage 2 exit with passing ported-primitive and module tests, no parallel run, and an
 `indeterminate` trigger passes.
 Source:: design review.
 

@@ -29,6 +29,13 @@ the same names here only point to them. Links here are relative, also into the d
 them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
 (`BROKEN LINKS 0`); the workflow `links.yml` of the documentation runs it over both trees.
 
+## Project Setup
+
+`../plan-marshall-documentation/doc/developer/project-setup.adoc` is the reference for how the project is organised and
+worked on: the repositories and their checkouts beside each other, building, how the repositories depend on each other,
+what every repository is set up with, how the work is planned as work packages, and how a change gets from a branch to
+`main`. Read it before starting work. This file holds only what is specific to this repository.
+
 ## Module Documentation
 
 The documentation that belongs to the code lives beside it, in four places:
@@ -143,14 +150,14 @@ of the other repositories). A package is ready when it is open and depends on no
 is needed, not when it may start. The plan files hold the tasks only: requirements, specifications and watch
 items are linked, those of this repository by relative paths, those of `plan-marshall-documentation` by relative
 paths that assume the repositories checked out beside each other. A package is worked in the usual plan-marshall flow
-of the section "Git Workflow" (branch, commits, pull request at finalize); within those commits its row leaves the
+of Project Setup, _Planning the Work_ (branch, commits, pull request at finalize); within those commits its row leaves the
 index and its package file is deleted.
 
 ## Git Workflow
 
-`main` is protected by rulesets and merges go through the merge queue; direct pushes to `main` are not allowed.
-Branch, commit, push, open a pull request, wait for the checks, answer and resolve every review comment. Do not
-merge without the user's word. Commits end with `Co-Authored-By: plan-marshall <noreply@cuioss.de>`.
+The way from a branch to `main` is in Project Setup (_From a Branch to `main`_). The hard rules: `main` is protected by
+rulesets and merges go through the merge queue, so nothing is pushed to `main`; never merge without the user's word;
+commits end with `Co-Authored-By: plan-marshall <noreply@cuioss.de>`.
 
 CI: reusable workflows of `cuioss/cuioss-organization`, pinned by full SHA with a version comment; configuration in
 `.github/project.yml`.
