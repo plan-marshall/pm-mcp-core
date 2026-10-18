@@ -28,11 +28,12 @@ import de.planmarshall.runtime.job.SettlementStep.Settled;
  * order of {@link Name}, whatever order they are given in, the fate of the job record first and the release of its
  * slot after it, so a released slot never precedes the recorded fate.
  * <p>
- * The first step that fails stops the settlement, and no later step runs. A crash or failure between two steps
- * therefore loses at most what the specification allows: a task's metrics row, a freshness mark or a timing sample.
- * A slot or a task lease left on a job whose fate is already recorded is not released by the recovery, whose jobs
- * part skips every settled job: the stale lease sweep of the recovery marks the lease orphaned because its holder no
- * longer lives, and the lease is left to its own expiry.
+ * The first step that fails stops the settlement, and no later step runs. Of the steps after the fate, this runtime
+ * implements only the slot release: the worker queue task record with its task lease release is a named seam, and the
+ * slot is named by the caller of the settlement. The runner settles its own jobs without a slot, and the recovery of
+ * {@code runtime.start} names it through {@code JobRecoveryStep.Slots}, whose {@code Slots.NONE} names none. The jobs
+ * part of that recovery skips every settled job, so it does not release the slot of a job whose fate is recorded and
+ * whose slot release did not run; that release is the part of PM-WATCH-JOB-23 that stays open.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Outcome Derivation, Write
  * order at job end); {@code doc/specification/store-schemas/10-job-and-lesson-records.adoc} (Job Record).

@@ -26,6 +26,7 @@ import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -518,6 +519,106 @@ class SubprocessJobRunnerTest {
     }
 
     @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("settles a job whose post-spawn record cannot be written and passes the failure on")
+    class PostSpawnNotWritten {
+
+        private final List<Long> signalledGroups = new CopyOnWriteArrayList<>();
+
+        @BeforeEach
+        void install() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+        }
+
+        @AfterEach
+        void writable() throws IOException {
+            if (Files.isDirectory(jobs.directoryPath())) {
+                Files.setPosixFilePermissions(jobs.directoryPath(), PosixFilePermissions.fromString("rwx------"));
+            }
+        }
+
+        /**
+         * A runner whose signals are recorded. With {@code refusePostSpawn}, the directory of the records is made
+         * read-only right before the post-spawn write, the first transaction after the environment of the launch is
+         * asked for, and writable again with the first signal of the termination, so only the post-spawn write fails.
+         */
+        private SubprocessJobRunner recordingSignals(boolean refusePostSpawn) {
+            var system = ProcessGroupSignals.system();
+            var signals = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    permissions("rwx------");
+                    signalledGroups.add(pgid);
+                    return system.signalGroup(pgid, signal);
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    permissions("rwx------");
+                    return system.signalProcess(pid, signal);
+                }
+            };
+            return runner(new TerminationProtocol(signals), request -> Optional.empty(), job -> {
+                if (refusePostSpawn) {
+                    locks.beforeNextTransaction(() -> permissions("r-x------"));
+                }
+                return ENVIRONMENT;
+            });
+        }
+
+        private void permissions(String mode) {
+            try {
+                Files.setPosixFilePermissions(jobs.directoryPath(), PosixFilePermissions.fromString(mode));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        @Test
+        @DisplayName("the job is terminated, settled killed by row 4 and out of the running jobs before the failure")
+        void settledBeforeFailure() {
+            runner = recordingSignals(true);
+
+            assertThrows(UncheckedIOException.class, () -> runner.start(git(60, "sleep", "60")));
+
+            var records = jobs.records();
+            assertEquals(1, records.size(), "one job was recorded");
+            var settled = records.getFirst();
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals("SIGTERM", settled.signal(), "the runner's signal ended the process"),
+                    () -> assertNotNull(settled.pid(), "the process ran, its PID is recorded"),
+                    () -> assertEquals(List.of(settled.pid()), signalledGroups.stream().distinct().toList(),
+                            "the job's process group was terminated"),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO)),
+                    () -> assertEquals(Optional.of(settled), runner.record(settled.jobId())),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            "Job '%s' settled with fate 'killed' (outcome row 4)".formatted(settled.jobId())),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                            INFO.JOB_STARTED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("matched control: a job whose post-spawn record is written is started and settled by its exit")
+        void writtenPostSpawn() {
+            runner = recordingSignals(false);
+
+            var jobId = started(runner.start(git(30, "ok")));
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> assertTrue(signalledGroups.isEmpty(), "nothing was signalled"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.JOB_STARTED.resolveIdentifierString()));
+        }
+    }
+
+    @Nested
     @DisplayName("serves the engine port")
     class EnginePort {
 
@@ -721,13 +822,23 @@ class SubprocessJobRunnerTest {
         private final LockManager delegate;
         private final Set<LockTransaction> open = ConcurrentHashMap.newKeySet();
         private final List<LockKey> acquired = new CopyOnWriteArrayList<>();
+        private final AtomicReference<Runnable> beforeNext = new AtomicReference<>();
 
         RecordingLocks(LockManager delegate) {
             this.delegate = delegate;
         }
 
+        /** Runs an action once, right before the next transaction is opened. */
+        void beforeNextTransaction(Runnable action) {
+            beforeNext.set(action);
+        }
+
         @Override
         public LockTransaction openTransaction() {
+            var action = beforeNext.getAndSet(null);
+            if (action != null) {
+                action.run();
+            }
             var transaction = delegate.openTransaction();
             var recording = new LockTransaction() {
 

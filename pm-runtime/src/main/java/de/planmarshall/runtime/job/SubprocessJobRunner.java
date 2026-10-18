@@ -86,7 +86,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * {@code process_started_at}, {@code spawned_at}, {@code confinement} and {@code landlock_abi} replaces the
  * write-ahead record. Only then does the job count as running, and only then does the start answer it: a start never
  * reports a job running whose record lacks its PID. A launcher that fails before {@code execve} writes no report; its
- * job keeps the write-ahead record and is settled from the launcher's exit.</li>
+ * job keeps the write-ahead record and is settled from the launcher's exit. A post-spawn record that cannot be written
+ * terminates the job's process group, and the job is settled from its observed end before the failure is passed on.
+ * </li>
  * </ol>
  * <p>
  * A virtual thread per job then waits for the end of its process, for its budget or for a cancel, whichever comes
@@ -169,10 +171,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private static final SignalTable SIGNALS = SignalTable.of(System.getProperty("os.name", ""));
 
     /**
-     * The closed tables of the names of the signals 1 to 31 by their numbers. The two systems agree on 1 to 6, 8, 9,
-     * 11 and 13 to 15 and differ from there: on macOS 7 is {@code SIGEMT}, 10 {@code SIGBUS}, 12 {@code SIGSYS}, and
-     * 30 and 31 are {@code SIGUSR1} and {@code SIGUSR2}. A number above a table, such as a real-time signal of Linux,
-     * is named {@code SIG<n>}.
+     * The closed tables of the names of the signals 1 to 31 by their numbers. The two systems agree on 19 numbers, 1
+     * to 6, 8, 9, 11, 13 to 15, 21, 22 and 24 to 28, and name the other 12 differently: 7, 10, 12, 16 to 20, 23 and
+     * 29 to 31 (on macOS, for example, 7 is {@code SIGEMT}, 10 {@code SIGBUS}, 12 {@code SIGSYS}, and 30 and 31 are
+     * {@code SIGUSR1} and {@code SIGUSR2}). A number above a table, such as a real-time signal of Linux, is named
+     * {@code SIG<n>}.
      */
     enum SignalTable {
 
@@ -340,8 +343,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *                                  operating system refuses
      * @throws NullPointerException     after the job is settled as its launcher's exit {@value #EXECVE_FAILED}, if
      *                                  the environment of its launch names a {@code null}
-     * @throws UncheckedIOException     if a record cannot be written
-     * @throws StoreRefusal             if a record of the job's store cannot be read
+     * @throws UncheckedIOException     if a record cannot be written; a job whose post-spawn record is not written is
+     *                                  terminated and settled first
+     * @throws StoreRefusal             if a record of the job's store cannot be read; a job whose post-spawn record
+     *                                  is refused so is terminated and settled first
      */
     @Override
     public JobRunner.StartResult start(JobRunner.StartRequest<JobRequest> request) {
@@ -373,8 +378,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *         refusal {@value #CONSENT_REQUIRED} without a record for a probe without consent; or the refusal of its
      *         verification, recorded as the probe's fate {@code refused}
      * @throws UncheckedIOException     if a record or the job-private directory cannot be written, or the base
-     *                                  directory cannot be resolved to its real path
-     * @throws StoreRefusal             if a record of the probe's store cannot be read
+     *                                  directory cannot be resolved to its real path; a probe whose post-spawn record
+     *                                  is not written is terminated and settled first
+     * @throws StoreRefusal             if a record of the probe's store cannot be read; a probe whose post-spawn
+     *                                  record is refused so is terminated and settled first
      * @throws IllegalArgumentException after the probe is settled as its launcher's exit {@value #EXECVE_FAILED}, if
      *                                  its launch cannot be composed, for example for an environment variable the
      *                                  operating system refuses
@@ -639,6 +646,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * launcher that cannot be started answers the started job; an exception of the composition of the launch (the
      * caller's environment, the {@link Launch} it is checked by, the process builder) is passed on to the caller of
      * the start once the job is settled.
+     * <p>
+     * A job whose process was started leaves the running jobs only settled as well: when its post-spawn record cannot
+     * be written, its process group is terminated and the job is settled from its observed end
+     * ({@code settleUnsupervised}) before the failure of the write is passed on to the caller.
      */
     private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
         var jobId = job.record.jobId();
@@ -665,27 +676,87 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
         job.launched(launched.process());
         var deadline = spawnedAt.plus(job.budget.duration());
-        var awaited = awaitReport(launched.process(), log, deadline);
-        awaited.report().ifPresent(report -> writePostSpawn(job, launched, report, spawnedAt));
-        Thread.ofVirtual().name("job-" + jobId).start(() -> supervise(job, launched, spawnedAt,
-                awaited.observedLength()));
+        var supervised = false;
+        var observedLength = 0L;
+        JobRecord reported = null;
+        try {
+            var awaited = awaitReport(launched.process(), log, deadline);
+            observedLength = awaited.observedLength();
+            if (awaited.report().isPresent()) {
+                reported = postSpawnRecord(job.record, awaited.report().get(), spawnedAt);
+                writePostSpawn(job, reported);
+            }
+            var length = observedLength;
+            Thread.ofVirtual().name("job-" + jobId).start(() -> supervise(job, launched, spawnedAt, length));
+            supervised = true;
+        } finally {
+            if (!supervised) {
+                settleUnsupervised(job, launched, reported, spawnedAt, observedLength);
+            }
+        }
         return new JobRunner.StartResult.Started(jobId);
     }
 
-    /** The post-spawn replace: from it on the job counts as running. */
-    private void writePostSpawn(RunningJob job, Launched launched, LaunchReport report, Instant spawnedAt) {
-        var postSpawn = job.record.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
+    /** The record that replaces the write-ahead record once the launch report is read. */
+    private static JobRecord postSpawnRecord(JobRecord writeAhead, LaunchReport report, Instant spawnedAt) {
+        return writeAhead.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
                 .spawnedAt(spawnedAt).confinement(report.confinement()).landlockAbi(report.landlockAbi()).build();
+    }
+
+    /**
+     * The post-spawn replace: from it on the job counts as running.
+     *
+     * @throws UncheckedIOException if the record cannot be written
+     * @throws StoreRefusal         if the record of the job is unreadable
+     */
+    private void writePostSpawn(RunningJob job, JobRecord postSpawn) {
         try (var transaction = lockManager.openTransaction()) {
             job.store.writePostSpawn(transaction, postSpawn);
-        } catch (UncheckedIOException | StoreRefusal e) {
-            termination.terminate(launched.pid());
-            running.remove(postSpawn.jobId());
-            throw e;
         }
         job.record = postSpawn;
-        LOGGER.info(INFO.JOB_STARTED, postSpawn.jobId(), postSpawn.kind().wireName(), report.pid(),
+        LOGGER.info(INFO.JOB_STARTED, postSpawn.jobId(), postSpawn.kind().wireName(), postSpawn.pid(),
                 job.budget.seconds());
+    }
+
+    /**
+     * Settles a job whose process was started and that was never handed to the virtual thread that waits for it,
+     * because its post-spawn record could not be written or the thread could not be started. Its process group is
+     * terminated, its end is awaited, and it is settled from what the runner observed, as an ended job is, before the
+     * failure is passed on to the caller of the start.
+     * <p>
+     * No termination of the outcome derivation names this end, so none is recorded and the evidence decides: a group
+     * that the runner's signal ended is {@code killed} by row 4, a process ended by any other signal, the closest row
+     * the specification names; a process that had exited before the signal is decided by its exit like every ended
+     * job. A cancel that was answered as deciding the job's end in the meantime decides it by its cause, as it would
+     * have on the waiting thread. The settled record carries the PID and the process start of the launch report, also when its post-spawn
+     * record was not written, because the process ran.
+     *
+     * @param reported the post-spawn record of the launch report; {@code null} for a launcher that wrote no report
+     */
+    private void settleUnsupervised(RunningJob job, Launched launched, JobRecord reported, Instant spawnedAt,
+            long observedLength) {
+        var interrupted = false;
+        try {
+            var pid = job.record.isSpawnRecorded() ? job.record.pid() : launched.pid();
+            var report = termination.terminate(pid);
+            if (report.ending() == Ending.SIGNAL_REFUSED) {
+                launched.process().destroyForcibly();
+            }
+            var exit = waitFor(launched.process());
+            interrupted = exit.interrupted();
+            if (reported != null && !job.record.isSpawnRecorded()) {
+                job.record = reported;
+            }
+            var cancelled = job.cause.isDone() ? Optional.of(job.cause.join()) : Optional.<Termination>empty();
+            settle(job, new Ended(spawnedAt, clock.instant(), exit.value(), cancelled, report.cancelBeforeGroup()),
+                    observedLength);
+        } finally {
+            running.remove(job.record.jobId());
+            job.settled.complete(job.record);
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     /** The launch report and how much of the log was read for it. */

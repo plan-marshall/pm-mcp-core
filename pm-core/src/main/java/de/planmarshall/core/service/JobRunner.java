@@ -143,7 +143,8 @@ public interface JobRunner<R, C> {
     sealed interface StartResult permits StartResult.Started, StartResult.Refused {
 
         /**
-         * The job was started, or recorded as queued for its slot.
+         * The job was started; or, while the runtime drains, it was recorded as queued, is never launched and is
+         * settled without a process.
          *
          * @param jobId the id of the job
          * @since 0.1

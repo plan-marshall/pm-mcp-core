@@ -31,6 +31,16 @@ job spec its job would need: which build verb, which tool, which arguments.
 * The admission of a job and the stop of the admission for the drain are decided under one lock (`stopAdmitting`), so
   a job admitted before the stop is among the running jobs the drain waits for; a job asked for afterwards is recorded
   `queued`, never spawned, and settled `killed` without a signal when the drain closes.
+* A job leaves the running jobs only after its settlement has run, on every path: a launch that cannot be composed or
+  a launcher that cannot be started settles it as the launcher's exit `127`, and a post-spawn record that cannot be
+  written terminates its process group, awaits the end of the process and settles it from that end before the failure
+  is passed on to the caller of the start. The runner keeps the invariant with `try`/`finally` and a success flag, not
+  by catching a generic exception.
+* No row of the outcome derivation names the termination of a job whose post-spawn record failed, and the runner
+  invents none: it records no termination cause, and the evidence decides. A process ended by the runner's signal is
+  `killed` by row 4, which the specification names for a process ended by any other signal and which is the closest
+  row; a process that had exited before the signal is decided by its exit, and a cancel answered in the meantime by
+  its cause. The settled record carries the PID and the process start of the launch report, because the process ran.
 
 == Alternatives Considered
 
@@ -42,6 +52,9 @@ Alternatives not recorded beyond those of ADR core-service/001 of `pm-core`.
   until then the port refuses it with `primitive_without_job`, and no job is recorded.
 * A job started through either port is the same job: one record, one log, one cancel.
 * A later supervisor launches workers itself and records them in the same job record store.
+* `record(jobId)` and `awaitSettled(jobId, timeout)` answer the settled record of every job that left the running
+  jobs, unless its fate could not be written; no record stays `running` until the next runtime start because one
+  post-spawn write failed.
 
 == Source
 

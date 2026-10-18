@@ -46,9 +46,14 @@ Alternatives not recorded.
 * A later package that brings a store replaces its seam with a real step and leaves the order as it is; `JobSettlement`
   refuses a list that misses a name or names one twice.
 * A crash injected at any step leaves the stores consistent: the fate is recorded before any slot is released.
-* A slot left on a job whose fate is already recorded (a crash after the fate and before the release, or a failed
-  `SLOT_RELEASE`) is not released by the recovery: its jobs part skips every settled job, the stale lease sweep marks
-  the lease orphaned because its holder no longer lives, and the lease is left to its own expiry.
+* The steps after the fate are seams or caller-supplied: the worker queue task record with its task lease release is
+  a named seam, and the slot is the one the caller of the settlement names (none for the runner's own jobs,
+  `Slots.NONE` in the recovery until slots exist).
+* The jobs part of the recovery in this runtime skips every settled job, so it does not release the slot of a job
+  whose fate is recorded and whose slot release did not run (a crash after the fate and before the release, or a
+  failed `SLOT_RELEASE`). That release is the part of
+  link:../../../../doc/implementation-watch/job-runtime.adoc#PM-WATCH-JOB-23[PM-WATCH-JOB-23] that stays open; the
+  watch item and the specification are unchanged.
 
 == Source
 
