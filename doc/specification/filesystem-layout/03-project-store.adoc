@@ -20,7 +20,8 @@ All server-owned state of one project lives in its per-project machine store `<P
 │   └── <plan_id>/
 │       ├── request.md                   # Its original input composed from the descriptions and a reference to each other source
 │       ├── intent.json                  # Its intent record and the record's earlier revisions
-│       ├── outline.md
+│       ├── outline.json                 # Its outline record and the record's earlier revisions
+│       ├── outline.md                   # Rendered from outline.json
 │       ├── sources/                     # The plan's source directory, moved here from its entry at start.create-scope
 │       ├── instance/                    # Plan instance: immutable plan.v<N>.pmwf and <unit>.v<N>.pmwf versions, composition.jsonl
 │       ├── overrides.json               # The plan's own values (written only by the operator, in either client)
