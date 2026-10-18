@@ -153,7 +153,7 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR), finding::message),
                     () -> assertEquals(1, result.findings().stream()
-                            .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
+                                    .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
                             "only the unit naming the reserved author is refused for it"));
         }
 

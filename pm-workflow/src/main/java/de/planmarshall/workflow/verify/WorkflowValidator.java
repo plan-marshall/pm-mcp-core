@@ -372,7 +372,7 @@ public final class WorkflowValidator {
             if (!entries.contains(entry)) {
                 violations.add(new Violation(VerificationRule.INTERFACE_START_OR_ENTRIES, unitStateId,
                         binding.location(), "the binding names the entry '%s', which the frontmatter does not declare"
-                                .formatted(entry)));
+                        .formatted(entry)));
             }
         });
     }
