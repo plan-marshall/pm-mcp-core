@@ -384,7 +384,7 @@ class WorkflowStatusCodecTest {
                                 "the check fails on the runner only", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001)),
                         "The rationale of a waiver request has 1 to 2000 characters, not 2001"),
                 Arguments.of("a decline reason over 2000 supplementary characters", request("\"declined\"", "null",
-                                ANSWERED_CLI.replace("not now", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001))),
+                        ANSWERED_CLI.replace("not now", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001))),
                         "The reason of an answer has at most 2000 characters, not 2001"),
                 Arguments.of("a request that is no object", "\"WR-1\"", "'waiver_requests[0]' must be an object"));
     }
