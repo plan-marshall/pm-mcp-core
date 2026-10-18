@@ -141,6 +141,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  *
  * @since 0.1
  */
+// java:S6539 does not apply: the runner implements both ports of the job subsystem, JobRunner and JobStarter, by
+// design (ADR runtime-job/004), and the dependencies Sonar counts are the pipeline it composes (lock manager, store,
+// record, evidence and launch types). Splitting it would put one settlement state machine into two classes that share
+// the running-job map and the admission lock.
+@SuppressWarnings("java:S6539")
 public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCandidate>, JobStarter {
 
     private static final CuiLogger LOGGER = new CuiLogger(SubprocessJobRunner.class);
