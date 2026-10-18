@@ -2,9 +2,9 @@
   "id": "PLAN-72",
   "slug": "spend-removal",
   "workstream": "WS-04",
-  "status": "staged",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "spend-removal",
+  "pr": "#83",
+  "landing": "landings/PLAN-72.md",
   "seq": 72
 }
