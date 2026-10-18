@@ -37,7 +37,9 @@ import de.planmarshall.workflow.ast.UnitType;
  * the closing {@code ---}, so a unit's name, description, type and interface can be shown without its body, and the
  * body need not be parseable.
  * <p>
- * Every line is {@code key: value} at column 1. The value is plain (no leading or trailing blank, no YAML indicator
+ * A line ends with a line feed or with a carriage return followed by a line feed; the line ending is not part of the
+ * line, so line and column numbers are the same for both. A carriage return anywhere else is a control character and
+ * refused. Every line is {@code key: value} at column 1. The value is plain (no leading or trailing blank, no YAML indicator
  * character at its start, neither {@code ": "} nor {@code " #"} inside) or double-quoted with the escapes {@code \"}
  * and {@code \\} only. The reader refuses, and the first refusal wins: a missing frontmatter, a tag, an anchor, an
  * alias, a merge key, a flow collection, a block scalar, a comment, a blank or indented line, a control character, an
@@ -121,7 +123,7 @@ public final class UnitFrontmatterReader {
         Objects.requireNonNull(resourceName, "resourceName");
         Objects.requireNonNull(source, "source");
         try {
-            return new Fields(resourceName).read(source.split("\n", -1));
+            return new Fields(resourceName).read(source.replace("\r\n", "\n").split("\n", -1));
         } catch (Refusal refusal) {
             return new Result.Refused(new Diagnostic(RefusalRule.FRONTMATTER, resourceName, refusal.line,
                     refusal.column, refusal.getMessage()));
@@ -242,12 +244,7 @@ public final class UnitFrontmatterReader {
                 case KEY_ENTRY_DESCRIPTION -> describe(KEY_ENTRY, entries, value, number, column);
                 case KEY_EXIT_DESCRIPTION -> describe(KEY_EXIT, exits, value, number, column);
                 case KEY_MODIFICATION_DATE -> modificationDate = date(value, number, column);
-                case KEY_VERSION -> {
-                    if (value.length() > MAX_RELEASE_VERSION || !RELEASE_VERSION.matcher(value).matches()) {
-                        throw new Refusal(number, column,
-                                "the version '%s' is no release version such as 1.0.0".formatted(value));
-                    }
-                }
+                case KEY_VERSION -> checkVersion(value, number, column);
                 case KEY_AUTHOR -> checkLength(key, value, 1, 100, number, column);
                 default -> {
                     // the signature is carried and never verified
@@ -322,88 +319,111 @@ public final class UnitFrontmatterReader {
                     singles.get(KEY_VERSION), singles.get(KEY_AUTHOR),
                     Optional.ofNullable(singles.get(KEY_SIGNATURE)), new SourceLocation(resourceName, 1, 1));
         }
-    }
 
-    /** Reads the value after {@code ": "}, which starts at the given column. */
-    private static String value(String raw, int number, int column) {
-        if (raw.isEmpty() || raw.charAt(0) == ' ') {
-            throw new Refusal(number, column - 1, "a blank after ': ' that starts no value");
+        private static void checkVersion(String value, int number, int column) {
+            if (value.length() > MAX_RELEASE_VERSION || !RELEASE_VERSION.matcher(value).matches()) {
+                throw new Refusal(number, column,
+                        "the version '%s' is no release version such as 1.0.0".formatted(value));
+            }
         }
-        if (raw.charAt(0) == '"') {
-            return quoted(raw, number, column);
-        }
-        rejectIndicator(raw, number, column);
-        if (raw.endsWith(" ")) {
-            throw new Refusal(number, column + raw.length() - 1, "a plain value with a trailing blank");
-        }
-        var comment = raw.indexOf(" #");
-        if (comment >= 0) {
-            throw new Refusal(number, column + comment + 1, "a comment in the frontmatter");
-        }
-        var mapping = raw.indexOf(": ");
-        if (mapping >= 0) {
-            throw new Refusal(number, column + mapping,
-                    "a plain value that contains ': '; write the value double-quoted");
-        }
-        return raw;
-    }
 
-    /** Reads a double-quoted value, which admits the escapes {@code \"} and {@code \\} only. */
-    private static String quoted(String raw, int number, int column) {
-        var value = new StringBuilder();
-        var index = 1;
-        while (index < raw.length()) {
-            var character = raw.charAt(index);
-            if (character == '\\') {
-                if (index + 1 < raw.length() && (raw.charAt(index + 1) == '"' || raw.charAt(index + 1) == '\\')) {
-                    value.append(raw.charAt(index + 1));
-                    index += 2;
-                    continue;
-                }
-                throw new Refusal(number, column + index,
-                        "a double-quoted value admits the escapes \\\" and \\\\ only");
+        /** Reads the value after {@code ": "}, which starts at the given column. */
+        private static String value(String raw, int number, int column) {
+            if (raw.isEmpty() || raw.charAt(0) == ' ') {
+                throw new Refusal(number, column - 1, "a blank after ': ' that starts no value");
             }
-            if (character == '"') {
-                if (index != raw.length() - 1) {
-                    throw new Refusal(number, column + index + 1, "content after the closing quote of the value");
-                }
-                return value.toString();
+            if (raw.charAt(0) == '"') {
+                return quoted(raw, number, column);
             }
-            value.append(character);
-            index++;
+            rejectIndicator(raw, number, column);
+            if (raw.endsWith(" ")) {
+                throw new Refusal(number, column + raw.length() - 1, "a plain value with a trailing blank");
+            }
+            var comment = raw.indexOf(" #");
+            if (comment >= 0) {
+                throw new Refusal(number, column + comment + 1, "a comment in the frontmatter");
+            }
+            var mapping = raw.indexOf(": ");
+            if (mapping >= 0) {
+                throw new Refusal(number, column + mapping,
+                        "a plain value that contains ': '; write the value double-quoted");
+            }
+            return raw;
         }
-        throw new Refusal(number, column, "the double-quoted value is not closed");
+
+        /** Reads a double-quoted value, which admits the escapes {@code \"} and {@code \\} only. */
+        private static String quoted(String raw, int number, int column) {
+            var value = new StringBuilder();
+            var index = 1;
+            while (index < raw.length()) {
+                var character = raw.charAt(index);
+                if (character == '\\') {
+                    if (index + 1 < raw.length() && (raw.charAt(index + 1) == '"' || raw.charAt(index + 1) == '\\')) {
+                        value.append(raw.charAt(index + 1));
+                        index += 2;
+                        continue;
+                    }
+                    throw new Refusal(number, column + index,
+                            "a double-quoted value admits the escapes \\\" and \\\\ only");
+                }
+                if (character == '"') {
+                    if (index != raw.length() - 1) {
+                        throw new Refusal(number, column + index + 1,
+                                "content after the closing quote of the value");
+                    }
+                    return value.toString();
+                }
+                value.append(character);
+                index++;
+            }
+            throw new Refusal(number, column, "the double-quoted value is not closed");
+        }
+
+        /**
+         * Refuses a key or value that opens with a YAML indicator character, naming the construct it would open in
+         * YAML.
+         */
+        private static void rejectIndicator(String text, int number, int column) {
+            var first = text.charAt(0);
+            var construct = switch (first) {
+                case '!' -> "a tag";
+                case '&' -> "an anchor";
+                case '*' -> "an alias";
+                case '{', '[' -> "a flow collection";
+                case '|', '>' -> "a block scalar";
+                case '#' -> "a comment";
+                default -> INDICATORS.indexOf(first) >= 0
+                        ? "the YAML indicator '%c', which opens neither a key nor a plain or double-quoted value"
+                        .formatted(first)
+                        : null;
+            };
+            if (construct != null) {
+                throw new Refusal(number, column, construct + " in the frontmatter");
+            }
+        }
+
+        private static void rejectControlCharacter(String text, int number) {
+            for (var index = 0; index < text.length(); index++) {
+                if (Character.isISOControl(text.charAt(index))) {
+                    throw new Refusal(number, index + 1,
+                            "the control character U+%04X in the frontmatter".formatted((int) text.charAt(index)));
+                }
+            }
+        }
     }
 
     /**
-     * Refuses a key or value that opens with a YAML indicator character, naming the construct it would open in YAML.
+     * Tells whether a frontmatter value can be written as a plain scalar that this reader reads back unchanged: it is
+     * not empty, has no leading or trailing blank, does not start with a YAML indicator character, and holds neither
+     * {@code ": "} nor {@code " #"}. This is the one definition of the plain-value rule; {@link WorkflowPrinter} writes
+     * every other value double-quoted.
+     *
+     * @param value the value
+     * @return whether the value can be written plain
      */
-    private static void rejectIndicator(String text, int number, int column) {
-        var first = text.charAt(0);
-        var construct = switch (first) {
-            case '!' -> "a tag";
-            case '&' -> "an anchor";
-            case '*' -> "an alias";
-            case '{', '[' -> "a flow collection";
-            case '|', '>' -> "a block scalar";
-            case '#' -> "a comment";
-            default -> INDICATORS.indexOf(first) >= 0
-                    ? "the YAML indicator '%c', which opens neither a key nor a plain or double-quoted value"
-                    .formatted(first)
-                    : null;
-        };
-        if (construct != null) {
-            throw new Refusal(number, column, construct + " in the frontmatter");
-        }
-    }
-
-    private static void rejectControlCharacter(String text, int number) {
-        for (var index = 0; index < text.length(); index++) {
-            if (Character.isISOControl(text.charAt(index))) {
-                throw new Refusal(number, index + 1,
-                        "the control character U+%04X in the frontmatter".formatted((int) text.charAt(index)));
-            }
-        }
+    static boolean isPlain(String value) {
+        return !value.isEmpty() && !value.startsWith(" ") && !value.endsWith(" ")
+                && INDICATORS.indexOf(value.charAt(0)) < 0 && !value.contains(": ") && !value.contains(" #");
     }
 
     /** An entry or exit while its frontmatter is read; its description may follow on the next line. */

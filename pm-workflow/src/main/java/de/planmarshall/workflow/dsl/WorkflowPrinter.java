@@ -60,9 +60,6 @@ public final class WorkflowPrinter {
     private static final String INDENT = "    ";
     private static final String LIST_SEPARATOR = ", ";
 
-    /** The characters a plain YAML scalar may not start with. */
-    private static final String PLAIN_INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
-
     /** The binding strength of {@code or}, the weakest operator. */
     private static final int PRECEDENCE_OR = 1;
     /** The binding strength of {@code and}. */
@@ -120,13 +117,11 @@ public final class WorkflowPrinter {
     }
 
     /**
-     * Writes a frontmatter value plain when a plain scalar can carry it, and double-quoted with {@code \"} and
-     * {@code \\} escaped otherwise.
+     * Writes a frontmatter value plain when a plain scalar can carry it ({@link UnitFrontmatterReader#isPlain}), and
+     * double-quoted with {@code \"} and {@code \\} escaped otherwise.
      */
     private static String scalar(String value) {
-        var plain = !value.isEmpty() && !value.startsWith(" ") && !value.endsWith(" ")
-                && PLAIN_INDICATORS.indexOf(value.charAt(0)) < 0 && !value.contains(": ") && !value.contains(" #");
-        if (plain) {
+        if (UnitFrontmatterReader.isPlain(value)) {
             return value;
         }
         return '"' + value.replace("\\", "\\\\").replace("\"", "\\\"") + '"';

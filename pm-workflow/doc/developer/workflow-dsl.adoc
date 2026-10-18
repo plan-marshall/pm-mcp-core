@@ -98,6 +98,9 @@ anchor, alias or merge key is ever resolved
 * *One field per line*: every line is `key: value` at column 1. There is no blank line, comment, indentation, nesting,
   flow collection, block scalar or document marker other than the two delimiters, and no value contains a control
   character.
+* *Line endings*: a line ends with a line feed (LF) or with a carriage return and a line feed (CRLF). The line ending is
+  not part of the line, so a CRLF unit reads to the same frontmatter, with the same line and column numbers, as its LF
+  twin. A carriage return anywhere else is a control character and refused.
 * *Values*: a value is plain or double-quoted. A plain value has no leading or trailing blank, does not start with a
   YAML indicator character (`-?:,[]{}#&*!|>'"%@` and the backquote), and contains neither `": "` nor `" #"`. A
   double-quoted value is one line between `"` and `"` with the escapes `\"` and `\\` only. A value a plain scalar
@@ -242,7 +245,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 `WorkflowPrinter` writes the frontmatter first, between its two `---` lines, in the order of the field table: `name`,
 `description`, `type`, each `entry` followed by its `entry_description`, each `exit` followed by its `exit_description`,
 `modification_date`, `version`, `author` and `signature`. A value is written plain when a plain scalar can carry it and
-double-quoted otherwise, with `\` written as `\\` and `"` as `\"`. Then come the unit header and the declarations, the
+double-quoted otherwise (the rule is `UnitFrontmatterReader.isPlain`, the reader's own, so printer and reader cannot
+drift apart), with `\` written as `\\` and `"` as `\"`. Then come the unit header and the declarations, the
 `start` line or the entry bindings in source order, the migrations and the states; a `call` names the entry it names in
 the tree.
 
@@ -275,8 +279,8 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 
 |`UnitFrontmatterReaderTest`
 |Every field read, three entries kept in order with their descriptions, every refused form and every field bound with
-rule, line and column, a future and an invalid calendar date, the signature carried and not verified, and the
-frontmatter of a text whose body does not parse.
+rule, line and column, a future and an invalid calendar date, the signature carried and not verified, the
+frontmatter of a text whose body does not parse, a CRLF unit read like its LF twin, and a lone carriage return refused.
 
 |`WorkflowParserTest`
 |The frontmatter read into the tree, entry bindings and `call … entry` parsed, a unit with three entries, and a unit with

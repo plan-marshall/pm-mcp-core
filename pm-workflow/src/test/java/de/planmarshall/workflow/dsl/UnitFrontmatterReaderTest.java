@@ -315,6 +315,39 @@ class UnitFrontmatterReaderTest {
     }
 
     @Nested
+    @DisplayName("The line endings")
+    class LineEndings {
+
+        @Test
+        @DisplayName("reads a unit with CRLF line endings to the frontmatter and body line of its LF twin")
+        void readsCrlfLikeLf() {
+            var lf = unit(VALID);
+            var crlf = lf.replace("\n", "\r\n");
+
+            var expected = read(lf);
+            var actual = read(crlf);
+
+            assertAll(
+                    () -> assertEquals(expected.frontmatter(), actual.frontmatter()),
+                    () -> assertEquals(expected.bodyLine(), actual.bodyLine()));
+        }
+
+        @Test
+        @DisplayName("refuses a carriage return inside a value as a control character, also in a CRLF unit")
+        void refusesLoneCarriageReturn() {
+            var lf = unit(appended("signature: ab\rc"));
+            var crlf = lf.replace("\n", "\r\n");
+
+            var inLf = refuse(lf);
+            var inCrlf = refuse(crlf);
+
+            assertAll(
+                    () -> assertRefused(inLf, APPENDED_LINE, 14),
+                    () -> assertRefused(inCrlf, APPENDED_LINE, 14));
+        }
+    }
+
+    @Nested
     @DisplayName("The field rules")
     class FieldRules {
 
