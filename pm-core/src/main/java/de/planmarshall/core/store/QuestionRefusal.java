@@ -91,8 +91,8 @@ public sealed interface QuestionRefusal
     /**
      * The log holds a line that was refused when read (unreadable, or of another {@code format_version}). A refused
      * line names no question the log can read, so it may be the closing line or the revision of any question, the
-     * question of the append included; the state of the questions is unknown and nothing is appended until the
-     * operator has dealt with the line.
+     * question of the append included; the state of the questions is unknown and nothing is appended while the log holds
+     * the line. The store offers no act that repairs a log, so every later append is refused as well.
      *
      * @param questionId  the question of the first line of the refused append
      * @param refusedLine the line number of the first refused line of the log, counted from 1
