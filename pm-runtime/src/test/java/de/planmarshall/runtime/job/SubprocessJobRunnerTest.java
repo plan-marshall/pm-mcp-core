@@ -711,7 +711,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a parser that throws: the job is settled without its finding, by row 8 for exit 0")
-        void parserThrows() throws InterruptedException {
+        void parserThrows() throws Exception {
             var failure = new IllegalStateException("the parser failed");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
                     (kind, output) -> {
@@ -725,7 +725,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a parser that fails with an error: the job is settled the same way")
-        void parserFailsWithError() throws InterruptedException {
+        void parserFailsWithError() throws Exception {
             var failure = new StackOverflowError("a regular expression recursed too deep");
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
                     (kind, output) -> {
@@ -758,7 +758,7 @@ class SubprocessJobRunnerTest {
 
         @Test
         @DisplayName("a termination that throws: the process is destroyed through its handle and the cause decides")
-        void terminationThrows() throws InterruptedException {
+        void terminationThrows() throws Exception {
             var signals = new ProcessGroupSignals() {
 
                 @Override
