@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "PM-MCP corpus source overlay",
-  "description": "sources/<name>/overlay.json of the model verification corpus: the rows of one file of the source that become items, and per row the framing, the question, facts and choices, the answer schema, the reference answer, the grading and the review. The question, the facts, every choice, the answer and every alternative are templates over the row's fields: {field} names a field of the row, {{ and }} stand for a literal brace, and a single brace that names no field of the row, or opens or closes nothing, fails the import of the source. The rationale, the rubric items, the judge and the review are literal. Every declared field is present; a value the overlay does not give is null or an empty array. The schema uses only the keyword subset the corpus validator evaluates.",
+  "description": "sources/<name>/overlay.json of the model verification corpus: the rows of one file of the source that become items, and per row the framing with the group, the question, facts and choices, the answer schema, the reference answer, the grading, the review and the contamination note. The question, the facts, every choice, the answer and every alternative are templates over the row's fields: {field} names a field of the row, {{ and }} stand for a literal brace, and a single brace that names no field of the row, or opens or closes nothing, fails the import of the source. The rationale, the rubric items, the judge, the review, the group and the contamination note are literal. Every declared field is present; a value the overlay does not give is null or an empty array. The schema uses only the keyword subset the corpus validator evaluates.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -52,13 +52,15 @@
           "role",
           "title",
           "tags",
+          "group",
           "question",
           "facts",
           "choices",
           "answer_schema",
           "target",
           "grading",
-          "review"
+          "review",
+          "contamination"
         ],
         "properties": {
           "key": {
@@ -87,6 +89,14 @@
             "items": {
               "type": "string"
             }
+          },
+          "group": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": ".",
+            "description": "the group of the item, literal text, not a template; null if not given"
           },
           "question": {
             "type": "string",
@@ -238,6 +248,14 @@
                 ]
               }
             }
+          },
+          "contamination": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": ".",
+            "description": "the contamination note of the item, literal text, not a template; null if not given"
           }
         }
       }

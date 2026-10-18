@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -216,8 +217,8 @@ class ItemGeneratorTest {
         private static SourceOverlay.Row withTarget(Target target) {
             var open = overlay().rows().get(1);
             return new SourceOverlay.Row(open.key(), open.slug(), open.topic(), open.role(), open.title(), open.tags(),
-                    open.question(), open.facts(), open.choices(), open.answerSchema(), target, open.grading(),
-                    open.review());
+                    open.group(), open.question(), open.facts(), open.choices(), open.answerSchema(), target,
+                    open.grading(), open.review(), open.contamination());
         }
 
         @Test
@@ -255,6 +256,49 @@ class ItemGeneratorTest {
                     () -> assertEquals(List.of(CODE), item.target().alternatives()),
                     () -> assertEquals(CODE, item.target().rationale()),
                     () -> assertEquals(List.of(new RubricItem("d1", CODE)), item.target().items()));
+        }
+    }
+
+    /**
+     * The group and the contamination note are literal, as the rationale is: they are copied as the overlay row writes
+     * them, and a single brace in them is no placeholder.
+     */
+    @Nested
+    @DisplayName("the group and the contamination note")
+    class GroupAndContamination {
+
+        private static final String GROUP = "sample-set {pair}";
+        private static final String CONTAMINATION = "names screening/sample-set/q-1 { and } of the other item";
+
+        private static SourceOverlay.Row withMembers(String group, String contamination) {
+            var closed = overlay().rows().getFirst();
+            return new SourceOverlay.Row(closed.key(), closed.slug(), closed.topic(), closed.role(), closed.title(),
+                    closed.tags(), group, closed.question(), closed.facts(), closed.choices(), closed.answerSchema(),
+                    closed.target(), closed.grading(), closed.review(), contamination);
+        }
+
+        @Test
+        @DisplayName("are carried unchanged, a single brace included, and the item is valid against the schema")
+        void carried() {
+            var item = generate(withMembers(GROUP, CONTAMINATION), fields());
+
+            assertAll(
+                    () -> assertEquals(GROUP, item.group()),
+                    () -> assertEquals(CONTAMINATION, item.contamination()),
+                    () -> assertEquals(Set.of(), violations(ImportedItemCodec.write(item))));
+        }
+
+        @Test
+        @DisplayName("are absent from the item when the row has none")
+        void absent() {
+            var item = generate(withMembers(null, null), fields());
+
+            var text = new String(ImportedItemCodec.write(item), UTF_8);
+            assertAll(
+                    () -> assertNull(item.group()),
+                    () -> assertNull(item.contamination()),
+                    () -> assertFalse(text.contains("\"group\""), text),
+                    () -> assertFalse(text.contains("\"contamination\""), text));
         }
     }
 
