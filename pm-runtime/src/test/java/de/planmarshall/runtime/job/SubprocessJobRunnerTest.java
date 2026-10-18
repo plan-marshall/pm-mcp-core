@@ -287,7 +287,7 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
-        @DisplayName("a start answers the job only once its record carries the PID and the process start")
+        @DisplayName("a launcher that reports is answered only once the record carries the PID and the process start")
         void runningOnlyAfterPostSpawn() {
             var jobId = started(runner.start(git(30, "sleep", "30")));
 

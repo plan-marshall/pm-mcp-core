@@ -85,10 +85,10 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <li>the launch report, the first line of the job log, is awaited for at most {@link #REPORT_WAIT} and never beyond
  * the budget, and the wait ends at once on a cancel; the post-spawn record with {@code pid},
  * {@code process_started_at}, {@code spawned_at}, {@code confinement} and {@code landlock_abi} replaces the
- * write-ahead record. Only then does the job count as running, and only then does the start answer it: a start never
- * reports a job running whose record lacks its PID. A launcher that fails before {@code execve}, or that writes no
- * report within the wait, or whose job is cancelled during it, has no report to record; its job keeps the
- * write-ahead record and is settled from the launcher's exit, the cancel or the budget. A post-spawn record that
+ * write-ahead record, and the start answers the job. A launcher that fails before {@code execve}, or that writes no
+ * report within the wait, or whose job is cancelled during it, has no report to record; the start still answers the
+ * job, which keeps the write-ahead record (without a PID) and is settled from the launcher's exit, the cancel or the
+ * budget. A post-spawn record that
  * cannot be written terminates the job's process group, and the job is settled from its observed end before the
  * failure is passed on.</li>
  * </ol>
