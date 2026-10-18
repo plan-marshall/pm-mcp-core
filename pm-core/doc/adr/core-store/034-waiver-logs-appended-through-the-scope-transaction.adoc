@@ -1,4 +1,4 @@
-= ADR 032: The Waiver Logs Are Appended Only Through the Plan's Scope Transaction
+= ADR 034: The Waiver Logs Are Appended Only Through the Plan's Scope Transaction
 :nofooter:
 
 == Status
@@ -43,7 +43,7 @@ Alternatives not recorded.
   another format version, or damaged) is skipped, so a `revoked` line that is refused leaves the earlier `waived` line
   as the current line of the waiver. No writer in this repository emits such a line. A caller that gates on a waiver
   consults `refused()` of the log and treats a log that holds a refused line as not deciding the waiver, as the
-  question log's append gate does (link:037-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 037]).
+  question log's append gate does (link:039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
 * A later writer of either log has to go through the append; the store offers no other write.
 
 == Source

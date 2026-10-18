@@ -1,4 +1,4 @@
-= ADR 031: The Question Invariants Are Held by the Store and Returned as Refusal Values
+= ADR 033: The Question Invariants Are Held by the Store and Returned as Refusal Values
 :nofooter:
 
 == Status

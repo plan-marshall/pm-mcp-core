@@ -787,7 +787,7 @@ the waiver, the gate, the state, the commit (`head_sha`), the instant and what i
 are two lines.
 
 The two logs are separate files of the plan scope, appended through the plan's transaction and covered by its digest
-sidecar (link:../adr/core-store/032-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 032]). That the
+sidecar (link:../adr/core-store/034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 034]). That the
 operator's act is the only writer of `waivers.jsonl` and `waiver.lookup` the only writer of `waiver-consumptions.jsonl`
 is the rule of the callers that run them; the store offers no other write than the append.
 
@@ -796,7 +796,7 @@ is the rule of the callers that run them; the store offers no other write than t
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3], link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6]_
 
 A waiver request is no store of its own: it is an element of the typed member `waiver_requests[]` of the plan's status
-document (link:../adr/core-store/033-waiver-requests-typed-in-the-status-document.adoc[ADR 033]).
+document (link:../adr/core-store/035-waiver-requests-typed-in-the-status-document.adoc[ADR 035]).
 
 [horizontal]
 `WaiverRequest`:: The request id (`WR-` and digits), the gate, the remediation unit that filed it, the rationale (1 to
@@ -829,7 +829,7 @@ holds a refused line, so the invariants cannot be decided.
 
 The log lives in `core.store`. The engine reads it through the port `QuestionRecordReader` of `core.spi`, which an
 adapter of `pm-runtime` implements over `QuestionLog`; whether an answer fits its part stays the engine's check in
-`pm-workflow` (link:../adr/core-store/030-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 030]).
+`pm-workflow` (link:../adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 032]).
 
 [source]
 ----
@@ -851,14 +851,14 @@ caller: transaction.commit()
   question of its set with one higher revision.
 * *Decided under the lock*: the log is read while the caller's transaction holds the scope lock, so no other append
   comes between the check and the write
-  (link:../adr/core-store/031-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 031]).
+  (link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]).
 * *Fail closed on a refused line*: a line refused when read (unreadable, or of another format version) names no
   question the log can read and may be the closing line or the revision of any of them, so the state of the questions
   is unknown. While the log holds one, every append is `Unreadable` naming the first refused line, an `asked` line of a
   new question included, and nothing is added. The read accessors of the log (`current`, `isClosed`,
   `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
   when the log holds a refused line; a refused line is never taken for an open question by the append gate
-  (link:../adr/core-store/037-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 037]).
+  (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
 * *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
   set revised in part, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
   not a refusal value.
@@ -870,7 +870,7 @@ transaction of the new scope, and the delete of the entry's log to the transacti
 transaction writes only the stores of its scope, so the move is two transactions held by one caller: the new scope is
 committed first, then the workspace. A stop between the two commits leaves the entry's log in place, and repeating the
 move is refused by the create target instead of appending the lines twice; a torn tail is not moved
-(link:../adr/core-store/034-entry-question-file-moved-by-the-store.adoc[ADR 034]). `PendingEntryStore` is unchanged:
+(link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). `PendingEntryStore` is unchanged:
 the record `pending/<entry_id>.json` stays a flat file beside the directory of the entry's log.
 
 [#_project_store]
@@ -895,7 +895,7 @@ display name (1 to 128 code points, never an identifier), the creation and the u
 
 The store and its identity live in `core.store` beside the enrolment; `core.config` is not touched, and nothing with
 state lies below the repository of the project, `.marshall/local/` included
-(link:../adr/core-store/036-per-project-machine-store-with-its-identity-record.adoc[ADR 036]).
+(link:../adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR 038]).
 
 [#_project_resolution]
 === The Project Resolution
@@ -903,7 +903,7 @@ _Requirements: link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2], link:{docs}/Req
 
 `ProjectResolver.resolve(path)` maps an absolute checkout path to the enrolled project it belongs to and to the main
 checkout or the worktree of that project it lies in. It reads the plain pointer files git writes and runs no git
-process (link:../adr/core-store/035-project-resolution-file-based-from-the-pointer-files.adoc[ADR 035]):
+process (link:../adr/core-store/037-project-resolution-file-based-from-the-pointer-files.adoc[ADR 037]):
 
 . The path is canonicalised; a path that cannot be is `PathRefused` with the reason `canonicalization_failed` of the
   confinement. Its toplevel is the nearest ancestor, the path itself included, that holds a `.git`.
@@ -1082,20 +1082,20 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
 * link:../adr/core-store/031-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 031]: the records of the
   machine scope are written under the machine queue lock, those of an onboarding entry under the entry lock, and each
   write point checks the record it replaces.
-* link:../adr/core-store/030-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 030]: the question
+* link:../adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 032]: the question
   store lives in `core.store` and is read by the engine through `QuestionRecordReader`, implemented by a runtime
   adapter.
-* link:../adr/core-store/031-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 031]: one closing line
+* link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]: one closing line
   and the current revision are held by the store under the scope lock and returned as `QuestionRefusal` values.
-* link:../adr/core-store/032-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 032]: the waiver and
+* link:../adr/core-store/034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 034]: the waiver and
   consumption logs are append-only targets of the plan's transaction; the last readable line of a key is current.
-* link:../adr/core-store/033-waiver-requests-typed-in-the-status-document.adoc[ADR 033]: waiver requests are the typed
+* link:../adr/core-store/035-waiver-requests-typed-in-the-status-document.adoc[ADR 035]: waiver requests are the typed
   member `waiver_requests[]` of the plan's status, without a time limit.
-* link:../adr/core-store/034-entry-question-file-moved-by-the-store.adoc[ADR 034]: the entry's question log is moved
+* link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]: the entry's question log is moved
   into the new scope by the store, in two transactions; `PendingEntryStore` stays flat.
-* link:../adr/core-store/035-project-resolution-file-based-from-the-pointer-files.adoc[ADR 035]: the project resolution
+* link:../adr/core-store/037-project-resolution-file-based-from-the-pointer-files.adoc[ADR 037]: the project resolution
   reads the pointer files git writes and shares the recognition of a linked worktree with the confinement.
-* link:../adr/core-store/036-per-project-machine-store-with-its-identity-record.adoc[ADR 036]: the per-project machine
+* link:../adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR 038]: the per-project machine
   store and its identity record live in `core.store`; nothing with state lies below the repository.
-* link:../adr/core-store/037-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 037]: an append to a
+* link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]: an append to a
   question log that holds a refused line is refused `Unreadable`; the check fails closed.
