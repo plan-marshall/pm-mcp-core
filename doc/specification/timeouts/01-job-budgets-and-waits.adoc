@@ -140,6 +140,14 @@ Learned values live in the project's `<PM_MCP_BASE>/projects/<project_id>/build-
 |`SIGKILL` to the whole group, also when its leader is gone.
 |link:../job-runtime/01-pipeline-and-subprocesses.adoc#_process_termination_cancellation_protocol[Job Runtime, Process Termination]
 
+|[[launch-report-wait]]Launch report wait
+|`10` from the spawn, and never beyond the job's budget: how long the start of a process job waits for the launch report of `pm-exec`. A cancel of the job ends the wait at once.
+|fixed
+|—
+|every process job started through `pm-exec`
+|The start stops waiting and answers the started job; the record keeps its write-ahead state without a PID, and the job is settled by its exit, a cancel or its budget. The runtime does not terminate the job on this bound.
+|link:../job-runtime/01-pipeline-and-subprocesses.adoc#launch-report[Job Runtime, Launch report]
+
 |[[http-request-timeout]]Native request timeout
 |Connect `10`, read `60` for every HTTP request of a native `git` or `ci` operation (provider REST and GraphQL requests, git HTTPS transport), inside the operation's class budget.
 |fixed

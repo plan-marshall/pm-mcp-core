@@ -611,7 +611,11 @@ whether the id is free is decided by the store. `ofRecordFileName` parses the na
 parse is never a job.
 `JobRecord`:: The record in `format_version` 1. Every member this package writes is typed; `worker` (the block a
 supervisor writes) and `gate_facts` (the facts a gate writes) are kept as the raw JSON text they were read with
-(link:../adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029]). The record carries
+(link:../adr/core-store/029-job-record-typed-members-worker-and-gate-facts-verbatim.adoc[ADR 029]). The record parses
+each raw member at construction and refuses a text that is not exactly one JSON value of its type (an object for `worker`
+and `gate_facts`, a number or a string for a `ClampedValue`'s `configured`; trailing content such as
+`{"a":1},"x":{}` is refused), because a member that only starts and ends like a value would be written and then refuse
+the whole store on read. The record carries
 its own vocabularies: `Execution` (`process`, `in_process`), `Status` (`queued`, `refused`, `running`, `ended`),
 `Fate`, `Confinement`, the owning `Scope` (`plan`, `epic`, `workspace`, `project`, `machine`, `entry`), the
 `BudgetDerivation`, a `SelfReportContradiction` and the `ClampedValue` rows. `isSpawnRecorded()` is true once the record

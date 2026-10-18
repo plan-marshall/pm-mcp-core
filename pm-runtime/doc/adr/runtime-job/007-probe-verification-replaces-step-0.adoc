@@ -23,9 +23,13 @@ consent of its kind.
 
 * `ProbeVerification` is step 0 of a probe in place of the enrolment check: the digests of the executable and of a
   script's interpreter (`executable_digest_mismatch`), the working directory, the canonical git top-level of the checkout
-  or the probe's own job-private `cwd/` (`path_traversal_rejected`), and exactly the declared argument vector
-  (`argument_rejected`). The first check that refuses decides. Nothing is resolved at launch: the vector starts with the
-  absolute path the candidate record names.
+  or the probe's own job-private `cwd/` (`path_traversal_rejected`), and a requested argument vector against the
+  declared one (`argument_rejected`). The first check that refuses decides. Nothing is resolved at launch: the vector
+  starts with the absolute path the candidate record names.
+* The runner launches the declared vector of the candidate by construction: `startProbe` hands the candidate's own
+  arguments to the verification as the requested ones, so `argument_rejected` can fire only for a caller of
+  `ProbeVerification.verify` that supplies a different vector. It is a property of the verification, kept with its unit
+  tests, and not a control of the runner path; the engine port is not widened to carry a requested vector.
 * `SubprocessJobRunner.startProbe` refuses a probe without the consent of its kind with `consent_required` and records
   nothing. Otherwise the allocation of the `v-` id, the verification and the first record are one transaction under the
   lock of the probe's scope, the machine queue lock or the entry lock; a refusal is recorded as the fate `refused`.

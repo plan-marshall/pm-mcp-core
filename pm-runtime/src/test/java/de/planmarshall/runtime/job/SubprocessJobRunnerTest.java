@@ -40,9 +40,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,12 +158,18 @@ class SubprocessJobRunnerTest {
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
             SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives) {
+        return runner(termination, environment, parser, primitives, null);
+    }
+
+    private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
+            SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives,
+            InstantSource clock) {
         return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
                 .launcher(new PmExecLauncher(home)).termination(termination).environment(job -> {
             observations.add(new Observation(jobs.records(),
                     locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
             return environment.of(job);
-        }).probeEnvironment(candidate -> ENVIRONMENT).parser(parser).primitives(primitives).build();
+        }).probeEnvironment(candidate -> ENVIRONMENT).parser(parser).primitives(primitives).clock(clock).build();
     }
 
     /**
@@ -496,6 +506,66 @@ class SubprocessJobRunnerTest {
             } finally {
                 Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
             }
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("bounds the wait for the launch report apart from the budget")
+    class ReportWait {
+
+        @BeforeEach
+        void install() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.NO_REPORT);
+        }
+
+        @Test
+        @DisplayName("a launcher that never writes its report does not hold the start for the budget")
+        void silentLauncherDoesNotHoldTheStart() {
+            var ticks = new AtomicLong();
+            var origin = Instant.parse("2026-10-18T10:00:00Z");
+            // every reading of the clock is one second later, so the bound passes after a few polls, not after 10 s
+            InstantSource clock = () -> origin.plusSeconds(ticks.getAndIncrement());
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+                    (kind, output) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
+
+            var result = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                    () -> runner.start(git(3600, "sleep", "3600")));
+            var jobId = started(result);
+            var waiting = runner.recordOf(jobId).orElseThrow();
+            var runningAfterStart = runner.runningJobs().contains(jobId);
+            runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Status.RUNNING, waiting.status(), "the job was handed to its waiting thread"),
+                    () -> assertNull(waiting.pid(), "no post-spawn record without a launch report"),
+                    () -> assertTrue(runningAfterStart, "the job runs on after the wait"),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate()));
+        }
+
+        @Test
+        @DisplayName("a cancel during the wait for the launch report ends the wait at once")
+        void cancelEndsTheWait() throws Exception {
+            var launching = new CountDownLatch(1);
+            var launched = new AtomicReference<JobId>();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), job -> {
+                launched.set(jobs.records().getFirst().jobId());
+                launching.countDown();
+                return ENVIRONMENT;
+            });
+            var start = CompletableFuture.supplyAsync(() -> runner.start(git(3600, "sleep", "3600")));
+
+            assertTrue(launching.await(10, TimeUnit.SECONDS), "the job reaches its launch");
+            var cancelled = runner.cancel(launched.get(), CancelCause.ENGINE_CANCEL);
+            var jobId = started(start.get(5, TimeUnit.SECONDS));
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertTrue(cancelled, "the cancel decided the end of the job"),
+                    () -> assertEquals(launched.get(), jobId),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate()),
+                    () -> assertEquals(2, settled.outcomeRow()));
         }
     }
 

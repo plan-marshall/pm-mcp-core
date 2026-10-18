@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 import de.planmarshall.core.store.JobRecord.ClampedValue;
@@ -354,6 +355,76 @@ class JobRecordCodecTest {
                             () -> refused(BUILD_ID, PLAN_SCOPE).withStatus(Status.ENDED)),
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> settled.withFate(Fate.REFUSED).withRefusalReason("argument_rejected")));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+                "{\"a\":1},\"fate\":\"succeeded\",\"x\":{}",
+                "{\"a\":1}{\"b\":2}",
+                "{\"a\":1} trailing",
+                "{\"a\":1}}",
+                "{\"a\":",
+                "[1]",
+                "\"text\"",
+                "",
+                "   "})
+        @DisplayName("a worker block or gate facts that is not exactly one JSON object cannot be built")
+        void rawObjectMembersAreOneObject(String raw) {
+            var worker = new JobId("l-0000000000000001");
+            var projectScope = new Scope(Scope.Type.PROJECT, null);
+
+            var workerRefusal = assertThrows(IllegalArgumentException.class,
+                    () -> workerAhead(worker, projectScope, raw));
+            var gateFactsRefusal = assertThrows(IllegalArgumentException.class, () -> settled.withGateFacts(raw));
+
+            assertAll(
+                    () -> assertTrue(workerRefusal.getMessage().contains("'worker'"), workerRefusal.getMessage()),
+                    () -> assertTrue(gateFactsRefusal.getMessage().contains("'gate_facts'"),
+                            gateFactsRefusal.getMessage()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"{}", "{ \"a\" : [1, {\"b\": null}, \"}\"] }", " {\"a\":\"x,y\"} "})
+        @DisplayName("a worker block or gate facts that is one JSON object is admitted, whatever it holds")
+        void rawObjectMembersAdmitOneObject(String raw) {
+            var worker = new JobId("l-0000000000000001");
+            var projectScope = new Scope(Scope.Type.PROJECT, null);
+
+            assertAll(
+                    () -> assertEquals(raw, workerAhead(worker, projectScope, raw).worker()),
+                    () -> assertEquals(raw, settled.withGateFacts(raw).gateFacts()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+                "\"a\",1",
+                "1 2",
+                "\"a\" \"b\"",
+                "\"a\"x",
+                "\"unterminated",
+                "{}",
+                "[1]",
+                "true",
+                "null",
+                "01",
+                "1.",
+                "",
+                "   "})
+        @DisplayName("a configured value that is not exactly one JSON number or string cannot be built")
+        void configuredIsOneNumberOrString(String raw) {
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new ClampedValue("build.timeout", raw, BigDecimal.ONE, ClampedValue.Source.INVALID));
+
+            assertTrue(refusal.getMessage().contains("'clamped_values.configured'"), refusal.getMessage());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"5", "-1.5e3", "0", "\"soon\"", "\"a \\\" b\"", "\"\""})
+        @DisplayName("a configured value that is one JSON number or string is admitted")
+        void configuredAdmitsOneNumberOrString(String raw) {
+            var value = new ClampedValue("build.timeout", raw, BigDecimal.ONE, ClampedValue.Source.MACHINE_CONFIG);
+
+            assertEquals(raw, value.configured());
         }
 
         @Test

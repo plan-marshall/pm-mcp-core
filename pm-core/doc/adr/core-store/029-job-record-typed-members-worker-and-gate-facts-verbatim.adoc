@@ -29,7 +29,9 @@ four the engine starts. The scopes that own a job are six (`plan`, `epic`, `work
   in-process operation, `pid` with `process_started_at`, a never-spawned queued or refused job, the bound of
   `child_wall_ms`). A record outside them cannot be built and therefore cannot be written.
 * `worker` and `gate_facts` are kept as the raw JSON text they were read with; `JobRecordCodec` accepts an object or
-  `null` and writes them back byte for byte. This extends ADR 001 (only the engine-owned members are typed, the
+  `null` and writes them back byte for byte. The record parses each raw member (and the `configured` value of a clamped
+  value) with the `StrictJson` factory when it is built and refuses a text that is not exactly one JSON value of the
+  expected type, so a text that only starts and ends like an object cannot be written. This extends ADR 001 (only the engine-owned members are typed, the
   remainder verbatim) to the job record.
 * `JobId.Kind` of `core.store` owns the full kind vocabulary of the job records, and `JobRecord.Scope` with its
   `Scope.Type` the scope vocabulary of the record. `JobStarter.JobKind` and `ScopeType` are not widened.

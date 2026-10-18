@@ -67,7 +67,9 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 ** link:doc/adr/runtime-job/007-probe-verification-replaces-step-0.adoc[ADR 007] a probe verified against its candidate
    record under a fixed budget;
 ** link:doc/adr/runtime-job/008-process-group-signals-through-ffm.adoc[ADR 008] process-group signals through FFM behind
-   a replaceable primitive.
+   a replaceable primitive;
+** link:doc/adr/runtime-job/009-launch-report-wait-bounded-apart-from-the-budget.adoc[ADR 009] the wait for the launch
+   report bounded apart from the budget.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
 * link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime;
   link:doc/adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012] the jobs part of recovery step 3,

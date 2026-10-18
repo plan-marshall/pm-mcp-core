@@ -82,13 +82,15 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <li>the job id is allocated and the write-ahead record ({@code running}, {@code pid: null}) is written, in one
  * transaction under the lock of the scope that owns the job;</li>
  * <li>the job is launched through {@link PmExecLauncher}, and its budget starts at the spawn;</li>
- * <li>the launch report, the first line of the job log, is awaited, and the post-spawn record with {@code pid},
+ * <li>the launch report, the first line of the job log, is awaited for at most {@link #REPORT_WAIT} and never beyond
+ * the budget, and the wait ends at once on a cancel; the post-spawn record with {@code pid},
  * {@code process_started_at}, {@code spawned_at}, {@code confinement} and {@code landlock_abi} replaces the
  * write-ahead record. Only then does the job count as running, and only then does the start answer it: a start never
- * reports a job running whose record lacks its PID. A launcher that fails before {@code execve} writes no report; its
- * job keeps the write-ahead record and is settled from the launcher's exit. A post-spawn record that cannot be written
- * terminates the job's process group, and the job is settled from its observed end before the failure is passed on.
- * </li>
+ * reports a job running whose record lacks its PID. A launcher that fails before {@code execve}, or that writes no
+ * report within the wait, or whose job is cancelled during it, has no report to record; its job keeps the
+ * write-ahead record and is settled from the launcher's exit, the cancel or the budget. A post-spawn record that
+ * cannot be written terminates the job's process group, and the job is settled from its observed end before the
+ * failure is passed on.</li>
  * </ol>
  * <p>
  * A virtual thread per job then waits for the end of its process, for its budget or for a cancel, whichever comes
@@ -149,6 +151,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** The refusal of a probe whose kind the operator did not consent to. */
     public static final String CONSENT_REQUIRED = "consent_required";
+
+    /**
+     * How long a start waits for the launch report of the launcher, from the spawn: the launcher writes it right
+     * before {@code execve}, after {@code setpgid} and the confinement. The wait is bounded by this and by the job's
+     * budget, whichever is shorter, and ends at once when the job is cancelled.
+     */
+    static final Duration REPORT_WAIT = Duration.ofSeconds(10);
 
     /** The name of the {@code request} parameter in a null check. */
     private static final String ARG_REQUEST = "request";
@@ -431,6 +440,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     case ProbeCandidate.CheckoutRoot(var root) -> root;
                     case ProbeCandidate.JobPrivate _ -> createDirectories(jobPrivate);
                 };
+                // The requested arguments are the candidate's own: the runner launches the declared vector by
+                // construction, so argument_rejected cannot fire here; it is a property of verify for other callers.
                 verification = ProbeVerification.verify(candidate, candidate.arguments(), workingDirectory,
                         jobPrivate);
                 var now = clock.instant();
@@ -717,8 +728,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         JobRecord reported = null;
         try {
             job.launched(launched.process());
-            var deadline = spawnedAt.plus(job.budget.duration());
-            var awaited = awaitReport(launched.process(), log, deadline);
+            var awaited = awaitReport(job, launched.process(), log, spawnedAt.plus(reportWait(job.budget)));
             observedLength = awaited.observedLength();
             if (awaited.report().isPresent()) {
                 reported = postSpawnRecord(job.latest, awaited.report().get(), spawnedAt);
@@ -845,9 +855,18 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Reads the job log until its first line is complete, the process has ended or the deadline has passed.
+     * How long the start waits for the launch report: {@link #REPORT_WAIT}, and never longer than the job's budget.
      */
-    private AwaitedReport awaitReport(Process process, JobLog log, Instant deadline) {
+    private static Duration reportWait(JobBudget budget) {
+        return REPORT_WAIT.compareTo(budget.duration()) < 0 ? REPORT_WAIT : budget.duration();
+    }
+
+    /**
+     * Reads the job log until its first line is complete, the process has ended, the job is cancelled or the deadline
+     * has passed. The deadline is that of the report wait, not the budget of the job: a launcher that hangs before it
+     * writes its report must not hold the start for the whole budget, and a cancel ends the wait at once.
+     */
+    private AwaitedReport awaitReport(RunningJob job, Process process, JobLog log, Instant deadline) {
         var interrupted = false;
         try {
             while (true) {
@@ -856,7 +875,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                         && (report.isPresent() || !lines.isEmpty())) {
                     return new AwaitedReport(report, nextOffset);
                 }
-                if (!alive || interrupted || !clock.instant().isBefore(deadline)) {
+                if (!alive || interrupted || job.cause.isDone() || !clock.instant().isBefore(deadline)) {
                     return new AwaitedReport(Optional.empty(), 0);
                 }
                 try {

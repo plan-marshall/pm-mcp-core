@@ -9,10 +9,13 @@
  */
 package de.planmarshall.core.store;
 
+import com.fasterxml.jackson.core.JsonToken;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,7 +31,8 @@ import lombok.With;
  * Every member this package writes is typed. The two members other components own are kept as the raw JSON text they
  * were read with and written back unchanged, as the status document keeps the members the engine does not own (ADR
  * 001 of {@code core.store}): {@code worker}, the launch contract and protocol state of a worker, and
- * {@code gate_facts}, the gate coverage facts of a build job.
+ * {@code gate_facts}, the gate coverage facts of a build job. The record parses each of them at construction and
+ * refuses a text that is not exactly one JSON value of the member's type, so what is written is always read back.
  * <p>
  * The record refuses at construction every combination the schema of the job record rules out:
  * <ul>
@@ -107,7 +111,6 @@ String gateFacts) {
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern REASON = Pattern.compile("[a-z][a-z0-9_]*");
     private static final Pattern SCOPE_ID = Pattern.compile("[a-z0-9][a-z0-9-]{1,62}[a-z0-9]");
-    private static final Pattern NUMBER = Pattern.compile("-?(0|[1-9]\\d*)(\\.\\d+)?([eE][+-]?\\d+)?");
     private static final int MIN_LANDLOCK_ABI = 2;
 
     /**
@@ -473,11 +476,8 @@ String gateFacts) {
             requireNonEmpty(key, "clamped_values.key");
             Objects.requireNonNull(used, "used");
             Objects.requireNonNull(source, "source");
-            if (configured != null && !NUMBER.matcher(configured).matches()
-                    && !(configured.length() >= 2 && configured.startsWith("\"") && configured.endsWith("\""))) {
-                throw new IllegalArgumentException(
-                        "'clamped_values.configured' is no JSON number or string: " + configured);
-            }
+            requireSingleJsonValue(configured, "clamped_values.configured", "number or string",
+                    EnumSet.of(JsonToken.VALUE_STRING, JsonToken.VALUE_NUMBER_INT, JsonToken.VALUE_NUMBER_FLOAT));
         }
     }
 
@@ -633,12 +633,29 @@ String gateFacts) {
     }
 
     private static void requireRawObject(String raw, String name) {
+        requireSingleJsonValue(raw, name, "object", EnumSet.of(JsonToken.START_OBJECT));
+    }
+
+    /**
+     * A raw member is written back verbatim, so it must parse as exactly one JSON value of the expected type: a text
+     * that merely starts and ends like one, such as {@code {"a":1},"fate":"succeeded","x":{}}, would be written into
+     * the record and refuse the whole store when it is read.
+     */
+    private static void requireSingleJsonValue(String raw, String name, String expected, Set<JsonToken> accepted) {
         if (raw == null) {
             return;
         }
-        var text = raw.strip();
-        if (!text.startsWith("{") || !text.endsWith("}")) {
-            throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
+        try (var parser = StrictJson.factory().createParser(raw)) {
+            if (!accepted.contains(parser.nextToken())) {
+                throw new IllegalArgumentException("'%s' must be a JSON %s: %s".formatted(name, expected, raw));
+            }
+            parser.skipChildren();
+            if (parser.nextToken() != null) {
+                throw new IllegalArgumentException(
+                        "'%s' must be exactly one JSON %s, but content follows it: %s".formatted(name, expected, raw));
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("'%s' is no JSON %s: %s".formatted(name, expected, raw), e);
         }
     }
 
