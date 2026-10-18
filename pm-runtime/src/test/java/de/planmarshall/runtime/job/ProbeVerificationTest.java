@@ -252,19 +252,19 @@ class ProbeVerificationTest {
             List<String> noArguments = List.of();
             var successExitZero = Set.of(0);
             var noSuccessExitCodes = Set.<Integer>of();
-            var jobPrivate = new JobPrivate();
+            var privateWorkingDirectory = new JobPrivate();
             var checkoutRoot = new CheckoutRoot(checkout);
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
                             ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, successExitZero,
-                            workspace, jobPrivate)),
+                            workspace, privateWorkingDirectory)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
                             ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, successExitZero,
                             MACHINE, checkoutRoot)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
                             ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, noSuccessExitCodes,
-                            MACHINE, jobPrivate)));
+                            MACHINE, privateWorkingDirectory)));
         }
 
         @Test

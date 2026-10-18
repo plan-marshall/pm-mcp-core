@@ -184,7 +184,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * The launcher's own exit for a failed {@code execve}; a launcher that cannot be started at all is settled by the
-     * same exit, because the job had no process either way.
+     * same exit, because the job had no process either way, unless a cancel decided the end of the job first, whose cause
+     * then decides it.
      */
     static final int EXECVE_FAILED = 127;
 
@@ -372,11 +373,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @return the id of the started job, also of one whose launcher failed and which is settled already; or the
      *         refusal of its verification, recorded as the job's fate {@code refused}
      * @throws IllegalArgumentException if the kind is a worker, or the scope does not belong to a project; also, after
-     *                                  the job is settled as its launcher's exit {@value #EXECVE_FAILED}, if its
-     *                                  launch cannot be composed, for example for an environment variable the
-     *                                  operating system refuses
-     * @throws NullPointerException     after the job is settled as its launcher's exit {@value #EXECVE_FAILED}, if
-     *                                  the environment of its launch names a {@code null}
+     *                                  the job is settled as its launcher's exit {@value #EXECVE_FAILED} (or by the
+     *                                  cause of a cancel that decided its end first), if its launch cannot be
+     *                                  composed, for example for an environment variable the operating system refuses
+     * @throws NullPointerException     after the job is settled as its launcher's exit {@value #EXECVE_FAILED} (or by
+     *                                  the cause of a cancel that decided its end first), if the environment of its
+     *                                  launch names a {@code null}
      * @throws UncheckedIOException     if a record cannot be written; a job whose post-spawn record is not written is
      *                                  terminated and settled first
      * @throws StoreRefusal             if a record of the job's store cannot be read; a job whose post-spawn record
@@ -416,11 +418,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *                                  is not written is terminated and settled first
      * @throws StoreRefusal             if a record of the probe's store cannot be read; a probe whose post-spawn
      *                                  record is refused so is terminated and settled first
-     * @throws IllegalArgumentException after the probe is settled as its launcher's exit {@value #EXECVE_FAILED}, if
-     *                                  its launch cannot be composed, for example for an environment variable the
-     *                                  operating system refuses
-     * @throws NullPointerException     after the probe is settled as its launcher's exit {@value #EXECVE_FAILED}, if
-     *                                  the environment of its launch names a {@code null}
+     * @throws IllegalArgumentException after the probe is settled as its launcher's exit {@value #EXECVE_FAILED} (or by
+     *                                  the cause of a cancel that decided its end first), if its launch cannot be
+     *                                  composed, for example for an environment variable the operating system refuses
+     * @throws NullPointerException     after the probe is settled as its launcher's exit {@value #EXECVE_FAILED} (or by
+     *                                  the cause of a cancel that decided its end first), if the environment of its
+     *                                  launch names a {@code null}
      */
     @Override
     public JobRunner.StartResult startProbe(ProbeRequest<ProbeCandidate> request) {
@@ -698,10 +701,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * thread that waits for its end.
      * <p>
      * A job whose launch cannot be composed or whose launcher cannot be started had no process: it is settled as the
-     * launcher's exit {@value #EXECVE_FAILED} and leaves the running jobs before this method returns or throws. A
-     * launcher that cannot be started answers the started job; an exception of the composition of the launch (the
-     * caller's environment, the {@link Launch} it is checked by, the process builder) is passed on to the caller of
-     * the start once the job is settled.
+     * launcher's exit {@value #EXECVE_FAILED}, unless a cancel was answered as deciding its end in the meantime, which
+     * settles it by the cause of that cancel as on every other path ({@code settleUnlaunched}); it leaves the running
+     * jobs before this method returns or throws. A launcher that cannot be started answers the started job; an
+     * exception of the composition of the launch (the caller's environment, the {@link Launch} it is checked by, the
+     * process builder) is passed on to the caller of the start once the job is settled.
      * <p>
      * A job whose process was started leaves the running jobs only settled as well: when its post-spawn record cannot
      * be written, or the thread that waits for it cannot be started, its process group is terminated and the job is
@@ -816,10 +820,19 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private boolean terminateAndSettle(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var cancelBeforeGroup = terminateByHandle(job.latest.jobId(), launched);
         var exit = waitFor(launched.process());
-        var cancelled = job.cause.isDone() ? Optional.of(job.cause.join()) : Optional.<Termination>empty();
-        settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), cancelled, cancelBeforeGroup),
+        settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), cancelCause(job), cancelBeforeGroup),
                 observedLength);
         return exit.interrupted();
+    }
+
+    /**
+     * The cause of a cancel that was answered as deciding the end of a job, or of the budget that expired; empty for a
+     * job whose end nothing decided yet.
+     *
+     * @return the termination that decides the fate of a job the runner settles without having terminated it itself
+     */
+    private static Optional<Termination> cancelCause(RunningJob job) {
+        return job.cause.isDone() ? Optional.of(job.cause.join()) : Optional.empty();
     }
 
     /**
@@ -1070,16 +1083,18 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Settles a job whose launcher could not be started: it had no process, and its fate is the launcher's exit
-     * {@value #EXECVE_FAILED}. A missing job log is what a launch that was never started leaves and counts as an empty
-     * one; a log that exists and cannot be read still decides row 5.
+     * Settles a job whose launcher could not be started: it had no process, and the launcher's exit
+     * {@value #EXECVE_FAILED} decides its fate, unless a cancel decided the end of the job first. A cancel that was
+     * answered {@code true} while the launch was composed or started has decided it, and its cause decides the fate as
+     * on every other path of the runner ({@code cancelled}, outcome row 2). A missing job log is what a launch that was
+     * never started leaves and counts as an empty one; a log that exists and cannot be read still decides row 5.
      */
     private void settleUnlaunched(RunningJob job, JobLog log) {
         try {
             var current = job.latest;
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
-            var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), Optional.empty(),
+            var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), cancelCause(job),
                     new Exited(EXECVE_FAILED), logState, ParseResult.NOTHING, job.successExitCodes, true));
             settle(job, current.toBuilder().status(Status.ENDED).fate(outcome.fate()).outcomeRow(outcome.row())
                     .endedAt(clock.instant()).build());

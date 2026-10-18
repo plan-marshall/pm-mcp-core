@@ -641,6 +641,52 @@ class SubprocessJobRunnerTest {
             assertComposedFailureSettled(thrown, thrown);
         }
 
+        @Test
+        @DisplayName("a cancel answered before the launcher cannot be started decides the fate by its cause")
+        void cancelBeforeLauncherNotStarted() {
+            var cancelled = new AtomicBoolean();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
+                    job -> {
+                        cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
+                        return ENVIRONMENT;
+                    });
+
+            var jobId = started(runner.start(git(30, "ok")));
+
+            assertCancelledWithoutProcess(jobId, cancelled);
+        }
+
+        @Test
+        @DisplayName("a cancel answered before the launch cannot be composed decides the fate by its cause")
+        void cancelBeforeLaunchNotComposed() {
+            var cancelled = new AtomicBoolean();
+            var failure = new IllegalArgumentException("environment refused");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
+                    job -> {
+                        cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
+                        throw failure;
+                    });
+            var request = git(30, "ok");
+
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
+
+            assertEquals(failure, thrown, "the failure is passed on to the caller");
+            assertCancelledWithoutProcess(jobs.records().getFirst().jobId(), cancelled);
+        }
+
+        private void assertCancelledWithoutProcess(JobId jobId, AtomicBoolean cancelled) {
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertTrue(cancelled.get(), "the cancel decided the end of the job"),
+                    () -> assertEquals(jobId, settled.jobId()),
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides, not row 10"),
+                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertNull(settled.pid(), "no process was started"),
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "no job is left running"),
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO)));
+        }
+
         private void assertComposedFailureSettled(IllegalArgumentException thrown, IllegalArgumentException expected) {
             var records = jobs.records();
             assertAll(

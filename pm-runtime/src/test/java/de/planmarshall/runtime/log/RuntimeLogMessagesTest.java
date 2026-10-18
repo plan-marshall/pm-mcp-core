@@ -139,7 +139,7 @@ class RuntimeLogMessagesTest {
                 Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_ESCALATED, "PM_RUNTIME-128",
                         "Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')"),
                 Arguments.of(RuntimeLogMessages.WARN.JOB_LAUNCHER_NOT_STARTED, "PM_RUNTIME-129",
-                        "Launcher of job '%s' not started, the job is settled as exit 127: %s"),
+                        "Launcher of job '%s' not started, the job had no process: %s"),
                 Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED, "PM_RUNTIME-130",
                         "Termination of job '%s' failed, its process is destroyed through its handle: %s"),
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",

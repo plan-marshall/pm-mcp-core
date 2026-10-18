@@ -27,7 +27,8 @@ no report at all.
 * A log without a report whose launcher exited `64`, `126` or `127` is a launcher failure
   (`LaunchReport.isLauncherFailure`): its output is not handed to the parser, and the outcome derivation takes the fate
   from the exit code. A launcher that cannot be started at all, or whose launch cannot be composed, is settled as an
-  exit `127` (row 10); a job log the never-started launcher did not create counts as empty, not as `MISSING`. Such a
+  exit `127` (row 10), unless a cancel was answered as deciding its end in the meantime, whose cause then decides it
+  (`cancelled`, row 2); a job log the never-started launcher did not create counts as empty, not as `MISSING`. Such a
   job keeps its write-ahead record without a PID.
 * A log that is shorter than what the runtime already read from it is `TRUNCATED`: shorter than the offset of an
   incremental read, or than the length the runner observed when it found the report. With `MISSING` and `UNREADABLE` it

@@ -32,7 +32,9 @@ job spec its job would need: which build verb, which tool, which arguments.
   a job admitted before the stop is among the running jobs the drain waits for; a job asked for afterwards is recorded
   `queued`, never spawned, and settled `killed` without a signal when the drain closes.
 * A job leaves the running jobs only after its settlement has run, on every path the runner owns: a launch that
-  cannot be composed or a launcher that cannot be started settles it as the launcher's exit `127`; a post-spawn record
+  cannot be composed or a launcher that cannot be started settles it as the launcher's exit `127`, unless a cancel was
+  answered as deciding its end in the meantime, whose cause then decides it as on every other path (`cancelled`, row 2);
+  a post-spawn record
   that cannot be written, or a waiting thread that cannot be started, terminates its process group, awaits the end of
   the process and settles it from that end before the failure is passed on to the caller of the start; and a failure
   of the waiting thread itself (an exception or error of the output parser, of the settled record or of the

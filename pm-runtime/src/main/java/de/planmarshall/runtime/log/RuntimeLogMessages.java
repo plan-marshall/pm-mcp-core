@@ -551,12 +551,13 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged when the launcher of a job cannot be started, or the launch of a job cannot be composed, so the job
-         * had no process and is settled as the launcher's exit 127; names the job and why.
+         * had no process and is settled as the launcher's exit 127, unless a cancel decided its end first, whose cause
+         * then decides it; names the job and why.
          */
         public static final LogRecord JOB_LAUNCHER_NOT_STARTED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(129)
-                .template("Launcher of job '%s' not started, the job is settled as exit 127: %s")
+                .template("Launcher of job '%s' not started, the job had no process: %s")
                 .build();
 
         /**
