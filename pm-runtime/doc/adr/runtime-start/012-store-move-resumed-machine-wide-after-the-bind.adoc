@@ -1,0 +1,49 @@
+= ADR 012: The Store Move Is Resumed Machine-Wide After the Bind
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+A move between the credential stores cut by a stop is resumed after the next start from its record
+`state/credential-store-move.json`. The start of the runtime has the startup sequence up to the bind and, after it,
+the per-project recovery with its eleven `RecoveryStep`s. The move concerns the machine, not a project, and the work
+package had to decide where its resume runs (question q1 of the work package).
+
+== Decision
+
+* The resume is the machine-wide class `CredentialStoreMoveResume` of `runtime.start`, run once after the bind and
+  wired by the assembly. It calls `CredentialStoreMove.resume()`: in phase `copying` with the old store recorded the
+  copies are deleted from the target and the move runs again from the first entry; in phase `switched` with the
+  target recorded, or in phase `copying` with the target recorded (the stop fell between the switch and the rewrite
+  of the record), the record is marked `switched`, the deletion from the old store is finished, the audit record of
+  the move is appended and only then the record is deleted, so an audit record a stop or a failing sink lost is
+  appended by the next start; in phase `switched` with another or no store recorded the resume is refused and
+  deletes nothing; without a record nothing happens. A resumed move is logged as `PM_RUNTIME-29`.
+* `StartupSequence`, `RecoveryStep` and `ProjectRecovery` are unchanged.
+
+Rationale not recorded beyond the move being machine-wide.
+
+== Alternatives Considered
+
+* A `RecoveryStep` of the per-project recovery: not taken; the move concerns the machine, while the recovery runs per
+  project. Further rationale not recorded.
+
+== Consequences
+
+* The assembly calls the resume once after the bind; until it does, an open move stays open, and no other writer
+  records a store while its record exists.
+* The recovery steps keep their number and order.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment § The move] (resume)
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#credential-store-move-record[Store Schemas § Machine State Records] (the resume rule of the record)
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Lifecycle § Startup Sequence]

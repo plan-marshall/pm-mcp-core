@@ -234,6 +234,15 @@ final class AuditTrailFixture {
         public boolean delete(CredentialAccount account) {
             return entries.remove(account.account()) != null;
         }
+
+        /** The fixture stores global entries only: the integrity key. */
+        @Override
+        public List<CredentialAccount> entries() {
+            if (failure != null) {
+                throw failure;
+            }
+            return entries.keySet().stream().sorted().map(CredentialAccount::global).toList();
+        }
     }
 
     /** A clock that stands still until it is advanced. */

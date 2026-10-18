@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -98,6 +99,72 @@ class SecretServiceStoreTest {
             assertEquals(Optional.of("project-token"), store.resolve("p1", "github"));
             assertEquals(Optional.of("global-token"), store.resolve("p2", "github"));
             assertEquals(2, secrets.items.size());
+        }
+    }
+
+    @Nested
+    @DisplayName("entries")
+    class Entries {
+
+        private void foreignItem(String path, Map<String, String> attributes) {
+            secrets.items.put(FakeSecretService.COLLECTION + "/" + path,
+                    new FakeSecretService.Item(attributes, "foreign", new byte[]{1}));
+        }
+
+        @Test
+        @DisplayName("an empty collection lists no entry")
+        void empty() {
+            assertEquals(List.of(), store.entries());
+        }
+
+        @Test
+        @DisplayName("lists the global and project entries of its service name in account order")
+        void globalAndProject() {
+            store.put(GITHUB, "global");
+            store.put(PROJECT_GITHUB, "project");
+            store.put(CredentialAccount.global("enrolment-integrity-key"), "key");
+
+            assertEquals(List.of(CredentialAccount.global("enrolment-integrity-key"), GITHUB, PROJECT_GITHUB),
+                    store.entries());
+        }
+
+        @Test
+        @DisplayName("lists no item of another service name and no item without a credential key")
+        void foreignItems() {
+            store.put(GITHUB, "global");
+            foreignItem("other-service", Map.of("service", SERVICE + "/0123456789abcdef", "credential_key", "sonar"));
+            foreignItem("no-key", Map.of("service", SERVICE));
+
+            assertEquals(List.of(GITHUB), store.entries());
+        }
+
+        @Test
+        @DisplayName("an item with an attribute that is no credential name fails")
+        void invalidName() {
+            foreignItem("bad", Map.of("service", SERVICE, "credential_key", "bad name"));
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.FAILED, e.reason());
+        }
+
+        @Test
+        @DisplayName("locked matching items report LOCKED")
+        void locked() {
+            store.put(GITHUB, "global");
+            secrets.itemsLocked = true;
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.LOCKED, e.reason());
+            assertEquals("credential_store_locked", e.reason().code());
+        }
+
+        @Test
+        @DisplayName("an unknown service fails with FAILED")
+        void serviceUnknown() {
+            secrets.serviceUnknown = true;
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.FAILED, e.reason());
         }
     }
 

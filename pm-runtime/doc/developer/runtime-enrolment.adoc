@@ -1,0 +1,158 @@
+= Integrity Key and Sidecars (`runtime.enrolment`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/enrolment
+:test: ../../src/test/java/de/planmarshall/runtime/enrolment
+
+== Purpose
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+
+Package `de.planmarshall.runtime.enrolment` of `pm-runtime` holds the runtime's side of the enrolment store of
+`pm-core`: the integrity key, the HMAC of the enrolment files, the per-use checks, the enrolment check and the
+enrolment operations. This guide covers the parts that serve the recorded credential store
+(link:runtime-credentials.adoc[`runtime.credentials`]):
+
+* `EnrolmentKey` reads the integrity key from the store a supplier gives on every read, so after the first recording
+  of a store and after a move the key is read from the store now recorded and nothing is re-signed.
+* `HarnessesSidecarCheck` verifies `harnesses.json` against its sidecar under a given key.
+* `EnrolmentSidecars` verifies every HMAC sidecar of the machine under one key: what the first recording and the move
+  verify under the carried key before they switch the store.
+
+The earlier decisions of the package are its ADRs 001 to 004 in link:../adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`].
+
+== Core Types
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
+
+[horizontal]
+`EnrolmentKey`:: The operator-lane integrity key: 256 random bits, base64url without padding, in a keyring under
+the global account `enrolment-integrity-key` or in the key file `<PM_MCP_BASE>/state/enrolment-hmac.key`.
+`HarnessesSidecarCheck`:: The verification of `harnesses.json` against `harnesses.json.hmac` under a given key,
+answering a `Result` with an `Outcome`.
+`EnrolmentSidecars`:: The verification of the enrolment files, `harnesses.json` and `logs/audit.head` under one key,
+answering the first `Failure` (file and reason) or nothing.
+
+== The Integrity Key Before and After the Choice
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+
+The harness enrolment and the audit head need the key before the operator records a credential store. Until then the
+key lives where the runtime finds a store: in the OS store where one is available, else in the key file. The first
+recording of a store carries the key into it: where the found store is the other one and holds a key, the key is
+copied into the store being recorded, read back, and every sidecar is verified under the key read back before
+`credentials.store` is switched; the key is then deleted from the found store
+(link:../adr/runtime-credentials/006-the-first-recording-carries-the-integrity-key.adoc[`runtime-credentials` ADR
+006]). A sidecar that does not verify under the carried key records nothing, and the key stays in the found store. So
+once a store is recorded it holds the key every sidecar was signed under, `readOrCreate()` creates no second key, and
+the move carries the key like every other entry.
+
+`EnrolmentKey(Supplier<SecretStore> activeStore, Path stateDirectory, String user, SecureRandom random)` asks the
+supplier for the store on every `read()`, `readOrCreate()`, `write(SecretKey)` and `delete()`. The supplier meant for
+it is `CredentialStoreChoice::integrityKeyStore`, which gives the recorded store once one is recorded and the found
+store before; wiring it is the assembly's
+(link:../adr/runtime-enrolment/005-integrity-key-through-a-supplier-of-the-active-store.adoc[ADR 005]). Where
+the store is the file store (`name()` is `file`) the key is the key file, otherwise the keyring entry.
+
+The constructor with a `SecretStore` delegates to the supplier constructor with that one store; the move and the
+first recording use it to reach the key in a store that is not recorded.
+
+`write(SecretKey)` and `delete()` exist for the move and the first recording alone. `write` writes the keyring entry,
+replacing what it holds, or creates the key file atomically and keeps a key file that exists already, so the caller
+reads the key back and compares it before it relies on the copy. `delete` removes the keyring entry or the key file.
+The caller of both holds the credentials lock (`EnrolmentKey.creationLock`).
+
+== The Harness Enrolment Sidecar
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+
+`<PM_MCP_BASE>/harnesses.json` has the sidecar `harnesses.json.hmac` in the format of a project enrolment's sidecar,
+under the same integrity key. `HarnessesSidecarCheck.verify(transaction, key)` acquires `locks/harnesses.lock`, which
+guards the file and its sidecar, and ends at the first failure:
+
+. The per-use checks of the file and of the sidecar (owner, mode `0600`, no symbolic link, unchanged while read),
+  bound to the one no-follow read whose bytes the later steps use: `INSECURE`.
+. A file without its sidecar or a sidecar without its file: `TAMPERED`. Neither existing means that no harness is
+  enrolled yet: `NOTHING_TO_VERIFY`, which passes.
+. The strict read of the sidecar record (`EnrolmentSidecar.read`): `UNREADABLE`.
+. The size and SHA-256 of the file against the record: `TAMPERED`.
+. The HMAC of the file under the key (`EnrolmentHmac.verify`): `TAMPERED`.
+
+The bytes of the file are never parsed against the schema of the harness enrolment store, never written and never
+logged (link:../adr/runtime-enrolment/006-harnesses-sidecar-verified-from-its-bytes-without-a-store-reader.adoc[ADR
+006]). The harness enrolment store itself, reading and writing `harnesses.json`, its verification before every worker
+spawn, the self-update and the refusal `harness_tampered`, comes with the worker launch; the check takes no audit sink
+and refuses nothing, and its caller decides what a failure means.
+
+== Every Sidecar Under One Key
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+
+`EnrolmentSidecars.verify(transaction, key)` verifies, in this order:
+
+. Every enrolment file `enrolments/<project_id>.json` against its sidecar, each under its enrolment lock, in the
+  lexicographic order of the project ids: the per-use checks on one no-follow snapshot of the file and of the
+  sidecar, the sidecar present, its strict read, the size and SHA-256, and the HMAC. Neither file existing passes.
+. `harnesses.json` through `HarnessesSidecarCheck`, under `locks/harnesses.lock`.
+. The audit head `logs/audit.head` (`AuditHead.verifies`) under the audit leaf lock (`LockKey.auditLog`); no head
+  file passes.
+
+The locks are taken in the total lock order: the enrolment locks, then `harnesses`, the audit leaf last. A caller that
+holds `locks/credentials.lock` keeps the order, and the transaction can take no lock after the verification, which is
+why the move and the first recording verify in a transaction of their own. The first failure names the file and the
+reason. Nothing is written, logged or audited, and the refusals of the enrolment check stay with the enrolment check.
+
+The move and the first recording call it with the key read back from the target store. The three kinds are verified here, in `pm-runtime`,
+with no seam for the assembly
+(link:../adr/runtime-credentials/005-the-move-verifies-every-sidecar-in-the-runtime.adoc[`runtime-credentials` ADR
+005]).
+
+== Testing
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
+
+[horizontal]
+link:{test}/EnrolmentKeyTest.java[`EnrolmentKeyTest`]:: The supplier asked on every read and every create; a switch of
+the supplier from the file store to a keyring reading the moved key; a key that was not moved absent in the newly
+given store; before the choice the key created in the found OS store, else in the key file; with `file` recorded the
+key file as the key of the choice; the first recording of `file` carrying the key the OS store held, with no second key
+created; the constructor with one store as before. `write` and `delete` are exercised by the move
+(`CredentialStoreMoveTest`) and the first recording (`CredentialStoreChoiceTest`).
+link:{test}/HarnessesSidecarCheckTest.java[`HarnessesSidecarCheckTest`]:: A file and sidecar passing under their key and
+failing under another; both absent passing; a missing half; a changed byte failing on the digest; the right digest
+with a wrong HMAC; mode `0644` and a symbolic link failing as insecure; an unreadable sidecar; the lock
+`locks/harnesses.lock` acquired.
+link:{test}/EnrolmentSidecarsTest.java[`EnrolmentSidecarsTest`]:: All three kinds passing under the key they were signed
+with; a tampered enrolment file, `harnesses.json` and audit head each failing; no `lock_order_violation`.
+
+`InMemoryKeyring` is the keyring of the tests of the package; it enumerates its entries like every store.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5]
+
+1. **Ask the supplier, never cache the store**: a store kept from an earlier read reads the key from the old store
+   after a move.
+2. **Never re-sign on a move or the first recording**: the key is carried; every sidecar stays as it was and is
+   verified under the carried key.
+3. **Do not parse `harnesses.json` here**: the check verifies bytes against the sidecar only; the schema belongs to the
+   harness enrolment store of the worker launch.
+4. **Audit leaf last**: no lock may be taken in the transaction after `EnrolmentSidecars.verify`.
+5. **The key never reaches a message**: no log record, exception message or failure reason names it.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/08-security.adoc#PM-SEC-5[PM-SEC-5], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+
+* Specification: link:{spec}/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness
+  Enrolment Store], link:{spec}/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[§ Lock-Free
+  Snapshot Reads] (lock order),
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment §
+  Credential Store as an Operator Choice] (the integrity key before the choice, the move)
+* Decisions: link:../adr/runtime-enrolment/005-integrity-key-through-a-supplier-of-the-active-store.adoc[ADR 005],
+  link:../adr/runtime-enrolment/006-harnesses-sidecar-verified-from-its-bytes-without-a-store-reader.adoc[ADR 006]
+* The move: link:runtime-credentials.adoc[`runtime.credentials`]

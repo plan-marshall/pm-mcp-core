@@ -1,0 +1,46 @@
+= ADR 003: Every Store Enumerates Its Entries
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+The move between the credential stores copies every entry of the old store into the target and deletes every entry
+from the old store. Until this work package a `SecretStore` could put, get and delete one account, but not say which
+accounts it holds.
+
+== Decision
+
+* `SecretStore` declares the abstract `List<CredentialAccount> entries()`: every account of `PM-MCP` the store
+  holds, global and project entries, the account `enrolment-integrity-key` included where the key lives in the store,
+  ordered by account (`SecretStore.ordered`). Entries of another service name are never listed.
+* The three stores implement it: `FileSecretStore` by listing its directory without following a link and skipping
+  temporary files, `KeychainSecretStore` by `SecItemCopyMatching` with `kSecMatchLimitAll` (new downcalls in
+  `MacSecurity`, registered for native image), `SecretServiceStore` by `SearchItems` on the attribute `service` alone.
+* Every test double of a store implements it as well; `FakeSecretService` serves the search and the `Attributes`
+  property.
+
+Rationale not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* A new store cannot exist without its enumeration.
+* The Keychain enumeration is proved for native image only by the native build of `pm-mcpd` in plan-marshall-mcp.
+* An entry a store holds but cannot name (a file name that is no account, an item without an account) fails the
+  enumeration instead of being skipped silently.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#os-keyring-backends[Credentials & Enrolment § Credential Stores]
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-move[Credentials & Enrolment § The move] (every entry)

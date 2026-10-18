@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -44,7 +45,7 @@ class SecretServiceIT {
     void connect() {
         var socket = DbusConnection.sessionBusSocket(System.getenv());
         assumeTrue(socket.isPresent(), "no unix:path session bus address");
-        var candidate = new SecretServiceStore(socket.get(), Posix.getuid(), service, SecretStoreSelector.BUS_TIMEOUT);
+        var candidate = new SecretServiceStore(socket.get(), Posix.getuid(), service, SecretServiceStore.BUS_TIMEOUT);
         // A session bus without org.freedesktop.secrets (a CI runner) skips the test; the cleanup then has no store
         assumeTrue(candidate.available(), "Secret Service not reachable or default collection locked");
         store = candidate;
@@ -83,5 +84,23 @@ class SecretServiceIT {
         values.put("get_us", getMicros);
         values.put("round_trip", true);
         VerificationResults.write("gate5-secret-service-jvm-direct", values, true);
+    }
+
+    @Test
+    @DisplayName("enumerates the entries of its service name only")
+    void entries() {
+        var other = new SecretServiceStore(DbusConnection.sessionBusSocket(System.getenv()).orElseThrow(),
+                Posix.getuid(), service + "-other", SecretServiceStore.BUS_TIMEOUT);
+        var foreign = CredentialAccount.global("foreign");
+        assertEquals(List.of(), store.entries());
+        store.put(project, "project");
+        store.put(global, "global");
+        other.put(foreign, "other");
+        try {
+            assertEquals(List.of(global, project), store.entries());
+            assertEquals(List.of(foreign), other.entries());
+        } finally {
+            other.delete(foreign);
+        }
     }
 }

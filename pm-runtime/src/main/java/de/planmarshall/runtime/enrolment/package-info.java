@@ -9,11 +9,15 @@
  */
 /**
  * The integrity of the project enrolments (PM-EXEC-2, PM-SEC-4, PM-SEC-5, PM-MIG-1, PM-IMPL-7): the runtime's side of
- * the enrolment store of {@code pm-core}.
+ * the enrolment store of {@code pm-core}, and the verification of the harness enrolment sidecar.
  * <ul>
- * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentKey}: the operator-lane integrity key, from the active
- * credential store under the account {@code enrolment-integrity-key}, or on a host without a keyring from
- * {@code <PM_MCP_BASE>/state/enrolment-hmac.key} (mode {@code 0600}); created on the first enrolment write under the
+ * <li>{@link de.planmarshall.runtime.enrolment.EnrolmentKey}: the operator-lane integrity key, from the store a
+ * supplier gives on every read: the recorded credential store once the operator chose one, before the choice the
+ * store the runtime finds (the OS store where one is available, else the file store). In a keyring the key is the
+ * entry under the account {@code enrolment-integrity-key}, in the file store the key file
+ * {@code <PM_MCP_BASE>/state/enrolment-hmac.key} (mode {@code 0600}); a move between the stores carries it like
+ * every other entry, so after the move it is read from the store now recorded and nothing is re-signed. It is
+ * created on the first enrolment write under the
  * credentials lock ({@code EnrolmentKey.creationLock}), taken before any enrolment lock, so two runtime instances
  * never create two keys; a keyring entry is read back after its write and the key it holds is adopted. Never logged
  * and never put into a message.</li>
@@ -30,6 +34,13 @@
  * {@code enter} and the operator verbs do not run it yet. A refused project ({@code enrolment_tampered},
  * {@code enrolment_insecure}, and a refused strict read, audited as {@code enrolment_invalid}) blocks only
  * itself.</li>
+ * <li>{@link de.planmarshall.runtime.enrolment.HarnessesSidecarCheck}: the verification of the harness enrolment
+ * store's sidecar {@code <PM_MCP_BASE>/harnesses.json.hmac} under a given integrity key, under
+ * {@code locks/harnesses.lock}, with the per-use checks, the sidecar record and the HMAC of the project enrolments; the
+ * credential-store move uses it to verify the file under the moved key. The harness enrolment store itself (reading
+ * and writing {@code harnesses.json}, its verification before every worker spawn, {@code harness_tampered}) is not in
+ * this package yet: it comes with the worker launch, and the check neither parses the file nor refuses
+ * anything.</li>
  * <li>{@code EnrolmentPolicy}: the rules an enrolment is checked against before it is signed (placeholders of an
  * argument vector, write paths against the base directory, refused build environment names), refused as
  * {@code enrolment_invalid}.</li>
@@ -49,7 +60,8 @@
  * <p>
  * Specification:
  * <ul>
- * <li>{@code doc/specification/store-schemas/11-enrolment-store.adoc} (Project Enrolment Store)</li>
+ * <li>{@code doc/specification/store-schemas/11-enrolment-store.adoc} (Project Enrolment Store; Harness Enrolment
+ * Store)</li>
  * <li>{@code doc/specification/credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc} (Enrolment Integrity; Enrolment,
  * Lifecycle Gate &amp; Release)</li>
  * </ul>

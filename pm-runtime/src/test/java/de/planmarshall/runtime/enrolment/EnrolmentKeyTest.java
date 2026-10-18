@@ -43,6 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -63,7 +64,10 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.store.EnrolmentStore;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.credentials.CredentialAccount;
+import de.planmarshall.runtime.credentials.CredentialStoreChoice;
+import de.planmarshall.runtime.credentials.CredentialStoreChoiceFixture;
 import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.credentials.SecretStore;
 import de.planmarshall.runtime.credentials.SecretStoreException;
@@ -472,6 +476,11 @@ class EnrolmentKeyTest {
         public boolean delete(CredentialAccount account) {
             return entries.remove(account.account()) != null;
         }
+
+        @Override
+        public List<CredentialAccount> entries() {
+            return entries.keySet().stream().sorted().map(CredentialAccount::global).toList();
+        }
     }
 
     private static final Duration BOUND = Duration.ofSeconds(5);
@@ -713,7 +722,167 @@ class EnrolmentKeyTest {
         }
     }
 
-    /** The fallback file store as the key sees it: only its name matters, its entries are never used. */
+    /**
+     * The key in the store a supplier gives (PM-CRED-2): the recorded store, or before the choice the store the runtime
+     * finds; the supplier is asked on every read, so a key moved to another store is read from there.
+     */
+    @Nested
+    @DisplayName("through a supplier of the active store")
+    class ActiveStoreSupplier {
+
+        private final AtomicInteger asked = new AtomicInteger();
+
+        @Test
+        @DisplayName("the supplier is asked on every read and every create")
+        void askedOnEveryRead() {
+            var keyring = new InMemoryKeyring();
+            var key = new EnrolmentKey(() -> {
+                asked.incrementAndGet();
+                return keyring;
+            }, state, USER, new SecureRandom());
+
+            key.read();
+            key.readOrCreate();
+            key.read();
+
+            assertEquals(3, asked.get());
+        }
+
+        @Test
+        @DisplayName("a switch of the supplier from the file store to a keyring reads the moved key")
+        void movedKeyRead() {
+            var keyring = new InMemoryKeyring();
+            var current = new SecretStore[]{new FileStoreName()};
+            var key = new EnrolmentKey(() -> current[0], state, USER, new SecureRandom());
+            var created = key.readOrCreate();
+            keyring.entries.put(EnrolmentKey.ACCOUNT, encode(created.getEncoded()));
+
+            current[0] = keyring;
+            var moved = key.read();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), moved.orElseThrow().getEncoded()),
+                    () -> assertTrue(Files.exists(key.keyFile())));
+        }
+
+        @Test
+        @DisplayName("a key that was not moved is absent in the newly given store, never taken from the old one")
+        void notMovedAbsent() {
+            var current = new SecretStore[]{new FileStoreName()};
+            var key = new EnrolmentKey(() -> current[0], state, USER, new SecureRandom());
+            key.readOrCreate();
+
+            current[0] = new InMemoryKeyring();
+
+            assertTrue(key.read().isEmpty());
+        }
+
+        @ParameterizedTest(name = "OS store available: {0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("before the choice the key is created in the found OS store, else in the key file")
+        void beforeTheChoice(boolean osStoreAvailable) {
+            var keyring = new InMemoryKeyring();
+            var key = new EnrolmentKey(() -> osStoreAvailable ? keyring : new FileStoreName(), state, USER,
+                    new SecureRandom());
+
+            key.readOrCreate();
+
+            assertAll(
+                    () -> assertEquals(osStoreAvailable, keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
+                    () -> assertEquals(!osStoreAvailable, Files.exists(key.keyFile())));
+        }
+
+        @Test
+        @DisplayName("with file recorded the store of the integrity key of the choice is the key file")
+        void recordedFileStore() throws Exception {
+            var base = Files.createDirectories(state.resolve("pm-base"));
+            var stateDirectory = Files.createDirectories(base.resolve("state"));
+            var choice = CredentialStoreChoiceFixture.withOsStore(base, "de.planmarshall.mcp", new InMemoryKeyring());
+            choice.record(new FileLockManager(event -> {
+            }), USER, CredentialStoreChoice.Store.FILE);
+            var key = new EnrolmentKey(choice::integrityKeyStore, stateDirectory, USER, new SecureRandom());
+
+            key.readOrCreate();
+
+            assertAll(
+                    () -> assertEquals(stateDirectory.resolve(EnrolmentKey.FILE_NAME), key.keyFile()),
+                    () -> assertTrue(Files.exists(stateDirectory.resolve(EnrolmentKey.FILE_NAME))));
+        }
+
+        @Test
+        @DisplayName("the first recording of the file store carries the key the OS store held: it is read from the key "
+                + "file afterwards and no second key is created")
+        void firstRecordingCarriesTheKey() throws Exception {
+            var base = Files.createDirectories(state.resolve("pm-base"));
+            var stateDirectory = Files.createDirectories(base.resolve("state"));
+            Files.createDirectories(base.resolve(EnrolmentStore.DIRECTORY_NAME));
+            Files.createDirectories(AuditHead.headFile(base).getParent());
+            var keyring = new InMemoryKeyring();
+            var choice = CredentialStoreChoiceFixture.withOsStore(base, "de.planmarshall.mcp", keyring);
+            var key = new EnrolmentKey(choice::integrityKeyStore, stateDirectory, USER, new SecureRandom());
+            var created = key.readOrCreate();
+
+            choice.record(new FileLockManager(event -> {
+            }), USER, CredentialStoreChoice.Store.FILE);
+            var afterwards = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), afterwards.getEncoded()),
+                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertFalse(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)));
+        }
+
+        @Test
+        @DisplayName("before the choice an outage of the OS store after the key was created there creates no second "
+                + "key in the key file")
+        void osOutageCreatesNoSecondKey() throws Exception {
+            var keyring = new InMemoryKeyring();
+            var available = new AtomicBoolean(true);
+            var choice = CredentialStoreChoiceFixture.withOsStoreWhile(
+                    Files.createDirectories(state.resolve("pm-base")), "de.planmarshall.mcp", keyring, available::get);
+            var key = new EnrolmentKey(choice::integrityKeyStore, state, USER, new SecureRandom());
+            var created = key.readOrCreate();
+
+            available.set(false);
+            var again = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
+                    () -> assertTrue(keyring.entries.containsKey(EnrolmentKey.ACCOUNT)),
+                    () -> assertFalse(Files.exists(key.keyFile())));
+        }
+
+        @Test
+        @DisplayName("before the choice an OS store that answers after the key file was created gets no second key")
+        void osAnsweringLaterGetsNoSecondKey() throws Exception {
+            var keyring = new InMemoryKeyring();
+            var available = new AtomicBoolean(false);
+            var choice = CredentialStoreChoiceFixture.withOsStoreWhile(
+                    Files.createDirectories(state.resolve("pm-base")), "de.planmarshall.mcp", keyring, available::get);
+            var key = new EnrolmentKey(choice::integrityKeyStore, state, USER, new SecureRandom());
+            var created = key.readOrCreate();
+
+            available.set(true);
+            var again = key.readOrCreate();
+
+            assertAll(
+                    () -> assertArrayEquals(created.getEncoded(), again.getEncoded()),
+                    () -> assertTrue(Files.exists(key.keyFile())),
+                    () -> assertTrue(keyring.entries.isEmpty(), keyring.entries.keySet().toString()));
+        }
+
+        @Test
+        @DisplayName("the constructor with one store refuses no store")
+        void fixedStoreRequired() {
+            var random = new SecureRandom();
+            var npe = assertThrows(NullPointerException.class,
+                    () -> new EnrolmentKey((SecretStore) null, state, USER, random));
+
+            assertEquals("store", npe.getMessage());
+        }
+    }
+
+    /** The file store as the key sees it: only its name matters, its entries are never used. */
     private static final class FileStoreName implements SecretStore {
 
         @Override
@@ -734,6 +903,11 @@ class EnrolmentKeyTest {
         @Override
         public boolean delete(CredentialAccount account) {
             throw new AssertionError("the key file store must not be deleted through");
+        }
+
+        @Override
+        public List<CredentialAccount> entries() {
+            throw new AssertionError("the key file store must not be listed through");
         }
     }
 }

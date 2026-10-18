@@ -66,6 +66,12 @@
  * ({@link de.planmarshall.runtime.start.CrossScopeReconciliationStep.ProjectReconcilers}).</li>
  * </ul>
  * <p>
+ * The resume of the move between the credential stores
+ * ({@link de.planmarshall.runtime.start.CredentialStoreMoveResume}) is machine-wide and no recovery step: the
+ * assembly runs it once after the bind. From the record {@code state/credential-store-move.json} it starts a move cut
+ * before the switch again from the first entry, finishes the deletion from the old store of a move cut after the
+ * switch, and does nothing when no move is open.
+ * <p>
  * The periodic sweep ({@link de.planmarshall.runtime.start.PeriodicSweep}) runs every hour
  * ({@link de.planmarshall.runtime.start.PeriodicSweep#INTERVAL}, 3600 seconds) over the enrolled projects whose
  * recovery has finished; a project still recovering is taken up by the next run. Its two steps
