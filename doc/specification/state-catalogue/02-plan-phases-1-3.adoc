@@ -93,7 +93,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-2-refine`
 |`job`
 |`refine.baseline-reconcile`; `refine.awaiting_answers` (the single second task); `refine.remediate-qgate` (`fix_requested`: a remediation pass with `facts.qgate_findings`).
-|`job llm refine role refine`: the task's entity submits `submit:refine` (`clarified_request`, `pr_title`, six dimension scores, `evidence_class`, `compatibility`, `simplicity`, per-claim hypothesis verdicts of a plan of an epic, open questions in the optional `decision:schema[decision-envelope]?`).
+|`job llm refine role refine`: the task's entity submits `submit:refine` (`intent`, the intent record, `pr_title`, six dimension scores, `evidence_class`, `compatibility`, `simplicity`, per-claim hypothesis verdicts of a plan of an epic, open questions in the optional `decision:schema[decision-envelope]?`).
 |Return evaluation: `qgate` (confidence at or above threshold, a lesson-derived plan) -> `refine.qgate`; `ready` (confidence at or above threshold, any other plan) -> `refine.ready`; `ask` (below threshold on the first pass, or a refuted hypothesis) -> `refine.awaiting_answers`; `refuted_again` (a claim refuted again) -> `refine.hypothesis-refuted`; below threshold on the second pass or in a remediation pass: `qgate` or `ready` with `low_confidence_manual_review: true`; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_five_quality_dimensions_fixed_weight_confidence_aggregation[Phase Workflows Specification, Five Quality Dimensions]; link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Single-Batch Clarification & Relaunch Ceiling]
 
@@ -102,7 +102,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`call`
 |`refine.analyze` (at most once).
 |As xref:01-conventions-generic-conditions.adoc#state-phase.awaiting_answers[`<phase>.awaiting_answers`]; at most 4 questions in one batch. `operator_answered` evidence requires a round of this state answered by the operator (not by the quorum).
-|`refine.analyze` (writes `## Clarifications` and `## Clarified Request`, increments `refine_relaunch_count`; the second task carries the answers).
+|`refine.analyze` (writes `## Clarifications` and records `all_recommended`, increments `refine_relaunch_count`; the second task carries the answers).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Phase Workflows Specification, Single-Batch Clarification]
 
 |[[state-refine.hypothesis-refuted]]`refine.hypothesis-refuted`
@@ -141,7 +141,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-2-refine`
 |`auto`
 |`refine.analyze` (`ready`), `refine.qgate` (`clean`), `refine.remediate-qgate` (`resolved`, `waived`), `refine.apply-narrowing`.
-|Phase 2 exit guards: artifact gate (`## Clarified Request`, non-empty `pr_title`), Blocking Findings Guard, Clean Main Checkout Guard.
+|Phase 2 exit guards: artifact gate (a valid intent record and the `## Clarified Request` rendered from it, non-empty `pr_title`), Blocking Findings Guard, Clean Main Checkout Guard.
 |`outline.detect-change-type` (phase `phase-3-outline`).
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Planning Transition Guards]
 |===
@@ -157,7 +157,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-3-outline`
 |`auto`
 |`refine.ready`; `init.light-gate` (pass).
-|`ChangeTypeHeuristic` over `clarified_request` (else `original_input`); writes `change_type` only when unambiguous. Outcomes: `deep`, `light` (unambiguous, by lane), `ambiguous`.
+|`ChangeTypeHeuristic` over the rendered clarified request (else `original_input`); writes `change_type` only when unambiguous. Outcomes: `deep`, `light` (unambiguous, by lane), `ambiguous`.
 |`deep` -> `outline.deep`; `light` -> `outline.light`; `ambiguous` -> `outline.classify-change-type`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Phase Workflows Specification, Single-Writer Heuristic vs Judgment Fallback]
 
@@ -189,7 +189,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-3-outline`
 |`job`
 |`outline.detect-change-type`, `outline.classify-change-type`, `outline.assume-change-type` (`light`); `outline.light-regate` (pass).
-|`job llm outline role outline`, one collapsed light task: the entity submits `submit:outline` carrying `clarified_request`, `pr_title`, and `outline` (no `decision` parameter), read bound `facts.light_read_set`; or `outcome = escalate_to_deep` with `escalation_trigger` (`premise`, `cross_module_ripple`, `public_symbol_deletion`). No Q-Gate. The submit primitive runs the widen-only domain merge and then validates as in `outline.deep`, the derivation dry-run included; a refusal is `invalid_link_args` to the worker.
+|`job llm outline role outline`, one collapsed light task: the entity submits `submit:outline` carrying `intent`, `pr_title`, and `outline` (no `decision` parameter), read bound `facts.light_read_set`; or `outcome = escalate_to_deep` with `escalation_trigger` (`premise`, `cross_module_ripple`, `public_symbol_deletion`). No Q-Gate. The submit primitive runs the widen-only domain merge and then validates as in `outline.deep`, the derivation dry-run included; a refusal is `invalid_link_args` to the worker.
 |`accepted` -> `outline.gate` (records `phase-2-refine` done); `escalate_to_deep` -> `refine.baseline-reconcile`; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-envelope[Phase Workflows Specification, Collapsed Light Envelope]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase 3 Validation Rules]
 

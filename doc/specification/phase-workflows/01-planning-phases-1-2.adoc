@@ -57,14 +57,14 @@ Every state of Phases 1–4 is catalogued in the State Catalogue (link:../state-
 │  -> refine.ready                                                                 │  │
 │  (5 quality dimensions + module mapping, widen-only domains, pr_title authored)  │  │
 └────────────────────────────────────────┬─────────────────────────────────────────┘  │
-                                         │ (artifact gate: clarified_request          │
+                                         │ (artifact gate: intent record              │
                                          │  + pr_title)                               │
                                          ▼                                            │
 ┌──────────────────────────────────────────────────────────────────────────────────┐  │
 │ Phase 3: outline                                                                 ◄──┘
 │  outline.detect-change-type [task: classify] -> { outline.deep | .light }        │
 │  outline.light (task: outline): ONE collapsed light envelope (refine             │
-│    without loop + Simple outline + deliverables); submits clarified_request,     │
+│    without loop + Simple outline + deliverables); submits intent record,         │
 │    pr_title and outline; on acceptance phase-2-refine is recorded done           │
 │  outline.light --(escalate_to_deep: premise | ripple | public symbol deletion)   │
 │    --> refine.baseline-reconcile (planning_lane = deep, one-way)                 │
@@ -385,7 +385,7 @@ The server-side `ConfidenceAggregator` computes the overall confidence determini
 
 $$\text{confidence} = \lfloor 0.20 \cdot S_{\text{corr}} + 0.20 \cdot S_{\text{comp}} + 0.20 \cdot S_{\text{cons}} + 0.10 \cdot S_{\text{nondup}} + 0.20 \cdot S_{\text{ambig}} + 0.10 \cdot S_{\text{mod}} \rfloor$$
 
-* All six dimensions are required parameters of `submit:refine`; a submission omitting one is rejected with `invalid_link_args`, so no absent score is ever folded into the aggregate as `0`. *Deliberate change vs. `plan-marshall`*: `plan-marshall` scores the dimensions discretely (`100` on pass and `0` on an issue; completeness `100`/`50`/`0`; non-duplication `100`/`80`); `PM-MCP` accepts each dimension as `int[0..100]`.
+* The intent record (<<intent-record>>) and all six dimensions are required parameters of `submit:refine`; a submission omitting one is rejected with `invalid_link_args`, so no absent score is ever folded into the aggregate as `0`. *Deliberate change vs. `plan-marshall`*: `plan-marshall` scores the dimensions discretely (`100` on pass and `0` on an issue; completeness `100`/`50`/`0`; non-duplication `100`/`80`); `PM-MCP` accepts each dimension as `int[0..100]`.
 * *Evidence Class*: `submit:refine` carries `evidence_class` (`self_assessment`, `operator_answered`, or `downstream_reproduced`), persisted beside the score and shown in `facts`. The server checks it against its records: `operator_answered` is refused (`invalid_link_args`) unless a `refine.awaiting_answers` round of this plan has at least one answer the operator gave (channel `web` or `cli`; a `quorum` answer does not count), and `downstream_reproduced` requires an `evidence_ref` naming the reproducing artifact (a build job, test run, or re-grounding verdict). No heuristic fires on an all-100 score by itself: only `self_assessment` with every dimension at `100` on a plan no epic started adds the advisory fact `self_assessed_full_confidence` (never blocking, never a link change), while an all-100 score on an emitted plan's pre-verified specification is expected and adds nothing.
 * *Server Checks on Every Submission*: For every deep plan, `submit:refine` is refused with `invalid_link_args` when its module mapping names a module that the architecture module inventory does not know, or maps no module for an expected modification (module-mapping existence, blocking). The consistency of `scope_estimate` with the lane is checked where a `light` plan records an estimate (a ratchet trigger, xref:02-planning-lanes-phases-3-4.adoc#_lane_ratchet_rules[Lane Ratchet Rules]); a deep plan is never ratcheted down. *Deliberate change vs. `plan-marshall`*: its refine Q-Gate also judges scope realism and confidence justification on every plan; both are dropped, because the fixed-weight `ConfidenceAggregator` and the evidence class cover them.
 * The aggregated score is persisted to `status.metadata.confidence` and compared against `confidence_threshold`, the compiled constant `95` (not configurable: lowering it would only admit less-clarified requests); every comparison appends a `refine.confidence` decision record with the score against the threshold (link:../model-work/11-decision-records.adoc#decision-points[Model Work Specification, Decision Points]). *Deliberate change vs. `plan-marshall`*: its `confidence_threshold` is a project setting (default `95`).
@@ -401,12 +401,50 @@ $$\text{domains}_{\text{new}} = \text{domains}_{\text{cached}} \cup \text{detect
 * *Monotonic Widening Invariant*: Phase 2 may **only widen** `metadata.domains`, never narrow it, ensuring convergence across refine iterations. If `affected_files` produce zero narrative or glob matches, `domain-detect` returns all offerable domains under `reason = "over_provisioned_resolve"`; that temporary over-provisioning is narrowed exactly once in Phase 3 after deliverables are declared.
 * *Match Provenance*: `domain-detect` returns, per domain, its `source` (`always_on`, `glob`, or `narrative`) and `matches: N`, rendered in `facts`. A result resting only on `always_on` legs with zero matches is reported `floor_only`, never as a confident single-domain answer.
 
+[#intent-record]
+==== The Intent Record
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-106[PM-WATCH-PHASE-106], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-107[PM-WATCH-PHASE-107]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+The refine task does not submit the clarified request as prose. It submits the plan's *intent record*, `intent:schema[intent-record]` (link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]), and the server renders `## Clarified Request` of `request.md` from it. The record is what later phases cite: the outline names the criteria each deliverable satisfies (xref:02-planning-lanes-phases-3-4.adoc#outline-satisfies[Phase 3, `Satisfies` Coverage]), the self-review judges against the criteria, and the pull-request body lists them. Wherever this specification names the clarified request as text (the change-type heuristic, the issue write-back), it means that rendered section.
+
+[cols="1,3",options="header"]
+|===
+|Member |Content
+
+|`why` |The problem, who has it, and why now (`20` to `1000` characters).
+|`goal` |One outcome sentence that a check can decide (`10` to `300` characters).
+|`criteria[]` |One to `30` acceptance criteria `AC-<n>`, each a statement in EARS form (below), its `kind` (`new`, `fix`, `unchanged`), and how it is verified (`test`, `demonstration`, `inspection`).
+|`current_behaviour` |For a record with a `fix` criterion: the behaviour the fix replaces, in the form `WHEN <condition> THEN THE <system> <behaviour>`; `null` otherwise.
+|`non_goals[]` |One to `20` items `NG-<n>`: what the plan deliberately does not do.
+|`constraints[]` |Items `CN-<n>` that each rule something out, with their `source` (`code`, `operator`, `external`) and, for `code`, the path or `pm://` URI that shows it.
+|`decisions[]` |Items `DC-<n>`: the decision, the options weighed, and the `decider`: `operator` or `quorum` (with the `question_id` of the answered part), `model` (the role's own call), or `fact` (found by exploring, with its evidence path or `pm://` URI).
+|`assumptions[]` |Items `AN-<n>`, each `verified` or `unverified`; at most one marked `riskiest`, with a cheap test that would refute it.
+|`open_questions[]` |Questions left for `exploration` or an `external` party; a question only the operator can answer is asked, never left here.
+|`deferred[]` |Items `DF-<n>` split off from this plan, each with its reason.
+|`source_claims[]` |Every load-bearing claim of the plan's sources (one without which a later step would decide differently), each with where it landed: the id of an item of this record, or `dropped` with a reason.
+|===
+
+*Server checks on every submission* (a violation is refused with `invalid_link_args`, `rejected.detail` naming the member):
+
+. *EARS form*: every criterion matches the EARS grammar: optional preconditions `WHERE <feature>`, `WHILE <state>`, `WHEN <trigger>` (in that order, each at most once), optionally `IF <condition> THEN`, then `THE <system> SHALL <response>`; a `kind: unchanged` criterion's response begins with `CONTINUE TO`. The keywords are these uppercase English tokens whatever the project's model language (link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#i18n[Module Structure, Languages]); the rest is written in the model language.
+. *A fix carries its triple*: a record with a `fix` criterion has `current_behaviour` and at least one `unchanged` criterion.
+. *Deciders are true*: a `DC` item of decider `operator` or `quorum` names a part of an answered question record of this plan whose answer channel matches (`web` or `cli` for `operator`, `quorum` for `quorum`); a `fact` names its evidence, and a path must exist in the tree. A model's call is never recorded as the operator's.
+. *Assumptions*: a record with an `unverified` assumption marks exactly one `riskiest`, which carries its test.
+. *Identifiers*: unique within the record; an identifier that a revision of the record removed is never reused for another item (checked against the plan's previous records).
+. *Preservation*: every `source_claims` entry lands in an existing item or is `dropped` with a reason. For a plan its epic started (source `epic_row`), the server seeds the required claims: the row's `done_when` and each of the epic's non-goals (link:../model-work/08-epic-coordination.adoc#epic-intent[Model Work Specification, Epic Intent]) must appear among the `source_claims` by their exact text; the task's facts carry them as `facts.required_claims`.
+
+*Revisions*: every accepted submission writes the record to `intent.json` and appends the previous one to its history in the same transaction; an answer of a relaunch round, a Q-Gate remediation pass, and a re-planning that changes intent each submit a new revision. An answer given after refine that changes intent (the outline review's `revise`, a task question) stays an amendment (xref:07-questions-waivers-operator-influence.adoc#questions-waivers-operator-influence[Questions, Waivers & Operator Influence]) and does not rewrite the record until a re-planning submits one.
+
+*Rendering*: `## Clarified Request` shows the record's members as sections in the model language, each item with its identifier; the model's own calls are listed under their own heading, never mixed with the operator's decisions. A plan whose confidence stayed below the threshold (`low_confidence_manual_review`) also shows the six dimension scores of its last pass there.
+
 ==== Single-Batch Clarification & Relaunch Ceiling
 
 If $\text{confidence} < \text{confidence\_threshold}$:
 
-1. The refine task submits its best-judgment `clarified_request` alongside a single batched `refine_prompt` (`decision:schema[decision-envelope]?`, xref:07-questions-waivers-operator-influence.adoc#phase-question-envelope[Question Envelope Schema]) whose parts are at most 4 clarification questions prioritized by `Correctness > Consistency > Completeness > Ambiguity > Non-Duplication`.
+1. The refine task submits its best-judgment intent record (<<intent-record>>) alongside a single batched `refine_prompt` (`decision:schema[decision-envelope]?`, xref:07-questions-waivers-operator-influence.adoc#phase-question-envelope[Question Envelope Schema]) whose parts are at most 4 clarification questions prioritized by `Correctness > Consistency > Completeness > Ambiguity > Non-Duplication`. A question asks for a decision, never for a fact: what the repository or a source can answer the role looks up and records as a `fact` decision of the record with its evidence (the refine role skill states this, class `guidance`). Parts whose answer depends on another part's answer declare it (`depends_on`), so the operator answers the independent ones first and a dependent part only when its premise holds.
 2. The engine records the batch as one decision of question records (class `clarification`, xref:07-questions-waivers-operator-influence.adoc#questions-waivers-operator-influence[Questions, Waivers & Operator Influence]) and transitions to `refine.awaiting_answers`, where the adjudication decides it or delivers it to the operator as an operator wait without a time limit.
-3. When every question of the batch is answered, by the operator or by a quorum, the engine writes the `## Clarifications` and `## Clarified Request` sections, increments `refine_relaunch_count` in `mcp/status.json`, and creates a new `refine.analyze` task **at most once** (`refine_relaunch_count <= 1`).
+3. When every question of the batch is answered, by the operator or by a quorum, the engine writes the `## Clarifications` section, records whether every part was answered with its recommended option and nothing else (no own words, no note: `all_recommended: true` on the decision, shown in `facts` of the next pass and in the pull-request body, so an approval without a single change of course is visible), increments `refine_relaunch_count` in `mcp/status.json`, and creates a new `refine.analyze` task **at most once** (`refine_relaunch_count <= 1`).
 4. If the second pass still yields $\text{confidence} < \text{confidence\_threshold}$, the engine does **not** loop again (a hypothesis refuted again goes to `refine.hypothesis-refuted` instead, see Open Hypotheses of Epic Plans); it flags `low_confidence_manual_review: true` in `facts` and advances to `refine.qgate` for a lesson-derived plan, otherwise to `refine.ready`.
 5. A remediation pass of `refine.analyze` requested by the Q-Gate policy (`fix_requested` of `remediation.qgate-findings`, xref:03-q-gate-and-execute.adoc#_q_gate_validation_loop[Q-Gate Validation Loop]) is never counted by `refine_relaunch_count` and never opens a new `refine.awaiting_answers` round; its questions and a below-threshold score are recorded as `low_confidence_manual_review`.

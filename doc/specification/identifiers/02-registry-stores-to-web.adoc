@@ -29,6 +29,13 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |Never reused; superseding records reference the superseded identifier
 |link:../store-schemas.adoc[Store Schemas] (Amendments, link:../store-schemas/03-findings-and-review-records.adoc#component-assessments[Component Assessments], link:../store-schemas/03-findings-and-review-records.adoc#owed-item-record[Owed Item Record], link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Waiver Request Record], link:../store-schemas/14-plan-instance-waivers-questions.adoc#evidence-directory[Evidence Directory & Failure Envelope], link:../store-schemas/15-screening-and-grants.adoc#screen-verdict-cache[Screen Verdict Cache], simplify proposals of a step firing link:../store-schemas/02-workflow-state-store.adoc[Workflow State Store], link:../store-schemas/17-re-planning.adoc#replan-record[Re-Planning Record]); `pm://plan/{plan_id}/evidence/{evidence_id}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools]
 
+|[[id-intent-item-id]]Intent item identifier
+|`^(AC|NG|CN|DC|AN|DF)-[0-9]{1,4}$` (criterion, non-goal, constraint, decision, assumption, deferred item), at most 7.
+|model (the refine task, in the intent record)
+|Plan
+|Stable across revisions of the record; an identifier a revision removed is never reused for another item (checked by the server against the record's history)
+|link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas, Intent Record]; the `Satisfies` lists of `outline.md` link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-satisfies[Phase Workflows]
+
 |[[id-waiver-id]]`waiver_id`
 |`^W-[0-9]+$`, at most 64.
 |server (on the operator verb `waive`)
