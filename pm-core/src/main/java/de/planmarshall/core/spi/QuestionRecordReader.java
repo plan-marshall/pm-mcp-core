@@ -23,8 +23,8 @@ import java.util.regex.Pattern;
  * still awaiting its answer.
  * <p>
  * The question store is {@link de.planmarshall.core.store.QuestionLog} of {@code pm-core} {@code core.store}, the
- * {@code questions.jsonl} of each scope. An adapter of {@code pm-runtime} implements this port over it; no class of
- * {@code pm-core} implements the port (PM-IMPL-5).
+ * {@code questions.jsonl} of each scope. An adapter of {@code pm-runtime} is to implement this port over it; no
+ * class of {@code pm-core} implements the port (PM-IMPL-5).
  *
  * @since 0.1
  */
