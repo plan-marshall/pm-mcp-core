@@ -165,7 +165,7 @@ public interface JobRunner<R, C> {
          */
         record Refused(String reason) implements StartResult {
 
-            private static final Pattern REASON_PATTERN =Pattern.compile("[a-z][a-z0-9_]*");
+            private static final Pattern REASON_PATTERN = Pattern.compile("[a-z][a-z0-9_]*");
 
             /**
              * @throws NullPointerException     if the reason is {@code null}

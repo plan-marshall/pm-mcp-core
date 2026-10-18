@@ -102,14 +102,21 @@ class PmExecLauncherTest {
         @DisplayName("a relative home, an empty vector and a relative executable are refused")
         void refusals() {
             var log = work.resolve("job.log");
+            var relativeHome = Path.of("home");
+            List<String> emptyVector = List.of();
+            List<String> relativeVector = List.of("git", "status");
+            List<String> absoluteVector = List.of("/bin/true");
+            Map<String, String> noEnvironment = Map.of();
+            Optional<String> noInput = Optional.empty();
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> new PmExecLauncher(Path.of("home"))),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new PmExecLauncher(relativeHome)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Launch(work, List.of(), Map.of(), Optional.empty(), log)),
+                            () -> new Launch(work, emptyVector, noEnvironment, noInput, log)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Launch(work, List.of("git", "status"), Map.of(), Optional.empty(), log)),
+                            () -> new Launch(work, relativeVector, noEnvironment, noInput, log)),
                     () -> assertThrows(NullPointerException.class,
-                            () -> new Launch(work, List.of("/bin/true"), Map.of(), null, log)));
+                            () -> new Launch(work, absoluteVector, noEnvironment, null, log)));
         }
     }
 

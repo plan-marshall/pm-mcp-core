@@ -204,12 +204,13 @@ class JobSettlementTest {
                     .map(name -> recording(name, ran)).toList();
             var duplicate = new ArrayList<>(Arrays.stream(Name.values()).map(name -> recording(name, ran)).toList());
             duplicate.add(recording(Name.FATE, ran));
+            var running = postSpawn();
+            Optional<Slot> noSlot = Optional.empty();
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(missing)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new JobSettlement(duplicate)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Settled(postSpawn(), Optional.empty())));
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Settled(running, noSlot)));
         }
     }
 

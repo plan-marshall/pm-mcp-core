@@ -269,11 +269,14 @@ class TerminationProtocolTest {
         @Test
         @DisplayName("a report carries an errno exactly for a refused signal")
         void reportInvariants() {
+            var someErrno = OptionalInt.of(1);
+            var noErrno = OptionalInt.empty();
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Report(Ending.GROUP_KILLED, false, OptionalInt.of(1))),
+                            () -> new Report(Ending.GROUP_KILLED, false, someErrno)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Report(Ending.SIGNAL_REFUSED, false, OptionalInt.empty())),
+                            () -> new Report(Ending.SIGNAL_REFUSED, false, noErrno)),
                     () -> assertEquals(List.of(0, 9, 15), Stream.of(Signal.PROBE, Signal.SIGKILL, Signal.SIGTERM)
                             .map(Signal::number).toList()));
         }

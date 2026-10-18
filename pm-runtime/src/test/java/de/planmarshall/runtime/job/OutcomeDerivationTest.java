@@ -242,14 +242,20 @@ class OutcomeDerivationTest {
         @Test
         @DisplayName("evidence outside its kind's shape is refused")
         void invalidEvidence() {
+            Optional<Termination> noTermination = Optional.empty();
+            var exitedZero = new Exited(0);
+            var declaredZero = Set.of(0);
+            var noDeclaredCodes = Set.<Integer>of();
+            Optional<SelfReportContradiction> noContradiction = Optional.empty();
+
             assertAll(
                     () -> assertThrows(NullPointerException.class, () -> OutcomeDerivation.derive(null)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProcessEnded(Kind.BUILD,
-                            Optional.empty(), new Exited(0), LogState.READABLE, SUCCESS, Set.of(0), true)),
+                            noTermination, exitedZero, LogState.READABLE, SUCCESS, declaredZero, true)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProcessEnded(Kind.BUILD,
-                            Optional.empty(), new Exited(0), LogState.READABLE, SUCCESS, Set.of(), false)),
+                            noTermination, exitedZero, LogState.READABLE, SUCCESS, noDeclaredCodes, false)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new ParseResult(false, -1, false, Optional.empty())),
+                            () -> new ParseResult(false, -1, false, noContradiction)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new Outcome(Fate.FAILED, 14)));
         }
     }

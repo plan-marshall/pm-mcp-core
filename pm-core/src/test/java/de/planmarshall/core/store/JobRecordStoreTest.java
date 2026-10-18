@@ -147,13 +147,13 @@ class JobRecordStoreTest {
         void foreignScopes() {
             var machine = JobRecordStore.ofMachine(base);
             var entry = JobRecordStore.ofEntry(base, ENTRY);
+            var otherEntry = new Scope(Scope.Type.ENTRY, "ent-0022");
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(MACHINE)),
                     () -> assertThrows(IllegalArgumentException.class, () -> store.lockKey(ENTRY_SCOPE)),
                     () -> assertThrows(IllegalArgumentException.class, () -> machine.lockKey(PLAN_SCOPE)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> entry.lockKey(new Scope(Scope.Type.ENTRY, "ent-0022"))),
+                    () -> assertThrows(IllegalArgumentException.class, () -> entry.lockKey(otherEntry)),
                     () -> assertThrows(IllegalArgumentException.class, () -> JobRecordStore.ofEntry(base, "../x")));
         }
     }
@@ -219,18 +219,20 @@ class JobRecordStoreTest {
             var postSpawn = postSpawn(BUILD_ID, PLAN_SCOPE);
 
             assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, postSpawn));
-            write(store::writeQueued, queued(BUILD_ID, PLAN_SCOPE));
+            var queuedRecord = queued(BUILD_ID, PLAN_SCOPE);
+            write(store::writeQueued, queuedRecord);
             var before = store.read(BUILD_ID);
+            var writeAheadRecord = writeAhead(BUILD_ID, PLAN_SCOPE);
+            var epicWriteAhead = writeAhead(BUILD_ID, new Scope(Scope.Type.EPIC, "e-1"));
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> write(store::writeQueued, queued(BUILD_ID, PLAN_SCOPE))),
+                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeQueued, queuedRecord)),
                     () -> assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, postSpawn)),
                     () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeAhead, postSpawn)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> write(store::writeFate, writeAhead(BUILD_ID, PLAN_SCOPE))),
+                            () -> write(store::writeFate, writeAheadRecord)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> write(store::writeAhead, writeAhead(BUILD_ID, new Scope(Scope.Type.EPIC, "e-1")))),
+                            () -> write(store::writeAhead, epicWriteAhead)),
                     () -> assertEquals(before, store.read(BUILD_ID)));
         }
 
@@ -240,14 +242,14 @@ class JobRecordStoreTest {
             write(store::writeAhead, writeAhead(BUILD_ID, PLAN_SCOPE));
             write(store::writePostSpawn, postSpawn(BUILD_ID, PLAN_SCOPE));
             var settled = ended(BUILD_ID, PLAN_SCOPE, Fate.SUCCEEDED, 7);
+            var secondPostSpawn = postSpawn(BUILD_ID, PLAN_SCOPE);
+            var failed = ended(BUILD_ID, PLAN_SCOPE, Fate.FAILED, 8);
 
-            assertThrows(IllegalArgumentException.class,
-                    () -> write(store::writePostSpawn, postSpawn(BUILD_ID, PLAN_SCOPE)));
+            assertThrows(IllegalArgumentException.class, () -> write(store::writePostSpawn, secondPostSpawn));
             write(store::writeFate, settled);
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> write(store::writeFate, ended(BUILD_ID, PLAN_SCOPE, Fate.FAILED, 8))),
+                    () -> assertThrows(IllegalArgumentException.class, () -> write(store::writeFate, failed)),
                     () -> assertEquals(Optional.of(settled), store.read(BUILD_ID)));
         }
 
@@ -273,9 +275,10 @@ class JobRecordStoreTest {
                 }
             };
 
+            var job = writeAhead(BUILD_ID, PLAN_SCOPE);
+
             assertAll(
-                    () -> assertThrows(InternalFaultException.class,
-                            () -> store.writeAhead(refusing, writeAhead(BUILD_ID, PLAN_SCOPE))),
+                    () -> assertThrows(InternalFaultException.class, () -> store.writeAhead(refusing, job)),
                     () -> assertTrue(Files.notExists(store.recordPath(BUILD_ID))));
         }
     }

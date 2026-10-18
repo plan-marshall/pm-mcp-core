@@ -29,8 +29,10 @@ import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,10 +46,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -173,16 +180,43 @@ class SubprocessJobRunnerTest {
     }
 
     /**
-     * Waits until a message is logged on another thread: the handler of the thread that waits for a job logs its
-     * failure after the job has left the running jobs.
+     * Tells when a message is logged on another thread: the handler of the thread that waits for a job logs its failure
+     * after the job has left the running jobs. It is registered on the root logger before the test starts the job, so
+     * after the handler of the test logger, which has recorded the message when this one is told; the test then waits
+     * on {@link #await()} instead of polling the recorded messages.
      */
-    private static void awaitLogged(TestLogLevel level, String text) throws InterruptedException {
-        var deadline = Instant.now().plus(Duration.ofSeconds(10));
-        while (TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, text).isEmpty()) {
-            if (!Instant.now().isBefore(deadline)) {
-                throw new AssertionError("'%s' was not logged at %s".formatted(text, level));
+    private static final class LoggedWatch extends Handler {
+
+        private final TestLogLevel level;
+        private final String text;
+        private final CompletableFuture<Void> logged = new CompletableFuture<>();
+
+        LoggedWatch(TestLogLevel level, String text) {
+            this.level = level;
+            this.text = text;
+            Logger.getLogger("").addHandler(this);
+        }
+
+        @Override
+        public void publish(LogRecord logRecord) {
+            if (!TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, text).isEmpty()) {
+                logged.complete(null);
             }
-            Thread.sleep(SubprocessJobRunner.REPORT_POLL_INTERVAL);
+        }
+
+        @Override
+        public void flush() {
+            // nothing is buffered
+        }
+
+        @Override
+        public void close() {
+            Logger.getLogger("").removeHandler(this);
+        }
+
+        /** Waits until the message is logged, at most ten seconds. */
+        void await() throws InterruptedException, ExecutionException, TimeoutException {
+            logged.get(10, TimeUnit.SECONDS);
         }
     }
 
@@ -208,16 +242,22 @@ class SubprocessJobRunnerTest {
     }
 
     /** Waits until the job's output holds a line, so a signal meets the job only once it is ready for it. */
-    private void awaitOutput(JobId jobId, String line) throws InterruptedException {
+    private void awaitOutput(JobId jobId, String line) throws IOException, InterruptedException {
         var log = new JobLog(jobs.logPath(jobId));
-        var deadline = Instant.now().plus(Duration.ofSeconds(10));
-        while (Instant.now().isBefore(deadline)) {
-            if (log.readLines(0) instanceof JobLog.Lines lines && lines.lines().contains(line)) {
-                return;
+        var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        try (var watcher = FileSystems.getDefault().newWatchService()) {
+            // registered before the first read, so a write after it is an event, never missed
+            jobs.directoryPath().register(watcher, StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_MODIFY);
+            while (!(log.readLines(0) instanceof JobLog.Lines lines && lines.lines().contains(line))) {
+                var changed = watcher.poll(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+                if (changed == null) {
+                    throw new AssertionError("job %s did not write '%s'".formatted(jobId, line));
+                }
+                changed.pollEvents();
+                changed.reset();
             }
-            Thread.sleep(SubprocessJobRunner.REPORT_POLL_INTERVAL);
         }
-        throw new AssertionError("job %s did not write '%s'".formatted(jobId, line));
     }
 
     @Nested
@@ -581,8 +621,9 @@ class SubprocessJobRunnerTest {
                     job -> {
                         throw failure;
                     });
+            var request = git(30, "ok");
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(git(30, "ok")));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
 
             assertComposedFailureSettled(thrown, failure);
         }
@@ -592,8 +633,9 @@ class SubprocessJobRunnerTest {
         void environmentNameRefused() {
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(),
                     job -> Map.of("NAME=VALUE", "x"));
+            var request = git(30, "ok");
 
-            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(git(30, "ok")));
+            var thrown = assertThrows(IllegalArgumentException.class, () -> runner.start(request));
 
             assertComposedFailureSettled(thrown, thrown);
         }
@@ -689,8 +731,9 @@ class SubprocessJobRunnerTest {
         @DisplayName("the job is terminated, settled killed by row 4 and out of the running jobs before the failure")
         void settledBeforeFailure() {
             runner = recordingSignals(true);
+            var request = git(60, "sleep", "60");
 
-            assertThrows(UncheckedIOException.class, () -> runner.start(git(60, "sleep", "60")));
+            assertThrows(UncheckedIOException.class, () -> runner.start(request));
 
             var records = jobs.records();
             assertEquals(1, records.size(), "one job was recorded");
@@ -720,8 +763,9 @@ class SubprocessJobRunnerTest {
                 cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
                 permissions("r-x------");
             }, false);
+            var request = git(60, "sleep", "60");
 
-            assertThrows(UncheckedIOException.class, () -> runner.start(git(60, "sleep", "60")));
+            assertThrows(UncheckedIOException.class, () -> runner.start(request));
 
             var settled = jobs.records().getFirst();
             assertAll(
@@ -738,9 +782,10 @@ class SubprocessJobRunnerTest {
         @DisplayName("a refused signal destroys the process through its handle, so the wait for its end is bounded")
         void signalRefused() {
             runner = recordingSignals(() -> permissions("r-x------"), true);
+            var request = git(600, "sleep", "600");
 
             assertTimeoutPreemptively(SETTLE_TIMEOUT, () -> assertThrows(UncheckedIOException.class,
-                    () -> runner.start(git(600, "sleep", "600"))), "the wait for the process has an end");
+                    () -> runner.start(request)), "the wait for the process has an end");
 
             var settled = jobs.records().getFirst();
             assertAll(
@@ -774,9 +819,18 @@ class SubprocessJobRunnerTest {
     @DisplayName("settles a job whose waiting thread fails and leaves no process running")
     class SupervisionFails {
 
+        private LoggedWatch supervisionFailureLogged;
+
         @BeforeEach
         void install() throws IOException {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            supervisionFailureLogged = new LoggedWatch(TestLogLevel.ERROR,
+                    ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString());
+        }
+
+        @AfterEach
+        void removeWatch() {
+            supervisionFailureLogged.close();
         }
 
         @Test
@@ -808,9 +862,10 @@ class SubprocessJobRunnerTest {
         }
 
         /** A job that exited 0 and whose parser failed: indeterminate by row 8, the failure logged as it was thrown. */
-        private void assertSettledWithoutFinding(JobId jobId, Throwable failure) throws InterruptedException {
+        private void assertSettledWithoutFinding(JobId jobId, Throwable failure)
+                throws InterruptedException, ExecutionException, TimeoutException {
             var settled = settled(jobId);
-            awaitLogged(TestLogLevel.ERROR, ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString());
+            supervisionFailureLogged.await();
 
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
@@ -846,7 +901,7 @@ class SubprocessJobRunnerTest {
 
             var cancelled = runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
             var settled = settled(jobId);
-            awaitLogged(TestLogLevel.ERROR, ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString());
+            supervisionFailureLogged.await();
 
             assertAll(
                     () -> assertTrue(cancelled),

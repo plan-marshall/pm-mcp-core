@@ -154,7 +154,8 @@ class JobRecordCodecTest {
     }
 
     private static StoreRefusal refusalOf(String document) {
-        return assertThrows(StoreRefusal.class, () -> JobRecordCodec.read(FILE, bytes(document)));
+        var content = bytes(document);
+        return assertThrows(StoreRefusal.class, () -> JobRecordCodec.read(FILE, content));
     }
 
     /** Replaces one fragment of a document, failing when the fragment is not there. */
@@ -317,14 +318,15 @@ class JobRecordCodecTest {
                     .status(Status.ENDED).fate(Fate.SUCCEEDED).outcomeRow(11).confinement(Confinement.NOT_APPLICABLE)
                     .createdAt(CREATED_AT).endedAt(ENDED_AT).clampedValues(List.of());
 
+            var inProcessWithWall = inProcess.childWallMs(0L);
+            var refusedJob = refused(BUILD_ID, PLAN_SCOPE);
+            var runningJob = postSpawn(BUILD_ID, PLAN_SCOPE);
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> inProcess.childWallMs(0L).build()),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> refused(BUILD_ID, PLAN_SCOPE).withChildWallMs(0L)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> postSpawn(BUILD_ID, PLAN_SCOPE).withChildWallMs(0L)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> settled.withSpawnedAt(null).withPid(null).withProcessStartedAt(null)));
+                    () -> assertThrows(IllegalArgumentException.class, inProcessWithWall::build),
+                    () -> assertThrows(IllegalArgumentException.class, () -> refusedJob.withChildWallMs(0L)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> runningJob.withChildWallMs(0L)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withSpawnedAt(null)));
         }
 
         @Test
@@ -332,29 +334,30 @@ class JobRecordCodecTest {
         void kindRules() {
             var worker = new JobId("l-0000000000000001");
             var probe = new JobId("v-0000000000000001");
+            var projectScope = new Scope(Scope.Type.PROJECT, null);
+            var machineScope = new Scope(Scope.Type.MACHINE, null);
+            var contradiction = new SelfReportContradiction("passed", null, "failed");
 
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> writeAhead(worker, new Scope(Scope.Type.PROJECT, null))),
+                    () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(worker, projectScope)),
                     () -> assertThrows(IllegalArgumentException.class, () -> workerAhead(worker, PLAN_SCOPE, "{}")),
-                    () -> assertDoesNotThrow(
-                            () -> workerAhead(worker, new Scope(Scope.Type.PROJECT, null), "{}")),
+                    () -> assertDoesNotThrow(() -> workerAhead(worker, projectScope, "{}")),
                     () -> assertThrows(IllegalArgumentException.class, () -> writeAhead(probe, PLAN_SCOPE)),
-                    () -> assertDoesNotThrow(() -> writeAhead(probe, new Scope(Scope.Type.MACHINE, null))),
-                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withSelfReportContradiction(
-                            new SelfReportContradiction("passed", null, "failed"))));
+                    () -> assertDoesNotThrow(() -> writeAhead(probe, machineScope)),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> settled.withSelfReportContradiction(contradiction)));
         }
 
         @Test
         @DisplayName("a queued or refused job was never spawned, and the status refused goes with the fate refused")
         void settlementRules() {
+            var queuedJob = queued(BUILD_ID, PLAN_SCOPE);
+            var refusedJob = refused(BUILD_ID, PLAN_SCOPE);
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> queued(BUILD_ID, PLAN_SCOPE).withSpawnedAt(SPAWNED_AT)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> refused(BUILD_ID, PLAN_SCOPE).withStatus(Status.ENDED)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> settled.withFate(Fate.REFUSED).withRefusalReason("argument_rejected")));
+                    () -> assertThrows(IllegalArgumentException.class, () -> queuedJob.withSpawnedAt(SPAWNED_AT)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> refusedJob.withStatus(Status.ENDED)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> settled.withFate(Fate.REFUSED)));
         }
 
         @ParameterizedTest(name = "{0}")

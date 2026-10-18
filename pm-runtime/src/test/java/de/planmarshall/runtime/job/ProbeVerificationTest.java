@@ -248,31 +248,38 @@ class ProbeVerificationTest {
         void scope() {
             var digested = new DigestedFile(executable, sha256(executable));
             var workspace = new Scope(Scope.Type.WORKSPACE, null);
+            Optional<DigestedFile> noInterpreter = Optional.empty();
+            List<String> noArguments = List.of();
+            var successExitZero = Set.of(0);
+            var noSuccessExitCodes = Set.<Integer>of();
+            var jobPrivate = new JobPrivate();
+            var checkoutRoot = new CheckoutRoot(checkout);
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
-                            ProbeCandidate.Kind.VERSION, digested, Optional.empty(), List.of(), Set.of(0), workspace,
-                            new JobPrivate())),
+                            ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, successExitZero,
+                            workspace, jobPrivate)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
-                            ProbeCandidate.Kind.VERSION, digested, Optional.empty(), List.of(), Set.of(0), MACHINE,
-                            new CheckoutRoot(checkout))),
+                            ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, successExitZero,
+                            MACHINE, checkoutRoot)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new ProbeCandidate(
-                            ProbeCandidate.Kind.VERSION, digested, Optional.empty(), List.of(), Set.of(), MACHINE,
-                            new JobPrivate())));
+                            ProbeCandidate.Kind.VERSION, digested, noInterpreter, noArguments, noSuccessExitCodes,
+                            MACHINE, jobPrivate)));
         }
 
         @Test
         @DisplayName("names its files by absolute path and lower-case SHA-256")
         void digestedFile() {
             var digest = sha256(executable);
+            var relativeProbe = Path.of("probe");
+            var upperCaseDigest = digest.toUpperCase(Locale.ROOT);
+            var relativeCheckout = Path.of("checkout");
 
             assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new DigestedFile(relativeProbe, digest)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new DigestedFile(Path.of("probe"), digest)),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new DigestedFile(executable, digest.toUpperCase(Locale.ROOT))),
-                    () -> assertThrows(IllegalArgumentException.class,
-                            () -> new CheckoutRoot(Path.of("checkout"))));
+                            () -> new DigestedFile(executable, upperCaseDigest)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CheckoutRoot(relativeCheckout)));
         }
 
         @Test

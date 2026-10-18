@@ -157,14 +157,47 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
-    @ParameterizedTest(name = "{1}")
-    @MethodSource("jobRunnerRecords")
-    @DisplayName("the records of the subprocess job runner are documented in doc/LogMessages.adoc")
-    void jobRunnerDocumented(LogRecord logRecord, String identifier, String template) throws Exception {
-        var documentation = Files.readString(LOG_MESSAGES);
+    @Test
+    @DisplayName("every record of the three holders is documented in doc/LogMessages.adoc by identifier and template")
+    void everyRecordDocumented() throws Exception {
+        var all = new ArrayList<LogRecord>();
+        for (String level : List.of("INFO", "WARN", "ERROR")) {
+            all.addAll(records(level));
+        }
+        var rows = Files.readAllLines(LOG_MESSAGES);
 
-        assertTrue(documentation.contains("|%s |SubprocessJobRunner |%s |".formatted(identifier, template)),
-                identifier);
+        assertEquals(List.of(), undocumented(rows, all));
+    }
+
+    @Test
+    @DisplayName("the documentation check names a record without a row and a record whose template differs")
+    void undocumentedRecordsAreFound() {
+        var rows = List.of(
+                "|PM_RUNTIME-26 |SubprocessJobRunner |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |Logged",
+                "|PM_RUNTIME-27 |SubprocessJobRunner |Job '%s' settled with another template |Logged",
+                "|PM_RUNTIME-260 |Other |Job '%s' settled with fate '%s' (outcome row %s) |Another row, not row 27");
+        var records = List.of(RuntimeLogMessages.INFO.JOB_STARTED, RuntimeLogMessages.INFO.JOB_SETTLED,
+                RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED);
+
+        assertEquals(List.of("PM_RUNTIME-27", "PM_RUNTIME-130"), undocumented(rows, records));
+    }
+
+    /**
+     * The identifiers of the records that have no row in the table, or whose row does not carry their template. The
+     * component column is not compared, because it differs from record to record; the template is compared literally,
+     * with the table's escape for a pipe character.
+     */
+    private static List<String> undocumented(List<String> rows, List<LogRecord> records) {
+        var missing = new ArrayList<String>();
+        for (LogRecord logRecord : records) {
+            var identifier = logRecord.resolveIdentifierString();
+            var cell = " |" + logRecord.getTemplate().replace("|", "\\|") + " |";
+            var row = rows.stream().filter(line -> line.startsWith("|" + identifier + " |")).findFirst();
+            if (row.isEmpty() || !row.get().contains(cell)) {
+                missing.add(identifier);
+            }
+        }
+        return missing;
     }
 
     @Nested
