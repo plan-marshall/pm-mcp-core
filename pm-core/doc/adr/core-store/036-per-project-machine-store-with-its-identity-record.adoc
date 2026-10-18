@@ -1,4 +1,4 @@
-= ADR 035: The Per-Project Machine Store and Its Identity Record Live in `core.store`
+= ADR 036: The Per-Project Machine Store and Its Identity Record Live in `core.store`
 :nofooter:
 
 == Status

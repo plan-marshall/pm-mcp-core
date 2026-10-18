@@ -1,4 +1,4 @@
-= ADR 029: The Question Store Lives in `core.store` and Is Read Through a Runtime Adapter
+= ADR 030: The Question Store Lives in `core.store` and Is Read Through a Runtime Adapter
 :nofooter:
 
 == Status
@@ -25,7 +25,7 @@ sidecar and recovered by its journal, all of which live in `core.store`. `pm-wor
 * The engine keeps reading through `QuestionRecordReader`. An adapter of `pm-runtime` implements the port over
   `QuestionLog`; no class of `pm-core` implements it, and the Javadoc of the port names `QuestionLog` as the store.
 * The engine's own handling of a question, whether an answer fits the part it answers, stays in `pm-workflow`. The
-  store holds only what it can decide from its lines (ADR 030).
+  store holds only what it can decide from its lines (ADR 031).
 
 This was the operator's decision for the work package; a further rationale is not recorded.
 

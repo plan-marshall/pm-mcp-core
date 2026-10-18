@@ -24,7 +24,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCod
 link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreNoStateInRepositoryTest.java[ProjectStoreNoStateInRepositoryTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_store[Scope Stores Developer Guide § The Per-Project Machine Store],
-link:../pm-core/doc/adr/core-store/035-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/035]
+link:../pm-core/doc/adr/core-store/036-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/036]
 
 [#PM-ARCH-4]
 === PM-ARCH-4: Stateless Requests & Explicit Scope Addressing
@@ -589,7 +589,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/LinkedWorktreeConfineme
 link:../pm-core/src/test/java/de/planmarshall/core/store/PathConfinementTest.java[PathConfinementTest]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_resolution[Scope Stores Developer Guide § The Project Resolution],
-link:../pm-core/doc/adr/core-store/034-project-resolution-file-based-from-the-pointer-files.adoc[ADR core-store/034]
+link:../pm-core/doc/adr/core-store/035-project-resolution-file-based-from-the-pointer-files.adoc[ADR core-store/035]
 
 [#PM-SEC-4]
 === PM-SEC-4: Local Transport Isolation, Operator-Gated Network Exposure & Stream Hygiene

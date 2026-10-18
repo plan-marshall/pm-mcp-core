@@ -1,4 +1,4 @@
-= ADR 036: An Append to a Question Log That Holds a Refused Line Is Refused
+= ADR 037: An Append to a Question Log That Holds a Refused Line Is Refused
 :nofooter:
 
 == Status
@@ -11,11 +11,11 @@ Accepted
 
 == Context
 
-`QuestionLog.append` decides its two invariants (ADR 030) from the lines the log holds. A line that is refused when
+`QuestionLog.append` decides its two invariants (ADR 031) from the lines the log holds. A line that is refused when
 read, because it is unreadable or of another `format_version`, is not among them: it keeps its line number and names
 no question the log can read. If that line is the closing line of a question, the question looks open, a second
 closing line is accepted, and the log holds two closing lines for one question. The port `QuestionRecordReader`
-(ADR 029) requires a record that cannot be read to be reported as unreadable, never as open; the append must not take
+(ADR 030) requires a record that cannot be read to be reported as unreadable, never as open; the append must not take
 it for open either.
 
 A refused line names no question id that can be trusted, so the append cannot tell which questions it concerns: it
@@ -28,7 +28,7 @@ may close or revise any question of the log, also one that a new `asked` line wo
   `unreadable`, naming the question of the first appended line and the line number of the first refused line, and adds
   nothing to the transaction.
 * The refusal covers every event, `asked` included: no append is accepted on the strength of the readable lines alone.
-* The refusal is a value, like `AlreadyAnswered` and `Conflict` of ADR 030; it is not an exception, because the log is
+* The refusal is a value, like `AlreadyAnswered` and `Conflict` of ADR 031; it is not an exception, because the log is
   in a state the operator has to be told of, not wrong code of the caller.
 
 == Alternatives Considered
@@ -58,7 +58,7 @@ from it is reading it as something close to the schema.
 * Finding of the code review of the work package
   link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`]
   (PLAN-14)
-* link:030-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 030],
-  link:029-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 029]
+* link:031-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 031],
+  link:030-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 030]
 * `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`,
   `pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java`

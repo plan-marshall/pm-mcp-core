@@ -1,4 +1,4 @@
-= ADR 034: The Project Resolution Reads the Pointer Files Git Writes
+= ADR 035: The Project Resolution Reads the Pointer Files Git Writes
 :nofooter:
 
 == Status
