@@ -90,8 +90,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The subprocess runner (PM-EXEC-4, PM-ARCH-7) over a real enrolment, a real job record store and the fake launcher
- * {@link FakePmExec}: the write-ahead record exists before the launch, a start reports a job only once its post-spawn
- * record carries the PID, a cancel decides the fate by its cause, the budget ends a job {@code timed_out}, a refused
+ * {@link FakePmExec}: the write-ahead record exists before the launch, a start whose launcher reports is answered once
+ * the post-spawn record carries the PID while one whose launcher reports nothing in time is answered with the
+ * write-ahead record, a cancel decides the fate by its cause, the budget ends a job {@code timed_out}, a refused
  * verification spawns nothing, and the enrolment lock is released before the launch. The enrolled host tool
  * {@code git} of the fixture is a shell script whose first argument selects what the job does.
  */
