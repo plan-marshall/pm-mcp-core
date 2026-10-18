@@ -1031,7 +1031,7 @@ class CredentialStoreMoveTest {
 
         @Test
         @DisplayName("a key in the target while the old store holds none is no conflict and stays")
-        void keyWhileTheOldStoreHoldsNone() throws Exception {
+        void keyWhileTheOldStoreHoldsNone() {
             choice.record(locks, USER, Store.OS);
             osStore.put(GITHUB, GITHUB_SECRET);
             var targetKey = otherKey();

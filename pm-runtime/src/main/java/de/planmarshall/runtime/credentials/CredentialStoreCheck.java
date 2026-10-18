@@ -67,7 +67,7 @@ public final class CredentialStoreCheck {
         /** The step succeeded. */
         OK("ok"),
         /** The step failed and ended the check. */
-        FAILED("failed");
+        FAILED(WHAT_FAILED);
 
         private final String code;
 
