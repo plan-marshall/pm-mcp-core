@@ -359,7 +359,7 @@ class CompiledInvariantsTest {
 
             assertTrue(found.stream().anyMatch(violation -> violation.id() == InvariantId.INV_GEN_1
                     && "the type 'task' differs from the type 'subworkflow' of the default unit"
-                            .equals(violation.message())), found::toString);
+                    .equals(violation.message())), found::toString);
         }
     }
 
