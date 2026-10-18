@@ -16,6 +16,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -158,6 +159,8 @@ public final class UnitFrontmatterReader {
         private final Map<String, String> singles = new HashMap<>();
         private final List<Element> entries = new ArrayList<>();
         private final List<Element> exits = new ArrayList<>();
+        private final Set<String> entryNames = new HashSet<>();
+        private final Set<String> exitNames = new HashSet<>();
         private UnitType type;
         private LocalDate modificationDate;
         private String previousKey;
@@ -228,13 +231,13 @@ public final class UnitFrontmatterReader {
                 case KEY_DESCRIPTION -> checkLength(key, value, 1, 1000, number, column);
                 case KEY_TYPE -> type = UnitType.fromWireName(value).orElseThrow(() -> new Refusal(number, column,
                         "the type '%s' is none of %s".formatted(value, VALUE_TYPES)));
-                case KEY_ENTRY -> entries.add(element("entry", value, entries, number, column));
+                case KEY_ENTRY -> entries.add(element("entry", value, entryNames, number, column));
                 case KEY_EXIT -> {
                     if (STEPPED_OUT.equals(value)) {
                         throw new Refusal(number, column,
                                 "'stepped_out' is the implicit control exit and is never declared");
                     }
-                    exits.add(element("exit", value, exits, number, column));
+                    exits.add(element("exit", value, exitNames, number, column));
                 }
                 case KEY_ENTRY_DESCRIPTION -> describe(KEY_ENTRY, entries, value, number, column);
                 case KEY_EXIT_DESCRIPTION -> describe(KEY_EXIT, exits, value, number, column);
@@ -255,12 +258,12 @@ public final class UnitFrontmatterReader {
             }
         }
 
-        private Element element(String kind, String name, List<Element> elements, int number, int column) {
+        private Element element(String kind, String name, Set<String> names, int number, int column) {
             if (!IDENTIFIER.matcher(name).matches()) {
                 throw new Refusal(number, column,
                         "the %s '%s' is no identifier of at most 32 characters".formatted(kind, name));
             }
-            if (elements.stream().anyMatch(element -> element.name.equals(name))) {
+            if (!names.add(name)) {
                 throw new Refusal(number, column, "the %s '%s' is declared twice".formatted(kind, name));
             }
             return new Element(name);
