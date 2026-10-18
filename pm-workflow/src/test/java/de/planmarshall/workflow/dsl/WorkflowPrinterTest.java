@@ -284,8 +284,14 @@ class WorkflowPrinterTest {
             var printed = WorkflowPrinter.print(DslFixtures.parseValid(THREE_ENTRIES_UNIT));
 
             assertAll(
-                    () -> assertTrue(printed.contains("\nscope subworkflow\nentry review -> review.check\n"
-                            + "entry repair -> review.fix\nentry recheck -> review.check\n\nstate "), printed),
+                    () -> assertTrue(printed.contains("""
+
+                            scope subworkflow
+                            entry review -> review.check
+                            entry repair -> review.fix
+                            entry recheck -> review.check
+
+                            state\s"""), printed),
                     () -> assertTrue(printed.lines().noneMatch(line -> line.startsWith("start ")), printed),
                     () -> assertTrue(printed.contains("    call git.commit_and_push entry stage(push = enabled)\n"),
                             printed));

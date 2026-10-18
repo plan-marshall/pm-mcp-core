@@ -94,11 +94,11 @@ public final class UnitFrontmatterReader {
     private static final Pattern IDENTIFIER = Pattern.compile("[a-z][a-z0-9_-]{0,31}");
 
     /** The release version of the Identifier Registry; its bound of 64 characters is checked apart. */
-    private static final Pattern RELEASE_VERSION = Pattern.compile("[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.-]+)?");
+    private static final Pattern RELEASE_VERSION = Pattern.compile("\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?");
 
     private static final int MAX_RELEASE_VERSION = 64;
 
-    private static final Pattern DATE = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+    private static final Pattern DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
     /** The characters a plain YAML scalar may not start with. */
     private static final String INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
@@ -231,13 +231,13 @@ public final class UnitFrontmatterReader {
                 case KEY_DESCRIPTION -> checkLength(key, value, 1, 1000, number, column);
                 case KEY_TYPE -> type = UnitType.fromWireName(value).orElseThrow(() -> new Refusal(number, column,
                         "the type '%s' is none of %s".formatted(value, VALUE_TYPES)));
-                case KEY_ENTRY -> entries.add(element("entry", value, entryNames, number, column));
+                case KEY_ENTRY -> entries.add(element(KEY_ENTRY, value, entryNames, number, column));
                 case KEY_EXIT -> {
                     if (STEPPED_OUT.equals(value)) {
                         throw new Refusal(number, column,
                                 "'stepped_out' is the implicit control exit and is never declared");
                     }
-                    exits.add(element("exit", value, exitNames, number, column));
+                    exits.add(element(KEY_EXIT, value, exitNames, number, column));
                 }
                 case KEY_ENTRY_DESCRIPTION -> describe(KEY_ENTRY, entries, value, number, column);
                 case KEY_EXIT_DESCRIPTION -> describe(KEY_EXIT, exits, value, number, column);

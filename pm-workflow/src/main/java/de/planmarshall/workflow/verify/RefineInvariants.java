@@ -135,11 +135,9 @@ final class RefineInvariants {
     private static Set<String> refineEntries(WorkflowDefinition definition) {
         var states = definition.states();
         var entries = new LinkedHashSet<String>();
-        for (var start : definition.startingStates()) {
-            if (isRefine(states.get(start))) {
-                entries.add(start);
-            }
-        }
+        definition.startingStates().stream()
+                .filter(start -> isRefine(states.get(start)))
+                .forEach(entries::add);
         for (var edge : Context.edges(definition)) {
             var target = states.get(edge.transition().targetStateId());
             if (!isRefine(edge.source()) && isRefine(target)) {

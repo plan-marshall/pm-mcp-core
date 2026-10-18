@@ -1427,8 +1427,8 @@ public final class WorkflowValidator {
         var reachableWithout = graph.reachableWithoutProducers(definition.startingStates(), producers);
         if (reachableWithout.contains(state.id())) {
             violations.add(new Violation(VerificationRule.GATE_PRODUCER_COVERAGE, state.id(), location,
-                    "the state '%s' requires the artifact '%s', but there is a path from the start state without a producer"
-                            .formatted(state.id(), artifact)));
+                    "the state '%s' requires the artifact '%s', but there is a path from %s without a producer"
+                            .formatted(state.id(), artifact, startingPoint(definition))));
         }
     }
 
