@@ -458,6 +458,7 @@ A plan states a change; the project's *capability specs* state what the system d
 
 [#builder-check]
 ==== Builder Check
+_Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-109[PM-WATCH-PHASE-109]_
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
 
 Refine scores its own record. Before a deep-lane plan leaves refine, one task tests the record from the position of someone who must build from it and cannot ask: `refine.builder-check`, a `job llm` state of the role `qgate` (<<phase-roles>>). Its facts carry the intent record and nothing of the conversation that produced it (no original input, no clarifications); its worker reads the repository like every `read_only` worker. It submits once, through `submit:builder-check` (`questions:schema[builder-questions]`), every question it would still need answered to build the plan, each sorted:
