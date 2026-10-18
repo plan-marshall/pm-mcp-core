@@ -165,6 +165,9 @@ A question-driven scenario runs with three separate parties: the executor (model
 
 * *Derived Rule Population*: The baseline's rule population is derived from every resident and served source (tool descriptions, `pm/core` and the role skills, the server-composed launch prompts, and the offered task representations); the harness reports the derived population size and never asserts completeness.
 * *Selection by Defect Cost*: Rules are selected for scenarios by recorded defect cost (audit rejections such as `invalid_link_args`, integrity breaches, and historical defect records), never by intuition; the selection records its source.
+* *Control First*: A rule enters model-facing content, or is changed there, only with a scenario whose run against the version without the rule or the change scores `violated` in the same harness run; when that control holds, the rule is not added, because nothing shows it is needed. The run report records both verdicts of the pair.
+* *Combined Pressure*: A scenario for a rule that is broken under pressure combines at least three pressures in its `pressure` (time, sunk cost, authority, exhaustion, or the plan's own instruction to violate it); a single pressure tests only whether the model knows the rule.
+* *Read Matches*: Before the first baseline of a new scenario is accepted, a person reads every sample its observation predicate matched and every sample it did not, and records the result with the baseline; a predicate that matched wrongly is corrected first.
 * *Negative Controls*: Every baseline contains at least one negative-control scenario; a baseline whose negative control does not score `violated` is itself reported `indeterminate`, because the harness has shown it cannot detect a violation.
 
 ==== Digest Binding & Baseline Lifecycle
