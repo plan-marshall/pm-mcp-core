@@ -128,15 +128,16 @@ final class RefineInvariants {
     }
 
     /**
-     * @return the refine states a path enters the phase at: the start state when it is a refine state, then every
-     *         refine state a transition from outside the phase targets, in declaration order
+     * @return the refine states a path enters the phase at: each starting state of the unit (its start state or an
+     *         entry-bound state) that is a refine state, then every refine state a transition from outside the phase
+     *         targets, in declaration order
      */
     private static Set<String> refineEntries(WorkflowDefinition definition) {
         var states = definition.states();
         var entries = new LinkedHashSet<String>();
-        if (isRefine(states.get(definition.startState()))) {
-            entries.add(definition.startState());
-        }
+        definition.startingStates().stream()
+                .filter(start -> isRefine(states.get(start)))
+                .forEach(entries::add);
         for (var edge : Context.edges(definition)) {
             var target = states.get(edge.transition().targetStateId());
             if (!isRefine(edge.source()) && isRefine(target)) {

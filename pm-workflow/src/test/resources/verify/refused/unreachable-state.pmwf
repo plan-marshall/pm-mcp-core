@@ -1,4 +1,12 @@
-# expect: REACHABILITY state verify.orphan line 13
+---
+name: verify.unreachable
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: REACHABILITY state verify.orphan line 21
 # A plan unit with a state no transition enters.
 workflow verify.unreachable version 1 format 1
 scope plan

@@ -72,10 +72,20 @@ final class EngineFixtures {
      * {@code done}, {@code failed} with the server step-out.
      */
     static final String SUB_COMMIT = """
+            ---
+            name: sub.commit
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow sub.commit version 1 format 1
             scope subworkflow
             result schema[commit-result]
-            start sub.work
+            entry main -> sub.work
 
             state sub.work
                 phase inherit
@@ -194,6 +204,14 @@ final class EngineFixtures {
      * workspace scope, as the units the workspace scope hosts do.
      */
     static final String WORKSPACE_UNIT = """
+            ---
+            name: workspace
+            description: A unit written for the tests of pm-workflow.
+            type: system
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow workspace version 1 format 1
             scope workspace
             start workspace.idle
@@ -302,6 +320,14 @@ final class EngineFixtures {
      */
     static WorkflowDefinition plan(String start, String states) {
         return parse("plan.pmwf", """
+                ---
+                name: plan
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow plan version 1 format 1
                 scope plan
                 start %s
@@ -321,14 +347,31 @@ final class EngineFixtures {
         return plan(start, states + PLAN_RETURN);
     }
 
+    /** The entry the fixture sub-workflows bind, which a frame of {@link #frame(String, String, String)} records. */
+    static final String MAIN_ENTRY = "main";
+
     /**
      * @param callerWorkflowId the calling unit
      * @param callerStateId    the calling state
      * @param subworkflowId    the called sub-workflow
-     * @return a frame of the store without bound arguments, pushed at {@link #T0} in {@link #EXECUTE}
+     * @return a frame of the store through the entry {@link #MAIN_ENTRY} without bound arguments, pushed at
+     *         {@link #T0} in {@link #EXECUTE}
      */
     static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId) {
-        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, EXECUTE, subworkflowId, Map.of(), T0);
+        return frame(callerWorkflowId, callerStateId, subworkflowId, MAIN_ENTRY);
+    }
+
+    /**
+     * @param callerWorkflowId the calling unit
+     * @param callerStateId    the calling state
+     * @param subworkflowId    the called sub-workflow
+     * @param entry            the entry of the sub-workflow the call went through
+     * @return a frame of the store without bound arguments, pushed at {@link #T0} in {@link #EXECUTE}
+     */
+    static WorkflowStatus.CallFrame frame(String callerWorkflowId, String callerStateId, String subworkflowId,
+            String entry) {
+        return new WorkflowStatus.CallFrame(callerWorkflowId, callerStateId, EXECUTE, subworkflowId, entry, Map.of(),
+                T0);
     }
 
     /**

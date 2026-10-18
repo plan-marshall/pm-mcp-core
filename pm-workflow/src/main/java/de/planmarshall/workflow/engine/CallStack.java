@@ -29,7 +29,7 @@ import de.planmarshall.workflow.ast.CallValue;
  * <p>
  * The value is immutable; {@link #push(CallFrame)} and {@link #pop()} return a new stack. It holds at most
  * {@value #MAX_DEPTH} frames, the depth the status store admits, and converts to and from the frames of the store
- * ({@link #toStore()}, {@link #fromStore(List)}).
+ * ({@link #toStore()}, {@link #fromStore(List)}), the entry each frame was entered through included.
  *
  * @param frames the frames, bottom to top
  * @since 0.1
@@ -154,14 +154,14 @@ public record CallStack(List<CallFrame> frames) {
         var args = new LinkedHashMap<String, BoundArg>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toBoundArg(value)));
         return new WorkflowStatus.CallFrame(frame.callerWorkflowId(), frame.callerStateId(), frame.callerPhase(),
-                frame.subWorkflowId(), args, Instant.parse(frame.pushedAt()));
+                frame.subWorkflowId(), frame.entry(), args, Instant.parse(frame.pushedAt()));
     }
 
     private static CallFrame fromStoreFrame(WorkflowStatus.CallFrame frame) {
         var args = new LinkedHashMap<String, CallValue>();
         frame.boundArgs().forEach((name, value) -> args.put(name, toCallValue(value)));
         return new CallFrame(frame.callerWorkflowId(), frame.callerStateId(), frame.callerPhase(),
-                frame.subworkflowId(), args, frame.pushedAt().toString());
+                frame.subworkflowId(), frame.entry(), args, frame.pushedAt().toString());
     }
 
     private static BoundArg toBoundArg(CallValue value) {

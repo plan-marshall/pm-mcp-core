@@ -1,3 +1,11 @@
+---
+name: plan
+description: A plan template written for the composer tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A merged plan template written for the composer tests, never copied from a unit of the product. The push barrier,
 # the pull request, a Q-Gate remediation call that binds every action, the merge gate and the merge execution the
 # rule merge.auto_merge = false prunes, the landing, and finalize.archive-plan, which alone enters the delivery

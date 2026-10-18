@@ -1,3 +1,11 @@
+---
+name: verify.fuzz
+description: A unit written for the verifier tests.
+type: system
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A unit written for the transition fuzzer tests, not taken from any default unit. The link
 # state verify.gate has one link, guarded by in_worktree: under an assignment with
 # in_worktree=false no exit of it holds, so it is a dead state the fuzzer must find. The unit

@@ -66,6 +66,14 @@ class EntityAddressingTest {
     private static final String EPIC_ID = "engine-epic";
 
     private static final String EPIC_UNIT = """
+            ---
+            name: epic
+            description: A unit written for the tests of pm-workflow.
+            type: workflow
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow epic version 1 format 1
             scope epic
             start epic.work

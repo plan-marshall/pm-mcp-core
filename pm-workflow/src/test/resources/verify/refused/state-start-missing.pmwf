@@ -1,5 +1,13 @@
-# expect: REACHABILITY state verify.entry line 8
-# expect: STATE_EXISTS state verify.missing line 4
+---
+name: verify.state-start-missing
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: REACHABILITY state verify.entry line 16
+# expect: STATE_EXISTS state verify.missing line 12
 # The start state does not exist, so no state of the unit is reachable from it.
 workflow verify.state-start-missing version 1 format 1
 scope plan

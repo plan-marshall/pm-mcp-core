@@ -24,8 +24,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param code    the code: the name of the parser refusal or verification rule, the wire id of the invariant,
  *                {@value #FORMAT_OUTDATED} or {@value #FORMAT_NEWER}, {@code declaration_invalid}, the name of the
  *                pipeline rule, {@value #PROJECT_STEP_UNBOUND}, {@value #UNIT_MISSING}, {@value #UNIT_UNREADABLE},
- *                {@value #DUPLICATE_UNIT_ID}, {@code path_traversal_rejected} or a merge code of
- *                {@link PlanUnitMerger}
+ *                {@value #DUPLICATE_UNIT_ID}, {@value #AUTHOR_RESERVED}, {@code path_traversal_rejected} or a merge
+ *                code of {@link PlanUnitMerger}
  * @param file    the file the finding is located in, as the loader names it
  * @param line    the line, counted from 1; {@code 0} for a file that could not be read
  * @param message what is wrong
@@ -53,6 +53,12 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
      * {@value PlanUnitMerger#PLAN_UNIT} of the merged plan unit; the later unit never replaces the earlier one.
      */
     public static final String DUPLICATE_UNIT_ID = "duplicate_unit_id";
+
+    /**
+     * The code of a project unit whose frontmatter names the author {@value ProjectUnitLoader#RESERVED_AUTHOR}, which
+     * only a unit compiled into the binary carries: a unit placed in a project never passes as a delivered one.
+     */
+    public static final String AUTHOR_RESERVED = "author_reserved";
 
     private static final String DUPLICATE_MESSAGE = "the unit '%s' is declared by '%s' and again by '%s'";
 

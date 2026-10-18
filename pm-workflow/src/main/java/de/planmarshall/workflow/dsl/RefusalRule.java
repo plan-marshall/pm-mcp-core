@@ -16,6 +16,11 @@ package de.planmarshall.workflow.dsl;
  * @since 0.1
  */
 public enum RefusalRule {
+    /**
+     * The frontmatter is missing or does not follow its closed format or its field rules (the unit frontmatter of the
+     * grammar), as {@link UnitFrontmatterReader} reads it.
+     */
+    FRONTMATTER,
     /** The source does not follow the grammar: an unexpected, missing or unknown token or statement. */
     STRUCTURE,
     /**
@@ -25,7 +30,10 @@ public enum RefusalRule {
     RESERVED_KEYWORD,
     /** The unit declares no {@code scope} clause. */
     MISSING_SCOPE,
-    /** An identifier is declared twice in the file: a state, a {@code declare} name, a decision kind or a parameter. */
+    /**
+     * An identifier is declared twice in the file: a state, a {@code declare} name, a decision kind, a parameter, or an
+     * entry bound twice by {@code entry <name> -> <state>}.
+     */
     DUPLICATE_ID,
     /** The {@code instance} line is no JSON object, or it lacks a member the instance header requires. */
     INSTANCE_HEADER

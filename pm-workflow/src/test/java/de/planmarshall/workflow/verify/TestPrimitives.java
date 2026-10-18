@@ -172,6 +172,12 @@ final class TestPrimitives {
      */
     static final String MIXED_CALLERS = "verify.model-job-lost-mixed-callers";
 
+    /** A sub-workflow with the two entries {@code review} and {@code repair}, so a call names one of them. */
+    static final String TWO_ENTRIES = "test.two-entries";
+
+    /** A unit of the type {@code task} and the scope {@code subworkflow}, which declares no entry. */
+    static final String TASK_UNIT = "test.task-unit";
+
     private TestPrimitives() {
     }
 
@@ -226,17 +232,28 @@ final class TestPrimitives {
      *         {@link #LINKS_OUTER} calling {@link #LINKS_INNER}, the workspace unit {@link #WORKSPACE_UNIT}, and the
      *         caller chains of Rule 2's {@code lost} omission: the plan unit {@link #PLAN_CALLER} calling
      *         {@link #PLAN_ONLY_OUTER}, which calls {@link #PLAN_ONLY_INNER}, and {@link #MIXED_CALLERS}, which
-     *         {@link #EPIC_CALLER} calls as well
+     *         {@link #EPIC_CALLER} calls as well, the sub-workflow {@link #TWO_ENTRIES} with two entries and the
+     *         entry-less {@link #TASK_UNIT}
      */
     static WorkflowCatalog catalog() {
         var commitAndPush = VerifyFixtures.parseSource("git.commit_and_push.pmwf", """
+                ---
+                name: git.commit_and_push
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow git.commit_and_push version 1 format 1
                 scope subworkflow
                 param push : enum[enabled|disabled]
                 param attempts : int[1..5]
                 param targets : list<enum[origin|mirror]>
                 result schema[commit-result]
-                start git.push
+                entry main -> git.push
 
                 state git.push
                     phase inherit
@@ -251,9 +268,19 @@ final class TestPrimitives {
                     phase inherit
                 """);
         var depth5 = VerifyFixtures.parseSource("test.depth5.pmwf", """
+                ---
+                name: test.depth5
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.depth5 version 1 format 1
                 scope subworkflow
-                start depth5.done
+                entry main -> depth5.done
 
                 state depth5.done terminal done success
                     phase inherit
@@ -263,9 +290,19 @@ final class TestPrimitives {
         var depth2 = depthUnit(2, "test.depth3");
         var depth1 = depthUnit(1, "test.depth2");
         var callCycle = VerifyFixtures.parseSource("verify.call-cycle.pmwf", """
+                ---
+                name: verify.call-cycle
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow verify.call-cycle version 1 format 1
                 scope subworkflow
-                start verify.entry
+                entry main -> verify.entry
 
                 state verify.entry
                     phase inherit
@@ -280,6 +317,15 @@ final class TestPrimitives {
                     phase inherit
                 """);
         var entity = VerifyFixtures.parseSource("entity.pmwf", """
+                ---
+                name: entity
+                description: A unit written for the tests of pm-workflow.
+                type: task
+                exit: submitted
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow entity version 1 format 1
                 scope entity
                 start entity.completed
@@ -288,9 +334,19 @@ final class TestPrimitives {
                     phase inherit
                 """);
         var linksInner = VerifyFixtures.parseSource("test.links-inner.pmwf", """
+                ---
+                name: test.links-inner
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.links-inner version 1 format 1
                 scope subworkflow
-                start inner.rest
+                entry main -> inner.rest
 
                 state inner.rest
                     phase inherit
@@ -303,9 +359,19 @@ final class TestPrimitives {
                     phase inherit
                 """);
         var linksOuter = VerifyFixtures.parseSource("test.links-outer.pmwf", """
+                ---
+                name: test.links-outer
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.links-outer version 1 format 1
                 scope subworkflow
-                start outer.step
+                entry main -> outer.step
 
                 state outer.step
                     phase inherit
@@ -320,9 +386,20 @@ final class TestPrimitives {
                     phase inherit
                 """);
         var remediation = VerifyFixtures.parseSource("remediation.test-waiver.pmwf", """
+                ---
+                name: remediation.test-waiver
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                exit: waived
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow remediation.test-waiver version 1 format 1
                 scope subworkflow
-                start remediation.decide
+                entry main -> remediation.decide
 
                 state remediation.decide
                     phase inherit
@@ -337,6 +414,14 @@ final class TestPrimitives {
                     phase inherit
                 """);
         var workspaceUnit = VerifyFixtures.parseSource("test.workspace-unit.pmwf", """
+                ---
+                name: test.workspace-unit
+                description: A unit written for the tests of pm-workflow.
+                type: system
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.workspace-unit version 1 format 1
                 scope workspace
                 start workspace.done
@@ -346,12 +431,83 @@ final class TestPrimitives {
                 """);
         return new WorkflowCatalog(List.of(commitAndPush, depth1, depth2, depth3, depth4, depth5, callCycle,
                 remediation, entity, linksInner, linksOuter, workspaceUnit, planCaller(), epicCaller(),
-                planOnlyOuter(), planOnlyInner()));
+                planOnlyOuter(), planOnlyInner(), twoEntries(), taskUnit()));
+    }
+
+    /** The sub-workflow {@link #TWO_ENTRIES}: the entries {@code review} and {@code repair}, the exit {@code done}. */
+    private static WorkflowDefinition twoEntries() {
+        return VerifyFixtures.parseSource("test.two-entries.pmwf", """
+                ---
+                name: test.two-entries
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: review
+                entry: repair
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow test.two-entries version 1 format 1
+                scope subworkflow
+                entry review -> two.review
+                entry repair -> two.repair
+
+                state two.review
+                    phase inherit
+                    auto test.prepare
+                        done -> two.done
+                        skipped -> two.stepped-out
+
+                state two.repair
+                    phase inherit
+                    auto test.prepare
+                        done -> two.done
+                        skipped -> two.stepped-out
+
+                state two.done terminal done success
+                    phase inherit
+
+                state two.stepped-out terminal stepped_out stepped_out
+                    phase inherit
+                """);
+    }
+
+    /**
+     * The unit {@link #TASK_UNIT} of the type {@code task} and the scope {@code subworkflow}: it starts without an
+     * entry and returns through the exit {@code done}, so no call may name it (interface rule 3).
+     */
+    private static WorkflowDefinition taskUnit() {
+        return VerifyFixtures.parseSource("test.task-unit.pmwf", """
+                ---
+                name: test.task-unit
+                description: A unit written for the tests of pm-workflow.
+                type: task
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow test.task-unit version 1 format 1
+                scope subworkflow
+                start task.done
+
+                state task.done terminal done success
+                    phase inherit
+                """);
     }
 
     /** The plan unit {@link #PLAN_CALLER}: it calls {@link #PLAN_ONLY_OUTER}, then {@link #MIXED_CALLERS}. */
     private static WorkflowDefinition planCaller() {
         return VerifyFixtures.parseSource("test.plan-caller.pmwf", """
+                ---
+                name: test.plan-caller
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.plan-caller version 1 format 1
                 scope plan
                 start plan-caller.outer
@@ -379,6 +535,14 @@ final class TestPrimitives {
     /** The epic unit {@link #EPIC_CALLER}: it calls {@link #MIXED_CALLERS} and rests on a job afterwards. */
     private static WorkflowDefinition epicCaller() {
         return VerifyFixtures.parseSource("test.epic-caller.pmwf", """
+                ---
+                name: test.epic-caller
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.epic-caller version 1 format 1
                 scope epic
                 start epic-caller.mixed
@@ -404,9 +568,19 @@ final class TestPrimitives {
     /** The sub-workflow {@link #PLAN_ONLY_OUTER}: it calls {@link #PLAN_ONLY_INNER}. */
     private static WorkflowDefinition planOnlyOuter() {
         return VerifyFixtures.parseSource("test.plan-only-outer.pmwf", """
+                ---
+                name: test.plan-only-outer
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.plan-only-outer version 1 format 1
                 scope subworkflow
-                start plan-only-outer.inner
+                entry main -> plan-only-outer.inner
 
                 state plan-only-outer.inner
                     phase inherit
@@ -425,9 +599,19 @@ final class TestPrimitives {
     /** The sub-workflow {@link #PLAN_ONLY_INNER}: one task state that leaves {@code lost} undeclared. */
     private static WorkflowDefinition planOnlyInner() {
         return VerifyFixtures.parseSource("test.plan-only-inner.pmwf", """
+                ---
+                name: test.plan-only-inner
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.plan-only-inner version 1 format 1
                 scope subworkflow
-                start plan-only-inner.review
+                entry main -> plan-only-inner.review
 
                 state plan-only-inner.review
                     phase inherit
@@ -442,9 +626,19 @@ final class TestPrimitives {
     /** A link-free sub-workflow {@code test.depth<n>} whose one state calls {@code callee}. */
     private static WorkflowDefinition depthUnit(int depth, String callee) {
         return VerifyFixtures.parseSource("test.depth%d.pmwf".formatted(depth), """
+                ---
+                name: test.depth%1$d
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow test.depth%1$d version 1 format 1
                 scope subworkflow
-                start depth%1$d.step
+                entry main -> depth%1$d.step
 
                 state depth%1$d.step
                     phase inherit

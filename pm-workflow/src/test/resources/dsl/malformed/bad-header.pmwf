@@ -1,4 +1,12 @@
-# expect: STRUCTURE line 3
+---
+name: demo
+description: A malformed unit written for the parser tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: STRUCTURE line 11
 # The format of the header is zero, which is no positive integer.
 workflow demo version 1 format 0
 scope plan

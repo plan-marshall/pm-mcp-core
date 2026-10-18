@@ -18,6 +18,8 @@ import java.util.Optional;
 
 import de.planmarshall.workflow.ast.StateMigration;
 import de.planmarshall.workflow.ast.StateNode;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.ast.WorkflowScope;
 import de.planmarshall.workflow.verify.VerificationRule;
@@ -25,8 +27,9 @@ import de.planmarshall.workflow.verify.VerificationRule;
 /**
  * Merges the seven phase files of the plan workflow into the one unit {@value #PLAN_UNIT} (PM-IMPL-5).
  * <p>
- * The states and migrations of the merged unit are the union of those of its parts; its start state, header location,
- * scope, format and origin are those of the first part, the init file; its version is the sum of the part versions,
+ * The states and migrations of the merged unit are the union of those of its parts; its optional start state, entry
+ * bindings, header location, scope, format and origin are those of the first part, the init file, and so is its
+ * frontmatter, with the type {@code workflow}; its version is the sum of the part versions,
  * each recorded in {@link WorkflowDefinition#partVersions()} under the file it was read from; and
  * {@link WorkflowDefinition#derivedFrom()} holds the default revision every project file derives from, by file.
  * <p>
@@ -107,9 +110,17 @@ public final class PlanUnitMerger {
         if (!findings.isEmpty()) {
             return new Merge(Optional.empty(), findings);
         }
-        return new Merge(Optional.of(new WorkflowDefinition(PLAN_UNIT, version, WorkflowScope.PLAN, List.of(),
-                Optional.empty(), Optional.empty(), Map.of(), Map.of(), partVersions, first.formatVersion(),
-                first.origin(), derivedFrom, first.startState(), migrations, states, first.location())), List.of());
+        return new Merge(Optional.of(new WorkflowDefinition(workflowFrontmatter(first.frontmatter()), PLAN_UNIT,
+                version, WorkflowScope.PLAN, List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(),
+                partVersions, first.formatVersion(), first.origin(), derivedFrom, first.startState(),
+                first.entryBindings(), migrations, states, first.location())), List.of());
+    }
+
+    /** The frontmatter of the merged unit: the first part's, with the type {@link UnitType#WORKFLOW}. */
+    private static UnitFrontmatter workflowFrontmatter(UnitFrontmatter first) {
+        return new UnitFrontmatter(first.name(), first.description(), UnitType.WORKFLOW, first.entries(),
+                first.exits(), first.modificationDate(), first.version(), first.author(), first.signature(),
+                first.location());
     }
 
     private static void checkPart(WorkflowDefinition first, WorkflowDefinition part, List<UnitFinding> findings) {

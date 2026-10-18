@@ -59,7 +59,8 @@ class WorkflowStatusCodecTest {
             + "\"main_sha\":\"0123456789abcdef0123456789abcdef01234567\",\"phase\":\"phase-6-finalize\","
             + "\"state\":\"finalize.merge-sync\",\"call_stack\":[{\"caller_workflow_id\":\"finalize\","
             + "\"caller_state_id\":\"finalize.settle-commit\",\"caller_phase\":\"phase-6-finalize\","
-            + "\"subworkflow_id\":\"git.commit_and_push\",\"bound_args\":{\"message_mode\":\"step_or_fallback\","
+            + "\"subworkflow_id\":\"git.commit_and_push\",\"entry\":\"commit\","
+            + "\"bound_args\":{\"message_mode\":\"step_or_fallback\","
             + "\"attempts\":3,\"paths\":[\"a.txt\",\"b.txt\"]},\"pushed_at\":\"2026-10-12T10:00:00Z\"}],"
             + "\"loop_back_iteration\":2," + COUNTERS + ","
             + "\"retry_counters\":{\"sync_failed\":{\"state_id\":\"finalize.merge-sync\",\"attempts\":1}},"
@@ -122,6 +123,7 @@ class WorkflowStatusCodecTest {
                     () -> assertEquals("phase-6-finalize", status.phase()),
                     () -> assertEquals("finalize.merge-sync", status.state()),
                     () -> assertEquals("git.commit_and_push", frame.subworkflowId()),
+                    () -> assertEquals("commit", frame.entry()),
                     () -> assertEquals(Map.of("message_mode", new BoundArg.StringArg("step_or_fallback"),
                                     "attempts", new BoundArg.IntegerArg(3),
                                     "paths", new BoundArg.StringSetArg(new LinkedHashSet<>(List.of("a.txt", "b.txt")))),
@@ -219,6 +221,14 @@ class WorkflowStatusCodecTest {
                         "\"6-finalize\",\"state\""), "'phase' has the undeclared value '6-finalize'"),
                 Arguments.of("a call stack deeper than 4", DOCUMENT.replace("\"call_stack\":[", "\"call_stack\":["
                         + (frame() + ",").repeat(4)), "'call_stack' has 5 frames, at most 4 are allowed"),
+                Arguments.of("a call frame without its entry", DOCUMENT.replace("\"entry\":\"commit\",", ""),
+                        "field 'entry' of the call frame is missing"),
+                Arguments.of("an entry of the wrong type", DOCUMENT.replace("\"entry\":\"commit\"", "\"entry\":7"),
+                        "'entry' must be a string"),
+                Arguments.of("a null entry", DOCUMENT.replace("\"entry\":\"commit\"", "\"entry\":null"),
+                        "'entry' must be a string"),
+                Arguments.of("a blank entry", DOCUMENT.replace("\"entry\":\"commit\"", "\"entry\":\" \""),
+                        "'entry' must not be blank"),
                 Arguments.of("a scope id for the workspace", WORKSPACE.replace("\"scope_id\":null",
                         "\"scope_id\":\"workspace\""), "'scope_id' must be null for the workspace scope"),
                 Arguments.of("no scope id for a plan", DOCUMENT.replace("\"scope_id\":\"workflow-engine\"",
@@ -248,7 +258,8 @@ class WorkflowStatusCodecTest {
 
     private static String frame() {
         return "{\"caller_workflow_id\":\"w\",\"caller_state_id\":\"s\",\"caller_phase\":\"phase-6-finalize\","
-                + "\"subworkflow_id\":\"x\",\"bound_args\":{},\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
+                + "\"subworkflow_id\":\"x\",\"entry\":\"main\",\"bound_args\":{},"
+                + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}";
     }
 
     @Nested

@@ -202,10 +202,20 @@ final class DiagramFixtures {
         var entityKinds = new EntityKindRegistry(List.of(
                 new EntityKind("change", Optional.empty(), "diagram.evaluate-change")));
         var callee = parse("diagram.callee.pmwf", """
+                ---
+                name: diagram.callee
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow diagram.callee version 1 format 1
                 scope subworkflow
                 result schema[commit-result]
-                start callee.done
+                entry main -> callee.done
 
                 state callee.done terminal done success
                     phase inherit

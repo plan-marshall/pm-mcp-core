@@ -1,4 +1,12 @@
-# expect: PRIMITIVE_BINDING state verify.entry line 7
+---
+name: verify.binding
+description: A unit written for the verifier tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: PRIMITIVE_BINDING state verify.entry line 15
 # A plan unit whose auto state names a primitive the registry does not hold.
 workflow verify.binding version 1 format 1
 scope plan

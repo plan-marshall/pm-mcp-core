@@ -1,3 +1,11 @@
+---
+name: plan
+description: A unit written for the invariant and unit-loader tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # The refine phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
 # Every deep path passes refine.baseline-reconcile and refine.analyze; a lesson-derived plan passes refine.qgate,
 # whose blocking verdict calls the Q-Gate remediation.

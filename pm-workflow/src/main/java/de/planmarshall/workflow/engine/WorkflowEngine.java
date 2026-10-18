@@ -63,8 +63,10 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <ul>
  * <li>an {@code auto} state runs its primitive through the {@link PrimitiveRegistry} and takes the transition of the
  * returned outcome;</li>
- * <li>a {@code call} state pushes a frame (the calling unit and state, the caller's phase, the sub-workflow and its
- * bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the sub-workflow's start state; a state
+ * <li>a {@code call} state pushes a frame (the calling unit and state, the caller's phase, the sub-workflow, the entry
+ * the call goes through, the bound arguments, {@code pushed_at} from the {@link WorkflowClock}) and enters the
+ * sub-workflow at the state that entry binds, the entry the call names or the callee's sole entry when the call names
+ * none; the frame and its entry are written with the status in the transaction of the call; a state
  * that declares {@code phase inherit} keeps the caller's phase;</li>
  * <li>a terminal state of a sub-workflow pops exactly one frame and takes the calling state's transition of the
  * returned outcome; of an outcome routed twice, the one whose result guard holds over the frame's result record, the
@@ -208,11 +210,14 @@ public final class WorkflowEngine {
      * @param scopeType the type of the scope
      * @param scopeId   the plan or epic id; {@code null} for the workspace scope
      * @return the step the start ends in, with the first status of the scope
-     * @throws IllegalArgumentException if the scope does not fit the status store, or the start state inherits its
-     *                                  phase outside the workspace scope
+     * @throws IllegalArgumentException if the unit declares no start state (a unit with entries is called, never
+     *                                  started), the scope does not fit the status store, or the start state inherits
+     *                                  its phase outside the workspace scope
      */
     public EngineStep start(JournalScopeType scopeType, String scopeId) {
-        var startState = stateOf(unit, unit.startState());
+        var startState = stateOf(unit, unit.startState().orElseThrow(() -> new IllegalArgumentException(
+                "the unit '%s' declares no start state; a unit with entries is called, never started"
+                        .formatted(unit.id()))));
         String phase;
         if (INHERIT.equals(startState.phase())) {
             if (scopeType != JournalScopeType.WORKSPACE) {
@@ -700,11 +705,33 @@ public final class WorkflowEngine {
 
         private String call(StateNode node, StateBehavior.SubWorkflowCall call) {
             var callee = verifiedUnit(call.subWorkflowId());
-            var frame = new CallFrame(unitOf(stack).id(), node.id(), status.phase(), callee.id(),
+            var entry = entryOf(callee, call);
+            var frame = new CallFrame(unitOf(stack).id(), node.id(), status.phase(), callee.id(), entry,
                     call.paramBindings(), clock.now().toString());
             stack = stack.push(frame);
             results.push(new LinkedHashMap<>());
-            return callee.startState();
+            return callee.entryBindings().get(entry).stateId();
+        }
+
+        /**
+         * The entry a call goes through, which its frame records and whose bound state the call enters: the entry the
+         * call names, or the callee's sole entry when the call names none.
+         */
+        private String entryOf(WorkflowDefinition callee, StateBehavior.SubWorkflowCall call) {
+            var bindings = callee.entryBindings();
+            if (call.entry().isPresent()) {
+                var entry = call.entry().get();
+                if (!bindings.containsKey(entry)) {
+                    throw fault(Reason.UNRESOLVED_NAME, "the sub-workflow '%s' binds no entry '%s'", callee.id(),
+                            entry);
+                }
+                return entry;
+            }
+            if (bindings.size() != 1) {
+                throw fault(Reason.UNRESOLVED_NAME, "the call of '%s' names no entry, and the callee binds %s entries",
+                        callee.id(), bindings.size());
+            }
+            return bindings.keySet().iterator().next();
         }
 
         /**

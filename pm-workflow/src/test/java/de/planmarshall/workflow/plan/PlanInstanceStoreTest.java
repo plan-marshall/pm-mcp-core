@@ -423,8 +423,9 @@ class PlanInstanceStoreTest {
             var instance = version1();
             var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
             var reference = texts().getFirst().reference();
-            var wrong = List.of(new SubUnitText(reference, "workflow other version 1 format 1\n"),
-                    texts().get(1));
+            var otherText = InvariantFixtures.read(InvariantFixtures.GIT_FILE)
+                    .replace("workflow git.commit_and_push version", "workflow other version");
+            var wrong = List.of(new SubUnitText(reference, otherText), texts().get(1));
             var missing = List.of(texts().get(1));
 
             try (var lock = new HoldingEverything()) {

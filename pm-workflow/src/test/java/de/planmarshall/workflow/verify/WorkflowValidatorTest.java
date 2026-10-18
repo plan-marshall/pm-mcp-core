@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +31,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
@@ -147,6 +149,50 @@ class WorkflowValidatorTest {
                     VerificationRule.LINK_ID_UNIQUE, "duplicate-link-id.pmwf"),
             new Check("Rule 3: a declared link repeats no implicit link identifier (ack, consult:, answer:, step_out)",
                     VerificationRule.LINK_ID_UNIQUE, "link-id-implicit.pmwf"),
+            new Check("Interface rule 1: a unit whose frontmatter declares entries declares no start state",
+                    VerificationRule.INTERFACE_START_OR_ENTRIES, "interface-start-with-entries.pmwf"),
+            new Check("Interface rule 1: every declared entry is bound to a state",
+                    VerificationRule.INTERFACE_START_OR_ENTRIES, "interface-entry-unbound.pmwf"),
+            new Check("Interface rule 1: no binding names an entry the frontmatter does not declare",
+                    VerificationRule.INTERFACE_START_OR_ENTRIES, "interface-entry-undeclared.pmwf"),
+            new Check("Interface rule 1: every entry binding targets an existing state",
+                    VerificationRule.STATE_EXISTS, "interface-entry-state-missing.pmwf"),
+            new Check("Interface rule 2: a unit without exits declares a terminal state",
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, "interface-no-terminal.pmwf"),
+            new Check("Interface rule 2: every terminal of a unit with exits reports one of its exits",
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, "interface-terminal-not-exit.pmwf"),
+            new Check("Interface rule 2: every exit is the outcome of a terminal state",
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, "interface-exit-without-terminal.pmwf"),
+            new Check("Interface rule 2: a landing variant declares no terminal state",
+                    VerificationRule.INTERFACE_STOP_POINTS_OR_EXITS, "interface-landing-variant-terminal.pmwf"),
+            new Check("Interface rule 3: a unit with entries declares an exit",
+                    VerificationRule.INTERFACE_CALLED_UNIT, "interface-entries-without-exit.pmwf"),
+            new Check("Interface rule 3: only a unit with entries is the target of a call",
+                    VerificationRule.INTERFACE_CALLED_UNIT, "interface-call-target-without-entries.pmwf"),
+            new Check("Interface rule 4: every state is reachable from at least one entry",
+                    VerificationRule.REACHABILITY, "interface-state-unreachable-from-entries.pmwf"),
+            new Check("Interface rule 4: every exit is reached from at least one entry",
+                    VerificationRule.INTERFACE_EXIT_REACHED, "interface-exit-unreached-from-entry.pmwf"),
+            new Check("Interface rule 5: a call names an entry its callee declares",
+                    VerificationRule.INTERFACE_CALL_ENTRY, "interface-call-entry-unknown.pmwf"),
+            new Check("Interface rule 5: a call omits the entry only for a callee with exactly one",
+                    VerificationRule.INTERFACE_CALL_ENTRY, "interface-call-entry-omitted.pmwf"),
+            new Check("Interface rule 5: a call routes every exit its callee declares",
+                    VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "interface-call-exit-unrouted.pmwf"),
+            new Check("Interface rule 6: a workflow unit has the scope plan or epic",
+                    VerificationRule.TYPE_FITS, "type-workflow-wrong-scope.pmwf"),
+            new Check("Interface rule 6: a workflow unit declares neither entries nor exits",
+                    VerificationRule.TYPE_FITS, "type-workflow-with-entries.pmwf"),
+            new Check("Interface rule 6: a recipe unit has the scope plan",
+                    VerificationRule.TYPE_FITS, "type-recipe-wrong-scope.pmwf"),
+            new Check("Interface rule 6: a subworkflow unit has the scope subworkflow",
+                    VerificationRule.TYPE_FITS, "type-subworkflow-wrong-scope.pmwf"),
+            new Check("Interface rule 6: a started system unit has the scope workspace or entity",
+                    VerificationRule.TYPE_FITS, "type-system-wrong-scope.pmwf"),
+            new Check("Interface rule 6: a task unit declares no entry",
+                    VerificationRule.TYPE_FITS, "type-task-with-entries.pmwf"),
+            new Check("Interface rule 6: an instance unit has the scope plan",
+                    VerificationRule.TYPE_FITS, "type-instance-wrong-scope.pmwf"),
             new Check("Rule 4: a worker unit holds no job llm state and no link into one",
                     VerificationRule.LEAF_TASK_CONSTRAINT, "leaf-task-constraint.pmwf"),
             new Check("Rule 4: a consultation task offers no consult link",
@@ -306,17 +352,16 @@ class WorkflowValidatorTest {
         return VerifyFixtures.list(VerifyFixtures.REFUSED);
     }
 
+    static List<String> passingFixtures() {
+        return VerifyFixtures.list(VerifyFixtures.PASSING);
+    }
+
     private static WorkflowDefinition unit(String scope, String states) {
         return unit("verify.inline", scope, states);
     }
 
     private static WorkflowDefinition unit(String id, String scope, String states) {
-        return VerifyFixtures.parseSource("inline.pmwf", """
-                workflow %s version 1 format 1
-                scope %s
-                start verify.entry
-
-                %s""".formatted(id, scope, states));
+        return VerifyFixtures.parseSource("inline.pmwf", VerifyFixtures.inlineUnit(id, scope, states));
     }
 
     private List<Violation> violations(WorkflowDefinition definition) {
@@ -366,7 +411,7 @@ class WorkflowValidatorTest {
             var accounted = Stream.of(CHECKLIST.stream().map(Check::rule), UNPLANTABLE.stream().map(Unpinned::rule),
                     SEAMS.stream().map(Unpinned::rule)).flatMap(stream -> stream).collect(Collectors.toSet());
 
-            assertAll(() -> assertEquals(26, VerificationRule.values().length),
+            assertAll(() -> assertEquals(32, VerificationRule.values().length),
                     () -> assertEquals(Set.of(VerificationRule.values()), accounted));
         }
 
@@ -377,6 +422,28 @@ class WorkflowValidatorTest {
 
             assertAll(() -> assertTrue(result.passed(), result::toString),
                     () -> assertEquals(List.of(), result.violations(), result::toString));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.WorkflowValidatorTest#passingFixtures")
+        @DisplayName("Should pass every passing control: the called unit with two entries and two exits, and one unit"
+                + " per row of the Unit Types table")
+        void shouldPassEveryControl(String resource) {
+            var result = validator.verify(VerifyFixtures.parse(resource));
+
+            assertEquals(List.of(), result.violations(), resource);
+        }
+
+        @Test
+        @DisplayName("Should hold a passing control for the interface rules and for every row of the Unit Types table")
+        void shouldHoldEveryPassingControl() {
+            var controls = passingFixtures().stream().map(WorkflowValidatorTest::fileName)
+                    .collect(Collectors.toCollection(TreeSet::new));
+
+            var expected = new TreeSet<>(List.of("every-construct.pmwf", "interface-entries-and-exits.pmwf"));
+            Arrays.stream(UnitType.values()).map(type -> "type-" + type.wireName() + ".pmwf").forEach(expected::add);
+
+            assertEquals(expected, controls);
         }
     }
 
@@ -766,19 +833,32 @@ class WorkflowValidatorTest {
     class ExitPath {
 
         /*
+         * The starting state branches to a terminal state, which every unit declares (interface rule 2), and to the
+         * state under test, which has no declared path to it.
+         */
+        private static final String BRANCH = """
+                state verify.entry
+                    phase verify
+                    auto test.prepare
+                        done -> verify.rest
+                        skipped -> verify.done
+
+                """;
+
+        /*
          * A link state that returns to itself through a submission, so the cycle awaits an event. A plan unit admits
          * no resting link state (Rule 10), so the matched control of the sub-workflow is an entity unit, whose link
          * states have no implicit step_out either.
          */
-        private static final String SELF_LINK = """
-                state verify.entry
+        private static final String SELF_LINK = BRANCH + """
+                state verify.rest
                     phase verify
                     skill pm/verify/start
                     link submit choose [submit] (note: text[1..80], comment: text)
                         do test.choose
-                            chosen -> verify.entry
-                            declined -> verify.entry
-                """;
+                            chosen -> verify.rest
+                            declined -> verify.rest
+                """ + DONE_TERMINAL;
 
         @ParameterizedTest(name = "{0}")
         @CsvSource({"subworkflow, 0", "entity, 1"})
@@ -786,7 +866,7 @@ class WorkflowValidatorTest {
         void shouldExitThroughStepOut(String scope, int count) {
             var found = violations(unit(scope, SELF_LINK));
 
-            assertEquals(count == 0 ? List.of() : List.of("verify.entry EXIT_PATH"),
+            assertEquals(count == 0 ? List.of() : List.of("verify.rest EXIT_PATH"),
                     found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
         }
 
@@ -794,16 +874,16 @@ class WorkflowValidatorTest {
         @CsvSource({"false, 0", "true, 1"})
         @DisplayName("Should let a task state exit through the default lost route unless it declares lost")
         void shouldExitThroughDefaultLost(boolean declaresLost, int count) {
-            var definition = unit("plan", """
-                    state verify.entry
+            var definition = unit("plan", BRANCH + """
+                    state verify.rest
                         phase verify
                         job llm change role reviewer
-                            approved -> verify.entry
-                    """ + (declaresLost ? "        lost -> verify.entry\n" : ""));
+                            approved -> verify.rest
+                    """ + (declaresLost ? "        lost -> verify.rest\n" : "") + DONE_TERMINAL);
 
             var found = violations(definition);
 
-            assertEquals(count == 0 ? List.of() : List.of("verify.entry EXIT_PATH"),
+            assertEquals(count == 0 ? List.of() : List.of("verify.rest EXIT_PATH"),
                     found.stream().map(violation -> violation.stateId() + " " + violation.rule()).toList());
         }
 
@@ -965,6 +1045,14 @@ class WorkflowValidatorTest {
 
         private List<Violation> verify(String migration) {
             return retiring.verify(VerifyFixtures.parseSource("inline.pmwf", """
+                    ---
+                    name: verify.inline
+                    description: A unit written for the tests of pm-workflow.
+                    type: workflow
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
                     workflow verify.inline version 1 format 1
                     scope plan
                     start verify.entry
@@ -985,10 +1073,11 @@ class WorkflowValidatorTest {
 
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = ';', quoteCharacter = '"', value = {
-                "migrate verify.old -> verify.gone;4;targets 'verify.gone'",
-                "\"# no migration\";1;no migrate declaration names it"
+                "migrate verify.old -> verify.gone;12;targets 'verify.gone'",
+                "\"# no migration\";9;no migrate declaration names it"
         })
-        @DisplayName("Should refuse a released name that is neither a state nor migrated to one")
+        @DisplayName("Should refuse a released name that is neither a state nor migrated to one, at the migration or "
+                + "at the unit header below the eight lines of the frontmatter")
         void shouldRefuseDroppedName(String migration, int line, String fragment) {
             var found = verify(migration + "\n");
 

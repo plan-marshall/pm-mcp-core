@@ -14,12 +14,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("Source location and scopes of the tree")
+@DisplayName("Source location, scopes and unit types of the tree")
 class AstVocabularyTest {
 
     @Test
@@ -40,5 +41,15 @@ class AstVocabularyTest {
         var names = Arrays.stream(WorkflowScope.values()).map(Enum::name).toList();
 
         assertEquals(List.of("PLAN", "EPIC", "WORKSPACE", "ENTITY", "SUBWORKFLOW"), names);
+    }
+
+    @Test
+    @DisplayName("the unit types are the six of the language, each with its lower-case wire name")
+    void unitTypes() {
+        var wireNames = Arrays.stream(UnitType.values()).map(UnitType::wireName).toList();
+
+        assertEquals(List.of("workflow", "recipe", "subworkflow", "system", "task", "instance"), wireNames);
+        assertEquals(Optional.of(UnitType.TASK), UnitType.fromWireName("task"));
+        assertEquals(Optional.empty(), UnitType.fromWireName("TASK"));
     }
 }

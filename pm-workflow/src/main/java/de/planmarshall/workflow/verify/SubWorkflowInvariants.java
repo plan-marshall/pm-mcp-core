@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.verify;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,6 +25,7 @@ import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.verify.CompiledInvariants.Check;
 import de.planmarshall.workflow.verify.CompiledInvariants.Context;
 
@@ -40,8 +42,9 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * that declares {@code ask}. That the role is {@code read_only} is checked at composition.</li>
  * <li>{@link InvariantId#INV_GIT_1}: every state that lies on every path of the default unit into its success
  * terminals (the six stages) is a state of the unit and lies on every such path of the unit, in the default unit's
- * order; the terminals are exactly {@code done} of class {@code success} and, where declared, {@code stepped_out} of
- * class {@code stepped_out}, and the result schema is the default unit's; an outcome {@code push_state_unknown} ends
+ * order; its exit contract, the exits its frontmatter declares plus {@code stepped_out}, is {@code done} and
+ * {@code stepped_out}, and its terminals are exactly {@code done} of class {@code success} and, where declared,
+ * {@code stepped_out} of class {@code stepped_out}, and the result schema is the default unit's; an outcome {@code push_state_unknown} ends
  * in a terminal of class {@code stepped_out}; every cycle through a task state passes a state whose primitive declares
  * an attempt cap; the unit has no question state, no link state and no task state the default unit does not have (no
  * override state); and it pushes only with {@code git.execute-push} and {@code git.push-with-lease}, the lease push
@@ -136,7 +139,7 @@ final class SubWorkflowInvariants {
                     ignoreRole ? Optional.empty() : job.roleName(), job.fanOutPrimitiveId(), job.rolesPrimitiveId(),
                     job.ask(), job.consultRoles(), shape(job.transitions()));
             case StateBehavior.SubWorkflowCall call -> new StateBehavior.SubWorkflowCall(call.subWorkflowId(),
-                    call.paramBindings(), shape(call.transitions()));
+                    call.entry(), call.paramBindings(), shape(call.transitions()));
             case StateBehavior.QuestionWait question -> new StateBehavior.QuestionWait(question.questionClass(),
                     shape(question.transitions()), question.links().stream().map(SubWorkflowInvariants::shape).toList());
             case StateBehavior.TerminalState terminal -> terminal;
@@ -203,22 +206,36 @@ final class SubWorkflowInvariants {
         }
     }
 
+    /**
+     * The exit contract of the commit sub-workflow: the exits its frontmatter declares plus the implicit control exit
+     * {@code stepped_out}, never derived from its terminals. The declared exits are exactly {@code done}; a terminal
+     * reports {@code done} of class {@code success} or {@code stepped_out} of class {@code stepped_out}; and a terminal
+     * {@code done} of class {@code success} exists.
+     */
     private static void exitContract(Context context, InvariantId id) {
         var unit = context.unit();
+        var exits = unit.frontmatter().exits().stream().map(UnitFrontmatter.InterfaceElement::name).toList();
+        var contract = new LinkedHashSet<>(exits);
+        contract.add(CompiledInvariants.STEPPED_OUT);
+        if (!exits.equals(List.of(DONE))) {
+            context.reportUnit(id, "the unit declares the exits %s; the exit contract of the default unit is 'done'"
+                    .formatted(exits));
+        }
         var hasDone = false;
         for (var state : context.states()) {
             if (!Context.isTerminal(state)) {
                 continue;
             }
             var outcome = state.terminalOutcome();
-            var isDone = outcome.filter(terminal -> DONE.equals(terminal.id())
+            var inContract = outcome.filter(terminal -> contract.contains(terminal.id())).isPresent();
+            var isDone = inContract && outcome.filter(terminal -> DONE.equals(terminal.id())
                     && terminal.outcomeClass() == OutcomeClass.SUCCESS).isPresent();
-            var isSteppedOut = outcome.filter(terminal -> CompiledInvariants.STEPPED_OUT.equals(terminal.id())
-                    && terminal.outcomeClass() == OutcomeClass.STEPPED_OUT).isPresent();
+            var isSteppedOut = inContract && outcome.filter(terminal -> CompiledInvariants.STEPPED_OUT
+                    .equals(terminal.id()) && terminal.outcomeClass() == OutcomeClass.STEPPED_OUT).isPresent();
             hasDone |= isDone;
             if (!isDone && !isSteppedOut) {
-                context.reportState(id, state, "the terminal '%s' is outside the exit contract 'done' and 'stepped_out'"
-                        .formatted(state.id()));
+                context.reportState(id, state, "the terminal '%s' is outside the exit contract %s"
+                        .formatted(state.id(), contract));
             }
         }
         if (!hasDone) {

@@ -44,6 +44,7 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.StepCompletionStatus;
 import de.planmarshall.workflow.ast.TerminalOutcome;
+import de.planmarshall.workflow.ast.UnitFrontmatter;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.ValueDeclaration;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -55,17 +56,25 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * a state migration, a sub-workflow parameter, a link, a link parameter, an outcome transition and a step completion
  * carry the {@link SourceLocation} they were read at; every other node carries none.
  * <p>
- * It reads the unit header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the
- * {@code param} and {@code result} declarations of a sub-workflow), the {@code declare} and {@code decide} lines, the
- * {@code start} and {@code migrate} lines, and every state form with its links, guards, transitions, result guards
- * and step completions. A {@code link} clause without a form takes the relation's default form.
+ * It reads the frontmatter first, through {@link UnitFrontmatterReader} (a missing or refused frontmatter is a
+ * {@link RefusalRule#FRONTMATTER} refusal), then the body from the line after the closing {@code ---}: the unit
+ * header, the optional {@code instance} line of a plan instance, the {@code scope} clause (with the {@code param} and
+ * {@code result} declarations of a sub-workflow), the {@code declare} and {@code decide} lines, either one
+ * {@code start} line or one or more {@code entry <name> -> <state>} bindings, the {@code migrate} lines, and every
+ * state form with its links, guards, transitions, result guards and step completions; a {@code call} may name the
+ * callee's entry with {@code entry <name>}. A {@code link} clause without a form takes the relation's default form.
+ * The keyword {@code entry} is positional, not reserved, so {@code setup.entry} stays a state identifier.
  * <p>
- * It refuses, and the first refusal wins: a structural violation of the grammar, a reserved keyword where the grammar
- * expects an outcome name, a parameter name, an entity kind, a role name, or a segment of a state, primitive or
- * configuration key identifier, a unit without a {@code scope} clause, a duplicate identifier in the file (a state, a
- * {@code declare} name, a decision kind, a parameter, a value repeated in a list value or an {@code enum[...]} type),
- * and an {@code instance} line that is no instance header. A refusal is returned as a {@link ParseResult.Refused}; no
- * exception escapes {@link #parse}.
+ * It refuses, and the first refusal wins: a frontmatter outside its closed format or field rules, a structural
+ * violation of the grammar (among them a body with both a {@code start} line and entry bindings, or with neither), a
+ * reserved keyword where the grammar expects an outcome name, a parameter name, an entity kind, a role name, or a
+ * segment of a state, primitive or configuration key identifier, a unit without a {@code scope} clause, a duplicate
+ * identifier in the file (a state, a {@code declare} name, a decision kind, a parameter, an entry bound twice, a value
+ * repeated in a list value or an {@code enum[...]} type), and an {@code instance} line that is no instance header. A
+ * refusal is returned as a {@link ParseResult.Refused}; no exception escapes {@link #parse}.
+ * <p>
+ * The parser never compares the entry bindings with the entries the frontmatter declares: that the two match, and
+ * which of {@code start} and the bindings a unit must declare, are interface rules the verifier checks.
  * <p>
  * The keywords of a scope, a link relation, a link form, a step completion and an outcome class are the lower-case
  * names of the constants of {@link WorkflowScope}, {@link LinkRelation}, {@link LinkForm},
@@ -93,6 +102,8 @@ public final class WorkflowParser {
     private static final String OPEN_PAREN = "(";
     private static final String CLOSE_PAREN = ")";
     private static final String KEYWORD_SCOPE = "scope";
+    private static final String KEYWORD_START = "start";
+    private static final String KEYWORD_ENTRY = "entry";
     private static final String KEYWORD_RESULT = "result";
     private static final String KEYWORD_DECLARE = "declare";
     private static final String KEYWORD_INHERIT = "inherit";
@@ -115,7 +126,7 @@ public final class WorkflowParser {
     private static final String EXPECTATION_PARAMETER_NAME = "a parameter name";
 
     private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
-            KEYWORD_SCOPE, "param", KEYWORD_RESULT, KEYWORD_DECLARE, "start", "migrate", KEYWORD_STATE, "terminal",
+            KEYWORD_SCOPE, "param", KEYWORD_RESULT, KEYWORD_DECLARE, KEYWORD_START, "migrate", KEYWORD_STATE, "terminal",
             "phase", KEYWORD_INHERIT, "skill", "facts", "auto", "job", KEYWORD_COMPOSITE_JOB, "call", KEYWORD_QUESTION,
             KEYWORD_LINK, KEYWORD_GUARD, "depends_on_config", "do", "llm", "role", KEYWORD_EACH, KEYWORD_CONSULT,
             "completes", "as", "and", "or", KEYWORD_NOT, "in_worktree", "has_open_findings", "all_tasks_completed",
@@ -138,11 +149,14 @@ public final class WorkflowParser {
 
     private final String resourceName;
     private final List<WorkflowLexer.Line> lines;
+    /** The 1-based line the body starts at, the line after the closing {@code ---} of the frontmatter. */
+    private final int bodyLine;
     private int index;
 
-    private WorkflowParser(String resourceName, List<WorkflowLexer.Line> lines) {
+    private WorkflowParser(String resourceName, List<WorkflowLexer.Line> lines, int bodyLine) {
         this.resourceName = resourceName;
         this.lines = lines;
+        this.bodyLine = bodyLine;
     }
 
     /**
@@ -157,16 +171,23 @@ public final class WorkflowParser {
         Objects.requireNonNull(resourceName, "resourceName");
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(origin, "origin");
-        var parser = new WorkflowParser(resourceName, WorkflowLexer.tokenize(source));
+        var read = UnitFrontmatterReader.read(resourceName, source);
+        if (read instanceof UnitFrontmatterReader.Result.Refused(var diagnostic)) {
+            return new ParseResult.Refused(diagnostic);
+        }
+        var frontmatter = (UnitFrontmatterReader.Result.Read) read;
+        var bodyLines = WorkflowLexer.tokenize(source).stream()
+                .filter(line -> line.number() >= frontmatter.bodyLine()).toList();
+        var parser = new WorkflowParser(resourceName, bodyLines, frontmatter.bodyLine());
         try {
-            return new ParseResult.Parsed(parser.parseUnit(origin));
+            return new ParseResult.Parsed(parser.parseUnit(frontmatter.frontmatter(), origin));
         } catch (Refusal refusal) {
             return new ParseResult.Refused(new Diagnostic(refusal.rule, resourceName, refusal.line, refusal.column,
                     refusal.getMessage()));
         }
     }
 
-    private WorkflowDefinition parseUnit(UnitOrigin origin) {
+    private WorkflowDefinition parseUnit(UnitFrontmatter frontmatter, UnitOrigin origin) {
         var header = statement("workflow", "the unit header 'workflow <id> version <n> format <n>'");
         var location = location(header.first());
         var id = stateId(header);
@@ -187,9 +208,28 @@ public final class WorkflowParser {
         var declarations = new LinkedHashMap<String, ValueDeclaration>();
         var decisions = new LinkedHashMap<String, DecisionDeclaration>();
         parseDeclarations(declarations, decisions);
-        var start = statement("start", "the 'start <state>' line");
-        var startState = stateId(start);
-        start.expectEnd();
+        Optional<String> startState = Optional.empty();
+        var entryBindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
+        if (nextStatementIs(KEYWORD_START)) {
+            var start = nextLine();
+            start.next("the keyword 'start'");
+            startState = Optional.of(stateId(start));
+            start.expectEnd();
+            if (nextStatementIs(KEYWORD_ENTRY)) {
+                throw refuse(RefusalRule.STRUCTURE, firstOfNextLine(),
+                        "a unit declares a 'start' line or binds its entries, never both");
+            }
+        } else if (nextStatementIs(KEYWORD_ENTRY)) {
+            do {
+                parseEntryBinding(entryBindings);
+            } while (nextStatementIs(KEYWORD_ENTRY));
+            if (nextStatementIs(KEYWORD_START)) {
+                throw refuse(RefusalRule.STRUCTURE, firstOfNextLine(),
+                        "a unit binds its entries or declares a 'start' line, never both");
+            }
+        } else {
+            throw refuseExpected("the 'start <state>' line or an 'entry <name> -> <state>' line");
+        }
         var migrations = new ArrayList<StateMigration>();
         while (nextStatementIs("migrate")) {
             migrations.add(parseMigration());
@@ -198,8 +238,23 @@ public final class WorkflowParser {
         do {
             parseState(states);
         } while (hasLine());
-        return new WorkflowDefinition(id, version, scope, params, resultSchema, instance, declarations, decisions,
-                Map.of(), formatVersion, origin, derivedFrom, startState, migrations, states, location);
+        return new WorkflowDefinition(frontmatter, id, version, scope, params, resultSchema, instance, declarations,
+                decisions, Map.of(), formatVersion, origin, derivedFrom, startState, entryBindings, migrations, states,
+                location);
+    }
+
+    /** Reads one {@code entry <name> -> <state>} line, refusing an entry name bound twice. */
+    private void parseEntryBinding(Map<String, WorkflowDefinition.EntryBinding> entryBindings) {
+        var line = nextLine();
+        var keyword = line.next("the keyword 'entry'");
+        var name = identifier(line, "an entry name");
+        if (entryBindings.containsKey(name.text())) {
+            throw refuse(RefusalRule.DUPLICATE_ID, name, "the entry '%s' is bound twice", name.text());
+        }
+        line.expect(ARROW);
+        var stateId = stateId(line);
+        line.expectEnd();
+        entryBindings.put(name.text(), new WorkflowDefinition.EntryBinding(stateId, location(keyword)));
     }
 
     /**
@@ -469,6 +524,10 @@ public final class WorkflowParser {
         var line = nextLine();
         line.next("the keyword 'call'");
         var subWorkflowId = stateId(line);
+        Optional<String> entry = Optional.empty();
+        if (line.consumeIf(KEYWORD_ENTRY)) {
+            entry = Optional.of(identifier(line, "the name of the callee's entry").text());
+        }
         var bindings = new LinkedHashMap<String, CallValue>();
         if (line.consumeIf(OPEN_PAREN) && !line.consumeIf(CLOSE_PAREN)) {
             do {
@@ -482,7 +541,7 @@ public final class WorkflowParser {
             line.expect(CLOSE_PAREN);
         }
         line.expectEnd();
-        return new StateBehavior.SubWorkflowCall(subWorkflowId, bindings, parseTransitions());
+        return new StateBehavior.SubWorkflowCall(subWorkflowId, entry, bindings, parseTransitions());
     }
 
     private StateBehavior parseQuestion() {
@@ -957,9 +1016,13 @@ public final class WorkflowParser {
         return new Refusal(rule, line, column, message);
     }
 
+    /**
+     * The refusal of the end of the unit: just after the last token of the body, or at the first line of the body when
+     * the body holds no token.
+     */
     private Refusal refuseAtEnd(RefusalRule rule, String message) {
         if (lines.isEmpty()) {
-            return refuse(rule, 1, 1, message);
+            return refuse(rule, bodyLine, 1, message);
         }
         var last = lines.getLast();
         return refuse(rule, last.number(), last.tokens().getLast().endColumn(), message);

@@ -1,7 +1,18 @@
-# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 10
+---
+name: remediation.stepped-out-budget-check
+description: A unit written for the verifier tests.
+type: subworkflow
+entry: main
+exit: resolved
+exit: exhausted
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: SUBWORKFLOW_CALL_CONTRACT state verify.entry line 21
 workflow remediation.stepped-out-budget-check version 1 format 1
 scope subworkflow
-start verify.entry
+entry main -> verify.entry
 
 state verify.entry
     phase inherit

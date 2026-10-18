@@ -38,6 +38,7 @@ import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.plan.CompositionResult.Refusal;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Lane;
 import de.planmarshall.workflow.plan.PrunedElement.Kind;
@@ -116,17 +117,41 @@ class PlanInstanceComposerTest {
         }
 
         @Test
-        @DisplayName("the text is the workflow header, the instance line and the composed states, and parses back")
+        @DisplayName("the text is the frontmatter, the workflow header, the instance line and the composed states, and "
+                + "parses back")
         void text() {
             var instance = version1();
             var reparsed = PlanFixtures.parse("plan.v1.pmwf", instance.text(), UnitOrigin.DEFAULT);
 
             assertAll(
-                    () -> assertTrue(instance.text().startsWith("workflow plan version 1 format 1\ninstance {"),
+                    () -> assertTrue(instance.text().startsWith("---\n"), instance.text()),
+                    () -> assertTrue(instance.text().contains("\ntype: instance\n"), instance.text()),
+                    () -> assertTrue(instance.text().contains("\n---\nworkflow plan version 1 format 1\ninstance {"),
                             instance.text()),
                     () -> assertEquals(instance.unit().states().keySet(), reparsed.states().keySet()),
+                    () -> assertEquals(UnitType.INSTANCE, reparsed.frontmatter().type()),
+                    () -> assertEquals(instance.unit().frontmatter().name(), reparsed.frontmatter().name()),
                     () -> assertEquals(instance.header().planId(),
                             reparsed.instance().orElseThrow().planId()));
+        }
+
+        @Test
+        @DisplayName("the composed version carries the template's frontmatter with the type instance, and the "
+                + "template's start state")
+        void instanceFrontmatter() {
+            var template = PlanFixtures.template();
+
+            var unit = version1().unit();
+
+            assertAll(
+                    () -> assertEquals(UnitType.WORKFLOW, template.frontmatter().type()),
+                    () -> assertEquals(UnitType.INSTANCE, unit.frontmatter().type()),
+                    () -> assertEquals(template.frontmatter().name(), unit.frontmatter().name()),
+                    () -> assertEquals(template.frontmatter().description(), unit.frontmatter().description()),
+                    () -> assertEquals(template.frontmatter().author(), unit.frontmatter().author()),
+                    () -> assertEquals(template.frontmatter().version(), unit.frontmatter().version()),
+                    () -> assertEquals(template.startState(), unit.startState()),
+                    () -> assertEquals(template.entryBindings(), unit.entryBindings()));
         }
 
         @Test

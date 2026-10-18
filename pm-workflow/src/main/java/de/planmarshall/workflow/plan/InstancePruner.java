@@ -118,7 +118,7 @@ final class InstancePruner {
                     arguments.forEach((name, argument) -> bindings.put(name, argument.value()));
                     policyCalls.add(PolicyCall.of(state.id(), call.subWorkflowId(), arguments));
                 }
-                yield new StateBehavior.SubWorkflowCall(call.subWorkflowId(), bindings,
+                yield new StateBehavior.SubWorkflowCall(call.subWorkflowId(), call.entry(), bindings,
                         transitions(call.transitions(), removed));
             }
             case StateBehavior.QuestionWait(var questionClass, var transitions, var links) ->

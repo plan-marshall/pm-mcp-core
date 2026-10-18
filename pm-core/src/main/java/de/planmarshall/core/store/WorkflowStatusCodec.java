@@ -98,6 +98,7 @@ public class WorkflowStatusCodec {
     private static final String CALLER_STATE_ID = "caller_state_id";
     private static final String CALLER_PHASE = "caller_phase";
     private static final String SUBWORKFLOW_ID = "subworkflow_id";
+    private static final String ENTRY = "entry";
     private static final String BOUND_ARGS = "bound_args";
     private static final String PUSHED_AT = "pushed_at";
     private static final String STATE_ID = "state_id";
@@ -235,6 +236,7 @@ public class WorkflowStatusCodec {
             generator.writeStringField(CALLER_STATE_ID, frame.callerStateId());
             generator.writeStringField(CALLER_PHASE, frame.callerPhase());
             generator.writeStringField(SUBWORKFLOW_ID, frame.subworkflowId());
+            generator.writeStringField(ENTRY, frame.entry());
             generator.writeObjectFieldStart(BOUND_ARGS);
             for (var arg : frame.boundArgs().entrySet()) {
                 generator.writeFieldName(arg.getKey());
@@ -424,6 +426,7 @@ public class WorkflowStatusCodec {
         String callerStateId = null;
         String callerPhase = null;
         String subworkflowId = null;
+        String entry = null;
         Map<String, BoundArg> boundArgs = null;
         Instant pushedAt = null;
         var seen = new HashSet<String>();
@@ -434,14 +437,15 @@ public class WorkflowStatusCodec {
                 case CALLER_STATE_ID -> callerStateId = string(parser, field);
                 case CALLER_PHASE -> callerPhase = string(parser, field);
                 case SUBWORKFLOW_ID -> subworkflowId = string(parser, field);
+                case ENTRY -> entry = string(parser, field);
                 case BOUND_ARGS -> boundArgs = StrictJson.map(parser, field, WorkflowStatusCodec::readBoundArg);
                 case PUSHED_AT -> pushedAt = instant(parser, field);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, "call frame", CALLER_WORKFLOW_ID, CALLER_STATE_ID, CALLER_PHASE, SUBWORKFLOW_ID,
+        requireFields(seen, "call frame", CALLER_WORKFLOW_ID, CALLER_STATE_ID, CALLER_PHASE, SUBWORKFLOW_ID, ENTRY,
                 BOUND_ARGS, PUSHED_AT);
-        return new CallFrame(callerWorkflowId, callerStateId, callerPhase, subworkflowId, boundArgs, pushedAt);
+        return new CallFrame(callerWorkflowId, callerStateId, callerPhase, subworkflowId, entry, boundArgs, pushedAt);
     }
 
     private static BoundArg readBoundArg(JsonParser parser, String name) throws IOException {

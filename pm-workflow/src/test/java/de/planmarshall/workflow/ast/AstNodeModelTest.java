@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -146,6 +147,80 @@ class AstNodeModelTest {
                     () -> assertThrows(UnsupportedOperationException.class, copiedStates::clear),
                     () -> assertThrows(UnsupportedOperationException.class, copiedMigrations::clear));
         }
+
+        @Test
+        @DisplayName("the entries and exits of the frontmatter are copied and keep their order")
+        void frontmatterListsAreCopied() {
+            var review = new UnitFrontmatter.InterfaceElement("review", Optional.of("The change is ready."));
+            var repair = new UnitFrontmatter.InterfaceElement("repair", Optional.empty());
+            var done = new UnitFrontmatter.InterfaceElement("done", Optional.empty());
+            var entries = new ArrayList<>(List.of(review, repair));
+            var exits = new ArrayList<>(List.of(done));
+            var frontmatter = frontmatter(entries, exits);
+
+            entries.clear();
+            exits.add(repair);
+            var copiedEntries = frontmatter.entries();
+            var copiedExits = frontmatter.exits();
+
+            assertAll(
+                    () -> assertEquals(List.of(review, repair), copiedEntries),
+                    () -> assertEquals(List.of(done), copiedExits),
+                    () -> assertThrows(UnsupportedOperationException.class, copiedEntries::clear),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> copiedExits.add(done)));
+        }
+
+        @Test
+        @DisplayName("the entry bindings of the definition are copied and keep their order")
+        void entryBindingsAreCopied() {
+            var states = new LinkedHashMap<String, StateNode>();
+            states.put("review", terminalState("review"));
+            states.put("repair", terminalState("repair"));
+            var bindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
+            bindings.put("second", new WorkflowDefinition.EntryBinding("repair", LOCATION));
+            bindings.put("first", new WorkflowDefinition.EntryBinding("review", LOCATION));
+            var definition = definition(bindings, states);
+
+            bindings.put("third", new WorkflowDefinition.EntryBinding("review", LOCATION));
+            var copied = definition.entryBindings();
+
+            assertAll(
+                    () -> assertEquals(List.of("second", "first"), List.copyOf(copied.keySet())),
+                    () -> assertEquals(Optional.empty(), definition.startState()),
+                    () -> assertThrows(UnsupportedOperationException.class, copied::clear));
+        }
+    }
+
+    @Nested
+    @DisplayName("Starting states")
+    class StartingStates {
+
+        @Test
+        @DisplayName("a unit with a start state starts at it alone")
+        void startStateAlone() {
+            var states = new LinkedHashMap<String, StateNode>();
+            states.put("end", terminalState("end"));
+
+            var definition = definition(List.of(), List.of(), states);
+
+            assertEquals(List.of("end"), definition.startingStates());
+        }
+
+        @Test
+        @DisplayName("a unit with entries starts at every entry-bound state once, in binding order")
+        void entryBoundStates() {
+            var states = new LinkedHashMap<String, StateNode>();
+            states.put("review", terminalState("review"));
+            states.put("repair", terminalState("repair"));
+            var bindings = new LinkedHashMap<String, WorkflowDefinition.EntryBinding>();
+            bindings.put("fix", new WorkflowDefinition.EntryBinding("repair", LOCATION));
+            bindings.put("check", new WorkflowDefinition.EntryBinding("review", LOCATION));
+            bindings.put("recheck", new WorkflowDefinition.EntryBinding("repair", LOCATION));
+
+            var definition = definition(bindings, states);
+
+            assertEquals(List.of("repair", "review"), definition.startingStates());
+        }
     }
 
     @Nested
@@ -236,12 +311,13 @@ class AstNodeModelTest {
             bindings.put("a", new CallValue.EnumValue("x"));
             bindings.put("m", new CallValue.EnumList(List.of("p", "q")));
 
-            var call = new StateBehavior.SubWorkflowCall("git.commit_and_push", bindings, List.of());
-            var frame = new CallFrame("plan", "execute.commit", "execute", "git.commit_and_push", bindings,
+            var call = new StateBehavior.SubWorkflowCall("git.commit_and_push", Optional.empty(), bindings, List.of());
+            var frame = new CallFrame("plan", "execute.commit", "execute", "git.commit_and_push", "commit", bindings,
                     "2026-01-01T00:00:00Z");
             var boundArgs = frame.boundArgs();
 
             assertAll(
+                    () -> assertEquals("commit", frame.entry()),
                     () -> assertEquals(List.of("z", "a", "m"), List.copyOf(call.paramBindings().keySet())),
                     () -> assertEquals(List.of("z", "a", "m"), List.copyOf(boundArgs.keySet())),
                     () -> assertThrows(UnsupportedOperationException.class, boundArgs::clear));
@@ -261,7 +337,7 @@ class AstNodeModelTest {
                     new StateBehavior.JobStep("p", false, List.of()),
                     new StateBehavior.ModelJob("task", Optional.empty(), Optional.empty(), Optional.of("roles"), false,
                             List.of(), List.of()),
-                    new StateBehavior.SubWorkflowCall("sub", Map.of(), List.of()),
+                    new StateBehavior.SubWorkflowCall("sub", Optional.of("main"), Map.of(), List.of()),
                     new StateBehavior.QuestionWait("decision", List.of(), List.of()),
                     new StateBehavior.TerminalState());
 
@@ -395,11 +471,24 @@ class AstNodeModelTest {
                 Optional.empty(), Optional.empty(), new StateBehavior.TerminalState(), LOCATION);
     }
 
+    private static UnitFrontmatter frontmatter(List<UnitFrontmatter.InterfaceElement> entries,
+            List<UnitFrontmatter.InterfaceElement> exits) {
+        return new UnitFrontmatter("Fixture unit", "A unit written for the node model test.", UnitType.WORKFLOW,
+                entries, exits, LocalDate.of(2026, 1, 15), "0.1.0", "plan-marshall", Optional.empty(), LOCATION);
+    }
+
     private static WorkflowDefinition definition(List<ParamDecl> params, List<StateMigration> migrations,
             Map<String, StateNode> states) {
-        return new WorkflowDefinition("fixture", 1, WorkflowScope.PLAN, params, Optional.empty(), Optional.empty(),
-                Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(), states.keySet().iterator().next(),
-                migrations, states, LOCATION);
+        return new WorkflowDefinition(frontmatter(List.of(), List.of()), "fixture", 1, WorkflowScope.PLAN, params,
+                Optional.empty(), Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT, Map.of(),
+                Optional.of(states.keySet().iterator().next()), Map.of(), migrations, states, LOCATION);
+    }
+
+    private static WorkflowDefinition definition(Map<String, WorkflowDefinition.EntryBinding> entryBindings,
+            Map<String, StateNode> states) {
+        return new WorkflowDefinition(frontmatter(List.of(), List.of()), "fixture", 1, WorkflowScope.SUBWORKFLOW,
+                List.of(), Optional.empty(), Optional.empty(), Map.of(), Map.of(), Map.of(), 1, UnitOrigin.DEFAULT,
+                Map.of(), Optional.empty(), entryBindings, List.of(), states, LOCATION);
     }
 
     private static String kind(StateBehavior behavior) {

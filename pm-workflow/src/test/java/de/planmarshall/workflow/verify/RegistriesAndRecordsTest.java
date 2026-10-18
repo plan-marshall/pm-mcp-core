@@ -184,6 +184,15 @@ class RegistriesAndRecordsTest {
         );
 
         var unit = VerifyFixtures.parseSource("catalog-unit.pmwf", """
+                ---
+                name: catalog.test
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow catalog.test version 1 format 1
                 scope subworkflow
                 start entry

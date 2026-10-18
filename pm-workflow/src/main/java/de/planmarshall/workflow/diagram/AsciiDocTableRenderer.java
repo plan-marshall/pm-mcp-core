@@ -31,8 +31,8 @@ import de.planmarshall.workflow.ast.WorkflowScope;
  * declared, a state table, a link table and an outcome table, each titled with its phase value.
  * <ul>
  * <li><b>States</b>: exactly the columns of the State Catalogue: <em>State id</em>, <em>Phase value</em>,
- * <em>Kind</em> ({@link StateKind}), <em>Entered from</em> ({@code start} for the start state, then the source of
- * every incoming transition once), <em>Offered links / outcomes</em> (the task label of a task state, the declared
+ * <em>Kind</em> ({@link StateKind}), <em>Entered from</em> ({@code start} for the start state, {@code entry <name>} for
+ * each entry that binds the state, then the source of every incoming transition once), <em>Offered links / outcomes</em> (the task label of a task state, the declared
  * and implicit links, the distinct outcomes of the engine transitions, or the outcome a terminal state reports),
  * <em>Exits to</em> (every target once) and <em>Defined in</em>, which is emitted empty because it is maintained by
  * hand in the catalogue.</li>
@@ -154,9 +154,14 @@ final class AsciiDocTableRenderer {
 
     private static String enteredFrom(WorkflowDefinition definition, StateTransitions transitions, StateNode state) {
         var sources = new LinkedHashSet<String>();
-        if (state.id().equals(definition.startState())) {
+        if (definition.startState().filter(state.id()::equals).isPresent()) {
             sources.add("start");
         }
+        definition.entryBindings().forEach((entry, binding) -> {
+            if (binding.stateId().equals(state.id())) {
+                sources.add("entry " + code(entry));
+            }
+        });
         transitions.incoming(state.id()).forEach(edge -> sources.add(code(edge.source().id())));
         return joinedOrNone(sources);
     }

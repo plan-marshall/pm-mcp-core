@@ -1,5 +1,18 @@
+---
+name: Commit and push
+description: A sub-workflow written for the parser tests.
+type: subworkflow
+entry: stage
+entry_description: The change is ready to be staged.
+exit: done
+exit_description: The change is committed and pushed.
+exit: skipped
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
 # A sub-workflow written for the parser tests, not taken from any default unit.
-# It covers the param and result declarations, phase inherit and the task states.
+# It covers the param and result declarations, an entry binding, phase inherit and the task states.
 workflow git.commit_and_push version 1 format 1
 scope subworkflow
 param push : enum[enabled|disabled]
@@ -7,7 +20,7 @@ param attempts: int[1..5]
 param depth : int
 param targets : list<enum[origin|Mirror]>
 result schema[commit-result]
-start git.stage
+entry stage -> git.stage
 
 state git.stage
     phase inherit

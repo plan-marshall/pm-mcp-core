@@ -41,12 +41,7 @@ class AdditionalRulesTest {
             """;
 
     private static WorkflowDefinition unit(String scope, String states) {
-        return VerifyFixtures.parseSource("inline.pmwf", """
-                workflow verify.inline version 1 format 1
-                scope %s
-                start verify.entry
-
-                %s""".formatted(scope, states));
+        return VerifyFixtures.parseSource("inline.pmwf", VerifyFixtures.inlineUnit("verify.inline", scope, states));
     }
 
     private List<Violation> violations(WorkflowDefinition def) {
@@ -77,6 +72,14 @@ class AdditionalRulesTest {
     @DisplayName("STATE_EXISTS: start state missing in definition, so no state is reachable")
     void stateExistsMissingStartState() {
         var def = VerifyFixtures.parseSource("missing-start.pmwf", """
+                ---
+                name: verify.inline
+                description: A unit written for the tests of pm-workflow.
+                type: workflow
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow verify.inline version 1 format 1
                 scope plan
                 start verify.missing
@@ -280,7 +283,7 @@ class AdditionalRulesTest {
 
     /** A unit of the given scope whose one state calls {@code callee}; it is read only as a caller, never verified. */
     private static WorkflowDefinition caller(String id, String scope, String callee) {
-        return VerifyFixtures.parseSource(id + ".pmwf", """
+        return VerifyFixtures.parseSource(id + ".pmwf", VerifyFixtures.frontmatter(scope) + """
                 workflow %s version 1 format 1
                 scope %s
                 start caller.invoke
@@ -298,17 +301,37 @@ class AdditionalRulesTest {
 
     /**
      * The sub-workflow {@code verify.reviewed}: its task state routes {@code approved} back to itself and leaves
-     * {@code lost} undeclared, so the default {@code lost} route is its only exit.
+     * {@code lost} undeclared, so the default {@code lost} route is its only exit; the state its entry binds branches
+     * to it and to the terminal state of its exit.
      */
     private static final WorkflowDefinition REVIEWED = VerifyFixtures.parseSource("reviewed.pmwf", """
+            ---
+            name: verify.reviewed
+            description: A unit written for the tests of pm-workflow.
+            type: subworkflow
+            entry: main
+            exit: done
+            modification_date: 2026-01-15
+            version: 0.1.0
+            author: plan-marshall
+            ---
             workflow verify.reviewed version 1 format 1
             scope subworkflow
-            start verify.entry
+            entry main -> verify.branch
+
+            state verify.branch
+                phase inherit
+                auto test.prepare
+                    done -> verify.entry
+                    skipped -> verify.done
 
             state verify.entry
                 phase inherit
                 job llm change role reviewer
                     approved -> verify.entry
+
+            state verify.done terminal done success
+                phase inherit
             """);
 
     /** Verifies {@link #REVIEWED} against a catalog of the callers and the entity unit of its task state. */
@@ -435,6 +458,14 @@ class AdditionalRulesTest {
     @DisplayName("LEAF_TASK_CONSTRAINT: worker unit transitions and consultation constraints")
     void leafTaskConstraints() {
         var workerDef = VerifyFixtures.parseSource("worker.pmwf", """
+                ---
+                name: worker-task
+                description: A unit written for the tests of pm-workflow.
+                type: system
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow worker-task version 1 format 1
                 scope entity
                 start verify.entry
@@ -463,9 +494,19 @@ class AdditionalRulesTest {
                 found(workerDef));
 
         var consultDef = VerifyFixtures.parseSource("consultation.pmwf", """
+                ---
+                name: consultation
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow consultation version 1 format 1
                 scope subworkflow
-                start verify.entry
+                entry main -> verify.entry
 
                 state verify.entry
                     phase verify
@@ -496,9 +537,19 @@ class AdditionalRulesTest {
     @DisplayName("SUBWORKFLOW_CALL_CONTRACT: resting link missing skill and phase inherit in plan scope")
     void subWorkflowRestingLinkAndInherit() {
         var subwfDef = VerifyFixtures.parseSource("subwf.pmwf", """
+                ---
+                name: subwf.test
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow subwf.test version 1 format 1
                 scope subworkflow
-                start verify.entry
+                entry main -> verify.entry
 
                 state verify.entry
                     phase inherit
@@ -552,9 +603,40 @@ class AdditionalRulesTest {
                         done -> verify.done
                         stepped_out -> plan.return
                 """ + PLAN_RETURN + DONE_TERMINAL);
-        assertEquals(violationsOf(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
-                "the called workflow 'test.workspace-unit' has scope WORKSPACE, expected SUBWORKFLOW"),
+        assertEquals(List.of(new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                                "the called workflow 'test.workspace-unit' has scope WORKSPACE, expected SUBWORKFLOW"),
+                        new RuleStateMessage(VerificationRule.SUBWORKFLOW_CALL_CONTRACT, "verify.entry",
+                                "the call routes the outcome 'done', which is not in the exit contract of"
+                                        + " 'test.workspace-unit'"),
+                        new RuleStateMessage(VerificationRule.INTERFACE_CALLED_UNIT, "verify.entry",
+                                "the call targets 'test.workspace-unit', which declares no entry; a unit without"
+                                        + " entries is never called")),
                 found(callWsDef));
+    }
+
+    @Test
+    @DisplayName("SUBWORKFLOW_CALL_CONTRACT: the exit contract is the exits the callee declares plus stepped_out")
+    void subWorkflowExitContractFromDeclaredExits() {
+        var routed = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call remediation.test-waiver()
+                        done -> verify.done
+                        waived -> verify.done
+                        stepped_out -> plan.return
+                """ + PLAN_RETURN + DONE_TERMINAL);
+        assertEquals(List.of(), violations(routed));
+
+        var unrouted = unit("plan", """
+                state verify.entry
+                    phase verify
+                    call remediation.test-waiver()
+                        done -> verify.done
+                        stepped_out -> plan.return
+                """ + PLAN_RETURN + DONE_TERMINAL);
+        assertEquals(callContract("verify.entry",
+                "the call does not route the exit outcome 'waived' of 'remediation.test-waiver'"),
+                found(unrouted));
     }
 
     @Test
@@ -768,9 +850,19 @@ class AdditionalRulesTest {
     @DisplayName("STEP_COMPLETION: the classes of a task outcome, a call outcome and stepped_out admit completions")
     void stepCompletionOutcomeClasses() {
         var def = VerifyFixtures.parseSource("classify.pmwf", """
+                ---
+                name: verify.classify
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow verify.classify version 1 format 1
                 scope subworkflow
-                start verify.entry
+                entry main -> verify.entry
 
                 state verify.entry
                     phase inherit
@@ -1398,9 +1490,19 @@ class AdditionalRulesTest {
                         skipped -> verify.stepped-out
                 """;
         return VerifyFixtures.parseSource("remediation.pmwf", """
+                ---
+                name: %1$s
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: done
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
                 workflow %1$s version 1 format 1
                 scope subworkflow
-                start verify.entry
+                entry main -> verify.entry
 
                 state verify.entry
                     phase inherit

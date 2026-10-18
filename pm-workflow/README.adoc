@@ -48,7 +48,9 @@ The commands for the whole repository are in `CLAUDE.md`.
 
 == Developer Documentation
 
+* link:doc/developer/workflow-ast.adoc[Workflow AST (`workflow.ast`)]
 * link:doc/developer/workflow-diagram.adoc[Workflow Diagrams (`workflow.diagram`)]
+* link:doc/developer/workflow-dsl.adoc[Workflow DSL (`workflow.dsl`)]
 * link:doc/developer/workflow-engine.adoc[Workflow Engine (`workflow.engine`)]
 * link:doc/developer/workflow-finalize.adoc[Finalize Steps (`workflow.finalize`)]
 * link:doc/developer/workflow-scenario.adoc[Scenario Replay Harness (`workflow.scenario`)]

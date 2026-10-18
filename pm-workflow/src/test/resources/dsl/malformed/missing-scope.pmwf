@@ -1,4 +1,12 @@
-# expect: MISSING_SCOPE line 3
+---
+name: demo
+description: A malformed unit written for the parser tests.
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: MISSING_SCOPE line 11
 workflow demo version 1 format 1
 start demo.begin
 state demo.begin terminal done success

@@ -53,6 +53,23 @@ final class UnitFixtures {
     /** The file of the finalize phase. */
     static final String FINALIZE_FILE = "finalize.pmwf";
 
+    /** The author of a default unit, which the frontmatter of every fixture file names. */
+    static final String DEFAULT_AUTHOR = "plan-marshall";
+
+    /** The author of the fixture units written into a project, a person. */
+    static final String PROJECT_AUTHOR = "Erika Mustermann";
+
+    /** The author line of a fixture unit written into a project. */
+    static final String PROJECT_AUTHOR_LINE = "author: " + PROJECT_AUTHOR;
+
+    /** The re-planning unit placed in the project names the author of a delivered unit. */
+    static final Mutation RESERVED_AUTHOR = new Mutation("a project unit names the author plan-marshall",
+            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: " + DEFAULT_AUTHOR);
+
+    /** The re-planning unit placed in the project names another person as its author. */
+    static final Mutation OTHER_PERSON = new Mutation("a project unit names another person",
+            InvariantFixtures.REPLAN_FILE, PROJECT_AUTHOR_LINE, "author: Max Mustermann");
+
     /** The project step of the binding tests. */
     static final String PROJECT_STEP = "project:lint";
 
@@ -137,7 +154,9 @@ final class UnitFixtures {
     }
 
     /**
-     * Writes every fixture unit into a directory, each mutation applied to its file.
+     * Writes every fixture unit into a directory as a project unit, each mutation applied to its file. A project unit
+     * is made by a person, so the author {@value #DEFAULT_AUTHOR} of the default unit becomes {@value #PROJECT_AUTHOR};
+     * the line count stays.
      *
      * @param directory the directory, created when missing
      * @param mutations the changes of the passing units
@@ -145,7 +164,8 @@ final class UnitFixtures {
      */
     static Path writeUnits(Path directory, Mutation... mutations) {
         var sources = new LinkedHashMap<String, String>();
-        UNIT_FILES.forEach(file -> sources.put(file, InvariantFixtures.read(file)));
+        UNIT_FILES.forEach(file -> sources.put(file, InvariantFixtures.read(file)
+                .replace("\nauthor: " + DEFAULT_AUTHOR + "\n", "\nauthor: " + PROJECT_AUTHOR + "\n")));
         for (var mutation : mutations) {
             sources.put(mutation.file(), mutation.apply(sources.get(mutation.file())));
         }

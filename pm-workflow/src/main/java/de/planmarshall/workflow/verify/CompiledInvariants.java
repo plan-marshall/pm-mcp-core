@@ -111,16 +111,21 @@ public final class CompiledInvariants {
 
     private final List<FinalizeStepDescriptor> defaultRoster;
 
+    private final Subject subject;
+
     /**
      * @param registry      the primitives the units may name; the waivable gates, awaited events and cycle measures
      *                      of their primitives are read from it
      * @param defaultUnits  the verified default units, the reference of the project units of the same identifier
      * @param defaultRoster the descriptors of the default finalize steps, whose mandatory steps a finalize unit
      *                      completes
+     * @param subject       what the checked units are: project replacements of their default units, or composed plan
+     *                      instances; it decides whether {@link InvariantId#INV_GEN_1} admits the type
+     *                      {@code instance} against a template
      * @throws NullPointerException if an argument or one of its elements is {@code null}
      */
     public CompiledInvariants(PrimitiveRegistry registry, Collection<WorkflowDefinition> defaultUnits,
-            List<FinalizeStepDescriptor> defaultRoster) {
+            List<FinalizeStepDescriptor> defaultRoster, Subject subject) {
         this.registry = Objects.requireNonNull(registry, "registry");
         var units = new LinkedHashMap<String, WorkflowDefinition>();
         for (var unit : Objects.requireNonNull(defaultUnits, "defaultUnits")) {
@@ -128,6 +133,27 @@ public final class CompiledInvariants {
         }
         this.defaultUnits = Collections.unmodifiableMap(units);
         this.defaultRoster = List.copyOf(Objects.requireNonNull(defaultRoster, "defaultRoster"));
+        this.subject = Objects.requireNonNull(subject, "subject");
+    }
+
+    /**
+     * What the units a {@link CompiledInvariants} checks are; the caller states it when it builds the checker, so no
+     * call of {@link #check} can widen it.
+     */
+    public enum Subject {
+
+        /**
+         * A unit a project owns, which replaces the default unit of the same identifier
+         * ({@code ProjectUnitLoader}): its type equals that of the default unit, with no exception.
+         */
+        PROJECT_REPLACEMENT,
+
+        /**
+         * A plan instance composed from the plan unit ({@code PlanInstanceComposer}): it declares the type
+         * {@code instance} while its template, the default unit, declares {@code workflow} or {@code recipe}, and
+         * {@link InvariantId#INV_GEN_1} admits that one difference of type.
+         */
+        COMPOSED_INSTANCE
     }
 
     /**
@@ -153,7 +179,7 @@ public final class CompiledInvariants {
                     "there is no default unit '%s' to compare the unit with".formatted(unit.id())));
             return ordered(unit, found);
         }
-        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster);
+        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster, subject);
         for (var id : InvariantId.values()) {
             if (id.appliesTo(unit.id())) {
                 CHECKS.get(id).run(context);
@@ -287,8 +313,9 @@ public final class CompiledInvariants {
 
     /**
      * The unit under check, its default unit as reference, the inputs of the checks, the violations found so far, and
-     * the path helpers the checkers share. A path is a path of the transition graph from the start state; a state
-     * <em>dominates</em> another when every path from the start state to the other passes it.
+     * the path helpers the checkers share. A path is a path of the transition graph from a starting state, the start
+     * state or an entry-bound state; a state <em>dominates</em> another when every path from a starting state to the
+     * other passes it.
      */
     static final class Context {
 
@@ -308,11 +335,13 @@ public final class CompiledInvariants {
 
         private final List<FinalizeStepDescriptor> defaultRoster;
 
+        private final Subject subject;
+
         private final List<InvariantViolation> found = new ArrayList<>();
 
         Context(WorkflowDefinition unit, WorkflowDefinition reference, VerificationResult rules,
                 List<PipelineViolation> pipeline, PrimitiveRegistry registry,
-                List<FinalizeStepDescriptor> defaultRoster) {
+                List<FinalizeStepDescriptor> defaultRoster, Subject subject) {
             this.unit = unit;
             this.reference = reference;
             this.graph = UnitGraph.of(unit);
@@ -321,6 +350,14 @@ public final class CompiledInvariants {
             this.pipeline = pipeline;
             this.registry = registry;
             this.defaultRoster = defaultRoster;
+            this.subject = subject;
+        }
+
+        /**
+         * @return {@code true} when the unit is a composed plan instance, not a project replacement
+         */
+        boolean composedInstance() {
+            return subject == Subject.COMPOSED_INSTANCE;
         }
 
         WorkflowDefinition unit() {
@@ -493,13 +530,20 @@ public final class CompiledInvariants {
          *         state that such a path reaches is included, but not expanded
          */
         static Set<String> avoiding(UnitGraph graph, String start, Set<String> avoid) {
-            var seen = new LinkedHashSet<String>();
-            seen.add(start);
-            if (avoid.contains(start)) {
-                return seen;
-            }
+            return avoiding(graph, List.of(start), avoid);
+        }
+
+        /**
+         * @param graph  the graph of a unit
+         * @param starts the states to start from: a unit's start state or every entry-bound state
+         * @param avoid  the states a path may reach but not pass
+         * @return every state reachable from one of the starts on a path that passes none of the avoided states; an
+         *         avoided state that such a path reaches, a start among them, is included, but not expanded
+         */
+        static Set<String> avoiding(UnitGraph graph, Collection<String> starts, Set<String> avoid) {
+            var seen = new LinkedHashSet<>(starts);
             var queue = new ArrayDeque<String>();
-            queue.add(start);
+            starts.stream().filter(start -> !avoid.contains(start)).forEach(queue::add);
             while (!queue.isEmpty()) {
                 var current = queue.poll();
                 for (var next : graph.successors(current)) {
@@ -512,37 +556,52 @@ public final class CompiledInvariants {
         }
 
         /**
-         * @return {@code true} when every path of the unit from its start state to the target passes the dominator
+         * @return {@code true} when every path of the unit from its starting states to the target passes the
+         *         dominator
          */
         boolean dominates(String dominator, String target) {
-            return dominates(graph, unit.startState(), dominator, target);
+            return dominates(graph, unit.startingStates(), dominator, target);
         }
 
         /**
-         * @return {@code true} when every path of the reference from its start state to the target passes the
+         * @return {@code true} when every path of the reference from its starting states to the target passes the
          *         dominator
          */
         boolean referenceDominates(String dominator, String target) {
-            return dominates(referenceGraph, reference.startState(), dominator, target);
+            return dominates(referenceGraph, reference.startingStates(), dominator, target);
         }
 
         static boolean dominates(UnitGraph graph, String start, String dominator, String target) {
-            return dominator.equals(target) || !avoiding(graph, start, Set.of(dominator)).contains(target);
+            return dominates(graph, List.of(start), dominator, target);
+        }
+
+        static boolean dominates(UnitGraph graph, Collection<String> starts, String dominator, String target) {
+            return dominator.equals(target) || !avoiding(graph, starts, Set.of(dominator)).contains(target);
         }
 
         /**
          * @return {@code true} when every path of the graph from the start to one of the targets passes the dominator
          */
         static boolean dominatesAll(UnitGraph graph, String start, String dominator, Set<String> targets) {
-            var reached = avoiding(graph, start, Set.of(dominator));
+            return dominatesAll(graph, List.of(start), dominator, targets);
+        }
+
+        /**
+         * @return {@code true} when every path of the graph from one of the starts to one of the targets passes the
+         *         dominator
+         */
+        static boolean dominatesAll(UnitGraph graph, Collection<String> starts, String dominator,
+                Set<String> targets) {
+            var reached = avoiding(graph, starts, Set.of(dominator));
             return targets.stream().noneMatch(target -> !target.equals(dominator) && reached.contains(target));
         }
 
         /**
-         * @return the states of the unit reachable from its start state
+         * @return the states of the unit reachable from its starting states, its start state or every entry-bound
+         *         state
          */
         Set<String> reachable() {
-            return graph.forwardClosure(Set.of(unit.startState()));
+            return graph.forwardClosure(Set.copyOf(unit.startingStates()));
         }
 
         // ----- shared checks against the reference
@@ -598,7 +657,8 @@ public final class CompiledInvariants {
          */
         List<String> requireDominatorsOf(InvariantId id, Predicate<StateNode> targets,
                 Predicate<StateNode> candidates) {
-            var referenceReach = referenceGraph.forwardClosure(Set.of(reference.startState()));
+            var referenceStarts = reference.startingStates();
+            var referenceReach = referenceGraph.forwardClosure(Set.copyOf(referenceStarts));
             var referenceTargets = idsOf(reference, state -> targets.test(state) && referenceReach.contains(state.id()));
             if (referenceTargets.isEmpty()) {
                 return List.of();
@@ -606,16 +666,16 @@ public final class CompiledInvariants {
             var unitTargets = idsOf(unit, targets);
             var dominators = new ArrayList<String>();
             for (var candidate : reference.states().values()) {
-                if (candidate.id().equals(reference.startState()) || referenceTargets.contains(candidate.id())
+                if (referenceStarts.contains(candidate.id()) || referenceTargets.contains(candidate.id())
                         || !candidates.test(candidate) || !referenceReach.contains(candidate.id())
-                        || !dominatesAll(referenceGraph, reference.startState(), candidate.id(), referenceTargets)) {
+                        || !dominatesAll(referenceGraph, referenceStarts, candidate.id(), referenceTargets)) {
                     continue;
                 }
                 dominators.add(candidate.id());
                 if (!requirePresent(id, candidate.id())) {
                     continue;
                 }
-                var reached = avoiding(graph, unit.startState(), Set.of(candidate.id()));
+                var reached = avoiding(graph, unit.startingStates(), Set.of(candidate.id()));
                 unitTargets.stream().filter(target -> !target.equals(candidate.id()) && reached.contains(target))
                         .findFirst()
                         .ifPresent(target -> reportState(id, unit.states().get(target),
@@ -638,12 +698,12 @@ public final class CompiledInvariants {
             if (!unit.states().containsKey(target)) {
                 return;
             }
-            var around = avoiding(graph, unit.startState(), gates);
+            var around = avoiding(graph, unit.startingStates(), gates);
             if (!around.contains(target) || gates.contains(target)) {
                 return;
             }
             var leadsIn = backwardWithin(graph, target, around, gates);
-            var referenceAround = avoiding(referenceGraph, reference.startState(), gates);
+            var referenceAround = avoiding(referenceGraph, reference.startingStates(), gates);
             for (var sourceId : leadsIn) {
                 if (sourceId.equals(target)) {
                     continue;
