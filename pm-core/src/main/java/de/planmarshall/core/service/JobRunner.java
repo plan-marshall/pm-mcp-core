@@ -63,8 +63,10 @@ public interface JobRunner<R, C> {
      *
      * @param jobId the job
      * @param cause why the job is cancelled; it decides the job's fate
-     * @return whether the job was queued or running and is cancelled by this call; {@code false} for a job that has
-     *         settled or that the runner does not know
+     * @return whether the job was queued or running and this call decided its end, so that its fate follows the cause;
+     *         {@code false} for a job that has settled, that is cancelled already or that the runner does not know, and
+     *         for a job whose fate is no longer open to a cancel because the runner has observed the end of its process
+     *         (its cancel door is closed)
      */
     boolean cancel(JobId jobId, CancelCause cause);
 

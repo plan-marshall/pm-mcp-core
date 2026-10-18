@@ -57,7 +57,9 @@
  * A cancel names its cause, and the cause or the expiry of the budget is carried out by
  * {@link de.planmarshall.runtime.job.TerminationProtocol} against the job's process group: {@code SIGTERM}, the grace
  * period, {@code SIGKILL} when a member lives, and the cancel before the group exists. Every signal goes through
- * {@link de.planmarshall.runtime.job.ProcessGroupSignals}, the lowest signalling primitive. Once the process has ended,
+ * {@link de.planmarshall.runtime.job.ProcessGroupSignals}, the lowest signalling primitive. The cancel is answered
+ * {@code true} exactly when its cause is the one the settlement reads: the runner closes the cancel door of the job when
+ * it observes the end of the process, and a cancel after that is answered {@code false}. Once the process has ended,
  * {@link de.planmarshall.runtime.job.OutcomeDerivation} derives the fate from what the runtime observed
  * ({@link de.planmarshall.runtime.job.JobEvidence}), never from what the job reports about itself, and
  * {@link de.planmarshall.runtime.job.JobSettlement} writes it in the fixed write order: the fate first, the slot release

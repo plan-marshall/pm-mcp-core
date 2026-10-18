@@ -28,6 +28,8 @@ import de.cuioss.test.juli.TestLogLevel;
 import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -52,6 +54,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -116,6 +119,7 @@ class SubprocessJobRunnerTest {
               fail) echo broken; exit 3 ;;
               sleep) exec @SLEEP@ "$2" ;;
               stubborn) trap '' TERM; echo ready; while :; do @SLEEP@ 0.1; done ;;
+              release) while [ ! -e "@RELEASE@" ]; do @SLEEP@ 0.05; done; echo done; exit 0 ;;
             esac
             exit 2
             """;
@@ -124,6 +128,9 @@ class SubprocessJobRunnerTest {
     private RecordingLocks locks;
     private JobRecordStore jobs;
     private Path home;
+
+    /** The file whose existence lets the job {@code release} of the fixture's {@code git} end by itself. */
+    private Path release;
     private final List<Observation> observations = new CopyOnWriteArrayList<>();
     private SubprocessJobRunner runner;
 
@@ -134,8 +141,10 @@ class SubprocessJobRunnerTest {
     @BeforeEach
     void setUp() throws IOException {
         fixture = new JobEnrolmentFixture();
+        release = fixture.base.resolve("release");
         Files.writeString(fixture.tools.get(HostToolName.GIT),
-                GIT_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString()));
+                GIT_SCRIPT.replace("@SLEEP@", FakePmExec.tool("sleep").toString()).replace("@RELEASE@",
+                        release.toString()));
         fixture.enrol();
         locks = new RecordingLocks(fixture.locks);
         jobs = JobRecordStore.ofProject(fixture.base, PROJECT);
@@ -1204,6 +1213,220 @@ class SubprocessJobRunnerTest {
                     () -> assertThrows(IllegalArgumentException.class, () -> new JobBudget(BUDGET_KEY, 0, FLOOR)),
                     () -> assertThrows(NullPointerException.class, () -> new JobBudget(null, 1, FLOOR)),
                     () -> assertThrows(NullPointerException.class, () -> new JobBudget(BUDGET_KEY, 1, null)));
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("answers a cancel of a job with a process by one arbiter, its cancel door")
+    class CancelDoorOfLaunchedJob {
+
+        @BeforeEach
+        void install() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+        }
+
+        /** Waits until the process of a PID is reaped, so the waiting thread finds its exit when it first looks. */
+        private void awaitReaped(Long pid) {
+            var deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+            while (alive(pid)) {
+                assertTrue(System.nanoTime() < deadline, "the process %s did not end".formatted(pid));
+                Thread.onSpinWait();
+            }
+        }
+
+        @Test
+        @DisplayName("a cancel answered true decides the fate by its cause although the process exited by itself first")
+        void cancelAnsweredBeforeTheExitDecidesTheFate() {
+            var cancelled = new AtomicBoolean();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), job -> {
+                var jobId = jobs.records().getFirst().jobId();
+                // The post-spawn write is the first transaction after the launch, before the waiting thread starts: the
+                // report is read and the job lives, so the cancel is answered true; the job is then released, ends by
+                // itself, and is reaped before the waiting thread looks at it for the first time.
+                locks.beforeNextTransaction(() -> {
+                    cancelled.set(runner.cancel(jobId, CancelCause.ENGINE_CANCEL));
+                    var lines = assertInstanceOf(JobLog.Lines.class, new JobLog(jobs.logPath(jobId)).readLines(0));
+                    try {
+                        Files.createFile(release);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                    awaitReaped(lines.report().orElseThrow().pid());
+                });
+                return ENVIRONMENT;
+            });
+
+            var jobId = started(runner.start(git(30, "release")));
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertTrue(cancelled.get(), "the cancel was answered true: it decided the end of the job"),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides, not the exit"),
+                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertEquals(0L, settled.exitCode(), "the job ended by itself"),
+                    () -> assertNull(settled.signal(), "the process was not signalled"));
+        }
+
+        @Test
+        @DisplayName("matched control: a cancel that arrives while the settlement runs is answered false, the exit decides")
+        void cancelDuringSettlementIsAnsweredFalse() {
+            var late = new AtomicReference<Boolean>();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), request -> Optional.empty(), job -> {
+                var jobId = jobs.records().getFirst().jobId();
+                // the first hook fires at the post-spawn write and arms the second for the next transaction, which is
+                // the settlement of the ended job, after its cancel door was closed
+                locks.beforeNextTransaction(() -> locks.beforeNextTransaction(
+                        () -> late.set(runner.cancel(jobId, CancelCause.ENGINE_CANCEL))));
+                return ENVIRONMENT;
+            });
+
+            var jobId = started(runner.start(git(30, "ok")));
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Boolean.FALSE, late.get(), "the cancel ran, and was answered false"),
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate(), "the late cancel did not decide the fate"),
+                    () -> assertEquals(7, settled.outcomeRow()));
+        }
+    }
+
+    /**
+     * The window between the liveness check of a cancel and the completion of its cause is a few instructions wide, so
+     * these tests drive the package-private {@code RunningJob} and {@code awaitEndOrCause} with a process whose
+     * liveness they control.
+     */
+    @Nested
+    @DisplayName("closes the cancel door when the waiting thread observes the end of the process")
+    class CancelDoorSeam {
+
+        private SubprocessJobRunner.RunningJob job() {
+            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of());
+        }
+
+        @Test
+        @DisplayName("a cancel in flight when the exit is observed is answered true and is the cause that is read")
+        void cancelInFlightIsTheCauseRead() throws Exception {
+            var inside = new CountDownLatch(1);
+            var proceed = new CountDownLatch(1);
+            var process = new StubProcess(() -> {
+                inside.countDown();
+                assertTrue(await(proceed), "the cancel is let proceed");
+                return true;
+            });
+            process.ended();
+            var job = job();
+            job.launched(process);
+            var cancel = CompletableFuture.supplyAsync(() -> job.cancel(Termination.ENGINE_CANCEL));
+            assertTrue(await(inside), "the cancel checks the liveness of the process, holding the job");
+            var waiting = CompletableFuture.supplyAsync(() -> runner.awaitEndOrCause(job, process,
+                    Instant.now().plusSeconds(30)));
+
+            proceed.countDown();
+
+            assertAll(
+                    () -> assertTrue(cancel.get(10, TimeUnit.SECONDS), "the cancel decided the end of the job"),
+                    () -> assertEquals(Optional.of(Termination.ENGINE_CANCEL),
+                            waiting.get(10, TimeUnit.SECONDS).cause(), "the exit does not hide an answered cancel"));
+        }
+
+        @Test
+        @DisplayName("an exit observed together with an answered cancel returns the cause of the cancel")
+        void exitDoesNotHideAnAnsweredCancel() {
+            var process = new StubProcess(() -> true);
+            var job = job();
+            job.launched(process);
+            var cancelled = job.cancel(Termination.ENGINE_CANCEL);
+            process.ended();
+
+            var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
+
+            assertAll(
+                    () -> assertTrue(cancelled, "the cancel decided the end of the job"),
+                    () -> assertEquals(Optional.of(Termination.ENGINE_CANCEL), awaited.cause(),
+                            "the exit completed before the waiting thread looked: the cause still decides"));
+        }
+
+        @Test
+        @DisplayName("a cancel after the exit was observed is answered false although its liveness check is stale")
+        void cancelAfterTheExitIsAnsweredFalse() {
+            var process = new StubProcess(() -> true);
+            process.ended();
+            var job = job();
+            job.launched(process);
+
+            var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
+            var late = job.cancel(Termination.ENGINE_CANCEL);
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), awaited.cause(), "nothing decided the end: the exit does"),
+                    () -> assertFalse(late, "the door is closed, the fate is no longer open to a cancel"));
+        }
+
+        /** @return whether the latch was released within ten seconds; an interrupted wait is not */
+        private static boolean await(CountDownLatch latch) {
+            try {
+                return latch.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException _) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+    }
+
+    /** A process whose exit and liveness the test controls. */
+    private static final class StubProcess extends Process {
+
+        private final CompletableFuture<Process> exit = new CompletableFuture<>();
+        private final BooleanSupplier alive;
+
+        StubProcess(BooleanSupplier alive) {
+            this.alive = alive;
+        }
+
+        /** Completes the exit of the process. */
+        void ended() {
+            exit.complete(this);
+        }
+
+        @Override
+        public boolean isAlive() {
+            return alive.getAsBoolean();
+        }
+
+        @Override
+        public CompletableFuture<Process> onExit() {
+            return exit;
+        }
+
+        @Override
+        public OutputStream getOutputStream() {
+            return OutputStream.nullOutputStream();
+        }
+
+        @Override
+        public InputStream getInputStream() {
+            return InputStream.nullInputStream();
+        }
+
+        @Override
+        public InputStream getErrorStream() {
+            return InputStream.nullInputStream();
+        }
+
+        @Override
+        public int waitFor() {
+            return 0;
+        }
+
+        @Override
+        public int exitValue() {
+            return 0;
+        }
+
+        @Override
+        public void destroy() {
+            // nothing runs
         }
     }
 

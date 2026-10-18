@@ -61,8 +61,10 @@ settled without a process; a start does not wait for a free build or model slot.
 record instead of an enrolment, with the fixed budget of its probe. `ProbeRequest` carries the candidate and whether the
 operator consented to probes of its kind; a probe without that consent is never started.
 `cancel(jobId, CancelCause)`:: Cancels a job that is queued or running: a running job's process group is terminated, a
-queued job is settled without a signal. The answer is whether this call cancelled the job; `false` for a job that has
-settled or that the runner does not know.
+queued job is settled without a signal. The answer is whether this call decided the job's end, so that its fate follows
+the cause; `false` for a job that has settled, that is cancelled already or that the runner does not know, and for a job
+whose fate is no longer open to a cancel because the runner has observed the end of its process (its cancel door is
+closed).
 `recordOf(jobId)`:: The record of the job as it is now; empty if the runner knows no such job.
 
 === The Contract

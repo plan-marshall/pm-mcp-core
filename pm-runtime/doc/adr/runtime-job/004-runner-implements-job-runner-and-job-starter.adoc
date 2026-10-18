@@ -36,7 +36,11 @@ job spec its job would need: which build verb, which tool, which arguments.
   answered `true` before the settlement closed the job's cancel door (the first thing it does, one atomic point that
   decides both the answer and the cause it reads), whose cause then decides it as on every other path (`cancelled`,
   row 2); a cancel after the door closed is answered `false`, so the answer `true` and the fate by the cause are the
-  same fact; a post-spawn record
+  same fact. The door is the one arbiter of every job, not of the unlaunched job alone: the runner closes it when it
+  observes the end of the process (the waiting thread when it sees the exit, and the settlement from the observed end
+  after the process group was terminated) and reads the cause then, so a cancel answered `true` before the door closed
+  decides the fate by its cause (row 2, 3 or 4) whatever the exit status, also when the process had exited by itself
+  before the waiting thread was scheduled, and a cancel after it is answered `false`; a post-spawn record
   that cannot be written, or a waiting thread that cannot be started, terminates its process group, awaits the end of
   the process and settles it from that end before the failure is passed on to the caller of the start; and a failure
   of the waiting thread itself (an exception or error of the output parser, of the settled record or of the
@@ -53,8 +57,9 @@ job spec its job would need: which build verb, which tool, which arguments.
 * No row of the outcome derivation names the termination of a job whose post-spawn record failed, and the runner
   invents none: it records no termination cause, and the evidence decides. A process ended by the runner's signal is
   `killed` by row 4, which the specification names for a process ended by any other signal and which is the closest
-  row; a process that had exited before the signal is decided by its exit, and a cancel answered in the meantime by
-  its cause. The settled record carries the PID and the process start of the launch report, because the process ran.
+  row; a process that had exited before the signal is decided by its exit, and a cancel answered `true` before the
+  settlement closed the job's cancel door, which it does once the end of the process is observed, by its cause; a
+  cancel after the door closed is answered `false`. The settled record carries the PID and the process start of the launch report, because the process ran.
 
 == Alternatives Considered
 

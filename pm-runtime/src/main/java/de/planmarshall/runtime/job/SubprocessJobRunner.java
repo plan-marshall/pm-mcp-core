@@ -96,10 +96,13 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * first. A cancel names its {@link JobRunner.CancelCause cause}; the cause, or the expiry of the budget, is the
  * termination the {@link TerminationProtocol} carries out against the job's process group, and it decides the fate by
  * the {@link OutcomeDerivation}: an engine cancel and a pause of the plan that holds now give {@code cancelled}, the
- * budget gives {@code timed_out}, the drain gives {@code killed}. Once the process has ended, the fate is derived from
- * the evidence the runner observed (its wait status, the state of the job log, what the {@link OutputParser} found in
- * it) and the job is settled by {@link JobSettlement} in the fixed write order. A status the job reports about itself
- * is never its outcome.
+ * budget gives {@code timed_out}, the drain gives {@code killed}. When the runner observes the end of the process it
+ * closes the cancel door of the job, one atomic point for every job: a cancel answered {@code true} before it is the
+ * cause the settlement reads, also when the process had exited by itself in the meantime, and a cancel after it is
+ * answered {@code false}. Once the process has ended, the fate is derived from the evidence the runner observed (its
+ * wait status, the state of the job log, what the {@link OutputParser} found in it), unless that cause decides it, and
+ * the job is settled by {@link JobSettlement} in the fixed write order. A status the job reports about itself is never
+ * its outcome.
  * <p>
  * Two wall times are recorded at the settlement: the job's own from {@code spawned_at} to {@code ended_at}, and the
  * child's {@code child_wall_ms} from {@code process_started_at} to the exit the runner observed. The child's start is
@@ -522,15 +525,19 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Cancels a job. A running job's termination is carried out by the virtual thread that waits for it, and the cause
      * decides the fate; a queued job is settled at once without a signal, by its cause, and as {@code killed} for the
-     * drain. A job whose launch failed (it has no process) is cancelled until its settlement closes the cancel door,
-     * which is the first thing it does: a cancel answered {@code true} before then settles the job by its cause, and one
-     * that arrives after is answered {@code false} and cannot change the fate.
+     * drain. For every running job one atomic point, its cancel door, decides which cancel is answered {@code true}: the
+     * runner closes the door when it has observed the end of the job's process (or, for a job whose launch failed and
+     * which has no process, as the first thing its settlement does) and reads the cause then. A cancel answered
+     * {@code true} before the door closes is the cause the settlement reads, and it decides the fate by the outcome
+     * derivation whatever the exit status (cancelled, row 2; timed out, row 3; killed, row 4), also when the process
+     * exited by itself in the meantime; a cancel that arrives after the door closed is answered {@code false} and
+     * cannot change the fate.
      *
      * @param jobId the job
      * @param cause why the job is cancelled
      * @return whether the job was running or queued and this call decided its end, so that the fate follows the cause;
-     *         {@code false} for a job that has ended, is cancelled already or is unknown, and for a job whose launch
-     *         failed and whose settlement has closed the cancel door
+     *         {@code false} for a job that has ended, is cancelled already or is unknown, and for a job
+     *         whose cancel door is closed
      */
     @Override
     public boolean cancel(JobId jobId, CancelCause cause) {
@@ -795,9 +802,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * No termination of the outcome derivation names this end, so none is recorded and the evidence decides: a group
      * that the runner's signal ended is {@code killed} by row 4, a process ended by any other signal, the closest row
      * the specification names; a process that had exited before the signal is decided by its exit like every ended
-     * job. A cancel that was answered as deciding the job's end in the meantime decides it by its cause, as it would
-     * have on the waiting thread. The settled record carries the PID and the process start of the launch report, also
-     * when its post-spawn record was not written, because the process ran.
+     * job. A cancel that was answered {@code true} before the cancel door closed, which {@link #terminateAndSettle} does
+     * when it has observed the end of the process, decides it by its cause, as it would have on the waiting thread; a
+     * cancel after the door closed is answered {@code false}. The settled record carries the PID and the process start
+     * of the launch report, also when its post-spawn record was not written, because the process ran.
      *
      * @param reported the post-spawn record of the launch report; {@code null} for a launcher that wrote no report
      */
@@ -816,27 +824,19 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * Ends the process of a job whose end the runner has not observed, waits for it and settles the job from what it
-     * observed then. No termination is recorded except the cause of a cancel that was answered in the meantime or of
-     * the budget, which decides the fate as it would have on the waiting thread; otherwise the evidence decides.
+     * observed then. No termination is recorded except the cause the cancel door of the job returns when it is closed
+     * after the end of the process was observed, that of a cancel answered {@code true} before it closed or of the
+     * budget, which decides the fate as it would have on the waiting thread; otherwise the evidence decides.
      *
      * @return whether the wait for the process was interrupted
      */
     private boolean terminateAndSettle(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var cancelBeforeGroup = terminateByHandle(job.latest.jobId(), launched);
         var exit = waitFor(launched.process());
-        settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), cancelCause(job), cancelBeforeGroup),
-                observedLength);
+        // the end of the process is observed: the cancel door closes here and the cause it returns is the one read
+        settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), job.closeCancelDoor(),
+                cancelBeforeGroup), observedLength);
         return exit.interrupted();
-    }
-
-    /**
-     * The cause of a cancel that was answered as deciding the end of a job, or of the budget that expired; empty for a
-     * job whose end nothing decided yet.
-     *
-     * @return the termination that decides the fate of a job the runner settles without having terminated it itself
-     */
-    private static Optional<Termination> cancelCause(RunningJob job) {
-        return job.cause.isDone() ? Optional.of(job.cause.join()) : Optional.empty();
     }
 
     /**
@@ -968,20 +968,32 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
     }
 
-    /** What ended the wait for a job: its exit, or the cause of its termination. */
-    private record Awaited(Optional<Termination> cause, boolean interrupted) {
+    /**
+     * What ended the wait for a job: its exit, or the cause of its termination.
+     *
+     * @param cause       the termination that decides the fate: the cause of a cancel that was answered {@code true},
+     *                    or of the budget that expired; empty for a job nothing decided, which is settled by its exit
+     * @param interrupted whether the waiting thread was interrupted meanwhile
+     */
+    record Awaited(Optional<Termination> cause, boolean interrupted) {
     }
 
+    /**
+     * Waits for the end of the process or for a cause that terminates it. A process whose end is observed closes the
+     * cancel door of the job ({@code RunningJob.closeCancelDoor}) and returns the cause that door read, so a cancel
+     * answered {@code true} before the door closed is never dropped because the exit was seen first, and one that
+     * arrives after is answered {@code false}.
+     */
     // java:S2142 does not apply: the interrupt is deferred, not swallowed. Re-interrupting inside the loop would make the
     // next wait throw at once; the flag travels in Awaited.interrupted() to leave(), which restores it once the job is
     // settled.
     @SuppressWarnings("java:S2142")
-    private Awaited awaitEndOrCause(RunningJob job, Process process, Instant deadline) {
+    Awaited awaitEndOrCause(RunningJob job, Process process, Instant deadline) {
         var exit = process.onExit();
         var interrupted = false;
         while (true) {
             if (exit.isDone()) {
-                return new Awaited(Optional.empty(), interrupted);
+                return new Awaited(job.closeCancelDoor(), interrupted);
             }
             if (job.cause.isDone()) {
                 return new Awaited(Optional.of(job.cause.join()), interrupted);
@@ -1233,8 +1245,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 .clampedValues(List.of());
     }
 
-    /** A job between its write-ahead record and its settlement. */
-    private static final class RunningJob {
+    /**
+     * A job between its write-ahead record and its settlement. It is package-private for the test of the cancel door,
+     * whose window is a few instructions wide and has no other deterministic seam.
+     */
+    static final class RunningJob {
 
         private final JobRecordStore store;
         private final JobBudget budget;
@@ -1257,8 +1272,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         private boolean settling;
 
         /**
-         * Whether the launch of the job failed and {@link #closeCancelDoor()} read its cause; guarded by the monitor of
-         * this job, like the completion of {@link #cause} by {@link #cancel(Termination)}.
+         * Whether the runner observed the end of the job (or found that its launch failed) and
+         * {@link #closeCancelDoor()} read its cause; guarded by the monitor of this job, like the completion of
+         * {@link #cause} by {@link #cancel(Termination)}.
          */
         private boolean cancelDoorClosed;
 
@@ -1277,8 +1293,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
 
         /**
+         * The check that the process lives and the completion of the cause are one step under the monitor of this job,
+         * so {@link #closeCancelDoor()} either waits for a cancel in flight and then reads its cause, or closes the door
+         * before it, and the cancel is answered {@code false}.
+         *
          * @return whether this call decided the termination of the job; {@code false} once the cancel door is closed,
-         *         because the cause of a job whose launch failed is read once and no later cancel can be applied
+         *         because the cause of a job is read once, when the runner observed its end, and no later cancel can
+         *         be applied; also {@code false} for a process that has ended or a job a cause decided already
          */
         synchronized boolean cancel(Termination termination) {
             if (cancelDoorClosed) {
@@ -1289,12 +1310,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
 
         /**
-         * Closes the door of a job whose launch failed: from this call on {@link #cancel(Termination)} answers
-         * {@code false}, and the cause this call returns is the last one a cancel can have decided. The one atomic point
-         * that settles both which cancel was answered {@code true} and which cause the settlement of the unlaunched job
-         * applies; the monitor is held for these two reads and writes only, never across I/O.
+         * Closes the door of a job whose end the runner observed, or whose launch failed: from this call on
+         * {@link #cancel(Termination)} answers {@code false}, and the cause this call returns is the last one a cancel
+         * can have decided. The one atomic point, for every job, that settles both which cancel was answered
+         * {@code true} and which cause the settlement applies; the monitor is held for the flag and the read of the
+         * future only, never across I/O or a wait for the process.
          *
-         * @return the cause of the cancel that was answered {@code true} before the door closed; empty if none was
+         * @return the cause of the cancel that was answered {@code true} before the door closed, or of the budget that
+         *         expired; empty if none was
          */
         synchronized Optional<Termination> closeCancelDoor() {
             cancelDoorClosed = true;
