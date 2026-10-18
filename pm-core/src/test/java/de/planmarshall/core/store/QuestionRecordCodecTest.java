@@ -393,6 +393,16 @@ class QuestionRecordCodecTest {
                     () -> assertTrue(assertRefused(inAnswer).getMessage().contains("timeout")));
         }
 
+        @ParameterizedTest(name = "{index}")
+        @ValueSource(strings = {"{\"a\":[\n{\"event\":\"cancelled\"}\n]}", "{\"a\":[\r{\"event\":\"cancelled\"}\r]}",
+                "{\n}", "{\"a\":1}\n"})
+        @DisplayName("an envelope with a line break is refused, so it cannot split the line of the log")
+        void envelopeWithLineBreak(String envelope) {
+            var question = asked("Q-001", "Q-001").toBuilder().envelope(envelope);
+
+            assertThrows(IllegalArgumentException.class, question::build);
+        }
+
         @Test
         @DisplayName("a member twice and content after the record are refused")
         void duplicateAndTrailing() {

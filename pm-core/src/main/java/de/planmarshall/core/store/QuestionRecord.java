@@ -501,7 +501,16 @@ String amendmentId, String reason, Instant at) {
         }
     }
 
+    /**
+     * The envelope is written into a log of one record per line as the verbatim text it holds, so a line terminator
+     * in it, between two tokens of the object, would split the record and let the text after the terminator stand as a
+     * line of its own: a forged record of the log. A document that is read never has one, as it is one line.
+     */
     private static void requireJsonObject(String envelope) {
+        if (envelope.indexOf('\n') >= 0 || envelope.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException(
+                    "The envelope of a question is the text of one line, without a line break");
+        }
         try (var parser = StrictJson.factory().createParser(envelope)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw new IllegalArgumentException("The envelope of a question is one JSON object");
