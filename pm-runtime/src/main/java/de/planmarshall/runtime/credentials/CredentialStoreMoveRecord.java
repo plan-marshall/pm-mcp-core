@@ -28,26 +28,30 @@ import de.planmarshall.runtime.credentials.CredentialStoreChoice.Store;
 
 /**
  * The record of the open move between the credential stores (PM-CRED-2; Store Schemas, Machine State Records),
- * {@code <PM_MCP_BASE>/state/credential-store-move.json}: from which store to which the move runs, when it started, and
- * whether {@code credentials.store} was switched already. The runtime writes it under {@code locks/credentials.lock}
- * with {@link Phase#COPYING} at the start of a move, rewrites it once with {@link Phase#SWITCHED} right after the write
- * that switches the store, and deletes it when the move ends; its absence means that no move is open. While it exists
- * only the move records a store. It names stores only and holds nothing secret.
+ * {@code <PM_MCP_BASE>/state/credential-store-move.json}: from which store to which the move runs, when it started,
+ * whether {@code credentials.store} was switched already, and whether the target held the integrity key before the
+ * move. The runtime writes it under {@code locks/credentials.lock} with {@link Phase#COPYING} at the start of a move,
+ * rewrites it once with {@link Phase#SWITCHED} right after the write that switches the store, and deletes it when the
+ * move ends; its absence means that no move is open. While it exists only the move records a store. It names stores
+ * only and holds nothing secret.
  * <p>
- * The document is {@code {"format_version": 1, "from", "to", "started_at", "phase"}}, written by the shared generator
- * of {@link StrictJson}; the store writes it with mode {@code 0600} in one atomic rename. The reader accepts exactly
- * one shape through {@link StrictJson}: the current {@code format_version}, every field once, no other field, the two
- * stores different. Every refusal is a {@link StoreRefusal} naming the file.
+ * The document is {@code {"format_version": 1, "from", "to", "started_at", "phase", "target_held_key"}}, written by
+ * the shared generator of {@link StrictJson}; the store writes it with mode {@code 0600} in one atomic rename. The
+ * reader accepts exactly one shape through {@link StrictJson}: the current {@code format_version}, every field once, no
+ * other field, the two stores different. Every refusal is a {@link StoreRefusal} naming the file.
  *
- * @param from      the store recorded in {@code credentials.store} when the move started
- * @param to        the store the move switches to; never {@code from}
- * @param startedAt when the move started
- * @param phase     {@link Phase#COPYING} until the record is rewritten after the switch, {@link Phase#SWITCHED} from
- *                  then on; between the switch and the rewrite the record says {@code copying} while
- *                  {@code credentials.store} names {@code to} already
+ * @param from          the store recorded in {@code credentials.store} when the move started
+ * @param to            the store the move switches to; never {@code from}
+ * @param startedAt     when the move started
+ * @param phase         {@link Phase#COPYING} until the record is rewritten after the switch, {@link Phase#SWITCHED}
+ *                      from then on; between the switch and the rewrite the record says {@code copying} while
+ *                      {@code credentials.store} names {@code to} already
+ * @param targetHeldKey whether {@code to} held the integrity key when the move started, before its first copy; the
+ *                      clean-up of a failed move, and the resume of a move a stop cut before the switch, delete the
+ *                      key from {@code to} only where it did not, since only then is the key there a copy of the move
  * @since 0.1
  */
-public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt, Phase phase) {
+public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt, Phase phase, boolean targetHeldKey) {
 
     /** The name of the record below the state directory. */
     public static final String FILE_NAME = "credential-store-move.json";
@@ -59,6 +63,7 @@ public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt,
     private static final String FIELD_TO = "to";
     private static final String FIELD_STARTED_AT = "started_at";
     private static final String FIELD_PHASE = "phase";
+    private static final String FIELD_TARGET_HELD_KEY = "target_held_key";
 
     /** How far the move came. */
     public enum Phase {
@@ -110,7 +115,7 @@ public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt,
 
     /** @return this record in the phase {@link Phase#SWITCHED} */
     public CredentialStoreMoveRecord switched() {
-        return new CredentialStoreMoveRecord(from, to, startedAt, Phase.SWITCHED);
+        return new CredentialStoreMoveRecord(from, to, startedAt, Phase.SWITCHED, targetHeldKey);
     }
 
     /** @return the document, UTF-8 encoded */
@@ -123,6 +128,7 @@ public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt,
             generator.writeStringField(FIELD_TO, to.value());
             StrictJson.writeInstant(generator, FIELD_STARTED_AT, startedAt);
             generator.writeStringField(FIELD_PHASE, phase.value());
+            generator.writeBooleanField(FIELD_TARGET_HELD_KEY, targetHeldKey);
             generator.writeEndObject();
         } catch (IOException e) {
             throw new UncheckedIOException("Credential store move record cannot be written", e);
@@ -149,6 +155,7 @@ public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt,
         Store to = null;
         Instant startedAt = null;
         Phase phase = null;
+        var targetHeldKey = false;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = StrictJson.nextField(parser, seen);
@@ -158,13 +165,14 @@ public record CredentialStoreMoveRecord(Store from, Store to, Instant startedAt,
                 case FIELD_TO -> to = store(parser, field);
                 case FIELD_STARTED_AT -> startedAt = StrictJson.instant(parser, field);
                 case FIELD_PHASE -> phase = phase(parser);
+                case FIELD_TARGET_HELD_KEY -> targetHeldKey = StrictJson.bool(parser, field);
                 default -> throw StrictJson.undeclared(field);
             }
         }
         StrictJson.requireFields(seen, "credential store move record", FIELD_FROM, FIELD_TO, FIELD_STARTED_AT,
-                FIELD_PHASE);
+                FIELD_PHASE, FIELD_TARGET_HELD_KEY);
         try {
-            return new CredentialStoreMoveRecord(from, to, startedAt, phase);
+            return new CredentialStoreMoveRecord(from, to, startedAt, phase, targetHeldKey);
         } catch (IllegalArgumentException e) {
             throw StrictJson.unreadable(e.getMessage(), e);
         }

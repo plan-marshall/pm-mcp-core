@@ -463,16 +463,12 @@ public final class CredentialStoreChoice {
             if (key.isEmpty()) {
                 return false;
             }
-            var held = keyCarry.keyIn(target).read();
-            if (held.isPresent() && !IntegrityKeyCarry.sameKey(key.get(), held.get())) {
-                throw new SecretStoreException(SecretStoreException.Reason.FAILED,
-                        "'%s' holds another integrity key than '%s'".formatted(target.name(), from.name()));
+            var targetKey = keyCarry.targetKey(from, target);
+            if (targetKey == IntegrityKeyCarry.TargetKey.OTHER) {
+                throw IntegrityKeyCarry.otherKey(from, target);
             }
-            if (held.isEmpty()) {
-                copied = true;
-                held = keyCarry.copy(from, target);
-            }
-            held.ifPresent(keyCarry::verifySidecars);
+            copied = targetKey == IntegrityKeyCarry.TargetKey.NONE;
+            keyCarry.copy(from, target).ifPresent(keyCarry::verifySidecars);
             return true;
         } catch (SecretStoreException | UncheckedIOException | StoreRefusal e) {
             if (copied) {

@@ -134,7 +134,7 @@ class CredentialStoreMoveResumeTest {
     }
 
     private void openMove(Phase phase) throws IOException {
-        write(recordFile(), new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase).write());
+        write(recordFile(), new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase, false).write());
     }
 
     private Path recordFile() {
@@ -153,7 +153,7 @@ class CredentialStoreMoveResumeTest {
     /** Asserts the end state of a move from the OS store into the file store that the resume completed. */
     private void assertCompleted(Optional<CredentialStoreMoveRecord> resumed, Phase phase, SecretKey key) {
         assertAll(
-                () -> assertEquals(Optional.of(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase)),
+                () -> assertEquals(Optional.of(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase, false)),
                         resumed),
                 () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                 () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)),

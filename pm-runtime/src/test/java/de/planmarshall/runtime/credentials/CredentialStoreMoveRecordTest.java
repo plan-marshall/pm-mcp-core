@@ -42,24 +42,40 @@ class CredentialStoreMoveRecordTest {
     @Test
     @DisplayName("a record is written in its one shape and read back unchanged")
     void roundTrip() {
-        var moveRecord = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING);
+        var moveRecord = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING, false);
 
         var document = new String(moveRecord.write(), StandardCharsets.UTF_8);
 
         assertAll(
                 () -> assertEquals("""
                         {"format_version":1,"from":"os","to":"file","started_at":"2026-10-17T15:00:00Z",\
-                        "phase":"copying"}
+                        "phase":"copying","target_held_key":false}
                         """, document),
                 () -> assertEquals(moveRecord, read(document)));
     }
 
     @Test
-    @DisplayName("switched() keeps the stores and the start and changes only the phase")
-    void switched() {
-        var moveRecord = new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING);
+    @DisplayName("a record whose target held the integrity key is read back with it")
+    void targetHeldKey() {
+        var moveRecord = new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING, true);
 
-        assertEquals(new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.SWITCHED),
+        var document = new String(moveRecord.write(), StandardCharsets.UTF_8);
+
+        assertAll(
+                () -> assertEquals("""
+                        {"format_version":1,"from":"file","to":"os","started_at":"2026-10-17T15:00:00Z",\
+                        "phase":"copying","target_held_key":true}
+                        """, document),
+                () -> assertEquals(moveRecord, read(document)));
+    }
+
+    @Test
+    @DisplayName("switched() keeps the stores, the start and whether the target held the key, and changes only the "
+            + "phase")
+    void switched() {
+        var moveRecord = new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING, true);
+
+        assertEquals(new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.SWITCHED, true),
                 moveRecord.switched());
     }
 
@@ -74,26 +90,31 @@ class CredentialStoreMoveRecordTest {
     @DisplayName("a move from a store to itself is not a record")
     void sameStores() {
         assertThrows(IllegalArgumentException.class,
-                () -> new CredentialStoreMoveRecord(Store.OS, Store.OS, STARTED, Phase.COPYING));
+                () -> new CredentialStoreMoveRecord(Store.OS, Store.OS, STARTED, Phase.COPYING, false));
     }
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {
-            "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\"}",
+            "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
+                    + "\"target_held_key\":false}",
+            "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
+                    + "\"phase\":\"copying\"}",
+            "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
+                    + "\"phase\":\"copying\",\"target_held_key\":\"false\"}",
             "{\"format_version\":1,\"from\":\"keyring\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                    + "\"phase\":\"copying\"}",
+                    + "\"phase\":\"copying\",\"target_held_key\":false}",
             "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                    + "\"phase\":\"done\"}",
+                    + "\"phase\":\"done\",\"target_held_key\":false}",
             "{\"format_version\":1,\"from\":\"os\",\"to\":\"os\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                    + "\"phase\":\"copying\"}",
+                    + "\"phase\":\"copying\",\"target_held_key\":false}",
             "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T17:00:00+02:00\","
-                    + "\"phase\":\"copying\"}",
+                    + "\"phase\":\"copying\",\"target_held_key\":false}",
             "{\"format_version\":1,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                    + "\"phase\":\"copying\",\"entries\":2}",
+                    + "\"phase\":\"copying\",\"target_held_key\":false,\"entries\":2}",
             "{\"format_version\":1,\"from\":\"os\",\"from\":\"file\",\"to\":\"file\","
-                    + "\"started_at\":\"2026-10-17T15:00:00Z\",\"phase\":\"copying\"}",
+                    + "\"started_at\":\"2026-10-17T15:00:00Z\",\"phase\":\"copying\",\"target_held_key\":false}",
             "{\"format_version\":1,\"from\":1,\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                    + "\"phase\":\"copying\"}",
+                    + "\"phase\":\"copying\",\"target_held_key\":false}",
             "[]"})
     @DisplayName("a document outside the one shape is refused as unreadable, naming the file")
     void unreadable(String document) {
@@ -109,7 +130,7 @@ class CredentialStoreMoveRecordTest {
     void newerVersion() {
         var refusal = assertThrows(StoreRefusal.class, () -> read(
                 "{\"format_version\":2,\"from\":\"os\",\"to\":\"file\",\"started_at\":\"2026-10-17T15:00:00Z\","
-                        + "\"phase\":\"copying\"}"));
+                        + "\"phase\":\"copying\",\"target_held_key\":false}"));
 
         assertEquals(StoreRefusal.Outcome.FORMAT_NEWER, refusal.outcome());
     }

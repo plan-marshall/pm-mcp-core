@@ -42,11 +42,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * before every phase. The steps are:
  * <ol>
  * <li>write the record {@code state/credential-store-move.json} ({@link CredentialStoreMoveRecord}, phase
- * {@code copying});</li>
+ * {@code copying}), which says whether the target held the integrity key already;</li>
  * <li>copy every Token Lane entry the old store enumerates into the target store and read each back;</li>
  * <li>copy the enrolment integrity key last, into the keyring entry of the target or the key file below
- * {@code state/}, read it back from the target, and verify every HMAC sidecar under the key read back
- * ({@link EnrolmentSidecars}: the enrolment files, {@code harnesses.json}, {@code logs/audit.head});</li>
+ * {@code state/}, unless the target holds the same key already, read it back from the target, and verify every HMAC
+ * sidecar under the key read back ({@link EnrolmentSidecars}: the enrolment files, {@code harnesses.json},
+ * {@code logs/audit.head});</li>
  * <li>switch {@code credentials.store} in one write through {@link CredentialStoreChoice} (writer
  * {@link CredentialStoreChoice.Writer#STORE_MOVE}, under {@code locks/machine-config.lock}, which sorts after the
  * credentials lock);</li>
@@ -58,8 +59,13 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * </ol>
  * A move into a target that holds a Token Lane entry already is refused before the record is written: a secret never
  * exists in two stores, so such a target is in an inconsistent state, and the move neither overwrites nor deletes
- * what it holds. The integrity key is no Token Lane entry; where a failed deletion after a switch left it in both
- * stores, the copy of the key handles it ({@link IntegrityKeyCarry}).
+ * what it holds. The integrity key is no Token Lane entry, and a key can stay outside the recorded store (where a
+ * deletion after a switch or after the first recording failed), so the target is compared with the old store before
+ * the record is written ({@link IntegrityKeyCarry#targetKey}): a target that holds another key than the old store is
+ * refused as well, since the move would overwrite that key or delete it in a clean-up, and the sidecars signed under
+ * it could never be verified again; a target that holds the same key is moved into, and the key is not written again.
+ * The clean-up deletes the key from the target only where the record says the target held none, so it deletes only a
+ * key this move copied, also on a resume.
  * <p>
  * Until the switch {@code credentials.store} names the old store, so the active store of {@link CredentialStoreChoice}
  * reads no other store while the move runs. Between the switch and the rewrite of the record the record still says
@@ -189,7 +195,8 @@ public final class CredentialStoreMove {
      * @throws IllegalStateException         if a move is open already, which the next start resumes; nothing was
      *                                       written then
      * @throws SecretStoreException          with {@code credential_store_failed} if the target holds a Token Lane
-     *                                       entry already, naming the store and the number of entries: nothing was
+     *                                       entry already, naming the store and the number of entries, or another
+     *                                       integrity key than the recorded store, naming both stores: nothing was
      *                                       written or deleted then; with {@code credential_store_failed} if a copy, a
      *                                       read-back or the verification of a sidecar failed before the switch: the
      *                                       old store stays recorded and untouched, and the message says what became
@@ -220,7 +227,8 @@ public final class CredentialStoreMove {
                         to.value()));
             }
             requireEmptyTarget(to);
-            var moveRecord = new CredentialStoreMoveRecord(from, to, clock.instant(), Phase.COPYING);
+            var targetHeldKey = requireNoOtherKey(from, to);
+            var moveRecord = new CredentialStoreMoveRecord(from, to, clock.instant(), Phase.COPYING, targetHeldKey);
             recordFile.write(transaction, moveRecord.write());
             LOGGER.info(INFO.CREDENTIAL_STORE_MOVE_STARTED, from.value(), to.value());
             hook.after(Step.RECORDED);
@@ -287,6 +295,29 @@ public final class CredentialStoreMove {
                             + "exists in two stores; nothing was written or deleted")
                             .formatted(to.value(), target.name(), held));
         }
+    }
+
+    /**
+     * Refuses a move into a target that holds another integrity key than the old store, the conflict the first
+     * recording refuses as well ({@link IntegrityKeyCarry#targetKey}): the move would overwrite that key, or delete it
+     * in the clean-up of a failure, and every HMAC sidecar signed under it could never be verified again. Nothing is
+     * written or deleted then. A target that holds the same key, or a key while the old store holds none, is no
+     * conflict.
+     *
+     * @return whether the target holds an integrity key already, which the clean-up then never deletes
+     * @throws SecretStoreException with {@code credential_store_failed} naming both stores, or with the reason of the
+     *                              store if a key cannot be read
+     */
+    private boolean requireNoOtherKey(Store from, Store to) {
+        var old = choice.backendOf(from);
+        var target = choice.backendOf(to);
+        var targetKey = keyCarry.targetKey(old, target);
+        if (targetKey == IntegrityKeyCarry.TargetKey.OTHER) {
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                    ("the move into '%s' is refused: %s, under which HMAC sidecars may be signed; nothing was written "
+                            + "or deleted").formatted(to.value(), IntegrityKeyCarry.otherKey(old, target).getMessage()));
+        }
+        return targetKey == IntegrityKeyCarry.TargetKey.HELD;
     }
 
     /**
@@ -424,8 +455,10 @@ public final class CredentialStoreMove {
 
     /**
      * Deletes from the target what a move copied into it: the entries the old store holds, and the key where the old
-     * store holds one. An entry the target held before is never touched: the move refuses a target that holds a Token
-     * Lane entry before it starts, so every entry deleted here is a copy of this move.
+     * store holds one and the target held none when the move started. Nothing the target held before is touched: the
+     * move refuses a target that holds a Token Lane entry or another integrity key before it starts, so every entry
+     * deleted here is a copy of this move; and a key the target held then, which is the key of the old store, stays,
+     * since the record says so ({@link CredentialStoreMoveRecord#targetHeldKey()}) for every resume as well.
      */
     private void deleteCopies(CredentialStoreMoveRecord moveRecord) {
         var from = choice.backendOf(moveRecord.from());
@@ -433,7 +466,7 @@ public final class CredentialStoreMove {
         for (var account : tokenLaneEntries(from)) {
             target.delete(account);
         }
-        if (keyIn(moveRecord.from()).read().isPresent()) {
+        if (!moveRecord.targetHeldKey() && keyIn(moveRecord.from()).read().isPresent()) {
             keyIn(moveRecord.to()).delete();
         }
     }

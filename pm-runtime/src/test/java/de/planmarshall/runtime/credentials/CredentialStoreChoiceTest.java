@@ -146,7 +146,7 @@ class CredentialStoreChoiceTest {
         var recordFile = CredentialStoreMoveRecord.file(base);
         Files.createDirectories(recordFile.getParent());
         Files.write(recordFile, new CredentialStoreMoveRecord(Store.OS, Store.FILE, Instant.parse("2026-10-17T15:00:00Z"),
-                CredentialStoreMoveRecord.Phase.COPYING).write());
+                CredentialStoreMoveRecord.Phase.COPYING, false).write());
     }
 
     private static String document(String credentials) {
