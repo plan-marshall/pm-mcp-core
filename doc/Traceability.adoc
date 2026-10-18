@@ -10,6 +10,22 @@ A requirement implemented in another repository is traced there, or, for code wi
 
 == link:../../plan-marshall-documentation/doc/requirements/01-architecture.adoc[Architecture]
 
+[#PM-ARCH-1]
+=== PM-ARCH-1: Process Ownership & Always-On Runtime
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-1[PM-ARCH-1]
+
+Implementation (of the mutual-exclusion bullet, the per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` as the one place of the server-owned state of a project, the same for its main checkout and its worktrees, with its directories and its identity record `store.json`, created once under the project's workspace lock and never rewritten, and nothing with state below the repository; the acts of enrolment, rename and unenrolment that write the identity, and every other bullet, are not implemented here): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[ProjectStore],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentity.java[ProjectStoreIdentity],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentityCodec.java[ProjectStoreIdentityCodec]
+
+Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreNoStateInRepositoryTest.java[ProjectStoreNoStateInRepositoryTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_store[Scope Stores Developer Guide § The Per-Project Machine Store],
+link:../pm-core/doc/adr/core-store/035-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/035]
+
 [#PM-ARCH-4]
 === PM-ARCH-4: Stateless Requests & Explicit Scope Addressing
 
@@ -555,7 +571,7 @@ Documentation: link:../pm-runtime/doc/developer/runtime-credentials.adoc[Develop
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-2[PM-SEC-2]
 
-Implementation (the canonicalization of a project path, its confinement to the enrolled root and the live linked worktrees, and the outcome `path_traversal_rejected`; the project resolution, the confinement source, the operations that pass their paths through the check, and the cross-project grant are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java[PathConfinement],
+Implementation (the canonicalization of a project path, its confinement to the enrolled root and the live linked worktrees, and the outcome `path_traversal_rejected`; the confinement source, the operations that pass their paths through the check, and the cross-project grant are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java[PathConfinement],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WorkspaceRoots.java[WorkspaceRoots],
 link:../pm-core/src/main/java/de/planmarshall/core/store/ConfinementOutcome.java[ConfinementOutcome],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/workspace/WorkspaceConfinement.java[WorkspaceConfinement]
@@ -563,6 +579,17 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/workspace/WorkspaceConf
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/PathConfinementTest.java[PathConfinementTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/LinkedWorktreeConfinementTest.java[LinkedWorktreeConfinementTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/workspace/WorkspaceConfinementTest.java[WorkspaceConfinementTest]
+
+Implementation (the first bullet as far as the library module `pm-core` carries it: the one rule that maps a checkout path to its enrolled project, from the plain pointer files git writes and with the recognition of a linked worktree the confinement shares, to the main checkout or a worktree below `.marshall/local/worktrees/`, every refusal as `project_not_enrolled` with its reason, a duplicate root and a refused enrolment file as results of their own, and no result holding the path; the HMAC check of the named enrolment, the recording of the resolved `project_id` with what a request created, and the requests that resolve a path are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectResolver.java[ProjectResolver],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectResolution.java[ProjectResolution],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java[PathConfinement]
+
+Verified by (the project resolution): link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectResolverTest.java[ProjectResolverTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/LinkedWorktreeConfinementTest.java[LinkedWorktreeConfinementTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PathConfinementTest.java[PathConfinementTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_project_resolution[Scope Stores Developer Guide § The Project Resolution],
+link:../pm-core/doc/adr/core-store/034-project-resolution-file-based-from-the-pointer-files.adoc[ADR core-store/034]
 
 [#PM-SEC-4]
 === PM-SEC-4: Local Transport Isolation, Operator-Gated Network Exposure & Stream Hygiene
@@ -763,7 +790,26 @@ link:../pm-core/src/test/java/de/planmarshall/core/analysis/AnalysisResultCodecT
 link:../pm-core/src/test/java/de/planmarshall/core/analysis/AnalysisResultSchemaTest.java[AnalysisResultSchemaTest],
 link:../pm-core/src/test/java/de/planmarshall/core/findings/FindingSchemaParityTest.java[FindingSchemaParityTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc#format-versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../../plan-marshall-documentation/doc/developer/findings-and-analysis.adoc#analysis-result[Developer Guide § Findings and Code Analysis, The Analysis Result and Its Codec], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]
+Implementation (the versioned records of the operator and question stores and the project store identity: one line of `waivers.jsonl`, of `waiver-consumptions.jsonl` and of `questions.jsonl`, the waiver request of a plan's status, and `store.json`, each in `format_version` 1, read strictly with every other version refused naming the file and a refused line naming its line, and written in one canonical form): link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverRecord.java[WaiverRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverRecordCodec.java[WaiverRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionRecord.java[WaiverConsumptionRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionCodec.java[WaiverConsumptionCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRecord.java[QuestionRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRecordCodec.java[QuestionRecordCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverRequest.java[WaiverRequest],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java[WorkflowStatusCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentity.java[ProjectStoreIdentity],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentityCodec.java[ProjectStoreIdentityCodec]
+
+Verified by (the operator and question stores and the project store identity): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverRecordCodecTest.java[WaiverRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionCodecTest.java[WaiverConsumptionCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionRecordCodecTest.java[QuestionRecordCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreIdentityCodecTest.java[ProjectStoreIdentityCodecTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
+link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc#format-versions[Concepts § Store Integrity, Format Versions], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc#format-versions[Developer Guide § Store Substrate, Format Versions and Refusals], link:../../plan-marshall-documentation/doc/developer/findings-and-analysis.adoc#analysis-result[Developer Guide § Findings and Code Analysis, The Analysis Result and Its Codec], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]
 
 [#PM-IMPL-5]
 === PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation
@@ -948,7 +994,21 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/OrderedWriteTest.java[O
 link:../pm-core/src/test/java/de/planmarshall/core/store/EnrolmentStoreTest.java[EnrolmentStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java[EnrolmentsTest]
 
-Documentation: link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../../plan-marshall-documentation/doc/developer/locks-and-leases.adoc[Developer Guide § Locks and Leases], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc[Developer Guide § Store Substrate], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#store[Developer Guide § Enrolment Store, The Store]
+Implementation (the append-only operator and question stores of a scope as targets of its transaction: the waiver and waiver consumption logs of a plan, read as the last readable line of a key; the question log of a plan, an epic, the workspace and an entry, whose invariants (one closing line per question, the current revision) are decided under the scope lock and returned as refusal values with nothing added; the move of an entry's question log into the new scope as a create target and a delete target in two transactions; and the per-project machine store, whose identity record is created once under the project's workspace lock; the single writers of the waiver logs, their audit mirroring, and the engine's read of the question log through its runtime adapter are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverLog.java[WaiverLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionLog.java[WaiverConsumptionLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java[QuestionLog],
+link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java[QuestionRefusal],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java[ProjectStore]
+
+Verified by (the operator and question stores and the project store): link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverLogTest.java[WaiverLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WaiverConsumptionLogTest.java[WaiverConsumptionLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/QuestionLogTest.java[QuestionLogTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/EntryQuestionMoveTest.java[EntryQuestionMoveTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusStoreTest.java[WorkflowStatusStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ProjectStoreTest.java[ProjectStoreTest]
+
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_operator_and_question_stores[Scope Stores Developer Guide § Operator and Question Stores, the Project Store and the Project Resolution],
+link:../../plan-marshall-documentation/doc/concepts/locks-and-leases.adoc[Concepts § Locks and Leases], link:../../plan-marshall-documentation/doc/concepts/store-integrity.adoc[Concepts § Store Integrity], link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#rebaseline[Concepts § Enrolment, Re-Baseline], link:../../plan-marshall-documentation/doc/developer/locks-and-leases.adoc[Developer Guide § Locks and Leases], link:../../plan-marshall-documentation/doc/developer/store-substrate.adoc[Developer Guide § Store Substrate], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#store[Developer Guide § Enrolment Store, The Store]
 
 == link:../../plan-marshall-documentation/doc/requirements/16-model-work.adoc[Model Work]
 
