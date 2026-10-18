@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,8 +40,9 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 
 /**
- * The status document of a scope (PM-ARCH-6, PM-WF-16, PM-WF-7): the engine-owned members are read strictly and
- * written in the one canonical form, every other member of the schema is re-emitted byte for byte, and
+ * The status document of a scope (PM-ARCH-6, PM-WF-16, PM-WF-7, PM-SEC-3): the engine-owned members and the waiver
+ * requests are read strictly and written in the one canonical form, every other member of the schema is re-emitted
+ * byte for byte, and
  * {@code retry_counters} follows {@code counters}. A refusal names the file and the member, and our own past shapes
  * are not tolerated: a document outside the schema is refused, never read as something close to it.
  */
@@ -66,7 +69,8 @@ class WorkflowStatusCodecTest {
             + "\"retry_counters\":{\"sync_failed\":{\"state_id\":\"finalize.merge-sync\",\"attempts\":1}},"
             + "\"outline_loop_backs\":1,\"policy_counters\":{\"ci-failure\":{\"retry_used\":1,\"renewed_from\":"
             + "{\"retry_used\":0,\"fix_used\":1,\"replan_id\":\"RP-1\"},\"fix_used\":2,\"last_retry\":{\"reason\":"
-            + "\"flaky\",\"fingerprints\":[\"" + "a".repeat(64) + "\"]}}}," + METADATA + "," + STEPS + ","
+            + "\"flaky\",\"fingerprints\":[\"" + "a".repeat(64) + "\"]}}},\"waiver_requests\":[]," + METADATA + ","
+            + STEPS + ","
             + "\"active_jobs\":{\"sync\":{\"job_id\":\"g-0123456789abcdef\",\"kind\":\"git\",\"status\":\"running\","
             + "\"started_at\":\"2026-10-12T10:01:00Z\"}},\"active_job\":{\"state_id\":\"finalize.merge-sync\","
             + "\"job_id\":\"g-0123456789abcdef\"},\"active_tasks\":{\"TASK-001\":{\"queue_task_id\":"
@@ -309,6 +313,215 @@ class WorkflowStatusCodecTest {
             var status = read(WORKSPACE).withRetained(Map.of("engine_cache", "{}"));
 
             assertThrows(IllegalArgumentException.class, () -> WorkflowStatusCodec.write(status));
+        }
+    }
+
+    /**
+     * One waiver request in the canonical form.
+     *
+     * @param outcome  the outcome as JSON text, {@code null} for a pending request
+     * @param waiverId the waiver id as JSON text
+     * @param answered the answered act as JSON text
+     */
+    static String request(String outcome, String waiverId, String answered) {
+        return "{\"request_id\":\"WR-1\",\"gate\":\"retry_budget:ci-failure\",\"policy\":\"remediation.ci-failure\","
+                + "\"rationale\":\"the check fails on the runner only\",\"evidence_uri\":"
+                + "\"pm://plan/workflow-engine/evidence/EV-3\",\"requested_at\":\"2026-10-12T09:30:00Z\",\"outcome\":"
+                + outcome + ",\"waiver_id\":" + waiverId + ",\"answered\":" + answered
+                + ",\"pr_comment_ref\":\"IC_kwDO12\"}";
+    }
+
+    static final String ANSWERED_WEB = "{\"channel\":\"web\",\"device_id\":\"dev-0123456789ab\",\"reason\":null,"
+            + "\"at\":\"2026-10-12T09:40:00Z\"}";
+    static final String ANSWERED_CLI = "{\"channel\":\"cli\",\"device_id\":null,\"reason\":\"not now\","
+            + "\"at\":\"2026-10-12T09:40:00Z\"}";
+    static final String PENDING = request("null", "null", "null");
+
+    static String withRequests(String... requests) {
+        return DOCUMENT.replace("\"waiver_requests\":[]", "\"waiver_requests\":[" + String.join(",", requests) + "]");
+    }
+
+    static Stream<Arguments> requestsPerOutcome() {
+        return Stream.of(
+                Arguments.of("pending", PENDING, null),
+                Arguments.of("waived", request("\"waived\"", "\"W-2\"", ANSWERED_WEB), WaiverRequestOutcome.WAIVED),
+                Arguments.of("raised", request("\"raised\"", "\"W-3\"", ANSWERED_WEB), WaiverRequestOutcome.RAISED),
+                Arguments.of("declined", request("\"declined\"", "null", ANSWERED_CLI), WaiverRequestOutcome.DECLINED),
+                Arguments.of("cancelled", request("\"cancelled\"", "null", "null"), WaiverRequestOutcome.CANCELLED));
+    }
+
+    static Stream<Arguments> requestRefusals() {
+        return Stream.of(
+                Arguments.of("an unknown outcome", request("\"lapsed\"", "null", "null"),
+                        "'waiver_requests.outcome' has the undeclared value 'lapsed'"),
+                Arguments.of("the outcome expired, which no request has", request("\"expired\"", "null", "null"),
+                        "'waiver_requests.outcome' has the undeclared value 'expired'"),
+                Arguments.of("a time limit member", PENDING.replace("\"pr_comment_ref\"",
+                        "\"expires_at\":\"2026-10-13T09:30:00Z\",\"pr_comment_ref\""), "undeclared field 'expires_at'"),
+                Arguments.of("a missing rationale", PENDING.replace(
+                                "\"rationale\":\"the check fails on the runner only\",", ""),
+                        "field 'rationale' of the waiver request 'waiver_requests[0]' is missing"),
+                Arguments.of("an empty rationale", PENDING.replace("the check fails on the runner only", ""),
+                        "The rationale of a waiver request has 1 to 2000 characters, not 0"),
+                Arguments.of("a rationale over 2000 characters", PENDING.replace("the check fails on the runner only",
+                        "r".repeat(2001)), "The rationale of a waiver request has 1 to 2000 characters, not 2001"),
+                Arguments.of("a request id of another form", PENDING.replace("\"WR-1\"", "\"W-1\""),
+                        "Not a waiver request id (WR- and digits): W-1"),
+                Arguments.of("a waiver id of another form", request("\"waived\"", "\"WR-2\"", ANSWERED_WEB),
+                        "Not a waiver id (W- and digits): WR-2"),
+                Arguments.of("an answer through another channel", request("\"declined\"", "null",
+                        ANSWERED_CLI.replace("\"cli\"", "\"quorum\"")),
+                        "'answered.channel' has the undeclared value 'quorum'"),
+                Arguments.of("an answer without its device id", request("\"declined\"", "null",
+                        ANSWERED_CLI.replace("\"device_id\":null,", "")), "field 'device_id' of the answered is missing"),
+                Arguments.of("an answer from a device id of another form", request("\"waived\"", "\"W-2\"",
+                        ANSWERED_WEB.replace("dev-0123456789ab", "dev-XYZ")),
+                        "Not a device id (dev- and 12 hex digits): dev-XYZ"),
+                Arguments.of("a decline reason over 2000 characters", request("\"declined\"", "null",
+                        ANSWERED_CLI.replace("not now", "r".repeat(2001))),
+                        "The reason of an answer has at most 2000 characters, not 2001"),
+                Arguments.of("a rationale over 2000 supplementary characters", PENDING.replace(
+                                "the check fails on the runner only", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001)),
+                        "The rationale of a waiver request has 1 to 2000 characters, not 2001"),
+                Arguments.of("a decline reason over 2000 supplementary characters", request("\"declined\"", "null",
+                        ANSWERED_CLI.replace("not now", WaiverRecordCodecTest.SUPPLEMENTARY.repeat(2001))),
+                        "The reason of an answer has at most 2000 characters, not 2001"),
+                Arguments.of("a request that is no object", "\"WR-1\"", "'waiver_requests[0]' must be an object"));
+    }
+
+    @Nested
+    @DisplayName("the waiver requests")
+    class WaiverRequests {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.core.store.WorkflowStatusCodecTest#requestsPerOutcome")
+        @DisplayName("a request of each outcome, and a pending one, is typed and written back byte for byte")
+        void roundTripPerOutcome(String name, String request, WaiverRequestOutcome outcome) {
+            var document = withRequests(request);
+
+            var status = read(document);
+
+            var typed = status.waiverRequests().getFirst();
+            assertAll(
+                    () -> assertArrayEquals(bytes(document), WorkflowStatusCodec.write(status)),
+                    () -> assertEquals(1, status.waiverRequests().size()),
+                    () -> assertEquals(outcome, typed.outcome()),
+                    () -> assertEquals("WR-1", typed.requestId()),
+                    () -> assertEquals("retry_budget:ci-failure", typed.gate()),
+                    () -> assertEquals(Instant.parse("2026-10-12T09:30:00Z"), typed.requestedAt()),
+                    () -> assertFalse(status.retained().containsKey("waiver_requests"), "no longer retained"));
+        }
+
+        @Test
+        @DisplayName("the members of a request and of its answer are typed")
+        void typedRequest() {
+            var request = read(withRequests(request("\"waived\"", "\"W-2\"", ANSWERED_WEB))).waiverRequests()
+                    .getFirst();
+
+            assertAll(
+                    () -> assertEquals("remediation.ci-failure", request.policy()),
+                    () -> assertEquals("the check fails on the runner only", request.rationale()),
+                    () -> assertEquals("pm://plan/workflow-engine/evidence/EV-3", request.evidenceUri()),
+                    () -> assertEquals("W-2", request.waiverId()),
+                    () -> assertEquals("IC_kwDO12", request.prCommentRef()),
+                    () -> assertEquals(WaiverRecord.Channel.WEB, request.answered().channel()),
+                    () -> assertEquals("dev-0123456789ab", request.answered().deviceId()),
+                    () -> assertNull(request.answered().reason()),
+                    () -> assertEquals(Instant.parse("2026-10-12T09:40:00Z"), request.answered().at()));
+        }
+
+        @ParameterizedTest(name = "{0} supplementary characters")
+        @ValueSource(ints = {1, 1500, 2000})
+        @DisplayName("a rationale and a decline reason are counted in characters, as the schema counts them")
+        void textLengthInCodePoints(int characters) {
+            var text = WaiverRecordCodecTest.SUPPLEMENTARY.repeat(characters);
+            var declined = request("\"declined\"", "null", ANSWERED_CLI.replace("not now", text))
+                    .replace("the check fails on the runner only", text);
+
+            var request = read(withRequests(declined)).waiverRequests().getFirst();
+
+            assertAll(
+                    () -> assertEquals(text, request.rationale()),
+                    () -> assertEquals(text, request.answered().reason()));
+        }
+
+        @Test
+        @DisplayName("several requests keep the order of the document")
+        void order() {
+            var second = PENDING.replace("\"WR-1\"", "\"WR-2\"");
+            var document = withRequests(request("\"declined\"", "null", ANSWERED_CLI), second);
+
+            var status = read(document);
+
+            assertAll(
+                    () -> assertEquals(List.of("WR-1", "WR-2"),
+                            status.waiverRequests().stream().map(WaiverRequest::requestId).toList()),
+                    () -> assertArrayEquals(bytes(document), WorkflowStatusCodec.write(status)));
+        }
+
+        @Test
+        @DisplayName("a document without waiver_requests reads as no request and is written with []")
+        void absentReadsEmpty() {
+            var document = DOCUMENT.replace("\"waiver_requests\":[],", "");
+
+            var status = read(document);
+
+            assertAll(
+                    () -> assertEquals(List.of(), status.waiverRequests()),
+                    () -> assertArrayEquals(bytes(DOCUMENT), WorkflowStatusCodec.write(status)));
+        }
+
+        @Test
+        @DisplayName("a request with only its required members reads its other members as null")
+        void requiredOnly() {
+            var minimal = "{\"request_id\":\"WR-1\",\"gate\":\"ci\",\"rationale\":\"r\","
+                    + "\"requested_at\":\"2026-10-12T09:30:00Z\"}";
+
+            var request = read(withRequests(minimal)).waiverRequests().getFirst();
+
+            assertAll(
+                    () -> assertNull(request.policy()),
+                    () -> assertNull(request.evidenceUri()),
+                    () -> assertNull(request.outcome()),
+                    () -> assertNull(request.waiverId()),
+                    () -> assertNull(request.answered()),
+                    () -> assertNull(request.prCommentRef()));
+        }
+
+        @Test
+        @DisplayName("a null component is refused, never turned into an empty list")
+        void nullComponentRefused() {
+            var builder = read(DOCUMENT).toBuilder().waiverRequests(null);
+
+            var thrown = assertThrows(NullPointerException.class, builder::build);
+
+            assertEquals("waiverRequests", thrown.getMessage());
+        }
+
+        @Test
+        @DisplayName("the workspace scope carries no waiver request and is written without the member")
+        void planScopeOnly() {
+            var workspace = read(WORKSPACE);
+            var pending = read(withRequests(PENDING)).waiverRequests();
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> workspace.withWaiverRequests(pending)),
+                    () -> assertFalse(written(workspace).contains("waiver_requests")));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.core.store.WorkflowStatusCodecTest#requestRefusals")
+        @DisplayName("a request outside its schema is refused as unreadable, naming the file and the member")
+        void refused(String name, String request, String detail) {
+            var document = withRequests(request);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertEquals(FILE, refusal.file()),
+                    () -> assertTrue(refusal.getMessage().contains(detail), refusal.getMessage()));
         }
     }
 

@@ -41,29 +41,11 @@ What the enrolment verb and the job runtime do with the fields of an enrolment:
 === Project Store Identity (`<PM_MCP_BASE>/projects/<project_id>/store.json`)
 _Implementation watch: link:../../implementation-watch/credentials-and-enrolment.adoc#PM-WATCH-CLI-23[PM-WATCH-CLI-23]_
 
-The per-project machine store records the main checkout it belongs to, the project's display name, and its unenrolment. The enrolment writes `store.json` when it creates the store, under the project's workspace lock (`locks/workspace.lock`); `project_id` and `project_root` never change afterwards. The operator renames the project in either client (`display_name`); `pm-operator project unenrol <id>` and the unenrol act of either client remove only the enrolment file and its sidecar, leave the store in place, and record `unenrolled_at`; from then on the store is an item of the cleanup, deleted whole once it has been unenrolled longer than `cleanup.unenrolled_after_days` (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]), and never a candidate of the periodic sweep. Enrolling the same `project_id` again removes `unenrolled_at` and reuses the store only when the new `project_root` equals the recorded one; otherwise the enrolment is refused (`project_store_root_mismatch`), naming both roots. After the cleanup deleted the store, an enrolment starts a new one.
+The identity record is implemented: `store.json` with its closed, typed schema and its strict reading, written once when the store is created, under the project's workspace lock (`locks/workspace.lock`), and never rewritten, so `project_id` and `project_root` never change afterwards; a missing and an unreadable record are outcomes of their own (link:../../../pm-core/doc/developer/core-store.adoc#_project_store[Scope Stores Developer Guide § The Per-Project Machine Store], link:../../../pm-core/doc/adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR core-store/038]). The schema is the type link:../../../pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentity.java[`ProjectStoreIdentity`] and its codec `ProjectStoreIdentityCodec`. This section keeps what is not implemented yet: the acts of enrolment, rename and unenrolment that write it.
 
-*Display name* (xref:02-workflow-state-store.adoc#titles[Titles and Names]): proposed at enrolment from the remote's owner and name (`<owner>/<name>`), changed by the operator before the enrolment or later; display only, never an identifier.
+The per-project machine store records the main checkout it belongs to, the project's display name, and its unenrolment. The enrolment creates the store and writes `store.json`. The operator renames the project in either client (`display_name`); `pm-operator project unenrol <id>` and the unenrol act of either client remove only the enrolment file and its sidecar, leave the store in place, and record `unenrolled_at`; from then on the store is an item of the cleanup, deleted whole once it has been unenrolled longer than `cleanup.unenrolled_after_days` (link:../timeouts/03-retention-host-config.adoc#cleanup[Timeouts & Budgets Specification, One Cleanup]), and never a candidate of the periodic sweep. Enrolling the same `project_id` again removes `unenrolled_at` and reuses the store only when the new `project_root` equals the recorded one; otherwise the enrolment is refused (`project_store_root_mismatch`), naming both roots. After the cleanup deleted the store, an enrolment starts a new one.
 
-[source,json]
-----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/project-store.json",
-  "title": "ProjectStoreIdentity",
-  "type": "object",
-  "required": ["format_version", "project_id", "project_root", "display_name", "created_at", "unenrolled_at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "project_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "Equals the store directory name; proposed from the remote's name, valid by the identifier grammar and unique on the machine, confirmed by the operator." },
-    "project_root": { "type": "string", "minLength": 1, "description": "Canonical absolute path of the main checkout at the enrolment that created the store." },
-    "display_name": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The project's name for the operator." },
-    "created_at": { "type": "string", "format": "date-time" },
-    "unenrolled_at": { "type": ["string", "null"], "format": "date-time", "description": "Set by unenrol, removed by a new enrolment." }
-  }
-}
-----
+*Display name* (xref:02-workflow-state-store.adoc#titles[Titles and Names]): proposed at enrolment from the remote's owner and name (`<owner>/<name>`), changed by the operator before the enrolment or later; display only, never an identifier. The `project_id` is proposed from the remote's name, valid by the identifier grammar and unique on the machine, and confirmed by the operator.
 
 [#harness-enrolment-store]
 == Harness Enrolment Store (`<PM_MCP_BASE>/harnesses.json`)

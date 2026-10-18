@@ -244,54 +244,20 @@ A plan's own values, nearest of the levels of its configuration (link:../workflo
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-3[PM-SEC-3: Operator Channel Isolation (Operator CLI & Paired Web Devices)]_
 _Implementation watch: link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-38[PM-WATCH-STORE-38]_
 
-A waiver is the operator's only influence on the gates and budgets of a running plan: it declares a waivable gate met (`mode: met`) or raises a remediation budget ceiling (`mode: raise`). `plans/<plan_id>/waivers.jsonl` is append-only and has exactly one writer, the runtime executing the operator's act from either client (`waive` / `unwaive`; in the terminal client `pm-operator waive` / `unwaive`, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI, Coordination & Security Specification, Waivers]); no primitive has a write capability for it (compiled invariant `INV-GEN-2`). Every line is mirrored to `audit.jsonl`, and every `waived` or `revoked` line composes a new plan instance version (event `waiver`).
+The waiver logs of a plan are implemented: the closed, typed records of `plans/<plan_id>/waivers.jsonl` and `plans/<plan_id>/waiver-consumptions.jsonl` with their strict reading and writing, both appended only through the plan's scope transaction and read as the last readable line of a waiver (link:../../../pm-core/doc/developer/core-store.adoc#_waiver_logs[Scope Stores Developer Guide § The Waiver Logs], link:../../../pm-core/doc/adr/core-store/034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR core-store/034]). The schema of a waiver line is the type link:../../../pm-core/src/main/java/de/planmarshall/core/store/WaiverRecord.java[`WaiverRecord`] and its codec `WaiverRecordCodec`, that of a consumption line link:../../../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionRecord.java[`WaiverConsumptionRecord`] and its codec `WaiverConsumptionCodec`. This section keeps what is not implemented yet.
 
-[source,json]
-----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/waiver-record.json",
-  "title": "WaiverRecord",
-  "type": "object",
-  "required": ["format_version", "event", "waiver_id", "reason", "operator", "at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "event": { "type": "string", "enum": ["waived", "revoked"] },
-    "waiver_id": { "type": "string", "pattern": "^W-[0-9]+$" },
-    "gate": { "type": "string", "description": "waived only: a closed gate identifier (identifiers.adoc, waivable gate identifier); a met waiver names a gate, a raise a fix_budget:<policy>, retry_budget:<policy>, or fix_budget:outline-loop-back." },
-    "mode": { "type": "string", "enum": ["met", "raise"] },
-    "value": { "type": ["integer", "null"], "minimum": 0, "description": "raise only: the new absolute ceiling, above the effective ceiling in force and at most the compiled hard cap (timeouts.adoc, Remediation Budgets)." },
-    "reason": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Mandatory on waived and on revoked." },
-    "reason_class": { "type": "string", "enum": ["gate_false_positive", "gate_not_applicable", "tooling_unavailable", "deliberate_deferral", "unknown"], "description": "waived only: the operator's class of the reason (default unknown); mirrored into the audit log with the gate, where the Artifact Gate recurrence count and the lessons-capture signal read it." },
-    "request_id": { "type": ["string", "null"], "pattern": "^WR-[0-9]+$", "description": "The waiver request it answers, when the operator answers one." },
-    "operator": {
-      "type": "object",
-      "required": ["channel", "os_principal"],
-      "additionalProperties": false,
-      "properties": {
-        "channel": { "type": "string", "enum": ["cli", "web"] },
-        "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$" },
-        "os_principal": { "type": "string" }
-      }
-    },
-    "at": { "type": "string", "format": "date-time", "description": "created_at of a waived line, revoked_at of a revoked line." }
-  },
-  "allOf": [
-    { "if": { "properties": { "event": { "const": "waived" } } }, "then": { "required": ["gate", "mode", "reason_class"] } },
-    { "if": { "properties": { "mode": { "const": "raise" } }, "required": ["mode"] }, "then": { "required": ["value"], "properties": { "value": { "type": "integer" } } } }
-  ]
-}
-----
+A waiver is the operator's only influence on the gates and budgets of a running plan: it declares a waivable gate met (`mode: met`) or raises a remediation budget ceiling (`mode: raise`). `plans/<plan_id>/waivers.jsonl` has exactly one writer, the runtime executing the operator's act from either client (`waive` / `unwaive`; in the terminal client `pm-operator waive` / `unwaive`, link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI, Coordination & Security Specification, Waivers]); no primitive has a write capability for it (compiled invariant `INV-GEN-2`). Every line is mirrored to `audit.jsonl`, and every `waived` or `revoked` line composes a new plan instance version (event `waiver`). The `reason_class` of a `waived` line is mirrored into the audit log with the gate, where the Artifact Gate recurrence count and the lessons-capture signal read it.
 
 * *Plan-Scoped, not HEAD-Bound*: A `met` waiver applies to every evaluation of its gate after it is set, for the rest of the plan (a known-flaky check stays waived after a later push). It can be set at any time until the gate's fallback is taken, including before the plan's first transition and after a failing evaluation; once the fallback of the gate was taken or the plan has ended it is refused (`plan_ended`).
 * *Raise*: `raise` sets the new absolute ceiling of `fix_budget:<policy>`, `retry_budget:<policy>`, or `fix_budget:outline-loop-back` (the per-plan counter `outline_loop_backs`). The consumed budget stays the per-plan counter of the status store, so a re-composition never resets it (xref:02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Workflow State Store], `policy_counters`). A value at or below the effective ceiling, or above the compiled hard cap, is refused (`raise_out_of_range`). Revoking a `raise` (`unwaive`) lowers the ceiling from the next budget check on: a counter already above the restored ceiling reads exhausted there, and the unit takes its fallback; no refusal applies to the revocation.
-* *Consumption*: A waivable gate admits a failure only through the primitive `waiver.lookup`, which appends one line per evaluation that relies on a `met` waiver to `plans/<plan_id>/waiver-consumptions.jsonl` (`{format_version, waiver_id, gate, at, state_id, head_sha, covered[]}`, `covered` naming the check names, finding ids, or provider conditions it admitted). `waiver-consumptions.jsonl` has exactly one writer, `waiver.lookup`; the waiver store itself is never written by a primitive. Every consumption is listed in the pull request comment and the landing record.
+* *Consumption*: A waivable gate admits a failure only through the primitive `waiver.lookup`, which appends one line per evaluation that relies on a `met` waiver to `plans/<plan_id>/waiver-consumptions.jsonl`. `waiver-consumptions.jsonl` has exactly one writer, `waiver.lookup`; the waiver store itself is never written by a primitive. Every consumption is listed in the pull request comment and the landing record.
 * *Refusals*: `not_waivable` (an unknown gate or one on the non-waivable list: integrity breaches, the footprint and main-checkout guards, job confinement, credentials, security findings, the operator boundary, a build failure, a merge conflict, a provider refusal of the merge), `plan_ended`, `already_consumed` (`unwaive` of a waiver with at least one consumption), `raise_out_of_range`, `position_not_contained` (<<plan-instance>>, Position Rule).
 
 [#waiver-request-record]
 === Waiver Request Record (`mcp/status.json` → `waiver_requests[]`)
 _Implementation watch: link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-40[PM-WATCH-STORE-40]_
+
+The waiver request is implemented as the typed member `waiver_requests[]` of the plan's status document, with its closed outcomes and no time limit (link:../../../pm-core/doc/developer/core-store.adoc#_waiver_requests[Scope Stores Developer Guide § The Waiver Requests of a Plan], link:../../../pm-core/doc/adr/core-store/035-waiver-requests-typed-in-the-status-document.adoc[ADR core-store/035]; the types link:../../../pm-core/src/main/java/de/planmarshall/core/store/WaiverRequest.java[`WaiverRequest`] and `WaiverRequestOutcome`). The schema below stays, because `WorkflowStatusSchemaParityTest` checks the members, the required members and the closed values of the codec against it. The filing, the answer, the announcement and the pull request comment are not implemented yet.
 
 A worker's `request_waiver` in the decision task (`choose`) of a remediation unit (offered whenever the failing gate is waivable) files a request, and the remediation unit's state that awaits it is an operator wait of the plan (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]). A waiver request is never a question record and offers no chat: it is answered only by the operator's `waive` (a `met` waiver or a `raise`) or `decline`, in either client, and the decline records the outcome `declined` and lets the remediation unit take its next transition (link:../../../../plan-marshall-documentation/doc/specification/cli-and-security/02-operator-channel.adoc#operator-waive[CLI, Coordination & Security Specification, Waivers]).
 
@@ -409,100 +375,19 @@ A step-out consumes no budget and writes no waiver; a worker never ends or hands
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-12[PM-WF-12: Question Records vs Operator Overrides], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum]_
 _Implementation watch: link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-40[PM-WATCH-STORE-40]_
 
-A decision is a set of questions, each question one of its parts (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]); it is named by the `question_id` of its first question and addressed across scopes as `<scope_id>/<question_id>`. Every question is a server-owned question record, created by a task (through the `ask` link, offered only where the task's state declares `ask` (link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States (`job llm`), item 8]), or through `ask:TASK-NNN` on a task envelope entity, after which the task ends with outcome `asked` unless it continues after the question; or as a part of the optional `decision` of a refine or outline `submit` (`decision:schema[decision-envelope]?`)) or by a server primitive (init classifiers, the outline review where the plan's asking variant asks it, the workspace setup's choices that write team configuration). The store is append-only, one file per scope: `plans/<plan_id>/questions.jsonl`, `epics/<epic_id>/questions.jsonl`, `workspace/questions.jsonl`, and an entry's `pending/<entry_id>/questions.jsonl`, which moves into the new scope at its creation (xref:01-format-and-session-log.adoc#pending-entry-record[Pending Entry]). Overrides (waivers, access grants, ending a plan or an epic, integrity resolutions), consents, choices that write operator configuration, and the other choices of an entry, of the project setup, and of the onboarding are operator waits without a question record (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]).
+The question log is implemented: the closed, typed question record with its strict reading and writing, one append-only `questions.jsonl` per plan, epic and workspace scope and `pending/<entry_id>/questions.jsonl` of an entry, moved into the new scope at its creation, appended only through the scope's transaction, with the record's own invariants held by the store under the scope lock: a `revised` line for every open question of the set, each with the next revision, at most one closing line (`answered`, `withdrawn` or `cancelled`) per question (an open question has none), a further line about a closed question refused `already_answered`, and an answer, adjudication or delivery of another than the current revision refused `conflict` with the current revision (link:../../../pm-core/doc/developer/core-store.adoc#_question_log[Scope Stores Developer Guide § The Question Log], link:../../../pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR core-store/032], link:../../../pm-core/doc/adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR core-store/033], link:../../../pm-core/doc/adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR core-store/036]). The schema is the type link:../../../pm-core/src/main/java/de/planmarshall/core/store/QuestionRecord.java[`QuestionRecord`] and its codec `QuestionRecordCodec`; its part `envelope` is valid against the named parameter schema `question-envelope` (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]). This section keeps what is not implemented yet.
 
-[source,json]
-----
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/question-record.json",
-  "title": "QuestionRecord",
-  "type": "object",
-  "required": ["format_version", "event", "question_id", "at"],
-  "additionalProperties": false,
-  "properties": {
-    "format_version": { "type": "integer", "const": 1 },
-    "event": { "type": "string", "enum": ["asked", "revised", "adjudicated", "delivered", "answered", "withdrawn", "cancelled"] },
-    "question_id": { "type": "string", "pattern": "^Q-[0-9]{3,6}$" },
-    "class": { "type": "string", "enum": ["init", "clarification", "review", "task", "setup", "ask"], "description": "asked only. ask: an optional model-initiated question outside the other classes." },
-    "origin": { "type": "string", "enum": ["model", "server"], "description": "asked only. model: created by a task (ask, ask:TASK-NNN, a part of a submit's decision); server: raised by a primitive (classifier, gate, setup probe)." },
-    "source_entity": { "type": "string", "minLength": 1, "description": "asked only, never null: the entity of the asking task for origin model (for example envelope-2, refine), the id of the creating state for origin server." },
-    "asking_role": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "asked only: the role of the asking task; null for origin server." },
-    "phase": { "type": ["string", "null"], "description": "asked only: the phase value of the asking scope at creation (store-schemas/03, Phases as Sub-Workflows); null outside a plan." },
-    "question_set": { "type": "string", "pattern": "^Q-[0-9]{3,6}$", "description": "asked only: the question_id of the first question of the set the question was created with, which names the decision (model-work/10, Recommendation Score)." },
-    "plan_task_id": { "type": ["string", "null"], "pattern": "^TASK-[0-9]{3,}$", "description": "class task only: the plan task that asked; null otherwise." },
-    "revision": { "type": "integer", "minimum": 1, "description": "asked: 1; revised: the decision's new revision; adjudicated, delivered: the revision adjudicated or delivered; answered: the revision the answer answers." },
-    "decision": {
-      "type": "object",
-      "description": "asked and revised, on the first question of the set only: what the decision as a whole carries (model-work/06, The Decision Structure).",
-      "required": ["title", "header", "description", "evidence", "blocks", "reversibility"],
-      "additionalProperties": false,
-      "properties": {
-        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "header": { "type": "string", "minLength": 1, "maxLength": 300 },
-        "description": { "type": "string", "maxLength": 8000 },
-        "evidence": { "type": "array", "maxItems": 50, "items": { "type": "object", "required": ["kind", "ref"], "additionalProperties": false, "properties": { "kind": { "type": "string", "enum": ["file", "diff", "finding", "link"] }, "ref": { "type": "string", "minLength": 1, "maxLength": 2048 }, "label": { "type": ["string", "null"], "maxLength": 200 } } } },
-        "blocks": { "type": "string", "enum": ["plan", "task", "nothing"] },
-        "reversibility": { "type": "string", "enum": ["reversible", "costly", "irreversible"] }
-      }
-    },
-    "envelope": {
-      "type": "object",
-      "description": "asked and revised: the question as the part of its decision, valid against the named parameter schema question-envelope (its answer type, options, optional dependency, whether own words and notes are allowed, and the recommendation as a field of the part; model-work/06, The Decision Structure) minus its server-owned question_id, class, origin, and source_entity, which this record carries as its own members; never restated here. A server-raised question carries the same fields from its primitive, its options server-owned."
-    },
-    "decision_id": { "type": "string", "pattern": "^D-[0-9]{4,7}$", "description": "adjudicated: the question.adjudicate decision record of the revision; answered: the record of the decision finally taken (the question.answer record, or the adjudication record of a decided set) (store-schemas/18, Decision Record)." },
-    "answer": {
-      "type": "object",
-      "description": "answered only: the answer to this part.",
-      "required": ["kind", "branch_keys", "value", "own_words", "note", "interpretation", "after_chat"],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "type": "string", "enum": ["chosen", "interpreted", "own_option", "delegated", "none_fits"], "description": "chosen: options or a value picked; interpreted: own words mapped onto an option, or an option with a condition, confirmed at the read-back; own_option: words that fit no option, recorded as the operator's own option in the operator's words; delegated: the operator left the choice to the decision where it allows that; none_fits: the whole decision answered none fits where offered; a quorum's answer is chosen." },
-        "branch_keys": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" }, "description": "The options taken; empty for a value, an own option, and none fits." },
-        "value": { "type": ["string", "number", "null"], "description": "The value of a part whose answer type is a value; null otherwise." },
-        "own_words": { "type": ["string", "null"], "maxLength": 4000, "description": "The operator's own words, verbatim and never screened; null when none were written." },
-        "note": { "type": ["string", "null"], "maxLength": 2000 },
-        "interpretation": {
-          "type": ["object", "null"],
-          "description": "interpreted, own_option, delegated: the confirmed result of decision.interpret (model-work/06, Answers in the Operator's Own Words); null otherwise.",
-          "required": ["result", "condition", "passages", "queue_task_id"],
-          "additionalProperties": false,
-          "properties": {
-            "result": { "type": "string", "enum": ["option", "option_with_condition", "own_option", "delegation"], "description": "A result unclear is never confirmed and never stored." },
-            "condition": { "type": ["string", "null"], "maxLength": 2000 },
-            "passages": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1000 }, "description": "The passages of the operator's words the result rests on, each occurring in own_words." },
-            "queue_task_id": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$", "description": "The task of the interpreting role." }
-          }
-        },
-        "after_chat": { "type": "boolean", "description": "The answer followed a chat in the decision; an answer the chat proposed enters as the operator's own words." }
-      }
-    },
-    "channel": { "type": "string", "enum": ["web", "cli", "quorum"], "description": "answered only. web: a paired device of the web app; cli: the terminal client (Answers from the Terminal Client); quorum: the set was decided by the quorum its declaration names." },
-    "device_id": { "type": ["string", "null"], "pattern": "^dev-[0-9a-f]{12}$", "description": "answered only: the paired device for channel web; null otherwise." },
-    "amendment_id": { "type": ["string", "null"], "pattern": "^A-[0-9]+$", "description": "answered only: the amendments[] entry the answer created, when it changed intent." },
-    "reason": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]*$", "description": "withdrawn and cancelled: why the server closed the question (for example removed_by_revision, scope_ended)." },
-    "at": { "type": "string", "format": "date-time", "description": "asked_at, revised_at, adjudicated_at, delivered_at, answered_at, withdrawn_at, or cancelled_at." }
-  },
-  "allOf": [
-    { "if": { "properties": { "event": { "const": "asked" } } }, "then": { "required": ["class", "origin", "source_entity", "asking_role", "phase", "question_set", "envelope", "revision"] } },
-    { "if": { "properties": { "event": { "const": "revised" } } }, "then": { "required": ["envelope", "revision"] } },
-    { "if": { "properties": { "event": { "const": "adjudicated" } } }, "then": { "required": ["decision_id", "revision"] } },
-    { "if": { "properties": { "event": { "const": "delivered" } } }, "then": { "required": ["revision"] } },
-    { "if": { "properties": { "event": { "const": "answered" } } }, "then": { "required": ["revision", "answer", "channel", "device_id", "decision_id"] } },
-    { "if": { "properties": { "event": { "enum": ["withdrawn", "cancelled"] } } }, "then": { "required": ["reason"] } }
-  ]
-}
-----
+A decision is a set of questions, each question one of its parts (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]); it is named by the `question_id` of its first question and addressed across scopes as `<scope_id>/<question_id>`. Every question is a server-owned question record, created by a task (through the `ask` link, offered only where the task's state declares `ask` (link:../workflow-dsl/02-units-jobs-decisions.adoc#model-job-states[Workflow DSL Specification, Task States (`job llm`), item 8]), or through `ask:TASK-NNN` on a task envelope entity, after which the task ends with outcome `asked` unless it continues after the question; or as a part of the optional `decision` of a refine or outline `submit` (`decision:schema[decision-envelope]?`)) or by a server primitive (init classifiers, the outline review where the plan's asking variant asks it, the workspace setup's choices that write team configuration). Overrides (waivers, access grants, ending a plan or an epic, integrity resolutions), consents, choices that write operator configuration, and the other choices of an entry, of the project setup, and of the onboarding are operator waits without a question record (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]).
 
-* *Decision and Parts*: the `asked` line of the first question carries `decision`; every `asked` line carries its part in `envelope`. What a decision blocks and how reversible it is are set by its creator: the asking task's submit, or for a server-raised question its primitive (model-work/06, The Decision Structure). The record stores the decision; the support per option (counts, roles and models, dissent) is derived by the runtime from the votes of the adjudication's decision record and never stored here (link:../model-work/10-decision-quorum.adoc[Model Work Specification, Decision Quorum]).
-* *Revision*: a change of an open decision appends a `revised` line for every question of the set, with the new revision, in the transaction of the change; an answer names the revision it answers, so that an answer from a second client to an older revision is refused.
+* *Decision and Parts*: what a decision blocks and how reversible it is are set by its creator: the asking task's submit, or for a server-raised question its primitive (model-work/06, The Decision Structure); a server-raised question carries the fields of its part from its primitive, its options server-owned. The support per option (counts, roles and models, dissent) is derived by the runtime from the votes of the adjudication's decision record and never stored here (link:../model-work/10-decision-quorum.adoc[Model Work Specification, Decision Quorum]).
+* *Revision*: a change of an open decision is revised in the transaction of the change; an answer from a second client to an older revision is refused.
 * *Delivery*: a decision is delivered to both clients of the operator as an operator wait of its scope, after its adjudication where a quorum is declared: the transaction that opens the wait appends a `delivered` line for every question of the set, whose `at` is the decision's `delivered_at` in the list of open decisions across scopes (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[Runtime & Interaction Model Specification, What Needs the Operator]). It has no deadline and no fallback by time; it ends only by an answer through a channel of this record, by its withdrawal, or by the end of its scope. A question never stops a worker: the asking task has ended `asked`, or holds its task for the answer within its role's hold limit (link:../model-work/06-envelopes-questions-deadlines.adoc#continuation[Model Work Specification, Continuing after a Question]). No channel is configured per project.
-* *Answer Validation*: every channel passes the same validation, refused over the local API with its error codes (link:../model-work/06-envelopes-questions-deadlines.adoc#answers-and-amendments[Model Work Specification, Answers & Amendments]): an unknown option or an invalid value is refused `invalid_answer`, and so are own words, a note, a delegation, or _none fits_ where the part or the decision does not allow them; a second answer or an answer to a closed record is refused `already_answered`, an answer to an older revision `conflict` (carrying the current revision), and an answer to a part whose dependency is unanswered `dependency_unanswered`. A worker's vote in an adjudication is refused `invalid_link_args`. _Later_ records nothing: the decision stays open.
+* *Answer Validation*: every channel passes the same validation, refused over the local API with its error codes (link:../model-work/06-envelopes-questions-deadlines.adoc#answers-and-amendments[Model Work Specification, Answers & Amendments]): an unknown option or an invalid value is refused `invalid_answer`, and so are own words, a note, a delegation, or _none fits_ where the part or the decision does not allow them, and an answer to a part whose dependency is unanswered is refused `dependency_unanswered`; the refusals `already_answered` and `conflict` of the store reach the channel with the same codes. A worker's vote in an adjudication is refused `invalid_link_args`. _Later_ records nothing: the decision stays open.
 * *Own Words*: an answer in the operator's own words is recorded only after the operator confirmed its read-back (link:../model-work/06-envelopes-questions-deadlines.adoc#own-words[Model Work Specification, Answers in the Operator's Own Words]): `interpreted` with its interpretation, `own_option` for words that fit no option, never the closest option in their place, and `delegated` only where the decision allows a delegation. The words are the operator's own and never screened; a model that reads them later gets them as quoted data in its facts.
 * *None Fits*: where it is offered, a worker's decision answered _none fits_ is closed by that answer and its asking role asks anew; a decision with a declared quorum is revised and voted on again.
 * *Adjudication*: where the decision's declaration names a quorum, every record of a set gets exactly one `adjudicated` line per revision before it is delivered or answered, naming the revision's adjudication decision record, which holds the outcome, the reason, and the votes (xref:18-decision-records.adoc#decision-record[Decision Record]; semantics in link:../model-work/10-decision-quorum.adoc#adjudication-record[Model Work Specification, Ask or Quorum, Record]). The `adjudicated` line of a `decided` set is followed by the `answered` line with `channel: quorum` in the same transaction; an escalated set is delivered as an operator wait.
 * *Decision*: every `answered` line names the decision record of the decision finally taken, appended in the same transaction (link:../model-work/11-decision-records.adoc#question-decisions[Model Work Specification, Question Decisions & Quorum]).
-* *Closure*: a question is closed by exactly one `answered`, `withdrawn`, or `cancelled` line. The server withdraws an open decision when a revision of the plan the operator accepted in a chat removes the task or state that asked it (reason `removed_by_revision`); the end of its scope (cancel, abandon, the release of the project, the integrity abort, `delete-plan`, the abandoning of an entry) cancels every open question (reason `scope_ended`). An integrity pause holds an open decision; it never closes it.
+* *Closure*: the server withdraws an open decision when a revision of the plan the operator accepted in a chat removes the task or state that asked it (reason `removed_by_revision`); the end of its scope (cancel, abandon, the release of the project, the integrity abort, `delete-plan`, the abandoning of an entry) cancels every open question (reason `scope_ended`), except while `questions.jsonl` holds a line refused when read: the store then refuses the cancel append `unreadable` and the open questions stay open (link:../../../pm-core/doc/adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR core-store/039]). An integrity pause holds an open decision; it never closes it.
 * *Amendments*: an answer creates an `amendments[]` entry only when it changes intent (refine answers still go to `request.md`); the entry names the `question_id` (xref:02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Workflow State Store]).
 
 [#cli-answers]

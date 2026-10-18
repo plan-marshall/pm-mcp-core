@@ -423,6 +423,7 @@ final class EngineFixtures {
                 .state(state)
                 .callStack(List.of())
                 .policyCounters(Map.of())
+                .waiverRequests(List.of())
                 .retryCounters(RetryCounters.empty())
                 .activeJobs(Map.of())
                 .activeTasks(Map.of())

@@ -1,0 +1,48 @@
+= ADR 036: The Entry's Question File Is Moved by the Store
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+A `pm-mcp enter` on a plan or an epic that does not exist yet runs a bootstrap that may ask questions before the scope
+exists. Those questions are kept in `pending/<entry_id>/questions.jsonl` of the workspace scope. When the bootstrap
+creates the scope, its questions belong to the new scope's `questions.jsonl`. A `ScopeTransaction` writes only the
+stores of its own scope, so one transaction cannot both remove the entry's log and write the new scope's log. The
+pending entry record `pending/<entry_id>.json` (`PendingEntryStore`) is a flat file of the workspace scope.
+
+== Decision
+
+* `QuestionLog.moveEntryQuestions(workspace, entryId, target)` moves the log at store level: it adds the complete
+  lines of the entry's log unchanged as a create target of `questions.jsonl` to the transaction of the new plan or
+  epic, and the delete of the entry's log to the transaction of the workspace. A torn tail is not moved.
+* The move is two targets of two transactions held by the caller that creates the scope. The caller commits the new
+  scope's transaction first, then the workspace's.
+* `PendingEntryStore` is unchanged: the record stays flat, beside the directory of the entry's log.
+
+The move at store level with `PendingEntryStore` kept flat was the operator's decision for the work package.
+
+== Alternatives Considered
+
+1. *A directory per entry for the record and its log in `PendingEntryStore`.*
+_Not taken_: the operator decided to keep the pending entry store flat.
+
+== Consequences
+
+* A stop between the two commits leaves the entry's log in place beside the new scope's log; the create target makes a
+  repeated move fail at its commit instead of appending the lines twice (ADR 028).
+* The lines keep their bytes, so a question keeps its id, set and revision in the new scope.
+* The caller owns the order of the commits; a caller that commits the workspace first could lose the log.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14), and the operator decision to move the entry's questions at store level
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
+  Instance, Waivers and Questions]
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`

@@ -37,6 +37,10 @@ import de.planmarshall.core.store.ConfinementOutcome.Rejected;
  * directory moved by hand, with {@code mv} instead of {@code git worktree move}, leaves a stale {@code gitdir}
  * record and is refused until {@code git worktree repair} has rewritten it.
  * <p>
+ * The recognition is one operation used in both directions: the confinement asks whether a live worktree belongs to
+ * the enrolled root, and the project resolution ({@link ProjectResolver}) asks which main checkout a worktree belongs
+ * to ({@link #linkedMainCheckout(Path)}); both read the same pointer files under the same checks.
+ * <p>
  * The check takes the path as text, so that a text that is no path is a refusal like any other, and it never
  * throws for a path it refuses: an I/O failure during canonicalization is a refusal too.
  * <p>
@@ -179,35 +183,62 @@ public final class PathConfinement {
      *                     a refusal
      */
     private static boolean isLinkedTo(Path worktreeRoot, Path root) throws IOException {
+        return linkedMainCheckout(worktreeRoot).filter(root::equals).isPresent();
+    }
+
+    /**
+     * The recognition of a linked worktree read the other way round: from a candidate worktree to the main checkout
+     * it belongs to, with the same three pointer files and the same checks as {@link #isLinkedTo(Path, Path)}. The
+     * {@code .git} file of the candidate names its git directory, whose {@code commondir} file names the common git
+     * directory and whose {@code gitdir} file names the {@code .git} file back. The candidate is a linked worktree of
+     * a main checkout when
+     * <ul>
+     * <li>the common directory is a directory named {@code .git},</li>
+     * <li>the git directory is registered with it, that is, it lies directly below its {@code worktrees} directory,
+     * and</li>
+     * <li>the {@code gitdir} record of the git directory names the candidate back.</li>
+     * </ul>
+     * The main checkout is then the parent of the common directory. Every pointer file is a regular file, never a
+     * symbolic link, not empty and at most {@value #POINTER_FILE_LIMIT} bytes. The project resolution
+     * ({@link ProjectResolver}) follows a {@code .git} file with this operation, so a worktree is recognised the same
+     * way wherever it is.
+     *
+     * @param worktreeRoot the canonical root of the candidate worktree, which holds a {@code .git} file
+     * @return the canonical main checkout of the candidate; empty when a pointer file fails a check
+     * @throws IOException when a pointer file or the path it names cannot be read; a caller treats it as a refusal
+     */
+    static Optional<Path> linkedMainCheckout(Path worktreeRoot) throws IOException {
         var pointerFile = worktreeRoot.resolve(GIT);
         var gitDirectoryTarget = pointer(pointerFile, GITDIR_PREFIX);
         if (gitDirectoryTarget.isEmpty()) {
-            return false;
+            return Optional.empty();
         }
         var gitDirectory = worktreeRoot.resolve(gitDirectoryTarget.get()).toRealPath();
         var commonDirectoryTarget = pointer(gitDirectory.resolve(COMMONDIR), "");
         if (commonDirectoryTarget.isEmpty()) {
-            return false;
+            return Optional.empty();
         }
         var commonDirectory = gitDirectory.resolve(commonDirectoryTarget.get()).toRealPath();
-        var rootGitDirectory = root.resolve(GIT);
-        return Files.isDirectory(rootGitDirectory, LinkOption.NOFOLLOW_LINKS)
-                && commonDirectory.equals(rootGitDirectory)
-                && isRegistered(gitDirectory, rootGitDirectory)
-                && namesBack(gitDirectory, pointerFile);
+        var mainCheckout = commonDirectory.getParent();
+        if (mainCheckout == null || !GIT.equals(String.valueOf(commonDirectory.getFileName()))
+                || !Files.isDirectory(commonDirectory, LinkOption.NOFOLLOW_LINKS)
+                || !isRegistered(gitDirectory, commonDirectory) || !namesBack(gitDirectory, pointerFile)) {
+            return Optional.empty();
+        }
+        return Optional.of(mainCheckout);
     }
 
     /**
-     * The root is canonical and its {@code .git} is a directory that is no link, so the {@code worktrees}
-     * directory below it is canonical as soon as it is no link either.
+     * The common directory is canonical and a directory that is no link, so the {@code worktrees} directory below it
+     * is canonical as soon as it is no link either.
      *
-     * @param gitDirectory     the canonical git directory of the candidate worktree
-     * @param rootGitDirectory the canonical {@code .git} directory of the enrolled root
-     * @return {@code true} when the git directory is a direct child of the {@code worktrees} directory of
-     *         the root, and that directory is not reached through a symbolic link
+     * @param gitDirectory    the canonical git directory of the candidate worktree
+     * @param commonDirectory the canonical common git directory, the {@code .git} directory of a main checkout
+     * @return {@code true} when the git directory is a direct child of the {@code worktrees} directory of the common
+     *         directory, and that directory is not reached through a symbolic link
      */
-    private static boolean isRegistered(Path gitDirectory, Path rootGitDirectory) {
-        var registry = rootGitDirectory.resolve(WORKTREES);
+    private static boolean isRegistered(Path gitDirectory, Path commonDirectory) {
+        var registry = commonDirectory.resolve(WORKTREES);
         return Files.isDirectory(registry, LinkOption.NOFOLLOW_LINKS) && registry.equals(gitDirectory.getParent());
     }
 

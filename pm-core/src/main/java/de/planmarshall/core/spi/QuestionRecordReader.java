@@ -22,7 +22,9 @@ import java.util.regex.Pattern;
  * {@link QuestionRead.Unreadable}, never taken for an open record, so a broken store is never mistaken for a question
  * still awaiting its answer.
  * <p>
- * The question store of {@code pm-runtime} implements the port; no class of {@code pm-core} does (PM-IMPL-5).
+ * The question store is {@link de.planmarshall.core.store.QuestionLog} of {@code pm-core} {@code core.store}, the
+ * {@code questions.jsonl} of each scope. An adapter of {@code pm-runtime} is to implement this port over it; no
+ * class of {@code pm-core} implements the port (PM-IMPL-5).
  *
  * @since 0.1
  */

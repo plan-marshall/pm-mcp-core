@@ -12,10 +12,12 @@ package de.planmarshall.core.store;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -402,6 +404,96 @@ class LinkedWorktreeConfinementTest {
 
                 assertRefused(confine(candidate.resolve("file.txt"), candidate));
             }
+        }
+    }
+
+    /**
+     * The recognition the confinement shares with the project resolution ({@link ProjectResolver}): read from a
+     * candidate worktree to the main checkout it belongs to, under the same checks the confinement applies.
+     */
+    @Nested
+    @DisplayName("the shared recognition of a linked worktree")
+    class SharedRecognition {
+
+        @Test
+        @DisplayName("names the enrolled root as the main checkout of its linked worktree")
+        void namesMainCheckout() throws Exception {
+            assertEquals(Optional.of(root), PathConfinement.linkedMainCheckout(worktree),
+                    "The worktree should belong to the enrolled root");
+        }
+
+        @Test
+        @DisplayName("names another repository for its own worktree, which the confinement refuses")
+        void namesOtherMainCheckout() throws Exception {
+            var foreign = directoryBesideRoot("foreign");
+            link(foreign, other, "foreign");
+
+            assertAll(
+                    () -> assertEquals(Optional.of(other), PathConfinement.linkedMainCheckout(foreign),
+                            "The recognition should name the repository the worktree belongs to"),
+                    () -> assertRefused(confine(foreign.resolve("file.txt"), foreign)));
+        }
+
+        @Test
+        @DisplayName("names the main checkout when the common directory is named by an absolute path")
+        void namesMainCheckoutOfAbsoluteCommonDirectory() throws Exception {
+            Files.writeString(root.resolve(".git/worktrees/linked/commondir"), root.resolve(".git") + "\n");
+
+            assertEquals(Optional.of(root), PathConfinement.linkedMainCheckout(worktree));
+        }
+
+        @Test
+        @DisplayName("names no main checkout when the common directory is not named .git")
+        void refusesCommonDirectoryOfOtherName() throws Exception {
+            var renamed = Files.createDirectories(base.resolve("bare.git-like/admin/worktrees"));
+            var forged = directoryBesideRoot("forged");
+            register(forged, renamed.resolve("forged"), "../..");
+
+            assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(forged),
+                    "A common directory that is not the .git of a main checkout should name none");
+        }
+
+        @Test
+        @DisplayName("names no main checkout when the common directory is a .git file")
+        void refusesCommonDirectoryThatIsAFile() throws Exception {
+            var forged = directoryBesideRoot("forged");
+            link(forged, root, "forged");
+            var pointerOnly = directoryBesideRoot("pointer-only");
+            Files.writeString(pointerOnly.resolve(".git"), "gitdir: " + root.resolve(".git") + "\n");
+            Files.writeString(root.resolve(".git/worktrees/forged/commondir"), pointerOnly.resolve(".git") + "\n");
+
+            assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(forged));
+        }
+
+        @Test
+        @DisplayName("names no main checkout for a git directory that is not registered or not named back")
+        void refusesUnregisteredOrNotNamedBack() throws Exception {
+            var unregistered = directoryBesideRoot("unregistered");
+            register(unregistered, root.resolve(".git/unregistered"), root.resolve(".git").toString());
+            var notNamedBack = directoryBesideRoot("not-named-back");
+            link(notNamedBack, root, "not-named-back");
+            Files.writeString(root.resolve(".git/worktrees/not-named-back/gitdir"), worktree.resolve(".git") + "\n");
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(unregistered)),
+                    () -> assertEquals(Optional.empty(), PathConfinement.linkedMainCheckout(notNamedBack)));
+        }
+
+        @Test
+        @DisplayName("fails to read a worktree moved by hand, whose gitdir record names the old place")
+        void failsForMovedWorktree() throws Exception {
+            var moved = Files.move(worktree, base.resolve("moved"));
+
+            assertThrows(IOException.class, () -> PathConfinement.linkedMainCheckout(moved),
+                    "A stale record should be a failure the callers treat as a refusal");
+        }
+
+        @Test
+        @DisplayName("fails to read a candidate without a .git file")
+        void failsWithoutPointerFile() throws Exception {
+            var plain = directoryBesideRoot("plain");
+
+            assertThrows(IOException.class, () -> PathConfinement.linkedMainCheckout(plain));
         }
     }
 

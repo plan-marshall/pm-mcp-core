@@ -236,6 +236,7 @@ public final class WorkflowEngine {
                 .state(startState.id())
                 .callStack(List.of())
                 .policyCounters(Map.of())
+                .waiverRequests(List.of())
                 .retryCounters(RetryCounters.empty())
                 .activeJobs(Map.of())
                 .activeTasks(Map.of())

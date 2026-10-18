@@ -1,0 +1,61 @@
+= ADR 037: The Project Resolution Reads the Pointer Files Git Writes
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+Every request of a client names a checkout path, and the runtime has to know which enrolled project it belongs to and
+whether it lies in the main checkout or in a worktree of the project (PM-SEC-2, PM-ARCH-1). The specification first
+described the rule with `git rev-parse`. `pm-core` never depends on JGit (enforced by the build), runs no process, and
+its path confinement (`PathConfinement`) already recognises a linked worktree from the three pointer files git writes:
+the `.git` file of the worktree, the `commondir` file of its git directory and the `gitdir` record that names the
+worktree back.
+
+== Decision
+
+* `ProjectResolver.resolve(path)` canonicalises the path, takes the nearest ancestor holding a `.git` as the toplevel,
+  and reads the pointer files: a `.git` directory makes the toplevel a main checkout, and a `.git` file is followed by
+  `PathConfinement.linkedMainCheckout`, the recognition of the confinement read from the worktree to its main checkout.
+  It runs no git process and uses no port.
+* The main checkout is matched against the `project_root` of every enrolment file, read without a lock: exactly one
+  readable match resolves; more than one is `RootConflict` (`enrolment_root_conflict`); no match while an enrolment
+  file could not be read is `EnrolmentRefused` with that file's refusal.
+* The toplevel is the main checkout or a worktree directly below `<project_root>/.marshall/local/worktrees/` named by a
+  plan id or `_epics`. Everything else is `NotEnrolled` (`project_not_enrolled`) with a diagnostic reason:
+  `NO_WORK_TREE`, `UNRECOGNISED_GIT`, `NO_ENROLMENT`, `BASELINE_WORKTREE` or `FOREIGN_TOPLEVEL`.
+* The integrity of the matched enrolment against its sidecar is checked by the caller in the runtime; `pm-core` holds
+  no key.
+* The specification of the rule is corrected from the `git rev-parse` wording to this file-based rule.
+
+== Alternatives Considered
+
+1. *Run `git rev-parse`.*
+_Not taken_: `pm-core` runs no process, and the recognition already exists in the confinement.
+2. *JGit.*
+_Not taken_: the build forbids JGit in `pm-core`.
+3. *A port implemented by the runtime.*
+_Not taken_: the pointer files are plain files the core reads as it reads every store.
+
+== Consequences
+
+* A worktree is recognised the same way by the confinement and by the resolution, under the same checks; a change of
+  the recognition changes both.
+* A worktree moved by hand, whose `gitdir` record is stale, resolves to no project until `git worktree repair` has
+  rewritten it; a main checkout moved away from its `project_root` resolves to no project until it is enrolled again.
+* An unreadable enrolment file is never read as "no enrolment": the path is refused with that file's reason.
+* No result holds the path; what a request records is the project id.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14), and the operator decision that the caller checks the enrolment HMAC
+* link:../../../../doc/specification/filesystem-layout/03-project-store.adoc[Filesystem Layout § Project Store]
+* `pm-core/src/main/java/de/planmarshall/core/store/ProjectResolver.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/ProjectResolution.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java`

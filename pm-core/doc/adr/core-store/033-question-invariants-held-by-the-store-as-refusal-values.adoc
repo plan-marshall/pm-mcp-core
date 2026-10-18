@@ -1,0 +1,58 @@
+= ADR 033: The Question Invariants Are Held by the Store and Returned as Refusal Values
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+A question of a scope is asked, may be revised, adjudicated and delivered, and is closed by an answer, a withdrawal
+or a cancellation. Two clients of the operator can answer the same question at the same time, and an answer can be
+given to a revision that a later revision has replaced. Both conflicts are decided by what the log already holds, and
+only a check made under the scope lock, right before the append, sees every line another writer appended.
+
+== Decision
+
+* `QuestionLog.append` reads the log while the caller's `ScopeTransaction` holds the scope lock, and checks the lines
+  to append in their order against the log and against the lines before them.
+* A question is closed by exactly one `answered`, `withdrawn` or `cancelled` line. A further line about a closed
+  question, a second closing line among the appended ones included, is refused as
+  `QuestionRefusal.AlreadyAnswered(questionId)`.
+* An answer, an adjudication and a delivery name the current revision of their decision, the revision of the last
+  `asked` or `revised` line of the question. Another revision is refused as
+  `QuestionRefusal.Conflict(questionId, currentRevision)`.
+* A `revised` line names the revision after the current one of its question, never a revision that skips one, and a
+  revision covers the questions of its set that are open when it begins, at its first `revised` line within the
+  append: a question the same append closes after revising it stays covered, one closed before the revision began is
+  not part of it. A revised line that names another revision, or a revision that leaves out a question open when it
+  began, is a fault of the caller and an `IllegalArgumentException`.
+* A refusal is a value the method returns, and nothing of the append is added to the transaction. A line that is
+  malformed for the log (a question asked twice, a line about a question the log does not have, a set revised in part)
+  is a fault of the caller and an `IllegalArgumentException`.
+
+The rationale beyond the need for a check under the lock is not recorded.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Two concurrent answers to one question produce one `answered` line and one `AlreadyAnswered`; the second client is
+  told, not overwritten.
+* A caller distinguishes an expected conflict (a value it reports to the operator, with the current revision) from a
+  programming error (an exception).
+* Whether an answer fits its part is not checked by the store; the engine checks it before it appends.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14)
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
+  Instance, Waivers and Questions]
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java`

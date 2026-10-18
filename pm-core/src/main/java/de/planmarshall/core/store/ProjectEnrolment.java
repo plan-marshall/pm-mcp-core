@@ -800,7 +800,14 @@ SortedMap<String, String> buildEnvironment) {
         }
     }
 
-    private static void requireAbsolutePath(String value, String name) {
+    /**
+     * The one check of a project root, which the store identity of the project reuses.
+     *
+     * @param value a path
+     * @param name  the name of the path in a refusal
+     * @throws IllegalArgumentException if the path is empty, no path, not absolute or not normalized
+     */
+    static void requireAbsolutePath(String value, String name) {
         nonEmpty(value, name);
         try {
             var path = Path.of(value);

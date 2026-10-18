@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.store.RetryCounters.RetryRule;
+import de.planmarshall.core.store.WaiverRecord.Channel;
 import de.planmarshall.core.store.WorkflowStatus.ActiveJob;
 import de.planmarshall.core.store.WorkflowStatus.BoundArg;
 import de.planmarshall.core.store.WorkflowStatus.CallFrame;
@@ -57,9 +58,11 @@ import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
 /**
  * Reads and writes the status document {@code mcp/status.json} of a scope (PM-ARCH-6, PM-IMPL-2).
  * <p>
- * The reader checks the {@code format_version} first, then reads the members the engine owns strictly, each with its
- * one JSON type and its closed values, and captures every other member the closed schema declares as the raw JSON
- * text it was read with. A member the schema does not declare, a member twice, a missing required member and a value
+ * The reader checks the {@code format_version} first, then reads the typed members strictly, each with its one JSON
+ * type and its closed values: the members the engine owns and the waiver requests {@code waiver_requests[]}, each by
+ * the closed schema of the {@link WaiverRequest}. An absent {@code waiver_requests} is read as the empty list: no
+ * request was filed. Every other member the closed schema declares is captured as the raw JSON text it was read
+ * with. A member the schema does not declare, a member twice, a missing required member and a value
  * outside the schema are refused as a {@link StoreRefusal} that names the file and the member; the store is never
  * rewritten by a refusal.
  * <p>
@@ -68,8 +71,9 @@ import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
  * is re-emitted byte for byte and {@code retry_counters} follows {@code counters} directly. The typed members are
  * written in one canonical form: {@code call_stack}, {@code retry_counters}, {@code active_jobs},
  * {@code active_tasks}, {@code active_job} and {@code pending_condition} always, the last two as {@code null} when
- * unset, and {@code outline_loop_backs} and {@code policy_counters} for plan scopes only. A document in that form
- * round-trips byte for byte.
+ * unset, and {@code outline_loop_backs}, {@code policy_counters} and {@code waiver_requests} (as {@code []} when no
+ * request was filed) for plan scopes only. A waiver request is written with every member, an unset one as
+ * {@code null}. A document in that form round-trips byte for byte.
  *
  * @since 0.1
  */
@@ -88,6 +92,7 @@ public class WorkflowStatusCodec {
     private static final String RETRY_COUNTERS = "retry_counters";
     private static final String OUTLINE_LOOP_BACKS = "outline_loop_backs";
     private static final String POLICY_COUNTERS = "policy_counters";
+    private static final String WAIVER_REQUESTS = "waiver_requests";
     private static final String ACTIVE_JOBS = "active_jobs";
     private static final String ACTIVE_JOB = "active_job";
     private static final String ACTIVE_TASKS = "active_tasks";
@@ -124,23 +129,35 @@ public class WorkflowStatusCodec {
     private static final String LAST_RETRY = "last_retry";
     private static final String REPLAN_ID = "replan_id";
     private static final String FINGERPRINTS = "fingerprints";
+    private static final String REQUEST_ID = "request_id";
+    private static final String GATE = "gate";
+    private static final String POLICY = "policy";
+    private static final String RATIONALE = "rationale";
+    private static final String EVIDENCE_URI = "evidence_uri";
+    private static final String REQUESTED_AT = "requested_at";
+    private static final String WAIVER_ID = "waiver_id";
+    private static final String ANSWERED = "answered";
+    private static final String PR_COMMENT_REF = "pr_comment_ref";
+    private static final String CHANNEL = "channel";
+    private static final String DEVICE_ID = "device_id";
+    private static final String AT = "at";
 
     /** Every member of the closed schema, in the order it declares them. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, "main_sha", "origin",
             PHASE, OUTCOME, "instance_version", "setup_run", STATE, CALL_STACK, "worktree_path", "entry_baseline",
             "merge_outcome", "owed", "branch_name", "branch_pushed_at", LOOP_BACK_ITERATION, "counters",
-            RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, "waiver_requests", "gaps", "replan_pending",
+            RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS, "gaps", "replan_pending",
             "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs", "remediation_cause",
             "refine_relaunch_count", "outline_relaunch_count", "metadata", "freshness_reconcile", "amendments",
             "steps", ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FACTS, UPDATED_AT);
 
     /** The members that only the status of a plan scope carries. */
-    private static final Set<String> PLAN_ONLY_MEMBERS = Set.of(OUTLINE_LOOP_BACKS, POLICY_COUNTERS);
+    private static final Set<String> PLAN_ONLY_MEMBERS = Set.of(OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS);
 
-    /** The members the engine owns and this codec types. */
+    /** The members this codec types. */
     static final Set<String> TYPED_MEMBERS = Set.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, PHASE, STATE,
-            CALL_STACK, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, ACTIVE_JOBS,
-            ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
+            CALL_STACK, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
+            ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
 
     /** The members of the schema that are kept as raw JSON text. */
     static final Set<String> RETAINED_MEMBERS = MEMBERS.stream().filter(member -> !TYPED_MEMBERS.contains(member))
@@ -212,6 +229,7 @@ public class WorkflowStatusCodec {
             case RETRY_COUNTERS -> writeRetryCounters(generator, status.retryCounters());
             case OUTLINE_LOOP_BACKS -> generator.writeNumberField(member, status.outlineLoopBacks());
             case POLICY_COUNTERS -> writePolicyCounters(generator, status.policyCounters());
+            case WAIVER_REQUESTS -> writeWaiverRequests(generator, status.waiverRequests());
             case ACTIVE_JOBS -> writeJobs(generator, status.activeJobs());
             case ACTIVE_JOB -> writeActiveJob(generator, status.activeJob());
             case ACTIVE_TASKS -> writeTasks(generator, status.activeTasks());
@@ -308,6 +326,36 @@ public class WorkflowStatusCodec {
         generator.writeEndObject();
     }
 
+    private static void writeWaiverRequests(JsonGenerator generator, List<WaiverRequest> requests)
+            throws IOException {
+        generator.writeArrayFieldStart(WAIVER_REQUESTS);
+        for (var request : requests) {
+            generator.writeStartObject();
+            generator.writeStringField(REQUEST_ID, request.requestId());
+            generator.writeStringField(GATE, request.gate());
+            writeNullableString(generator, POLICY, request.policy());
+            generator.writeStringField(RATIONALE, request.rationale());
+            writeNullableString(generator, EVIDENCE_URI, request.evidenceUri());
+            writeInstant(generator, REQUESTED_AT, request.requestedAt());
+            writeNullableString(generator, OUTCOME, request.outcome() == null ? null : request.outcome().wireName());
+            writeNullableString(generator, WAIVER_ID, request.waiverId());
+            var answered = request.answered();
+            if (answered == null) {
+                generator.writeNullField(ANSWERED);
+            } else {
+                generator.writeObjectFieldStart(ANSWERED);
+                generator.writeStringField(CHANNEL, answered.channel().wireName());
+                writeNullableString(generator, DEVICE_ID, answered.deviceId());
+                writeNullableString(generator, REASON, answered.reason());
+                writeInstant(generator, AT, answered.at());
+                generator.writeEndObject();
+            }
+            writeNullableString(generator, PR_COMMENT_REF, request.prCommentRef());
+            generator.writeEndObject();
+        }
+        generator.writeEndArray();
+    }
+
     private static void writeJobs(JsonGenerator generator, Map<String, JobEntry> jobs) throws IOException {
         generator.writeObjectFieldStart(ACTIVE_JOBS);
         for (var entry : jobs.entrySet()) {
@@ -383,7 +431,7 @@ public class WorkflowStatusCodec {
     }
 
     private static WorkflowStatus readDocument(JsonParser parser, byte[] document) throws IOException {
-        var status = WorkflowStatus.builder().callStack(List.of()).policyCounters(Map.of())
+        var status = WorkflowStatus.builder().callStack(List.of()).policyCounters(Map.of()).waiverRequests(List.of())
                 .retryCounters(RetryCounters.empty()).activeJobs(Map.of()).activeTasks(Map.of());
         var retained = new LinkedHashMap<String, String>();
         var seen = new HashSet<String>();
@@ -401,6 +449,8 @@ public class WorkflowStatusCodec {
                 case OUTLINE_LOOP_BACKS -> status.outlineLoopBacks(integer(parser, field));
                 case POLICY_COUNTERS -> status.policyCounters(
                         StrictJson.map(parser, field, WorkflowStatusCodec::readPolicyCounter));
+                case WAIVER_REQUESTS -> status.waiverRequests(
+                        StrictJson.array(parser, field, WorkflowStatusCodec::readWaiverRequest));
                 case ACTIVE_JOBS -> status.activeJobs(StrictJson.map(parser, field, WorkflowStatusCodec::readJob));
                 case ACTIVE_JOB -> status.activeJob(isNull(parser) ? null : readActiveJob(parser));
                 case ACTIVE_TASKS -> status.activeTasks(StrictJson.map(parser, field, WorkflowStatusCodec::readTask));
@@ -551,6 +601,57 @@ public class WorkflowStatusCodec {
         }
         requireFields(seen, LAST_RETRY, REASON, FINGERPRINTS);
         return new LastRetry(reason, fingerprints);
+    }
+
+    private static WaiverRequest readWaiverRequest(JsonParser parser, String name) throws IOException {
+        requireObject(parser, name);
+        var request = WaiverRequest.builder();
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case REQUEST_ID -> request.requestId(string(parser, field));
+                case GATE -> request.gate(string(parser, field));
+                case POLICY -> request.policy(nullableString(parser, field));
+                case RATIONALE -> request.rationale(string(parser, field));
+                case EVIDENCE_URI -> request.evidenceUri(nullableString(parser, field));
+                case REQUESTED_AT -> request.requestedAt(instant(parser, field));
+                case OUTCOME -> request.outcome(waiverRequestOutcome(nullableString(parser, field)));
+                case WAIVER_ID -> request.waiverId(nullableString(parser, field));
+                case ANSWERED -> request.answered(isNull(parser) ? null : readAnswered(parser));
+                case PR_COMMENT_REF -> request.prCommentRef(nullableString(parser, field));
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, "waiver request '%s'".formatted(name), REQUEST_ID, GATE, RATIONALE, REQUESTED_AT);
+        return request.build();
+    }
+
+    private static WaiverRequestOutcome waiverRequestOutcome(String wireName) {
+        return wireName == null ? null
+                : WaiverRecordCodec.enumValue(wireName, WaiverRequestOutcome::fromWireName, "waiver_requests.outcome");
+    }
+
+    private static WaiverRequest.Answered readAnswered(JsonParser parser) throws IOException {
+        requireObject(parser, ANSWERED);
+        Channel channel = null;
+        String deviceId = null;
+        String reason = null;
+        Instant at = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case CHANNEL -> channel = WaiverRecordCodec.enumValue(string(parser, field), Channel::fromWireName,
+                        "answered.channel");
+                case DEVICE_ID -> deviceId = nullableString(parser, field);
+                case REASON -> reason = nullableString(parser, field);
+                case AT -> at = instant(parser, field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, ANSWERED, CHANNEL, DEVICE_ID, AT);
+        return new WaiverRequest.Answered(channel, deviceId, reason, at);
     }
 
     private static JobEntry readJob(JsonParser parser, String name) throws IOException {

@@ -27,7 +27,10 @@ This guide covers the stores of a scope that `pm-core` adds on top of the store 
 * the work package `job-runner` added the job record `jobs/<job_id>.json` of a project, of the machine scope and of an
   onboarding entry, its identifier and its store, and the two lock keys of the machine queue and of an onboarding entry
   (<<_job_records>>). The runner that writes the record and the recovery that reads it live in `runtime.job` and
-  `runtime.start` of `pm-runtime`.
+  `runtime.start` of `pm-runtime`;
+* the work package `operator-and-question-stores` added the waiver and waiver consumption logs of a plan, the typed
+  waiver requests of its status, the question log of every asking scope, the per-project machine store with its
+  identity record, and the Project Resolution Rule (<<_operator_and_question_stores>>).
 
 The store substrate these types build on (transaction journal, `ScopeTransaction`, `StoreSnapshot`, `StrictJson`,
 digests, recovery) is described in link:{docs}/developer/store-substrate.adoc[Developer Guide § Store Substrate] and is
@@ -45,8 +48,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
 the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
 (`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
-overlay (`pending_condition`) and `updated_at`. Every other member of the closed schema is kept in `retained()` as the
-raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
+overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>) and
+`updated_at`. Every other member of the closed schema is kept in `retained()` as the raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
 `WorkflowStatusCodec`:: Reads and writes the document over `StrictJson`. It checks `format_version` first
@@ -751,6 +754,248 @@ and `JobRecordSchemaParityTest`, which compares the codec with the schema of the
 the required members, the values of every enumeration, the confinement and `job_id` patterns, the format version and the
 range of `outcome_row`.
 
+[#_operator_and_question_stores]
+== Operator and Question Stores, the Project Store and the Project Resolution
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3], link:{docs}/Requirements.adoc#PM-WF-12[PM-WF-12], link:{docs}/Requirements.adoc#PM-ARCH-1[PM-ARCH-1], link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+The work package `operator-and-question-stores` added the stores in which the operator's acts and the questions of a
+scope are kept, the per-project machine store with its identity record, and the rule that maps a checkout path to its
+enrolled project. Every store here is read and written strictly in `format_version` 1 over `StrictJson`, refuses what
+it cannot read as a `StoreRefusal` naming the file, and is written only as a target of the caller's `ScopeTransaction`
+or, for the identity record, under the project's workspace lock. The schemas are in
+link:{spec}/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers and
+Questions], link:{spec}/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store] and
+link:{spec}/filesystem-layout/03-project-store.adoc[Filesystem Layout § Project Store].
+
+[#_waiver_logs]
+=== The Waiver Logs
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+[horizontal]
+`WaiverRecord`:: One operator act on a waiver of a plan: `waived` (a gate declared `met`, or a remediation budget
+raised to the ceiling `value`) or `revoked`, with the waiver id (`W-` and digits), the reason and its class, the
+request it answers (`WR-` and digits), the operator with the channel and device, and the instant. A `waived` line names
+its gate, mode and reason class, and only a `raise` carries a `value`.
+`WaiverRecordCodec`:: Reads and writes one line strictly; a refused line names its file and line.
+`WaiverLog`:: `plans/<plan_id>/waivers.jsonl`; only a plan has one. `append(transaction, waiver)` adds one line as an
+append target to the plan's transaction. `read()` takes no lock; `Lines.current(waiverId)` is the last readable line
+of the id and `currentWaivers()` the current state of every waiver.
+`WaiverConsumptionRecord`:: One evaluation of a waivable gate that admitted a failure because a `met` waiver was set:
+the waiver, the gate, the state, the commit (`head_sha`), the instant and what it admitted (`covered`).
+`WaiverConsumptionCodec`, `WaiverConsumptionLog`:: The codec of a consumption line and the log
+`plans/<plan_id>/waiver-consumptions.jsonl`, appended like the waiver log; two evaluations that relied on one waiver
+are two lines.
+
+The two logs are separate files of the plan scope, appended through the plan's transaction and covered by its digest
+sidecar (link:../adr/core-store/034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 034]). That the
+operator's act is the only writer of `waivers.jsonl` and `waiver.lookup` the only writer of `waiver-consumptions.jsonl`
+is the rule of the callers that run them; the store offers no other write than the append.
+
+[#_waiver_requests]
+=== The Waiver Requests of a Plan
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-3[PM-SEC-3], link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6]_
+
+A waiver request is no store of its own: it is an element of the typed member `waiver_requests[]` of the plan's status
+document (link:../adr/core-store/035-waiver-requests-typed-in-the-status-document.adoc[ADR 035]).
+
+[horizontal]
+`WaiverRequest`:: The request id (`WR-` and digits), the gate, the remediation unit that filed it, the rationale (1 to
+2000 characters), the evidence, the instant it was filed, the outcome, the waiver that answered it, the operator's act
+that answered it (`Answered`: channel, device, reason of a decline, instant) and the id of its pull request comment.
+`WaiverRequestOutcome`:: The closed outcomes `waived`, `raised`, `declined` and `cancelled`. There is no `expired`: a
+request has no time limit and stays pending, without an outcome, until the operator answers it or the plan ends.
+`WorkflowStatus.waiverRequests()`:: The requests in the order of the document. The member is kept for plan scopes
+only; a request in the status of an epic or the workspace is refused, and a `null` list is refused. An absent member
+reads as no request, and the codec always writes the member, as `[]` when it is empty.
+
+[#_question_log]
+=== The Question Log
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-12[PM-WF-12], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
+
+[horizontal]
+`QuestionRecord`:: One event of a question (`QuestionEvent`: `asked`, `revised`, `adjudicated`, `delivered`,
+`answered`, `withdrawn`, `cancelled`) with the question id (`Q-` and 3 to 6 digits), the set it belongs to (named by
+its first question), the revision of the decision, and the members of its event, the channel of an answer
+(`QuestionChannel`) among them. `closes()` is true for `answered`, `withdrawn` and `cancelled`.
+`QuestionRecordCodec`:: Reads and writes one line strictly against the closed record schema.
+`QuestionLog`:: `questions.jsonl` of a plan or an epic, `workspace/questions.jsonl` of the workspace, and
+`pending/<entry_id>/questions.jsonl` of a pending entry, which belongs to the workspace scope (`ofEntry`); the lesson
+store has none. `ask`, `revise`, `adjudicate`, `deliver`, `answer`, `withdraw` and `cancel` check the event of their
+lines and append them through `append(transaction, lines)`; `read()` takes no lock, and `Lines.current(questionId)`,
+`isClosed` and `currentRevision` answer from the readable lines.
+`QuestionRefusal`:: The two invariants the store holds, as values: `AlreadyAnswered(questionId)` and
+`Conflict(questionId, currentRevision)`; and `Unreadable(questionId, refusedLine)` (code `unreadable`) when the log
+holds a refused line, so the invariants cannot be decided.
+
+The log lives in `core.store`. The engine reads it through the port `QuestionRecordReader` of `core.spi`, which an
+adapter of `pm-runtime` implements over `QuestionLog`; whether an answer fits its part stays the engine's check in
+`pm-workflow` (link:../adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 032]).
+
+[source]
+----
+caller: LockTransaction (scope lock) ──► ScopeTransaction.open
+QuestionLog.answer(transaction, lines)
+   ├─ read() under the held lock ──► a refused line? ──► Unreadable                       (nothing added)
+   │                                 else the state of every question: set, revision, closed
+   ├─ each line in order: closed? ──► AlreadyAnswered     other revision? ──► Conflict     (nothing added)
+   └─ all pass ──► QuestionRecordCodec.write + "\n" ──► transaction.append("questions.jsonl")
+caller: transaction.commit()
+----
+
+*Invariants.*
+
+* *Exactly one closing line*: a line about a closed question, a second closing line among the appended ones included,
+  is `AlreadyAnswered`, and nothing of the append is added. A revision is never a way to reopen a closed question.
+* *The current revision*: an answer, an adjudication and a delivery name the revision of the last `asked` or `revised`
+  line of their question; another one is a `Conflict` carrying the current revision. A revision revises every question
+  of its set that is open when it begins, at its first `revised` line within the append, each with exactly the next
+  revision, the one after its current revision. A question of the set the same append answers or withdraws after
+  revising it stays covered by the revision; a question closed before the revision begins is not part of it.
+* *Decided under the lock*: the log is read while the caller's transaction holds the scope lock, so no other append
+  comes between the check and the write
+  (link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]).
+* *Fail closed on a refused line*: a line refused when read (unreadable, or of another format version) names no
+  question the log can read and may be the closing line or the revision of any of them, so the state of the questions
+  is unknown. While the log holds one, every append is `Unreadable` naming the first refused line, an `asked` line of a
+  new question included, and nothing is added. The read accessors of the log (`current`, `isClosed`,
+  `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
+  when the log holds a refused line; a refused line is never taken for an open question by the append gate
+  (link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
+* *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
+  revised line that does not name the next revision, a set revised in part, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
+  not a refusal value.
+
+*The move of an entry's questions.* A `pm-mcp enter` on a scope that does not exist yet asks its questions in the
+entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace, entryId,
+target)` adds the complete lines of the entry's log unchanged as a create target of `questions.jsonl` to the
+transaction of the new scope, and the delete of the entry's log to the transaction of the workspace. A scope's
+transaction writes only the stores of its scope, so the move is two transactions held by one caller: the new scope is
+committed first, then the workspace. A stop between the two commits leaves the entry's log in place, and repeating the
+move is refused by the create target instead of appending the lines twice; a torn tail is not moved
+(link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). `PendingEntryStore` is unchanged:
+the record `pending/<entry_id>.json` stays a flat file beside the directory of the entry's log.
+
+[#_project_store]
+=== The Per-Project Machine Store
+_Requirements: link:{docs}/Requirements.adoc#PM-ARCH-1[PM-ARCH-1], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
+
+[horizontal]
+`ProjectStore`:: `projects/<project_id>/` below the base directory of the runtime, resolved by
+`LockKey.projectStore`, the one place of the server-owned state of a project, the same for its main checkout and all
+its worktrees. `directory(Directory)` names `plans`, `archive`, `workspace`, `epics`, `pending`, `locks`, `queue` and
+`jobs`; `identityFile()` names `store.json`.
+`ProjectStore.create(transaction, identity)`:: Acquires the project's workspace lock in the caller's transaction,
+creates the directories and writes the identity record when it does not exist. It returns `CREATED` or `EXISTED`; an
+existing `store.json` is never rewritten, whatever it holds, an unreadable one included.
+`ProjectStore.readIdentity()`:: Reads without a lock and answers `Present(identity)`, `Absent(file)` or
+`Unreadable(refusal)`; neither a missing nor a refused record is ever an empty identity. A record whose `project_id` is
+not the project of the store directory, a `store.json` of another project restored there, is `Unreadable` with a
+refusal naming the mismatch, as the enrolment store refuses the same mismatch for its files.
+`ProjectStoreIdentity`, `ProjectStoreIdentityCodec`:: The identity record: the project id, the project root (checked by
+the one check of an enrolment, `ProjectEnrolment.requireAbsolutePath`, which is package-private for this reuse), the
+display name (1 to 128 code points, never an identifier), the creation and the unenrolment instant.
+
+The store and its identity live in `core.store` beside the enrolment; `core.config` is not touched, and nothing with
+state lies below the repository of the project, `.marshall/local/` included
+(link:../adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR 038]).
+
+[#_project_resolution]
+=== The Project Resolution
+_Requirements: link:{docs}/Requirements.adoc#PM-SEC-2[PM-SEC-2], link:{docs}/Requirements.adoc#PM-ARCH-1[PM-ARCH-1]_
+
+`ProjectResolver.resolve(path)` maps an absolute checkout path to the enrolled project it belongs to and to the main
+checkout or the worktree of that project it lies in. It reads the plain pointer files git writes and runs no git
+process (link:../adr/core-store/037-project-resolution-file-based-from-the-pointer-files.adoc[ADR 037]):
+
+. The path is canonicalised; a path that cannot be is `PathRefused` with the reason `canonicalization_failed` of the
+  confinement. Its toplevel is the nearest ancestor, the path itself included, that holds a `.git`.
+. A `.git` directory makes the toplevel a main checkout. A `.git` file is followed by
+  `PathConfinement.linkedMainCheckout`, the recognition of a linked worktree the confinement uses as well: its
+  `gitdir:`, the `commondir` of that git directory, which must be a directory named `.git` whose `worktrees` directory
+  holds the git directory, and the `gitdir` record that names the `.git` file back. A symbolic link, a pointer file that
+  names no path, and every failure to read is no main checkout.
+. The main checkout is matched against the `project_root` of every enrolment file, read without a lock.
+. The toplevel is the main checkout, or a worktree directly below `<project_root>/.marshall/local/worktrees/` whose
+  name is a plan id or `_epics`.
+
+[cols="2,3"]
+|===
+|Result |When
+
+|`MainCheckout(projectId)` |the toplevel is the main checkout of exactly one readable enrolment
+|`Worktree(projectId, worktree)` |the toplevel is a plan worktree or the shared epic worktree of that project
+|`NotEnrolled(NO_WORK_TREE)` |no ancestor holds a `.git`
+|`NotEnrolled(UNRECOGNISED_GIT)` |the `.git` is neither a directory nor a `.git` file that passes the checks, a
+worktree moved by hand with its stale `gitdir` record among them
+|`NotEnrolled(NO_ENROLMENT)` |no enrolment names the main checkout: an unenrolled repository, a nested repository
+inside the root, a main checkout moved away from its `project_root`
+|`NotEnrolled(BASELINE_WORKTREE)` |the toplevel is a baseline scratch worktree `baseline-<plan_id>-<sha12>`: any
+name below the worktrees with the prefix `baseline-`, refused by the prefix alone, so that no copy of the plan id
+grammar decides it and no such name is ever taken for a plan worktree
+|`NotEnrolled(FOREIGN_TOPLEVEL)` |a worktree of the project elsewhere, or below the worktrees with another name
+|`RootConflict(projectIds)` |more than one readable enrolment names the main checkout (`enrolment_root_conflict`)
+|`EnrolmentRefused(refusal)` |no readable enrolment names the main checkout and an enrolment file was refused
+|===
+
+Every `NotEnrolled` carries the outcome code `project_not_enrolled`; its reason is a diagnostic. No result holds the
+path: what a request records is the project id. The integrity of an enrolment file against its sidecar is the
+runtime's per-use check: `pm-core` holds no key, and the caller checks the HMAC of the enrolment the resolution names.
+
+=== Pitfalls
+
+* *A waiver rewritten*: a revocation is a new `revoked` line; editing or removing the line it revokes destroys the
+  operator's record, and the digest sidecar reports the edit. Never write either log other than by `append`.
+* *A decision ended by time*: neither a waiver request nor a question has a time limit. A request without an outcome is
+  pending, not expired; a question is closed only by its closing line. Code that ends either by a clock invents a
+  decision the operator never took.
+* *A stored path bypassing the resolver*: a request records the project id, never a checkout path. A path kept and
+  compared later skips the resolution, the enrolment match and the confinement; resolve the path the client names on
+  each request.
+* *Missing read as empty*: an absent store identity, an unreadable enrolment file and an unreadable line are outcomes
+  of their own (`Absent`, `EnrolmentRefused`, a refused entry), never an empty record, no enrolment or no line.
+
+=== Failure Modes
+
+[cols="2,3"]
+|===
+|Failure |Behaviour
+
+|A line of a waiver, consumption or question log is unreadable or of another format version
+|`read()` reports it as a refused entry with its line number; the other lines are read, and a waiver or question keeps
+the last readable line as its current one.
+
+|An append stops at any step
+|The recovery of the scope completes or discards the lines; a torn tail is reported by `read()` and repaired before
+the next append.
+
+|A transaction of another scope, or a log already a target of the transaction
+|The append throws `IllegalArgumentException`; nothing is added.
+
+|A question line breaks an invariant
+|`AlreadyAnswered` or `Conflict` is returned; nothing of the append is added.
+
+|The question log holds a refused line when an append is checked
+|`Unreadable` naming the first refused line is returned; nothing of the append is added. The store has no act that
+repairs the log, so every later append is refused too, `withdraw` and `cancel` included.
+
+|The move of an entry's questions finds a log in the new scope
+|The commit of the new scope's transaction is refused (<<_create_target>>); the entry's log stays.
+
+|`store.json` exists, readable or not, when a store is created
+|`create` returns `EXISTED` and leaves it as it is.
+
+|An enrolment file cannot be listed or read
+|`resolve` throws `UncheckedIOException`.
+|===
+
+Tested by `WaiverRecordCodecTest`, `WaiverLogTest`, `WaiverConsumptionCodecTest`, `WaiverConsumptionLogTest`,
+`WorkflowStatusCodecTest`, `WorkflowStatusStoreTest` and `WorkflowStatusSchemaParityTest` (the waiver requests),
+`QuestionRecordCodecTest`, `QuestionLogTest` (one closing line, the current revision, a refusal adds nothing, a torn
+tail, a refused line, an append to a log with a refused line refused `Unreadable`), `EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
+`ProjectStoreIdentityCodecTest`, `ProjectStoreTest`, `ProjectStoreNoStateInRepositoryTest` (no file below the
+repository), and `ProjectResolverTest`, `LinkedWorktreeConfinementTest` and `PathConfinementTest` (every row of the
+table above, beside its resolving counterpart).
+
 == Reading Helpers Shared with `core.queue`
 _Requirements: link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
 
@@ -799,7 +1044,9 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   Schemas § Pending Entry Record], link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas §
   Security & Transition Audit Log], link:{spec}/store-schemas/12-machine-stores.adoc#audit-head[§ Audit
   Head], link:{spec}/store-schemas/12-machine-stores.adoc#audit-index[§ Audit Index],
-  link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record]
+  link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record],
+  link:{spec}/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan Instance, Waivers and
+  Questions], link:{spec}/filesystem-layout/03-project-store.adoc[Filesystem Layout § Project Store]
 * Concepts: link:{docs}/concepts/store-integrity.adoc[Concepts § Store Integrity]
 
 == Decisions
@@ -837,3 +1084,20 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
 * link:../adr/core-store/031-job-record-locks-of-machine-queue-and-onboarding-entry.adoc[ADR 031]: the records of the
   machine scope are written under the machine queue lock, those of an onboarding entry under the entry lock, and each
   write point checks the record it replaces.
+* link:../adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 032]: the question
+  store lives in `core.store` and is read by the engine through `QuestionRecordReader`, implemented by a runtime
+  adapter.
+* link:../adr/core-store/033-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 033]: one closing line
+  and the current revision are held by the store under the scope lock and returned as `QuestionRefusal` values.
+* link:../adr/core-store/034-waiver-logs-appended-through-the-scope-transaction.adoc[ADR 034]: the waiver and
+  consumption logs are append-only targets of the plan's transaction; the last readable line of a key is current.
+* link:../adr/core-store/035-waiver-requests-typed-in-the-status-document.adoc[ADR 035]: waiver requests are the typed
+  member `waiver_requests[]` of the plan's status, without a time limit.
+* link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]: the entry's question log is moved
+  into the new scope by the store, in two transactions; `PendingEntryStore` stays flat.
+* link:../adr/core-store/037-project-resolution-file-based-from-the-pointer-files.adoc[ADR 037]: the project resolution
+  reads the pointer files git writes and shares the recognition of a linked worktree with the confinement.
+* link:../adr/core-store/038-per-project-machine-store-with-its-identity-record.adoc[ADR 038]: the per-project machine
+  store and its identity record live in `core.store`; nothing with state lies below the repository.
+* link:../adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]: an append to a
+  question log that holds a refused line is refused `Unreadable`; the check fails closed.

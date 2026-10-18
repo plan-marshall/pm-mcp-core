@@ -477,6 +477,47 @@ class PathConfinementTest {
         }
     }
 
+    /**
+     * The widening of the workspace by a live linked worktree, recognised by the pointer files the project resolution
+     * reads as well; the cases of the recognition itself are in {@link LinkedWorktreeConfinementTest}.
+     */
+    @Nested
+    @DisplayName("with a live linked worktree")
+    class LiveLinkedWorktree {
+
+        private Path linked;
+
+        @BeforeEach
+        void linkedWorktree() throws IOException {
+            var gitDirectory = Files.createDirectories(root.resolve(".git/worktrees/linked"));
+            linked = Files.createDirectories(base.resolve("linked"));
+            Files.writeString(linked.resolve("file.txt"), "worktree");
+            Files.writeString(gitDirectory.resolve("commondir"), "../..\n");
+            Files.writeString(gitDirectory.resolve("gitdir"), linked.resolve(".git") + "\n");
+            Files.writeString(linked.resolve(".git"), "gitdir: " + gitDirectory + "\n");
+        }
+
+        @Test
+        @DisplayName("accepts a path in a live linked worktree of the root and leaves the root rule as it is")
+        void acceptsLiveWorktree() {
+            var widened = new WorkspaceRoots(root, Set.of(linked));
+
+            assertAll(
+                    () -> assertEquals(linked.resolve("file.txt"),
+                            assertConfined(PathConfinement.confine(widened, linked.resolve("file.txt").toString())),
+                            "A path in the live worktree should be accepted"),
+                    () -> assertConfinedTo("README.md", PathConfinement.confine(widened, "README.md")),
+                    () -> assertRejected(Reason.OUTSIDE_WORKSPACE,
+                            PathConfinement.confine(widened, outside.resolve("secret.txt").toString())));
+        }
+
+        @Test
+        @DisplayName("refuses the same path while the worktree is not live")
+        void refusesWorktreeNotLive() {
+            assertRejected(Reason.OUTSIDE_WORKSPACE, confine(linked.resolve("file.txt").toString()));
+        }
+    }
+
     @Nested
     @DisplayName("as a contract")
     class Contract {

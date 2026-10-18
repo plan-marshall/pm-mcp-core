@@ -33,12 +33,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]
 |Milestones 3 and 4
 
-|link:operator-and-question-stores.adoc[`operator-and-question-stores`]
-|Operator and question stores of the scopes; the per-project machine store and project resolution
-|`open`
-|nothing
-|Milestone 3
-
 |link:removed-concepts.adoc[`removed-concepts`]
 |Code of concepts the specification removed: the scope session log, the session generations, the sweep step of fenced generations, the scenario directive `expire_question`; then the stalled-scope detection
 |`open`
@@ -102,7 +96,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:question-continuation.adoc[`question-continuation`]
 |Continuation after a question: hold, suspend and resume, the answer acknowledgement, the answer in the next task, the question bound, the stage `resumability` of the profile verification
 |`open`
-|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:operator-and-question-stores.adoc[`operator-and-question-stores`]; link:profile-loader.adoc[`profile-loader`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
+|link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:worker-launch.adoc[`worker-launch`]; link:profile-loader.adoc[`profile-loader`]; link:role-sets-and-model-caller.adoc[`role-sets-and-model-caller`]; link:../../../plan-marshall-mcp/doc/plans/question-loop-verification.adoc[`plan-marshall-mcp` / `question-loop-verification`]
 |Milestone 4
 
 |link:role-qualification.adoc[`role-qualification`]
@@ -120,7 +114,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]
 |Waiting for the operator as one mechanism of the workflow language, and the machine scope
 |`open`
-|link:operator-and-question-stores.adoc[`operator-and-question-stores`]; link:waits.adoc[`waits`]
+|link:waits.adoc[`waits`]
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]

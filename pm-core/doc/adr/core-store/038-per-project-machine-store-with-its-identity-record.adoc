@@ -1,0 +1,52 @@
+= ADR 038: The Per-Project Machine Store and Its Identity Record Live in `core.store`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+Every server-owned state of a project lies in `<PM_MCP_BASE>/projects/<project_id>/`, the same for its main checkout
+and all its worktrees (PM-ARCH-1). The store needs its directories and an identity record `store.json` that names the
+main checkout it belongs to. The enrolment of the project (`ProjectEnrolment`) lives in `core.store` and already holds
+the one check of a project root. The repository of the project must hold no state, `.marshall/local/` included.
+
+== Decision
+
+* `ProjectStore` and its identity `ProjectStoreIdentity`, with the strict codec `ProjectStoreIdentityCodec`, live in
+  `core.store` beside `ProjectEnrolment`; `core.config` is not touched.
+* `ProjectStore` resolves `projects/<project_id>/` through `LockKey.projectStore` and names its directories (`plans`,
+  `archive`, `workspace`, `epics`, `pending`, `locks`, `queue`, `jobs`) and `store.json`; it names no path below the
+  repository.
+* `ProjectStore.create(transaction, identity)` acquires the project's workspace lock in the caller's transaction,
+  creates the directories and writes `store.json` when it does not exist. It returns `CREATED` or `EXISTED` and never
+  rewrites an existing `store.json`, an unreadable one included.
+* `readIdentity()` reads without a lock and answers `Present`, `Absent` or `Unreadable`; neither is an empty identity.
+* `ProjectEnrolment.requireAbsolutePath` is package-private instead of private, so the identity checks the project root
+  with the one check of an enrolment.
+
+The placement in `core.store` with `core.config` untouched was the operator's decision for the work package.
+
+== Alternatives Considered
+
+1. *The store in `core.config`.*
+_Not taken_: the operator decided for `core.store`, beside the enrolment.
+
+== Consequences
+
+* An identity record is written once; a store created twice keeps its first identity, and an unreadable one is left
+  for the operator rather than replaced.
+* A caller tells a store that was never created from a broken identity record.
+* `ProjectStoreNoStateInRepositoryTest` guards that no new store writes below the repository of the project.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14), and the operator decision to place `ProjectStore` in `core.store`
+* link:../../../../doc/specification/filesystem-layout/03-project-store.adoc[Filesystem Layout § Project Store]
+* `pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/ProjectStoreIdentity.java`

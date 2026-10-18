@@ -1,0 +1,55 @@
+= ADR 034: The Waiver Logs Are Appended Only Through the Plan's Scope Transaction
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+The operator waives a gate, raises a remediation budget or revokes such a waiver of a plan (PM-SEC-3), and every
+evaluation of a gate that relied on a `met` waiver is recorded. Both are evidence of operator authority: a waiver that
+was changed in place, or a consumption that was dropped, would rewrite what the operator decided and what the gate
+admitted. The plan's stores are written through its `ScopeTransaction`, which journals a target, repairs a torn tail of
+a JSONL store first and records the digest of every store in the plan's sidecar.
+
+== Decision
+
+* The waiver log `plans/<plan_id>/waivers.jsonl` (`WaiverLog` of `WaiverRecord`) and the consumption log
+  `plans/<plan_id>/waiver-consumptions.jsonl` (`WaiverConsumptionLog` of `WaiverConsumptionRecord`) are append-only
+  logs of the plan scope; only a plan has them.
+* An append adds one line as an append target to the caller's transaction of the plan and never commits on its own; a
+  transaction of another scope is refused. No method rewrites or removes a line.
+* A revocation is a new `revoked` line with the same waiver id. The current state of a waiver is the last readable line
+  of its id, taken whole; a torn last line is no version of its waiver.
+* That the operator's act is the only writer of the waiver log and `waiver.lookup` the only writer of the consumption
+  log is the rule of those callers, not of the store.
+
+== Alternatives Considered
+
+Alternatives not recorded.
+
+== Consequences
+
+* Every waiver and consumption line is journaled, recovered and covered by the plan's digest sidecar, so an edit
+  outside a transaction is detected as for any store of the plan.
+* A reader that wants the state of a waiver reads the log and takes the last readable line; there is no current-state
+  file to keep in step.
+* The read is the specified one, and it has a cost the specification accepts: a line that is refused when read (of
+  another format version, or damaged) is skipped, so a `revoked` line that is refused leaves the earlier `waived` line
+  as the current line of the waiver. No writer in this repository emits such a line. A caller that gates on a waiver
+  consults `refused()` of the log and treats a log that holds a refused line as not deciding the waiver, as the
+  question log's append gate does (link:039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 039]).
+* A later writer of either log has to go through the append; the store offers no other write.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`] (PLAN-14)
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc[Store Schemas § Plan
+  Instance, Waivers and Questions]
+* `pm-core/src/main/java/de/planmarshall/core/store/WaiverLog.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionLog.java`
