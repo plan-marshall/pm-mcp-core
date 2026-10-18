@@ -212,7 +212,7 @@ class WorkflowStatusSchemaParityTest {
                 var status = WorkflowStatusCodecTest.withRequests(document.apply(without));
                 try {
                     WorkflowStatusCodecTest.read(status);
-                } catch (StoreRefusal refused) {
+                } catch (StoreRefusal _) {
                     required.add(member);
                 }
             }

@@ -168,10 +168,12 @@ class ProjectStoreIdentityCodecTest {
         @Test
         @DisplayName("another format version is refused as newer or outdated before any member is read")
         void otherFormatVersion() {
-            var newer = assertThrows(StoreRefusal.class,
-                    () -> read(ENROLLED.replace("\"format_version\":1", "\"format_version\":2")));
-            var outdated = assertThrows(StoreRefusal.class, () -> read(ENROLLED
-                    .replace("\"format_version\":1", "\"format_version\":0").replace("pm-mcp-core\",", "x\",")));
+            var newerDocument = ENROLLED.replace("\"format_version\":1", "\"format_version\":2");
+            var outdatedDocument = ENROLLED.replace("\"format_version\":1", "\"format_version\":0")
+                    .replace("pm-mcp-core\",", "x\",");
+
+            var newer = assertThrows(StoreRefusal.class, () -> read(newerDocument));
+            var outdated = assertThrows(StoreRefusal.class, () -> read(outdatedDocument));
 
             assertAll(
                     () -> assertEquals(Outcome.FORMAT_NEWER, newer.outcome()),

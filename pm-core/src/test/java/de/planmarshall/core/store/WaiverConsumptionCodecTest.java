@@ -150,20 +150,21 @@ class WaiverConsumptionCodecTest {
     @Test
     @DisplayName("a consumption is built only with its components, and keeps its own copy of covered")
     void components() {
+        var at = Instant.parse("2026-10-17T11:00:00Z");
         var covered = new ArrayList<>(List.of("sonar"));
-        var consumption = new WaiverConsumptionRecord("W-1", "ci-verify", Instant.parse("2026-10-17T11:00:00Z"),
-                "finalize.ci-verify", HEAD_SHA, covered);
+        var consumption = new WaiverConsumptionRecord("W-1", "ci-verify", at, "finalize.ci-verify", HEAD_SHA, covered);
         covered.add("later");
+        var none = List.<String>of();
 
         assertAll(
                 () -> assertEquals(List.of("sonar"), consumption.covered()),
-                () -> assertThrows(NullPointerException.class, () -> new WaiverConsumptionRecord(null, "ci-verify",
-                        Instant.parse("2026-10-17T11:00:00Z"), "s", HEAD_SHA, List.of())),
-                () -> assertThrows(NullPointerException.class, () -> new WaiverConsumptionRecord("W-1", "ci-verify",
-                        null, "s", HEAD_SHA, List.of())),
-                () -> assertThrows(NullPointerException.class, () -> new WaiverConsumptionRecord("W-1", "ci-verify",
-                        Instant.parse("2026-10-17T11:00:00Z"), "s", null, List.of())),
-                () -> assertThrows(NullPointerException.class, () -> new WaiverConsumptionRecord("W-1", "ci-verify",
-                        Instant.parse("2026-10-17T11:00:00Z"), "s", HEAD_SHA, null)));
+                () -> assertThrows(NullPointerException.class,
+                        () -> new WaiverConsumptionRecord(null, "ci-verify", at, "s", HEAD_SHA, none)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new WaiverConsumptionRecord("W-1", "ci-verify", null, "s", HEAD_SHA, none)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new WaiverConsumptionRecord("W-1", "ci-verify", at, "s", null, none)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new WaiverConsumptionRecord("W-1", "ci-verify", at, "s", HEAD_SHA, null)));
     }
 }

@@ -244,13 +244,13 @@ class WaiverRecordCodecTest {
         @Test
         @DisplayName("an undeclared member, of the record or of its operator, is refused naming it")
         void undeclaredMember() {
-            var record = members();
-            record.put("expires_at", "\"2026-10-18T09:00:00Z\"");
+            var ofRecord = members();
+            ofRecord.put("expires_at", "\"2026-10-18T09:00:00Z\"");
             var operator = members();
             operator.put("operator", "{\"channel\":\"cli\",\"os_principal\":\"oliver\",\"host\":\"box\"}");
 
             assertAll(
-                    () -> assertTrue(assertRefused(Outcome.UNREADABLE, document(record)).getMessage()
+                    () -> assertTrue(assertRefused(Outcome.UNREADABLE, document(ofRecord)).getMessage()
                             .contains("expires_at")),
                     () -> assertTrue(assertRefused(Outcome.UNREADABLE, document(operator)).getMessage()
                             .contains("host")));

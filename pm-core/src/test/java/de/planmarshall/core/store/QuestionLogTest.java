@@ -472,6 +472,7 @@ class QuestionLogTest {
         var entry = new EntryId("ent-0123456789abcdef");
         var workspace = JournalScope.workspace(base, PROJECT);
         var epic = JournalScope.epic(base, PROJECT, "an-epic");
+        var lessons = JournalScope.lessons(base, PROJECT);
 
         assertAll(
                 () -> assertEquals(scope.pathBase().resolve("questions.jsonl"), log.store()),
@@ -481,7 +482,6 @@ class QuestionLogTest {
                 () -> assertEquals("pending/ent-0123456789abcdef/questions.jsonl",
                         QuestionLog.ofEntry(workspace, entry).storePath()),
                 () -> assertThrows(IllegalArgumentException.class, () -> QuestionLog.ofEntry(scope, entry)),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new QuestionLog(JournalScope.lessons(base, PROJECT))));
+                () -> assertThrows(IllegalArgumentException.class, () -> new QuestionLog(lessons)));
     }
 }

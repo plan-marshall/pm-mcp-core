@@ -166,12 +166,13 @@ class WaiverConsumptionLogTest {
     @Test
     @DisplayName("lies at the path base of a plan; no other scope has one")
     void location() {
+        var epic = JournalScope.epic(base, PROJECT, "an-epic");
+        var workspace = JournalScope.workspace(base, PROJECT);
+
         assertAll(
                 () -> assertEquals(scope.pathBase().resolve("waiver-consumptions.jsonl"), log.store()),
                 () -> assertEquals("waiver-consumptions.jsonl", log.storePath()),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WaiverConsumptionLog(JournalScope.epic(base, PROJECT, "an-epic"))),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WaiverConsumptionLog(JournalScope.workspace(base, PROJECT))));
+                () -> assertThrows(IllegalArgumentException.class, () -> new WaiverConsumptionLog(epic)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new WaiverConsumptionLog(workspace)));
     }
 }

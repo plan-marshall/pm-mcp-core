@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,9 @@ class QuestionRecordCodecTest {
 
     private static final Path FILE = Path.of("/base/projects/pm-mcp-core/plans/a-plan/questions.jsonl");
     static final Instant AT = Instant.parse("2026-10-17T09:00:00Z");
+
+    /** A word in a member name that names a deadline or an expiry, found anywhere in the name. */
+    private static final Pattern TIMED_NAME = Pattern.compile("deadline|expir|timeout|ttl|due");
 
     /** The envelope of a part, kept as the exact text of one object; the space shows it is written back verbatim. */
     static final String ENVELOPE = "{\"part\": 1,\"options\":[\"keep\",\"drop\"]}";
@@ -432,12 +436,13 @@ class QuestionRecordCodecTest {
         @DisplayName("a member twice and content after the record are refused")
         void duplicateAndTrailing() {
             var once = new String(document(answeredMembers()), UTF_8);
-            var twice = once.replace("\"channel\":\"cli\",", "\"channel\":\"cli\",\"channel\":\"cli\",");
+            var twice = once.replace("\"channel\":\"cli\",", "\"channel\":\"cli\",\"channel\":\"cli\",")
+                    .getBytes(UTF_8);
+            var trailing = (once + once).getBytes(UTF_8);
 
             assertAll(
-                    () -> assertThrows(StoreRefusal.class, () -> QuestionRecordCodec.read(FILE, twice.getBytes(UTF_8))),
-                    () -> assertThrows(StoreRefusal.class,
-                            () -> QuestionRecordCodec.read(FILE, (once + once).getBytes(UTF_8))));
+                    () -> assertThrows(StoreRefusal.class, () -> QuestionRecordCodec.read(FILE, twice)),
+                    () -> assertThrows(StoreRefusal.class, () -> QuestionRecordCodec.read(FILE, trailing)));
         }
     }
 
@@ -549,7 +554,7 @@ class QuestionRecordCodecTest {
     @DisplayName("no member of the schema names a deadline or an expiry, and no event closes a question by time")
     void noDeadline() {
         var timed = QuestionRecordCodec.DECLARED_FIELDS.stream()
-                .filter(field -> field.toLowerCase(Locale.ROOT).matches(".*(deadline|expir|timeout|ttl|due).*"))
+                .filter(field -> TIMED_NAME.matcher(field.toLowerCase(Locale.ROOT)).find())
                 .toList();
 
         assertAll(

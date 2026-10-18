@@ -104,7 +104,7 @@ class ProjectStoreTest {
 
         @Test
         @DisplayName("creates every directory and writes the identity, under the workspace lock")
-        void createsStore() throws Exception {
+        void createsStore() {
             Creation creation;
             try (var transaction = locks.openTransaction()) {
                 creation = store.create(transaction, identity);

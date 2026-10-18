@@ -509,8 +509,10 @@ class ProjectResolverTest {
         @Test
         @DisplayName("rejects a relative path and a missing argument as a programming error")
         void invalidArguments() {
+            var relative = Path.of("src/Main.java");
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> resolver.resolve(Path.of("src/Main.java")),
+                    () -> assertThrows(IllegalArgumentException.class, () -> resolver.resolve(relative),
                             "A relative path should be a programming error"),
                     () -> assertThrows(NullPointerException.class, () -> resolver.resolve(null),
                             "A missing path should be a programming error"),
@@ -546,12 +548,13 @@ class ProjectResolverTest {
             var conflict = new RootConflict(projects);
 
             projects.add("beta-project");
+            var projectIds = conflict.projectIds();
 
             assertAll(
-                    () -> assertEquals(List.of("alpha-project", "zeta-project"), List.copyOf(conflict.projectIds()),
+                    () -> assertEquals(List.of("alpha-project", "zeta-project"), List.copyOf(projectIds),
                             "The conflict should hold its own sorted copy"),
                     () -> assertThrows(UnsupportedOperationException.class,
-                            () -> conflict.projectIds().add("gamma-project"),
+                            () -> projectIds.add("gamma-project"),
                             "The projects of a conflict should not be modifiable"));
         }
 

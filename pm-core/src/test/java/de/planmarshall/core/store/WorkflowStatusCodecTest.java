@@ -514,7 +514,9 @@ class WorkflowStatusCodecTest {
         @MethodSource("de.planmarshall.core.store.WorkflowStatusCodecTest#requestRefusals")
         @DisplayName("a request outside its schema is refused as unreadable, naming the file and the member")
         void refused(String name, String request, String detail) {
-            var refusal = assertThrows(StoreRefusal.class, () -> read(withRequests(request)));
+            var document = withRequests(request);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> read(document));
 
             assertAll(
                     () -> assertEquals(Outcome.UNREADABLE, refusal.outcome()),

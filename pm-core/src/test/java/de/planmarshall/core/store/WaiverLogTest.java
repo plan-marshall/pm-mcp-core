@@ -251,14 +251,15 @@ class WaiverLogTest {
     @Test
     @DisplayName("lies at the path base of a plan; an epic, the workspace and the lesson store have none")
     void location() {
+        var epic = JournalScope.epic(base, PROJECT, "an-epic");
+        var workspace = JournalScope.workspace(base, PROJECT);
+        var lessons = JournalScope.lessons(base, PROJECT);
+
         assertAll(
                 () -> assertEquals(scope.pathBase().resolve("waivers.jsonl"), log.store()),
                 () -> assertEquals("waivers.jsonl", log.storePath()),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WaiverLog(JournalScope.epic(base, PROJECT, "an-epic"))),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WaiverLog(JournalScope.workspace(base, PROJECT))),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new WaiverLog(JournalScope.lessons(base, PROJECT))));
+                () -> assertThrows(IllegalArgumentException.class, () -> new WaiverLog(epic)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new WaiverLog(workspace)),
+                () -> assertThrows(IllegalArgumentException.class, () -> new WaiverLog(lessons)));
     }
 }
