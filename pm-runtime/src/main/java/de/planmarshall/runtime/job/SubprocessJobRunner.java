@@ -1104,7 +1104,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * close the cancel door of the job ({@code RunningJob.closeCancelDoor}), one atomic point that decides which cancel
      * was answered {@code true} and which cause is read here: a cancel answered {@code true} before the door closed
      * (while the launch was composed or started) has decided the end, and its cause decides the fate as on every other
-     * path of the runner ({@code cancelled}, outcome row 2); a cancel that arrives after the door closed is answered
+     * path of the runner ({@code cancelled}, outcome row 2; {@code timed_out}, row 3, for the budget; {@code killed},
+     * row 4, for the drain); a cancel that arrives after the door closed is answered
      * {@code false}, because the fate is no longer open to it. The answer {@code true} and the fate by the cause are
      * therefore the same fact. A missing job log is what a launch that was never started leaves and counts as an empty
      * one; a log that exists and cannot be read still decides row 5.

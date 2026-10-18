@@ -35,7 +35,7 @@ job spec its job would need: which build verb, which tool, which arguments.
   cannot be composed or a launcher that cannot be started settles it as the launcher's exit `127`, unless a cancel was
   answered `true` before the settlement closed the job's cancel door (the first thing it does, one atomic point that
   decides both the answer and the cause it reads), whose cause then decides it as on every other path (`cancelled`,
-  row 2); a cancel after the door closed is answered `false`, so the answer `true` and the fate by the cause are the
+  row 2; `timed_out`, row 3, for the budget; `killed`, row 4, for the drain); a cancel after the door closed is answered `false`, so the answer `true` and the fate by the cause are the
   same fact. The door is the one arbiter of every job, not of the unlaunched job alone: the runner closes it when it
   observes the end of the process (the waiting thread when it sees the exit, and the settlement from the observed end
   after the process group was terminated) and reads the cause then, so a cancel answered `true` before the door closed
