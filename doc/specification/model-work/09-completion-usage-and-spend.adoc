@@ -140,6 +140,8 @@ The usage of the models is recorded and reported in tokens, never in money, and 
 [[navigation-figures]]*Navigation Figures*: Beside the tokens, the server derives from a task's records what the work cost to navigate, each figure with its population (the turns, the reads, or the lookups it counts over) and `indeterminate` where that population cannot be read:
 
 * *Cache-read share*: the cache-read tokens over the context tokens (input, cache read, cache creation) of the task's turns; `unmeasured` where the harness does not report cache reads.
+* *Most expensive turns*: the five turns of the task with the most context tokens, each with its tokens and the tool calls it made.
+* *Largest tool results*: the ten largest `tool_result` entries of the task's activity, each with its size and the tool and target of its call, so the first thing to cut is visible.
 * *Revisits*: the reads of a file the worker had already read earlier in the same plan task, from the targets of the `tool_call` entries of its activity whose tool is a file-reading tool of the harness, over all such reads.
 * *Language-server use*: the share of `pm_lsp` read operations among all code lookups of the task, `pm_lsp read operations / (pm_lsp read operations + calls of the harness's own search tools)`; `indeterminate` where the task made no lookup.
 * *Fallback-to-read rate*: the `pm_lsp` lookups followed, in the same plan task, by a whole-file read of the file the lookup answered with, over all lookups; a read of a part of that file is the expected next step and does not count.

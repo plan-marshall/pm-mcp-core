@@ -249,6 +249,12 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:operator-reports.adoc[`operator-reports`]; link:plan-and-epic-control.adoc[`plan-and-epic-control`] (the archives of plans); link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archives of epics, the release; the unenrolment); link:chat.adoc[`chat`] (ended work, read-only); link:runtime-metrics.adoc[`runtime-metrics`] (the token figures kept); link:machine-onboarding-unit.adoc[`machine-onboarding-unit`] (the machine's settings); link:project-onboarding-unit.adoc[`project-onboarding-unit`] (the project's values); link:removed-concepts.adoc[`removed-concepts`] (the present steps of the periodic sweep)
 |Milestone 10; the client work of `pm-mcp-clients`
 
+|link:service-unit-restore.adoc[`service-unit-restore`]
+|Restoring the previous service unit when a new one does not load, as the upgrade's rollback requires
+|`open`
+|nothing
+|Milestone 10
+
 |link:differential-test-harness.adoc[`differential-test-harness`]
 |Differential test harness
 |`blocked`

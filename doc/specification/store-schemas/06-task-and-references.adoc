@@ -253,13 +253,25 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
       "type": "array", "minItems": 1, "maxItems": 30,
       "items": {
         "type": "object",
-        "required": ["id", "text", "kind", "verified_by"],
+        "required": ["id", "text", "kind", "verified_by", "capability"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^AC-[0-9]{1,4}$" },
           "text": { "type": "string", "minLength": 10, "maxLength": 500, "description": "EARS form; checked by the server beyond this schema." },
           "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] },
-          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] }
+          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] },
+          "capability": {
+            "type": ["object", "null"],
+            "required": ["capability", "requirement", "change", "base"],
+            "additionalProperties": false,
+            "description": "The capability requirement the criterion changes (phase-workflows/01, Capability Specs); null for a criterion of the plan only.",
+            "properties": {
+              "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,62}[a-z0-9](/[a-z0-9][a-z0-9-]{0,62}[a-z0-9]){0,3}$" },
+              "requirement": { "type": "string", "minLength": 3, "maxLength": 120 },
+              "change": { "type": "string", "enum": ["added", "modified", "removed"] },
+              "base": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "For modified and removed: the fingerprint of the requirement at the plan's base; null for added." }
+            }
+          }
         }
       }
     },
@@ -294,7 +306,7 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
       "type": "array", "maxItems": 30,
       "items": {
         "type": "object",
-        "required": ["id", "text", "options_weighed", "decider", "question_id", "evidence"],
+        "required": ["id", "text", "options_weighed", "decider", "question_id", "evidence", "adr"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
@@ -302,7 +314,17 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
           "options_weighed": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
           "decider": { "type": "string", "enum": ["operator", "quorum", "model", "fact"] },
           "question_id": { "type": ["string", "null"], "description": "The answered part, for decider operator or quorum; null otherwise." },
-          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." }
+          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." },
+          "adr": {
+            "type": ["object", "null"],
+            "required": ["adr_id", "relation"],
+            "additionalProperties": false,
+            "properties": {
+              "adr_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "relation": { "type": "string", "enum": ["follows", "contradicts"] }
+            },
+            "description": "The architecture decision record the decision follows or contradicts; a contradicts decision must have decider operator."
+          }
         }
       }
     },
@@ -364,3 +386,511 @@ The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#in
 ----
 
 The server checks beyond the schema (EARS form, the fix triple, true deciders, the riskiest assumption, identifiers never reused, preservation) are those of the intent record's specification; the identifiers follow link:../identifiers/02-registry-stores-to-web.adoc#id-intent-item-id[Identifier Registry, intent item identifier].
+
+[#outline-record-store]
+=== Outline Record (`outline.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+The plan's solution outline (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase Workflows Specification, Phase 3 Validation]), written by the transaction that accepts a `submit:outline` and by `replan.apply`. `current` is the accepted record and every earlier revision moves to `history[]`; `deliverable_status` is server-owned. `outline.md` is rendered from `current` in the model language, deliverable by deliverable, in the section form of `plan-marshall`'s solution outline (`**Metadata:**`, `**Intent gloss:**`, `**Profiles:**`, ``- `<path>` (<intent>)`` under `**Affected files:**`, `**Change per file:**`, `**Verification:**`, `**Satisfies:**`, `**Added dependencies:**`, `**Interfaces:**`, `**Key links:**`); it is never read back. The model-supplied record is the named parameter schema `outline-record`.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/outline.json",
+  "title": "OutlineStore",
+  "type": "object",
+  "required": [
+    "format_version",
+    "current",
+    "deliverable_status",
+    "history"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "current": {
+      "$ref": "#/$defs/revision"
+    },
+    "deliverable_status": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[1-9][0-9]?$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "active",
+          "deferred",
+          "removed"
+        ]
+      },
+      "description": "Server-owned, by deliverable number: active, or deferred or removed by a re-planning (kept in the record with their state)."
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/revision"
+      }
+    }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "required": [
+        "revision",
+        "submitted_at",
+        "task_id",
+        "record"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "submitted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "task_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "record": {
+          "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/outline-record-v1.json"
+        }
+      }
+    }
+  }
+}
+----
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/outline-record-v1.json",
+  "title": "OutlineRecord",
+  "type": "object",
+  "required": [
+    "summary",
+    "overview",
+    "scope_estimate",
+    "deliverables"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 2000
+    },
+    "overview": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 8000,
+      "description": "An optional text diagram of the solution."
+    },
+    "scope_estimate": {
+      "type": "string",
+      "enum": [
+        "none",
+        "surgical",
+        "single_module",
+        "multi_module",
+        "broad"
+      ]
+    },
+    "deliverables": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": [
+          "number",
+          "title",
+          "intent_gloss",
+          "change_type",
+          "execution_mode",
+          "domain",
+          "module",
+          "depends",
+          "design_notes",
+          "profiles",
+          "affected_files",
+          "change_per_file",
+          "verification",
+          "satisfies",
+          "added_dependencies",
+          "interfaces",
+          "key_links"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "intent_gloss": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 200,
+            "description": "One sentence of what the deliverable does; copied verbatim into its derived tasks."
+          },
+          "change_type": {
+            "type": "string",
+            "enum": [
+              "analysis",
+              "feature",
+              "enhancement",
+              "bug_fix",
+              "tech_debt",
+              "verification"
+            ],
+            "description": "Deliverable-scoped; reconciled with the plan's change_type (phase-workflows/03, Scope Disagreement Refusal)."
+          },
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "automated",
+              "manual",
+              "mixed"
+            ]
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "depends": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            }
+          },
+          "design_notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          },
+          "profiles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "implementation",
+                "module_testing",
+                "integration_testing",
+                "verification"
+              ]
+            }
+          },
+          "affected_files": {
+            "type": "array",
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "intent",
+                "gate"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512,
+                  "description": "Repository-relative; a glob is judged on its expansion."
+                },
+                "intent": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write-new",
+                    "write-replace",
+                    "write-conditional",
+                    "delete"
+                  ]
+                },
+                "gate": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 200,
+                  "description": "For write-conditional: the gate whose firing changes the file; null otherwise."
+                }
+              }
+            }
+          },
+          "change_per_file": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 8000
+          },
+          "verification": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "required": [
+                "command",
+                "criterion"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "criterion": {
+                  "type": "string",
+                  "minLength": 5,
+                  "maxLength": 500
+                }
+              }
+            }
+          },
+          "satisfies": {
+            "type": "array",
+            "uniqueItems": true,
+            "maxItems": 40,
+            "items": {
+              "type": "string",
+              "pattern": "^(AC|DC)-[0-9]{1,4}$"
+            }
+          },
+          "added_dependencies": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "coordinate",
+                "why",
+                "rejected_alternative"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "coordinate": {
+                  "type": "string",
+                  "pattern": "^(maven|npm|pypi):.+$",
+                  "maxLength": 256
+                },
+                "why": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 500
+                },
+                "rejected_alternative": {
+                  "type": "string",
+                  "minLength": 10,
+                  "maxLength": 500,
+                  "description": "The simpler alternative considered and why it was rejected."
+                }
+              }
+            }
+          },
+          "interfaces": {
+            "type": "array",
+            "maxItems": 30,
+            "items": {
+              "type": "object",
+              "required": [
+                "direction",
+                "symbol",
+                "signature"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "produces",
+                    "consumes"
+                  ]
+                },
+                "symbol": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "signature": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              }
+            }
+          },
+          "key_links": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": [
+                "from",
+                "to",
+                "pattern"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "to": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "pattern": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+----
+
+[#capability-spec]
+=== Capability Spec (`.marshall/capabilities/<capability>.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+A git-tracked team file of the project (link:../phase-workflows/01-planning-phases-1-2.adoc#capability-specs[Phase Workflows Specification, Capability Specs]), written only by the finalize step `architecture-refresh` in a plan's worktree; a requirement's fingerprint is the SHA-256 of the RFC 8785 canonical JSON of its object without `plan_id`. A removed requirement leaves the file; a capability whose last requirement is removed is deleted.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/capability-spec-v1.json",
+  "title": "CapabilitySpec",
+  "type": "object",
+  "required": [
+    "format_version",
+    "capability",
+    "purpose",
+    "requirements"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "capability": {
+      "type": "string",
+      "description": "Equals the file's path below .marshall/capabilities/ without .json."
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 1000
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "text",
+          "scenarios",
+          "plan_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120,
+            "description": "Unique within the capability; the key of a change."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 500,
+            "description": "EARS form."
+          },
+          "scenarios": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "given",
+                "when",
+                "then"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 120
+                },
+                "given": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 500
+                },
+                "when": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 500
+                },
+                "then": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 500
+                }
+              }
+            }
+          },
+          "plan_id": {
+            "type": "string",
+            "description": "The plan whose merge last changed the requirement."
+          }
+        }
+      }
+    }
+  }
+}
+----

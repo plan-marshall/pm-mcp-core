@@ -76,7 +76,7 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 |Signal |Holds when
 
 |`repeating`
-|The worker made the same tool call with the same target `N` times in a row (a `tool_call` entry of the activity: tool name and target).
+|The worker made the same tool call with the same target `N` times in a row (a `tool_call` entry of the activity: tool name and target). A repeat is not counted when, between the two calls, the target was written (a `file_changed` entry for it), the harness compacted the worker's context (a compaction the profile maps), or the earlier call failed or was rejected: then the repeat has a cause, and the counting starts again.
 
 |`no_progress`
 |The worker completed `N` turns (`turn` entries) without following a link of its task (a server entry of the activity: `ack`, a `submit`, `ask`, `consult:<role>`, `yield`, `infeasible`).

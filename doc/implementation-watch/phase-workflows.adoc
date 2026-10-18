@@ -1605,3 +1605,25 @@ answered by a quorum, and a nonexistent `question_id`; each is refused with the 
 whose evidence path does not exist is refused.
 Source:: Intent Definition analysis of plan-marshall-documentation (pi-plans records the answer source;
 Superpowers: "any choice you make goes in the design as your call, never as something they agreed to").
+
+[#PM-WATCH-PHASE-108]
+=== PM-WATCH-PHASE-108: A model-supplied key-link pattern cannot stall the runtime
+
+Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-key-links[Phase Workflows § 8. `key_links`]
+Hazard:: The pattern of a key link is written by the outline task and evaluated by the runtime over files of the
+worktree. A backtracking regular-expression engine (`java.util.regex`) takes exponential time on patterns such as
+`(a+)+$`, so one outline could block the verification sweep, and with it the runtime thread that runs it.
+Guard:: Tests submit patterns with nested quantifiers, backreferences, and lookaround: the first is evaluated in
+linear time over a long input within a fixed bound, the others are refused at submission with the member named.
+Source:: Spec Frameworks analysis of plan-marshall-documentation (GSD's key links with a pattern).
+
+[#PM-WATCH-PHASE-109]
+=== PM-WATCH-PHASE-109: The builder check sees the record, not the conversation
+
+Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows § Builder Check]
+Hazard:: The builder check tests whether someone who has only the intent record could build from it. Facts that
+carry the original input, the clarifications, or refine's own submission let the task answer its questions from
+what the record omits, and the check passes a record that a builder could not use.
+Guard:: A test composes the facts of `refine.builder-check` and asserts that they hold the intent record and the
+capability index only, with no member of `request.md`'s original input or clarifications and no earlier submission.
+Source:: Superpowers analysis of plan-marshall-documentation (the builder "will not be able to talk to the person").

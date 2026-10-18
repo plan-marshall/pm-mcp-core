@@ -200,7 +200,7 @@ Every row in `links[N]{rel,link,form,free}:` belongs to one of two closed link f
 
 |`submit`
 |`pm_do(scope, link, args)`
-|Non-empty typed parameter list (e.g., `"outline:text[1..65536]"`, `"disposition:enum[FIX\|SUPPRESS\|ACCEPT],reply_text:text[1..4000]"`)
+|Non-empty typed parameter list (e.g., `"message:text[1..2000]"`, `"disposition:enum[FIX\|SUPPRESS\|ACCEPT],reply_text:text[1..4000]"`)
 |Submits model judgment artifacts to the server from a worker for its leased task entity. The server validates `args` against the link's closed schema before executing the backing primitive.
 
 |`noop`

@@ -1,0 +1,46 @@
+= Restoring the service unit when a new one does not load
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `service-unit-restore`
+
+[horizontal]
+Serves:: the upgrade of link:runtime-control.adoc[`runtime-control`] (a failure before the switch restores the previous service unit); roadmap Milestone 10
+Where:: pm-runtime (`runtime.start`: `ServiceUnitInstaller`, `ServiceUnitFile`)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+`ServiceUnitInstaller.install` writes the new unit over the existing one and then loads it; when loading fails, the
+new unit stays written and the failure is reported (its Javadoc: "install can be run again"), as
+link:../../pm-runtime/doc/adr/runtime-start/003-unit-file-step-and-service-manager-step.adoc[ADR 003] decided. The
+upgrade needs the opposite: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Lifecycle § Upgrade]
+states that a failure before the switch, the service unit included, is undone before it is reported, "the previous
+service unit restored and reloaded, so the installation in force is unchanged". Found by the review of `pm-mcp-core`
+#84.
+
+* *Keep the previous unit*: before writing, the installer keeps the bytes of the unit in force (none when no unit
+  is installed).
+* *Restore on a failed load*: when loading the new unit fails, the installer writes the kept bytes back and loads them
+  (or, when there was none, removes the new file and unloads nothing), and then reports the load failure with the
+  restore's own result; a restore that fails too is reported with both failures, the first one thrown and the
+  second suppressed, as `uninstall` already does.
+* *Order against self-termination*: the file work stays before every command that can end the caller (the reason of
+  ADR 003); on macOS, where a reinstall from a runtime started by the unit ends that runtime between unload and
+  load, the restore is the next start's first step: the kept bytes are written beside the unit before the load, and
+  a start that finds them with a unit that did not load restores them.
+* *Plain install*: decide in the plan whether `pm-operator runtime install` restores as well or keeps its
+  documented "run it again" behaviour, and record the decision in ADR 003's successor; the upgrade path restores in
+  every case.
+
+== Trace
+
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/10-distribution.adoc#PM-DIST-1[PM-DIST-1] (upgrade); link:../../../plan-marshall-documentation/doc/requirements/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7] (the runtime's lifecycle)
+* Specification: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Lifecycle § Upgrade]; link:../../../plan-marshall-documentation/doc/specification/cli-and-security/01-cli-and-installer.adoc#installation-layout[CLI & Installer § Installation Layout]
+* Code: `pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java` and its test
+
+== Done When
+
+With the recording fake of the service manager: a failing load after replacing a unit leaves the previous unit's
+bytes in place and loaded, a failing load on a machine without a unit leaves no unit file, and a failing restore is
+reported with both failures; on macOS the start after an interrupted reinstall restores the kept unit; the decision for
+plain install is recorded in an ADR; `verify` and `verify -Pcoverage` green.
