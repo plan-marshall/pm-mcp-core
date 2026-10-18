@@ -214,7 +214,13 @@ public final class TerminationProtocol {
         };
     }
 
-    /** @return {@code false} if the waiting thread was interrupted */
+    /**
+     * @return {@code false} if the waiting thread was interrupted; the caller restores the interrupt with
+     *         {@link #restoreInterrupt(boolean)} once the escalation is over
+     */
+    // java:S2142 does not apply: the interrupt is reported to the caller, not swallowed. The caller stops waiting, still
+    // sends the signal the step owes, and only then restores the interrupt (restoreInterrupt), so none is lost.
+    @SuppressWarnings("java:S2142")
     private boolean sleep(Duration duration) {
         if (duration.isNegative() || duration.isZero()) {
             return true;

@@ -58,6 +58,9 @@ public final class PmExecLauncher {
     /** The separator between the launcher and the verified argument vector. */
     static final String SEPARATOR = "--";
 
+    // java:S1075 does not apply: /dev/null is the fixed POSIX null device, not a configurable resource location. It gives
+    // the child an input that is at EOF at once; making it a parameter would only let a caller replace that guarantee.
+    @SuppressWarnings("java:S1075")
     private static final File NO_INPUT = new File("/dev/null");
 
     /** {@code rw-------}: the mode of a job log. */

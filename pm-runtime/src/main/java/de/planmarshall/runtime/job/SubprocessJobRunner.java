@@ -921,6 +921,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private record Awaited(Optional<Termination> cause, boolean interrupted) {
     }
 
+    // java:S2142 does not apply: the interrupt is deferred, not swallowed. Re-interrupting inside the loop would make the
+    // next wait throw at once; the flag travels in Awaited.interrupted() to leave(), which restores it once the job is
+    // settled.
+    @SuppressWarnings("java:S2142")
     private Awaited awaitEndOrCause(RunningJob job, Process process, Instant deadline) {
         var exit = process.onExit();
         var interrupted = false;
@@ -952,6 +956,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private record Exit(int value, boolean interrupted) {
     }
 
+    // java:S2142 does not apply: the interrupt is deferred, not swallowed. Re-interrupting inside the loop would make the
+    // next waitFor throw at once, so the wait for the process end would never complete; the flag is returned in
+    // Exit.interrupted() and every caller passes it to leave(), which restores it once the job is settled.
+    @SuppressWarnings("java:S2142")
     private static Exit waitFor(Process process) {
         var interrupted = false;
         while (true) {
@@ -1175,7 +1183,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         private final Set<Integer> successExitCodes;
         private final CompletableFuture<Termination> cause = new CompletableFuture<>();
         private final CompletableFuture<JobRecord> settled = new CompletableFuture<>();
+        // java:S3077 does not apply to either volatile field: each is a reference that is replaced as a whole and never
+        // mutated in place. JobRecord is an immutable record (every change builds a new one), so volatile publishes it
+        // safely between the starting thread and the virtual thread that settles the job; Process is a thread-safe
+        // handle that only launched() assigns, once.
+        @SuppressWarnings("java:S3077")
         private volatile JobRecord record;
+        @SuppressWarnings("java:S3077")
         private volatile Process process;
 
         /**
