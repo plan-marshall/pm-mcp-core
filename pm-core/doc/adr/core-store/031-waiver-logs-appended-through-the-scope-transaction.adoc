@@ -39,6 +39,11 @@ Alternatives not recorded.
   outside a transaction is detected as for any store of the plan.
 * A reader that wants the state of a waiver reads the log and takes the last readable line; there is no current-state
   file to keep in step.
+* The read is the specified one, and it has a cost the specification accepts: a line that is refused when read (of
+  another format version, or damaged) is skipped, so a `revoked` line that is refused leaves the earlier `waived` line
+  as the current line of the waiver. No writer in this repository emits such a line. A caller that gates on a waiver
+  consults `refused()` of the log and treats a log that holds a refused line as not deciding the waiver, as the
+  question log's append gate does (link:036-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 036]).
 * A later writer of either log has to go through the append; the store offers no other write.
 
 == Source

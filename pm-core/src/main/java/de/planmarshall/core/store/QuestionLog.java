@@ -116,6 +116,10 @@ public final class QuestionLog {
         }
 
         /**
+         * The lines this reads are the readable ones: a line that was refused when read is not among them, so for a
+         * question with a refused closing line the result is not its closing line. A caller that needs the state of
+         * the question consults {@link #refused()} first and reports the question unreadable when it holds a line.
+         *
          * @param questionId a question
          * @return the last readable line of the question, its current line; empty if the log has none
          */
@@ -125,17 +129,23 @@ public final class QuestionLog {
         }
 
         /**
+         * Only readable lines count: a question whose closing line was refused when read is answered {@code false}
+         * here, though it may be closed. Consult {@link #refused()} before relying on a {@code false}.
+         *
          * @param questionId a question
-         * @return whether the question has a closing line
+         * @return whether the question has a readable closing line
          */
         public boolean isClosed(String questionId) {
             return of(questionId).stream().anyMatch(QuestionRecord::closes);
         }
 
         /**
+         * Only readable lines count, as for {@link #isClosed(String)}: a revised line that was refused when read does
+         * not raise the revision returned here.
+         *
          * @param questionId a question
-         * @return the current revision of its decision, the revision of its last asked or revised line; empty if the
-         *         log has not asked it
+         * @return the current revision of its decision, the revision of its last readable asked or revised line; empty
+         *         if the log has no readable line that asked it
          */
         public OptionalInt currentRevision(String questionId) {
             return of(questionId).stream().filter(line -> line.event() == QuestionEvent.ASKED

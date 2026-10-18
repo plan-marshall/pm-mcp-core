@@ -30,7 +30,10 @@ public sealed interface QuestionRefusal
     /** @return the question the refused line was about */
     String questionId();
 
-    /** @return the error code of the refusal, as the local API reports it */
+    /**
+     * @return the code of the refusal; {@code already_answered} and {@code conflict} are codes the local API reports,
+     *         {@code unreadable} has no entry in the API's closed list of error codes yet, so the API has to map it
+     */
     String code();
 
     /**

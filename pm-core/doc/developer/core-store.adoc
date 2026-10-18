@@ -855,7 +855,9 @@ caller: transaction.commit()
 * *Fail closed on a refused line*: a line refused when read (unreadable, or of another format version) names no
   question the log can read and may be the closing line or the revision of any of them, so the state of the questions
   is unknown. While the log holds one, every append is `Unreadable` naming the first refused line, an `asked` line of a
-  new question included, and nothing is added; a refused line is never taken for an open question
+  new question included, and nothing is added. The read accessors of the log (`current`, `isClosed`,
+  `currentRevision`) count readable lines only, so a caller consults `refused()` first and reports a question unreadable
+  when the log holds a refused line; a refused line is never taken for an open question by the append gate
   (link:../adr/core-store/036-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 036]).
 * *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
   set revised in part, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
@@ -969,8 +971,8 @@ the next append.
 |`AlreadyAnswered` or `Conflict` is returned; nothing of the append is added.
 
 |The question log holds a refused line when an append is checked
-|`Unreadable` naming the first refused line is returned; nothing of the append is added, until the operator has dealt
-with the line.
+|`Unreadable` naming the first refused line is returned; nothing of the append is added. The store has no act that
+repairs the log, so every later append is refused too, `withdraw` and `cancel` included.
 
 |The move of an entry's questions finds a log in the new scope
 |The commit of the new scope's transaction is refused (<<_create_target>>); the entry's log stays.

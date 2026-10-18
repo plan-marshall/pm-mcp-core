@@ -29,7 +29,7 @@ may close or revise any question of the log, also one that a new `asked` line wo
   nothing to the transaction.
 * The refusal covers every event, `asked` included: no append is accepted on the strength of the readable lines alone.
 * The refusal is a value, like `AlreadyAnswered` and `Conflict` of ADR 030; it is not an exception, because the log is
-  in a state the operator has to deal with, not wrong code of the caller.
+  in a state the operator has to be told of, not wrong code of the caller.
 
 == Alternatives Considered
 
@@ -43,8 +43,13 @@ from it is reading it as something close to the schema.
 
 == Consequences
 
-* A log with a refused line accepts no append until the operator has dealt with the line; the questions of the scope
-  stand still, they are never answered twice.
+* A log with a refused line accepts no append. The store has no act that repairs a log, and the guide forbids writing
+  one other than by append, so the refusal holds for every later append as well: the questions of the scope stand still,
+  and they are never answered twice.
+* The refusal covers `withdraw` and `cancel` too, so a scope whose log holds a refused line cannot cancel its open
+  questions at its end through the store. That cost is accepted: a question closed on a guess is worse than a question
+  left open. A way to handle such a log (a repair act, or a scope end that reports the question unreadable) is for a
+  later package.
 * A caller reports `unreadable` to the operator with the line number, as it reports the other refusals.
 * A log without a refused line behaves as before: `AlreadyAnswered` and `Conflict` are unchanged.
 
