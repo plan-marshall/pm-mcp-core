@@ -111,16 +111,21 @@ public final class CompiledInvariants {
 
     private final List<FinalizeStepDescriptor> defaultRoster;
 
+    private final Subject subject;
+
     /**
      * @param registry      the primitives the units may name; the waivable gates, awaited events and cycle measures
      *                      of their primitives are read from it
      * @param defaultUnits  the verified default units, the reference of the project units of the same identifier
      * @param defaultRoster the descriptors of the default finalize steps, whose mandatory steps a finalize unit
      *                      completes
+     * @param subject       what the checked units are: project replacements of their default units, or composed plan
+     *                      instances; it decides whether {@link InvariantId#INV_GEN_1} admits the type
+     *                      {@code instance} against a template
      * @throws NullPointerException if an argument or one of its elements is {@code null}
      */
     public CompiledInvariants(PrimitiveRegistry registry, Collection<WorkflowDefinition> defaultUnits,
-            List<FinalizeStepDescriptor> defaultRoster) {
+            List<FinalizeStepDescriptor> defaultRoster, Subject subject) {
         this.registry = Objects.requireNonNull(registry, "registry");
         var units = new LinkedHashMap<String, WorkflowDefinition>();
         for (var unit : Objects.requireNonNull(defaultUnits, "defaultUnits")) {
@@ -128,6 +133,27 @@ public final class CompiledInvariants {
         }
         this.defaultUnits = Collections.unmodifiableMap(units);
         this.defaultRoster = List.copyOf(Objects.requireNonNull(defaultRoster, "defaultRoster"));
+        this.subject = Objects.requireNonNull(subject, "subject");
+    }
+
+    /**
+     * What the units a {@link CompiledInvariants} checks are; the caller states it when it builds the checker, so no
+     * call of {@link #check} can widen it.
+     */
+    public enum Subject {
+
+        /**
+         * A unit a project owns, which replaces the default unit of the same identifier
+         * ({@code ProjectUnitLoader}): its type equals that of the default unit, with no exception.
+         */
+        PROJECT_REPLACEMENT,
+
+        /**
+         * A plan instance composed from the plan unit ({@code PlanInstanceComposer}): it declares the type
+         * {@code instance} while its template, the default unit, declares {@code workflow} or {@code recipe}, and
+         * {@link InvariantId#INV_GEN_1} admits that one difference of type.
+         */
+        COMPOSED_INSTANCE
     }
 
     /**
@@ -153,7 +179,7 @@ public final class CompiledInvariants {
                     "there is no default unit '%s' to compare the unit with".formatted(unit.id())));
             return ordered(unit, found);
         }
-        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster);
+        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster, subject);
         for (var id : InvariantId.values()) {
             if (id.appliesTo(unit.id())) {
                 CHECKS.get(id).run(context);
@@ -309,11 +335,13 @@ public final class CompiledInvariants {
 
         private final List<FinalizeStepDescriptor> defaultRoster;
 
+        private final Subject subject;
+
         private final List<InvariantViolation> found = new ArrayList<>();
 
         Context(WorkflowDefinition unit, WorkflowDefinition reference, VerificationResult rules,
                 List<PipelineViolation> pipeline, PrimitiveRegistry registry,
-                List<FinalizeStepDescriptor> defaultRoster) {
+                List<FinalizeStepDescriptor> defaultRoster, Subject subject) {
             this.unit = unit;
             this.reference = reference;
             this.graph = UnitGraph.of(unit);
@@ -322,6 +350,14 @@ public final class CompiledInvariants {
             this.pipeline = pipeline;
             this.registry = registry;
             this.defaultRoster = defaultRoster;
+            this.subject = subject;
+        }
+
+        /**
+         * @return {@code true} when the unit is a composed plan instance, not a project replacement
+         */
+        boolean composedInstance() {
+            return subject == Subject.COMPOSED_INSTANCE;
         }
 
         WorkflowDefinition unit() {

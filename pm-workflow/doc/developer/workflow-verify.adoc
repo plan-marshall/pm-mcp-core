@@ -264,6 +264,9 @@ Beside the Rule 1-12 violations, the scope, the start state and the terminal sta
 The descriptions of the entries and exits are not compared.
 A start state is compared as before, a unit that binds entries instead reading as having none.
 A plan instance version declares the type `instance` and is checked against the template it is composed from: its type passes the comparison when the default unit is of the type `workflow` or `recipe`, because that difference is the composition's, not a replacement's (link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]).
+The exception holds for the composition only.
+The caller states at construction what it checks, `CompiledInvariants.Subject`: `PlanInstanceComposer` builds its checker with `COMPOSED_INSTANCE`, the one subject for which the type `instance` passes against a `workflow` or `recipe` default; `ProjectUnitLoader` builds it with `PROJECT_REPLACEMENT`, so a project unit of the type `instance` that replaces a `workflow` or `recipe` default unit is refused with `INV-GEN-1`, naming both types, like any other difference of type.
+No call of `check` can widen the subject.
 
 Not checked here: the machine level (`<PM_MCP_BASE>/workflows/`) has no loader in this repository, `UnitOrigin` knows `DEFAULT` and `PROJECT` only, so `INV-GEN-1` compares a project's unit with the default unit; the comparison of a machine's unit follows with its loader.
 The author part of `INV-GEN-1` (no project unit names the author `plan-marshall`) is checked by the project loader (link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).

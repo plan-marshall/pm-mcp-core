@@ -327,10 +327,20 @@ public final class InvariantFixtures {
     }
 
     /**
-     * @return the compiled invariants with the passing units as defaults and {@link #defaultRoster()}
+     * @return the compiled invariants for project replacements, with the passing units as defaults and
+     *         {@link #defaultRoster()}
      */
     static CompiledInvariants invariants() {
-        return new CompiledInvariants(registry(), defaultUnits().values(), defaultRoster());
+        return invariants(defaultUnits().values(), CompiledInvariants.Subject.PROJECT_REPLACEMENT);
+    }
+
+    /**
+     * @param defaults the default units, the reference of the checked units
+     * @param subject  what the checked units are
+     * @return the compiled invariants over the defaults, with {@link #defaultRoster()}
+     */
+    static CompiledInvariants invariants(Collection<WorkflowDefinition> defaults, CompiledInvariants.Subject subject) {
+        return new CompiledInvariants(registry(), defaults, defaultRoster(), subject);
     }
 
     /**

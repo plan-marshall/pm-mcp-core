@@ -70,8 +70,10 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * <li>Build the project roster, the default descriptors of the steps the plan unit completes plus the declared
  * project steps, and run the {@link FinalizePipelineValidator}; a violation is located at the first state completing
  * the step, or at the unit header.</li>
- * <li>Check the compiled invariants against the default units ({@link CompiledInvariants}); a violation that only
- * re-reports a finding of the earlier stages is not listed again.</li>
+ * <li>Check the compiled invariants against the default units ({@link CompiledInvariants}) as project replacements
+ * ({@link CompiledInvariants.Subject#PROJECT_REPLACEMENT}), so a unit whose type differs from its default unit's, the
+ * type {@code instance} included, is refused; a violation that only re-reports a finding of the earlier stages is not
+ * listed again.</li>
  * <li>Report {@value UnitFinding#PROJECT_STEP_UNBOUND} where the unit, the declared steps and the bound step ids
  * disagree.</li>
  * </ol>
@@ -146,7 +148,8 @@ public final class ProjectUnitLoader {
         var findings = new ArrayList<UnitFinding>();
         var units = parseUnits(roots, findings);
         var subUnits = units.values().stream().filter(unit -> !PlanUnitMerger.PLAN_UNIT.equals(unit.id())).toList();
-        var invariants = new CompiledInvariants(context.registry(), defaultUnits.values(), defaultRoster);
+        var invariants = new CompiledInvariants(context.registry(), defaultUnits.values(), defaultRoster,
+                CompiledInvariants.Subject.PROJECT_REPLACEMENT);
         for (var unit : units.values()) {
             var rules = context.validator(subUnits, List.of()).verify(unit);
             rules.violations().forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.RULE,

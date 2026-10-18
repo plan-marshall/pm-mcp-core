@@ -30,7 +30,8 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * <ul>
  * <li>{@link InvariantId#INV_GEN_1}: every violation of the static verifier (Rules 1-12) is reported, except the Rule 9
  * part of the plan unit, which is {@link InvariantId#INV_FIN_3}; the unit's scope and start state equal those of the
- * default unit, and so do its type (a plan instance against the workflow or recipe it is composed from excepted), its
+ * default unit, and so do its type (a composed plan instance against the workflow or recipe it is composed from
+ * excepted, never a project replacement), its
  * entries, its exits and its entry bindings (each difference names the differing element) and its terminal states,
  * each with its outcome and class. That no transition targets
  * {@code plan.aborted} is Rule 3's part of the verifier's result.</li>
@@ -126,7 +127,7 @@ final class GeneralInvariants {
         var id = InvariantId.INV_GEN_1;
         var type = unit.frontmatter().type();
         var referenceType = reference.frontmatter().type();
-        if (type != referenceType && !isInstanceOf(type, referenceType)) {
+        if (type != referenceType && !(context.composedInstance() && isInstanceOf(type, referenceType))) {
             context.reportUnit(id, "the type '%s' differs from the type '%s' of the default unit"
                     .formatted(type.wireName(), referenceType.wireName()));
         }
@@ -153,7 +154,9 @@ final class GeneralInvariants {
     /**
      * A plan instance declares the type {@code instance} and is checked against the template it is composed from, the
      * plan unit of the type {@code workflow} or a recipe's workflow (Workflow DSL, Plan Instance); that difference of
-     * type is the composition's, not a replacement's.
+     * type is the composition's, not a replacement's. It is consulted only when the checker was built for
+     * {@link CompiledInvariants.Subject#COMPOSED_INSTANCE}; a project replacement of the type {@code instance} is
+     * refused like any other difference of type.
      *
      * @return {@code true} when the unit is an instance and the default unit a template of one
      */

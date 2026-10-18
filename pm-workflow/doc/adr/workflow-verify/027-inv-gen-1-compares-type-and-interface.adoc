@@ -28,8 +28,13 @@ while its template, the plan unit or a recipe's workflow, declares `workflow` or
   reported once as `INV-GEN-1`, naming the differing element and both values.
 * The descriptions of the entries and exits are not compared.
 * A start state is compared as an optional value: a unit that binds entries instead reads as having none.
-* A unit of the type `instance` passes the type comparison when its default unit is of the type `workflow` or `recipe`:
-  the difference is the composition's, not a replacement's (Workflow DSL, Plan Instance).
+* A composed plan instance of the type `instance` passes the type comparison when its default unit is of the type
+  `workflow` or `recipe`: the difference is the composition's, not a replacement's (Workflow DSL, Plan Instance). The
+  exception holds for the composition only. `CompiledInvariants` is built with a `Subject` its caller states:
+  `PlanInstanceComposer` with `COMPOSED_INSTANCE`, which admits the exception, and `ProjectUnitLoader` with
+  `PROJECT_REPLACEMENT`, which does not, so a project unit of the type `instance` that replaces a `workflow` or `recipe`
+  default unit is refused with `INV-GEN-1`. The subject is a constructor argument rather than a parameter of `check`, so
+  no third caller can admit the exception per call without saying at construction what it checks.
 * The machine level has no loader in this repository yet (`UnitOrigin` knows `DEFAULT` and `PROJECT` only), so the
   comparison of a machine's unit with the default unit follows with that loader.
 
@@ -44,7 +49,9 @@ Alternatives not recorded.
 * A project's unit that changes its type, adds, removes, renames or reorders an entry or an exit, or binds an entry to
   another state, is refused with `INV-GEN-1`; one that changes only a description, or only the order of its binding
   lines, passes.
-* `CompiledInvariantsTest` holds a refusing case for each of the four elements and a passing control.
+* `CompiledInvariantsTest` holds a refusing case for each of the four elements and a passing control; for the type
+  `instance` it refuses a project replacement of a `workflow` or `recipe` default and passes a composed instance of
+  either, and `ProjectUnitLoaderTest` refuses the replacement through the loader.
 * A later element of the interface is added to the same comparison, so `INV-GEN-1` stays the one place of the interface
   promise.
 

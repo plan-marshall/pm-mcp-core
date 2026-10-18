@@ -39,6 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.ParamDecl;
 import de.planmarshall.workflow.ast.UnitOrigin;
@@ -294,6 +295,72 @@ class CompiledInvariantsTest {
 
             assertEquals(List.of(), generalOne(unit));
         }
+
+        /** @return the fixture sources with the plan unit's frontmatter declaring the given type */
+        private static Map<String, String> sourcesWithPlanType(String type) {
+            var sources = InvariantFixtures.sources();
+            var mutation = new Mutation("the plan unit of the type " + type, INIT_FILE, "type: workflow",
+                    "type: " + type);
+            sources.put(INIT_FILE, mutation.apply(sources.get(INIT_FILE)));
+            return sources;
+        }
+
+        /**
+         * Checks a plan unit of the type {@code instance} against a plan unit of the template type as its default unit.
+         *
+         * @return the INV-GEN-1 violations that compare the type
+         */
+        private static List<InvariantViolation> typeViolations(String templateType,
+                CompiledInvariants.Subject subject) {
+            var defaults = InvariantFixtures.units(sourcesWithPlanType(templateType), UnitOrigin.DEFAULT).values();
+            var unit = InvariantFixtures.units(sourcesWithPlanType("instance"), UnitOrigin.PROJECT).get(PLAN_UNIT);
+
+            return InvariantFixtures.invariants(defaults, subject)
+                    .check(unit, InvariantFixtures.validator().verify(unit),
+                            pipelineOf(unit, InvariantFixtures.defaultRoster()))
+                    .stream()
+                    .filter(violation -> violation.id() == InvariantId.INV_GEN_1
+                            && violation.message().startsWith("the type "))
+                    .toList();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"workflow", "recipe"})
+        @DisplayName("a project replacement of the type instance for a workflow or recipe default fails INV-GEN-1,"
+                + " naming both types")
+        void refusesInstanceReplacement(String templateType) {
+            var found = typeViolations(templateType, CompiledInvariants.Subject.PROJECT_REPLACEMENT);
+
+            assertAll(
+                    () -> assertEquals(List.of("the type 'instance' differs from the type '%s' of the default unit"
+                            .formatted(templateType)), found.stream().map(InvariantViolation::message).toList()),
+                    () -> assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, INIT_FILE,
+                                    InvariantFixtures.lineOf(InvariantFixtures.read(INIT_FILE), PLAN_HEADER))),
+                            found.stream().map(InvariantLocation::of).toList()));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"workflow", "recipe"})
+        @DisplayName("a composed plan instance of a workflow or recipe template passes the type comparison of"
+                + " INV-GEN-1")
+        void passesComposedInstance(String templateType) {
+            assertEquals(List.of(), typeViolations(templateType, CompiledInvariants.Subject.COMPOSED_INSTANCE));
+        }
+
+        @Test
+        @DisplayName("a composed plan instance still fails INV-GEN-1 for a type other than instance")
+        void composedInstanceKeepsOtherTypeDifferences() {
+            var unit = InvariantFixtures.mutatedUnit(InvariantFixtures.INTERFACE_TYPE);
+
+            var found = InvariantFixtures
+                    .invariants(InvariantFixtures.defaultUnits().values(),
+                            CompiledInvariants.Subject.COMPOSED_INSTANCE)
+                    .check(unit, InvariantFixtures.validator().verify(unit), List.of());
+
+            assertTrue(found.stream().anyMatch(violation -> violation.id() == InvariantId.INV_GEN_1
+                    && "the type 'task' differs from the type 'subworkflow' of the default unit"
+                            .equals(violation.message())), found::toString);
+        }
     }
 
     @Nested
@@ -354,8 +421,7 @@ class CompiledInvariantsTest {
             var unit = InvariantFixtures.parse("remediation-spend.pmwf", source, UnitOrigin.PROJECT);
             var defaults = new ArrayList<>(InvariantFixtures.defaultUnits().values());
             defaults.add(reference);
-            var invariants = new CompiledInvariants(InvariantFixtures.registry(), defaults,
-                    InvariantFixtures.defaultRoster());
+            var invariants = InvariantFixtures.invariants(defaults, CompiledInvariants.Subject.PROJECT_REPLACEMENT);
 
             var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of());
 
@@ -576,12 +642,16 @@ class CompiledInvariantsTest {
         var rules = InvariantFixtures.validator().verify(unit);
         var registry = InvariantFixtures.registry();
         var noUnits = Set.<WorkflowDefinition>of();
+        var roster = InvariantFixtures.defaultRoster();
+        var subject = CompiledInvariants.Subject.PROJECT_REPLACEMENT;
 
         assertAll(
                 () -> assertThrows(NullPointerException.class, () -> invariants.check(null, rules, List.of())),
                 () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, null, List.of())),
                 () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, rules, null)),
                 () -> assertThrows(NullPointerException.class,
-                        () -> new CompiledInvariants(registry, noUnits, null)));
+                        () -> new CompiledInvariants(registry, noUnits, null, subject)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new CompiledInvariants(registry, noUnits, roster, null)));
     }
 }

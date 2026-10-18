@@ -55,7 +55,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <li>the header schema ({@link HeaderSchemaCheck}), the static verification Rules 1-12 ({@link WorkflowValidator},
  * over a catalog of the compiled units and the request's sub-units, without a released baseline), the finalize
  * pipeline over the default descriptors of the kept steps, and the compiled invariants ({@link CompiledInvariants},
- * against the default units), else {@code invariant_failed} with every violation found.</li>
+ * against the default units, as a {@link CompiledInvariants.Subject#COMPOSED_INSTANCE}, whose type {@code instance}
+ * INV-GEN-1 admits against its template), else {@code invariant_failed} with every violation found.</li>
  * </ol>
  * Rules 13 and 14, the resolution of roles and skills, are left to the packages that own them. The composer reads no
  * store and writes nothing; a refused input is never an exception.
@@ -90,7 +91,8 @@ public final class PlanInstanceComposer {
             List<FinalizeStepDescriptor> defaultRoster, CompositionRules rules, Clock clock) {
         this.context = Objects.requireNonNull(context, "context");
         this.defaultRoster = List.copyOf(defaultRoster);
-        this.invariants = new CompiledInvariants(context.registry(), defaultUnits, this.defaultRoster);
+        this.invariants = new CompiledInvariants(context.registry(), defaultUnits, this.defaultRoster,
+                CompiledInvariants.Subject.COMPOSED_INSTANCE);
         this.rules = Objects.requireNonNull(rules, "rules");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
