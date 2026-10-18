@@ -217,7 +217,7 @@ class ProjectStoreTest {
                     () -> assertEquals(Outcome.UNREADABLE, read.refusal().outcome()),
                     () -> assertEquals(beta.identityFile(), read.refusal().file()),
                     () -> assertTrue(read.refusal().getMessage()
-                            .contains("project_id " + PROJECT + " is not the project beta"),
+                                    .contains("project_id " + PROJECT + " is not the project beta"),
                             read.refusal().getMessage()));
         }
 
