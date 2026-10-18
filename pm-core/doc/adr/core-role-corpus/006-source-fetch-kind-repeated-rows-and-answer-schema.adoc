@@ -55,8 +55,7 @@ The three formats of ADR 001 are extended, each in its record, its codec and its
 
 == Source
 
-* Work package link:../../../../doc/plans/corpus-overlay-extensions.adoc[`doc/plans/corpus-overlay-extensions.adoc`]
-* Plan `corpus-overlay-extensions` and its pull request
+* Work package `corpus-overlay-extensions` of `doc/plans/` and its pull request
 * link:001-source-manifest-overlay-and-imported-item-formats.adoc[ADR 001] (the formats this extends) and
   link:../../../../doc/adr/006-corpus-fetch-split-across-pm-core-pm-provider-git-and-pm-runtime.adoc[repository ADR 006]
   (the fetch split)
