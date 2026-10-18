@@ -737,8 +737,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             long observedLength) {
         var interrupted = false;
         try {
-            var pid = job.record.isSpawnRecorded() ? job.record.pid() : launched.pid();
-            var report = termination.terminate(pid);
+            // the PID of the process handle, never the one the job log reports: this path must end the process it
+            // started, and a report that differs would leave it running while the wait below has no bound
+            var report = termination.terminate(launched.pid());
             if (report.ending() == Ending.SIGNAL_REFUSED) {
                 launched.process().destroyForcibly();
             }
