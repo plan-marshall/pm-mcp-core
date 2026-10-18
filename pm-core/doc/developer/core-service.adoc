@@ -63,7 +63,7 @@ operator consented to probes of its kind; a probe without that consent is never 
 `cancel(jobId, CancelCause)`:: Cancels a job that is queued or running: a running job's process group is terminated, a
 queued job is settled without a signal. The answer is whether this call cancelled the job; `false` for a job that has
 settled or that the runner does not know.
-`record(jobId)`:: The record of the job as it is now; empty if the runner knows no such job.
+`recordOf(jobId)`:: The record of the job as it is now; empty if the runner knows no such job.
 
 === The Contract
 

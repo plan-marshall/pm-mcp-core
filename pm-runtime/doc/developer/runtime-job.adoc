@@ -169,7 +169,7 @@ The argument digest `argv_digest` is the SHA-256 of the verified vector, every e
 
 [horizontal]
 `cancel(jobId, cause)`:: A running job's termination is carried out by its waiting thread with the termination of the cause (`ENGINE_CANCEL`, `PLAN_PAUSED_NOW`, `SUPERVISOR_END`, `BUDGET_EXPIRED`, `DRAIN`); a queued job is settled at once without a signal, by the row of its cause, and as `killed` for the drain. The answer is whether this call decided the job's end.
-`record(jobId)`, `awaitSettled(jobId, timeout)`, `runningJobs()`, `queuedJobs()`:: The record of a job this runner started, a bounded wait for its settlement, and the jobs not yet settled.
+`recordOf(jobId)`, `awaitSettled(jobId, timeout)`, `runningJobs()`, `queuedJobs()`:: The record of a job this runner started, a bounded wait for its settlement, and the jobs not yet settled.
 `JobStarter.start(StartRequest)`:: The engine port maps the state's primitive to a job through the caller's `PrimitiveJobs`; a primitive without a job spec, and a worker, is refused `primitive_without_job`. The id it answers keeps the port's grammar `^[bcgp]-[0-9a-f]{16}$`.
 
 A worker is never started by this runner: its launch belongs to the supervisor, and `start` refuses the kind `llm` with `IllegalArgumentException`.

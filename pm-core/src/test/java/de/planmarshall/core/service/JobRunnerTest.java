@@ -69,7 +69,7 @@ class JobRunnerTest {
         }
 
         @Override
-        public Optional<JobRecord> record(JobId jobId) {
+        public Optional<JobRecord> recordOf(JobId jobId) {
             return Optional.empty();
         }
     }

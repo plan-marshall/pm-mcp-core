@@ -241,19 +241,19 @@ class SubprocessJobRunnerTest {
         void runningOnlyAfterPostSpawn() {
             var jobId = started(runner.start(git(30, "sleep", "30")));
 
-            var record = runner.record(jobId).orElseThrow();
+            var running = runner.recordOf(jobId).orElseThrow();
 
             assertAll(
-                    () -> assertEquals(Status.RUNNING, record.status()),
-                    () -> assertTrue(record.isSpawnRecorded(), "the post-spawn record is written"),
-                    () -> assertNotNull(record.processStartedAt()),
-                    () -> assertNotNull(record.spawnedAt()),
+                    () -> assertEquals(Status.RUNNING, running.status()),
+                    () -> assertTrue(running.isSpawnRecorded(), "the post-spawn record is written"),
+                    () -> assertNotNull(running.processStartedAt()),
+                    () -> assertNotNull(running.spawnedAt()),
                     () -> assertTrue(runner.runningJobs().contains(jobId)),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.JOB_STARTED.resolveIdentifierString()),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' of kind 'git' started (pid %s, budget 30 seconds)".formatted(jobId,
-                                    record.pid())));
+                                    running.pid())));
         }
 
         @Test
@@ -407,7 +407,7 @@ class SubprocessJobRunnerTest {
                     () -> assertNull(records.getFirst().childWallMs()),
                     () -> assertNull(records.getFirst().pid()),
                     () -> assertFalse(Files.exists(jobs.logPath(records.getFirst().jobId())), "no job log"),
-                    () -> assertEquals(Optional.of(records.getFirst()), runner.record(records.getFirst().jobId())),
+                    () -> assertEquals(Optional.of(records.getFirst()), runner.recordOf(records.getFirst().jobId())),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "settled with fate 'refused' (outcome row 1)"));
         }
@@ -456,7 +456,7 @@ class SubprocessJobRunnerTest {
         void launcherMissing() {
             var jobId = started(runner.start(git(30, "ok")));
 
-            var settled = runner.record(jobId).orElseThrow();
+            var settled = runner.recordOf(jobId).orElseThrow();
 
             assertAll(
                     () -> assertEquals(Status.ENDED, settled.status()),
@@ -635,7 +635,7 @@ class SubprocessJobRunnerTest {
                             "the job's process group was terminated"),
                     () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
                     () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO)),
-                    () -> assertEquals(Optional.of(settled), runner.record(settled.jobId())),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(settled.jobId())),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' settled with fate 'killed' (outcome row 4)".formatted(settled.jobId())),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
@@ -748,7 +748,7 @@ class SubprocessJobRunnerTest {
                     () -> assertEquals(8, settled.outcomeRow()),
                     () -> assertEquals(0L, settled.exitCode()),
                     () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
-                    () -> assertEquals(Optional.of(settled), runner.record(jobId)),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId)),
                     () -> assertFalse(alive(settled.pid()), "the process is not left running"),
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' settled with fate 'indeterminate' (outcome row 8)".formatted(jobId)),
@@ -874,7 +874,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertFalse(runner.cancel(jobId, CancelCause.ENGINE_CANCEL)),
-                    () -> assertEquals(Optional.empty(), runner.record(jobId)),
+                    () -> assertEquals(Optional.empty(), runner.recordOf(jobId)),
                     () -> assertEquals(Optional.empty(), runner.awaitSettled(jobId, Duration.ZERO)));
         }
     }

@@ -122,7 +122,7 @@ class JobDrainParticipantTest {
         return assertInstanceOf(JobRunner.StartResult.Started.class, result, "the probe should be started").jobId();
     }
 
-    private JobRecord record(JobId jobId) {
+    private JobRecord storedRecord(JobId jobId) {
         return JobRecordStore.ofMachine(base).read(jobId).orElseThrow();
     }
 
@@ -141,12 +141,12 @@ class JobDrainParticipantTest {
     void jobCreatedDuringDrain() {
         participant.stopAdmitting();
         var jobId = start("120");
-        var whileDraining = record(jobId);
+        var whileDraining = storedRecord(jobId);
         var queuedJobs = runner.queuedJobs();
 
         participant.close();
 
-        var settled = record(jobId);
+        var settled = storedRecord(jobId);
         assertAll(
                 () -> assertEquals(Status.QUEUED, whileDraining.status()),
                 () -> assertEquals(Set.of(jobId), queuedJobs),
@@ -170,7 +170,7 @@ class JobDrainParticipantTest {
         var quiet = participant.awaitQuiet(Instant.now().plusMillis(200));
         var terminated = participant.terminateRemaining();
 
-        var settled = record(jobId);
+        var settled = storedRecord(jobId);
         assertAll(
                 () -> assertFalse(quiet, "the job still runs at the drain timeout"),
                 () -> assertEquals(List.of("job " + jobId), terminated),
@@ -191,7 +191,7 @@ class JobDrainParticipantTest {
         var terminated = participant.terminateRemaining();
         participant.close();
 
-        var settled = record(jobId);
+        var settled = storedRecord(jobId);
         assertAll(
                 () -> assertTrue(quiet, "the job ended within the drain timeout"),
                 () -> assertEquals(List.of(), terminated),
@@ -214,7 +214,7 @@ class JobDrainParticipantTest {
         participant.endIdle();
 
         assertAll(
-                () -> assertEquals(JobDrainParticipant.NAME, participant.name()),
+                () -> assertEquals(JobDrainParticipant.DRAIN_NAME, participant.name()),
                 () -> assertEquals("jobs", participant.name()),
                 () -> assertEquals(
                         JobDrainParticipant.TERMINATION_WAIT, TerminationProtocol.GRACE_PERIOD.plusSeconds(10)));

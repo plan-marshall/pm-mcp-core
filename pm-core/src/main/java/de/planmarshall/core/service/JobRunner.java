@@ -74,7 +74,7 @@ public interface JobRunner<R, C> {
      * @param jobId the job
      * @return the record as it is now; empty if the runner knows no such job
      */
-    Optional<JobRecord> record(JobId jobId);
+    Optional<JobRecord> recordOf(JobId jobId);
 
     /**
      * What a start asks for.
@@ -165,7 +165,7 @@ public interface JobRunner<R, C> {
          */
         record Refused(String reason) implements StartResult {
 
-            private static final Pattern REASON = Pattern.compile("[a-z][a-z0-9_]*");
+            private static final Pattern REASON_PATTERN =Pattern.compile("[a-z][a-z0-9_]*");
 
             /**
              * @throws NullPointerException     if the reason is {@code null}
@@ -173,7 +173,7 @@ public interface JobRunner<R, C> {
              */
             public Refused {
                 Objects.requireNonNull(reason, "reason");
-                if (!REASON.matcher(reason).matches()) {
+                if (!REASON_PATTERN.matcher(reason).matches()) {
                     throw new IllegalArgumentException("Not a refusal reason: " + reason);
                 }
             }

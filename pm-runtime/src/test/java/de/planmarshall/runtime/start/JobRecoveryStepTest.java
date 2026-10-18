@@ -156,9 +156,9 @@ class JobRecoveryStepTest {
     }
 
     /** Writes the first record of a job, built from its allocated id, in one transaction. */
-    private JobRecord write(JobId.Kind kind, Scope scope, Function<JobId, JobRecord> record) {
+    private JobRecord write(JobId.Kind kind, Scope scope, Function<JobId, JobRecord> factory) {
         try (var transaction = lockManager.openTransaction()) {
-            var job = record.apply(store.allocate(transaction, kind, scope));
+            var job = factory.apply(store.allocate(transaction, kind, scope));
             if (job.status() == Status.QUEUED) {
                 store.writeQueued(transaction, job);
             } else {
@@ -346,13 +346,13 @@ class JobRecoveryStepTest {
     @DisplayName("the first matching rule of the specification settles a job")
     void firstMatchingRuleSettles(String name, Status status, Execution execution, Long pid, Instant spawnedAt,
             JobRecoveryStep.Rule expected) {
-        var record = processJob(new JobId("b-0123456789abcdef")).status(status).execution(execution).pid(pid)
+        var draft = processJob(new JobId("b-0123456789abcdef")).status(status).execution(execution).pid(pid)
                 .processStartedAt(spawnedAt).spawnedAt(spawnedAt);
         if (execution == Execution.IN_PROCESS) {
-            record.argvDigest(null).confinement(Confinement.NOT_APPLICABLE);
+            draft.argvDigest(null).confinement(Confinement.NOT_APPLICABLE);
         }
 
-        assertEquals(expected, step().rule(record.build()));
+        assertEquals(expected, step().rule(draft.build()));
     }
 
     @Nested

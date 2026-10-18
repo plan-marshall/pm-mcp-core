@@ -225,12 +225,12 @@ public class JobRecordCodec {
             }
         }
         requireFields(seen, "job record", MEMBERS.toArray(String[]::new));
-        var record = job.build();
-        if (record.kind() != kind) {
+        var built = job.build();
+        if (built.kind() != kind) {
             throw unreadable("'%s' is '%s', not the kind '%s' the job id '%s' names".formatted(KIND,
-                    Objects.requireNonNull(kind).wireName(), record.kind().wireName(), record.jobId()));
+                    Objects.requireNonNull(kind).wireName(), built.kind().wireName(), built.jobId()));
         }
-        return record;
+        return built;
     }
 
     private static Scope readScope(JsonParser parser) throws IOException {

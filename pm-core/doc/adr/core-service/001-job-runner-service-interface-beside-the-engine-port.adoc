@@ -34,7 +34,7 @@ awaited.
 * The two type parameters stand for what `pm-core` cannot name: `R` the request of a job as the runtime verifies it,
   `C` the candidate record of a probe.
 * The interface has four operations: `start(StartRequest<R>)`, `startProbe(ProbeRequest<C>)`,
-  `cancel(JobId, CancelCause)` and `record(JobId)`. A start the runner declines is a `StartResult.Refused` value, never
+  `cancel(JobId, CancelCause)` and `recordOf(JobId)`. A start the runner declines is a `StartResult.Refused` value, never
   an exception.
 * `CancelCause` is a closed set of five causes, each with its row and fate of the outcome derivation: `ENGINE_CANCEL`,
   `PLAN_PAUSED_NOW` and `SUPERVISOR_END` (row 2, `cancelled`), `BUDGET_EXPIRED` (row 3, `timed_out`) and `DRAIN` (row 4,

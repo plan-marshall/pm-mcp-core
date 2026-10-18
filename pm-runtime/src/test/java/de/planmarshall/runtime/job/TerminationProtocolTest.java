@@ -77,15 +77,15 @@ class TerminationProtocolTest {
 
         @Override
         public Answer signalGroup(long pgid, Signal signal) {
-            return record(new Call(true, pgid, signal));
+            return capture(new Call(true, pgid, signal));
         }
 
         @Override
         public Answer signalProcess(long pid, Signal signal) {
-            return record(new Call(false, pid, signal));
+            return capture(new Call(false, pid, signal));
         }
 
-        private Answer record(Call call) {
+        private Answer capture(Call call) {
             calls.add(call);
             return answers.apply(call);
         }

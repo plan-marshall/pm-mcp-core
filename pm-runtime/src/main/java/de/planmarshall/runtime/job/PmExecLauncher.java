@@ -67,7 +67,7 @@ public final class PmExecLauncher {
     private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY =
             PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
 
-    private final Path launcher;
+    private final Path launcherPath;
 
     /**
      * @param pmMcpHome the runtime's installation directory {@code PM_MCP_HOME}
@@ -79,12 +79,12 @@ public final class PmExecLauncher {
         if (!pmMcpHome.isAbsolute()) {
             throw new IllegalArgumentException("PM_MCP_HOME must be absolute: " + pmMcpHome);
         }
-        this.launcher = pmMcpHome.resolve(LAUNCHER).normalize();
+        this.launcherPath = pmMcpHome.resolve(LAUNCHER).normalize();
     }
 
     /** @return the absolute path of the launcher this instance starts */
     public Path launcher() {
-        return launcher;
+        return launcherPath;
     }
 
     /**
@@ -188,7 +188,7 @@ public final class PmExecLauncher {
     /** @return the command line of the launcher: its absolute path, the separator and the verified vector */
     List<String> command(List<String> argv) {
         var command = new ArrayList<String>(argv.size() + 2);
-        command.add(launcher.toString());
+        command.add(launcherPath.toString());
         command.add(SEPARATOR);
         command.addAll(argv);
         return command;

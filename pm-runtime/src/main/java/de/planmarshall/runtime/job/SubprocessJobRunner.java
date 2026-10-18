@@ -232,7 +232,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * The store of every job this runner started, kept after the job is settled and never pruned, because
-     * {@link #record(JobId)} and {@link #awaitSettled(JobId, Duration)} read a settled job through it once it has left
+     * {@link #recordOf(JobId)} and {@link #awaitSettled(JobId, Duration)} read a settled job through it once it has left
      * the running jobs.
      */
     private final Map<JobId, JobRecordStore> stores = new ConcurrentHashMap<>();
@@ -250,7 +250,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             OutcomeDerivation.derive(new JobEvidence.NeverStarted(JobEvidence.NeverStarted.Cause.QUEUED_AT_DRAIN));
 
     /** A job recorded {@code queued} during the drain, never spawned. */
-    private record QueuedJob(JobRecord record, JobRecordStore store) {
+    private record QueuedJob(JobRecord job, JobRecordStore store) {
     }
 
     /**
@@ -428,16 +428,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 verification = ProbeVerification.verify(candidate, candidate.arguments(), workingDirectory,
                         jobPrivate);
                 var now = clock.instant();
-                var record = newRecord(jobId, scope, budget, null, now);
+                var draft = newRecord(jobId, scope, budget, null, now);
                 if (verification instanceof ProbeVerification.Refused(var refusal)) {
                     var outcome = OutcomeDerivation.derive(new RefusedBeforeSpawn(refusal.reason().code()));
-                    first = record.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
+                    first = draft.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
                             .refusalReason(refusal.reason().code()).endedAt(now).build();
                     store.writeFate(transaction, first);
                     stores.put(jobId, store);
                 } else {
-                    record.argvDigest(argvDigest(((ProbeVerification.Verified) verification).argv()));
-                    first = admit(transaction, store, record);
+                    draft.argvDigest(argvDigest(((ProbeVerification.Verified) verification).argv()));
+                    first = admit(transaction, store, draft);
                 }
             }
             job = register(first, store, budget, candidate.successExitCodes());
@@ -463,14 +463,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *
      * @return the record written, {@code running} or {@code queued}
      */
-    private JobRecord admit(LockTransaction transaction, JobRecordStore store, JobRecord.JobRecordBuilder record) {
+    private JobRecord admit(LockTransaction transaction, JobRecordStore store, JobRecord.JobRecordBuilder draft) {
         JobRecord first;
         if (draining) {
-            first = record.status(Status.QUEUED).build();
+            first = draft.status(Status.QUEUED).build();
             store.writeQueued(transaction, first);
             queued.put(first.jobId(), new QueuedJob(first, store));
         } else {
-            first = record.status(Status.RUNNING).build();
+            first = draft.status(Status.RUNNING).build();
             store.writeAhead(transaction, first);
         }
         stores.put(first.jobId(), store);
@@ -559,7 +559,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     private void settleQueued(QueuedJob waiting, OutcomeDerivation.Outcome outcome) {
-        settleRecord(waiting.store(), waiting.record().toBuilder().status(Status.ENDED).fate(outcome.fate())
+        settleRecord(waiting.store(), waiting.job().toBuilder().status(Status.ENDED).fate(outcome.fate())
                 .outcomeRow(outcome.row()).endedAt(clock.instant()).build());
     }
 
@@ -572,7 +572,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @throws UncheckedIOException if the record cannot be read
      */
     @Override
-    public Optional<JobRecord> record(JobId jobId) {
+    public Optional<JobRecord> recordOf(JobId jobId) {
         Objects.requireNonNull(jobId, "jobId");
         return Optional.ofNullable(stores.get(jobId)).flatMap(store -> store.read(jobId));
     }
@@ -615,7 +615,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         Objects.requireNonNull(timeout, "timeout");
         var job = running.get(jobId);
         if (job == null) {
-            return record(jobId).filter(found -> found.status().isSettled());
+            return recordOf(jobId).filter(found -> found.status().isSettled());
         }
         try {
             return Optional.of(job.settled.get(Math.max(0, timeout.toMillis()), TimeUnit.MILLISECONDS))
@@ -684,7 +684,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * that thread's fallback settlement has run.
      */
     private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
-        var jobId = job.record.jobId();
+        var jobId = job.latest.jobId();
         var log = new JobLog(job.store.logPath(jobId));
         var spawnedAt = clock.instant();
         Launched launched;
@@ -715,7 +715,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var awaited = awaitReport(launched.process(), log, deadline);
             observedLength = awaited.observedLength();
             if (awaited.report().isPresent()) {
-                reported = postSpawnRecord(job.record, awaited.report().get(), spawnedAt);
+                reported = postSpawnRecord(job.latest, awaited.report().get(), spawnedAt);
                 writePostSpawn(job, reported);
             }
             var length = observedLength;
@@ -748,7 +748,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         try (var transaction = lockManager.openTransaction()) {
             job.store.writePostSpawn(transaction, postSpawn);
         }
-        job.record = postSpawn;
+        job.latest = postSpawn;
         LOGGER.info(INFO.JOB_STARTED, postSpawn.jobId(), postSpawn.kind().wireName(), postSpawn.pid(),
                 job.budget.seconds());
     }
@@ -772,8 +772,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             long observedLength) {
         var interrupted = false;
         try {
-            if (reported != null && !job.record.isSpawnRecorded()) {
-                job.record = reported;
+            if (reported != null && !job.latest.isSpawnRecorded()) {
+                job.latest = reported;
             }
             interrupted = terminateAndSettle(job, launched, spawnedAt, observedLength);
         } finally {
@@ -789,7 +789,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @return whether the wait for the process was interrupted
      */
     private boolean terminateAndSettle(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
-        var cancelBeforeGroup = terminateByHandle(job.record.jobId(), launched);
+        var cancelBeforeGroup = terminateByHandle(job.latest.jobId(), launched);
         var exit = waitFor(launched.process());
         var cancelled = job.cause.isDone() ? Optional.of(job.cause.join()) : Optional.<Termination>empty();
         settleEnded(job, new Ended(spawnedAt, clock.instant(), exit.value(), cancelled, cancelBeforeGroup),
@@ -827,8 +827,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** Takes a job out of the running jobs and completes the wait for its settlement with its record. */
     private void leave(RunningJob job, boolean interrupted) {
-        running.remove(job.record.jobId());
-        job.settled.complete(job.record);
+        running.remove(job.latest.jobId());
+        job.settled.complete(job.latest);
         if (interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -893,10 +893,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             interrupted = awaited.interrupted();
             if (awaited.cause().isPresent()) {
                 cause = awaited.cause().get();
-                var pid = job.record.isSpawnRecorded() ? job.record.pid() : launched.pid();
+                var pid = job.latest.isSpawnRecorded() ? job.latest.pid() : launched.pid();
                 report = termination.terminate(pid);
                 if (report.ending() == Ending.GROUP_KILLED) {
-                    LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.record.jobId(), pid, cause.name());
+                    LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
                 } else if (report.ending() == Ending.SIGNAL_REFUSED) {
                     process.destroyForcibly();
                 }
@@ -1006,7 +1006,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param withParser whether the output parser reads the job's output; without it, nothing is found in it
      */
     private void settle(RunningJob job, Ended ended, long observedLength, boolean withParser) {
-        var current = job.record;
+        var current = job.latest;
         var waitStatus = waitStatus(ended.exitValue(), SIGNALS);
         LogState logState;
         ParseResult parse;
@@ -1042,7 +1042,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     private void settleUnlaunched(RunningJob job, JobLog log) {
         try {
-            var current = job.record;
+            var current = job.latest;
             var logState = log.readWhole(0) instanceof JobLog.Unavailable unavailable
                     && unavailable.state() != LogState.MISSING ? unavailable.state() : LogState.READABLE;
             var outcome = OutcomeDerivation.derive(new ProcessEnded(current.kind(), Optional.empty(),
@@ -1058,7 +1058,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private void settle(RunningJob job, JobRecord settled) {
         job.settling = true;
         if (settleRecord(job.store, settled)) {
-            job.record = settled;
+            job.latest = settled;
         }
     }
 
@@ -1188,7 +1188,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         // safely between the starting thread and the virtual thread that settles the job; Process is a thread-safe
         // handle that only launched() assigns, once.
         @SuppressWarnings("java:S3077")
-        private volatile JobRecord record;
+        private volatile JobRecord latest;
         @SuppressWarnings("java:S3077")
         private volatile Process process;
 
@@ -1201,8 +1201,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         /**
          * @param successExitCodes the exit codes a probe declares as its success; empty for every other job
          */
-        RunningJob(JobRecord record, JobRecordStore store, JobBudget budget, Set<Integer> successExitCodes) {
-            this.record = record;
+        RunningJob(JobRecord latest, JobRecordStore store, JobBudget budget, Set<Integer> successExitCodes) {
+            this.latest = latest;
             this.store = store;
             this.budget = budget;
             this.successExitCodes = successExitCodes;

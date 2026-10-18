@@ -95,7 +95,7 @@ List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirec
      */
     public record DigestedFile(Path path, String sha256) {
 
-        private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
+        private static final Pattern SHA256_PATTERN =Pattern.compile("[0-9a-f]{64}");
 
         /**
          * @throws NullPointerException     if a component is {@code null}
@@ -107,7 +107,7 @@ List<String> arguments, Set<Integer> successExitCodes, Scope scope, WorkingDirec
                 throw new IllegalArgumentException("A probed file is named by its absolute path: " + path);
             }
             Objects.requireNonNull(sha256, "sha256");
-            if (!SHA256.matcher(sha256).matches()) {
+            if (!SHA256_PATTERN.matcher(sha256).matches()) {
                 throw new IllegalArgumentException("Not a lower-case SHA-256: " + sha256);
             }
         }

@@ -46,9 +46,9 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
     /** The lowest Landlock ABI a ruleset is recorded with; ABI 1 is the confinement {@code partial(abi=1)}. */
     private static final int MIN_LANDLOCK_ABI = 2;
 
-    private static final String PID = "pid";
+    private static final String PID_MEMBER = "pid";
     private static final String PROCESS_STARTED_AT = "process_started_at";
-    private static final String CONFINEMENT = "confinement";
+    private static final String CONFINEMENT_MEMBER = "confinement";
     private static final String LANDLOCK_ABI = "landlock_abi";
 
     /**
@@ -150,9 +150,9 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
             while (parser.nextToken() == JsonToken.FIELD_NAME) {
                 var field = StrictJson.nextField(parser, seen);
                 switch (field) {
-                    case PID -> pid = StrictJson.integer(parser, field);
+                    case PID_MEMBER -> pid = StrictJson.integer(parser, field);
                     case PROCESS_STARTED_AT -> startedAt = instant(StrictJson.string(parser, field));
-                    case CONFINEMENT -> confinement = confinement(StrictJson.string(parser, field));
+                    case CONFINEMENT_MEMBER -> confinement = confinement(StrictJson.string(parser, field));
                     case LANDLOCK_ABI -> landlockAbi = parser.currentToken() == JsonToken.VALUE_NULL ? null
                             : abi(StrictJson.integer(parser, field));
                     default -> throw StrictJson.undeclared(field);
@@ -162,7 +162,8 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
                 throw StrictJson.unreadable("content after the launch report");
             }
         }
-        StrictJson.requireFields(seen, "launch report", PID, PROCESS_STARTED_AT, CONFINEMENT, LANDLOCK_ABI);
+        StrictJson.requireFields(seen, "launch report", PID_MEMBER, PROCESS_STARTED_AT, CONFINEMENT_MEMBER,
+                LANDLOCK_ABI);
         return new LaunchReport(pid, startedAt, confinement, landlockAbi);
     }
 
@@ -184,6 +185,6 @@ public record LaunchReport(long pid, Instant processStartedAt, Confinement confi
 
     private static Confinement confinement(String wireName) {
         return Confinement.fromWireName(wireName).orElseThrow(() -> StrictJson.unreadable(
-                "'%s' has the undeclared value '%s'".formatted(CONFINEMENT, wireName)));
+                "'%s' has the undeclared value '%s'".formatted(CONFINEMENT_MEMBER, wireName)));
     }
 }

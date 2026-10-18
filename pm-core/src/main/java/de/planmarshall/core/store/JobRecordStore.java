@@ -66,7 +66,7 @@ import de.planmarshall.core.store.JobRecord.Status;
 public final class JobRecordStore {
 
     /** The directory of the job records below the home of their store. */
-    public static final String DIRECTORY = "jobs";
+    public static final String DIRECTORY_NAME = "jobs";
 
     private static final Set<Scope.Type> PROJECT_SCOPES =
             Set.of(Scope.Type.PLAN, Scope.Type.EPIC, Scope.Type.WORKSPACE, Scope.Type.PROJECT);
@@ -100,7 +100,7 @@ public final class JobRecordStore {
      */
     public static JobRecordStore ofProject(Path base, String projectId) {
         return new JobRecordStore(canonical(base), Home.PROJECT, projectId,
-                LockKey.projectStore(base, projectId).resolve(DIRECTORY));
+                LockKey.projectStore(base, projectId).resolve(DIRECTORY_NAME));
     }
 
     /**
@@ -109,7 +109,7 @@ public final class JobRecordStore {
      */
     public static JobRecordStore ofMachine(Path base) {
         var canonical = canonical(base);
-        return new JobRecordStore(canonical, Home.MACHINE, null, canonical.resolve("machine").resolve(DIRECTORY));
+        return new JobRecordStore(canonical, Home.MACHINE, null, canonical.resolve("machine").resolve(DIRECTORY_NAME));
     }
 
     /**
@@ -121,7 +121,7 @@ public final class JobRecordStore {
     public static JobRecordStore ofEntry(Path base, String entryId) {
         var canonical = canonical(base);
         return new JobRecordStore(canonical, Home.ENTRY, entryId, canonical.resolve("onboardings")
-                .resolve(LockKey.identifier(entryId, "entryId")).resolve(DIRECTORY));
+                .resolve(LockKey.identifier(entryId, "entryId")).resolve(DIRECTORY_NAME));
     }
 
     /** @return the directory {@code jobs/}, absolute and normalized */

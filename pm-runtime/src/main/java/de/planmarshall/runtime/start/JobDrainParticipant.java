@@ -47,7 +47,7 @@ import de.planmarshall.runtime.job.TerminationProtocol;
 public final class JobDrainParticipant implements DrainParticipant {
 
     /** The name of the participant in the log and in the drain outcome. */
-    public static final String NAME = "jobs";
+    public static final String DRAIN_NAME = "jobs";
 
     /** How long a terminated job is waited for: the grace period and a margin for its settlement. */
     static final Duration TERMINATION_WAIT = TerminationProtocol.GRACE_PERIOD.plusSeconds(10);
@@ -74,7 +74,7 @@ public final class JobDrainParticipant implements DrainParticipant {
 
     @Override
     public String name() {
-        return NAME;
+        return DRAIN_NAME;
     }
 
     @Override
