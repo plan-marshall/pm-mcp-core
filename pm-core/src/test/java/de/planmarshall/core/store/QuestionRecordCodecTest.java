@@ -254,16 +254,26 @@ class QuestionRecordCodecTest {
         }
 
         @Test
-        @DisplayName("a number answer keeps its scale")
+        @DisplayName("a number answer keeps its scale, and is written in the text form of BigDecimal.toString")
         void numberScale() {
             var members = answeredMembers();
             members.put("answer", CHOSEN_JSON.replace("\"value\":null", "\"value\":2.50"));
+            var small = answeredMembers();
+            small.put("answer", CHOSEN_JSON.replace("\"value\":null", "\"value\":0.0000001"));
+            var smallWritten = answeredMembers();
+            smallWritten.put("answer", CHOSEN_JSON.replace("\"value\":null", "\"value\":1E-7"));
 
             var question = QuestionRecordCodec.read(FILE, document(members));
+            var smallQuestion = QuestionRecordCodec.read(FILE, document(small));
 
             assertAll(
                     () -> assertEquals(new AnswerValue.Numeric(new BigDecimal("2.50")), question.answer().value()),
-                    () -> assertArrayEquals(document(members), QuestionRecordCodec.write(question)));
+                    () -> assertArrayEquals(document(members), QuestionRecordCodec.write(question)),
+                    () -> assertEquals(new AnswerValue.Numeric(new BigDecimal("0.0000001")),
+                            smallQuestion.answer().value()),
+                    () -> assertArrayEquals(document(smallWritten), QuestionRecordCodec.write(smallQuestion)),
+                    () -> assertEquals(smallQuestion, QuestionRecordCodec.read(FILE,
+                            QuestionRecordCodec.write(smallQuestion))));
         }
     }
 

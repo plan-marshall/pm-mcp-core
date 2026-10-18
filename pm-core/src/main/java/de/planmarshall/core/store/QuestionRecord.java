@@ -313,7 +313,9 @@ String amendmentId, String reason, Instant at) {
         }
 
         /**
-         * A number value, kept with its scale so that it is written back as it was read.
+         * A number value, kept with its scale: {@code 1.50} stays {@code 1.50}. It is written as
+         * {@link BigDecimal#toString()} writes it, which is not always the text that was read: a value with a small
+         * enough exponent is written in exponent notation, {@code 0.0000001} as {@code 1E-7}.
          *
          * @param number the number
          * @since 0.1

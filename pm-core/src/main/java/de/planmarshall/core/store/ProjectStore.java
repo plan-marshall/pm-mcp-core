@@ -125,8 +125,8 @@ public final class ProjectStore {
     }
 
     /**
-     * The identity record exists and was refused: it does not parse as the one shape of a store identity, or it is
-     * of another format version.
+     * The identity record exists and was refused: it does not parse as the one shape of a store identity, it is of
+     * another format version, or it names another project than the one of the store directory.
      *
      * @param refusal the refusal of the record, naming the file and why
      * @since 0.1
@@ -210,9 +210,12 @@ public final class ProjectStore {
     }
 
     /**
-     * Reads the identity record without a lock, as it is at the moment of the read.
+     * Reads the identity record without a lock, as it is at the moment of the read. A record whose
+     * {@code project_id} is not the project of this store, as a {@code store.json} restored into the directory of
+     * another project, is refused: it is no identity of this store.
      *
-     * @return the identity; {@link Absent} if the record does not exist, {@link Unreadable} if it is refused
+     * @return the identity; {@link Absent} if the record does not exist, {@link Unreadable} if it is refused or names
+     *         another project
      * @throws UncheckedIOException if the record exists and cannot be read
      */
     public IdentityRead readIdentity() {
@@ -221,11 +224,19 @@ public final class ProjectStore {
         if (content.isEmpty()) {
             return new Absent(file);
         }
+        ProjectStoreIdentity identity;
         try {
-            return new Present(ProjectStoreIdentityCodec.read(file, content.get()));
+            identity = ProjectStoreIdentityCodec.read(file, content.get());
         } catch (StoreRefusal refusal) {
             return new Unreadable(refusal);
         }
+        if (!identity.projectId().equals(projectId)) {
+            return new Unreadable(StoreRefusal.unreadable(file, ProjectStoreIdentity.FORMAT_VERSION,
+                    "project_id %s is not the project %s of the store directory".formatted(identity.projectId(),
+                            projectId),
+                    null));
+        }
+        return new Present(identity);
     }
 
     private static void createDirectory(Path directory) {

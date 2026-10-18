@@ -48,8 +48,8 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
 the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
 (`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
-overlay (`pending_condition`) and `updated_at`. Every other member of the closed schema is kept in `retained()` as the
-raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
+overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>) and
+`updated_at`. Every other member of the closed schema is kept in `retained()` as the raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
 `WorkflowStatusCodec`:: Reads and writes the document over `StrictJson`. It checks `format_version` first
@@ -824,7 +824,8 @@ store has none. `ask`, `revise`, `adjudicate`, `deliver`, `answer`, `withdraw` a
 lines and append them through `append(transaction, lines)`; `read()` takes no lock, and `Lines.current(questionId)`,
 `isClosed` and `currentRevision` answer from the readable lines.
 `QuestionRefusal`:: The two invariants the store holds, as values: `AlreadyAnswered(questionId)` and
-`Conflict(questionId, currentRevision)`.
+`Conflict(questionId, currentRevision)`; and `Unreadable(questionId, refusedLine)` (code `unreadable`) when the log
+holds a refused line, so the invariants cannot be decided.
 
 The log lives in `core.store`. The engine reads it through the port `QuestionRecordReader` of `core.spi`, which an
 adapter of `pm-runtime` implements over `QuestionLog`; whether an answer fits its part stays the engine's check in
@@ -834,7 +835,8 @@ adapter of `pm-runtime` implements over `QuestionLog`; whether an answer fits it
 ----
 caller: LockTransaction (scope lock) ──► ScopeTransaction.open
 QuestionLog.answer(transaction, lines)
-   ├─ read() under the held lock ──► the state of every question: set, revision, closed
+   ├─ read() under the held lock ──► a refused line? ──► Unreadable                       (nothing added)
+   │                                 else the state of every question: set, revision, closed
    ├─ each line in order: closed? ──► AlreadyAnswered     other revision? ──► Conflict     (nothing added)
    └─ all pass ──► QuestionRecordCodec.write + "\n" ──► transaction.append("questions.jsonl")
 caller: transaction.commit()
@@ -850,6 +852,11 @@ caller: transaction.commit()
 * *Decided under the lock*: the log is read while the caller's transaction holds the scope lock, so no other append
   comes between the check and the write
   (link:../adr/core-store/030-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 030]).
+* *Fail closed on a refused line*: a line refused when read (unreadable, or of another format version) names no
+  question the log can read and may be the closing line or the revision of any of them, so the state of the questions
+  is unknown. While the log holds one, every append is `Unreadable` naming the first refused line, an `asked` line of a
+  new question included, and nothing is added; a refused line is never taken for an open question
+  (link:../adr/core-store/036-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 036]).
 * *A malformed append is the caller's fault*: a question asked twice, a line about a question the log does not have, a
   set revised in part, an empty append or a line of another event than the method's is an `IllegalArgumentException`,
   not a refusal value.
@@ -877,7 +884,9 @@ its worktrees. `directory(Directory)` names `plans`, `archive`, `workspace`, `ep
 creates the directories and writes the identity record when it does not exist. It returns `CREATED` or `EXISTED`; an
 existing `store.json` is never rewritten, whatever it holds, an unreadable one included.
 `ProjectStore.readIdentity()`:: Reads without a lock and answers `Present(identity)`, `Absent(file)` or
-`Unreadable(refusal)`; neither a missing nor a refused record is ever an empty identity.
+`Unreadable(refusal)`; neither a missing nor a refused record is ever an empty identity. A record whose `project_id` is
+not the project of the store directory, a `store.json` of another project restored there, is `Unreadable` with a
+refusal naming the mismatch, as the enrolment store refuses the same mismatch for its files.
 `ProjectStoreIdentity`, `ProjectStoreIdentityCodec`:: The identity record: the project id, the project root (checked by
 the one check of an enrolment, `ProjectEnrolment.requireAbsolutePath`, which is package-private for this reuse), the
 display name (1 to 128 code points, never an identifier), the creation and the unenrolment instant.
@@ -959,6 +968,10 @@ the next append.
 |A question line breaks an invariant
 |`AlreadyAnswered` or `Conflict` is returned; nothing of the append is added.
 
+|The question log holds a refused line when an append is checked
+|`Unreadable` naming the first refused line is returned; nothing of the append is added, until the operator has dealt
+with the line.
+
 |The move of an entry's questions finds a log in the new scope
 |The commit of the new scope's transaction is refused (<<_create_target>>); the entry's log stays.
 
@@ -972,7 +985,7 @@ the next append.
 Tested by `WaiverRecordCodecTest`, `WaiverLogTest`, `WaiverConsumptionCodecTest`, `WaiverConsumptionLogTest`,
 `WorkflowStatusCodecTest`, `WorkflowStatusStoreTest` and `WorkflowStatusSchemaParityTest` (the waiver requests),
 `QuestionRecordCodecTest`, `QuestionLogTest` (one closing line, the current revision, a refusal adds nothing, a torn
-tail, a refused line), `EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
+tail, a refused line, an append to a log with a refused line refused `Unreadable`), `EntryQuestionMoveTest` (the move, a repeated move refused, a stop between the two commits),
 `ProjectStoreIdentityCodecTest`, `ProjectStoreTest`, `ProjectStoreNoStateInRepositoryTest` (no file below the
 repository), and `ProjectResolverTest`, `LinkedWorktreeConfinementTest` and `PathConfinementTest` (every row of the
 table above, beside its resolving counterpart).
@@ -1080,3 +1093,5 @@ parity check the specification has run ahead of is `@Disabled` with the work pac
   reads the pointer files git writes and shares the recognition of a linked worktree with the confinement.
 * link:../adr/core-store/035-per-project-machine-store-with-its-identity-record.adoc[ADR 035]: the per-project machine
   store and its identity record live in `core.store`; nothing with state lies below the repository.
+* link:../adr/core-store/036-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR 036]: an append to a
+  question log that holds a refused line is refused `Unreadable`; the check fails closed.

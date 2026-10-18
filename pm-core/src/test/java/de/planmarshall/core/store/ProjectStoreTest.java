@@ -204,6 +204,34 @@ class ProjectStoreTest {
                     read.identity());
         }
 
+        @Test
+        @DisplayName("of a store.json of another project, restored into this store, is unreadable naming the mismatch")
+        void foreignIdentity() throws Exception {
+            var beta = new ProjectStore(base, "beta");
+            Files.createDirectories(beta.root());
+            Files.writeString(beta.identityFile(), ProjectStoreIdentityCodecTest.ENROLLED, UTF_8);
+
+            var read = assertInstanceOf(ProjectStore.Unreadable.class, beta.readIdentity());
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, read.refusal().outcome()),
+                    () -> assertEquals(beta.identityFile(), read.refusal().file()),
+                    () -> assertTrue(read.refusal().getMessage()
+                            .contains("project_id " + PROJECT + " is not the project beta"),
+                            read.refusal().getMessage()));
+        }
+
+        @Test
+        @DisplayName("matched control: the same store.json in the store of its own project is present")
+        void ownIdentity() throws Exception {
+            Files.createDirectories(store.root());
+            Files.writeString(store.identityFile(), ProjectStoreIdentityCodecTest.ENROLLED, UTF_8);
+
+            var read = assertInstanceOf(ProjectStore.Present.class, store.readIdentity());
+
+            assertEquals(ProjectStoreIdentityCodecTest.read(ProjectStoreIdentityCodecTest.ENROLLED), read.identity());
+        }
+
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.store.ProjectStoreTest#unreadableRecords")
         @DisplayName("of a store.json that cannot be read is unreadable with the refusal, never an empty record")

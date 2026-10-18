@@ -30,6 +30,7 @@ import de.planmarshall.core.store.JsonlStoreFile.Entry;
 import de.planmarshall.core.store.JsonlStoreFile.Refused;
 import de.planmarshall.core.store.QuestionRefusal.AlreadyAnswered;
 import de.planmarshall.core.store.QuestionRefusal.Conflict;
+import de.planmarshall.core.store.QuestionRefusal.Unreadable;
 
 /**
  * The question log {@code questions.jsonl} of one scope (PM-WF-12, PM-IMPL-2, PM-IMPL-7): one {@link QuestionRecord}
@@ -51,6 +52,9 @@ import de.planmarshall.core.store.QuestionRefusal.Conflict;
  * <li>an answer, an adjudication and a delivery name the current revision of their decision: another revision is a
  * {@link Conflict} carrying the current one.</li>
  * </ul>
+ * Both are decided from the lines the log holds, and the check fails closed: when the log holds a line that was
+ * refused when read, which names no question the log can read and may close or revise any of them, every append is
+ * refused {@link Unreadable}, an {@code asked} line included, and nothing is added.
  * A revision appends a {@code revised} line for every open question of the set, all with the same, higher revision.
  * Whether an answer fits its part is checked by the engine, not here. A line that is malformed for the log (a question
  * asked twice, a line about a question the log does not have, a set revised in part) is a fault of the caller and is
@@ -214,7 +218,7 @@ public final class QuestionLog {
      *
      * @param transaction an open transaction of this log's scope
      * @param questions   the asked lines, the first question first
-     * @return empty, the lines being added to the transaction
+     * @return {@link Unreadable} if the log holds a refused line; empty if the lines were added to the transaction
      * @throws IllegalArgumentException if a line is no asked line, the lines are not one set named by its first
      *                                  question, or a question is asked already
      * @see #append(ScopeTransaction, List)
@@ -234,7 +238,8 @@ public final class QuestionLog {
      *
      * @param transaction an open transaction of this log's scope
      * @param lines       the revised lines
-     * @return {@link AlreadyAnswered} if a question of the lines is closed; empty if the lines were added
+     * @return {@link AlreadyAnswered} if a question of the lines is closed, {@link Unreadable} if the log holds a
+     *         refused line; empty if the lines were added
      * @throws IllegalArgumentException if a line is no revised line, or the lines do not revise every open question
      *                                  of the set with one higher revision
      * @see #append(ScopeTransaction, List)
@@ -276,7 +281,8 @@ public final class QuestionLog {
      * @param transaction an open transaction of this log's scope
      * @param lines       the answered lines
      * @return {@link AlreadyAnswered} if a question is closed or answered twice, {@link Conflict} if an answer names
-     *         another revision than the current one; empty if the lines were added
+     *         another revision than the current one, {@link Unreadable} if the log holds a refused line; empty if the
+     *         lines were added
      * @see #append(ScopeTransaction, List)
      */
     public Optional<QuestionRefusal> answer(ScopeTransaction transaction, List<QuestionRecord> lines) {
@@ -289,7 +295,8 @@ public final class QuestionLog {
      *
      * @param transaction an open transaction of this log's scope
      * @param lines       the withdrawn lines
-     * @return {@link AlreadyAnswered} if a question is closed; empty if the lines were added
+     * @return {@link AlreadyAnswered} if a question is closed, {@link Unreadable} if the log holds a refused line;
+     *         empty if the lines were added
      * @see #append(ScopeTransaction, List)
      */
     public Optional<QuestionRefusal> withdraw(ScopeTransaction transaction, List<QuestionRecord> lines) {
@@ -302,7 +309,8 @@ public final class QuestionLog {
      *
      * @param transaction an open transaction of this log's scope
      * @param lines       the cancelled lines
-     * @return {@link AlreadyAnswered} if a question is closed; empty if the lines were added
+     * @return {@link AlreadyAnswered} if a question is closed, {@link Unreadable} if the log holds a refused line;
+     *         empty if the lines were added
      * @see #append(ScopeTransaction, List)
      */
     public Optional<QuestionRefusal> cancel(ScopeTransaction transaction, List<QuestionRecord> lines) {
@@ -317,8 +325,8 @@ public final class QuestionLog {
      *
      * @param transaction an open transaction of this log's scope, opened by the caller's lock transaction
      * @param lines       the lines, in the order they are appended
-     * @return the refusal of the first line that breaks an invariant, nothing being added; empty if the lines were
-     *         added
+     * @return {@link Unreadable} if the log holds a refused line, else the refusal of the first line that breaks an
+     *         invariant, nothing being added; empty if the lines were added
      * @throws IllegalArgumentException if the transaction belongs to another scope, the log is a target of the
      *                                  transaction already, there is no line, or a line is malformed for the log
      * @throws IllegalStateException    if the transaction was committed
@@ -331,7 +339,12 @@ public final class QuestionLog {
         if (toAppend.isEmpty()) {
             throw new IllegalArgumentException("An append to the question log has at least one line");
         }
-        var questions = questions(read().records());
+        var log = read();
+        var refused = log.refused();
+        if (!refused.isEmpty()) {
+            return Optional.of(new Unreadable(toAppend.getFirst().questionId(), refused.getFirst().line()));
+        }
+        var questions = questions(log.records());
         for (var line : toAppend) {
             var refusal = check(questions, line);
             if (refusal.isPresent()) {

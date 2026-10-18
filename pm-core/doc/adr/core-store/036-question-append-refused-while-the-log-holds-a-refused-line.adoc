@@ -1,0 +1,59 @@
+= ADR 036: An Append to a Question Log That Holds a Refused Line Is Refused
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-18
+
+== Context
+
+`QuestionLog.append` decides its two invariants (ADR 030) from the lines the log holds. A line that is refused when
+read, because it is unreadable or of another `format_version`, is not among them: it keeps its line number and names
+no question the log can read. If that line is the closing line of a question, the question looks open, a second
+closing line is accepted, and the log holds two closing lines for one question. The port `QuestionRecordReader`
+(ADR 029) requires a record that cannot be read to be reported as unreadable, never as open; the append must not take
+it for open either.
+
+A refused line names no question id that can be trusted, so the append cannot tell which questions it concerns: it
+may close or revise any question of the log, also one that a new `asked` line would ask.
+
+== Decision
+
+* Before it checks any line, `QuestionLog.append` refuses the whole append when the log, read under the scope lock,
+  holds a refused line. It returns `QuestionRefusal.Unreadable(questionId, refusedLine)` with the error code
+  `unreadable`, naming the question of the first appended line and the line number of the first refused line, and adds
+  nothing to the transaction.
+* The refusal covers every event, `asked` included: no append is accepted on the strength of the readable lines alone.
+* The refusal is a value, like `AlreadyAnswered` and `Conflict` of ADR 030; it is not an exception, because the log is
+  in a state the operator has to deal with, not wrong code of the caller.
+
+== Alternatives Considered
+
+1. *Refuse only the lines that depend on the state of a question (closing lines, revisions, adjudications,
+   deliveries) and accept new `asked` lines.*
+_Not taken_: a refused line names no question that can be trusted, so it cannot be established that it does not
+concern the question an `asked` line asks.
+2. *Read the question id of the refused line from its raw content.*
+_Not taken_: a line of a newer format version or an unreadable one has no shape the store may rely on; reading a member
+from it is reading it as something close to the schema.
+
+== Consequences
+
+* A log with a refused line accepts no append until the operator has dealt with the line; the questions of the scope
+  stand still, they are never answered twice.
+* A caller reports `unreadable` to the operator with the line number, as it reports the other refusals.
+* A log without a refused line behaves as before: `AlreadyAnswered` and `Conflict` are unchanged.
+
+== Source
+
+* Finding of the code review of the work package
+  link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/operator-and-question-stores.adoc[`operator-and-question-stores`]
+  (PLAN-14)
+* link:030-question-invariants-held-by-the-store-as-refusal-values.adoc[ADR 030],
+  link:029-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR 029]
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java`
