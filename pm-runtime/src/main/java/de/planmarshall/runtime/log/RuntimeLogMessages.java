@@ -558,6 +558,17 @@ public final class RuntimeLogMessages {
                 .identifier(129)
                 .template("Launcher of job '%s' not started, the job is settled as exit 127: %s")
                 .build();
+
+        /**
+         * Logged when the termination protocol fails with an exception for a job whose end the runner has not observed
+         * (a refused PID or a failed signal call), before its process is destroyed through its handle and the job is
+         * settled; names the job and the reason.
+         */
+        public static final LogRecord JOB_TERMINATION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(130)
+                .template("Termination of job '%s' failed, its process is destroyed through its handle: %s")
+                .build();
     }
 
     /** ERROR level messages. */
@@ -632,6 +643,16 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(207)
                 .template("Settlement of job '%s' stopped at step '%s': %s")
+                .build();
+
+        /**
+         * Logged when the virtual thread that waits for a job fails with an exception or an error, after its fallback
+         * settlement from what the runner observed has run; names the job and the failure.
+         */
+        public static final LogRecord JOB_SUPERVISION_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(208)
+                .template("Supervision of job '%s' failed, its settlement ran from what the runner observed: %s")
                 .build();
     }
 }

@@ -140,8 +140,12 @@ class RuntimeLogMessagesTest {
                         "Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')"),
                 Arguments.of(RuntimeLogMessages.WARN.JOB_LAUNCHER_NOT_STARTED, "PM_RUNTIME-129",
                         "Launcher of job '%s' not started, the job is settled as exit 127: %s"),
+                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED, "PM_RUNTIME-130",
+                        "Termination of job '%s' failed, its process is destroyed through its handle: %s"),
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",
-                        "Settlement of job '%s' stopped at step '%s': %s"));
+                        "Settlement of job '%s' stopped at step '%s': %s"),
+                Arguments.of(RuntimeLogMessages.ERROR.JOB_SUPERVISION_FAILED, "PM_RUNTIME-208",
+                        "Supervision of job '%s' failed, its settlement ran from what the runner observed: %s"));
     }
 
     @ParameterizedTest(name = "{1}")

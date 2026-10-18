@@ -18,12 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.cuioss.test.juli.LogAsserts;
 import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.TestLoggerFactory;
 import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -40,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -145,13 +148,37 @@ class SubprocessJobRunnerTest {
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives,
             SubprocessJobRunner.Environment environment) {
+        return runner(termination, environment,
+                (kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING, primitives);
+    }
+
+    private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
+            SubprocessJobRunner.OutputParser parser, SubprocessJobRunner.PrimitiveJobs primitives) {
         return SubprocessJobRunner.builder().base(fixture.base).lockManager(locks).pipeline(fixture.pipeline())
                 .launcher(new PmExecLauncher(home)).termination(termination).environment(job -> {
             observations.add(new Observation(jobs.records(),
                     locks.anyOpenHolds(fixture.store.lockKey(PROJECT))));
             return environment.of(job);
-        }).probeEnvironment(candidate -> ENVIRONMENT).parser((kind, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING)
-                .primitives(primitives).build();
+        }).probeEnvironment(candidate -> ENVIRONMENT).parser(parser).primitives(primitives).build();
+    }
+
+    /**
+     * Waits until a message is logged on another thread: the handler of the thread that waits for a job logs its
+     * failure after the job has left the running jobs.
+     */
+    private static void awaitLogged(TestLogLevel level, String text) throws InterruptedException {
+        var deadline = Instant.now().plus(Duration.ofSeconds(10));
+        while (TestLoggerFactory.getTestHandler().resolveLogMessagesContaining(level, text).isEmpty()) {
+            if (!Instant.now().isBefore(deadline)) {
+                throw new AssertionError("'%s' was not logged at %s".formatted(text, level));
+            }
+            Thread.sleep(SubprocessJobRunner.REPORT_POLL_INTERVAL);
+        }
+    }
+
+    /** @return whether the process of a PID still lives; a reaped process does not */
+    private static boolean alive(Long pid) {
+        return pid != null && ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
     }
 
     private JobRunner.StartRequest<JobRequest> git(long budgetSeconds, String... arguments) {
@@ -523,6 +550,9 @@ class SubprocessJobRunnerTest {
     @DisplayName("settles a job whose post-spawn record cannot be written and passes the failure on")
     class PostSpawnNotWritten {
 
+        /** The {@code errno} of a refused signal. */
+        private static final int EPERM = 1;
+
         private final List<Long> signalledGroups = new CopyOnWriteArrayList<>();
 
         @BeforeEach
@@ -543,6 +573,16 @@ class SubprocessJobRunnerTest {
          * asked for, and writable again with the first signal of the termination, so only the post-spawn write fails.
          */
         private SubprocessJobRunner recordingSignals(boolean refusePostSpawn) {
+            return recordingSignals(refusePostSpawn ? () -> permissions("r-x------") : null, false);
+        }
+
+        /**
+         * A runner whose signals are recorded.
+         *
+         * @param beforePostSpawn what runs right before the post-spawn write; {@code null} for nothing
+         * @param refuseSignals   whether every signal is refused with {@code EPERM} instead of sent
+         */
+        private SubprocessJobRunner recordingSignals(Runnable beforePostSpawn, boolean refuseSignals) {
             var system = ProcessGroupSignals.system();
             var signals = new ProcessGroupSignals() {
 
@@ -550,18 +590,18 @@ class SubprocessJobRunnerTest {
                 public Answer signalGroup(long pgid, Signal signal) {
                     permissions("rwx------");
                     signalledGroups.add(pgid);
-                    return system.signalGroup(pgid, signal);
+                    return refuseSignals ? new Refused(EPERM) : system.signalGroup(pgid, signal);
                 }
 
                 @Override
                 public Answer signalProcess(long pid, Signal signal) {
                     permissions("rwx------");
-                    return system.signalProcess(pid, signal);
+                    return refuseSignals ? new Refused(EPERM) : system.signalProcess(pid, signal);
                 }
             };
             return runner(new TerminationProtocol(signals), request -> Optional.empty(), job -> {
-                if (refusePostSpawn) {
-                    locks.beforeNextTransaction(() -> permissions("r-x------"));
+                if (beforePostSpawn != null) {
+                    locks.beforeNextTransaction(beforePostSpawn);
                 }
                 return ENVIRONMENT;
             });
@@ -603,6 +643,47 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("a cancel answered before the post-spawn write failed decides the fate by its cause")
+        void cancelInTheMeantime() {
+            var cancelled = new AtomicBoolean();
+            runner = recordingSignals(() -> {
+                cancelled.set(runner.cancel(jobs.records().getFirst().jobId(), CancelCause.ENGINE_CANCEL));
+                permissions("r-x------");
+            }, false);
+
+            assertThrows(UncheckedIOException.class, () -> runner.start(git(60, "sleep", "60")));
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertTrue(cancelled.get(), "the cancel decided the end of the job"),
+                    () -> assertEquals(Status.ENDED, settled.status()),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cause decides, not row 4"),
+                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertEquals("SIGTERM", settled.signal()),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(settled.jobId(), Duration.ZERO)));
+        }
+
+        @Test
+        @DisplayName("a refused signal destroys the process through its handle, so the wait for its end is bounded")
+        void signalRefused() {
+            runner = recordingSignals(() -> permissions("r-x------"), true);
+
+            assertTimeoutPreemptively(SETTLE_TIMEOUT, () -> assertThrows(UncheckedIOException.class,
+                    () -> runner.start(git(600, "sleep", "600"))), "the wait for the process has an end");
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
+                    () -> assertEquals(List.of(settled.pid()), signalledGroups.stream().distinct().toList(),
+                            "the group was signalled first"),
+                    () -> assertFalse(alive(settled.pid()), "the process is not left running"),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"));
+        }
+
+        @Test
         @DisplayName("matched control: a job whose post-spawn record is written is started and settled by its exit")
         void writtenPostSpawn() {
             runner = recordingSignals(false);
@@ -615,6 +696,115 @@ class SubprocessJobRunnerTest {
                     () -> assertTrue(signalledGroups.isEmpty(), "nothing was signalled"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                             INFO.JOB_STARTED.resolveIdentifierString()));
+        }
+    }
+
+    @Nested
+    @EnabledOnOs(OS.LINUX)
+    @DisplayName("settles a job whose waiting thread fails and leaves no process running")
+    class SupervisionFails {
+
+        @BeforeEach
+        void install() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+        }
+
+        @Test
+        @DisplayName("a parser that throws: the job is settled without its finding, by row 8 for exit 0")
+        void parserThrows() throws InterruptedException {
+            var failure = new IllegalStateException("the parser failed");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+                    (kind, output) -> {
+                        throw failure;
+                    }, request -> Optional.empty());
+
+            var jobId = started(runner.start(git(30, "ok")));
+
+            assertSettledWithoutFinding(jobId, failure);
+        }
+
+        @Test
+        @DisplayName("a parser that fails with an error: the job is settled the same way")
+        void parserFailsWithError() throws InterruptedException {
+            var failure = new StackOverflowError("a regular expression recursed too deep");
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), job -> ENVIRONMENT,
+                    (kind, output) -> {
+                        throw failure;
+                    }, request -> Optional.empty());
+
+            var jobId = started(runner.start(git(30, "ok")));
+
+            assertSettledWithoutFinding(jobId, failure);
+        }
+
+        /** A job that exited 0 and whose parser failed: indeterminate by row 8, the failure logged as it was thrown. */
+        private void assertSettledWithoutFinding(JobId jobId, Throwable failure) throws InterruptedException {
+            var settled = settled(jobId);
+            awaitLogged(TestLogLevel.ERROR, ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString());
+
+            assertAll(
+                    () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
+                    () -> assertEquals(Fate.INDETERMINATE, settled.fate(), "exit 0 without the parser's marker"),
+                    () -> assertEquals(8, settled.outcomeRow()),
+                    () -> assertEquals(0L, settled.exitCode()),
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
+                    () -> assertEquals(Optional.of(settled), runner.record(jobId)),
+                    () -> assertFalse(alive(settled.pid()), "the process is not left running"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            "Job '%s' settled with fate 'indeterminate' (outcome row 8)".formatted(jobId)),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            "Supervision of job '%s' failed".formatted(jobId), failure));
+        }
+
+        @Test
+        @DisplayName("a termination that throws: the process is destroyed through its handle and the cause decides")
+        void terminationThrows() throws InterruptedException {
+            var signals = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    throw new IllegalStateException("kill(-%d) failed".formatted(pgid));
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    throw new IllegalStateException("kill(%d) failed".formatted(pid));
+                }
+            };
+            runner = runner(new TerminationProtocol(signals), request -> Optional.empty());
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+
+            var cancelled = runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+            var settled = settled(jobId);
+            awaitLogged(TestLogLevel.ERROR, ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString());
+
+            assertAll(
+                    () -> assertTrue(cancelled),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the record does not stay running"),
+                    () -> assertEquals(Fate.CANCELLED, settled.fate(), "the cancel's cause decides"),
+                    () -> assertEquals(2, settled.outcomeRow()),
+                    () -> assertEquals("SIGKILL", settled.signal(), "destroyed through its handle"),
+                    () -> assertFalse(alive(settled.pid()), "the process is not left running"),
+                    () -> assertFalse(runner.runningJobs().contains(jobId), "the job left the running jobs"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.JOB_TERMINATION_FAILED.resolveIdentifierString()),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
+                            "Supervision of job '%s' failed".formatted(jobId), IllegalStateException.class));
+        }
+
+        @Test
+        @DisplayName("matched control: a job whose parser and termination work is settled without a failure")
+        void nothingFails() {
+            var jobId = started(runner.start(git(30, "ok")));
+
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertEquals(Fate.SUCCEEDED, settled.fate()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.ERROR,
+                            ERROR.JOB_SUPERVISION_FAILED.resolveIdentifierString()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
+                            WARN.JOB_TERMINATION_FAILED.resolveIdentifierString()));
         }
     }
 
