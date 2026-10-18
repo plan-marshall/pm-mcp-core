@@ -120,14 +120,15 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged at start with the one active credential backend and the keyring service name.
+         * Logged at start with the credential store the operator recorded ({@code os}, {@code file}, or
+         * {@code none} before the choice) and the keyring service name.
          * <p>
          * Used by the assembly {@code pm-mcp-server}.
          */
         public static final LogRecord CREDENTIAL_STORE_SELECTED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(9)
-                .template("Credential store '%s' active, service name '%s'")
+                .template("Credential store '%s' recorded, service name '%s'")
                 .build();
 
         /** Logged when a language server of the LSP pool answered {@code initialize}. */
@@ -255,19 +256,62 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
+         * Logged by {@code CredentialStoreChoice} when {@code credentials.store} of {@code machine-config.json} is
+         * written, with the store, the writer (the credential-store aspect or the store move) and the new revision.
+         */
+        public static final LogRecord CREDENTIAL_STORE_RECORDED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(26)
+                .template("Credential store '%s' recorded by %s, machine configuration revision %s")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreMove} when a move between the credential stores starts, after its record
+         * {@code state/credential-store-move.json} was written, with the old and the new store.
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVE_STARTED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(27)
+                .template("Credential store move from '%s' to '%s' started")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreMove} when a move between the credential stores has ended: the new store is
+         * recorded, the old one is empty and the record is deleted; with the old and the new store and the number of
+         * Token Lane entries moved (the integrity key not counted). Never names an entry's secret.
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(28)
+                .template("Credential store moved from '%s' to '%s', %s entries")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreMoveResume} after the start completed a move between the credential stores
+         * that a stop cut, with the old and the new store and the phase of the record it was resumed from
+         * ({@code copying}: started again from the first entry; {@code switched}: the deletion from the old store
+         * finished).
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVE_RESUMED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(29)
+                .template("Credential store move from '%s' to '%s' resumed from phase '%s' and completed")
+                .build();
+
+        /**
          * Logged when the record of a job carries its PID and process start (the post-spawn replace), from which on the
          * job counts as running; names the job, its kind, its PID and its budget in seconds.
          */
         public static final LogRecord JOB_STARTED = LogRecordModel.builder()
                 .prefix(PREFIX)
-                .identifier(26)
+                .identifier(30)
                 .template("Job '%s' of kind '%s' started (pid %s, budget %s seconds)")
                 .build();
 
         /** Logged when the fate of a job is recorded; names the job, its fate and the row of the outcome derivation. */
         public static final LogRecord JOB_SETTLED = LogRecordModel.builder()
                 .prefix(PREFIX)
-                .identifier(27)
+                .identifier(31)
                 .template("Job '%s' settled with fate '%s' (outcome row %s)")
                 .build();
     }
@@ -318,17 +362,6 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(103)
                 .template("Web listener on port %s: connection failed before a request (TLS handshake or connection setup): %s")
-                .build();
-
-        /**
-         * Logged at start when no OS keyring is usable and the file credential store serves.
-         * <p>
-         * Used by the assembly {@code pm-mcp-server}.
-         */
-        public static final LogRecord KEYRING_UNAVAILABLE = LogRecordModel.builder()
-                .prefix(PREFIX)
-                .identifier(104)
-                .template("No OS keyring usable, the file credential store serves: %s")
                 .build();
 
         /** Logged when a language server does not end cleanly on {@code shutdown} / {@code exit}. */
@@ -539,13 +572,38 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
+         * Logged by {@code CredentialStoreChoice} when the recorded OS store (Keychain or Secret Service) is
+         * unavailable for an operation, with the store and the cause; the operation fails and no other store serves
+         * in its place. Identifier 104, the removed record of the former file-store fallback, is not reused.
+         */
+        public static final LogRecord RECORDED_OS_STORE_UNAVAILABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(128)
+                .template("Recorded credential store '%s' unavailable, no other store serves: %s")
+                .build();
+
+        /**
+         * Logged by {@code CredentialStoreMove} when a move fails before the switch (a copy, a read-back or the
+         * verification of a sidecar under the moved key failed); with the old and the new store, what became of the
+         * copies and of the record (copies removed from the target while the old store stays recorded, record
+         * deleted; copies not all removed, record kept for the next start; copies kept in the target because the
+         * recorded store cannot be read, record kept, or because the target is recorded, record deleted) and the
+         * cause, never a secret.
+         */
+        public static final LogRecord CREDENTIAL_STORE_MOVE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(129)
+                .template("Credential store move from '%s' to '%s' failed before the switch, %s: %s")
+                .build();
+
+        /**
          * Logged when a member of a job's process group still lived at the end of the termination grace period after
          * {@code SIGTERM}, and the group was sent {@code SIGKILL}; names the job, the process group and the cause of
          * the termination.
          */
         public static final LogRecord JOB_TERMINATION_ESCALATED = LogRecordModel.builder()
                 .prefix(PREFIX)
-                .identifier(128)
+                .identifier(130)
                 .template("Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')")
                 .build();
 
@@ -556,7 +614,7 @@ public final class RuntimeLogMessages {
          */
         public static final LogRecord JOB_LAUNCHER_NOT_STARTED = LogRecordModel.builder()
                 .prefix(PREFIX)
-                .identifier(129)
+                .identifier(131)
                 .template("Launcher of job '%s' not started, the job had no process: %s")
                 .build();
 
@@ -567,7 +625,7 @@ public final class RuntimeLogMessages {
          */
         public static final LogRecord JOB_TERMINATION_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)
-                .identifier(130)
+                .identifier(132)
                 .template("Termination of job '%s' failed, its process is destroyed through its handle: %s")
                 .build();
     }

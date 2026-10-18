@@ -337,7 +337,7 @@ Declared in `epic.pmwf` (`scope epic`, compiled only, start `epic.decompose`); t
 |`epic`
 |`job`
 |`epic.next-work` (`through`, `archive_requested` without a completion review since the epic was through).
-|`job llm completion role coordinate`: entity `completion`, which may stage further rows (`submit stage`, `submit spec_section`) and closes with `submit:completion` carrying `verdict: enum[complete\|continue]` (`continue` is refused, `detail: nothing_staged`, unless the entity staged at least one row). The review is recorded in the ledger and reported (`epic.through`); `complete` never archives the epic by itself.
+|`job llm completion role coordinate`: entity `completion`, which may stage further rows (`submit stage`, `submit spec_section`) and closes with `submit:completion` carrying `verdict: enum[complete\|continue]` (`continue` is refused, `detail: nothing_staged`, unless the entity staged at least one row) and one check result per `done_when` check of the epic intent (`complete` is refused, `detail: done_when_unmet`, while a check is unmet or missing). The review is recorded in the ledger and reported (`epic.through`); `complete` never archives the epic by itself.
 |`continue` -> `epic.commit-ledger` (the archive request, if any, answered with the new rows); `complete` -> `epic.archive-check` when an archive request is pending, otherwise `epic.commit-ledger`; `infeasible`, `lost` -> `epic.active` (the completion review `held`).
 |link:../model-work/08-epic-coordination.adoc#epic-actions[Model Work Specification, An Epic's Actions]
 

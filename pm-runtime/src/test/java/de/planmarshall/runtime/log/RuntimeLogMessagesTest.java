@@ -130,17 +130,57 @@ class RuntimeLogMessagesTest {
                 () -> assertEquals(template, logRecord.getTemplate()));
     }
 
+    static Stream<Arguments> credentialStoreRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_SELECTED, "PM_RUNTIME-9",
+                        "Credential store '%s' recorded, service name '%s'"),
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_RECORDED, "PM_RUNTIME-26",
+                        "Credential store '%s' recorded by %s, machine configuration revision %s"),
+                Arguments.of(RuntimeLogMessages.WARN.RECORDED_OS_STORE_UNAVAILABLE, "PM_RUNTIME-128",
+                        "Recorded credential store '%s' unavailable, no other store serves: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("credentialStoreRecords")
+    @DisplayName("the records of the recorded credential store")
+    void credentialStore(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
+    static Stream<Arguments> credentialStoreMoveRecords() {
+        return Stream.of(
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVE_STARTED, "PM_RUNTIME-27",
+                        "Credential store move from '%s' to '%s' started"),
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVED, "PM_RUNTIME-28",
+                        "Credential store moved from '%s' to '%s', %s entries"),
+                Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_MOVE_RESUMED, "PM_RUNTIME-29",
+                        "Credential store move from '%s' to '%s' resumed from phase '%s' and completed"),
+                Arguments.of(RuntimeLogMessages.WARN.CREDENTIAL_STORE_MOVE_FAILED, "PM_RUNTIME-129",
+                        "Credential store move from '%s' to '%s' failed before the switch, %s: %s"));
+    }
+
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("credentialStoreMoveRecords")
+    @DisplayName("the records of the move between the credential stores")
+    void credentialStoreMove(LogRecord logRecord, String identifier, String template) {
+        assertAll(
+                () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
+                () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
     static Stream<Arguments> jobRunnerRecords() {
         return Stream.of(
-                Arguments.of(RuntimeLogMessages.INFO.JOB_STARTED, "PM_RUNTIME-26",
+                Arguments.of(RuntimeLogMessages.INFO.JOB_STARTED, "PM_RUNTIME-30",
                         "Job '%s' of kind '%s' started (pid %s, budget %s seconds)"),
-                Arguments.of(RuntimeLogMessages.INFO.JOB_SETTLED, "PM_RUNTIME-27",
+                Arguments.of(RuntimeLogMessages.INFO.JOB_SETTLED, "PM_RUNTIME-31",
                         "Job '%s' settled with fate '%s' (outcome row %s)"),
-                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_ESCALATED, "PM_RUNTIME-128",
+                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_ESCALATED, "PM_RUNTIME-130",
                         "Job '%s' outlived the grace period after SIGTERM, process group %s sent SIGKILL (cause '%s')"),
-                Arguments.of(RuntimeLogMessages.WARN.JOB_LAUNCHER_NOT_STARTED, "PM_RUNTIME-129",
+                Arguments.of(RuntimeLogMessages.WARN.JOB_LAUNCHER_NOT_STARTED, "PM_RUNTIME-131",
                         "Launcher of job '%s' not started, the job had no process: %s"),
-                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED, "PM_RUNTIME-130",
+                Arguments.of(RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED, "PM_RUNTIME-132",
                         "Termination of job '%s' failed, its process is destroyed through its handle: %s"),
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",
                         "Settlement of job '%s' stopped at step '%s': %s"),
@@ -155,6 +195,20 @@ class RuntimeLogMessagesTest {
         assertAll(
                 () -> assertEquals(identifier, logRecord.resolveIdentifierString()),
                 () -> assertEquals(template, logRecord.getTemplate()));
+    }
+
+    @Test
+    @DisplayName("the record of the former file-store fallback is gone and its identifier 104 is not reused")
+    void fileStoreFallbackRemoved() throws Exception {
+        var all = new ArrayList<LogRecord>();
+        for (String level : List.of("INFO", "WARN", "ERROR")) {
+            all.addAll(records(level));
+        }
+
+        assertAll(
+                () -> assertTrue(all.stream().noneMatch(logRecord -> logRecord.getIdentifier() == 104)),
+                () -> assertTrue(all.stream()
+                        .noneMatch(logRecord -> logRecord.getTemplate().contains("file credential store serves"))));
     }
 
     @Test
@@ -173,13 +227,13 @@ class RuntimeLogMessagesTest {
     @DisplayName("the documentation check names a record without a row and a record whose template differs")
     void undocumentedRecordsAreFound() {
         var rows = List.of(
-                "|PM_RUNTIME-26 |SubprocessJobRunner |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |Logged",
-                "|PM_RUNTIME-27 |SubprocessJobRunner |Job '%s' settled with another template |Logged",
-                "|PM_RUNTIME-260 |Other |Job '%s' settled with fate '%s' (outcome row %s) |Another row, not row 27");
+                "|PM_RUNTIME-30 |SubprocessJobRunner |Job '%s' of kind '%s' started (pid %s, budget %s seconds) |Logged",
+                "|PM_RUNTIME-31 |SubprocessJobRunner |Job '%s' settled with another template |Logged",
+                "|PM_RUNTIME-310 |Other |Job '%s' settled with fate '%s' (outcome row %s) |Another row, not row 31");
         var records = List.of(RuntimeLogMessages.INFO.JOB_STARTED, RuntimeLogMessages.INFO.JOB_SETTLED,
                 RuntimeLogMessages.WARN.JOB_TERMINATION_FAILED);
 
-        assertEquals(List.of("PM_RUNTIME-27", "PM_RUNTIME-130"), undocumented(rows, records));
+        assertEquals(List.of("PM_RUNTIME-31", "PM_RUNTIME-132"), undocumented(rows, records));
     }
 
     /**

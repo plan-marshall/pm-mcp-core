@@ -83,6 +83,8 @@ The runtime (`pm-mcpd`) persists machine-wide configuration and the machine's ot
 │   ├── runtime.json                     # Runtime record: pid, start instant, version, listener, socket path; written at socket bind
 │   ├── upgrade.json                     # Newest version known, last check, last upgrade, the way back
 │   ├── login-environment.json           # Login PATH and build environment the terminal client last sent, with its time (mode 0600)
+│   ├── credential-store-move.json       # The open move between the credential stores: from, to, started, phase; exists only
+│                                        # while a move is open (mode 0600)
 │   ├── reports.jsonl                    # Reports to the operator: report, read, and deleted events (own leaf lock)
 │   ├── cleanup.jsonl                    # Cleanup jobs: job, decided, deleted, kept, released events (own leaf lock)
 │   └── usage-aggregate.jsonl            # Tokens of deleted plans per day, project, model, and role (own leaf lock)
@@ -103,8 +105,9 @@ The runtime (`pm-mcpd`) persists machine-wide configuration and the machine's ot
 │   │                                    # acquired alphabetically after all scope locks:
 │   ├── build-slots.lock                 # state/build-slots.json
 │   ├── consents.lock                    # consents.json
-│   ├── credentials.lock                 # credentials/ (file store), the move between the stores, and the
-│   │                                    # creation of the enrolment integrity key, before any enrolment lock
+│   ├── credentials.lock                 # credentials/ (file store), the move between the stores with its record
+│   │                                    # state/credential-store-move.json, and the creation of the enrolment
+│   │                                    # integrity key, before any enrolment lock
 │   ├── enrolments/
 │   │   └── <project_id>.lock            # enrolments/<project_id>.json and its .hmac (lexicographic by project_id)
 │   ├── explorer.lock                    # explorer.json

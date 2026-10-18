@@ -844,7 +844,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * path must end the process the runner started, and a report that differs would leave it running while the wait
      * that follows has no bound. When the termination protocol does not reach the job (its signal is refused, or it
      * fails with an exception), the process is destroyed through its handle, so it is never left running; the failure
-     * of the protocol is logged with {@code PM_RUNTIME-130} and not passed on, so it does not replace a failure this
+     * of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not replace a failure this
      * path follows.
      *
      * @return whether the termination reached the job before its group existed

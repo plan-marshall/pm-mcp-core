@@ -8,12 +8,15 @@
  * the root of this repository.
  */
 /**
- * The credential stores of the runtime (PM-CRED-2, PM-CRED-3): exactly one active
- * {@link de.planmarshall.runtime.credentials.SecretStore} per machine, chosen at runtime start by
- * {@link de.planmarshall.runtime.credentials.SecretStoreSelector}: the macOS login Keychain
- * (Security.framework through FFM), the Linux Secret Service (D-Bus over the JDK Unix domain socket
- * channel), otherwise the permission-guarded file store below {@code <PM_MCP_BASE>/credentials/}.
- * Every keyring entry lives under one service name ({@link de.planmarshall.runtime.credentials.ServiceName}).
+ * The credential stores of the runtime (PM-CRED-2, PM-CRED-3, PM-CRED-4): exactly one
+ * {@link de.planmarshall.runtime.credentials.SecretStore} per machine, the one the operator recorded in
+ * {@code credentials.store} of {@code machine-config.json}, read and written by
+ * {@link de.planmarshall.runtime.credentials.CredentialStoreChoice}. {@code os} is the macOS login Keychain
+ * (Security.framework through FFM) or the Linux Secret Service (D-Bus over the JDK Unix domain socket channel);
+ * {@code file} is the permission-guarded file store below {@code <PM_MCP_BASE>/credentials/}. The runtime makes no
+ * automatic choice and has no fallback: before a store is recorded no credential is entered, and an unavailable
+ * recorded OS store makes the credentials unavailable without a file being written in its place. Every keyring entry
+ * lives under one service name ({@link de.planmarshall.runtime.credentials.ServiceName}).
  *
  * @since 0.1
  */

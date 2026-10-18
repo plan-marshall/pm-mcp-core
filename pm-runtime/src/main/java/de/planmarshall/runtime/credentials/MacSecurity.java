@@ -23,13 +23,14 @@ import java.lang.invoke.MethodHandle;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * FFM bindings of the macOS Security and CoreFoundation frameworks used by the Keychain backend:
- * the {@code SecItem} functions, the CoreFoundation types they take ({@code CFString},
- * {@code CFData}, {@code CFDictionary}), and the framework constants, read as data symbols. All
- * downcall descriptors are registered for native image in
- * {@code META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json} of this module.
+ * the {@code SecItem} functions, the CoreFoundation types they take and return ({@code CFString},
+ * {@code CFData}, {@code CFDictionary}, {@code CFArray}), and the framework constants, read as data
+ * symbols. All downcall descriptors are registered for native image in
+ * {@code META-INF/native-image/de.planmarshall/pm-runtime-credentials/reachability-metadata.json}.
  */
 final class MacSecurity {
 
@@ -48,6 +49,8 @@ final class MacSecurity {
     static final int MISSING_ENTITLEMENT = -34_018;
 
     private static final int CF_STRING_ENCODING_UTF8 = 0x0800_0100;
+    /** Room for the longest account, {@code <project>/<key>} of two 128-character parts, in UTF-8. */
+    private static final long ACCOUNT_BUFFER = 1024;
 
     private final MethodHandle cfStringCreate;
     private final MethodHandle cfDataCreate;
@@ -56,6 +59,10 @@ final class MacSecurity {
     private final MethodHandle cfRelease;
     private final MethodHandle cfDataGetLength;
     private final MethodHandle cfDataGetBytePtr;
+    private final MethodHandle cfArrayGetCount;
+    private final MethodHandle cfArrayGetValueAtIndex;
+    private final MethodHandle cfDictionaryGetValue;
+    private final MethodHandle cfStringGetCString;
     private final MethodHandle secItemAdd;
     private final MethodHandle secItemCopyMatching;
     private final MethodHandle secItemUpdate;
@@ -67,8 +74,10 @@ final class MacSecurity {
     final MemorySegment kSecAttrAccount;
     final MemorySegment kSecValueData;
     final MemorySegment kSecReturnData;
+    final MemorySegment kSecReturnAttributes;
     final MemorySegment kSecMatchLimit;
     final MemorySegment kSecMatchLimitOne;
+    final MemorySegment kSecMatchLimitAll;
     final MemorySegment kSecUseDataProtectionKeychain;
     final MemorySegment kCFBooleanTrue;
     private final MemorySegment keyCallBacks;
@@ -94,6 +103,13 @@ final class MacSecurity {
             cfRelease = link(linker, cf, "CFRelease", FunctionDescriptor.ofVoid(ADDRESS));
             cfDataGetLength = link(linker, cf, "CFDataGetLength", FunctionDescriptor.of(JAVA_LONG, ADDRESS));
             cfDataGetBytePtr = link(linker, cf, "CFDataGetBytePtr", FunctionDescriptor.of(ADDRESS, ADDRESS));
+            cfArrayGetCount = link(linker, cf, "CFArrayGetCount", FunctionDescriptor.of(JAVA_LONG, ADDRESS));
+            cfArrayGetValueAtIndex = link(linker, cf, "CFArrayGetValueAtIndex",
+                    FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG));
+            cfDictionaryGetValue = link(linker, cf, "CFDictionaryGetValue",
+                    FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS));
+            cfStringGetCString = link(linker, cf, "CFStringGetCString",
+                    FunctionDescriptor.of(JAVA_BYTE, ADDRESS, ADDRESS, JAVA_LONG, JAVA_INT));
             secItemAdd = link(linker, security, "SecItemAdd", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
             secItemCopyMatching = link(linker, security, "SecItemCopyMatching",
                     FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
@@ -105,8 +121,10 @@ final class MacSecurity {
             kSecAttrAccount = constant(security, "kSecAttrAccount");
             kSecValueData = constant(security, "kSecValueData");
             kSecReturnData = constant(security, "kSecReturnData");
+            kSecReturnAttributes = constant(security, "kSecReturnAttributes");
             kSecMatchLimit = constant(security, "kSecMatchLimit");
             kSecMatchLimitOne = constant(security, "kSecMatchLimitOne");
+            kSecMatchLimitAll = constant(security, "kSecMatchLimitAll");
             kSecUseDataProtectionKeychain = constant(security, "kSecUseDataProtectionKeychain");
             kCFBooleanTrue = constant(cf, "kCFBooleanTrue");
             keyCallBacks = symbol(cf, "kCFTypeDictionaryKeyCallBacks");
@@ -237,6 +255,45 @@ final class MacSecurity {
         var bytes = call(() -> (MemorySegment) cfDataGetBytePtr.invokeExact(data)).reinterpret(length)
                 .toArray(JAVA_BYTE);
         return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * @param array a {@code CFArrayRef}
+     * @return its {@code CFArrayGetCount}
+     */
+    long arrayCount(MemorySegment array) {
+        return call(() -> (long) cfArrayGetCount.invokeExact(array));
+    }
+
+    /**
+     * @param array a {@code CFArrayRef}
+     * @param index the index
+     * @return the element, not owned by the caller (the Get rule)
+     */
+    MemorySegment arrayValue(MemorySegment array, long index) {
+        return call(() -> (MemorySegment) cfArrayGetValueAtIndex.invokeExact(array, index));
+    }
+
+    /**
+     * @param scope      the scope that creates the key's lookup buffer
+     * @param dictionary a {@code CFDictionaryRef}
+     * @param key        a {@code CFStringRef} key whose value is a {@code CFStringRef}
+     * @return the value as a Java string, or empty if the dictionary has no such key
+     * @throws SecretStoreException if the value does not convert to UTF-8 within the account bound
+     */
+    Optional<String> dictionaryString(Scope scope, MemorySegment dictionary, MemorySegment key) {
+        var value = call(() -> (MemorySegment) cfDictionaryGetValue.invokeExact(dictionary, key));
+        if (MemorySegment.NULL.equals(value)) {
+            return Optional.empty();
+        }
+        var buffer = scope.arena.allocate(ACCOUNT_BUFFER);
+        byte converted = call(() -> (byte) cfStringGetCString.invokeExact(value, buffer, ACCOUNT_BUFFER,
+                CF_STRING_ENCODING_UTF8));
+        if (converted == 0) {
+            throw new SecretStoreException(SecretStoreException.Reason.FAILED, "Keychain string exceeds "
+                    + ACCOUNT_BUFFER + " bytes");
+        }
+        return Optional.of(buffer.getString(0, StandardCharsets.UTF_8));
     }
 
     /** A downcall; {@link MethodHandle#invokeExact} declares {@link Throwable}. */

@@ -1,0 +1,127 @@
+# PLAN-76: The entry as a directory and the intake of the sources
+
+epic: pm-mcp-core-m2-m4
+workstream: WS-03
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Lives at `plans/PLAN-76-start-source-intake.md` and is queued as one row file, `queue/PLAN-76.json`,
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT: the emitted command is a one-line pointer and carries no
+> brief, so every per-plan carry is authored here and nowhere else.
+> See `persona-plan-orchestrator/standards/orchestration-model.md` for the tier and
+> hand-off contract.
+
+## Objective
+
+Implement the work package `start-source-intake` of `doc/plans/start-source-intake.adoc`: the entry as a directory and the intake of the sources. Serves: roadmap Milestone 3 (the pending entry in its directory form, its opening and consumption), Milestone 10 (the source directory, the screening of the sources, documents copied or moved), Milestone 12 (an epic's sources in its ledger); starting work in both clients of `pm-mcp-clients`. Where: pm-core (the pending entry's directory with its record, decision stores, and transcript, the source directory and its manifest, `origin`, the epic header's sources); pm-workflow (the screening and the move at creation in the start units); pm-runtime (the entry endpoints, the listing of files). This package is the new half of `start-from-clients` that PLAN-75 (#85) split off on 2026-10-17: it takes 12 of its 21 bullets (the entry as a directory and the intake of the sources) and inherits its dependencies, and `start-from-clients` (PLAN-48) now depends on it. The old spec of PLAN-48 is the source of this one. The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
+
+The package file introduces itself: This package implements Filesystem Layout § The Source Directory; Store Schemas § Pending Entry; State Catalogue § Documents as a Source; Model Work § What Is on This Machine Is Trusted and § Screened Once Stored; Store Schemas § A Claimed Lesson Ends with the Landing; the entry's address in Runtime Model § Events per Scope (`PM-WF-10`, `PM-SEC-1`). It builds on the setup gate, the source units, and the other sources of `start-from-clients`.
+
+**Parked:** waits on packages that are not done: `operator-wait-and-machine-scope`, `machine-onboarding-unit`, `project-onboarding-unit`, `removed-concepts`. Re-ground this spec before emitting it.
+
+## Deliverables
+
+The bullets of `doc/plans/start-source-intake.adoc` § What at `c281f6c`, in its words.
+
+1. Rate limits: a fetch of an issue or a pull request that the forge refuses for its rate limit, with or without a credential, fails the source with the cause `rate_limited` and `resets_at` from the forge's answer; it is not retried by itself, and the operator tries again or adds a credential for the forge. It builds on the source units `source-issue` and of the pull request of `start-from-clients`.
+2. Documents, copy or move: the machine key `sources.documents_mode` (`copy`, `move`, or `ask`, the default); with `ask` the operator wait `source-documents.mode` with _copy_ preselected, where _always_ stores `copy` or `move` as the machine's value; otherwise straight to `source-documents.store`. A move removes a file git tracks from git through the short landing `git.land-removal`, landed by the project's landing (`landing.pull-request` or `landing.main`); with `landing.files` the removal stays uncommitted in the working tree. It builds on the source unit `source-documents` of `start-from-clients`.
+3. An entry never expires: a pending entry has no time limit (Timeouts § Pending Entry); it stays among the project's open entries, offered to continue in both clients, until it is started or abandoned, or deleted with the release of its project. The pending entry record's maximum age in the code (24 hours, `PENDING_ENTRY_MAX_AGE` of `PeriodicSweep`) and the sweep step `PendingEntryRecordsSweep` that removes older records go; the sweep removes only the directory of an entry already started or abandoned whose removal a stop cut off, by that evidence (Runtime Lifecycle § Periodic Sweep).
+4. The entry as a directory: `pending/<entry_id>/` with `entry.json` (the record of its schema), `sources/` with its manifest `sources.json`, `questions.jsonl` and `decisions.jsonl` (the entry's decisions and their records), and `chat/` (the transcript), created in one workspace transaction when the entry is opened; it replaces the file form `pending/<entry_id>.json` of `PendingEntryStore`, `EntryId`, `PendingEntryReader`, and its codec. A digest mismatch of an entry pauses only that entry (`integrity_breach`, kind `store_tampered`, a hold of kind `integrity_pause`), ended by `accept-edit workspace pending/<entry_id>/entry.json` or by abandoning the entry, no other entry and no workspace workflow affected.
+5. The source directory and the move at creation: `start.create-scope` moves the source directory into `plans/<plan_id>/sources/` or the epic's ledger, the transcript into `plans/<plan_id>/chat/` or `epics/<epic_id>/chat/`, never into a ledger, and the entry's decision stores into the new scope's question and decision stores, deleting the entry's directory last; the manifest; `origin` naming the sources; the epic header listing them; `request.md` composed from them; `epic.decompose` reading them. It builds on the steps `start.open`, `start-epic.open`, and `start.create-scope` and on the source units of `start-from-clients` (`source-documents`, `source-issue`, `source-lesson.*`, `source-local-changes.*`).
+6. Screened once stored: fetch, level-1 validator, store, screener over the stored copy, the verdict in the manifest; nothing but the screener reads an external source before a clean verdict or the operator's acceptance; the operator's text and the documents on the machine are never screened. It builds on the source units of `start-from-clients`.
+7. Fail closed: a screener that fails, or a role `screener` with no qualified configuration, leaves the source unscreened with the cause in the operator wait `source-<kind>.unscreened` (`source-issue.unscreened`, `source-pr.unscreened`): try again, remove it, or accept it explicitly as untrusted, recorded with its reason like an accepted flagged source; a failure is never shown as `suspicious`. It builds on the source units of `start-from-clients`.
+8. A claimed lesson ends with the landing: the lesson of a source is claimed at the plan's creation and retired when the plan lands its changes (the merge of `landing.pull-request`, the push of `landing.main`; verdict `applied`, `by` the plan), released when it ends without landing them (handed back with `landing.files`, cancelled, abandoned, released, aborted, deleted), the lesson staying `active`. It builds on the lesson source `source-lesson.*` of `start-from-clients`.
+9. An epic's sources in its ledger (`.marshall/epics/<epic_id>/sources/`, committed and landed), so that adoption and every decomposition read them.
+10. Entries addressed like plans and epics: created under their project (`POST /api/v1/projects/{project_id}/entries`, the kind `plan` or `epic`), addressed at the top level by id (`/api/v1/entries/{entry_id}`, its events at `/api/v1/entries/{entry_id}/events`); `POST /api/v1/entries` goes.
+11. Loopback only: the listing of files, a move, and documents outside the checkout only from the terminal client and the loopback listener.
+12. Schema parity: `PendingEntrySchemaParityTest` reads the schema of the entry's directory form and is re-enabled, and so is `AuditSchemaParityTest.enums` with the scope `entry` of the audit record (the category `identity` is gone with `removed-concepts`).
+
+**Done when** (the package's own acceptance): An entry is opened as its directory, and its creation moves the sources, the transcript, and the decision stores into the new scope and deletes the directory last; a tampered entry pauses only that entry until its edit is accepted or it is abandoned; each stored source has its manifest entry; no model but the screener reads an external source before its verdict, shown by a test that fails the screening and one whose screener fails or has no qualified configuration, leaving the source unscreened until tried again, removed, or accepted as untrusted; a rate-limited fetch of an issue and of a pull request fails with `rate_limited` and `resets_at` and is not retried; a pending entry older than a day is still offered and no sweep removes it, while the directory of an entry already started or abandoned whose removal a stop cut off is removed by the sweep; documents are asked copy or move only with `ask`; a claimed lesson is retired on a merge and on a push to the base branch and released on every other end; `PendingEntrySchemaParityTest` and `AuditSchemaParityTest.enums` run without `@Disabled` and pass.
+
+**Trace starting set** (the requirements, use cases and roadmap live in `../plan-marshall-documentation`; the specifications and watch documents of the engine in this repository, `doc/specification/` and `doc/implementation-watch/`):
+
+- Requirements: PM-WF-10; PM-SEC-1
+- Specification: the sections the introduction of _What_ names; Timeouts § Pending Entry; Runtime Lifecycle § Periodic Sweep; Model Work § Two-Level Guard
+
+## Standing Constraints
+
+Set by the operator for every plan of this epic on 2026-10-09, beside the rules of `CLAUDE.md`:
+
+- **Java 25 is the baseline.** Write for Java 25 and use its language and library features where they fit; no fallback for an older release. The release comes from the parent POM and is not overridden here.
+- **HTTP calls go through `cui-http`.** No direct `java.net.http` or other HTTP client. The build forbids `cui-http` in `pm-core` and `pm-workflow`, so an HTTP call belongs in `pm-runtime` or a provider module, behind an interface the foundation declares.
+- **HTTP tests use `cui-test-mockwebserver-junit5`.** Every test that involves HTTP runs against it; no hand-made fake server. The operator's statement is the consent `CLAUDE.md` requires for adding it as a test-scope dependency.
+- **Work the package as the index says** (`doc/plans/README.adoc` § How to Work a Package, as reworded by #19): the usual plan-marshall flow — a branch, the commits of the plan, a pull request opened at finalize. No draft pull request claims the package; before starting, list the open pull requests for one that names it. The pull request removes the package's row from the index and deletes its package file within its commits, and drops the package from the _Depends on_ column of every row that names it. Build the trace matrix of `traced-implementation` before code, deliver the remainder the roadmap item leaves, and finish with `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` green.
+- **Documents (operator decision 2026-10-15, pm-mcp-core ADR 007).** The specifications, the implementation watch and the traceability of the engine live in this repository: `doc/specification/`, `doc/implementation-watch/`, `doc/Traceability.adoc`, and the log message reference `doc/LogMessages.adoc`. This plan's one pull request carries the code, the tests, Javadoc and `package-info.java`, the developer documentation and ADRs, the deletion of the implemented specification sections and watch items, a correction of a specification statement it proves wrong, and the `Implementation:`, `Verified by:` and `Documentation:` lines of the requirements it implements in `doc/Traceability.adoc`. It opens a pull request in `plan-marshall-documentation` only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there; merging that one is the operator's. The concept and user documentation of the slice and the roadmap check-off are written there at the milestone exit: list them in the pull request body as **Owed to the milestone exit**.
+- **Module documentation (operator decision 2026-10-11).** Documentation of the code lives in its module, in this plan's pull request, not in `plan-marshall-documentation`: the developer documentation of each package this plan changes in the developer file of each package it changes (`{module}/doc/developer/{package}.adoc`) (create or extend it: what the package is for, its main types and how they work together, how to use and extend it, invariants and failure modes, links to the specification sections it implements), and one ADR per design decision taken — every operator decision and every choice between alternatives — in `{module}/doc/adr/{package}/` as `NNN-{slug}.adoc`, the next free number of that directory, with the sections of `doc/adr/template.adoc` (Status, Date, Context, Decision, Alternatives considered, Consequences, Source) or, before that template exists, those same sections. A decision binding the whole repository goes to `doc/adr/`. The module's `README.adoc` gets one line only when this plan adds a new package; it is otherwise left alone. Layout: workstream WS-10.
+- **Settled design: a refused project path is a value.** The confinement check that landed with #19 lives in `pm-core` package `core.store` (`PathConfinement`, `WorkspaceRoots`, `ConfinementOutcome`) and `pm-runtime` package `runtime.workspace` (`WorkspaceConfinement`). A refusal is returned as `ConfinementOutcome` carrying `path_traversal_rejected`; no checked exception type exists or is added. No consumer is wired to it yet (`pm-provider-git` included): a package that performs a file or repository operation for a project adopts the check itself.
+- **Do not leave a design choice open that changes the file set.** Where two readings of a deliverable differ in the files they create, ask the operator at refine instead of deferring the choice to implementation.
+- **Files shared by every plan.** In `doc/plans/README.adoc` remove only this package's own row (and its name from the _Depends on_ column); in `doc/Traceability.adoc` add only the sections of the requirements this package implements. Neither is a declared surface.
+- **Log messages: the holder of your module, next free identifier** (operator decision 2026-10-13; pm-mcp-core #64, ADR `doc/adr/005-one-log-message-holder-per-module.adoc`). A new INFO, WARN or ERROR record goes into the holder of the module whose production code logs it, at the next free identifier of its level (INFO 1-99, WARN 100-199, ERROR 200-299, the same ranges in every holder); for this plan: `CoreLogMessages` (`de.planmarshall.core.log`, prefix `PM_CORE`); `WorkflowLogMessages` (`de.planmarshall.workflow.log`, prefix `PM_WORKFLOW`); `RuntimeLogMessages` (`de.planmarshall.runtime.log`, prefix `PM_RUNTIME`). A record two modules log goes to the lower one (`pm-core`); a module logs only through its own holder and `CoreLogMessages`. There are no workstream blocks and nothing is renumbered. A provider's first record creates its holder `de.planmarshall.provider.<x>.log.<X>LogMessages` (prefix `PM_PROVIDER_<X>`) with a `package-info.java`, and adds the prefix to `KNOWN_PREFIXES` in `CoreLogMessagesTest`. After a rebase, run the holder's test, which refuses an identifier used twice or outside its level's range, and move to the next free one. The same identifiers go into `doc/LogMessages.adoc` of this repository, under the holder's section.
+
+- **Format versions stay 1 (operator decision 2026-10-13).** Nothing is released yet, so every versioned artifact (`format_version` of a store document, record, sidecar, journal, codec) stays at version 1. A format change replaces version 1 in place: no version bump, no reader for an older version, no migration. Do not raise a `FORMAT_VERSION` constant, a `format_version` in a fixture, schema or specification example, or an ADR that records a bump.
+
+## Claim Labels
+
+- OBSERVED: the Objective, Deliverables, Done when and Trace above are the package file's own — read at `doc/plans/start-source-intake.adoc` § What, Trace, Done When on `origin/main` at `c281f6c` (the file PLAN-75 #85 created: 12 bullets)
+  - verdict: corroborated | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: doc/plans/start-source-intake.adoc re-read at c281f6c: What holds 12 bullets, Where and Done When as in the Objective and Deliverables above
+- OBSERVED: the index gives this package the status `open` and the dependencies below — read at `doc/plans/README.adoc` § Packages on `origin/main` at `c281f6c`
+  - verdict: corroborated | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: README.adoc row start-source-intake re-read at c281f6c: open; depends on PLAN-42 (operator-wait-and-machine-scope); PLAN-46 (machine-onboarding-unit); PLAN-45 (project-onboarding-unit); PLAN-64 (removed-concepts)
+- HYPOTHESIS: the Expected Surface below is inferred from the `Where` line of the package file and the class-level surfaces of the former specs, not from a trace matrix — confirm/refute at the trace matrix of `traced-implementation` (verify-at-outline)
+  - verdict: unverifiable | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; surface carried over from the former specs, each checked against the code at 238c823, and partitioned or merged at c281f6c
+- OBSERVED: each module that logs has one holder with its own test, which refuses an identifier used twice and one outside the range of its level (INFO 1-99, WARN 100-199, ERROR 200-299): `CoreLogMessages` (5 records), `RuntimeLogMessages` (60), `WorkflowLogMessages` (5) — `static final LogRecord` counted on `origin/main` at `c281f6c`
+  - verdict: corroborated | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: static final LogRecord counted at c281f6c: CoreLogMessages 5, RuntimeLogMessages 60, WorkflowLogMessages 5
+- HYPOTHESIS: the package adds INFO, WARN or ERROR messages; its module's log holder is deliberately NOT in the Expected Surface: a record is appended at the next free identifier and a collision is resolved on rebase, as the operator decided for the shared holder on 2026-10-09 and kept for the per-module holders on 2026-10-13 — confirm/refute the need at the trace matrix (verify-at-outline)
+  - verdict: unverifiable | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis: whether the package logs is decided at the trace matrix; no implementing code exists yet
+- HYPOTHESIS: whether the package makes an HTTP call is decided at the specification sections of the trace starting set; the two HTTP constraints bind only if the trace matrix shows one, and only in `pm-runtime` or a provider module — confirm/refute at the trace matrix (verify-at-outline)
+  - verdict: unverifiable | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; pm-core and pm-workflow cannot depend on cui-http
+- OBSERVED: the specification and watch parts of the Expected Surface changed since the specs of the former packages were last grounded at `238c823` only as listed in the verdict — `git diff --numstat 238c823..c281f6c`; the executing plan re-reads them at its branch point
+  - verdict: corroborated | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: git diff --numstat 238c823..c281f6c over the declared specification and watch parts: specification/filesystem-layout/03-project-store.adoc (+3/-3); specification/runtime-lifecycle/01-startup-recovery-drain.adoc (+2/-2); specification/state-catalogue/09-bootstrap-and-lessons.adoc (+3/-3); specification/store-schemas/01-format-and-session-log.adoc (+4/-4); specification/store-schemas/10-job-and-lesson-records.adoc (+2/-2); specification/timeouts/02-runtime-leases-operator-web.adoc (+12/-12)
+- Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `start-source-intake`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
+  - verdict: corroborated | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: row start-source-intake is open at c281f6c; open PRs 71, 86 and 87 (ci pr view): none names the package; dependencies not done are listed in the Parked line, if any
+
+## Expected Surface
+
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/` — pending entry directory with its record, decision stores and transcript, the source directory and its manifest, `origin`, the epic header's sources — inferred from the `Where` line
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/spi/` — `OutcomeClass` and `PendingEntryReader`; carried from the former spec of `start-from-clients`
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/screening/` — the untrusted-text screening; carried from the former spec
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/unit/` — the move at creation in the start units — inferred from the `Where` line
+- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/start/` — the removal of `PeriodicSweep.PENDING_ENTRY_MAX_AGE` and `PendingEntryRecordsSweep`, both here; carried from the former spec
+- HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/web/` — the entry endpoints and the listing of files (loopback only) — inferred from the `Where` line; the package name is a guess
+- OBSERVED: `doc/plans/README.adoc` — this package's own status row only
+- OBSERVED: `doc/plans/start-source-intake.adoc` — the package file, deleted when the package is done
+- HYPOTHESIS: `pm-core/doc/developer/core-store.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-core/doc/adr/core-store/` — ADRs of the package's design decisions; new directory if absent
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-unit.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-unit/` — ADRs of the package's design decisions; new directory if absent
+- HYPOTHESIS: `pm-workflow/doc/developer/workflow-screening.adoc` — developer documentation of the package; created
+- HYPOTHESIS: `pm-workflow/doc/adr/workflow-screening/` — ADRs of the package's design decisions; new directory
+- HYPOTHESIS: `pm-runtime/doc/developer/runtime-start.adoc` — developer documentation of the package; created or extended
+- HYPOTHESIS: `pm-runtime/doc/adr/runtime-start/` — ADRs of the package's design decisions; new directory if absent
+- OBSERVED: `doc/specification/filesystem-layout/03-project-store.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/model-work/07-untrusted-text-screening.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/store-schemas/01-format-and-session-log.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/store-schemas/10-job-and-lesson-records.adoc` — specification part; the implemented sections deleted
+- OBSERVED: `doc/specification/timeouts/02-runtime-leases-operator-web.adoc` — specification part; the implemented sections deleted
+
+## Dependencies and Sequencing
+
+- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-45 (`project-onboarding-unit`); PLAN-64 (`removed-concepts`)
+- Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface
+- Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
+
+## Hand-Off Command
+
+```text
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-76-start-source-intake.md"
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository source and tests. It creates
+and edits NO file under `.plan/orchestrator/` other than its own
+`inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
+its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.

@@ -1,0 +1,49 @@
+= ADR 001: The Recorded Store Replaces the Automatic Choice
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-17
+
+== Context
+
+`SecretStoreSelector` chose the credential store at the start of the runtime: the OS keyring where one was usable,
+else the file store, logged as `PM_RUNTIME-104` ("the file credential store serves"). The requirement `PM-CRED-2` now
+states that the machine uses exactly one store, the one the operator recorded in `credentials.store` of
+`machine-config.json`, that no credential is entered before it is recorded, and that the runtime never falls back from
+the recorded store to another.
+
+== Decision
+
+* The runtime chooses no store by itself. `SecretStoreSelector` and its test are deleted; `CredentialStoreChoice`
+  reads the recorded store and gives the active store from it.
+* There is no fallback: an unavailable recorded OS store fails a read with `credential_store_unavailable` and a write
+  with `credential_store_locked` (`PM_RUNTIME-128`), and nothing is written to the file store in its place.
+* `PM_RUNTIME-104` is removed and its identifier is not reused; `PM_RUNTIME-9` names the recorded store.
+* The removal is a clean break: the one caller outside this repository, `SecretStoreProducer` of plan-marshall-mcp,
+  follows in its own pull request.
+
+The reason is the requirement: an automatic choice with a fallback is what `PM-CRED-2` rules out.
+
+== Alternatives Considered
+
+* Keeping the selector and its fallback beside the recorded choice: refused, since the requirement forbids serving
+  from another store than the recorded one.
+* A deprecation cycle for `SecretStoreSelector`: not taken; the work package was planned as a breaking change, and the
+  repository keeps no compatibility shims before 1.0.
+
+== Consequences
+
+* Before the operator records a store no credential can be entered (`onboarding_incomplete`).
+* A locked or unreachable OS keyring makes the credentials unavailable instead of moving them to files.
+* The assembly does not build against this `SNAPSHOT` until `SecretStoreProducer` uses `CredentialStoreChoice`.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/f0cab7c/doc/plans/credential-store-choice.adoc[`credential-store-choice`] (PLAN-74)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment § Credential Store as an Operator Choice] (One store, never another)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#os-keyring-backends[Credentials & Enrolment § Credential Stores]

@@ -54,6 +54,18 @@ public record CredentialAccount(Optional<String> project, String key) {
         return new CredentialAccount(Optional.of(project), key);
     }
 
+    /**
+     * The inverse of {@link #account()}, for a store that lists its accounts.
+     *
+     * @param account {@code <key>} or {@code <project>/<key>}
+     * @return the account
+     * @throws InvalidCredentialNameException for a part outside the allowed characters
+     */
+    static CredentialAccount parse(String account) {
+        int slash = account.indexOf('/');
+        return slash < 0 ? global(account) : project(account.substring(0, slash), account.substring(slash + 1));
+    }
+
     /** @return the keyring account: {@code <key>} or {@code <project>/<key>} */
     public String account() {
         return project.map(p -> p + "/" + key).orElse(key);

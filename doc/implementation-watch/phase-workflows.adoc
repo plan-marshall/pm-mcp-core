@@ -1578,3 +1578,30 @@ Guard:: The plan implementing this anchor decides the point (with the operator w
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `phase-workflows/04-finalize-step-bands.adoc:192`, `phase-workflows/02-planning-lanes-phases-3-4.adoc:202`
 (Posture Resolution), `plan-marshall` `extension-api/standards/ext-point-lane-element.md:203-208`.
+
+[#PM-WATCH-PHASE-106]
+=== PM-WATCH-PHASE-106: The EARS check reads keywords, not language
+
+Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § The Intent Record] (server check 1)
+Hazard:: The criteria are written in the project's model language, but the EARS keywords (`WHERE`, `WHILE`, `WHEN`,
+`IF … THEN`, `THE … SHALL`, `CONTINUE TO`) are uppercase English tokens. A check that matches lowercase keywords, or
+words of the model language, refuses a valid German criterion or accepts prose that only contains "when" and
+"shall"; a check that requires English text refuses every criterion of a German project.
+Guard:: Tests with valid and invalid criteria in English and German: each of the five patterns and the
+`unchanged` form accepted with German text between the keywords; lowercase keywords, a missing `SHALL`, `THEN`
+without `IF`, and preconditions out of order refused with the member named.
+Source:: Spec Frameworks analysis of plan-marshall-documentation (Kiro's EARS criteria; OpenSpec downgrades its
+SHALL check to a warning for non-English specs).
+
+[#PM-WATCH-PHASE-107]
+=== PM-WATCH-PHASE-107: A decision recorded as the operator's was answered by the operator
+
+Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § The Intent Record] (server check 3)
+Hazard:: The intent record names a decider per decision. A model that writes `decider: operator` for its own call,
+or cites a question the operator answered differently or a quorum answered, turns an assumption into a claimed
+agreement that the pull request then reports as the operator's.
+Guard:: Tests submit records whose `operator` decision cites an unanswered part, a part of another plan, a part
+answered by a quorum, and a nonexistent `question_id`; each is refused with the member named. A `fact` decision
+whose evidence path does not exist is refused.
+Source:: Intent Definition analysis of plan-marshall-documentation (pi-plans records the answer source;
+Superpowers: "any choice you make goes in the design as your call, never as something they agreed to").

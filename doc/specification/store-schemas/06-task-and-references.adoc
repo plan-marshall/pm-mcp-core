@@ -200,3 +200,167 @@ A deliverable may declare several verification command and criterion pairs; the 
   }
 }
 ----
+
+[#intent-record-store]
+=== Intent Record (`intent.json`)
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10: Phase 1–4 Planning Invariants, Lane Ratchet & Artifact Gates]_
+
+The plan's intent record (link:../phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows Specification, The Intent Record]), written by the transaction that accepts a `submit:refine` or a light `submit:outline`, and by a re-planning that changes intent. `current` is the accepted record; every earlier revision moves to `history[]` in the same transaction and is never changed. The model-supplied record is the named parameter schema `intent-record`; the members around it are server-owned.
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent.json",
+  "title": "IntentStore",
+  "type": "object",
+  "required": ["format_version", "current", "history"],
+  "additionalProperties": false,
+  "properties": {
+    "format_version": { "type": "integer", "const": 1 },
+    "current": { "$ref": "#/$defs/revision" },
+    "history": { "type": "array", "items": { "$ref": "#/$defs/revision" } }
+  },
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "required": ["revision", "submitted_at", "task_id", "record"],
+      "additionalProperties": false,
+      "properties": {
+        "revision": { "type": "integer", "minimum": 1 },
+        "submitted_at": { "type": "string", "format": "date-time" },
+        "task_id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "The task whose submission carried the record." },
+        "record": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json" }
+      }
+    }
+  }
+}
+----
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/intent-record-v1.json",
+  "title": "IntentRecord",
+  "type": "object",
+  "required": ["why", "goal", "criteria", "current_behaviour", "non_goals", "constraints", "decisions", "assumptions", "open_questions", "deferred", "source_claims"],
+  "additionalProperties": false,
+  "properties": {
+    "why": { "type": "string", "minLength": 20, "maxLength": 1000 },
+    "goal": { "type": "string", "minLength": 10, "maxLength": 300 },
+    "criteria": {
+      "type": "array", "minItems": 1, "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "kind", "verified_by"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^AC-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 10, "maxLength": 500, "description": "EARS form; checked by the server beyond this schema." },
+          "kind": { "type": "string", "enum": ["new", "fix", "unchanged"] },
+          "verified_by": { "type": "string", "enum": ["test", "demonstration", "inspection"] }
+        }
+      }
+    },
+    "current_behaviour": { "type": ["string", "null"], "minLength": 10, "maxLength": 500 },
+    "non_goals": {
+      "type": "array", "minItems": 1, "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^NG-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "source", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^CN-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "source": { "type": "string", "enum": ["code", "operator", "external"] },
+          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI; required for source code." }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array", "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "options_weighed", "decider", "question_id", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DC-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "options_weighed": { "type": "array", "maxItems": 5, "items": { "type": "string", "minLength": 2, "maxLength": 200 } },
+          "decider": { "type": "string", "enum": ["operator", "quorum", "model", "fact"] },
+          "question_id": { "type": ["string", "null"], "description": "The answered part, for decider operator or quorum; null otherwise." },
+          "evidence": { "type": ["string", "null"], "maxLength": 512, "description": "A path or pm:// URI, for decider fact; null otherwise." }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "status", "riskiest", "test"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^AN-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "status": { "type": "string", "enum": ["verified", "unverified"] },
+          "riskiest": { "type": "boolean" },
+          "test": { "type": ["string", "null"], "maxLength": 500, "description": "Required for the riskiest assumption." }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["text", "resolver"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string", "minLength": 10, "maxLength": 500 },
+          "resolver": { "type": "string", "enum": ["exploration", "external"] }
+        }
+      }
+    },
+    "deferred": {
+      "type": "array", "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^DF-[0-9]{1,4}$" },
+          "text": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "reason": { "type": "string", "minLength": 5, "maxLength": 500 }
+        }
+      }
+    },
+    "source_claims": {
+      "type": "array", "minItems": 1, "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": ["claim", "landed_in", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "claim": { "type": "string", "minLength": 5, "maxLength": 500 },
+          "landed_in": { "type": "string", "pattern": "^((AC|NG|CN|DC|AN|DF)-[0-9]{1,4}|goal|why|dropped)$" },
+          "reason": { "type": ["string", "null"], "maxLength": 500, "description": "Required when landed_in is dropped." }
+        }
+      }
+    }
+  }
+}
+----
+
+The server checks beyond the schema (EARS form, the fix triple, true deciders, the riskiest assumption, identifiers never reused, preservation) are those of the intent record's specification; the identifiers follow link:../identifiers/02-registry-stores-to-web.adoc#id-intent-item-id[Identifier Registry, intent item identifier].

@@ -117,6 +117,14 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |One part of a decision: the optional `part_key` (named by another part's dependency), its `question_text`, `decision_kind`, `answer_type` (`one`, `several`, `value`) with the `value_schema` of a value, `options` as objects `{branch_key, label, description, consequences, preview?}` (the description states the option's trade-off), the optional `depends_on` (options of another part), its `recommendation` `{branch_key, confidence, rationale}`, never part of an option's label, and whether own words, a note, and a delegation are allowed (`own_words`, `note`, `delegation`); definition in link:../model-work/06-envelopes-questions-deadlines.adoc#question-envelope-schema[Model Work Specification, The Model-Supplied Schema]
 |The `parts[]` of `decision-envelope`
 
+|`intent-record`
+|The intent record of a plan: `why`, `goal`, `criteria` (`AC-<n>` in EARS form with `kind` and `verified_by`), `current_behaviour`, `non_goals`, `constraints`, `decisions` (with `decider`), `assumptions`, `open_questions`, `deferred`, `source_claims`; definition in link:../store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas Specification, Intent Record]
+|`submit:refine` and the light `submit:outline` (`intent:schema[intent-record]`), and the re-planning action that changes intent
+
+|`epic-intent`
+|The intent of an epic: `destination`, `done_when` (three to six checks), `non_goals`, `not_yet_specified`; definition in link:../store-schemas/04-epic-and-change-ledger.adoc#epic-header[Store Schemas Specification, Epic Header]
+|`submit intent` of the `decompose` entity (`intent:schema[epic-intent]`)
+
 |`question-answer`
 |The operator's answer to one decision: the `revision` it answers and per part the chosen `branch_key` values or the `value`, the operator's own words, and a note, or for the whole decision `none_fits` (where offered) or `later`; the channel and device are taken from the request, never from the body; definition in link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
 |The body of the answer endpoint of the local API, from either client (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#local-api[Runtime & Interaction Model Specification, Local API]); never a model-facing link

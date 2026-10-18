@@ -126,7 +126,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:token-usage.adoc[`token-usage`] (the usage record of the verification); link:credential-store-choice.adoc[`credential-store-choice`]; link:plan-instance-alignment.adoc[`plan-instance-alignment`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:token-usage.adoc[`token-usage`] (the usage record of the verification); link:plan-instance-alignment.adoc[`plan-instance-alignment`]
 |Milestones 7, 10, and 14; the client work of `pm-mcp-clients`
 
 |link:decision-engine.adoc[`decision-engine`]
@@ -170,12 +170,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |`blocked`
 |the CI contract of `pm-provider-ci` (no work package)
 |Milestone 6; the client work of `pm-mcp-clients`
-
-|link:credential-store-choice.adoc[`credential-store-choice`]
-|The credential store as the operator's choice: the recorded store replaces the automatic selection, no fallback, the OS-store check, the move both ways with its failure exit
-|`open`
-|nothing
-|Milestone 6
 
 |link:recipe-workflows.adoc[`recipe-workflows`]
 |A recipe is a workflow

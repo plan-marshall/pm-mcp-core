@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -65,6 +66,28 @@ class KeychainSecretStoreTest {
 
         assertEquals(Optional.of("project"), store.resolve("p1", "github"));
         assertEquals(Optional.of("global"), store.resolve("p2", "github"));
+    }
+
+    @Test
+    @DisplayName("an empty service name lists no entry")
+    void entriesEmpty() {
+        assertEquals(List.of(), store.entries());
+    }
+
+    @Test
+    @DisplayName("lists the global and project entries of its service name and none of another")
+    void entries() {
+        var other = new KeychainSecretStore(service + "-other");
+        var foreign = CredentialAccount.global("foreign");
+        store.put(project, "project");
+        store.put(global, "global");
+        other.put(foreign, "other");
+        try {
+            assertEquals(List.of(global, project), store.entries());
+            assertEquals(List.of(foreign), other.entries());
+        } finally {
+            other.delete(foreign);
+        }
     }
 
     @Test

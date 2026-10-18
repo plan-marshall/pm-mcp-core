@@ -12,12 +12,12 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 All packages lie below `de.planmarshall.runtime`. Each line is the first sentence of the package's
 `package-info.java`.
 
-* `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores, the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
+* `de.planmarshall.runtime`: the daemon's logic that needs no framework: the runtime start sequence, the credential stores with the operator's recorded choice among them (no automatic choice, no fallback), the certificate of the web listener, the language server client, the ingestion validator, and the registries the authentication of `pm-mcpd` resolves tokens through.
 * `audit`: the anchoring and the verification of the audit trail: what makes the hash chain of `logs/audit.jsonl`, which `AuditLog` of `pm-core` writes, checkable for tampering.
 * `corpus`: the Git LFS part of the fetch of the corpus sources: the batch request and the object download through `cui-http`.
-* `credentials`: the credential stores of the runtime: exactly one active secret store per machine, chosen at runtime start.
+* `credentials`: the credential stores of the runtime: exactly one `SecretStore` per machine, the one the operator recorded in `credentials.store` of `machine-config.json`, read and written by `CredentialStoreChoice`.
 * `credentials.dbus`: a minimal D-Bus client for the Linux Secret Service backend.
-* `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`.
+* `enrolment`: the integrity of the project enrolments: the runtime's side of the enrolment store of `pm-core`, and the verification of the harness enrolment sidecar.
 * `ingest`: the level-1 ingestion validator for external text.
 * `job`: the job runtime of a project's process jobs: the verification of a job, its launch through `pm-exec`, its job log, its termination, the derivation of its fate and its settlement, run by `SubprocessJobRunner`.
 * `launch`: the launch composition of a worker: the harness templates, the job token and generation, the launch prompt and the model slots.
@@ -50,12 +50,15 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 
 * link:doc/developer/runtime-audit.adoc[Audit Trail (`runtime.audit`)]
 * link:doc/developer/runtime-corpus.adoc[Git LFS Download of the Corpus Sources (`runtime.corpus`)]
-* link:doc/developer/runtime-job.adoc[Job Runtime (`runtime.job`)]
-* link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam and Job Recovery (`runtime.start`)]
+* link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`)]
+* link:doc/developer/runtime-enrolment.adoc[Integrity Key and Sidecars (`runtime.enrolment`)]
+* link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
+* link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`)]
 
 == ADRs
 
 * link:doc/adr/runtime-audit/[`doc/adr/runtime-audit/`]: the anchoring and the verification of the audit trail.
+* link:doc/adr/runtime-credentials/[`doc/adr/runtime-credentials/`]: the recorded credential store, its first recording and the move between the stores.
 * link:doc/adr/runtime-enrolment/[`doc/adr/runtime-enrolment/`]: the integrity of the project enrolments.
 * link:doc/adr/runtime-job/[`doc/adr/runtime-job/`]: the verification of a job and the job runner:
 ** link:doc/adr/runtime-job/004-runner-implements-job-runner-and-job-starter.adoc[ADR 004] one runner class implements
@@ -72,7 +75,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
    report bounded apart from the budget.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
 * link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime;
-  link:doc/adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012] the jobs part of recovery step 3,
+  link:doc/adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013] the jobs part of recovery step 3,
   its worker part a seam.
 
 The index of all ADRs of the repository is link:../doc/adr/README.adoc[`doc/adr/README.adoc`].

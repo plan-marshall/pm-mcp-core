@@ -9,6 +9,7 @@
 link:../../Specification.adoc[Specification] » link:../job-runtime.adoc[Job Runtime Specification] » Execution Pipeline, Subprocesses & Outcomes
 
 == Verify-Not-Resolve Execution Pipeline
+_Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-59[PM-WATCH-GEN-59]_
 
 Before spawning any subprocess, the runtime reads the enrolment file of the job's project, `<PM_MCP_BASE>/enrolments/<project_id>.json` (link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas Specification, Project Enrolment Store]), verifies its integrity (<<enrolment-integrity>>), and then validates the job request through a deterministic three-stage verification pipeline (`PM-EXEC-1`..`PM-EXEC-3`, `PM-SEC-2`). A probe job, which runs before a project is enrolled or for the machine, is verified against its candidate record instead of an enrolment (*Probe Jobs* below):
 

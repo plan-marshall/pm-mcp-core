@@ -9,15 +9,18 @@
  */
 package de.planmarshall.runtime.credentials;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -87,6 +90,124 @@ class FileSecretStoreTest {
             try (var files = Files.list(directory)) {
                 assertEquals(1, files.count());
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("entries")
+    class Entries {
+
+        @Test
+        @DisplayName("an absent directory is an empty store")
+        void absent() {
+            assertEquals(List.of(), store.entries());
+        }
+
+        @Test
+        @DisplayName("lists global and project entries in account order, skipping temporary files")
+        void globalAndProject() throws Exception {
+            store.put(CredentialAccount.project("p1", "sonar"), "project");
+            store.put(CredentialAccount.global("sonar"), "global");
+            store.put(CredentialAccount.global("github"), "global");
+            Files.createFile(directory.resolve(FileSecretStore.TEMP_PREFIX + "123.json"),
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            Files.createFile(directory.resolve("p1").resolve(FileSecretStore.TEMP_PREFIX + "456.json"),
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+
+            var entries = store.entries();
+
+            assertEquals(List.of(CredentialAccount.global("github"), CredentialAccount.project("p1", "sonar"),
+                    CredentialAccount.global("sonar")), entries);
+        }
+
+        @Test
+        @DisplayName("lists and reads an entry and a project named .tmp-ci, and skips a temporary file a crash left")
+        void legalNamesLikeTemporaryFiles() throws Exception {
+            var key = CredentialAccount.global(".tmp-ci");
+            var project = CredentialAccount.project(".tmp-ci", "sonar");
+            store.put(key, "global");
+            store.put(project, "project");
+            Files.writeString(directory.resolve(FileSecretStore.TEMP_PREFIX + "789.json"), "{\"format_version\":1,",
+                    StandardCharsets.UTF_8);
+            Files.setPosixFilePermissions(directory.resolve(FileSecretStore.TEMP_PREFIX + "789.json"),
+                    PosixFilePermissions.fromString("rw-------"));
+
+            var entries = store.entries();
+
+            assertAll(
+                    () -> assertEquals(List.of(key, project), entries),
+                    () -> assertEquals(List.of(Optional.of("global"), Optional.of("project")),
+                            entries.stream().map(store::get).toList()));
+        }
+
+        @Test
+        @DisplayName("a temporary file of an atomic write carries a name no account can have")
+        void temporaryNameNoAccount() {
+            assertThrows(InvalidCredentialNameException.class,
+                    () -> CredentialAccount.global(FileSecretStore.TEMP_PREFIX + "123"));
+        }
+
+        @Test
+        @DisplayName("an empty directory is an empty store")
+        void empty() {
+            store.put(CredentialAccount.global("github"), "x");
+            store.delete(CredentialAccount.global("github"));
+
+            assertEquals(List.of(), store.entries());
+        }
+
+        @ParameterizedTest(name = "entry {0}")
+        @ValueSource(strings = {"bad name.json", "README", "..json"})
+        @DisplayName("refuses an entry whose name is no account as invalid")
+        void invalidName(String name) throws Exception {
+            store.put(CredentialAccount.global("github"), "x");
+            Files.writeString(directory.resolve(name), "{}");
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.INVALID, e.reason());
+            assertEquals("credentials_file_invalid", e.reason().code());
+        }
+
+        @Test
+        @DisplayName("refuses a directory inside a project directory as invalid")
+        void nestedDirectory() throws Exception {
+            store.put(CredentialAccount.project("p1", "sonar"), "x");
+            Files.createDirectory(directory.resolve("p1").resolve("deeper"),
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.INVALID, e.reason());
+        }
+
+        @Test
+        @DisplayName("refuses a project directory that fails the private-mode check as insecure")
+        void insecureProjectDirectory() throws Exception {
+            store.put(CredentialAccount.project("p1", "sonar"), "x");
+            Files.setPosixFilePermissions(directory.resolve("p1"), PosixFilePermissions.fromString("rwxr-xr-x"));
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
+            assertEquals("credentials_file_insecure", e.reason().code());
+        }
+
+        @Test
+        @DisplayName("refuses a store directory that fails the private-mode check as insecure")
+        void insecureDirectory() throws Exception {
+            store.put(CredentialAccount.global("github"), "x");
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-x---"));
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
+        }
+
+        @Test
+        @DisplayName("refuses a symbolic link without following it as insecure")
+        void symlink() throws Exception {
+            store.put(CredentialAccount.global("other"), "x");
+            Files.createSymbolicLink(directory.resolve("github.json"), directory.resolve("other.json"));
+
+            var e = assertThrows(SecretStoreException.class, store::entries);
+            assertEquals(SecretStoreException.Reason.INSECURE, e.reason());
         }
     }
 

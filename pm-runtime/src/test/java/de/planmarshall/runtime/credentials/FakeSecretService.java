@@ -20,6 +20,9 @@ import de.planmarshall.runtime.credentials.dbus.Variant;
 
 /**
  * An in-memory {@code org.freedesktop.secrets} with one default collection, for {@link FakeBus}.
+ * {@code SearchItems} matches every item whose attributes contain the wanted ones, so a search on
+ * {@code service} alone enumerates the store, and {@code Get} of {@code Attributes} serves the
+ * attributes of each item.
  */
 public class FakeSecretService implements FakeBus.Handler {
 

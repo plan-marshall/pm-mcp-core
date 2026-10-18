@@ -1,4 +1,4 @@
-= Sweep Steps, the Audit Chain Seam and Job Recovery (`runtime.start`) Developer Guide
+= Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`) Developer Guide
 :toc:
 :toclevels: 3
 :nofooter:
@@ -11,7 +11,7 @@
 
 == Purpose
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5], link:{req}/08-security.adoc#PM-SEC-6[PM-SEC-6], link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
 
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
 periodic sweep of the runtime; they are described in link:{docs}/developer/runtime-lifecycle.adoc[Developer Guide §
@@ -19,7 +19,8 @@ Runtime Lifecycle]. This guide covers what the work package `session-log-and-gen
 the periodic sweep, which remove what has aged out of the stores the package added in `pm-core`. It also covers what
 the work package `audit-trail` changed in it: the audit chain seam of the bounded verification, whose broken outcome
 now carries a reason and the first broken line (<<_the_audit_chain_seam>>), and the one `transaction_id` per record the
-pending-record step owes.
+pending-record step owes. Last, it covers what the work package `credential-store-choice` added: the resume of a move
+between the credential stores that a stop cut (<<_store_move_resume>>).
 
 * `PendingEntryRecordsSweep` removes the pending entry records of the workspace scope older than the pending entry
   record maximum age.
@@ -139,6 +140,44 @@ counts in; only the log does. The outcome is carried in `Outcome.Ready`, and the
 `Outcome.Broken` was changed in place from a record with one diagnostic, without a compatibility constructor
 (link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011]).
 
+[#_store_move_resume]
+== Store Move Resume
+
+_Requirements:_ link:{req}/07-credentials.adoc#PM-CRED-2[PM-CRED-2]
+
+A move between the credential stores (`CredentialStoreMove` of
+link:runtime-credentials.adoc[`runtime.credentials`]) that a stop cut leaves its record
+`state/credential-store-move.json`. `CredentialStoreMoveResume.run()` completes it through
+`CredentialStoreMove.resume()`:
+
+* phase `copying` with the old store recorded: the copies are deleted from the target and the move runs again from the
+  first entry, the old store holding every entry;
+* phase `copying` with the target recorded (a stop between the switch and the rewrite of the record): the move is
+  treated as switched, nothing is deleted from or copied into the recorded target, and the deletion from the old store
+  is finished;
+* phase `switched` with the target recorded: the deletion from the old store is finished and the record ended;
+* phase `switched` with another or no store recorded: the resume is refused with an `IllegalStateException`, nothing
+  is deleted from either store and the record is kept;
+* no record: no move is open, nothing happens.
+
+`run()` returns the record it resumed from, as it was found, and logs `PM_RUNTIME-29`
+(`CREDENTIAL_STORE_MOVE_RESUMED`) with both stores and that phase; the move itself appends its `credential_store_moved`
+audit record, then ends the record and logs `PM_RUNTIME-28`, so a move whose audit record a stop or a failing sink lost
+is finished and audited again by the next start. A move that fails again before the switch fails with
+`credential_store_failed` and leaves the old store recorded; a copy that cannot be removed from the target, or a
+deletion the old store refuses, fails with the store's reason and leaves the record for the next start.
+
+The resume is machine-wide and runs once after the bind; it is no
+`RecoveryStep`, and `StartupSequence`, `RecoveryStep` and `ProjectRecovery` are unchanged
+(link:../adr/runtime-start/012-store-move-resumed-machine-wide-after-the-bind.adoc[ADR 012]). The assembly builds it
+from the move and calls it:
+
+[source,java]
+----
+var move = new CredentialStoreMove(base, choice, lockManager, auditSink, user, clock);
+new CredentialStoreMoveResume(move).run();     // once, after the bind
+----
+
 [#_jobs_recovery_step]
 == The Jobs Part of Step 3
 
@@ -174,7 +213,7 @@ The step reports the jobs settled per rule, the groups terminated and the worker
 step (the fence of a worker's generation, the revocation of its token, the release of its task lease and the removal of
 its job-private directory) belongs to the launch of workers and is a seam: a worker's record is settled like every
 other, and the report names the part `not implemented in this runtime`
-(link:../adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012]).
+(link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013]).
 
 The step fails, and the recovery of its project stops there, when the job records cannot be read, an orphan note
 cannot be handed over, or a fate cannot be recorded; a job whose fate was not recorded is settled by the next recovery.
@@ -257,6 +296,11 @@ the instant removed and then unknown; one fenced later and the current ones kept
 removed; a project without a record; a record of another format version reported as a failure and left as it is.
 link:{test}/PeriodicSweepTest.java[`PeriodicSweepTest`]:: The schedule, the skipped projects and the failing steps,
 with recording steps.
+link:{test}/CredentialStoreMoveResumeTest.java[`CredentialStoreMoveResumeTest`]:: No record; a move cut before the
+switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut between the switch
+and the rewrite of the record, treated as switched without touching the recorded target; a move cut after the switch
+completed by the deletion; a deletion the old store refuses leaving the record; each against a fake OS store
+(`CredentialStoreChoiceFixture`), with the target recorded afterwards and the old store empty.
 link:{test}/JobRecoveryStepTest.java[`JobRecoveryStepTest`]:: One case per rule over a real job record store and a
 recording `ProcessGroupSignals`: zero `kill()` calls and no orphan note for rule (a), none for rule (b), the orphan note
 and none for rule (c), no signal for a queued job, and the matched control (d), a same-boot job with a PID whose group
@@ -311,5 +355,9 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
 * Decisions: link:../adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR 001],
   link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002],
   link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011],
-  link:../adr/runtime-start/012-jobs-recovery-step-worker-part-a-seam.adoc[ADR 012]
+  link:../adr/runtime-start/012-store-move-resumed-machine-wide-after-the-bind.adoc[ADR 012],
+  link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013]
 * Audit trail: link:runtime-audit.adoc[`runtime.audit`]
+* Credential store move: link:runtime-credentials.adoc[`runtime.credentials`],
+  link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment §
+  Credential Store as an Operator Choice] (the move and its resume)

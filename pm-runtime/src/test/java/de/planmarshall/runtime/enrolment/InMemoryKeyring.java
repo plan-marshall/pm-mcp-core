@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.enrolment;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -57,5 +58,19 @@ final class InMemoryKeyring implements SecretStore {
     @Override
     public boolean delete(CredentialAccount account) {
         return entries.remove(account.account()) != null;
+    }
+
+    @Override
+    public List<CredentialAccount> entries() {
+        if (failure != null) {
+            throw failure;
+        }
+        return entries.keySet().stream().sorted().map(InMemoryKeyring::account).toList();
+    }
+
+    private static CredentialAccount account(String name) {
+        int slash = name.indexOf('/');
+        return slash < 0 ? CredentialAccount.global(name)
+                : CredentialAccount.project(name.substring(0, slash), name.substring(slash + 1));
     }
 }
