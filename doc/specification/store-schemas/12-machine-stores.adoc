@@ -359,7 +359,18 @@ The harness, model, and effort of a role, apart from its artifact (link:../model
         "properties": {
           "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "client_id of an enrolled, worker-eligible harness." },
           "model": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Allowed on that harness by the effective catalogue (model_not_allowed otherwise)." },
-          "effort": { "type": ["string", "null"], "description": "null: the profile's default effort." }
+          "effort": { "type": ["string", "null"], "description": "null: the profile's default effort." },
+          "escalation": {
+            "type": ["object", "null"],
+            "required": ["harness", "model", "effort"],
+            "additionalProperties": false,
+            "description": "Optional: the stronger configuration the last round of a fix budget runs on (model-work/01, Escalation Assignment); validated and qualified like the role's own values.",
+            "properties": {
+              "harness": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+              "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "effort": { "type": ["string", "null"] }
+            }
+          }
         }
       }
     }
