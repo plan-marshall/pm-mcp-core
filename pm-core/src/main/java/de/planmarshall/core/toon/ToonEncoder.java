@@ -317,7 +317,7 @@ public final class ToonEncoder {
             case ToonString string -> string(string.value(), root);
             case ToonNumber number -> number(number.value());
             case ToonBoolean bool -> String.valueOf(bool.value());
-            case ToonNull ignored -> "null";
+            case ToonNull _ -> "null";
             default -> throw new IllegalStateException("not a primitive: " + value);
         };
     }

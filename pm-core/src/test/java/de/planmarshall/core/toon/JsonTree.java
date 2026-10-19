@@ -74,7 +74,7 @@ final class JsonTree {
             case ToonString string -> quote(string.value());
             case ToonNumber number -> number.value().toPlainString();
             case ToonBoolean bool -> String.valueOf(bool.value());
-            case ToonNull ignored -> "null";
+            case ToonNull _ -> "null";
         };
     }
 

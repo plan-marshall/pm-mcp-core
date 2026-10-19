@@ -132,9 +132,6 @@ public final class WorkflowValidator {
     private static final List<String> RESERVED_TARGET_SUFFIXES = List.of(
             ".blocked", ".footprint-violation", ".config-drift");
 
-    /** The identifier of the link the engine renders on every link state of a sub-workflow. */
-    private static final String STEP_OUT_LINK = "step_out";
-
     private static final Pattern ROLE_NAME_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{1,31}$");
 
     private static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
