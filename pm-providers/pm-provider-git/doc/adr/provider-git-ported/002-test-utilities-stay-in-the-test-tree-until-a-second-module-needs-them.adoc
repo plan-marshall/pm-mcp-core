@@ -1,0 +1,46 @@
+= ADR 002: Test Utilities Stay in the Test Tree Until a Second Module Needs Them
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The ported tests of `git.worktree-sha` need a fixture loader that enumerates its directory, a scenario runner and a
+comparison helper. The first ported primitive lives in `pm-provider-git`; the `Ported` stores and parsers of later
+stages live in other modules. A shared test JAR would need a build change in the module that provides it and in
+every module that uses it, and no dependency or plugin is added without the user's decision (`CLAUDE.md`).
+
+== Decision
+
+The fixture loader `PortedFixtures`, the scenario runner `WorktreeShaScenario` and the comparison helper
+`DigestRelations` are package-private classes of the test package `de.planmarshall.provider.git.ported` in the test
+tree of `pm-provider-git`. The module builds no test JAR, and no `pom.xml` changes. `PortedFixtures` takes the fixture
+directory and the grammar of a primitive as arguments, so a further primitive of this module reuses it.
+
+The utilities move into a shared test JAR when a primitive of another module needs them; the location and the build
+change are decided then.
+
+== Alternatives Considered
+
+1. *A shared test JAR now*: build the utilities as a test JAR of one module for all later stages. Not taken: no second
+   module needs them yet, and the shape of the shared utilities is not known before a second primitive exists.
+2. *A new test-support module*: not taken for the same reason, and it would add a module to the module structure.
+
+== Consequences
+
+* The utilities can change with the first primitive without a release of a shared artifact.
+* The first port in another module has to move the utilities (or the part it needs) and make the build change; until
+  then a copy in another module is not allowed, because two loaders would drift.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/ce43548/doc/plans/differential-test-harness.adoc[`doc/plans/differential-test-harness.adoc`]
+* Plan `plan-37-ported-primitive-tests` and its pull request
+* Requirement PM-TEST-2, `doc/requirements/12-testing.adoc` of plan-marshall-documentation
+* Developer documentation: link:../../developer/provider-git-ported.adoc[`provider-git-ported.adoc`]
