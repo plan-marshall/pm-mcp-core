@@ -13,7 +13,8 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * The closed set of events that compose a new plan instance version (PM-IMPL-5); every version has exactly one.
+ * The closed set of events that compose a new plan instance version (PM-IMPL-5); every version has exactly one. The
+ * set equals the {@code composition_event} enumeration of the header schema, in its order.
  * <p>
  * The trigger of an event decides when its version is in force: a version of a {@linkplain Trigger#SERVER server}
  * event is composed in the transaction that enters its target state and is in force for the rest of its composing
@@ -37,6 +38,8 @@ public enum CompositionEvent {
     CONFIG_ADOPTED("config_adopted", Trigger.OPERATOR),
     /** A {@code met} waiver, a {@code raise}, or an {@code unwaive}. */
     WAIVER("waiver", Trigger.OPERATOR),
+    /** The operator set or changed one of the plan's own values in {@code overrides.json}. */
+    OVERRIDE("override", Trigger.OPERATOR),
     /** The post-run-only form of the {@code returned} and {@code handed_back} routes. */
     FALLBACK("fallback", Trigger.SERVER),
     /** The post-run-only form of a harvest that yielded no targets. */

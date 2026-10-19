@@ -56,6 +56,14 @@ class HeaderSchemaCheckTest {
             + " remediation.review-findings, remediation.build-failure, remediation.merge-conflict,"
             + " remediation.qgate-findings, remediation.analysis]";
 
+    /** The reason an element kind outside the {@code element} enumeration of the schema is refused with. */
+    private static final String ELEMENTS_REASON = "must be one of [step, state, link, policy_action, call]";
+
+    /** The reason a prune reason outside the {@code prune_reason} enumeration of the schema is refused with. */
+    private static final String REASONS_REASON = "must be one of [posture, provider_unconfigured,"
+            + " footprint_disjoint, change_type_exempt, local_only, land_lane, adopt, other_lane, merge_by_operator,"
+            + " plan_default, returned, handed_back, empty_harvest]";
+
     /** A header that satisfies the schema, with one element in every list and both optional argument members. */
     private static final String VALID = """
             {
@@ -183,6 +191,25 @@ class HeaderSchemaCheckTest {
         void sixPolicyUnits(String unit) {
             assertEquals(List.of(), HeaderSchemaCheck.check(edited("/policy_calls/0/unit",
                     Optional.of(json("\"" + unit + "\"")))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"other_lane", "merge_by_operator", "plan_default"})
+        @DisplayName("a pruned element may carry each prune reason the specification added")
+        void newPruneReasons(String reason) {
+            assertEquals(List.of(), HeaderSchemaCheck.check(edited("/pruned/0/reason",
+                    Optional.of(json("\"" + reason + "\"")))));
+        }
+
+        @Test
+        @DisplayName("a pruned call of an axis variant and the event override satisfy the schema")
+        void callAndOverride() {
+            var call = json("{\"element\": \"call\", \"id\": \"phases.ask/ask.every-phase\", "
+                    + "\"reason\": \"plan_default\", \"source_fact\": \"axes.asking\"}");
+            var withCall = edit(edited("/pruned/0", Optional.of(call)), List.of("event"),
+                    Optional.of(json("\"override\"")));
+
+            assertEquals(List.of(), HeaderSchemaCheck.check(withCall));
         }
 
         @Test
@@ -371,8 +398,8 @@ class HeaderSchemaCheckTest {
                         "must match ^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"),
                 Arguments.of("plan_id type", "/plan_id", "24", HeaderSchemaCheck.NOT_STRING),
                 Arguments.of("event enumeration", "/event", "\"begin\"",
-                        "must be one of [start, outline, plan, config_adopted, waiver, fallback, empty_harvest,"
-                                + " replan]"),
+                        "must be one of [start, outline, plan, config_adopted, waiver, override, fallback,"
+                                + " empty_harvest, replan]"),
                 Arguments.of("composed_at date-time", "/composed_at", "\"yesterday\"",
                         HeaderSchemaCheck.NOT_DATE_TIME),
                 Arguments.of("composed_at without seconds", "/composed_at", "\"2026-10-14T08:05Z\"",
@@ -420,12 +447,12 @@ class HeaderSchemaCheckTest {
                 Arguments.of("phase 6 step pattern", "/steps/phase_6/0", "\"finalize:push\"",
                         "must match ^(default|project):[a-z][a-z0-9-]{0,63}$"),
                 Arguments.of("pruned type", "/pruned", "{}", HeaderSchemaCheck.NOT_ARRAY),
-                Arguments.of("pruned element enumeration", "/pruned/0/element", "\"node\"",
-                        "must be one of [step, state, link, policy_action]"),
-                Arguments.of("prune reason enumeration", "/pruned/0/reason", "\"because\"",
-                        "must be one of [posture, provider_unconfigured, footprint_disjoint, change_type_exempt,"
-                                + " recipe_override, local_only, land_lane, adopt, auto_merge_off, empty_harvest,"
-                                + " returned, handed_back]"),
+                Arguments.of("pruned element enumeration", "/pruned/0/element", "\"node\"", ELEMENTS_REASON),
+                Arguments.of("prune reason enumeration", "/pruned/0/reason", "\"because\"", REASONS_REASON),
+                Arguments.of("prune reason recipe_override", "/pruned/0/reason", "\"recipe_override\"",
+                        REASONS_REASON),
+                Arguments.of("prune reason auto_merge_off", "/pruned/0/reason", "\"auto_merge_off\"",
+                        REASONS_REASON),
                 Arguments.of("policy unit enumeration", "/policy_calls/0/unit", "\"remediation.other\"",
                         POLICY_UNITS_REASON),
                 Arguments.of("policy unit remediation.spend", "/policy_calls/0/unit", "\"remediation.spend\"",

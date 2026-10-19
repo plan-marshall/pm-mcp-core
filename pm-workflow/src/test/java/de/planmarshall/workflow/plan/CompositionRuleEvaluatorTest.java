@@ -138,23 +138,6 @@ class CompositionRuleEvaluatorTest {
                             .build())),
                     () -> assertEquals(NOTHING, evaluate(facts().build())));
         }
-
-        @Test
-        @DisplayName("merge.auto_merge false prunes the merge execution and no gate")
-        void autoMergeOff() {
-            assertEquals(new RuleEffects(List.of(
-                                    state("finalize.merge-dispatch", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge"),
-                                    state("finalize.merge-queue-wait", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge"),
-                                    state("finalize.merge-queue-exit", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge")),
-                            List.of()),
-                    evaluate(facts().configuration("merge.auto_merge", "false").build()));
-        }
-
-        @Test
-        @DisplayName("merge.auto_merge true prunes nothing")
-        void autoMergeOn() {
-            assertEquals(NOTHING, evaluate(facts().configuration("merge.auto_merge", "true").build()));
-        }
     }
 
     @Nested
@@ -203,7 +186,7 @@ class CompositionRuleEvaluatorTest {
     }
 
     @Nested
-    @DisplayName("Provider, footprint, change type and recipe")
+    @DisplayName("Provider, footprint and change type")
     class Families {
 
         @Test
@@ -264,20 +247,18 @@ class CompositionRuleEvaluatorTest {
             assertEquals(NOTHING, evaluate(facts().changeType(changeType).build()));
         }
 
-        @Test
-        @DisplayName("the simplify-codebase recipe overrides the simplify step")
-        void recipeOverride() {
-            assertEquals(new RuleEffects(List.of(step("default:finalize-step-simplify",
-                            PruneReason.RECIPE_OVERRIDE, "recipe_id")), List.of()),
-                    evaluate(facts().recipeId("simplify-codebase").build()));
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"simplify-codebase", "lesson-cleanup"})
+        @DisplayName("a recipe of the plan prunes nothing, since no shipped rule reads the recipe")
+        void recipeReadByNoRule(String recipeId) {
+            assertEquals(NOTHING, evaluate(facts().recipeId(recipeId).build()));
         }
 
-        @Test
-        @DisplayName("another recipe, or none, keeps the simplify step")
-        void recipeControl() {
-            assertAll(
-                    () -> assertEquals(NOTHING, evaluate(facts().recipeId("lesson-cleanup").build())),
-                    () -> assertEquals(NOTHING, evaluate(facts().build())));
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"false", "true"})
+        @DisplayName("merge.auto_merge prunes nothing, since no shipped rule reads it")
+        void autoMergeReadByNoRule(String autoMerge) {
+            assertEquals(NOTHING, evaluate(facts().configuration("merge.auto_merge", autoMerge).build()));
         }
     }
 
@@ -302,10 +283,9 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("the effects of several rules come in rule order")
         void ruleOrder() {
             var effects = evaluate(PlanFacts.builder().lane(Lane.LAND).posture(Posture.FULL)
-                    .configuration("merge.auto_merge", "false").changeType("analysis").build());
+                    .changeType("analysis").build());
 
-            assertEquals(List.of("lane", "lane", "lane", "lane", "merge.auto_merge", "merge.auto_merge",
-                            "merge.auto_merge", "posture", "posture", SONAR, "change_type"),
+            assertEquals(List.of("lane", "lane", "lane", "lane", "posture", "posture", SONAR, "change_type"),
                     effects.prunes().stream().map(PrunedElement::sourceFact).toList());
         }
 

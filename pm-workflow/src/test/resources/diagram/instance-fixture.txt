@@ -27,7 +27,7 @@
 │ Element       │ Id                              │ Reason                │ Source fact         │
 ├───────────────┼─────────────────────────────────┼───────────────────────┼─────────────────────┤
 │ step          │ default:analysis-roundtrip      │ provider_unconfigured │ integrations.sonar  │
-│ state         │ finalize.merge-dispatch         │ auto_merge_off        │ merge.auto_merge    │
+│ state         │ finalize.merge-dispatch         │ merge_by_operator     │ axes.asking         │
 │ policy_action │ finalize.remediate-ci/loop_back │ local_only            │ derived.push_remote │
 └───────────────┴─────────────────────────────────┴───────────────────────┴─────────────────────┘
 

@@ -58,6 +58,17 @@ class PlanInstanceHeaderTest {
     private static final String DIGEST_D = "d".repeat(64);
     private static final Instant COMPOSED_AT = Instant.parse("2026-10-14T08:05:00Z");
 
+    /** The {@code composition_event} enum of the header schema (Store Schemas, Plan Instance), in its order. */
+    private static final List<String> SPEC_COMPOSITION_EVENTS = List.of("start", "outline", "plan", "config_adopted",
+            "waiver", "override", "fallback", "empty_harvest", "replan");
+    /** The {@code prune_reason} enum of the header schema (Store Schemas, Plan Instance), in its order. */
+    private static final List<String> SPEC_PRUNE_REASONS = List.of("posture", "provider_unconfigured",
+            "footprint_disjoint", "change_type_exempt", "local_only", "land_lane", "adopt", "other_lane",
+            "merge_by_operator", "plan_default", "returned", "handed_back", "empty_harvest");
+    /** The {@code fallback_cause} enum of the composition record schema (Store Schemas), in its order. */
+    private static final List<String> SPEC_FALLBACK_CAUSES = List.of("exhausted", "stepped_out", "decided",
+            "infeasible", "condition", "provider_refused", "merge_by_operator", "local_only", "files_not_applicable");
+
     /** A header with every list empty and every optional member absent. */
     static PlanInstanceHeader minimalHeader() {
         return new PlanInstanceHeader("plan-24", 1, CompositionEvent.START, COMPOSED_AT,
@@ -358,6 +369,7 @@ class PlanInstanceHeaderTest {
                 "PLAN, plan, SERVER",
                 "CONFIG_ADOPTED, config_adopted, OPERATOR",
                 "WAIVER, waiver, OPERATOR",
+                "OVERRIDE, override, OPERATOR",
                 "FALLBACK, fallback, SERVER",
                 "EMPTY_HARVEST, empty_harvest, SERVER",
                 "REPLAN, replan, SERVER"})
@@ -370,10 +382,11 @@ class PlanInstanceHeaderTest {
         }
 
         @Test
-        @DisplayName("the composition events are closed at eight, the triggers at server and operator")
+        @DisplayName("the composition events are the composition_event enum of the specification, in its order")
         void compositionEventsClosed() {
             assertAll(
-                    () -> assertEquals(8, CompositionEvent.values().length),
+                    () -> assertEquals(SPEC_COMPOSITION_EVENTS, Arrays.stream(CompositionEvent.values())
+                            .map(CompositionEvent::wireName).toList()),
                     () -> assertEquals(List.of("server", "operator"), Arrays.stream(CompositionEvent.Trigger.values())
                             .map(CompositionEvent.Trigger::wireName).toList()),
                     () -> assertEquals(Optional.empty(), CompositionEvent.fromWireName("START")));
@@ -385,14 +398,15 @@ class PlanInstanceHeaderTest {
                 "PROVIDER_UNCONFIGURED, provider_unconfigured",
                 "FOOTPRINT_DISJOINT, footprint_disjoint",
                 "CHANGE_TYPE_EXEMPT, change_type_exempt",
-                "RECIPE_OVERRIDE, recipe_override",
                 "LOCAL_ONLY, local_only",
                 "LAND_LANE, land_lane",
                 "ADOPT, adopt",
-                "AUTO_MERGE_OFF, auto_merge_off",
-                "EMPTY_HARVEST, empty_harvest",
+                "OTHER_LANE, other_lane",
+                "MERGE_BY_OPERATOR, merge_by_operator",
+                "PLAN_DEFAULT, plan_default",
                 "RETURNED, returned",
-                "HANDED_BACK, handed_back"})
+                "HANDED_BACK, handed_back",
+                "EMPTY_HARVEST, empty_harvest"})
         @DisplayName("a prune reason carries its wire name")
         void pruneReason(PruneReason reason, String wireName) {
             assertAll(
@@ -401,19 +415,39 @@ class PlanInstanceHeaderTest {
         }
 
         @Test
-        @DisplayName("the prune reasons are closed at twelve")
+        @DisplayName("the prune reasons are the prune_reason enum of the specification, in its order")
         void pruneReasonsClosed() {
-            assertAll(
-                    () -> assertEquals(12, PruneReason.values().length),
-                    () -> assertEquals(Optional.empty(), PruneReason.fromWireName("unknown")));
+            assertEquals(SPEC_PRUNE_REASONS, Arrays.stream(PruneReason.values()).map(PruneReason::wireName).toList());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"recipe_override", "auto_merge_off", "unknown"})
+        @DisplayName("a reason the specification does not list reads as no prune reason")
+        void removedPruneReasons(String wireName) {
+            assertEquals(Optional.empty(), PruneReason.fromWireName(wireName));
+        }
+
+        @Test
+        @DisplayName("the fallback causes are the fallback_cause enum of the specification, in its order")
+        void fallbackCausesClosed() {
+            assertEquals(SPEC_FALLBACK_CAUSES, Arrays.stream(CompositionCause.FallbackCause.values())
+                    .map(CompositionCause.FallbackCause::wireName).toList());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"question_expired", "auto_merge_off"})
+        @DisplayName("a fallback cause the specification does not list reads as no fallback cause")
+        void removedFallbackCauses(String wireName) {
+            assertEquals(Optional.empty(), CompositionCause.FallbackCause.fromWireName(wireName));
         }
 
         @Test
         @DisplayName("element kinds, argument sources, lanes, postures and origins carry their wire names")
         void otherEnumerations() {
             assertAll(
-                    () -> assertEquals(List.of("step", "state", "link", "policy_action"),
+                    () -> assertEquals(List.of("step", "state", "link", "policy_action", "call"),
                             Arrays.stream(PrunedElement.Kind.values()).map(PrunedElement.Kind::wireName).toList()),
+                    () -> assertEquals(Optional.of(PrunedElement.Kind.CALL), PrunedElement.Kind.fromWireName("call")),
                     () -> assertEquals(List.of("template", "composition_rule", "waiver"),
                             Arrays.stream(BoundArgument.Source.values()).map(BoundArgument.Source::wireName)
                                     .toList()),

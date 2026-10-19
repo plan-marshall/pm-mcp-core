@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -374,11 +375,32 @@ class PlanInstanceComposerTest {
     @DisplayName("Refusals")
     class Refusals {
 
+        /** The fact the rule file written for these cases reads, with the value that makes its rule hold. */
+        private static final String MERGE_FACT = "merge.auto_merge";
+
+        /**
+         * A rule file written for these cases: its one rule prunes the merge execution with reason
+         * {@code merge_by_operator} where {@link #MERGE_FACT} is {@code false}, so a version can be made to lack a
+         * state of the merge path.
+         */
+        private static final CompositionRules MERGE_RULES = ((CompositionRules.Loaded) CompositionRules.parse("""
+                {"format_version": 1, "revision": "t1", "rules": [
+                  {"id": "merge-left-to-operator", "when": {"fact": "%s", "equals": "false"}, "then": {"prune": [
+                    {"element": "state", "id": "finalize.merge-dispatch", "reason": "merge_by_operator"},
+                    {"element": "state", "id": "finalize.merge-queue-wait", "reason": "merge_by_operator"},
+                    {"element": "state", "id": "finalize.merge-queue-exit", "reason": "merge_by_operator"}]}}]}
+                """.formatted(MERGE_FACT).getBytes(StandardCharsets.UTF_8))).rules();
+
+        /** The facts under which {@link #MERGE_RULES} prunes the merge execution. */
+        private static PlanFacts mergePruned() {
+            return facts().configuration(MERGE_FACT, "false").build();
+        }
+
         @Test
         @DisplayName("a version without the current state is refused position_not_contained")
         void currentStateMissing() {
-            var refused = refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
-                    facts().configuration("merge.auto_merge", "false").build(), Optional.of(version1()), List.of(),
+            var refused = refused(composer(MERGE_RULES).compose(request(CompositionEvent.CONFIG_ADOPTED,
+                    mergePruned(), Optional.of(version1()), List.of(),
                     InstancePosition.at("finalize.merge-dispatch"))));
 
             assertAll(
@@ -391,8 +413,8 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a version without a state of the call stack is refused position_not_contained")
         void callStackStateMissing() {
-            var refused = refused(composer().compose(request(CompositionEvent.WAIVER,
-                    facts().configuration("merge.auto_merge", "false").build(), Optional.of(version1()), List.of(),
+            var refused = refused(composer(MERGE_RULES).compose(request(CompositionEvent.WAIVER,
+                    mergePruned(), Optional.of(version1()), List.of(),
                     new InstancePosition("finalize.push-barrier", List.of("finalize.merge-dispatch")))));
 
             assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal());
@@ -401,9 +423,8 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a prune that breaks a verification rule is refused invariant_failed")
         void invariantFailed() {
-            var refused = refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
-                    facts().configuration("merge.auto_merge", "false").build(), Optional.of(version1()), List.of(),
-                    AT_START)));
+            var refused = refused(composer(MERGE_RULES).compose(request(CompositionEvent.CONFIG_ADOPTED,
+                    mergePruned(), Optional.of(version1()), List.of(), AT_START)));
 
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
@@ -430,9 +451,8 @@ class PlanInstanceComposerTest {
         @DisplayName("a refused version composes nothing: the next composition follows the version in force")
         void versionInForceKept() {
             var inForce = version1();
-            refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
-                    facts().configuration("merge.auto_merge", "false").build(), Optional.of(inForce), List.of(),
-                    AT_START)));
+            refused(composer(MERGE_RULES).compose(request(CompositionEvent.CONFIG_ADOPTED, mergePruned(),
+                    Optional.of(inForce), List.of(), AT_START)));
 
             var next = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
                     Optional.of(inForce), List.of(), AT_START)));

@@ -14,7 +14,8 @@ import java.util.Optional;
 
 /**
  * The closed set of reasons why a composition left a template element out of a plan instance (PM-IMPL-5); every
- * pruned element of the header carries one.
+ * pruned element of the header carries one. The set equals the {@code prune_reason} enumeration of the header schema,
+ * in its order.
  *
  * @since 0.1
  */
@@ -27,22 +28,27 @@ public enum PruneReason {
     FOOTPRINT_DISJOINT("footprint_disjoint"),
     /** The change type of the plan exempts the step. */
     CHANGE_TYPE_EXEMPT("change_type_exempt"),
-    /** The recipe of the plan overrides the step. */
-    RECIPE_OVERRIDE("recipe_override"),
     /** No push remote exists, so the steps that need one are left out. */
     LOCAL_ONLY("local_only"),
     /** The {@code land} lane allocates no tasks. */
     LAND_LANE("land_lane"),
     /** The {@code adopt} lane adopts an existing pull request. */
     ADOPT("adopt"),
-    /** The operator's {@code merge.auto_merge} is off, so the merge execution is left out. */
-    AUTO_MERGE_OFF("auto_merge_off"),
-    /** Post-run only: a harvest yielded no targets. */
-    EMPTY_HARVEST("empty_harvest"),
+    /**
+     * A state reachable only from the entry of the lane the plan did not choose, pruned from the {@code outline}
+     * event on.
+     */
+    OTHER_LANE("other_lane"),
+    /** The bound asking variant leaves the merge to the operator, so the merge execution is left out. */
+    MERGE_BY_OPERATOR("merge_by_operator"),
+    /** A variant of a plan behaviour axis that is not bound, left out as a pruned call. */
+    PLAN_DEFAULT("plan_default"),
     /** Post-run only: the plan takes the {@code returned} route. */
     RETURNED("returned"),
     /** Post-run only: the plan takes the {@code handed_back} route. */
-    HANDED_BACK("handed_back");
+    HANDED_BACK("handed_back"),
+    /** Post-run only: a harvest yielded no targets. */
+    EMPTY_HARVEST("empty_harvest");
 
     private final String wireName;
 

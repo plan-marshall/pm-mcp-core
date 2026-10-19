@@ -45,9 +45,9 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
 class CompositionRulesTest {
 
     private static final List<String> SHIPPED_RULE_IDS = List.of("land-lane", "adopt-lane", "local-only",
-            "auto-merge-off", "posture-minimal", "posture-standard", "posture-default-off",
-            "analysis-provider-unconfigured", "no-code-delta", "report-change-type", "simplify-recipe",
-            "post-run-returned", "post-run-handed-back", "post-run-empty-harvest");
+            "posture-minimal", "posture-standard", "posture-default-off", "analysis-provider-unconfigured",
+            "no-code-delta", "report-change-type", "post-run-returned", "post-run-handed-back",
+            "post-run-empty-harvest");
 
     /**
      * The floor-immune steps (lane class {@code core} or {@code derived-state}) of the step catalogue: only the rules
@@ -123,7 +123,7 @@ class CompositionRulesTest {
         }
 
         /**
-         * The four families the specification names without content each have exactly one shipped rule, over the
+         * The three families the specification names without content each have exactly one shipped rule, over the
          * fact and with the condition and targets the specification states for it.
          */
         @ParameterizedTest(name = "{0}")
@@ -171,8 +171,6 @@ class CompositionRulesTest {
                         List.of("default:finalize-step-simplify", "default:adr-propose")),
                 Arguments.of(PruneReason.CHANGE_TYPE_EXEMPT,
                         new CompositionRule.In("change_type", List.of("analysis", "verification")),
-                        List.of("default:finalize-step-simplify")),
-                Arguments.of(PruneReason.RECIPE_OVERRIDE, new CompositionRule.Equals("recipe_id", "simplify-codebase"),
                         List.of("default:finalize-step-simplify")));
     }
 
@@ -344,6 +342,12 @@ class CompositionRulesTest {
                         "extra"),
                 refusal("an undeclared prune reason", rule("""
                         "then": {"prune": [{"element": "step", "id": "x", "reason": "because"}]}"""),
+                        Refusal.MALFORMED, "prune entry"),
+                refusal("the removed prune reason recipe_override", rule("""
+                        "then": {"prune": [{"element": "step", "id": "x", "reason": "recipe_override"}]}"""),
+                        Refusal.MALFORMED, "prune entry"),
+                refusal("the removed prune reason auto_merge_off", rule("""
+                        "then": {"prune": [{"element": "state", "id": "x", "reason": "auto_merge_off"}]}"""),
                         Refusal.MALFORMED, "prune entry"),
                 refusal("a binding value whose exponent is too large to strip", rule("""
                         "then": {"bind": [{"call_site": "*", "argument": "actions", "value": 1000e2147483647}]}"""),

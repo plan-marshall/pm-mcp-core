@@ -34,8 +34,13 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  * The constraints are those of the schema, checked in code over the streaming API of jackson-core: the required
  * members of every object, no member the schema does not declare at any level ({@code additionalProperties: false}),
  * the one JSON type of each member, the constant {@code format_version} {@value PlanInstanceHeader#FORMAT_VERSION},
- * {@code version} from {@code 1}, the closed enumerations (composition event, lane, posture, element kind, prune
- * reason, policy unit, argument source, unit origin), the patterns of the plan id, of every digest (64 lowercase
+ * {@code version} from {@code 1}, the closed enumerations, each read from its type so the check and the type cannot
+ * part: the composition event ({@link CompositionEvent}, {@code start} to {@code replan} with {@code override}), the
+ * lane and the posture ({@link PlanInstanceHeader.Lane}, {@link PlanInstanceHeader.Posture}), the element kind
+ * ({@link PrunedElement.Kind}: {@code step}, {@code state}, {@code link}, {@code policy_action}, {@code call}), the
+ * prune reason ({@link PruneReason}, with {@code other_lane}, {@code merge_by_operator} and {@code plan_default}), the
+ * policy unit ({@link #POLICY_UNITS}), the argument source ({@link BoundArgument.Source}) and the unit origin
+ * ({@link UnitOrigin}); the patterns of the plan id, of every digest (64 lowercase
  * hexadecimal characters), of the Phase 6 step ids and of the waiver ids, and {@code composed_at} as an RFC 3339
  * date-time that the reader can parse. A JSON text that is no single JSON value, or names a member of an object
  * twice, is one violation of the header as a whole or of that member.

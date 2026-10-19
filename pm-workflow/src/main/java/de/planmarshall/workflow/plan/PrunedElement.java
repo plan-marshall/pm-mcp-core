@@ -19,8 +19,9 @@ import java.util.Optional;
  * and named only here.
  *
  * @param element    the kind of the element
- * @param id         the element: a step id, a state id, {@code <state_id>/<action>} for a link, or
- *                   {@code <call_site>/<action>} for a policy action
+ * @param id         the element: a step id, a state id, {@code <state_id>/<action>} for a link,
+ *                   {@code <call_site>/<action>} for a policy action, or {@code <call_site>/<subworkflow_id>} for a
+ *                   call
  * @param reason     why the element was left out
  * @param sourceFact the effective configuration key, derived fact kind, plan fact or composition event that caused
  *                   the prune
@@ -56,7 +57,9 @@ public record PrunedElement(Kind element, String id, PruneReason reason, String 
         /** A link a state offers. */
         LINK("link"),
         /** An action a policy call allows. */
-        POLICY_ACTION("policy_action");
+        POLICY_ACTION("policy_action"),
+        /** A call of a phase sub-workflow or of an axis variant; a pruned phase is a pruned call. */
+        CALL("call");
 
         private final String wireName;
 

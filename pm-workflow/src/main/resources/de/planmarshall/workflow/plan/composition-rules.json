@@ -40,17 +40,6 @@
       }
     },
     {
-      "id": "auto-merge-off",
-      "when": { "fact": "merge.auto_merge", "equals": "false" },
-      "then": {
-        "prune": [
-          { "element": "state", "id": "finalize.merge-dispatch", "reason": "auto_merge_off" },
-          { "element": "state", "id": "finalize.merge-queue-wait", "reason": "auto_merge_off" },
-          { "element": "state", "id": "finalize.merge-queue-exit", "reason": "auto_merge_off" }
-        ]
-      }
-    },
-    {
       "id": "posture-minimal",
       "when": { "fact": "posture", "equals": "minimal" },
       "then": {
@@ -117,15 +106,6 @@
       "then": {
         "prune": [
           { "element": "step", "id": "default:finalize-step-simplify", "reason": "change_type_exempt" }
-        ]
-      }
-    },
-    {
-      "id": "simplify-recipe",
-      "when": { "fact": "recipe_id", "equals": "simplify-codebase" },
-      "then": {
-        "prune": [
-          { "element": "step", "id": "default:finalize-step-simplify", "reason": "recipe_override" }
         ]
       }
     },

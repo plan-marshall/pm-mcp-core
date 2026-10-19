@@ -104,8 +104,8 @@ final class DiagramFixtures {
     static final List<PrunedElement> PRUNED = List.of(
             new PrunedElement(PrunedElement.Kind.STEP, "default:analysis-roundtrip", PruneReason.PROVIDER_UNCONFIGURED,
                     "integrations.sonar"),
-            new PrunedElement(PrunedElement.Kind.STATE, "finalize.merge-dispatch", PruneReason.AUTO_MERGE_OFF,
-                    "merge.auto_merge"),
+            new PrunedElement(PrunedElement.Kind.STATE, "finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR,
+                    "axes.asking"),
             new PrunedElement(PrunedElement.Kind.POLICY_ACTION, "finalize.remediate-ci/loop_back",
                     PruneReason.LOCAL_ONLY, "derived.push_remote"));
 

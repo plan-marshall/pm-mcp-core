@@ -21,7 +21,7 @@ stateDiagram-v2
     outline_deep --> finalize_merge_gate : auto / done
     state "pruned" as instance_pruned {
         state "step default:analysis-roundtrip: provider_unconfigured (integrations.sonar)" as instance_pruned_1
-        state "state finalize.merge-dispatch: auto_merge_off (merge.auto_merge)" as instance_pruned_2
+        state "state finalize.merge-dispatch: merge_by_operator (axes.asking)" as instance_pruned_2
         state "policy_action finalize.remediate-ci/loop_back: local_only (derived.push_remote)" as instance_pruned_3
     }
     state "waived gates" as instance_waived {

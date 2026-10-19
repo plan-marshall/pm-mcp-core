@@ -110,8 +110,8 @@
 
 |`state`
 |`finalize.merge-dispatch`
-|`auto_merge_off`
-|`merge.auto_merge`
+|`merge_by_operator`
+|`axes.asking`
 
 |`policy_action`
 |`finalize.remediate-ci/loop_back`
