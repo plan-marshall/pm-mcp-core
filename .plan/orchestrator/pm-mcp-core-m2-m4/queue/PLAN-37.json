@@ -2,9 +2,9 @@
   "id": "PLAN-37",
   "slug": "differential-test-harness",
   "workstream": "WS-06",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-37-ported-primitive-tests",
+  "pr": "#106",
+  "landing": "landings/PLAN-37.md",
   "seq": 37
 }

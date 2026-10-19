@@ -26,6 +26,32 @@ The wiring of the adapter as a CDI producer in the Quarkus assembly belongs to `
 
 **Done when:** a `question` state resolved against a fixture log reads `Open` for an open record, `Resolved` with the recorded outcome for a resolved one, and `Unreadable` for every broken case of Deliverable 3; the adapter is the only implementation of the port in the product code; `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests -pl pm-runtime -am` are green.
 
+**T. Lane test proof (added by the orchestrator on 2026-10-19 on the operator's instruction: the plan runs in the runbook lane on opencode, with extra thorough tests; this deliverable is not a bullet of the package file and not part of the original brief).** It binds in addition to the deliverables above:
+
+- **T1 Test first, seen failing.** For every deliverable that changes behaviour the test is written first, run against the code at the branch point and seen failing (the failing output excerpt goes into the progress file), then seen passing after the change. A deliverable that deletes code is proved by a test that fails while the code exists (a refusal by name, an absent registration, a codec that no longer reads the member), never by a search of the sources and never by deleting a test.
+- **T2 Cases per behaviour.** Each behaviour has its accepted case, its refused or error case and its boundary (empty, one, at the limit, one past it). Three or more variants of one rule are one `@ParameterizedTest`. A line-oriented reader gets a CRLF twin of every fixture. A completeness test derives its expected set from the enum or the registry at run time. An assertion names the value it expects: no test whose only assertion is `assertNotNull` or "does not throw"; an expected path, id or count is derived from the production layout or the specification independently, never from the object under test. No Mockito, no Hamcrest; clocks are injected, nothing sleeps.
+- **T3 Nothing weakened.** No pre-existing assertion is removed or relaxed. One that must go because its subject is deleted is listed in the progress file and in the landing report with the deliverable that removes it.
+- **T4 The full gate on the final head**, in the worktree, in-process (`--execution-mode in_process --project-dir {worktree}`, Bash timeout 600000 ms, `--timeout 1800`), each result (`status`, `errors[]`, the test counts read from `log_file`) recorded in the progress file. The lane's `quality-gate`, `module-tests` and `verify` are the minimum; the build commands of `CLAUDE.md` § Build Commands are run through the same executor with `--command-args`: `verify -Ppre-commit` (review every rewritten file, commit it, run again), `verify`, `verify -Pcoverage` (minimum 80 % instruction and branch coverage per module the diff touches) and, for each of `pm-core` and `pm-runtime` the diff touches, `verify -Pintegration-tests -pl {module} -am`. All of them again after every merge of `origin/main`.
+- **T5 Tests are reviewed too.** The self-review sub-agent of step 5 grades the tests as well: for each Done-when clause it names the test that fails without the change, and it lists every new branch, guard and refusal that has no test of its own. Fix what it lists before the pull request.
+- **T6 Evidence in the landing.** The landing report gives, per touched module, the test count before and after the change, the coverage figures of T4, and the table of T1 (test, failing output, passing run).
+
+**Lane vocabulary of this repository's specs.** "Trace matrix" is a table in the progress file (requirement, specification section, code, test) written before the first deliverable. "Ask the operator at refine" is a question-tool call before that deliverable is implemented; a choice the spec leaves open is never decided silently. "Finalize" and "pull request opened at finalize" are steps 5 to 7 of the lane. The lane never rebases (rule `Git`): wherever these specs say "after every rebase" read "after every merge of `origin/main`", and renumber the plan's ADRs against `origin/main` then.
+
+**Outside this repository.** The requirements, the use cases and the link check `trace.py` live in the sibling checkout `../plan-marshall-documentation`, and the lane's rule "stay inside the repository" forbids reading it. Ask the operator once, at the start, with the question tool, whether that checkout may be read (read-only, no edit, no command run in it); record the answer in the progress file. Without a selected yes, work from this repository's specification and `doc/Traceability.adoc`, and list every requirement text not read, and the link check not run, under Residue of the landing report. A guard refusal is never worked around.
+
+**Lane note for this plan.** The package the adapter lives in is a choice of deliverable 1: when two readings differ in the files they create, ask the operator with the question tool before writing code. The wiring as a CDI producer in `plan-marshall-mcp` is not done here and is reported under **Owed outside this repository**.
+
+**Test matrix of this plan (what T1 to T3 mean here; the lists are floors, add the cases the code shows):**
+
+- D1, one test per result: `Open` for an open record; `Resolved` once for each outcome of the closed set, the set derived from the enum at run time, with the recorded outcome returned; `Unreadable` for each cause (absent log, unparseable line, record of another class, log the store refuses, log holding a refused line per ADR `core-store/039`). Every `Unreadable` case also asserts that the result is not `Open` (the property of ADR 032).
+- D1, mixed content: a log with an open record followed by an unparseable line, and one with a resolved record followed by a refused line, are `Unreadable`, not `Open` or `Resolved` (the whole log is judged, as the port's Javadoc says; read it first and test what it says).
+- D2, a read is a read: the file tree of the scope (names, sizes, modification times) is identical before and after a read; a read while another thread holds the append lock returns within a bounded wait and does not block the append (two threads, a latch, no sleeps); a project path outside the confinement yields `Unreadable` as a value and throws nothing.
+- D3, fixtures come from `TestBases`; one test reads the same log through the adapter and through `QuestionLog` and asserts that they agree on every record they both see.
+- The adapter is the only implementation of `QuestionRecordReader` in product code: show the result of a file-tool search over `src/main` of all modules in the progress file and in the landing report; no class of `pm-core` implements it.
+- The integration profile for `pm-runtime` (`verify -Pintegration-tests -pl pm-runtime -am`) is part of the Done when and runs on the final head.
+
+**Done when (lane addition, T):** every case of the matrix above and every bullet T1 to T6 is met or reported as not met with its reason; each test the Done-when clauses name was seen failing before it was seen passing; `verify -Ppre-commit`, `verify`, `verify -Pcoverage` and, for each of `pm-core` and `pm-runtime` touched, `verify -Pintegration-tests -pl {module} -am` are green on the head that is merged, with the results recorded in the landing report.
+
 **Trace starting set:**
 
 - Requirements: PM-ARCH-4 (bullets 4 and 5), PM-IMPL-5
@@ -65,6 +91,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
   - verdict: unverifiable | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - HYPOTHESIS: PLAN-73 `question-continuation` does not already plan this adapter in its deliverables — confirm/refute at `PLAN-73-question-continuation.md` § Deliverables and `doc/plans/question-continuation.adoc` (verify-at-outline)
   - verdict: unverifiable | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+- OBSERVED: Deliverable T, its lane note and test matrix and the Done-when paragraph after it are NOT from the package file or the original brief: the orchestrator added them on 2026-10-19 on the operator's instruction (run in the runbook lane on opencode, extra thorough tests); every other deliverable, Done-when clause and claim is unchanged
+  - verdict: corroborated | checked_at: 1e772a2bbdb5046e132dbb8640d819fa36b30cbc | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: the edit of this spec on 2026-10-19 only inserts the T block after the Done-when paragraph, one claim before the verify-first clause and the runbook form of the Hand-Off line; the diff of the file shows no other change
 - Verify-first clause: before editing, list the open pull requests for one that names `QuestionRecordReader`, re-read PLAN-73's deliverables and `doc/plans/question-continuation.adoc` for an adapter bullet, and read `QuestionLog` for the read it offers; a refutation of any claim above loops back to re-scope.
   - verdict: unverifiable | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: procedural clause for the executing plan at refine, not evaluable now
 
@@ -87,7 +115,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-88-question-record-reader-adapter.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-88-question-record-reader-adapter.md
 ```
 
 ## Write-Boundary

@@ -15,7 +15,7 @@ workstream: WS-03
 
 Implement the work package `plan-and-epic-control` of `doc/plans/plan-and-epic-control.adoc`: controlling plans. Serves: roadmap Milestone 10 (the operator's acts on a plan, the holds), Milestone 12 (as far as the epic is told of the operator's acts on its plans); Use Cases, UC-CTL-1, UC-CTL-4, UC-CTL-5; the actions on plans, the holds, and a plan's settings in both clients of `pm-mcp-clients`. Where: pm-workflow (the engine-owned acts on a plan: the activity with its pause points, the end through `plan.aborted`, the trigger of the overrides' composition); pm-core (the plan's activity in its workflow state, the archive of an ended plan, the inbox records of the operator's acts, the queue row's statuses, the hold records); pm-runtime (the operator endpoints of both clients and their verbs). PLAN-75 (#85) split the former package on 2026-10-17 (14 bullets): this package keeps 7 (the plan scope), and the other 7 are `epic-resource-and-release` (PLAN-77), which depends on this package. The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
 
-**Parked:** waits on packages that are not done: `operator-wait-and-machine-scope`, `machine-onboarding-unit`, `project-onboarding-unit`, `task-queue-and-protocol`, `supervisor`, `plan-instance-alignment`. Re-ground this spec before emitting it.
+**Parked:** waits on packages that are not done: `operator-wait-and-machine-scope`, `machine-onboarding-unit`, `project-onboarding-unit`, `task-queue-and-protocol`, `supervisor`. `plan-instance-alignment` (PLAN-70) shipped as #107. Re-ground this spec before emitting it.
 
 ## Deliverables
 
@@ -98,7 +98,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-45 (`project-onboarding-unit`); PLAN-28 (`task-queue-and-protocol`); PLAN-30 (`supervisor`); PLAN-70 (`plan-instance-alignment`)
+- Depends on: PLAN-42 (`operator-wait-and-machine-scope`); PLAN-46 (`machine-onboarding-unit`); PLAN-45 (`project-onboarding-unit`); PLAN-28 (`task-queue-and-protocol`); PLAN-30 (`supervisor`); PLAN-70 (`plan-instance-alignment`) shipped as #107 and is no longer a dependency
 - Overlaps with: computed by `corpus cross-check` at emit time; every plan through `doc/plans/README.adoc` and `doc/Traceability.adoc`; the plans of the same module through its log holder, which is not a declared surface
 - Adjacent to: the Quarkus assembly `pm-mcp-server` in `plan-marshall-mcp` and the client contract `pm-api` in `pm-mcp-clients`, which stay untouched — a change there is a pull request in that repository; and `plan-marshall-documentation`, where only a requirement correction or a change of `cross-cutting.adoc` or of a specification that lives there goes, in a pull request there
 

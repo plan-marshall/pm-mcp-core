@@ -25,6 +25,32 @@ PLAN-74 (#90, `44f904e`) shipped the credential store as the operator's choice a
 
 **Done when:** Each of the four items is either fixed with its test and document, or shown by the code to be no defect and recorded in the pull request body; the checklist for durable multi-step protocols of the Standing Constraints is applied to the first two; no credential value or key is written to a log.
 
+**T. Lane test proof (added by the orchestrator on 2026-10-19 on the operator's instruction: the plan runs in the runbook lane on opencode, with extra thorough tests; this deliverable is not a bullet of the package file and not part of the original brief).** It binds in addition to the deliverables above:
+
+- **T1 Test first, seen failing.** For every deliverable that changes behaviour the test is written first, run against the code at the branch point and seen failing (the failing output excerpt goes into the progress file), then seen passing after the change. A deliverable that deletes code is proved by a test that fails while the code exists (a refusal by name, an absent registration, a codec that no longer reads the member), never by a search of the sources and never by deleting a test.
+- **T2 Cases per behaviour.** Each behaviour has its accepted case, its refused or error case and its boundary (empty, one, at the limit, one past it). Three or more variants of one rule are one `@ParameterizedTest`. A line-oriented reader gets a CRLF twin of every fixture. A completeness test derives its expected set from the enum or the registry at run time. An assertion names the value it expects: no test whose only assertion is `assertNotNull` or "does not throw"; an expected path, id or count is derived from the production layout or the specification independently, never from the object under test. No Mockito, no Hamcrest; clocks are injected, nothing sleeps.
+- **T3 Nothing weakened.** No pre-existing assertion is removed or relaxed. One that must go because its subject is deleted is listed in the progress file and in the landing report with the deliverable that removes it.
+- **T4 The full gate on the final head**, in the worktree, in-process (`--execution-mode in_process --project-dir {worktree}`, Bash timeout 600000 ms, `--timeout 1800`), each result (`status`, `errors[]`, the test counts read from `log_file`) recorded in the progress file. The lane's `quality-gate`, `module-tests` and `verify` are the minimum; the build commands of `CLAUDE.md` § Build Commands are run through the same executor with `--command-args`: `verify -Ppre-commit` (review every rewritten file, commit it, run again), `verify`, `verify -Pcoverage` (minimum 80 % instruction and branch coverage per module the diff touches) and, for each of `pm-core` and `pm-runtime` the diff touches, `verify -Pintegration-tests -pl {module} -am`. All of them again after every merge of `origin/main`.
+- **T5 Tests are reviewed too.** The self-review sub-agent of step 5 grades the tests as well: for each Done-when clause it names the test that fails without the change, and it lists every new branch, guard and refusal that has no test of its own. Fix what it lists before the pull request.
+- **T6 Evidence in the landing.** The landing report gives, per touched module, the test count before and after the change, the coverage figures of T4, and the table of T1 (test, failing output, passing run).
+
+**Lane vocabulary of this repository's specs.** "Trace matrix" is a table in the progress file (requirement, specification section, code, test) written before the first deliverable. "Ask the operator at refine" is a question-tool call before that deliverable is implemented; a choice the spec leaves open is never decided silently. "Finalize" and "pull request opened at finalize" are steps 5 to 7 of the lane. The lane never rebases (rule `Git`): wherever these specs say "after every rebase" read "after every merge of `origin/main`", and renumber the plan's ADRs against `origin/main` then.
+
+**Outside this repository.** The requirements, the use cases and the link check `trace.py` live in the sibling checkout `../plan-marshall-documentation`, and the lane's rule "stay inside the repository" forbids reading it. Ask the operator once, at the start, with the question tool, whether that checkout may be read (read-only, no edit, no command run in it); record the answer in the progress file. Without a selected yes, work from this repository's specification and `doc/Traceability.adoc`, and list every requirement text not read, and the link check not run, under Residue of the landing report. A guard refusal is never worked around.
+
+**Lane note for this plan.** The first two items are the reason for this plan: apply the checklist for durable multi-step protocols of the Standing Constraints to them, item by item, before the first review of the pull request.
+
+**Test matrix of this plan (what T1 to T3 mean here; the lists are floors, add the cases the code shows):**
+
+- D1, first-recording key carry: a cell for each of (integrity key in the found store only, in the other store only, in both with equal content, in both with different content) with the outcome as decided (carry, refuse or reconcile); the pre-existing-target test has an overlapping key and a target-only key; a failure injected after the copy leaves a state that a second run finishes.
+- D2, crash windows: the matrix (phase x recorded store x writer) as a table in the progress file first, then one test per cell; the stop between the first recording's switch and the key delete is a cell of its own; the resume finishes it, and a second resume on the finished state does nothing (idempotent); while the record exists every other writer of the state is refused under the same lock; the record is deleted last, with a test that an injected failure before the delete keeps it.
+- D3, audit event: `credential_store_moved` carries the transaction id; a re-delivered record with the same id is recognised by the reader and counted once; a record with another id is a new event; the schema, its parity test and the documentation change together and the parity test is green.
+- No secret in a log: with `cui-test-juli-logger`, a fixture key and credential value with a recognisable marker are put through every path of D1 to D3 (success, refusal, resume, failure) and the captured log is asserted free of the marker.
+- D4, specification text: quote the text of `target_held_key` and the layout comment before and after, and the sentence of ADR `runtime-credentials/004` and `006` each correction rests on, in the progress file; a correction without a quoted basis is not made.
+- OS-specific cases use `@EnabledOnOs`; the integration profile for `pm-runtime` is part of T4 and not optional.
+
+**Done when (lane addition, T):** every case of the matrix above and every bullet T1 to T6 is met or reported as not met with its reason; each test the Done-when clauses name was seen failing before it was seen passing; `verify -Ppre-commit`, `verify`, `verify -Pcoverage` and, for each of `pm-core` and `pm-runtime` touched, `verify -Pintegration-tests -pl {module} -am` are green on the head that is merged, with the results recorded in the landing report.
+
 **Trace starting set:**
 
 - Requirements: PM-CRED-2, PM-CRED-3 (as PLAN-74)
@@ -65,6 +91,8 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
   - verdict: unverifiable | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: the plan's statement; verify-at-outline by the executing plan
 - HYPOTHESIS: the schema text of `target_held_key` and the layout comment `02-machine-runtime.adoc:86` are inexact in one corner each — the plan's statement; confirm/refute against the code (verify-at-outline)
   - verdict: unverifiable | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: the plan's statement; verify-at-outline by the executing plan
+- OBSERVED: Deliverable T, its lane note and test matrix and the Done-when paragraph after it are NOT from the package file or the original brief: the orchestrator added them on 2026-10-19 on the operator's instruction (run in the runbook lane on opencode, extra thorough tests); every other deliverable, Done-when clause and claim is unchanged
+  - verdict: corroborated | checked_at: 1e772a2bbdb5046e132dbb8640d819fa36b30cbc | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: the edit of this spec on 2026-10-19 only inserts the T block after the Done-when paragraph, one claim before the verify-first clause and the runbook form of the Hand-Off line; the diff of the file shows no other change
 - Verify-first clause: before editing, list the open pull requests for one that edits the credentials package, and re-read the four advisories at the code at `main`; a refutation of any claim above loops back to re-scope.
   - verdict: unverifiable | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: procedural clause for the executing plan at refine, not evaluable now
 
@@ -92,7 +120,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-82-credential-store-move-advisories.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-82-credential-store-move-advisories.md
 ```
 
 ## Write-Boundary

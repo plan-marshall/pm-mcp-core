@@ -15,7 +15,7 @@ workstream: WS-03
 
 Implement the work package `recipe-workflows` of `doc/plans/recipe-workflows.adoc`: a recipe is a workflow. Serves: roadmap Milestone 7 (the start of a recipe as its own workflow); Use Cases, UC-STA-5; running a recipe in both clients of `pm-mcp-clients`. Where: pm-workflow (the recipe's workflow, composition); pm-core (the recipe descriptor). The package file is the brief; this spec adds what the orchestrator observed and the constraints of the epic.
 
-**Parked:** waits on packages that are not done: `phase-sub-workflows`, `start-from-clients`, `unit-frontmatter-and-types`, `plan-instance-alignment`. Re-ground this spec before emitting it.
+**Parked:** waits on packages that are not done: `phase-sub-workflows`, `start-from-clients`, `unit-frontmatter-and-types` (PLAN-69 shipped as #91 and `plan-instance-alignment` shipped as #107: both left the index; the remaining waits are `phase-sub-workflows` and `start-from-clients`). Re-ground this spec before emitting it.
 
 ## Deliverables
 
@@ -82,7 +82,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-48 (`start-from-clients`); PLAN-69 (`unit-frontmatter-and-types`); PLAN-70 (`plan-instance-alignment`)
+- Depends on: PLAN-43 (`phase-sub-workflows`); PLAN-48 (`start-from-clients`); PLAN-69 (`unit-frontmatter-and-types`) shipped as #91 and PLAN-70 (`plan-instance-alignment`) shipped as #107, neither a dependency any more
 
 ## Hand-Off Command
 
