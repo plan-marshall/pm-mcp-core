@@ -611,9 +611,9 @@ class PlanInstanceComposerTest {
     /**
      * The shipped rule {@code merge-by-operator}: an asking variant that declares {@code self_merge = false} loses the
      * merge execution, the states {@code finalize.merge-dispatch}, {@code finalize.merge-queue-wait} and
-     * {@code finalize.merge-queue-exit}; one that merges by itself keeps them. The template routes the merge gate only
-     * into the merge execution, so the version without it breaks Rule 2 at the gate and is refused; the prunes
-     * themselves are asserted on the rule evaluation ({@code CompositionRuleEvaluatorTest}).
+     * {@code finalize.merge-queue-exit}, and composes: the {@code pass} of {@code finalize.merge-barrier} into the
+     * pruned dispatch is settled by the prune record, and the barrier's {@code pass_hand_back} leaves the merge to the
+     * operator. One that merges by itself keeps the merge execution.
      */
     @Nested
     @DisplayName("Merge by operator")
@@ -624,15 +624,19 @@ class PlanInstanceComposerTest {
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"ask.every-phase", "ask.key-points"})
-        @DisplayName("a variant that leaves the merge to the operator loses the merge execution behind the merge gate")
+        @DisplayName("a variant that leaves the merge to the operator loses the merge execution behind the merge"
+                + " barrier, lists it merge_by_operator, and verifies")
         void selfMergeFalse(String variant) {
-            var refused = refused(composer().compose(start(asking(PlanFacts.Level.PLAN, variant).build())));
+            var instance = composed(composer().compose(start(asking(PlanFacts.Level.PLAN, variant).build())));
 
             assertAll(
-                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
-                    () -> assertTrue(refused.violations().stream()
-                                    .anyMatch(violation -> violation.contains("finalize.merge-gate")),
-                            refused.violations()::toString));
+                    () -> MERGE_EXECUTION.forEach(state -> assertFalse(instance.unit().states().containsKey(state),
+                            state)),
+                    () -> assertEquals(MERGE_EXECUTION.stream().map(state -> new PrunedElement(Kind.STATE, state,
+                            PruneReason.MERGE_BY_OPERATOR, "axes.asking")).toList(), rulePrunes(instance.header())),
+                    () -> assertTrue(instance.unit().states().keySet().containsAll(List.of("finalize.merge-gate",
+                            "finalize.merge-barrier", "finalize.hand-back"))),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())));
         }
 
         @Test
@@ -804,9 +808,27 @@ class PlanInstanceComposerTest {
     @DisplayName("Refusals")
     class Refusals {
 
+        private static final InstancePosition AT_INIT = InstancePosition.at("init.begin");
+
         /** The facts under which the shipped rule {@code merge-by-operator} prunes the merge execution. */
         private static PlanFacts mergePruned() {
             return asking(PlanFacts.Level.PLAN, EVERY_PHASE).build();
+        }
+
+        /** @return version 1 of the merged fixture units, a deep plan */
+        private static PlanInstance mergedInForce() {
+            return composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.START,
+                    facts().build(), Optional.empty(), AT_INIT, List.of())));
+        }
+
+        /**
+         * @return the composition, after the version in force, of a light plan whose adopted template lacks the
+         *         {@code light -> deep} ratchet of {@code init.light-gate}, which INV-INIT-2 refuses
+         */
+        private static CompositionResult withoutRatchet(PlanInstance inForce) {
+            return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.CONFIG_ADOPTED,
+                    facts().lane(Lane.LIGHT).build(), Optional.of(inForce), AT_INIT,
+                    List.of(InvariantFixtures.WITHOUT_RATCHET)));
         }
 
         @Test
@@ -834,16 +856,14 @@ class PlanInstanceComposerTest {
         }
 
         @Test
-        @DisplayName("a prune that breaks a verification rule is refused invariant_failed")
+        @DisplayName("a version that breaks a compiled invariant is refused invariant_failed")
         void invariantFailed() {
-            var refused = refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
-                    mergePruned(), Optional.of(version1()), List.of(), AT_START)));
+            var refused = refused(withoutRatchet(mergedInForce()));
 
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
-                    () -> assertFalse(refused.violations().isEmpty()),
                     () -> assertTrue(refused.violations().stream()
-                                    .anyMatch(violation -> violation.contains("finalize.merge-gate")),
+                                    .anyMatch(violation -> violation.startsWith("INV-INIT-2 in 'init.light-gate'")),
                             refused.violations()::toString));
         }
 
@@ -863,12 +883,11 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a refused version composes nothing: the next composition follows the version in force")
         void versionInForceKept() {
-            var inForce = version1();
-            refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED, mergePruned(),
-                    Optional.of(inForce), List.of(), AT_START)));
+            var inForce = mergedInForce();
+            refused(withoutRatchet(inForce));
 
-            var next = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
-                    Optional.of(inForce), List.of(), AT_START)));
+            var next = composed(PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(
+                    CompositionEvent.WAIVER, facts().build(), Optional.of(inForce), AT_INIT, List.of())));
 
             assertEquals(2, next.version());
         }

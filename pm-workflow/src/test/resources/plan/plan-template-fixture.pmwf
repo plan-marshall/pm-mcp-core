@@ -8,9 +8,11 @@ author: plan-marshall
 ---
 # A merged plan template written for the composer tests, never copied from a unit of the product. The push barrier,
 # the pull request, the call site of the asking axis, a Q-Gate remediation call that binds every action, the merge
-# gate and the merge execution (the dispatch, the queue wait and the queue exit) a rule over the bound asking variant
-# prunes, the landing, and finalize.archive-plan, which alone enters the delivery terminals. The completes clauses name
-# the mandatory steps of the test roster.
+# gate, the merge barrier, the merge execution (the dispatch, the queue wait and the queue exit) a rule over the bound
+# asking variant prunes, the landing, and finalize.archive-plan, which alone enters the delivery terminals. The barrier
+# settles pass_hand_back into the hand-back where the merge execution is pruned, so its pass is settled by the prune
+# record. The landing, a step of the post-run band, follows the merge and the hand-back alike. The completes clauses
+# name the mandatory steps of the test roster.
 workflow plan version 1 format 1
 scope plan
 start finalize.push-barrier
@@ -45,7 +47,14 @@ state finalize.remediate
 state finalize.merge-gate
     phase finalize
     auto test.proceed
-        done -> finalize.merge-dispatch
+        done -> finalize.merge-barrier
+
+state finalize.merge-barrier
+    phase finalize
+    auto test.merge-barrier
+        pass -> finalize.merge-dispatch
+        pass_hand_back -> finalize.hand-back
+            completes default:branch-cleanup as done
 
 state finalize.merge-dispatch
     phase finalize
@@ -73,7 +82,7 @@ state finalize.land
 state finalize.hand-back
     phase finalize
     auto test.proceed
-        done -> finalize.archive-plan
+        done -> finalize.land
 
 state finalize.archive-plan
     phase finalize

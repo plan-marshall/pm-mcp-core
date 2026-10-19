@@ -342,6 +342,7 @@ public final class InvariantFixtures {
                 new Declared<>("test.route", RouteOutcome.class),
                 new Declared<>("test.next-task", NextTaskOutcome.class),
                 new Declared<>("test.merge", MergeOutcome.class),
+                new Declared<>("test.merge-barrier", BarrierOutcome.class),
                 new Declared<>("test.deliver", DeliverOutcome.class),
                 new Declared<>("test.evaluate-decision", DecisionOutcome.class),
                 new Declared<>(TestPrimitives.CHECK_BUDGETS, BudgetOutcome.class),
@@ -704,6 +705,27 @@ public final class InvariantFixtures {
         @Override
         public OutcomeClass outcomeClass() {
             return outcomeClass;
+        }
+    }
+
+    /** The outcomes of the merge barrier: the merge goes on, or it is left to the operator. */
+    enum BarrierOutcome implements PrimitiveOutcome {
+        PASS("pass"), PASS_HAND_BACK("pass_hand_back");
+
+        private final String wireName;
+
+        BarrierOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
         }
     }
 
