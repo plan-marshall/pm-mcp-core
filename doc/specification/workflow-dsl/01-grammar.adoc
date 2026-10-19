@@ -139,7 +139,10 @@ call_clause          = "call" , state_id , [ "entry" , entry_name ] ,
 call_arg_list        = call_arg , { "," , call_arg } ;
 call_arg             = param_name , "=" , call_value ;
 call_value           = enum_value | positive_int_or_zero
-                     | "[" , enum_value , { "," , enum_value } , "]" ;
+                     | "[" , [ enum_value , { "," , enum_value } ] , "]" ;
+                       (* a list may be empty: `[]` is the list without an element, for example
+                          `declare wait_after = []` of an asking variant that waits after no phase;
+                          a declaration or parameter schema bounds it like any other list *)
 
 question_clause      = "question" , question_class , EOL ,
                        outcome_transition , { outcome_transition } ;

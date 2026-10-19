@@ -95,7 +95,8 @@ Optional<String> toConfigHash, Optional<CompositionResult.Refusal> refusal) {
     }
 
     /**
-     * The gap cause of a fallback, the value of {@code cause.fallback_cause} in the composition log.
+     * The gap cause of a fallback, the value of {@code cause.fallback_cause} in the composition log. The set equals the
+     * {@code fallback_cause} enumeration of the composition record schema, in its order.
      *
      * @since 0.1
      */
@@ -110,14 +111,16 @@ Optional<String> toConfigHash, Optional<CompositionResult.Refusal> refusal) {
         INFEASIBLE("infeasible"),
         /** A condition's retry budget was spent. */
         CONDITION("condition"),
-        /** An unanswered question whose class fallback is returned. */
-        QUESTION_EXPIRED("question_expired"),
         /** The provider refused the merge action. */
         PROVIDER_REFUSED("provider_refused"),
-        /** The pre-merge barrier passed while the operator's merge policy is off. */
-        AUTO_MERGE_OFF("auto_merge_off"),
-        /** No push remote exists. */
-        LOCAL_ONLY("local_only");
+        /**
+         * The pre-merge barrier passed while the plan's asking variant leaves the merge to the operator; not a failure.
+         */
+        MERGE_BY_OPERATOR("merge_by_operator"),
+        /** No push remote exists; not a failure. */
+        LOCAL_ONLY("local_only"),
+        /** The changes of {@code landing.files} could not be written into the main checkout. */
+        FILES_NOT_APPLICABLE("files_not_applicable");
 
         private final String wireName;
 

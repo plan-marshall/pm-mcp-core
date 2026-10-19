@@ -93,13 +93,13 @@ The decision points are closed; a state that takes a decision of the table write
 |The aggregated confidence against `confidence_threshold` `95` (`compiled`)
 |`sufficient`, `insufficient`
 
-|`outline.change-type` (`outline.detect-change-type`, link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Change-Type Contract])
+|`outline.change-type` (`outline.detect-change-type`, `outline.light-detect-change-type`, link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Change-Type Contract])
 |`server_rule` `ChangeTypeHeuristic`
 |`interpretation`
 |The top score against `0.70` (`compiled`) and the top-two tie
 |a change type, or `null` (reason `ambiguous`)
 
-|`outline.classify-change-type`
+|`outline.classify-change-type`, `outline.light-classify-change-type`
 |`role` `classify`
 |`interpretation`
 |Its confidence; the heuristic's scores are its facts

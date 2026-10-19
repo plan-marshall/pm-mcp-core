@@ -1,4 +1,4 @@
-= ADR 008: The Provider, Footprint, Change-Type and Recipe Rules Prune Derived Targets
+= ADR 008: The Provider, Footprint and Change-Type Rules Prune Derived Targets
 :nofooter:
 
 == Status
@@ -11,9 +11,12 @@ Accepted
 
 == Context
 
-The specification names four rule families, posture aside, by their prune reasons (`provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `recipe_override`) without stating which facts they read or which elements they prune.
-The step catalogue marks `default:finalize-step-simplify` and `default:adr-propose` as the steps of the lane class `prunable (no_code_delta)`; `default:analysis-roundtrip` needs an analysis provider; the recipe `simplify-codebase` is itself the simplification.
+The specification named four rule families, posture aside, by their prune reasons (`provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `recipe_override`) without stating which facts they read or which elements they prune.
+The step catalogue marks `default:finalize-step-simplify` and `default:adr-propose` as the steps of the lane class `prunable (no_code_delta)`; `default:analysis-roundtrip` needs an analysis provider.
 The rule language reads one fact per rule, and Sonar is the only analysis adapter shipped.
+
+The fourth family left the specification afterwards: the simplify recipe is a workflow of its own (`recipe-workflows`), so the prune reason `recipe_override` left the `prune_reason` enumeration of the header schema, and with it the plan fact `recipe_id`.
+The same alignment replaced the configuration fact `merge.auto_merge` by the `self_merge` declaration of the bound asking variant (ADR link:015-axis-levels-and-overrides-carried-in-plan-facts.adoc[015]).
 
 == Decision
 
@@ -22,13 +25,13 @@ The shipped rule file carries one rule per family, with targets derived from the
 * `analysis-provider-unconfigured`: `integrations.sonar` unset prunes `default:analysis-roundtrip` (`provider_unconfigured`).
 * `no-code-delta`: a `footprint` disjoint from the code and build globs prunes `default:finalize-step-simplify` and `default:adr-propose` (`footprint_disjoint`); an empty or unknown footprint keeps them.
 * `report-change-type`: `change_type` in `analysis`, `verification` prunes `default:finalize-step-simplify` (`change_type_exempt`).
-* `simplify-recipe`: `recipe_id` = `simplify-codebase` prunes `default:finalize-step-simplify` (`recipe_override`).
 
 No family prunes a floor-immune step. The specification is corrected to state exactly these targets.
+The file holds no rule over `recipe_id` or `merge.auto_merge`; `CompositionRules` refuses a rule over either, because neither is a registered fact any more.
 
 == Alternatives Considered
 
-1. *Leave the four families without rules until the specification names targets.*
+1. *Leave the families without rules until the specification names targets.*
 _Rejected_ by the operator: the reasons exist in the header schema, and the targets follow from the catalogue.
 2. *A provider rule per configured provider, or over a derived list of providers.*
 _Rejected_ for this slice: the rule language reads one fact per rule, and Sonar is the only adapter.
@@ -45,3 +48,4 @@ _Rejected_ for this slice: the rule language reads one fact per rule, and Sonar 
 * link:../../../../doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#plan-instance-composition[Phase Workflows § Plan Instance Composition], Prune Predicates and Floor Immunity
 * link:../../../../doc/specification/phase-workflows/04-finalize-step-bands.adoc[Phase Workflows § Finalize Step Bands]
 * `doc/plans/plan-instance.adoc`; operator decisions during execution (families get content by specification correction; targets kept as derived, the Sonar-only provider check a known limit)
+* `doc/plans/plan-instance-alignment.adoc`: the rules `simplify-recipe` and `auto-merge-off` and the facts `recipe_id` and `merge.auto_merge` removed with the closed prune reasons of the header schema

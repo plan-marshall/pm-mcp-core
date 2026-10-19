@@ -239,6 +239,20 @@ on `StateBehavior.SubWorkflowCall`; whether the callee declares it, and whether 
 The keyword `entry` is positional, not reserved: it is read only at the start of a header line and after the callee of a
 `call`, so a state id such as `setup.entry` stays valid. The keyword `start` is reserved.
 
+[#call-values]
+== Call Values and the Empty List
+_Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:{docs}/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25]_
+
+A call argument and a `declare` line carry a `CallValue` (the EBNF `call_value`,
+link:{spec}/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Grammar]): an
+enumeration value, a non-negative integer, or a list of distinct enumeration values between `[` and `]`.
+The list may be empty: `[]` is the list without an element, read as a `CallValue.EnumList` with no value, for example
+`declare wait_after = []` of an asking variant that waits after no phase.
+The empty list is the one change: every other list refusal of the parser stays (`STRUCTURE` for an unterminated list,
+values without a comma between them, a trailing comma or a comma alone; a value listed twice), and what a list may hold where it is bound or declared
+stays the verifier's and the declaration bounds' (link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]).
+The printer writes the empty list back as `[]`, so it survives the round trip.
+
 == The Printer and the Round Trip
 _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
@@ -284,12 +298,13 @@ frontmatter of a text whose body does not parse, a CRLF unit read like its LF tw
 
 |`WorkflowParserTest`
 |The frontmatter read into the tree, entry bindings and `call … entry` parsed, a unit with three entries, and a unit with
-declared entries and a `start` line, or a binding of an undeclared name, parsed without refusal.
+declared entries and a `start` line, or a binding of an undeclared name, parsed without refusal; the empty list `[]`
+as a declared value and as a call argument, printed back as `[]`, with its CRLF twin and a non-empty list as control.
 
 |`WorkflowParserRefusalTest`
 |Every fixture of `dsl/malformed/`, among them one per refused form of the frontmatter (`frontmatter-*.pmwf`),
 `start-beside-entry-binding.pmwf` (`STRUCTURE`) and `entry-binding-repeated.pmwf` (`DUPLICATE_ID`), refused with its
-rule, file, line and column.
+rule, file, line and column; the list refusals that stay beside the empty list (`[`, `[a, b`, `[a,]`, `[,]`).
 
 |`WorkflowPrinterTest`
 |Parse, print and parse again to the same tree, for a unit with descriptions, quoted values, a signature and three
@@ -318,3 +333,5 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 * link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR 005]: the frontmatter is read by a line
   parser of its own, its refusals are values of the rule `FRONTMATTER`, and the frontmatter of a merged plan unit and
   of a composed instance is derived from a part.
+* link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]: the grammar admits the empty list `[]`
+  as a call value, and nothing else of the grammar changes.

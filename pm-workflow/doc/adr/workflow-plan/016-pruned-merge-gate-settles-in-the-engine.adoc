@@ -1,0 +1,79 @@
+= ADR 016: An Outcome Whose Target a Prune Record Removed Is Settled by That Record
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+Where the bound asking variant declares `self_merge = false`, the shipped rule `merge-by-operator` prunes the merge
+execution, the states `finalize.merge-dispatch`, `finalize.merge-queue-wait` and `finalize.merge-queue-exit`, with the
+reason `merge_by_operator`. A prune removes a state and every transition into it; it never re-routes the outcome that
+led there. The `pass` of the merge barrier `finalize.merge-barrier` led into `finalize.merge-dispatch`, so a version with
+the merge execution pruned left `pass` unrouted, and Rule 2 (`OUTCOME_COVERAGE`) refused it with `invariant_failed`:
+no plan whose asking variant leaves the merge to the operator could compose a version.
+The barrier of such a version settles `pass_hand_back` into the ready form of the hand-back instead of `pass`.
+
+The same gap appeared with the lane prune (ADR link:012-per-lane-routes-and-other-lane-pruning.adoc[012]): a `deep`
+version prunes `init.light-gate` with `other_lane`, which leaves the `light` exit of `init.ready` unrouted.
+
+The operator decided, when execution handed the gap back, that the engine supports the pruned merge gate, with the
+smallest change of the engine or the validator that is consistent with the specification, Rule 2 not weakened for any
+other caller.
+
+== Decision
+
+* An outcome of a kept state whose every transition led into a state the composition pruned with a prune record (a
+  reason of the closed prune-reason set and its source fact) is settled by that record, and Rule 2 counts it as routed
+  in that version. The specification states the rule (Workflow DSL, Composition Rules, Outcomes settled by a prune).
+* `InstancePruner` records, for every kept state, the outcomes whose every transition led into a pruned state
+  (`InstancePruner.Pruned.settled()`); an outcome with one kept target is routed and not listed.
+* `WorkflowValidator.verify(unit, settledByPrune)` takes these outcomes by state id and counts them as routed at an
+  `auto` or `job` state; the transitions of a declared link, a `job llm` state and a question state are never settled.
+  `verify(unit)` is `verify(unit, Map.of())`.
+* Only `PlanInstanceComposer` passes the settled outcomes. Every other caller keeps `verify(unit)`, so a unit verified
+  without the prune records of its composition, and a transition into a state removed without a prune record, still
+  fail Rule 2.
+* The one mechanism serves both prunes: the lane (`light` of `init.ready` in a `deep` version, `other_lane`) and the
+  merge (`pass` of `finalize.merge-barrier` in a version with `merge_by_operator`). It was built with the lane prune,
+  whose tests needed it first, and the merge case reuses it unchanged.
+* `CompiledInvariants` and the `INV-INIT` checks are not changed by it.
+
+== Alternatives Considered
+
+1. *The pruner re-routes a transition whose target was pruned* to the declared hand-back exit of the gate.
+_Not taken_: the specification says a prune never re-routes the outcome that led to a pruned state, and the composition
+never adds a transition the template does not declare; the pruner would need to know, per gate, which outcome stands in
+for which.
+2. *Rule 2 treats a transition into a state pruned with a prune reason of the closed set as settled*, scoped to the
+composition.
+Taken, as the decision above.
+3. *Weaken Rule 2 for every caller*, admitting an outcome without a transition wherever a state is missing.
+_Rejected_ by the operator's condition: a unit loaded from a project, and a default unit, must still be refused for an
+unrouted outcome.
+
+== Consequences
+
+* A version whose asking variant declares `self_merge = false` composes and verifies without the merge execution, while
+  a `self_merge = true` version keeps it; `PlanInstanceComposerTest` holds both, and `WorkflowValidatorTest` refuses an
+  outcome no prune record settles (no record, a record of another state or of another outcome) beside the settled
+  control.
+* A template that prunes the only target of an outcome needs no second route for it, provided the deciding state routes
+  its other outcome to a kept state; which outcome the state takes at run time is the engine's: the barrier reads that
+  the instance prunes the merge execution and settles `pass_hand_back`, a behaviour of the merge-barrier primitive that
+  this package does not implement.
+* *For the assembly in `plan-marshall-mcp`*: `WorkflowValidator.verify(unit, settledByPrune)` is added beside
+  `verify(unit)`, which keeps its behaviour; nothing there needs to change unless it composes versions itself.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (The merge left to the operator; Outcomes settled by a prune)
+* link:../../../../doc/specification/state-catalogue/07-plan-finalize-merge-post-run.adoc[State Catalogue § Finalize Merge and Post-Run] (`finalize.merge-barrier`)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 2)
+* The operator decision of the work package plan-instance-alignment, taken when execution handed back the gap of the pruned merge gate (the engine supports it, Rule 2 not weakened for any other caller); the package file is deleted with the package's close
+* link:../../developer/workflow-plan.adoc#_outcomes_settled_by_a_prune[Plan Instance Developer Guide § Outcomes Settled by a Prune]

@@ -65,7 +65,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |Instance header and `composition.jsonl` link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas, Plan Instance]
 
 |[[id-prune-reason]]Prune reason
-|Closed enum: `posture`, `provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `local_only`, `land_lane`, `adopt`, `merge_by_operator`, `empty_harvest`, `returned`, `handed_back`, `plan_default` (a step the plan behaviour axes leave out, link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL, Plan Behaviour Axes]).
+|Closed enum: `posture`, `provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `local_only`, `land_lane`, `adopt`, `other_lane` (a state reachable only from the entry of the lane the plan did not choose, pruned from the `outline` event on, link:../workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL, Composition Rules]), `merge_by_operator`, `empty_harvest`, `returned`, `handed_back`, `plan_default` (a step the plan behaviour axes leave out, link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL, Plan Behaviour Axes]).
 |build (composition rules)
 |—
 |Closed; extended only with a schema version

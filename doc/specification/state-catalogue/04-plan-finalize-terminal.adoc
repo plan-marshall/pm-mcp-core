@@ -308,7 +308,7 @@ The terminals are states of the plan unit: `completed`, `handed_back`, and `retu
 |[[state-completed]]`completed`
 |`completed`
 |`terminal`
-|`phases.finalize` (the phase's exits `merged`, `no_change`, taken from `finalize.archive-plan`).
+|A call state of the phase `finalize` (`phases.finalize` and its other forms, `phases.finalize-light` of the light lane among them; the phase's exits `merged`, `no_change`, taken from `finalize.archive-plan`).
 |`links: []`. Declared `state completed terminal merged success`; the declared outcome id is nominal, and the plan's `outcome` field is authoritative: `merged` (the work landed on the base branch, through the pull request of `landing.pull-request` or pushed by `landing.main`), or `no_change` for an empty recipe harvest (`merge_outcome: no_pr`). Carries the server-derived `merge_outcome` (link:../store-schemas/02-workflow-state-store.adoc#merge-outcome-mapping[Store Schemas Specification, Merge Outcome Mapping]), `facts.landing_delivery`, and `owed[]`. A lesson the plan claimed is retired when the plan lands its work, and released on every other end (link:../store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas Specification, A Claimed Lesson Ends with the Landing]).
 |—
 |link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Plan Outcomes]
@@ -316,7 +316,7 @@ The terminals are states of the plan unit: `completed`, `handed_back`, and `retu
 |[[state-handed_back]]`handed_back`
 |`completed`
 |`terminal`
-|`phases.finalize` (the phase's exit `handed_back`, taken from `finalize.archive-plan`).
+|A call state of the phase `finalize` (`phases.finalize` and its other forms, `phases.finalize-light` among them; the phase's exit `handed_back`, taken from `finalize.archive-plan`).
 |`links: []`. Declared `state handed_back terminal handed_back failure`; the work is delivered as an open pull request (a draft, or ready for review in the ready form), a branch, or, with `landing.files`, uncommitted changes in the main checkout's working tree (`merge_outcome: no_pr`, the plan branch kept), the gaps documented. Carries `merge_outcome` (`handed_back`, `awaiting_human_merge`, `declined`, `dequeued`, `enqueued_not_landed`, `local_only`, `no_pr`), the gap records, and `owed[]`.
 |—
 |link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Plan Outcomes]
@@ -324,7 +324,7 @@ The terminals are states of the plan unit: `completed`, `handed_back`, and `retu
 |[[state-returned]]`returned`
 |`completed`
 |`terminal`
-|`phases.finalize` (the phase's exit `returned`, taken from `finalize.archive-plan`).
+|A call state of the phase `finalize` (`phases.finalize` and its other forms, `phases.finalize-light` among them; the phase's exit `returned`, taken from `finalize.archive-plan`).
 |`links: []`. Declared `state returned terminal returned failure`; only the planning result exists. Carries `merge_outcome: no_pr` (link:../store-schemas/02-workflow-state-store.adoc#merge-outcome-mapping[Store Schemas Specification, Merge Outcome Mapping]) and the gap records.
 |—
 |link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Plan Outcomes]

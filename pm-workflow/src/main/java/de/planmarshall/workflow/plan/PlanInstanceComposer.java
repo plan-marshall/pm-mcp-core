@@ -12,8 +12,10 @@ package de.planmarshall.workflow.plan;
 import java.time.Clock;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -33,15 +36,26 @@ import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.unit.VerificationContext;
 import de.planmarshall.workflow.verify.CompiledInvariants;
+import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
 
 /**
- * Composes one version of a plan instance and verifies it before anyone may write it (PM-IMPL-5, PM-WF-1, PM-EXT-7).
+ * Composes one version of a plan instance and verifies it before anyone may write it (PM-IMPL-5, PM-WF-1, PM-EXT-7,
+ * PM-WF-25).
  * <p>
- * A composition evaluates the composition rules against the facts of the request, applies their prunes and bindings
- * and the waivers in force to the merged plan template ({@link InstancePruner}), and builds the instance header: the
- * version after the one in force, the event, every input by digest, the lane and posture, the kept step lists, every
+ * A composition binds the variant of each plan behaviour axis from the facts of the request (the plan's own value,
+ * else the project's, else the machine's, else the shipped plan default, {@link PlanFacts#bound(PlanFacts.Axis)}),
+ * passes the declarations of every axis variant among the request's sub-units into the facts, evaluates the
+ * composition rules against them, applies their prunes and bindings, the bound variants and the waivers in force to
+ * the merged plan template ({@link InstancePruner}: each axis call site calls its bound variant, every other variant
+ * of the axis is a pruned call with the reason {@code plan_default} and the level as source fact; from every event
+ * after {@code start} on, the lane is known and the states of the other lane are pruned with the reason
+ * {@code other_lane}), and builds the
+ * instance header: the version after the one in force, the event, every input by digest (among the sub-units those
+ * a call of the version reaches and the adjudication unit, which the engine runs for the decisions of the version
+ * without a call site), the lane and posture, the
+ * kept step lists, every
  * pruned element with its reason and source fact, every policy call with its effective arguments and their provenance,
  * and the waived gates. The composed unit is the template's states under the id {@code plan}, with the version as its
  * revision, the header as its {@code instance} line, the template's frontmatter with the type {@code instance}, and the
@@ -53,13 +67,18 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * <li>the position rule: the version contains the current state and the calling state of every call-stack frame,
  * else {@code position_not_contained};</li>
  * <li>the header schema ({@link HeaderSchemaCheck}), the static verification Rules 1-12 ({@link WorkflowValidator},
- * over a catalog of the compiled units and the request's sub-units, without a released baseline), the finalize
+ * over a catalog of the compiled units and the request's sub-units, without a released baseline; an outcome whose
+ * transitions all led into a state pruned with a prune record is settled by the record, so Rule 2 counts it as
+ * routed, such as the {@code light} exit of {@code init.ready} in a {@code deep} version), the finalize
  * pipeline over the default descriptors of the kept steps, and the compiled invariants ({@link CompiledInvariants},
  * against the default units, as a {@link CompiledInvariants.Subject#COMPOSED_INSTANCE}, whose type {@code instance}
- * INV-GEN-1 admits against its template), else {@code invariant_failed} with every violation found.</li>
+ * INV-GEN-1 admits against its template, with the lane the version is composed for, unknown for {@code start}, so
+ * INV-INIT-2 holds per lane), else {@code invariant_failed} with every violation found.</li>
  * </ol>
- * Rules 13 and 14, the resolution of roles and skills, are left to the packages that own them. The composer reads no
- * store and writes nothing; a refused input is never an exception.
+ * Rules 13 and 14, the resolution of roles and skills, are left to the packages that own them. Every event composes
+ * the same way, the operator's {@code override} of one of the plan's own values among them, so an override whose
+ * version does not contain the plan's position is refused {@code position_not_contained}. The composer reads no store
+ * and writes nothing; a refused input is never an exception.
  *
  * @since 0.1
  */
@@ -106,10 +125,13 @@ public final class PlanInstanceComposer {
      */
     public CompositionResult compose(CompositionRequest request) {
         Objects.requireNonNull(request, "request");
-        var facts = request.facts();
+        var facts = withVariantDeclarations(request.facts(), request.subUnits());
         var effects = CompositionRuleEvaluator.evaluate(rules, facts);
-        var pruned = InstancePruner.prune(request.template(), effects, request.waivers(), request.verificationSteps(),
-                request.finalizeSteps());
+        var bound = Arrays.stream(PlanFacts.Axis.values()).map(facts::bound).toList();
+        var lanePruned = request.event() == CompositionEvent.START ? Optional.<PlanInstanceHeader.Lane>empty()
+                : facts.lane();
+        var pruned = InstancePruner.prune(request.template(), effects, bound, request.waivers(),
+                request.verificationSteps(), request.finalizeSteps(), lanePruned);
         var version = request.nextVersion();
         var missing = request.position().missingFrom(pruned.states().keySet());
         if (!missing.isEmpty()) {
@@ -121,17 +143,40 @@ public final class PlanInstanceComposer {
                 inputs(request, pruned.states().values()), facts.lane(), facts.posture(), pruned.steps(),
                 pruned.pruned(), pruned.policyCalls(), pruned.waivedGates());
         var unit = unit(request.template(), header, pruned.states());
-        var violations = verify(request, header, unit);
+        var violations = verify(request, header, unit, lanePruned, pruned.settled());
         if (!violations.isEmpty()) {
             return new CompositionResult.Refused(CompositionResult.Refusal.INVARIANT_FAILED, violations);
         }
         return new CompositionResult.Composed(new PlanInstance(version, header, unit, WorkflowPrinter.print(unit)));
     }
 
+    /**
+     * @return the facts with the declarations of every axis variant among the sub-units, as its tree declares them
+     */
+    private static PlanFacts withVariantDeclarations(PlanFacts facts, List<CompositionRequest.SubUnit> subUnits) {
+        var read = facts;
+        for (var subUnit : subUnits) {
+            var definition = subUnit.definition();
+            if (PlanFacts.Axis.ofVariant(definition.id()).isPresent()) {
+                var declared = new LinkedHashMap<String, CallValue>();
+                definition.declarations().forEach((name, declaration) -> declared.put(name, declaration.value()));
+                read = read.withDeclarations(definition.id(), declared);
+            }
+        }
+        return read;
+    }
+
+    /**
+     * @return the inputs of the header: the sub-units a call of the states reaches, and the adjudication unit
+     *         {@value DeclarationBounds#ADJUDICATION_UNIT} whenever the request supplies it, which no call site calls
+     *         because the engine runs it for the decisions of the version
+     */
     private CompositionInputs inputs(CompositionRequest request, Collection<StateNode> states) {
         var called = called(states, request.subUnits());
         var subUnits = request.subUnits().stream().map(CompositionRequest.SubUnit::reference)
-                .filter(reference -> called.contains(reference.unit())).toList();
+                .filter(reference -> called.contains(reference.unit())
+                        || DeclarationBounds.ADJUDICATION_UNIT.equals(reference.unit()))
+                .toList();
         return new CompositionInputs(request.configHash(), request.templates(), subUnits, rules.revision(),
                 rules.digest(), request.facts().digest(), request.realizedFootprintDigest(),
                 request.facts().changeType(), request.providersDigest());
@@ -192,7 +237,8 @@ public final class PlanInstanceComposer {
      * @return every violation of the header schema, the static rules, the finalize pipeline and the compiled
      *         invariants, each listed once
      */
-    private List<String> verify(CompositionRequest request, PlanInstanceHeader header, WorkflowDefinition unit) {
+    private List<String> verify(CompositionRequest request, PlanInstanceHeader header, WorkflowDefinition unit,
+            Optional<PlanInstanceHeader.Lane> lane, Map<String, Set<String>> settled) {
         var found = new ArrayList<String>();
         HeaderSchemaCheck.check(header).forEach(violation -> found.add("header '%s': %s"
                 .formatted(violation.pointer(), violation.reason())));
@@ -200,7 +246,7 @@ public final class PlanInstanceComposer {
         request.subUnits().forEach(subUnit -> catalog.add(subUnit.definition()));
         var validator = new WorkflowValidator(context.registry(), List.of(), context.entityKinds(),
                 context.questionClasses(), context.schemas(), new WorkflowCatalog(catalog));
-        var result = validator.verify(unit);
+        var result = validator.verify(unit, settled);
         result.violations().forEach(violation -> found.add("Rule %d (%s) in '%s': %s".formatted(
                 violation.rule().specificationRule(), violation.rule(), violation.stateId(), violation.message())));
         var keptSteps = header.steps().phase6();
@@ -208,7 +254,7 @@ public final class PlanInstanceComposer {
                 .filter(step -> keptSteps.contains(step.name())).toList());
         pipeline.forEach(violation -> found.add("pipeline step '%s' (%s): %s".formatted(violation.stepName(),
                 violation.rule(), violation.message())));
-        invariants.check(unit, result, pipeline).stream()
+        invariants.check(unit, result, pipeline, lane.map(PlanInstanceHeader.Lane::wireName)).stream()
                 .filter(violation -> !CompiledInvariants.reReports(violation, unit, result))
                 .forEach(violation -> found.add("%s in '%s': %s".formatted(violation.id().wireId(),
                         violation.stateId(), violation.message())));

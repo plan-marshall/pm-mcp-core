@@ -60,7 +60,7 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 |`job`
 |`plan.remediate-qgate` (`fix_requested`).
 |`job llm task-revision role plan`, a multi-submit entity: `facts.qgate_findings`; the repeatable `revise:TASK-NNN` (`submit`) per task with a blocking finding: targeted revision, never adds or deletes tasks; one closing submit: `revalidate`, refused with `fix_unchanged` while no task changed, or `loop_back_outline` (rel `loop_back`, `reason:text[1..2000]`, guarded by the compiled loop-back budget `1` (link:../timeouts/01-job-budgets-and-waits.adoc#loop-back-outline-budget[Timeouts & Budgets Specification, Outline Loop-Back Budget]), raisable only as `fix_budget:outline-loop-back`; no `in_worktree` guard, since a Phase 4 plan has a worktree only after a loop-back from Phase 5) for structural findings.
-|`revalidate` -> `plan.qgate`; `loop_back_outline` -> `outline.route-rework` (phase set back to `phase-3-outline`); `infeasible`, `lost` -> `plan.return`.
+|`revalidate` -> `plan.qgate`; `loop_back_outline` -> the phase's exit `loop_back_outline`, on which the plan unit calls the phase `outline` again at the authoring entry of the calling lane (`outline.deep` for `deep`, `outline.light-regate` for `light`; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_deterministic_task_derivation_dag_cycle_detection[Phase Workflows Specification, Targeted Task Revision]; link:../workflow-dsl/07-loop-back-diagrams-verification.adoc#loop-back-bounds[Workflow DSL Specification, Loop-Back Bounds]
 |===
 

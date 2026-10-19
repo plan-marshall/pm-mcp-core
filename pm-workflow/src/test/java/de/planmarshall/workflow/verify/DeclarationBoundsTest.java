@@ -19,9 +19,15 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 
@@ -29,6 +35,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.Generators;
@@ -39,15 +47,19 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.RefusalRule;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.plan.PlanFacts;
 import de.planmarshall.workflow.verify.InvariantFixtures.Mutation;
 
 /**
  * The compiled declaration bounds of the adjudication and the re-planning unit (PM-IMPL-5, PM-WF-17, PM-WF-18), over
- * the units of {@code unit-fixtures/defaults/}, which declare the shipped values. Every bound has a refusing fixture,
+ * the units of {@code unit-fixtures/defaults/}, which declare the shipped values, and of the method and asking variants
+ * of the plan behaviour axes (PM-WF-25), over variant units written in the tests. Every bound has a refusing fixture,
  * named {@code declaration_invalid} at the file and the line of the offending {@code declare} or {@code decide} line,
  * and at the unit header for a missing declaration. A name or a decision kind declared twice, a decision kind outside
  * the closed set and an empty quorum are refused by the parser before the bounds are checked. A value below an
- * integer bound of {@code 0} cannot be written, since the language has no negative integer.
+ * integer bound of {@code 0} cannot be written, since the language has no negative integer; the empty list {@code []}
+ * can, so the asking variants that wait after no phase declare their shipped {@code wait_after} like every other
+ * variant.
  */
 @EnableGeneratorController
 @DisplayName("DeclarationBounds")
@@ -147,7 +159,7 @@ class DeclarationBoundsTest {
             var unit = InvariantFixtures.mutatedUnit(mutation);
 
             var found = InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
-                    List.of());
+                    List.of(), Optional.empty());
 
             assertEquals(List.of(new Located("INV-ADJ-1", ADJUDICATION_FILE,
                             InvariantFixtures.lineOf(mutation.applied(), "declare vote_wait_seconds"))),
@@ -265,6 +277,230 @@ class DeclarationBoundsTest {
                 .flatMap(unit -> DeclarationBounds.schema(unit).orElseThrow().stream())
                 .filter(declaration -> declaration.bound() instanceof DeclarationBounds.IntRange)
                 .map(DeclarationBounds.Declaration::name).toList();
+    }
+
+    /** The file name of every variant unit written in these tests. */
+    private static final String VARIANT_FILE = "variant.pmwf";
+
+    /**
+     * A variant unit written for the tests, never copied from the product: one pass state and the {@code continue}
+     * terminal, with the given {@code declare} lines.
+     */
+    private static String variant(String id, String... declarations) {
+        var prefix = id.replace('.', '-');
+        return """
+                ---
+                name: %1$s
+                description: A unit written for the tests of pm-workflow.
+                type: subworkflow
+                entry: main
+                exit: continue
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow %1$s version 1 format 1
+                scope subworkflow
+                %3$s
+                entry main -> %2$s.pass
+
+                state %2$s.pass
+                    phase inherit
+                    auto test.proceed
+                        done -> %2$s.done
+
+                state %2$s.done terminal continue success
+                    phase inherit
+                """.formatted(id, prefix, String.join("\n", declarations));
+    }
+
+    /** The asking variant that waits after every phase but the outline, with its shipped declarations. */
+    private static String everyPhase() {
+        return variant(DeclarationBounds.ASK_EVERY_PHASE, "declare wait_after = [init, refine, plan, execute]",
+                "declare outline_review = true", "declare self_merge = false");
+    }
+
+    private static String invalidValue() {
+        return "not_" + Generators.letterStrings(3, 10).next().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * The declaration schemas of the method and asking variants (PM-WF-25): each choice an enumeration value or a
+     * list of them, never an integer, {@code true} and {@code false} two values of an enumeration; the shipped values
+     * are those the specification states for each variant.
+     */
+    @Nested
+    @DisplayName("Axis variants")
+    class AxisVariants {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.DeclarationBoundsTest#variantSchemas")
+        @DisplayName("each variant has its schema with the shipped values the specification states")
+        void shippedValues(String variant, Map<String, CallValue> shipped) {
+            var schema = DeclarationBounds.schema(variant).orElseThrow();
+
+            assertAll(variant,
+                    () -> assertEquals(List.copyOf(shipped.keySet()),
+                            schema.stream().map(DeclarationBounds.Declaration::name).toList()),
+                    () -> schema.forEach(declaration -> assertEquals(shipped.get(declaration.name()),
+                            declaration.shipped(), declaration::name)),
+                    () -> schema.forEach(declaration -> assertTrue(declaration.bound().admits(declaration.shipped()),
+                            declaration::name)),
+                    () -> assertTrue(schema.stream().allMatch(declaration ->
+                                    declaration.bound() instanceof DeclarationBounds.EnumOf
+                                            || declaration.bound() instanceof DeclarationBounds.EnumListOf),
+                            schema::toString));
+        }
+
+        /*
+         * The landing axis has no schema by design, so only the method and the asking axis are compared. The schema
+         * keys are read off the unit identifiers DeclarationBounds publishes, which are the keys of its schemas.
+         */
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = PlanFacts.Axis.class, names = {"METHOD", "ASKING"})
+        @DisplayName("every variant of the axis has a schema, and every variant schema is of a variant of an axis")
+        void axisVariantsMatchSchemas(PlanFacts.Axis axis) throws Exception {
+            var schemaAxes = EnumSet.of(PlanFacts.Axis.METHOD, PlanFacts.Axis.ASKING);
+            var variantSchemaKeys = new TreeSet<>(publishedUnitIds());
+            variantSchemaKeys.removeIf(unitId -> DeclarationBounds.schema(unitId).isEmpty());
+            variantSchemaKeys.removeAll(List.of(DeclarationBounds.ADJUDICATION_UNIT, DeclarationBounds.REPLAN_UNIT));
+
+            assertAll(axis.wireName(),
+                    () -> axis.variants().forEach(variant -> assertTrue(
+                            DeclarationBounds.schema(variant).isPresent(), variant)),
+                    () -> assertTrue(variantSchemaKeys.containsAll(axis.variants()), variantSchemaKeys::toString),
+                    () -> variantSchemaKeys.forEach(unitId -> assertTrue(PlanFacts.Axis.ofVariant(unitId)
+                            .filter(schemaAxes::contains).isPresent(), unitId)));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.DeclarationBoundsTest#writableVariants")
+        @DisplayName("a variant unit that declares its shipped values passes")
+        void variantUnitPasses(String name, String source) {
+            assertEquals(List.of(), check(VARIANT_FILE, source), name);
+        }
+
+        @Test
+        @DisplayName("an asking variant declares the empty wait_after, which its compiled list bound admits")
+        void emptyWaitAfterCompiles() {
+            var source = everyPhase().replace("[init, refine, plan, execute]", "[]");
+            var unit = InvariantFixtures.parse(VARIANT_FILE, source, UnitOrigin.PROJECT);
+
+            assertAll(
+                    () -> assertEquals(new CallValue.EnumList(List.of()),
+                            unit.declarations().get(DeclarationBounds.WAIT_AFTER).value()),
+                    () -> assertEquals(List.of(), DeclarationBounds.check(unit)));
+        }
+
+        @Test
+        @DisplayName("an asking variant may change a choice to another value of its enumeration")
+        void designedChoicePasses() {
+            var designed = everyPhase().replace("declare self_merge = false", "declare self_merge = true")
+                    .replace("[init, refine, plan, execute]", "[outline]");
+
+            assertEquals(List.of(), check(VARIANT_FILE, designed));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.DeclarationBoundsTest#variantRefusals")
+        @DisplayName("a value outside its enumeration, of another kind, or missing is refused declaration_invalid")
+        void refused(String description, String source, String name, String anchor, String boundText) {
+            var findings = check(VARIANT_FILE, source);
+
+            assertAll(description,
+                    () -> assertEquals(List.of(new Located(name, VARIANT_FILE,
+                            InvariantFixtures.lineOf(source, anchor))), findings.stream().map(Located::of).toList()),
+                    () -> assertEquals(boundText, findings.getFirst().bound()));
+        }
+
+        @Test
+        @DisplayName("the enumeration bounds describe themselves and admit only their kind and values")
+        void enumBounds() {
+            var choice = new DeclarationBounds.EnumOf(List.of("true", "false"));
+            var phases = new DeclarationBounds.EnumListOf(List.of("init", "refine"));
+
+            assertAll(
+                    () -> assertEquals("enum[true|false]", choice.describe()),
+                    () -> assertTrue(choice.admits(new CallValue.EnumValue("false"))),
+                    () -> assertFalse(choice.admits(new CallValue.EnumValue(invalidValue()))),
+                    () -> assertFalse(choice.admits(new CallValue.EnumList(List.of("true")))),
+                    () -> assertFalse(choice.admits(new CallValue.IntValue(1))),
+                    () -> assertEquals("list<enum[init|refine]>", phases.describe()),
+                    () -> assertTrue(phases.admits(new CallValue.EnumList(List.of()))),
+                    () -> assertTrue(phases.admits(new CallValue.EnumList(List.of("refine", "init")))),
+                    () -> assertFalse(phases.admits(new CallValue.EnumList(List.of("init", "plan")))),
+                    () -> assertFalse(phases.admits(new CallValue.EnumValue("init"))));
+        }
+    }
+
+    /**
+     * @return the values of the public text constants of {@link DeclarationBounds}, among them every unit identifier
+     *         its schemas are keyed by
+     */
+    private static List<String> publishedUnitIds() throws IllegalAccessException {
+        var values = new ArrayList<String>();
+        for (var field : DeclarationBounds.class.getFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && field.getType() == String.class) {
+                values.add((String) field.get(null));
+            }
+        }
+        return values;
+    }
+
+    static Stream<Arguments> variantSchemas() {
+        return Stream.of(
+                Arguments.of("method.test-first", Map.of("order", new CallValue.EnumValue("tests_first"))),
+                Arguments.of("method.tests-after", Map.of("order", new CallValue.EnumValue("tests_after"))),
+                Arguments.of("ask.every-phase", asking(List.of("init", "refine", "plan", "execute"), "true",
+                        "false")),
+                Arguments.of("ask.key-points", asking(List.of(), "true", "false")),
+                Arguments.of("ask.questions-only", asking(List.of(), "false", "true")));
+    }
+
+    private static Map<String, CallValue> asking(List<String> waitAfter, String outlineReview, String selfMerge) {
+        var declarations = new LinkedHashMap<String, CallValue>();
+        declarations.put("wait_after", new CallValue.EnumList(waitAfter));
+        declarations.put("outline_review", new CallValue.EnumValue(outlineReview));
+        declarations.put("self_merge", new CallValue.EnumValue(selfMerge));
+        return declarations;
+    }
+
+    static Stream<Arguments> writableVariants() {
+        return Stream.of(
+                Arguments.of("method.test-first", variant("method.test-first", "declare order = tests_first")),
+                Arguments.of("method.tests-after", variant("method.tests-after", "declare order = tests_after")),
+                Arguments.of("ask.every-phase", everyPhase()),
+                Arguments.of(DeclarationBounds.ASK_KEY_POINTS, variant(DeclarationBounds.ASK_KEY_POINTS,
+                        "declare wait_after = []", "declare outline_review = true", "declare self_merge = false")),
+                Arguments.of(DeclarationBounds.ASK_QUESTIONS_ONLY, variant(DeclarationBounds.ASK_QUESTIONS_ONLY,
+                        "declare wait_after = []", "declare outline_review = false", "declare self_merge = true")));
+    }
+
+    static Stream<Arguments> variantRefusals() {
+        var order = invalidValue();
+        var choice = invalidValue();
+        var phase = invalidValue();
+        return Stream.of(
+                Arguments.of("an order outside its enumeration",
+                        variant("method.test-first", "declare order = " + order), "order", "declare order",
+                        "enum[tests_first|tests_after]"),
+                Arguments.of("an order given as an integer", variant("method.tests-after", "declare order = 1"),
+                        "order", "declare order", "enum[tests_first|tests_after]"),
+                Arguments.of("self_merge outside true and false",
+                        everyPhase().replace("declare self_merge = false", "declare self_merge = " + choice),
+                        "self_merge", "declare self_merge", "enum[true|false]"),
+                Arguments.of("outline_review given as a list",
+                        everyPhase().replace("declare outline_review = true", "declare outline_review = [true]"),
+                        "outline_review", "declare outline_review", "enum[true|false]"),
+                Arguments.of("wait_after with a phase outside the phases",
+                        everyPhase().replace("[init, refine, plan, execute]", "[init, " + phase + "]"),
+                        "wait_after", "declare wait_after", "list<enum[init|refine|outline|plan|execute]>"),
+                Arguments.of("wait_after given as one value",
+                        everyPhase().replace("[init, refine, plan, execute]", "init"),
+                        "wait_after", "declare wait_after", "list<enum[init|refine|outline|plan|execute]>"),
+                Arguments.of("a missing self_merge",
+                        everyPhase().replace("declare self_merge = false", ""),
+                        "self_merge", "workflow ask.every-phase", "enum[true|false]"));
     }
 
     @Test

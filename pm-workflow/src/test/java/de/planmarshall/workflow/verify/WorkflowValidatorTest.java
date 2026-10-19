@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -801,6 +802,39 @@ class WorkflowValidatorTest {
                     () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule()),
                     () -> assertTrue(found.getFirst().message().contains(fragment), found::toString));
         }
+
+        /** A job state whose {@code cancelled} led into a state a composition pruned, so the transition is gone. */
+        private static WorkflowDefinition withoutCancelled() {
+            return unit("workspace", "state verify.entry\nphase verify\njob test.build\n"
+                    + "succeeded -> verify.done\nfailed -> verify.done\n" + DONE_TERMINAL);
+        }
+
+        @Test
+        @DisplayName("Should count an outcome a prune record settles as routed")
+        void shouldAdmitOutcomeSettledByPrune() {
+            var found = validator.verify(withoutCancelled(), Map.of("verify.entry", Set.of("cancelled")))
+                    .violations();
+
+            assertEquals(List.of(), found);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.verify.WorkflowValidatorTest#unsettledPrunes")
+        @DisplayName("Should still refuse an unrouted outcome no prune record settles")
+        void shouldRefuseOutcomeWithoutPruneRecord(String description, Map<String, Set<String>> settled) {
+            var found = validator.verify(withoutCancelled(), settled).violations();
+
+            assertAll(description, () -> assertEquals(1, found.size(), found::toString),
+                    () -> assertEquals(VerificationRule.OUTCOME_COVERAGE, found.getFirst().rule()),
+                    () -> assertTrue(found.getFirst().message().contains("'cancelled'"), found::toString));
+        }
+    }
+
+    static Stream<Arguments> unsettledPrunes() {
+        return Stream.of(
+                Arguments.of("a unit verified without prune records", Map.of()),
+                Arguments.of("a record of another state", Map.of("verify.done", Set.of("cancelled"))),
+                Arguments.of("a record of another outcome", Map.of("verify.entry", Set.of("failed"))));
     }
 
     @Nested
@@ -1129,9 +1163,13 @@ class WorkflowValidatorTest {
         @DisplayName("Should refuse a null argument")
         void shouldRefuseNull() {
             var registry = TestPrimitives.registry();
+            Map<String, Set<String>> noEntries = Map.of();
+            var workspace = unit("workspace", DONE_TERMINAL);
             assertAll(() -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(null, RELEASED)),
                     () -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(registry, null)),
-                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null)));
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null)),
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null, noEntries)),
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(workspace, null)));
         }
     }
 }

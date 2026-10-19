@@ -71,6 +71,9 @@ class CompiledInvariantsTest {
     /** The header of the merged plan unit, where a violation of the unit as a whole is located. */
     private static final String PLAN_HEADER = "workflow plan version 1 format 1";
 
+    /** The lane of a template, unknown, which {@code ProjectUnitLoader} checks a project unit with. */
+    private static final Optional<String> UNKNOWN_LANE = Optional.empty();
+
     private static final Map<InvariantId, RefusingCase> CASES = refusingCases();
 
     private static List<PipelineViolation> pipelineOf(WorkflowDefinition unit, List<FinalizeStepDescriptor> roster) {
@@ -104,7 +107,7 @@ class CompiledInvariantsTest {
             var rules = InvariantFixtures.validator().verify(unit);
 
             var found = InvariantFixtures.invariants().check(unit, rules,
-                    pipelineOf(unit, InvariantFixtures.defaultRoster()));
+                    pipelineOf(unit, InvariantFixtures.defaultRoster()), UNKNOWN_LANE);
 
             assertEquals(List.of(), found);
         }
@@ -176,7 +179,8 @@ class CompiledInvariantsTest {
             var rules = InvariantFixtures.validator().verify(unit);
             var expectedLine = InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor());
 
-            var found = InvariantFixtures.invariants().check(unit, rules, pipelineOf(unit, refusing.projectRoster()));
+            var found = InvariantFixtures.invariants().check(unit, rules, pipelineOf(unit, refusing.projectRoster()),
+                    UNKNOWN_LANE);
 
             assertTrue(found.stream().anyMatch(violation -> violation.id() == id
                             && refusing.anchorFile().equals(violation.location().resourceName())
@@ -221,7 +225,7 @@ class CompiledInvariantsTest {
             var unit = InvariantFixtures.parse("unknown.pmwf", source, UnitOrigin.PROJECT);
 
             var found = InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
-                    List.of());
+                    List.of(), UNKNOWN_LANE);
 
             assertEquals(List.of(new InvariantLocation(InvariantId.INV_GEN_1, "unknown.pmwf",
                             InvariantFixtures.lineOf(source, "workflow test.unknown"))),
@@ -234,7 +238,7 @@ class CompiledInvariantsTest {
             var unit = InvariantFixtures.mutatedUnit(new Mutation("two violations", REMEDIATION_FILE,
                     "composite_job test.waiver-wait", "job test.waiver-wait"));
             var found = InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
-                    List.of());
+                    List.of(), UNKNOWN_LANE);
             var order = List.copyOf(unit.states().keySet());
 
             var positions = found.stream().map(violation -> order.indexOf(violation.stateId()))
@@ -243,6 +247,113 @@ class CompiledInvariantsTest {
             assertAll(
                     () -> assertFalse(found.isEmpty()),
                     () -> assertEquals(positions.stream().sorted().toList(), positions));
+        }
+    }
+
+    @Nested
+    @DisplayName("INV-INIT-2 per lane")
+    class LightLanePerLane {
+
+        /** The location of a violation of the unit as a whole: the header of the merged plan unit. */
+        private static final InvariantLocation AT_HEADER = new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
+                InvariantFixtures.lineOf(InvariantFixtures.read(INIT_FILE), PLAN_HEADER));
+
+        private static List<InvariantLocation> lightLane(WorkflowDefinition unit, Optional<String> lane) {
+            return InvariantFixtures.invariants()
+                    .check(unit, InvariantFixtures.validator().verify(unit),
+                            pipelineOf(unit, InvariantFixtures.defaultRoster()), lane)
+                    .stream().filter(violation -> violation.id() == InvariantId.INV_INIT_2)
+                    .map(InvariantLocation::of).toList();
+        }
+
+        private static WorkflowDefinition withoutLightRoute() {
+            return InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, InvariantFixtures.WITHOUT_LIGHT_ROUTE)
+                    .get(PLAN_UNIT);
+        }
+
+        static Stream<Optional<String>> lanesWithoutRatchet() {
+            return Stream.of(Optional.of("deep"), Optional.of("land"), Optional.of("adopt"));
+        }
+
+        static Stream<Optional<String>> lanesWithRatchet() {
+            return Stream.of(Optional.of(InitInvariants.LANE_LIGHT), UNKNOWN_LANE);
+        }
+
+        @ParameterizedTest(name = "lane {0}")
+        @MethodSource("lanesWithoutRatchet")
+        @DisplayName("a unit without the light route passes for a lane that owes no ratchet")
+        void withoutLightRoutePasses(Optional<String> lane) {
+            var unit = withoutLightRoute();
+
+            assertAll(
+                    () -> InvariantFixtures.LIGHT_ROUTE.forEach(state -> assertFalse(unit.states()
+                            .containsKey(state), state)),
+                    () -> assertEquals(List.of(), lightLane(unit, lane)));
+        }
+
+        @ParameterizedTest(name = "lane {0}")
+        @MethodSource("lanesWithRatchet")
+        @DisplayName("a unit without the light route fails for the lane light or an unknown lane, the ratchet of"
+                + " both gates missing")
+        void withoutLightRouteRefusedWhereRatchetOwed(Optional<String> lane) {
+            var found = lightLane(withoutLightRoute(), lane);
+
+            assertEquals(List.of(AT_HEADER, AT_HEADER, AT_HEADER, AT_HEADER), found,
+                    "the two transitions of init.light-gate and the two of outline.light-regate");
+        }
+
+        @ParameterizedTest(name = "lane {0}")
+        @MethodSource("lanesWithRatchet")
+        @DisplayName("a unit whose light gate lacks the ratchet fails for the lane light or an unknown lane, at the"
+                + " gate")
+        void withoutRatchetRefused(Optional<String> lane) {
+            var mutation = InvariantFixtures.WITHOUT_RATCHET;
+
+            var found = lightLane(InvariantFixtures.mutatedUnit(mutation), lane);
+
+            assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
+                    InvariantFixtures.lineOf(mutation.applied(), "state init.light-gate"))), found);
+        }
+
+        @ParameterizedTest(name = "lane {0}")
+        @MethodSource("lanesWithoutRatchet")
+        @DisplayName("a unit whose light gate lacks the ratchet passes for a lane that owes no ratchet")
+        void withoutRatchetPassesWhereNoneOwed(Optional<String> lane) {
+            assertEquals(List.of(), lightLane(InvariantFixtures.mutatedUnit(InvariantFixtures.WITHOUT_RATCHET), lane));
+        }
+
+        @Test
+        @DisplayName("the light exit of init.ready a removed light route leaves is refused by Rule 2 for a caller"
+                + " without prune records")
+        void unsettledLightExitRefused() {
+            var result = InvariantFixtures.validator().verify(withoutLightRoute());
+
+            assertEquals(List.of("the state 'init.ready' does not route the outcome 'light' of the primitive"
+                    + " 'test.lane'"), result.violations().stream()
+                    .filter(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE)
+                    .map(Violation::message).toList());
+        }
+
+        @Test
+        @DisplayName("the light exit of init.ready settled by a prune record passes Rule 2")
+        void settledLightExitPasses() {
+            var result = InvariantFixtures.validator().verify(withoutLightRoute(),
+                    Map.of(InitInvariants.READY, Set.of(InitInvariants.LANE_LIGHT)));
+
+            assertEquals(List.of(), result.violations().stream()
+                    .filter(violation -> violation.rule() == VerificationRule.OUTCOME_COVERAGE).toList());
+        }
+
+        @ParameterizedTest(name = "lane {0}")
+        @MethodSource("lanesWithoutRatchet")
+        @DisplayName("the path clauses hold for every lane wherever outline.light is a state of the unit")
+        void pathClausesForEveryLane(Optional<String> lane) {
+            var refusing = CASES.get(InvariantId.INV_INIT_2);
+
+            var found = lightLane(refusing.unit(), lane);
+
+            assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, refusing.anchorFile(),
+                    InvariantFixtures.lineOf(refusing.anchorText(), refusing.anchor()))), found);
         }
     }
 
@@ -267,7 +378,8 @@ class CompiledInvariantsTest {
         }
 
         private static List<InvariantViolation> generalOne(WorkflowDefinition unit) {
-            return InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit), List.of())
+            return InvariantFixtures.invariants()
+                    .check(unit, InvariantFixtures.validator().verify(unit), List.of(), UNKNOWN_LANE)
                     .stream().filter(violation -> violation.id() == InvariantId.INV_GEN_1).toList();
         }
 
@@ -317,7 +429,7 @@ class CompiledInvariantsTest {
 
             return InvariantFixtures.invariants(defaults, subject)
                     .check(unit, InvariantFixtures.validator().verify(unit),
-                            pipelineOf(unit, InvariantFixtures.defaultRoster()))
+                            pipelineOf(unit, InvariantFixtures.defaultRoster()), UNKNOWN_LANE)
                     .stream()
                     .filter(violation -> violation.id() == InvariantId.INV_GEN_1
                             && violation.message().startsWith("the type "))
@@ -355,7 +467,7 @@ class CompiledInvariantsTest {
             var found = InvariantFixtures
                     .invariants(InvariantFixtures.defaultUnits().values(),
                             CompiledInvariants.Subject.COMPOSED_INSTANCE)
-                    .check(unit, InvariantFixtures.validator().verify(unit), List.of());
+                    .check(unit, InvariantFixtures.validator().verify(unit), List.of(), UNKNOWN_LANE);
 
             assertTrue(found.stream().anyMatch(violation -> violation.id() == InvariantId.INV_GEN_1
                     && "the type 'task' differs from the type 'subworkflow' of the default unit"
@@ -370,7 +482,7 @@ class CompiledInvariantsTest {
         private static List<InvariantViolation> checkMutatedPlanUnit(String file, String find, String replace) {
             var unit = InvariantFixtures.mutatedUnit(new Mutation("spend limit removal", file, find, replace));
             return InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
-                    pipelineOf(unit, InvariantFixtures.defaultRoster()));
+                    pipelineOf(unit, InvariantFixtures.defaultRoster()), UNKNOWN_LANE);
         }
 
         @Test
@@ -423,7 +535,7 @@ class CompiledInvariantsTest {
             defaults.add(reference);
             var invariants = InvariantFixtures.invariants(defaults, CompiledInvariants.Subject.PROJECT_REPLACEMENT);
 
-            var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of());
+            var found = invariants.check(unit, InvariantFixtures.validator().verify(unit), List.of(), UNKNOWN_LANE);
 
             assertAll(
                     () -> assertEquals(Set.of("the unit does not declare the parameter 'retry_budget'",
@@ -566,7 +678,7 @@ class CompiledInvariantsTest {
                         OUTLINE_FILE, "resolved -> outline.gate", "resolved -> plan.derive",
                         "resolved -> plan.derive"),
                 change(InvariantId.INV_OUTLINE_2, "the deep lane skips outline.qgate", OUTLINE_FILE,
-                        "done -> outline.qgate", "done -> outline.gate", "done -> outline.gate"),
+                        "approved -> outline.qgate", "approved -> outline.gate", "approved -> outline.gate"),
                 change(InvariantId.INV_PLAN_1, "the blocking verdict of plan.qgate calls no remediation", PLAN_FILE,
                         "blocking -> plan.remediate", "blocking -> plan.compose", "blocking -> plan.compose"),
                 changeAt(InvariantId.INV_EXEC_1, "the envelope task runs before the worktree initialization",
@@ -646,9 +758,13 @@ class CompiledInvariantsTest {
         var subject = CompiledInvariants.Subject.PROJECT_REPLACEMENT;
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> invariants.check(null, rules, List.of())),
-                () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, null, List.of())),
-                () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, rules, null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> invariants.check(null, rules, List.of(), UNKNOWN_LANE)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> invariants.check(unit, null, List.of(), UNKNOWN_LANE)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> invariants.check(unit, rules, null, UNKNOWN_LANE)),
+                () -> assertThrows(NullPointerException.class, () -> invariants.check(unit, rules, List.of(), null)),
                 () -> assertThrows(NullPointerException.class,
                         () -> new CompiledInvariants(registry, noUnits, null, subject)),
                 () -> assertThrows(NullPointerException.class,

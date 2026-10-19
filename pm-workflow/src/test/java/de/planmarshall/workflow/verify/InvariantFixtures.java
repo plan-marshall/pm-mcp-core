@@ -103,7 +103,91 @@ public final class InvariantFixtures {
     static final Mutation INTERFACE_BINDING = new Mutation("another entry binding", REPLAN_FILE,
             "entry main -> replan.assess", "entry main -> replan.apply");
 
+    /** The phase file of the init phase, which holds the split of the lanes at {@code init.ready}. */
+    public static final String INIT_FILE = "init.pmwf";
+
+    /** The phase file of the outline phase, which holds the authoring states of both lanes. */
+    public static final String OUTLINE_FILE = "outline.pmwf";
+
+    /**
+     * The states of the light route of the merged plan unit: those reachable from {@code init.light-gate} and not from
+     * {@code refine.baseline-reconcile}, in declaration order.
+     */
+    public static final List<String> LIGHT_ROUTE = List.of("init.light-gate", "outline.light",
+            "outline.light-regate", "outline.light-review");
+
+    /**
+     * The shared states before the split of the lanes: every state reachable from {@code init.begin} without taking a
+     * lane exit of {@code init.ready}, in declaration order.
+     */
+    public static final List<String> BEFORE_SPLIT = List.of("init.begin", "init.classify", "init.clarify",
+            "init.stamp", "init.ready");
+
+    /**
+     * {@code init.light-gate} without its {@code light -> deep} ratchet: its {@code deep} outcome stays routed, into
+     * the fallback {@code plan.return}, so every outcome of the unit is routed and only the ratchet transition of the
+     * default unit is missing.
+     */
+    public static final Mutation WITHOUT_RATCHET = new Mutation("init.light-gate without the light -> deep ratchet",
+            INIT_FILE, "        pass -> outline.light\n        deep -> refine.baseline-reconcile\n",
+            "        pass -> outline.light\n        deep -> plan.return\n");
+
+    /**
+     * The changes that remove the light route from the plan unit, as a {@code deep} version holds it: the light exit
+     * of {@code init.ready}, {@code init.light-gate} and the authoring states of the light lane. The outcome
+     * {@code light} of {@code init.ready} is left unrouted, as in a composed {@code deep} version.
+     */
+    public static final List<Mutation> WITHOUT_LIGHT_ROUTE = List.of(
+            new Mutation("init.ready without its light exit", INIT_FILE, "        light -> init.light-gate\n", ""),
+            new Mutation("without init.light-gate", INIT_FILE, """
+
+                    state init.light-gate
+                        phase init
+                        auto test.gate
+                            pass -> outline.light
+                            deep -> refine.baseline-reconcile
+                    """, ""),
+            new Mutation("without the authoring states of the light lane", OUTLINE_FILE, """
+                    state outline.light
+                        phase outline
+                        auto test.proceed
+                            done -> outline.light-regate
+
+                    state outline.light-regate
+                        phase outline
+                        auto test.gate
+                            pass -> outline.light-review
+                            deep -> outline.deep
+
+                    state outline.light-review
+                        phase outline
+                        job test.build
+                            succeeded -> outline.gate
+                            failed -> outline.light-regate
+                            cancelled -> plan.return
+
+                    """, ""));
+
     private InvariantFixtures() {
+    }
+
+    /**
+     * @param origin the origin the files are parsed with
+     * @return the passing units by identifier, the merged plan unit first
+     */
+    public static Map<String, WorkflowDefinition> passingUnits(UnitOrigin origin) {
+        return units(sources(), origin);
+    }
+
+    /**
+     * @param origin    the origin the files are parsed with
+     * @param mutations named changes, applied in order, each to the text the earlier ones left
+     * @return the units by identifier after the changes, the merged plan unit first
+     */
+    public static Map<String, WorkflowDefinition> mutatedUnits(UnitOrigin origin, List<Mutation> mutations) {
+        var sources = sources();
+        mutations.forEach(mutation -> sources.put(mutation.file(), mutation.apply(sources.get(mutation.file()))));
+        return units(sources, origin);
     }
 
     /**
@@ -258,6 +342,7 @@ public final class InvariantFixtures {
                 new Declared<>("test.route", RouteOutcome.class),
                 new Declared<>("test.next-task", NextTaskOutcome.class),
                 new Declared<>("test.merge", MergeOutcome.class),
+                new Declared<>("test.merge-barrier", BarrierOutcome.class),
                 new Declared<>("test.deliver", DeliverOutcome.class),
                 new Declared<>("test.evaluate-decision", DecisionOutcome.class),
                 new Declared<>(TestPrimitives.CHECK_BUDGETS, BudgetOutcome.class),
@@ -386,7 +471,7 @@ public final class InvariantFixtures {
      * @param find    the text it replaces
      * @param replace the text it puts in its place
      */
-    record Mutation(String name, String file, String find, String replace) {
+    public record Mutation(String name, String file, String find, String replace) {
 
         /**
          * @param source the text of the file
@@ -620,6 +705,27 @@ public final class InvariantFixtures {
         @Override
         public OutcomeClass outcomeClass() {
             return outcomeClass;
+        }
+    }
+
+    /** The outcomes of the merge barrier: the merge goes on, or it is left to the operator. */
+    enum BarrierOutcome implements PrimitiveOutcome {
+        PASS("pass"), PASS_HAND_BACK("pass_hand_back");
+
+        private final String wireName;
+
+        BarrierOutcome(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.SUCCESS;
         }
     }
 

@@ -13,10 +13,12 @@ import java.util.ArrayList;
 import java.util.Objects;
 
 /**
- * Evaluates the composition rules against the facts of a plan (PM-IMPL-5, PM-EXT-7): every rule whose condition holds
- * contributes its prunes, each with the rule's reason and the fact the rule read as the source fact, and its bindings;
- * the effects come in rule order and, within a rule, in the order the rule declares them. The evaluation reads nothing
- * but its two arguments.
+ * Evaluates the composition rules against the facts of a plan (PM-IMPL-5, PM-EXT-7, PM-WF-25): every rule whose
+ * condition holds contributes its prunes, each with the rule's reason and the fact the rule read as the source fact, and
+ * its bindings; the effects come in rule order and, within a rule, in the order the rule declares them. A rule over a
+ * declaration of a bound axis variant ({@code axes.asking.self_merge}) reads it through the facts, which carry the
+ * declarations taken from the variant's tree, and names the bound variant of its axis ({@code axes.asking}) as the
+ * source fact ({@link PlanFacts#sourceFact(String)}). The evaluation reads nothing but its two arguments.
  *
  * @since 0.1
  */
@@ -37,7 +39,7 @@ public final class CompositionRuleEvaluator {
         var bindings = new ArrayList<CompositionRule.Binding>();
         for (var rule : rules.rules()) {
             if (rule.when().holds(facts)) {
-                var fact = rule.when().fact();
+                var fact = PlanFacts.sourceFact(rule.when().fact());
                 rule.prunes().forEach(prune -> prunes.add(new PrunedElement(prune.element(), prune.id(),
                         prune.reason(), fact)));
                 bindings.addAll(rule.bindings());

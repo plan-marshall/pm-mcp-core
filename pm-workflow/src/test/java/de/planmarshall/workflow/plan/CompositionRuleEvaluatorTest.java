@@ -14,10 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 
@@ -138,23 +140,6 @@ class CompositionRuleEvaluatorTest {
                             .build())),
                     () -> assertEquals(NOTHING, evaluate(facts().build())));
         }
-
-        @Test
-        @DisplayName("merge.auto_merge false prunes the merge execution and no gate")
-        void autoMergeOff() {
-            assertEquals(new RuleEffects(List.of(
-                                    state("finalize.merge-dispatch", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge"),
-                                    state("finalize.merge-queue-wait", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge"),
-                                    state("finalize.merge-queue-exit", PruneReason.AUTO_MERGE_OFF, "merge.auto_merge")),
-                            List.of()),
-                    evaluate(facts().configuration("merge.auto_merge", "false").build()));
-        }
-
-        @Test
-        @DisplayName("merge.auto_merge true prunes nothing")
-        void autoMergeOn() {
-            assertEquals(NOTHING, evaluate(facts().configuration("merge.auto_merge", "true").build()));
-        }
     }
 
     @Nested
@@ -203,7 +188,7 @@ class CompositionRuleEvaluatorTest {
     }
 
     @Nested
-    @DisplayName("Provider, footprint, change type and recipe")
+    @DisplayName("Provider, footprint and change type")
     class Families {
 
         @Test
@@ -264,20 +249,37 @@ class CompositionRuleEvaluatorTest {
             assertEquals(NOTHING, evaluate(facts().changeType(changeType).build()));
         }
 
-        @Test
-        @DisplayName("the simplify-codebase recipe overrides the simplify step")
-        void recipeOverride() {
-            assertEquals(new RuleEffects(List.of(step("default:finalize-step-simplify",
-                            PruneReason.RECIPE_OVERRIDE, "recipe_id")), List.of()),
-                    evaluate(facts().recipeId("simplify-codebase").build()));
+    }
+
+    @Nested
+    @DisplayName("Merge by operator")
+    class MergeByOperator {
+
+        private static final String VARIANT = "ask.key-points";
+
+        private PlanFacts.Builder selfMerge(String value) {
+            return facts().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PROJECT, VARIANT).declarations(VARIANT,
+                    Map.of("wait_after", new CallValue.EnumList(List.of()), "outline_review",
+                            new CallValue.EnumValue("true"), "self_merge", new CallValue.EnumValue(value)));
         }
 
         @Test
-        @DisplayName("another recipe, or none, keeps the simplify step")
-        void recipeControl() {
+        @DisplayName("an asking variant that declares self_merge false loses the merge execution, sourced to it")
+        void selfMergeFalse() {
+            assertEquals(new RuleEffects(List.of(
+                            state("finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR, "axes.asking"),
+                            state("finalize.merge-queue-wait", PruneReason.MERGE_BY_OPERATOR, "axes.asking"),
+                            state("finalize.merge-queue-exit", PruneReason.MERGE_BY_OPERATOR, "axes.asking")), List.of()),
+                    evaluate(selfMerge("false").build()));
+        }
+
+        @Test
+        @DisplayName("an asking variant that merges by itself, or whose declarations are unknown, keeps it")
+        void selfMergeTrueControl() {
             assertAll(
-                    () -> assertEquals(NOTHING, evaluate(facts().recipeId("lesson-cleanup").build())),
-                    () -> assertEquals(NOTHING, evaluate(facts().build())));
+                    () -> assertEquals(NOTHING, evaluate(selfMerge("true").build())),
+                    () -> assertEquals(NOTHING, evaluate(facts().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PROJECT,
+                            VARIANT).build())));
         }
     }
 
@@ -302,10 +304,9 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("the effects of several rules come in rule order")
         void ruleOrder() {
             var effects = evaluate(PlanFacts.builder().lane(Lane.LAND).posture(Posture.FULL)
-                    .configuration("merge.auto_merge", "false").changeType("analysis").build());
+                    .changeType("analysis").build());
 
-            assertEquals(List.of("lane", "lane", "lane", "lane", "merge.auto_merge", "merge.auto_merge",
-                            "merge.auto_merge", "posture", "posture", SONAR, "change_type"),
+            assertEquals(List.of("lane", "lane", "lane", "lane", "posture", "posture", SONAR, "change_type"),
                     effects.prunes().stream().map(PrunedElement::sourceFact).toList());
         }
 
@@ -376,6 +377,137 @@ class CompositionRuleEvaluatorTest {
         }
     }
 
+    /**
+     * Rules over the plan behaviour axes (PM-WF-25): a rule reads the bound variant ({@code axes.<axis>}) or a
+     * declaration of it ({@code axes.<axis>.<declaration>}), which the facts carry from the variant's tree, and names
+     * the bound variant as the source fact of its prunes.
+     */
+    @Nested
+    @DisplayName("Axis facts")
+    class AxisFacts {
+
+        private static final String EVERY_PHASE = "ask.every-phase";
+
+        private static final String QUESTIONS_ONLY = "ask.questions-only";
+
+        private static final CompositionRules SELF_MERGE = rules("axes.asking.self_merge", "\"equals\": \"false\"");
+
+        private static CompositionRules rules(String fact, String condition) {
+            return assertInstanceOf(CompositionRules.Loaded.class, CompositionRules.parse("""
+                    {"format_version": 1, "revision": "t1", "rules": [{"id": "r", "when": {"fact": "%s", %s},
+                     "then": {"prune": [{"element": "state", "id": "finalize.merge-dispatch",
+                       "reason": "merge_by_operator"}]}}]}""".formatted(fact, condition)
+                    .getBytes(StandardCharsets.UTF_8))).rules();
+        }
+
+        private static Map<String, CallValue> asking(List<String> waitAfter, String selfMerge) {
+            return Map.of("wait_after", new CallValue.EnumList(waitAfter), "outline_review",
+                    new CallValue.EnumValue("true"), "self_merge", new CallValue.EnumValue(selfMerge));
+        }
+
+        @Test
+        @DisplayName("a rule over a declaration of the bound variant holds and names the bound variant as source")
+        void declarationHolds() {
+            var facts = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN, EVERY_PHASE)
+                    .declarations(EVERY_PHASE, asking(List.of("init"), "false")).build();
+
+            assertEquals(List.of(state("finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR, "axes.asking")),
+                    CompositionRuleEvaluator.evaluate(SELF_MERGE, facts).prunes());
+        }
+
+        @Test
+        @DisplayName("the same rule fails for a variant that merges itself and for an unknown declaration")
+        void declarationFailsControl() {
+            var merging = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN, EVERY_PHASE)
+                    .declarations(EVERY_PHASE, asking(List.of("init"), "true")).build();
+            var unknown = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN, EVERY_PHASE)
+                    .build();
+            var otherBound = PlanFacts.builder().declarations(EVERY_PHASE, asking(List.of("init"), "false"))
+                    .build();
+
+            assertAll(
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, merging)),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, unknown)),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(SELF_MERGE, otherBound)));
+        }
+
+        @Test
+        @DisplayName("a rule over the bound variant holds for the nearest level's variant only")
+        void boundVariant() {
+            var rules = rules("axes.asking", "\"equals\": \"" + EVERY_PHASE + "\"");
+            var project = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PROJECT, EVERY_PHASE)
+                    .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.MACHINE, QUESTIONS_ONLY).build();
+            var machine = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.MACHINE, QUESTIONS_ONLY)
+                    .build();
+
+            assertAll(
+                    () -> assertEquals(List.of(state("finalize.merge-dispatch", PruneReason.MERGE_BY_OPERATOR,
+                            "axes.asking")), CompositionRuleEvaluator.evaluate(rules, project).prunes()),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, machine)));
+        }
+
+        @Test
+        @DisplayName("an empty wait_after holds the empty condition, a non-empty one does not")
+        void listDeclaration() {
+            var rules = rules("axes.asking.wait_after", "\"empty\": true");
+            var none = PlanFacts.builder().declarations(QUESTIONS_ONLY, asking(List.of(), "true")).build();
+            var some = PlanFacts.builder().declarations(QUESTIONS_ONLY, asking(List.of("plan"), "true")).build();
+
+            assertAll(
+                    () -> assertEquals(1, CompositionRuleEvaluator.evaluate(rules, none).prunes().size()),
+                    () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, some)),
+                    () -> assertEquals(Optional.of(List.of("plan")), some.list("axes.asking.wait_after")),
+                    () -> assertEquals(Optional.empty(), some.text("axes.asking.wait_after")));
+        }
+
+        @Test
+        @DisplayName("the bound variant is the nearest level's, else the shipped plan default of the axis")
+        void bound() {
+            var facts = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.MACHINE, EVERY_PHASE)
+                    .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN, QUESTIONS_ONLY).build();
+
+            assertAll(
+                    () -> assertEquals(new PlanFacts.BoundVariant(PlanFacts.Axis.ASKING, QUESTIONS_ONLY,
+                            PlanFacts.Level.PLAN), facts.bound(PlanFacts.Axis.ASKING)),
+                    () -> assertEquals("plan.axes.asking", facts.bound(PlanFacts.Axis.ASKING).sourceFact()),
+                    () -> assertEquals(new PlanFacts.BoundVariant(PlanFacts.Axis.METHOD, "method.tests-after",
+                            PlanFacts.Level.SHIPPED), facts.bound(PlanFacts.Axis.METHOD)),
+                    () -> assertEquals(Optional.of("landing.pull-request"), facts.text("axes.landing")),
+                    () -> assertEquals(Optional.empty(), facts.text("axes.method.order")),
+                    () -> assertEquals(Optional.empty(), facts.text("axes.weather")));
+        }
+
+        @Test
+        @DisplayName("a value that is no variant of its axis, the shipped level and a unit that is no variant are "
+                + "refused")
+        void refusals() {
+            var foreignVariant = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN,
+                    "method.test-first");
+            var shippedLevel = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.SHIPPED, EVERY_PHASE);
+            var noVariant = PlanFacts.builder().declarations("replan", Map.of());
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, foreignVariant::build),
+                    () -> assertThrows(IllegalArgumentException.class, shippedLevel::build),
+                    () -> assertThrows(IllegalArgumentException.class, noVariant::build));
+        }
+
+        @Test
+        @DisplayName("the digest changes with a level of an axis and the overrides, never with the declarations")
+        void digest() {
+            var facts = PlanFacts.builder().axis(PlanFacts.Axis.METHOD, PlanFacts.Level.PROJECT,
+                    "method.test-first").build();
+
+            assertAll(
+                    () -> assertNotEquals(facts.digest(), PlanFacts.builder().axis(PlanFacts.Axis.METHOD,
+                            PlanFacts.Level.MACHINE, "method.test-first").build().digest()),
+                    () -> assertNotEquals(facts.digest(), PlanFacts.builder().axis(PlanFacts.Axis.METHOD,
+                            PlanFacts.Level.PROJECT, "method.test-first").overrides("{}").build().digest()),
+                    () -> assertEquals(facts.digest(), facts.withDeclarations("method.test-first",
+                            Map.of("order", new CallValue.EnumValue("tests_first"))).digest()));
+        }
+    }
+
     @Nested
     @DisplayName("Plan facts")
     class Facts {
@@ -384,19 +516,19 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("name every plan fact and every configuration key, and nothing else")
         void accessors() {
             var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
-                    .recipeId("lesson-cleanup").postRun("returned").footprint(List.of("a"))
-                    .configuration("merge.auto_merge", "true").build();
+                    .postRun("returned").footprint(List.of("a")).configuration("derived.push_remote", "origin")
+                    .build();
 
             assertAll(
                     () -> assertEquals(Optional.of("deep"), facts.text("lane")),
                     () -> assertEquals(Optional.of("full"), facts.text("posture")),
                     () -> assertEquals(Optional.of("feature"), facts.text("change_type")),
-                    () -> assertEquals(Optional.of("lesson-cleanup"), facts.text("recipe_id")),
+                    () -> assertEquals(Optional.empty(), facts.text("recipe_id")),
                     () -> assertEquals(Optional.of("returned"), facts.text("post_run")),
                     () -> assertEquals(Optional.empty(), facts.text("footprint")),
                     () -> assertEquals(Optional.of(List.of("a")), facts.list("footprint")),
                     () -> assertEquals(Optional.empty(), facts.list("lane")),
-                    () -> assertEquals(Optional.of("true"), facts.text("merge.auto_merge")),
+                    () -> assertEquals(Optional.of("origin"), facts.text("derived.push_remote")),
                     () -> assertEquals(Optional.empty(), facts.text(SONAR)));
         }
 
@@ -417,7 +549,7 @@ class CompositionRuleEvaluatorTest {
                             .steps(List.of("default:push")).tasks(List.of("TASK-2")).build().digest()),
                     () -> assertNotEquals(facts.digest(), PlanFacts.builder().lane(Lane.DEEP)
                             .steps(List.of("default:push")).tasks(List.of("TASK-1"))
-                            .configuration("merge.auto_merge", "false").build().digest()));
+                            .configuration("derived.push_remote", "").build().digest()));
         }
     }
 }

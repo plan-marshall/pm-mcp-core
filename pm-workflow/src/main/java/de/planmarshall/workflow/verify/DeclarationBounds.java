@@ -22,13 +22,20 @@ import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
- * The compiled declaration schemas of the units that take a decision with declared parameters, and the check of a
- * unit's {@code declare} and {@code decide} lines against them (PM-IMPL-5, PM-WF-17, PM-WF-18).
+ * The compiled declaration schemas of the units that declare parameters, and the check of a unit's {@code declare} and
+ * {@code decide} lines against them (PM-IMPL-5, PM-WF-17, PM-WF-18, PM-WF-25).
  * <p>
  * A schema is the closed set of the names a unit declares, each with its type, its bounds and its shipped value. The
- * schemas exist for {@value #ADJUDICATION_UNIT} and {@value #REPLAN_UNIT}; a unit declares every name of its schema
- * exactly once, and a unit without a schema declares nothing. The bounds admit the shipped value and stricter values
- * only. The unit {@value #ADJUDICATION_UNIT} alone also carries the {@code decide} lines: each of the closed decision
+ * schemas exist for {@value #ADJUDICATION_UNIT} and {@value #REPLAN_UNIT}, which take a decision with declared
+ * parameters, and for the variants of the method and the asking axis, which declare their choices: the method variants
+ * {@value #METHOD_TEST_FIRST} and {@value #METHOD_TESTS_AFTER} the {@value #ORDER} of a deliverable's tasks, the asking
+ * variants {@value #ASK_EVERY_PHASE}, {@value #ASK_KEY_POINTS} and {@value #ASK_QUESTIONS_ONLY} the phases after
+ * which the plan waits for the operator ({@value #WAIT_AFTER}), whether the outline is reviewed ({@value #OUTLINE_REVIEW}) and whether the
+ * plan merges itself ({@value #SELF_MERGE}). A variant's choices are enumeration values and lists of them, never a
+ * boolean value: {@code true} and {@code false} are the two values of an enumeration. A unit declares every name of its
+ * schema exactly once, and a unit without a schema declares nothing. The integer bounds admit the shipped value and
+ * stricter values only; an enumeration bound admits every value of its enumeration, so a designed variant may change
+ * its choice. The unit {@value #ADJUDICATION_UNIT} alone also carries the {@code decide} lines: each of the closed decision
  * kinds ({@link DecisionDeclaration#DECISION_KINDS}, the one set the parser reads as well) at most once, {@code ask} or a quorum of {@value #MIN_QUORUM_ROLES} to {@value #MAX_QUORUM_ROLES} distinct
  * roles with a score of {@value #MIN_QUORUM_SCORE} to {@value #MAX_QUORUM_SCORE}.
  * <p>
@@ -52,6 +59,49 @@ public final class DeclarationBounds {
 
     /** The re-planning unit. */
     public static final String REPLAN_UNIT = "replan";
+
+    /** The method variant that runs each deliverable's testing tasks before its implementing ones. */
+    public static final String METHOD_TEST_FIRST = "method.test-first";
+
+    /** The method variant that runs each deliverable's testing tasks after its implementing ones. */
+    public static final String METHOD_TESTS_AFTER = "method.tests-after";
+
+    /** The asking variant that waits after every phase but the outline, reviews the outline and does not merge. */
+    public static final String ASK_EVERY_PHASE = "ask.every-phase";
+
+    /** The asking variant that waits at no phase boundary, reviews the outline and does not merge. */
+    public static final String ASK_KEY_POINTS = "ask.key-points";
+
+    /** The asking variant that waits at no phase boundary, reviews no outline and merges by itself. */
+    public static final String ASK_QUESTIONS_ONLY = "ask.questions-only";
+
+    /** The declaration of a method variant: the order of a deliverable's testing and implementing tasks. */
+    public static final String ORDER = "order";
+
+    /** The declaration of an asking variant: the phases after which the plan waits for the operator. */
+    public static final String WAIT_AFTER = "wait_after";
+
+    /** The declaration of an asking variant: whether the outline is reviewed. */
+    public static final String OUTLINE_REVIEW = "outline_review";
+
+    /** The declaration of an asking variant: whether the plan merges itself. */
+    public static final String SELF_MERGE = "self_merge";
+
+    /** The values of {@value #ORDER}. */
+    private static final EnumOf TASK_ORDERS = new EnumOf(List.of("tests_first", "tests_after"));
+
+    /** The phases {@value #WAIT_AFTER} lists from. */
+    private static final EnumListOf WAIT_PHASES = new EnumListOf(List.of("init", "refine", "outline", "plan",
+            "execute"));
+
+    /** The yes of a yes-or-no choice. */
+    private static final String YES = "true";
+
+    /** The no of a yes-or-no choice. */
+    private static final String NO = "false";
+
+    /** The two values of a yes-or-no choice, an enumeration and never a boolean value. */
+    private static final EnumOf YES_OR_NO = new EnumOf(List.of(YES, NO));
 
     /** The fewest roles of a quorum. */
     public static final int MIN_QUORUM_ROLES = 1;
@@ -81,9 +131,24 @@ public final class DeclarationBounds {
                     new Declaration("base_overlap_min_files", new IntRange(1, 50), new CallValue.IntValue(5)),
                     new Declaration("conflict_min_files", new IntRange(1, 50), new CallValue.IntValue(10)),
                     new Declaration("prerequisite_wait_seconds", new IntRange(3600, 604800),
-                            new CallValue.IntValue(604800))));
+                            new CallValue.IntValue(604800))),
+            METHOD_TEST_FIRST, methodSchema("tests_first"),
+            METHOD_TESTS_AFTER, methodSchema("tests_after"),
+            ASK_EVERY_PHASE, askingSchema(List.of("init", "refine", "plan", "execute"), YES, NO),
+            ASK_KEY_POINTS, askingSchema(List.of(), YES, NO),
+            ASK_QUESTIONS_ONLY, askingSchema(List.of(), NO, YES));
 
     private DeclarationBounds() {
+    }
+
+    private static List<Declaration> methodSchema(String order) {
+        return List.of(new Declaration(ORDER, TASK_ORDERS, new CallValue.EnumValue(order)));
+    }
+
+    private static List<Declaration> askingSchema(List<String> waitAfter, String outlineReview, String selfMerge) {
+        return List.of(new Declaration(WAIT_AFTER, WAIT_PHASES, new CallValue.EnumList(waitAfter)),
+                new Declaration(OUTLINE_REVIEW, YES_OR_NO, new CallValue.EnumValue(outlineReview)),
+                new Declaration(SELF_MERGE, YES_OR_NO, new CallValue.EnumValue(selfMerge)));
     }
 
     /**
@@ -187,7 +252,7 @@ public final class DeclarationBounds {
     /**
      * The type and the bounds of a declared value.
      */
-    public sealed interface Bound permits IntRange, DecisionKind {
+    public sealed interface Bound permits IntRange, DecisionKind, EnumOf, EnumListOf {
 
         /**
          * @param value a declared value
@@ -234,6 +299,62 @@ public final class DeclarationBounds {
         @Override
         public String describe() {
             return "enum[%s]".formatted(String.join("|", DecisionDeclaration.DECISION_KINDS));
+        }
+    }
+
+    /**
+     * One value of a closed enumeration.
+     *
+     * @param values the values of the enumeration, in their declared order
+     */
+    public record EnumOf(List<String> values) implements Bound {
+
+        /**
+         * Copies the values into an unmodifiable list.
+         *
+         * @param values the values of the enumeration
+         * @throws NullPointerException if the list or a value is {@code null}
+         */
+        public EnumOf {
+            values = List.copyOf(values);
+        }
+
+        @Override
+        public boolean admits(CallValue value) {
+            return value instanceof CallValue.EnumValue(var text) && values.contains(text);
+        }
+
+        @Override
+        public String describe() {
+            return "enum[%s]".formatted(String.join("|", values));
+        }
+    }
+
+    /**
+     * A list of distinct values of a closed enumeration, the empty list among them.
+     *
+     * @param values the values of the enumeration, in their declared order
+     */
+    public record EnumListOf(List<String> values) implements Bound {
+
+        /**
+         * Copies the values into an unmodifiable list.
+         *
+         * @param values the values of the enumeration
+         * @throws NullPointerException if the list or a value is {@code null}
+         */
+        public EnumListOf {
+            values = List.copyOf(values);
+        }
+
+        @Override
+        public boolean admits(CallValue value) {
+            return value instanceof CallValue.EnumList(var listed) && values.containsAll(listed);
+        }
+
+        @Override
+        public String describe() {
+            return "list<enum[%s]>".formatted(String.join("|", values));
         }
     }
 

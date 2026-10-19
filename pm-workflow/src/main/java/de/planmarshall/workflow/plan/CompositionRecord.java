@@ -27,7 +27,9 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
 /**
  * One line of the composition log {@code instance/composition.jsonl} of a plan (PM-IMPL-5, PM-EXT-7): one composition
  * attempt, whatever its result. The line is canonical JSON (keys sorted, no insignificant whitespace, UTF-8); an
- * absent version is written as {@code null}, an absent cause is not written.
+ * absent version is written as {@code null}, an absent cause is not written. The {@code diff_summary} of a composed
+ * version ({@link DiffSummary}) is the version relative to the version before it, written as {@code null} for version
+ * 1; an attempt that composed no version writes no {@code diff_summary}.
  *
  * @param event        the composition event
  * @param result       what became of the attempt
@@ -35,19 +37,21 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
  * @param trigger      who triggered the event
  * @param cause        why the composition was attempted or refused, if the event names a cause
  * @param inputDigests the digests of the inputs the attempt read, by name
+ * @param diffSummary  the composed version relative to the version before it; present exactly when a version after
+ *                     the first was composed
  * @param recordedAt   when the attempt was recorded
  * @since 0.1
  */
 public record CompositionRecord(CompositionEvent event, Result result, Optional<Integer> version,
 CompositionEvent.Trigger trigger, Optional<CompositionCause> cause, SortedMap<String, String> inputDigests,
-Instant recordedAt) {
+Optional<DiffSummary> diffSummary, Instant recordedAt) {
 
     /** The only format version of a line of the composition log. */
     public static final int FORMAT_VERSION = 1;
 
     /**
-     * Refuses a missing component and a version that does not fit the result, and copies the digests into an
-     * unmodifiable map ordered by name.
+     * Refuses a missing component, a version that does not fit the result and a diff summary that does not fit the
+     * version, and copies the digests into an unmodifiable map ordered by name.
      *
      * @param event        the composition event
      * @param result       what became of the attempt
@@ -55,8 +59,11 @@ Instant recordedAt) {
      * @param trigger      who triggered the event
      * @param cause        why the composition was attempted or refused
      * @param inputDigests the digests of the inputs
+     * @param diffSummary  the composed version relative to the version before it
      * @param recordedAt   when the attempt was recorded
-     * @throws IllegalArgumentException if a composed attempt has no version, or another attempt has one
+     * @throws IllegalArgumentException if a composed attempt has no version, or another attempt has one; if a
+     *                                  composed version after the first has no diff summary, or version 1 or an
+     *                                  attempt that composed no version has one
      */
     public CompositionRecord {
         Objects.requireNonNull(event, "event");
@@ -66,22 +73,39 @@ Instant recordedAt) {
         Objects.requireNonNull(cause, "cause");
         inputDigests = Collections.unmodifiableSortedMap(new TreeMap<>(Objects.requireNonNull(inputDigests,
                 "inputDigests")));
+        Objects.requireNonNull(diffSummary, "diffSummary");
         Objects.requireNonNull(recordedAt, "recordedAt");
         if ((result == Result.COMPOSED) != version.isPresent()) {
             throw new IllegalArgumentException("a %s attempt %s a version".formatted(result.wireName(),
                     result == Result.COMPOSED ? "needs" : "has no"));
         }
+        if (version.filter(composed -> composed > 1).isPresent() != diffSummary.isPresent()) {
+            throw new IllegalArgumentException("a %s attempt%s %s".formatted(result.wireName(),
+                    version.map(composed -> " of version " + composed).orElse(""),
+                    diffSummary.isPresent() ? "takes no diff summary" : "needs a diff summary"));
+        }
     }
 
     /**
      * @param instance   the composed version
+     * @param previous   the version in force before it; empty exactly for version 1
      * @param recordedAt when the attempt was recorded
-     * @return the record of the composed version, its trigger the event's and its digests the header's inputs
+     * @return the record of the composed version, its trigger the event's, its digests the header's inputs and its
+     *         diff summary the version relative to the previous one
+     * @throws IllegalArgumentException if the previous version is not the version before the composed one
      */
-    public static CompositionRecord composed(PlanInstance instance, Instant recordedAt) {
+    public static CompositionRecord composed(PlanInstance instance, Optional<PlanInstance> previous,
+            Instant recordedAt) {
         var header = instance.header();
+        var before = instance.version() - 1;
+        if (previous.map(PlanInstance::version).orElse(0) != before) {
+            throw new IllegalArgumentException("version %d is composed after version %d, not after %s".formatted(
+                    instance.version(), before, previous.map(value -> "version " + value.version())
+                            .orElse("no version")));
+        }
         return new CompositionRecord(header.event(), Result.COMPOSED, Optional.of(instance.version()),
-                header.event().trigger(), Optional.empty(), inputDigests(header.inputs()), recordedAt);
+                header.event().trigger(), Optional.empty(), inputDigests(header.inputs()),
+                previous.map(value -> DiffSummary.between(value.header(), header)), recordedAt);
     }
 
     /**
@@ -116,6 +140,9 @@ Instant recordedAt) {
         var digests = new LinkedHashMap<String, Node>();
         inputDigests.forEach((name, digest) -> digests.put(name, new StringNode(digest)));
         members.put("input_digests", new ObjectNode(digests));
+        if (result == Result.COMPOSED) {
+            members.put("diff_summary", diffSummary.map(DiffSummary::toNode).orElse(NullNode.INSTANCE));
+        }
         members.put("recorded_at", new StringNode(recordedAt.toString()));
         return HeaderJson.canonical(new ObjectNode(members));
     }

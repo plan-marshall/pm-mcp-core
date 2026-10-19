@@ -8,7 +8,9 @@ author: plan-marshall
 ---
 # The plan phase (Phase 4) of the plan unit, written for the invariant and unit-loader tests, never copied from the
 # product. Every path into Phase 5 passes the derivation, plan.qgate and the composition; the blocking verdict of
-# plan.qgate calls the Q-Gate remediation.
+# plan.qgate calls the Q-Gate remediation. The phase is shared by both lanes after outline.gate, so its rework re-enters
+# outline.deep, the authoring entry every lane keeps (the light lane through its escalation), never a state of the
+# light route.
 workflow plan version 1 format 1
 scope plan
 start plan.derive
@@ -30,7 +32,7 @@ state plan.remediate
         resolved -> plan.compose
         waived -> plan.compose
         exhausted -> plan.return
-        fix_requested -> plan.return
+        fix_requested -> outline.deep
         stepped_out -> plan.return
 
 state plan.compose

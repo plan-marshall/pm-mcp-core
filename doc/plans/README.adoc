@@ -21,12 +21,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:../../../pm-mcp-clients/doc/plans/profile-documents.adoc[`pm-mcp-clients` / `profile-documents`]
 |Milestone 2
 
-|link:plan-instance-alignment.adoc[`plan-instance-alignment`]
-|Discussion of the lane-route pruning design at the `outline` event first, then its per-lane routes and reachability pruning; the plan instance aligned with the specification: prune reasons and fallback causes, the composition rules `auto-merge-off` and `simplify-recipe` removed, plan axes and overrides in the composition, the adjudication unit in the header, `diff_summary`
-|`open`
-|nothing
-|Milestone 3
-
 |link:plan-instance-versions.adoc[`plan-instance-versions`]
 |Plan instance versions: the triggers of the composition events, the engine's switch to the version in force, `instance_version`, Rules 13 and 14 at composition, the instance resources
 |`open`
@@ -120,7 +114,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]
 |The onboarding of the machine: its sub-workflows, the consent store, harnesses, catalogue, roles, credentials, providers, automatic run, plan axes (the landing variants) and overrides, the machine's settings
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:token-usage.adoc[`token-usage`] (the usage record of the verification); link:plan-instance-alignment.adoc[`plan-instance-alignment`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:token-usage.adoc[`token-usage`] (the usage record of the verification)
 |Milestones 7, 10, and 14; the client work of `pm-mcp-clients`
 
 |link:decision-engine.adoc[`decision-engine`]
@@ -168,7 +162,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:recipe-workflows.adoc[`recipe-workflows`]
 |A recipe is a workflow
 |`open`
-|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:start-from-clients.adoc[`start-from-clients`]; link:plan-instance-alignment.adoc[`plan-instance-alignment`]
+|link:phase-sub-workflows.adoc[`phase-sub-workflows`]; link:start-from-clients.adoc[`start-from-clients`]
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:chat.adoc[`chat`]
@@ -186,7 +180,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]; link:plan-instance-alignment.adoc[`plan-instance-alignment`]
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:machine-onboarding-unit.adoc[`machine-onboarding-unit`]; link:project-onboarding-unit.adoc[`project-onboarding-unit`]; link:task-queue-and-protocol.adoc[`task-queue-and-protocol`]; link:supervisor.adoc[`supervisor`]
 |Milestones 10 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]

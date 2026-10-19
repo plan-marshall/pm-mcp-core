@@ -822,6 +822,9 @@ public final class WorkflowParser {
     private CallValue callValue(LineCursor line) {
         if (line.consumeIf(OPEN_BRACKET)) {
             var values = new ArrayList<String>();
+            if (line.consumeIf(CLOSE_BRACKET)) {
+                return new CallValue.EnumList(values);
+            }
             do {
                 addDistinct(values, enumValue(line), "list");
             } while (line.consumeIf(COMMA));

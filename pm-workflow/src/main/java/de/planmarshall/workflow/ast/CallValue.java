@@ -37,9 +37,9 @@ public sealed interface CallValue permits CallValue.EnumValue, CallValue.IntValu
     }
 
     /**
-     * A list of distinct values of an enumeration.
+     * A list of distinct values of an enumeration; it may be empty, written {@code []}.
      *
-     * @param values the values in source order, none of them twice
+     * @param values the values in source order, none of them twice; empty for the list without an element
      */
     record EnumList(List<String> values) implements CallValue {
 

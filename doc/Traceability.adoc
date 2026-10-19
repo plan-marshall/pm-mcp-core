@@ -185,9 +185,22 @@ link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRecor
 Verified by (the re-composition of a changed unit): link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest]
 
+Implementation (the composition side of the ready form of `handed_back` in bullet 5, as far as the library module `pm-workflow` carries it: a version whose asking variant leaves the merge to the operator is composed without the merge execution, pruned with `merge_by_operator`, and verifies, the `pass` of the merge barrier settled by the prune record, while a version whose asking variant merges itself keeps the merge execution; the composition log records with every composed version after the first what changed against the version before it (`diff_summary`). Not implemented yet: the barrier's settling of `pass_hand_back` at run time, the ready form of `finalize.hand-back`, and the plan outcomes with their landing record): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java[InstancePruner],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/DiffSummary.java[DiffSummary]
+
+Verified by (the composition side of the ready form and the diff summary): link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/DiffSummaryTest.java[DiffSummaryTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest]
+
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-engine.adoc#_entity_addressing[Workflow Engine Developer Guide § Entity Addressing],
-link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_composition[Plan Instance Developer Guide § The Composition]
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_composition[Plan Instance Developer Guide § The Composition],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_outcomes_settled_by_a_prune[Plan Instance Developer Guide § Outcomes Settled by a Prune],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_diff_summary[Plan Instance Developer Guide § The Diff Summary],
+link:../pm-workflow/doc/adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[ADR workflow-plan/016]
 
 [#PM-WF-2]
 === PM-WF-2: Closed Link Relation Grammar & Link Forms
@@ -333,6 +346,30 @@ link:../pm-workflow/doc/developer/workflow-ast.adoc[Workflow AST Developer Guide
 link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
+
+[#PM-WF-25]
+=== PM-WF-25: Plan Behaviour Axes & Plan Overrides
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-25[PM-WF-25]
+
+Implementation (the composition side of bullets 1 to 3, as far as the library module `pm-workflow` carries it: the variant of each axis bound from the nearest level that sets it, the plan's own value, the project's, the machine's, else the shipped plan default, and every other variant of the axis pruned as a call with the reason `plan_default` and the level as source fact; the declaration schemas of the method and asking variants, their choices enumeration values; the declarations of the bound variant read as facts of the composition rules, so the merge execution is pruned with `merge_by_operator` where the bound asking variant declares `self_merge = false`; the plan's `overrides.json` counted in the digest of the plan facts, and the composition event `override`, refused with `position_not_contained` where the version would not contain the plan's position. Not implemented yet: binding a variant where the plan first needs it and asking the operator there, composing the landing variant into the finalize phase and one composed file per bound variant, the validation of a landing variant, the reading and writing of the three levels and of the plan's overrides, the operator's acts that set them, and the qualification of an override): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanFacts.java[PlanFacts],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java[InstancePruner],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRuleEvaluator.java[CompositionRuleEvaluator],
+link:../pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json[composition-rules.json],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionEvent.java[CompositionEvent],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/DeclarationBounds.java[DeclarationBounds]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRuleEvaluatorTest.java[CompositionRuleEvaluatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRulesTest.java[CompositionRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java[DeclarationBoundsTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_plan_behaviour_axes[Plan Instance Developer Guide § The Plan Behaviour Axes],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds],
+link:../pm-workflow/doc/adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR workflow-plan/015],
+link:../pm-workflow/doc/adr/workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[ADR workflow-verify/028]
 
 == link:../../plan-marshall-documentation/doc/requirements/06-execution.adoc[Execution]
 
@@ -896,7 +933,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBou
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/FinalizePipelineValidatorTest.java[FinalizePipelineValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/finalize/FinalizeStepDescriptorTest.java[FinalizeStepDescriptorTest]
 
-Implementation (the plan instance of the fifth statement and its rendering of the sixth, as far as the library module `pm-workflow` carries them: the instance header with its canonical JSON line and the check of every constraint of the schema it implements; the shipped composition rule file with its revision and digest, and the evaluator of its rules over the plan facts and the effective configuration, each prune with its reason and source fact; the composer, which prunes and binds the merged plan template by the rules and the waivers in force, applies the position rule, verifies each version against Rules 1-12, the finalize pipeline, the compiled invariants and the header schema, and refuses a failing version as a value while the version in force stays; the store that writes each version once as `instance/plan.v<N>.pmwf`, one line of `instance/composition.jsonl` per composition attempt, and the text of each bound sub-unit once per digest as `mcp/units/<digest>.pmwf`, all through the plan's scope transaction; the rendering of an instance as a Mermaid diagram, AsciiDoc tables and a terminal table with the active state, the pruned elements with their reason and the waived gates with their waiver id. Not implemented yet: the instance of a plan unit made of phase sub-workflows, with one composed file per phase sub-workflow and bound axis variant, the level of every unit in the header, the composition event `override`, the pruned call, and the prune reasons `plan_default` and `merge_by_operator`, which take the place of the shipped rules on `merge.auto_merge` and `recipe_id`; the pruning of the lane's route at the `outline` event, Rules 13 and 14 at composition, the triggers of the composition events, the engine's switch to a new version in force and its read of the stored sub-unit texts, the adjudication unit in the header, `diff_summary` of the composition log, and the read-only resources of an instance): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
+Implementation (the plan instance of the fifth statement and its rendering of the sixth, as far as the library module `pm-workflow` carries them: the instance header with its canonical JSON line and the check of every constraint of the schema it implements; the shipped composition rule file with its revision and digest, and the evaluator of its rules over the plan facts and the effective configuration, each prune with its reason and source fact; the composer, which prunes and binds the merged plan template by the rules and the waivers in force, applies the position rule, verifies each version against Rules 1-12, the finalize pipeline, the compiled invariants and the header schema, and refuses a failing version as a value while the version in force stays; the store that writes each version once as `instance/plan.v<N>.pmwf`, one line of `instance/composition.jsonl` per composition attempt, and the text of each bound sub-unit once per digest as `mcp/units/<digest>.pmwf`, all through the plan's scope transaction; the rendering of an instance as a Mermaid diagram, AsciiDoc tables and a terminal table with the active state, the pruned elements with their reason and the waived gates with their waiver id. Not implemented yet: the instance of a plan unit made of phase sub-workflows, with one composed file per phase sub-workflow and bound axis variant, and the landing variant composed into the finalize phase; the level `machine` of a unit in the header; Rules 13 and 14 at composition, the triggers of the composition events, the engine's switch to a new version in force and its read of the stored sub-unit texts, and the read-only resources of an instance): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceHeader.java[PlanInstanceHeader],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java[HeaderSchemaCheck],
 link:../pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json[composition-rules.json],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],
@@ -914,6 +951,38 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRules
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRuleEvaluatorTest.java[CompositionRuleEvaluatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest]
+
+Implementation (the plan instance aligned with its specification, as far as the library module `pm-workflow` carries it: the closed prune reasons, fallback causes, element kinds and composition events equal to their enumerations of the specification, `other_lane`, `merge_by_operator`, `plan_default`, the pruned `call` and the event `override` among them, and the shipped rule file without the rules on `merge.auto_merge` and `recipe_id` and with the rule that prunes the merge execution with `merge_by_operator` where the bound asking variant declares `self_merge = false`; the adjudication unit `adjudicate.decisions` listed in the header's sub-units and its text stored; the `diff_summary` of every composed version after the first as five flat arrays; the pruning of the other lane's states with `other_lane` from the `outline` event on, the shared states before the split kept; the outcomes a prune record settles counted as routed by Rule 2 for the composition alone; `INV-INIT-2` per lane with the lane as an input of the compiled invariants; the empty list `[]` as a call value of the grammar): link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PruneReason.java[PruneReason],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionCause.java[CompositionCause],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PrunedElement.java[PrunedElement],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionEvent.java[CompositionEvent],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/HeaderSchemaCheck.java[HeaderSchemaCheck],
+link:../pm-workflow/src/main/resources/de/planmarshall/workflow/plan/composition-rules.json[composition-rules.json],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRules.java[CompositionRules],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceComposer.java[PlanInstanceComposer],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/InstancePruner.java[InstancePruner],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/DiffSummary.java[DiffSummary],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/CompositionRecord.java[CompositionRecord],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/plan/PlanInstanceStore.java[PlanInstanceStore],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/WorkflowValidator.java[WorkflowValidator],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/CompiledInvariants.java[CompiledInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/InitInvariants.java[InitInvariants],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/unit/ProjectUnitLoader.java[ProjectUnitLoader],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/dsl/WorkflowParser.java[WorkflowParser]
+
+Verified by (the plan instance aligned with its specification): link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceHeaderTest.java[PlanInstanceHeaderTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/HeaderSchemaCheckTest.java[HeaderSchemaCheckTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRulesTest.java[CompositionRulesTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/CompositionRuleEvaluatorTest.java[CompositionRuleEvaluatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/DiffSummaryTest.java[DiffSummaryTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceStoreTest.java[PlanInstanceStoreTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/CompiledInvariantsTest.java[CompiledInvariantsTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/unit/ProjectUnitLoaderTest.java[ProjectUnitLoaderTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserTest.java[WorkflowParserTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowParserRefusalTest.java[WorkflowParserRefusalTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/diagram/WorkflowDiagramGeneratorTest.java[WorkflowDiagramGeneratorTest]
 
 Implementation (the primitive as a typed contract and the registry that refuses a malformed one; the first statement of this requirement):
@@ -969,6 +1038,13 @@ link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Dev
 link:../pm-workflow/doc/adr/workflow-verify/024-remediation-budget-check-state.adoc[ADR workflow-verify/024],
 link:../pm-workflow/doc/developer/workflow-finalize.adoc[Finalize Pipeline Developer Guide],
 link:../pm-workflow/doc/developer/workflow-plan.adoc[Plan Instance Developer Guide],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_lane_pruning[Plan Instance Developer Guide § Lane Pruning],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_outcomes_settled_by_a_prune[§ Outcomes Settled by a Prune],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_diff_summary[§ The Diff Summary],
+link:../pm-workflow/doc/developer/workflow-plan.adoc#_the_rule_file[§ The Rule File],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification Developer Guide § INV-INIT-2 per Lane],
+link:../pm-workflow/doc/developer/workflow-dsl.adoc#call-values[Workflow DSL Developer Guide § Call Values and the Empty List],
+ADRs link:../pm-workflow/doc/adr/workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[workflow-plan/012] to link:../pm-workflow/doc/adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[016], link:../pm-workflow/doc/adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[workflow-verify/029], link:../pm-workflow/doc/adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[workflow-dsl/006],
 link:../pm-workflow/doc/developer/workflow-diagram.adoc#instance-forms[Workflow Diagrams Developer Guide § Instance forms],
 link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#spi-contract[Developer Guide § The Contract of a Primitive], link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#registry[Developer Guide § The Registry]
 

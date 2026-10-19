@@ -45,9 +45,9 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
 class CompositionRulesTest {
 
     private static final List<String> SHIPPED_RULE_IDS = List.of("land-lane", "adopt-lane", "local-only",
-            "auto-merge-off", "posture-minimal", "posture-standard", "posture-default-off",
-            "analysis-provider-unconfigured", "no-code-delta", "report-change-type", "simplify-recipe",
-            "post-run-returned", "post-run-handed-back", "post-run-empty-harvest");
+            "merge-by-operator", "posture-minimal", "posture-standard", "posture-default-off", "analysis-provider-unconfigured",
+            "no-code-delta", "report-change-type", "post-run-returned", "post-run-handed-back",
+            "post-run-empty-harvest");
 
     /**
      * The floor-immune steps (lane class {@code core} or {@code derived-state}) of the step catalogue: only the rules
@@ -86,7 +86,7 @@ class CompositionRulesTest {
             }
 
             assertAll(
-                    () -> assertEquals("1", rules.revision()),
+                    () -> assertEquals("2", rules.revision()),
                     () -> assertTrue(rules.digest().matches("[0-9a-f]{64}"), rules.digest()),
                     () -> assertEquals(PlanFacts.sha256(bytes), rules.digest()),
                     () -> assertEquals(SHIPPED_RULE_IDS, rules.rules().stream().map(CompositionRule::id).toList()));
@@ -123,7 +123,7 @@ class CompositionRulesTest {
         }
 
         /**
-         * The four families the specification names without content each have exactly one shipped rule, over the
+         * The three families the specification names without content each have exactly one shipped rule, over the
          * fact and with the condition and targets the specification states for it.
          */
         @ParameterizedTest(name = "{0}")
@@ -141,6 +141,31 @@ class CompositionRulesTest {
                     () -> assertTrue(rule.prunes().stream().allMatch(prune -> prune.reason() == reason
                             && prune.element() == PrunedElement.Kind.STEP)),
                     () -> assertEquals(List.of(), rule.bindings()));
+        }
+
+        @Test
+        @DisplayName("ships the merge_by_operator rule over the bound asking variant's self_merge, pruning the merge "
+                + "execution")
+        void mergeByOperator() {
+            var rules = loaded(CompositionRules.shipped()).rules().stream()
+                    .filter(rule -> rule.prunes().stream()
+                            .anyMatch(prune -> prune.reason() == PruneReason.MERGE_BY_OPERATOR)).toList();
+
+            assertEquals(List.of(new CompositionRule("merge-by-operator",
+                    new CompositionRule.Equals("axes.asking.self_merge", "false"), List.of(
+                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-dispatch",
+                                    PruneReason.MERGE_BY_OPERATOR),
+                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-wait",
+                                    PruneReason.MERGE_BY_OPERATOR),
+                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-exit",
+                                    PruneReason.MERGE_BY_OPERATOR)), List.of())), rules);
+        }
+
+        @Test
+        @DisplayName("has no rule on merge.auto_merge or recipe_id")
+        void noRemovedFacts() {
+            assertTrue(loaded(CompositionRules.shipped()).rules().stream().map(rule -> rule.when().fact())
+                    .noneMatch(fact -> "merge.auto_merge".equals(fact) || "recipe_id".equals(fact)));
         }
 
         @Test
@@ -171,8 +196,6 @@ class CompositionRulesTest {
                         List.of("default:finalize-step-simplify", "default:adr-propose")),
                 Arguments.of(PruneReason.CHANGE_TYPE_EXEMPT,
                         new CompositionRule.In("change_type", List.of("analysis", "verification")),
-                        List.of("default:finalize-step-simplify")),
-                Arguments.of(PruneReason.RECIPE_OVERRIDE, new CompositionRule.Equals("recipe_id", "simplify-codebase"),
                         List.of("default:finalize-step-simplify")));
     }
 
@@ -220,6 +243,23 @@ class CompositionRulesTest {
                        "bind": [{"call_site": "*", "argument": "level", "value": %s}]}}""".formatted(value))).rules();
 
             assertEquals(new CallValue.IntValue(100), rules.getFirst().bindings().getFirst().value());
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.plan.CompositionRulesTest#axisFacts")
+        @DisplayName("a rule over the bound variant of an axis or a declaration of it loads")
+        void axisFactLoads(String fact) {
+            var rules = loaded(file("""
+                    {"id": "r", "when": {"fact": "%s", "equals": "false"}, "then": {}}""".formatted(fact))).rules();
+
+            assertEquals(fact, rules.getFirst().when().fact());
+        }
+
+        @Test
+        @DisplayName("the registered axis facts are the bound variant of each axis and the declarations of its "
+                + "variants")
+        void registeredAxisFacts() {
+            assertEquals(PlanFacts.AXIS_FACT_NAMES, Set.copyOf(axisFacts()));
         }
 
         @Test
@@ -283,6 +323,11 @@ class CompositionRulesTest {
         }
     }
 
+    static List<String> axisFacts() {
+        return List.of("axes.landing", "axes.method", "axes.asking", "axes.method.order", "axes.asking.wait_after",
+                "axes.asking.outline_review", "axes.asking.self_merge");
+    }
+
     static Stream<String> budgetParameters() {
         var parameters = CompiledInvariants.remediationBudgetParameters();
         assertFalse(parameters.isEmpty(), "the remediation schema declares no budget parameter");
@@ -327,6 +372,21 @@ class CompositionRulesTest {
                 refusal("an unregistered fact", file2("""
                         {"id": "r", "when": {"fact": "weather", "equals": "rain"}, "then": {}}"""),
                         Refusal.MALFORMED, "weather"),
+                refusal("the removed configuration fact merge.auto_merge", file2("""
+                        {"id": "r", "when": {"fact": "merge.auto_merge", "equals": "false"}, "then": {}}"""),
+                        Refusal.MALFORMED, "merge.auto_merge"),
+                refusal("the removed plan fact recipe_id", file2("""
+                        {"id": "r", "when": {"fact": "recipe_id", "equals": "simplify-codebase"}, "then": {}}"""),
+                        Refusal.MALFORMED, "recipe_id"),
+                refusal("an unregistered declaration of an axis", file2("""
+                        {"id": "r", "when": {"fact": "axes.asking.colour", "equals": "red"}, "then": {}}"""),
+                        Refusal.MALFORMED, "axes.asking.colour"),
+                refusal("an unregistered axis", file2("""
+                        {"id": "r", "when": {"fact": "axes.weather", "equals": "rain"}, "then": {}}"""),
+                        Refusal.MALFORMED, "axes.weather"),
+                refusal("a declaration the variants of another axis declare", file2("""
+                        {"id": "r", "when": {"fact": "axes.method.self_merge", "equals": "true"}, "then": {}}"""),
+                        Refusal.MALFORMED, "axes.method.self_merge"),
                 refusal("two operators in one condition", file2("""
                         {"id": "r", "when": {"fact": "lane", "equals": "land", "in": ["deep"]}, "then": {}}"""),
                         Refusal.MALFORMED, "exactly one"),
@@ -344,6 +404,12 @@ class CompositionRulesTest {
                         "extra"),
                 refusal("an undeclared prune reason", rule("""
                         "then": {"prune": [{"element": "step", "id": "x", "reason": "because"}]}"""),
+                        Refusal.MALFORMED, "prune entry"),
+                refusal("the removed prune reason recipe_override", rule("""
+                        "then": {"prune": [{"element": "step", "id": "x", "reason": "recipe_override"}]}"""),
+                        Refusal.MALFORMED, "prune entry"),
+                refusal("the removed prune reason auto_merge_off", rule("""
+                        "then": {"prune": [{"element": "state", "id": "x", "reason": "auto_merge_off"}]}"""),
                         Refusal.MALFORMED, "prune entry"),
                 refusal("a binding value whose exponent is too large to strip", rule("""
                         "then": {"bind": [{"call_site": "*", "argument": "actions", "value": 1000e2147483647}]}"""),

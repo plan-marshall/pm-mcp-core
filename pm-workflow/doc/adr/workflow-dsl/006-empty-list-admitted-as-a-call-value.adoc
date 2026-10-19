@@ -1,0 +1,50 @@
+= ADR 006: The Grammar Admits the Empty List as a Call Value
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The asking variants `ask.key-points` and `ask.questions-only` wait after no phase: the specification ships them with
+`wait_after = []`, and their compiled declaration schema admits the empty list. The grammar rule `call_value` and
+`WorkflowParser` required at least one element in a list, so a unit could not write that value, and the composer's
+fixtures had to declare a one-phase list as a workaround.
+The operator decided, when execution handed the gap back, to allow empty lists now.
+
+== Decision
+
+* The EBNF rule `call_value` admits `[]`: `"[" , [ enum_value , { "," , enum_value } ] , "]"`. The grammar part states
+  the empty list and its meaning.
+* `WorkflowParser` reads `[]` as a `CallValue.EnumList` without a value. Every other list refusal stays the parser's:
+  an unterminated list, values without a comma between them, a trailing comma or a comma alone, a value listed twice.
+* `WorkflowPrinter` already writes an empty list as `[]`, so the round trip holds without a change.
+* Nothing else of the grammar changes, and what a list may hold where it is bound or declared stays the check of the
+  verifier and of the declaration bounds.
+
+Rationale not recorded beyond the operator's decision.
+
+== Alternatives Considered
+
+1. *Keep the one-phase workaround* in the fixtures and leave the grammar as it was.
+_Rejected_ by the operator's decision to allow empty lists now.
+
+== Consequences
+
+* `ask.key-points` and `ask.questions-only` declare their shipped `wait_after = []`.
+* A call argument may now be written `[]` as well; whether a parameter accepts it is decided where the call is checked,
+  not by the parser.
+* `WorkflowParserTest` covers `[]` as a declared value and as a call argument, its printed form and a CRLF twin, with a
+  non-empty list as control; `WorkflowParserRefusalTest` keeps the other list refusals.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL § Grammar] (`call_value`)
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes], item 4
+* `doc/plans/plan-instance-alignment.adoc`; operator decision when execution handed back the gap of the empty list
+* link:../../developer/workflow-dsl.adoc#call-values[Workflow DSL Developer Guide § Call Values and the Empty List]

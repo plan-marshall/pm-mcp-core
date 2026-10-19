@@ -29,7 +29,8 @@ A plan is laid out in Phases 3 and 4 against the project as it stood then. When 
  remediation exhausted ┘             │                        │ hand_back             │
                                      └──────────────────────────────────────────────┘
    done ─► continue where the plan stood   reentered ─► execute.envelope-ready
-   reauthor ─► outline.route-rework        hand_back / stepped_out ─► finalize.hand-back
+   reauthor ─► the lane's outline entry    hand_back / stepped_out ─► finalize.hand-back
+               (deep: outline.deep, light: outline.light-regate)
 ----
 
 [#replan-triggers]

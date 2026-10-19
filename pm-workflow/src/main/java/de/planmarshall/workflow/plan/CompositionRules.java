@@ -42,7 +42,9 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
  * ({@code true}), {@code unset} ({@code true}) or {@code disjoint} (a list of globs), and a {@code then} with the lists
  * {@code prune} (entries of {@code element}, {@code id} and {@code reason} from the closed enumerations) and
  * {@code bind} (entries of {@code call_site}, {@code argument} and a literal {@code value}). A registered fact is one of
- * the plan facts of {@link PlanFacts} or a configuration key ({@code merge.auto_merge}, {@code derived.push_remote},
+ * the plan facts of {@link PlanFacts}, an axis fact of {@link PlanFacts} (the variant bound on a plan behaviour axis,
+ * {@code axes.<axis>}, and a declaration of it, {@code axes.<axis>.<declaration>}, the names of the compiled
+ * declaration schemas of the axis's variants), or a configuration key ({@code derived.push_remote},
  * {@code integrations.<provider>}).
  * <p>
  * A file that breaks this shape is refused as a value, never by an exception, and so is a rule that would add an
@@ -68,7 +70,7 @@ public record CompositionRules(String revision, String digest, List<CompositionR
     private static final String REVISION_MEMBER = "revision";
     private static final String PRUNE_MEMBER = "prune";
     private static final String ELEMENT_MEMBER = "element";
-    private static final Set<String> CONFIGURATION_FACTS = Set.of("merge.auto_merge", "derived.push_remote");
+    private static final Set<String> CONFIGURATION_FACTS = Set.of("derived.push_remote");
     private static final String PROVIDER_FACT_PREFIX = "integrations.";
     private static final Pattern RULE_ID = Pattern.compile("^[a-z][a-z0-9-]{0,63}$");
     private static final List<String> OPERATORS = List.of("equals", "in", "empty", "unset", "disjoint");
@@ -339,7 +341,8 @@ public record CompositionRules(String revision, String digest, List<CompositionR
         }
 
         private boolean registered(String fact) {
-            return PlanFacts.PLAN_FACT_NAMES.contains(fact) || CONFIGURATION_FACTS.contains(fact)
+            return PlanFacts.PLAN_FACT_NAMES.contains(fact) || PlanFacts.AXIS_FACT_NAMES.contains(fact)
+                    || CONFIGURATION_FACTS.contains(fact)
                     || fact.startsWith(PROVIDER_FACT_PREFIX) && fact.length() > PROVIDER_FACT_PREFIX.length();
         }
 

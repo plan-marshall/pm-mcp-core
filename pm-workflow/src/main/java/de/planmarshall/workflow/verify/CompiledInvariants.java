@@ -163,15 +163,19 @@ public final class CompiledInvariants {
      * @param rules    the result of {@link WorkflowValidator} for the unit
      * @param pipeline the violations of the finalize pipeline validator over the project's roster; empty for every
      *                 unit but the plan unit
+     * @param lane     the wire name of the plan's lane ({@code light}, {@code deep}, {@code land}, {@code adopt});
+     *                 empty where the lane is unknown, as for a template. {@link InvariantId#INV_INIT_2} holds per lane:
+     *                 it requires the {@code light -> deep} ratchet only for the lane {@code light} or an unknown lane
      * @return every violation, ordered by the declaration order of its state, violations of the unit as a whole after
      *         every state, and within a state by invariant; empty when the unit satisfies every invariant
      * @throws NullPointerException if an argument is {@code null}
      */
     public List<InvariantViolation> check(WorkflowDefinition unit, VerificationResult rules,
-            List<PipelineViolation> pipeline) {
+            List<PipelineViolation> pipeline, Optional<String> lane) {
         Objects.requireNonNull(unit, "unit");
         Objects.requireNonNull(rules, "rules");
         Objects.requireNonNull(pipeline, "pipeline");
+        Objects.requireNonNull(lane, "lane");
         var reference = defaultUnits.get(unit.id());
         if (reference == null) {
             var found = new ArrayList<>(ruleViolations(unit, rules));
@@ -179,7 +183,8 @@ public final class CompiledInvariants {
                     "there is no default unit '%s' to compare the unit with".formatted(unit.id())));
             return ordered(unit, found);
         }
-        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster, subject);
+        var context = new Context(unit, reference, rules, List.copyOf(pipeline), registry, defaultRoster, subject,
+                lane);
         for (var id : InvariantId.values()) {
             if (id.appliesTo(unit.id())) {
                 CHECKS.get(id).run(context);
@@ -337,11 +342,13 @@ public final class CompiledInvariants {
 
         private final Subject subject;
 
+        private final Optional<String> lane;
+
         private final List<InvariantViolation> found = new ArrayList<>();
 
         Context(WorkflowDefinition unit, WorkflowDefinition reference, VerificationResult rules,
                 List<PipelineViolation> pipeline, PrimitiveRegistry registry,
-                List<FinalizeStepDescriptor> defaultRoster, Subject subject) {
+                List<FinalizeStepDescriptor> defaultRoster, Subject subject, Optional<String> lane) {
             this.unit = unit;
             this.reference = reference;
             this.graph = UnitGraph.of(unit);
@@ -351,6 +358,7 @@ public final class CompiledInvariants {
             this.registry = registry;
             this.defaultRoster = defaultRoster;
             this.subject = subject;
+            this.lane = lane;
         }
 
         /**
@@ -358,6 +366,13 @@ public final class CompiledInvariants {
          */
         boolean composedInstance() {
             return subject == Subject.COMPOSED_INSTANCE;
+        }
+
+        /**
+         * @return the wire name of the plan's lane; empty where the lane is unknown
+         */
+        Optional<String> lane() {
+            return lane;
         }
 
         WorkflowDefinition unit() {
