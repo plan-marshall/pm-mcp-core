@@ -1,0 +1,11 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_unstaged_edit_changes_digest
+# Rule 6: deleting a tracked file changes the digest; restoring it restores the digest. The original shows the same
+# behaviour through git diff HEAD, so this is no deliberate change; it is headed with the nearest pytest case.
+repository initial
+result before
+delete tracked.txt
+result deleted
+write tracked.txt original\n
+result restored
+different before deleted
+same before restored

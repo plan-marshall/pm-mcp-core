@@ -1,0 +1,5 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_repo_with_no_commit_returns_none
+# A repository without a commit has an unresolvable HEAD: the original's None is unavailable, failing in step head.
+repository unborn
+result empty
+unavailable empty head

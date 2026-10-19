@@ -1,0 +1,9 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_detached_head_resolves_digest
+# Rule 6: a new HEAD over a clean tree changes the digest. The original shows the same behaviour through
+# git rev-parse HEAD, so this is no deliberate change; it is headed with the nearest pytest case.
+repository initial
+result before
+write tracked.txt second\n
+commit second
+result after
+different before after

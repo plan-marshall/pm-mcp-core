@@ -1,0 +1,9 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_gitignored_file_does_not_change_digest
+# A file below an ignored directory is no input: adding it leaves the digest unchanged.
+repository initial
+write .gitignore ignored/\n
+commit add gitignore
+result before
+write ignored/build.log noise\n
+result after
+same before after

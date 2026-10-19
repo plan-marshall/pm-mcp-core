@@ -1,0 +1,16 @@
+deliberate: deliberate-untracked-entry-boundaries
+# Known defect of the original: it streams untracked entries as path NUL content NUL without lengths, so one file a
+# holding "x NUL b NUL y" streams the same bytes as the two files a = "x" and b = "y". Here the two trees differ.
+# The second one-file tree holds "x b NUL F y", which an entry framing without the content length would stream like
+# the two files as well; the length keeps it apart too.
+repository initial
+write a x\0b\0y
+result original-collision
+write a xb\0Fy
+result tag-collision
+delete a
+write a x
+write b y
+result two-files
+different original-collision two-files
+different tag-collision two-files

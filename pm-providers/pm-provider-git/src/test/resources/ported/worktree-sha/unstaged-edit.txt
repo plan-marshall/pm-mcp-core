@@ -1,0 +1,10 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_unstaged_edit_changes_digest
+# An unstaged edit of a tracked file changes the digest; restoring the committed content restores it.
+repository initial
+result before
+write tracked.txt modified\n
+result after
+write tracked.txt original\n
+result restored
+different before after
+same before restored

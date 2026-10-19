@@ -1,0 +1,5 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_non_git_directory_returns_none
+# A directory outside any repository yields no digest: the original's None is unavailable, failing in step open.
+repository none
+result plain
+unavailable plain open

@@ -1,0 +1,6 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_clean_repo_returns_hex_digest test/plan-marshall/script-shared/test_worktree_sha.py::test_clean_tree_is_deterministic
+# A clean committed repository yields a digest of the version-1 form, and two calls on the same clean tree agree.
+repository initial
+result first
+result second
+same first second

@@ -1,0 +1,8 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_untracked_file_content_matters
+# The content of an untracked file counts, not only its presence: the same path with other content differs.
+repository initial
+write brand_new.txt content A\n
+result first
+write brand_new.txt content B\n
+result second
+different first second

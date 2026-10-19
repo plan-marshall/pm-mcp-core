@@ -1,0 +1,18 @@
+deliberate: deliberate-symlink-target
+# Known defect of the original: it opens an untracked symbolic link and hashes its target's content (a dangling
+# link as empty). Here a link contributes its target path: retargeting it between two targets of identical content
+# changes the digest, and a content change of the (ignored) target alone does not.
+repository initial
+write .gitignore *.target\n
+commit ignore the targets
+write one.target same\n
+write two.target same\n
+symlink link one.target
+result first
+delete link
+symlink link two.target
+result retargeted
+write two.target changed\n
+result target-edited
+different first retargeted
+same retargeted target-edited
