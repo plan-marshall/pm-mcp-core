@@ -225,6 +225,6 @@ Every plan passes these states, whatever its outcome; after a fallback or an emp
 |`terminal`
 |`finalize.archive-plan` (`merged`, `no_change`, `handed_back`, `returned`); `finalize.allocate-remediation` (`allocated`), `finalize.replan` (`reentered`); `finalize.replan` (`reauthor`).
 |The terminals of the phase sub-workflow `phase-6-finalize`: declared `terminal merged success`, `terminal no_change success`, `terminal handed_back failure`, `terminal returned failure`, `terminal reenter_execute unsettled`, and `terminal loop_back_outline unsettled`.
-|The phase's exits of the same names to the plan unit's `phases.finalize` call states (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]): `merged`, `no_change` -> `completed`; `handed_back` -> `handed_back`; `returned` -> `returned`; `reenter_execute` -> `phases.execute-reentry`; `loop_back_outline` -> `phases.outline-rework`.
+|The phase's exits of the same names to the plan unit's `phases.finalize` call states (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]): `merged`, `no_change` -> `completed`; `handed_back` -> `handed_back`; `returned` -> `returned`; `reenter_execute` -> `phases.execute-reentry` (light lane: `phases.execute-reentry-light`); `loop_back_outline` -> `phases.outline-rework` (light lane: `phases.outline-rework-light`), each lane re-entering its own call states.
 |link:../workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL Specification, `phase-6-finalize.pmwf` Excerpt]
 |===
