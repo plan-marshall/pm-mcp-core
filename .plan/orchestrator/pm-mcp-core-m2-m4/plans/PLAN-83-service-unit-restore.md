@@ -61,7 +61,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: the Expected Surface is inferred from the `Where` line (`runtime.start`: `ServiceUnitInstaller`, `ServiceUnitFile`) and ADR `runtime-start/003`, not from a trace matrix — confirm/refute at the trace matrix (verify-at-outline)
   - verdict: unverifiable | checked_at: 5796aa9704052fcd3a8ea89fe27f802ce8648e31 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - Verify-first clause: before scoping, list the open pull requests for one that names `service-unit-restore` or edits `ServiceUnitInstaller`, and check that the row is still open and depends on nothing; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 3323ce7bfb2875b94b95dbeba5063171901f9c69 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row service-unit-restore is open in the index at 3323ce7; open PRs #71 (ci pr view): none names the package; the dependencies not done are listed in the spec's Depends on line
+  - verdict: corroborated | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row service-unit-restore is open in the index at 98ce971; open PRs (ci pr list): #71 (a dependabot bump) only, none names the package; doc/plans/service-unit-restore.adoc is unchanged since 3323ce7; code claims of the spec were not re-read
 
 ## Expected Surface
 

@@ -17,6 +17,8 @@ Implement the work package `forgejo-provider` of `doc/plans/forgejo-provider.ado
 
 **Parked:** the index gives the package the status `blocked`; the CI contract of `pm-provider-ci` (no work package). Re-ground this spec before emitting it.
 
+**The HTTP base moves to its own module (plan-marshall-documentation #94, `273171d`, 2026-10-18).** The Module Structure Specification now has the module `pm-provider-http` (`de.planmarshall.provider.http.*`, the shared origin-pinned HTTP base over `cui-http`, depends on `pm-core`), on which `pm-provider-ci` and every provider adapter depend; `pm-provider-forgejo` depends on `pm-provider-ci`, `pm-provider-http` and `pm-core`. "The shared HTTP base" in deliverable 2 below is that module, not a package of `pm-provider-ci`. The move itself is PLAN-86 `provider-http-module` (staged 2026-10-19); until it is done this spec builds on the HTTP base where it is today, and it is re-grounded after PLAN-86 lands.
+
 ## Deliverables
 
 The bullets of `doc/plans/forgejo-provider.adoc` § What, in its words (regenerated at 710da61, after the specification moved into this repository).
@@ -61,8 +63,10 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
   - verdict: corroborated | checked_at: 238c82395f9637992612f7f0b2935f9f9d86225b | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: README.adoc row forgejo-provider re-read at 238c823: blocked; depends on the CI contract of `pm-provider-ci` (no work package); matches the claim
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line only — confirm/refute at the trace matrix (verify-at-outline)
   - verdict: corroborated | checked_at: 238c82395f9637992612f7f0b2935f9f9d86225b | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: the Expected Surface mirrors the Where line of doc/plans/forgejo-provider.adoc; listed paths exist or are declared new; packages the Where line names but the surface omitted were added by cleanup
+- OBSERVED: the Module Structure Specification at plan-marshall-documentation `273171d` lists `pm-provider-forgejo` as depending on `pm-provider-ci`, `pm-provider-http` and `pm-core`, and `pm-provider-http` as the shared HTTP base module — `doc/specification/module-structure.adoc` § module tree, § `pm-provider-forgejo`, § Dependency Rules
+  - verdict: corroborated | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: plan-marshall-documentation origin/main 273171d module-structure.adoc: pm-provider-forgejo, pm-provider-github and pm-provider-gitlab each read Depends on pm-provider-ci, pm-provider-http and pm-core; the module tree lists pm-provider-http as the shared HTTP base over cui-http
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 3323ce7bfb2875b94b95dbeba5063171901f9c69 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row forgejo-provider is blocked in the index at 3323ce7; open PRs #71 (ci pr view): none names the package; the dependencies not done are listed in the spec's Depends on line
+  - verdict: corroborated | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row forgejo-provider is blocked in the index at 98ce971; open PRs (ci pr list): #71 (a dependabot bump) only, none names the package; doc/plans/forgejo-provider.adoc is unchanged since 3323ce7; code claims of the spec were not re-read
 
 ## Expected Surface
 
@@ -70,6 +74,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/findings/` — inferred from the `Where` line
 - HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java` — the closed list of integrations and providers (wire name `gitlab`) lives here, not only in `core.findings`; added by cleanup on 2026-10-16
 - HYPOTHESIS: `pm-providers/pom.xml` — a new module needs a module entry and a `KNOWN_PREFIXES` entry; added by cleanup on 2026-10-16
+- HYPOTHESIS: `pm-providers/pm-provider-forgejo/pom.xml` — depends on `pm-provider-ci`, `pm-provider-http` and `pm-core`, as the Module Structure Specification now lists it (confirm/refute at `module-structure.adoc` § `pm-provider-forgejo` and § Dependency Rules; the `pm-provider-http` entry requires that module to exist)
 - OBSERVED: `doc/plans/README.adoc` — this package's own status row only
 - HYPOTHESIS: `pm-core/doc/developer/core-findings.adoc` — developer documentation of the package; created or extended (added by cleanup 2026-10-13: the Standing Constraints require it)
 - HYPOTHESIS: `pm-core/doc/adr/core-findings/` — ADRs of the package's design decisions; new directory if absent (added by cleanup 2026-10-13)
@@ -82,7 +87,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 
 ## Dependencies and Sequencing
 
-- Depends on: the CI contract of `pm-provider-ci` (no work package)
+- Depends on: the CI contract of `pm-provider-ci` (no work package); PLAN-86 (`provider-http-module`, the move of the shared HTTP base into `pm-provider-http`)
 
 ## Hand-Off Command
 
