@@ -1,0 +1,12 @@
+deliberate: deliberate-file-byte-framing
+# Deliberate change: PM-MCP hashes the bytes of the changed files, not the text of git diff. The original hashes the
+# output of git diff HEAD, whose headers diff.noprefix, core.quotePath and diff.renames reshape; here those settings,
+# set after a change, leave the digest unchanged.
+repository initial
+write tracked.txt modified\n
+result before
+config diff.noprefix true
+config core.quotePath false
+config diff.renames copies
+result after
+same before after

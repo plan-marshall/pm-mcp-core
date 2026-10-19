@@ -162,55 +162,6 @@ class JGitOperationsTest {
     class WorktreeShaTests {
 
         @Test
-        @DisplayName("is stable for the same tree and changes with every input of rule 1")
-        void equalityBehaviour() throws Exception {
-            String clean = sha(repo);
-            assertEquals(clean, sha(repo));
-
-            write("README.md", "changed\n");
-            String modified = sha(repo);
-            assertNotEquals(clean, modified);
-
-            write("README.md", "hello\n");
-            assertEquals(clean, sha(repo), "restoring the content restores the digest");
-
-            write("new file ä.txt", "x");
-            String untracked = sha(repo);
-            assertNotEquals(clean, untracked);
-            write("new file ä.txt", "y");
-            assertNotEquals(untracked, sha(repo), "untracked content counts");
-            Files.delete(repo.resolve("new file ä.txt"));
-
-            Files.delete(repo.resolve("README.md"));
-            String deleted = sha(repo);
-            assertNotEquals(clean, deleted);
-            write("README.md", "hello\n");
-
-            write("c.txt", "c");
-            commit("c");
-            assertNotEquals(clean, sha(repo), "a new HEAD changes the digest");
-        }
-
-        @Test
-        @DisplayName("counts staged-only changes and ignores ignored files")
-        void stagedAndIgnored() throws Exception {
-            String clean = sha(repo);
-            write(".gitignore", "*.log\n");
-            commit("ignore logs");
-            String base = sha(repo);
-            write("build.log", "noise");
-            assertEquals(base, sha(repo), "ignored paths are not inputs");
-
-            write("README.md", "staged\n");
-            try (Git jgit = Git.open(repo.toFile())) {
-                jgit.add().addFilepattern("README.md").call();
-            }
-            write("README.md", "hello\n");
-            assertNotEquals(base, sha(repo), "a staged-only change is an input");
-            assertNotEquals(clean, base);
-        }
-
-        @Test
         @DisplayName("matches an independent computation of the version-1 framing")
         void framing() throws Exception {
             write("b.txt", "B");
@@ -223,38 +174,6 @@ class JGitOperationsTest {
                     WorktreeShaDigestTest.link("link", "a.txt")));
 
             assertEquals(expected, sha(repo));
-        }
-
-        @Test
-        @DisplayName("is unaffected by configuration that shapes textual diff output")
-        void configurationIndependent() throws Exception {
-            write("README.md", "changed\n");
-            String before = sha(repo);
-            try (Git jgit = Git.open(repo.toFile())) {
-                StoredConfig config = jgit.getRepository().getConfig();
-                config.setBoolean("diff", null, "noprefix", true);
-                config.setString("diff", null, "renames", "copies");
-                config.setBoolean("core", null, "quotePath", false);
-                config.save();
-            }
-
-            assertEquals(before, sha(repo));
-        }
-
-        @Test
-        @DisplayName("is unavailable for an unborn HEAD or a missing repository")
-        void unavailable() throws Exception {
-            Path unborn = temp.resolve("unborn");
-            git.init(unborn, "main");
-            Path plain = Files.createDirectories(temp.resolve("plain"));
-
-            var noHead = git.worktreeSha(unborn);
-            var noRepo = git.worktreeSha(plain);
-
-            assertEquals(GitOutcome.UNAVAILABLE, noHead.outcome());
-            assertTrue(noHead.detail().startsWith("head"));
-            assertEquals(GitOutcome.UNAVAILABLE, noRepo.outcome());
-            assertTrue(noRepo.detail().startsWith("open"));
         }
     }
 

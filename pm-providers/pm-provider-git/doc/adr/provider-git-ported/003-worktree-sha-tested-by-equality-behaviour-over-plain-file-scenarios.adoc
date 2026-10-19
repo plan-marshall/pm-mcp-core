@@ -1,0 +1,64 @@
+= ADR 003: `git.worktree-sha` Tested by Equality Behaviour over Plain-File Scenarios
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+`git.worktree-sha` hashes file bytes read from disk, while the original `worktree_sha.py` hashes the text of
+`git diff` and `git ls-files`; the digests differ by design and are never exchanged between the two systems, so
+`worktree_sha` is exempt from byte equivalence (PM-TEST-2). The original has known defects at the pinned commit, and
+PM-MCP changes two behaviours on purpose: the file-byte framing and the fail-closed `unavailable` value. Before this
+decision `JGitOperationsTest.WorktreeShaTests` held equality cases of its own, and `WorktreeShaDigestTest` pinned the
+version-1 framing by an independent computation.
+
+== Decision
+
+The ported tests of `git.worktree-sha` (`WorktreeShaPortedTest`) assert equality behaviour, never digest bytes, over
+plain-file scenarios below `src/test/resources/ported/worktree-sha/`, run through the public contract
+`JGitOperations.worktreeSha` on fresh repositories:
+
+* A scenario records labelled results and states their relations: `same`, `different`, or `unavailable` with the
+  failing step (`DigestRelations`). An unavailable result never enters an equality assertion.
+* One scenario per pytest case of `test_worktree_sha.py`, with the original's initial tree; the further cases of the
+  equality rule the original also shows (`deletion`, `head-change`, `non-ascii-path`) are headed with the nearest
+  pytest case.
+* Each deliberate change and each known defect that reproduces at the pin has a scenario of its own, named
+  `deliberate-<change>`, asserting the corrected behaviour: `deliberate-file-byte-framing`,
+  `deliberate-unavailable-unreadable-file`, `deliberate-non-ascii-untracked-content`,
+  `deliberate-untracked-entry-boundaries`, `deliberate-symlink-target`.
+* `WorktreeShaDigestTest` stays as the pin of the version-1 framing; it is not a ported test.
+* The equality cases of `JGitOperationsTest.WorktreeShaTests` (`equalityBehaviour`, `stagedAndIgnored`,
+  `configurationIndependent`, `unavailable`) are folded into the suite and removed, each named with its replacing
+  scenarios in a `Test-Removed:` commit trailer; `framing` stays.
+
+== Alternatives Considered
+
+1. *Byte equivalence with the original*: not taken; the framings differ by design and PM-TEST-2 exempts
+   `worktree_sha`.
+2. *Digest literals of PM-MCP as expected values*: not taken; they would tie every scenario to the version-1 framing,
+   which `WorktreeShaDigestTest` already pins, and a new hash version would rewrite the whole corpus.
+3. *Keeping the equality cases in `JGitOperationsTest` beside the suite*: not taken; two forms of the same tests
+   drift apart.
+
+== Consequences
+
+* A change of the framing within the equality behaviour does not touch the scenarios; a change that breaks it turns
+  scenarios red. Dropping only the `D` tag byte is invisible to equality behaviour and caught by
+  `WorktreeShaDigestTest`.
+* The unreadable-file scenario runs only where POSIX permissions apply and the user is not root.
+* The comparison of the native and the CLI variant is not covered: there is no CLI variant yet.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/ce43548/doc/plans/differential-test-harness.adoc[`doc/plans/differential-test-harness.adoc`]
+* Plan `plan-37-ported-primitive-tests` and its pull request
+* Requirement PM-TEST-2, `doc/requirements/12-testing.adoc` of plan-marshall-documentation
+* Specification link:../../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#worktree-sha[Job Runtime Specification § Working-Tree Hash]
+* Developer documentation: link:../../developer/provider-git-ported.adoc[`provider-git-ported.adoc`]

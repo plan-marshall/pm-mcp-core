@@ -1,0 +1,9 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_detached_head_resolves_digest
+# A detached HEAD still resolves a digest, the same as on the branch at the same commit and tree.
+repository initial
+write tracked.txt second\n
+commit second
+result attached
+detach
+result detached
+same attached detached

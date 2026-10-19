@@ -1,0 +1,12 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_staged_edit_changes_digest
+# A staged edit changes the digest, and so does a change that lives in the index alone (the working tree back at
+# the committed content).
+repository initial
+result before
+write tracked.txt staged change\n
+stage tracked.txt
+result staged
+write tracked.txt original\n
+result staged-only
+different before staged
+different before staged-only

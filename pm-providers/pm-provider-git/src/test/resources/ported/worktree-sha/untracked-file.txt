@@ -1,0 +1,7 @@
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_untracked_file_changes_digest
+# A new untracked, not ignored file changes the digest.
+repository initial
+result before
+write brand_new.txt new content\n
+result after
+different before after

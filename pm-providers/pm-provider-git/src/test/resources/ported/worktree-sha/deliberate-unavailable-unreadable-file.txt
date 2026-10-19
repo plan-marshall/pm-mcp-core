@@ -1,0 +1,10 @@
+deliberate: deliberate-unavailable-unreadable-file
+# Deliberate change (fail-closed): a file the digest cannot read yields no digest. The original catches the OSError
+# and folds the unreadable untracked file in as empty content, an ordinary digest; here it is unavailable, failing
+# in step read.
+requires: posix-permissions
+repository initial
+write secret.txt unreadable content\n
+unreadable secret.txt
+result unreadable
+unavailable unreadable read

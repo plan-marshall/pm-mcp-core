@@ -39,6 +39,7 @@ The repository:
 `pm-provider-git`:
 
 * link:../../pm-providers/pm-provider-git/doc/adr/provider-git/[`pm-providers/pm-provider-git/doc/adr/provider-git/`]: the cache repository operations on the shared git contract.
+* link:../../pm-providers/pm-provider-git/doc/adr/provider-git-ported/[`pm-providers/pm-provider-git/doc/adr/provider-git-ported/`]: the ported-primitive tests, derived from the original one script at a time, and the tests of `git.worktree-sha`.
 
 `pm-runtime`:
 

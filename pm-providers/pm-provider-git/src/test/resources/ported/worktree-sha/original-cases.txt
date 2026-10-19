@@ -1,0 +1,16 @@
+# The pytest cases of the original suite at the pinned commit, each mapped to the fixtures derived from it or
+# excluded with its reason. WorktreeShaPortedTest checks both directions: every case here is a fixture or an
+# exclusion, and every fixture headed original: names a case listed here.
+suite: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py
+case test_clean_repo_returns_hex_digest -> clean-tree-deterministic
+case test_clean_tree_is_deterministic -> clean-tree-deterministic
+case test_accepts_str_path excluded: a Java Path has no str form; the legacy str | Path argument maps to Path
+case test_unstaged_edit_changes_digest -> unstaged-edit deletion non-ascii-path
+case test_staged_edit_changes_digest -> staged-edit
+case test_untracked_file_changes_digest -> untracked-file
+case test_untracked_file_content_matters -> untracked-content
+case test_gitignored_file_does_not_change_digest -> ignored-file
+case test_detached_head_resolves_digest -> detached-head head-change
+case test_non_git_directory_returns_none -> no-repository
+case test_repo_with_no_commit_returns_none -> no-commit
+case test_missing_git_binary_returns_none excluded: the native variant starts no process, so there is no git binary to miss; a failing step is covered by the unavailable fixtures no-repository, no-commit and deliberate-unavailable-unreadable-file

@@ -1,0 +1,10 @@
+deliberate: deliberate-non-ascii-untracked-content
+# Known defect of the original: git ls-files --others prints a non-ASCII path quoted and escaped (core.quotePath is
+# on by default), so the original cannot open it and folds its content in as empty; a content change is invisible.
+# Here a content change of an untracked non-ASCII path changes the digest.
+repository initial
+write größe.txt content A\n
+result first
+write größe.txt content B\n
+result second
+different first second

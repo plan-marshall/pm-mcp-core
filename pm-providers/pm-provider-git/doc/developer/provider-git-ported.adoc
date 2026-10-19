@@ -1,0 +1,257 @@
+= Ported-Primitive Tests (`provider.git.ported`) Developer Guide
+:docs: ../../../../../plan-marshall-documentation/doc
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/provider/git
+:test: ../../src/test/java/de/planmarshall/provider/git
+:ported: ../../src/test/java/de/planmarshall/provider/git/ported
+:data: ../../src/test/resources/ported/worktree-sha
+
+== Purpose
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2], link:{req}/11-migration.adoc#PM-MIG-4[PM-MIG-4]
+
+The test package `de.planmarshall.provider.git.ported` holds the Java tests of primitives whose `plan-marshall` original is classified `Ported` in the migration inventory (`doc/roadmap/migration-inventory.csv` of plan-marshall-documentation).
+A primitive of that kind is released only when its ported tests exist and pass.
+The package lives in the test tree of `pm-provider-git` only; it has no production class, no shared test JAR and no build configuration of its own (link:../adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR 002]).
+
+Its first and so far only primitive is `git.worktree-sha`, served by `JGitOperations.worktreeSha` over link:{src}/WorktreeShaDigest.java[`WorktreeShaDigest`].
+Its original is `marketplace/bundles/plan-marshall/skills/script-shared/scripts/worktree_sha.py` with the pytest suite `test/plan-marshall/script-shared/test_worktree_sha.py`, both at the pinned commit.
+
+[source,text]
+----
+src/test/resources/ported/worktree-sha/     plain-file fixtures and the roster original-cases.txt
+            │ enumerated by
+            ▼
+PortedFixtures ──► WorktreeShaScenario ──► JGitOperations.worktreeSha (public contract)
+ (loader)           (runs the steps on a       │
+                     repository in @TempDir)   ▼
+                            │              WorktreeShaDigest (production, unchanged)
+                            ▼
+                     DigestRelations  (same / different / unavailable)
+                            ▲
+                  WorktreeShaPortedTest  (one case per fixture, roster, population floor)
+----
+
+== Adapting a `Ported` Script
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2], link:{req}/11-migration.adoc#PM-MIG-4[PM-MIG-4]
+
+One `Ported` script is adapted at a time (link:../adr/provider-git-ported/001-ported-tests-derived-from-the-original-one-script-at-a-time.adoc[ADR 001]):
+
+. Read the original script and its pytest suite at the pinned commit, by hand, in a `plan-marshall` checkout (`git show <pin>:<path>`).
+  The commit is `PortedFixtures.INVENTORY_PIN`, the pin of the migration inventory.
+. Write one plain-file fixture per pytest case, with the same initial tree and the same steps, and take the expected relation from the case.
+. Write a fixture of its own for each deliberate change and each known defect of the original that reproduces at the pin (§ Deliberate Changes and Known Defects).
+. List every pytest case of the suite in the roster, mapped to its fixtures or excluded with a reason.
+
+Nothing at test time runs Python, starts a `plan-marshall` script, reads a `plan-marshall` checkout, or compares a Java result with a Python result, live or recorded.
+The original is the guide for writing the data, not an oracle the tests consult.
+
+The legacy-to-target mapping lives only in this package and its data, never in a production class.
+For `git.worktree-sha` it is held by link:{ported}/WorktreeShaScenario.java[`WorktreeShaScenario`]: the original's `None` digest is `GitOutcome.UNAVAILABLE` with the failing step named in the detail, and its `str | Path` argument is a `java.nio.file.Path`.
+The owner of the mapping and its removal trigger are stated in link:{ported}/package-info.java[`package-info.java`]: the package owns it, and the mapping of a primitive is removed when that primitive is released and the pin no longer advances for it.
+
+== Fixture Format
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2]
+
+A fixture is one `.txt` file below `src/test/resources/ported/<primitive>/`, one scenario per file, committed with the tests (link:{data}/[`ported/worktree-sha/`]).
+Lines starting with `#` and blank lines are ignored; the comment says what the scenario shows.
+
+The first line is the header, one of:
+
+* `original: plan-marshall@<pin> <pytest path>::<case> [<pytest path>::<case> ...]`: derived from one or more pytest cases of one suite.
+  `<pin>` must be `PortedFixtures.INVENTORY_PIN`.
+* `deliberate: <name>`: a deliberate change or a known defect of the original.
+  `<name>` must be the file name without `.txt`, and the roster test requires it to start with `deliberate-`.
+
+Optional `requires: <capability>` lines name what the fixture needs to run; the only capability is `posix-permissions` (§ Running the Suite).
+The other lines are directives of the primitive's grammar.
+The directives of `git.worktree-sha`, declared in `WorktreeShaScenario.GRAMMAR` (arguments separated by one space):
+
+[cols="2,4",options="header"]
+|===
+|Directive |Effect
+
+|`repository initial \| unborn \| none`
+|The repository the fixture starts from, and its first directive. `initial` is the original suite's `_init_repo`: one commit holding `tracked.txt` with the content `original\n`. `unborn` is a repository without a commit. `none` is a plain directory.
+
+|`write <path> <content>`
+|Writes a file, creating its parent directories. `<content>` takes the rest of the line, with the escapes `\n`, `\t`, `\0` and `\\`.
+
+|`stage <path>`
+|Adds the path to the index.
+
+|`commit <message>`
+|Commits every change through `JGitOperations.commit`. `<message>` takes the rest of the line.
+
+|`delete <path>`
+|Deletes a file or a symbolic link.
+
+|`config <section.key> <value>`
+|Sets a repository configuration key.
+
+|`detach`
+|Checks out the `HEAD` commit detached.
+
+|`symlink <path> <target>`
+|Creates a symbolic link.
+
+|`unreadable <path>`
+|Removes every permission of a file.
+
+|`result <label>`
+|Calls `JGitOperations.worktreeSha` and keeps the result under the label; a label is recorded once.
+
+|`same <label> <label>`, `different <label> <label>`
+|Expected relation of two successful results.
+
+|`unavailable <label> <step>`
+|Expected `UNAVAILABLE` result failing in the step (`open`, `head`, `status` or `read`).
+|===
+
+An example, link:{data}/unstaged-edit.txt[`unstaged-edit.txt`]:
+
+[source,text]
+----
+original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_unstaged_edit_changes_digest
+# An unstaged edit of a tracked file changes the digest; restoring the committed content restores it.
+repository initial
+result before
+write tracked.txt modified\n
+result after
+write tracked.txt original\n
+result restored
+different before after
+same before restored
+----
+
+== Loader and Roster
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2]
+
+link:{ported}/PortedFixtures.java[`PortedFixtures`] enumerates the fixture directory from the test class path: every `*.txt` file in it is a fixture, except the roster `original-cases.txt`.
+No fixture is listed in code, so a file added to the directory runs without a code change.
+`PortedFixtures.load(directory, grammar)` takes the directory and the grammar of the primitive, so it is not bound to `git.worktree-sha`.
+
+The loader refuses a fixture, naming the fixture and the line, when it has no header or an unknown one, when an `original:` header names another pin or no case, a malformed case reference or cases of two suites, when a `deliberate:` header does not name its file, when the fixture has no directive, and when a directive is not in the grammar or has the wrong number of arguments.
+A malformed fixture therefore fails the suite instead of being skipped or defaulted.
+
+The roster link:{data}/original-cases.txt[`original-cases.txt`] names its suite once, `suite: plan-marshall@<pin> <pytest path>`, and then has one line per pytest case:
+
+* `case <name> -> <fixture> [<fixture> ...]`: the fixtures derived from the case;
+* `case <name> excluded: <reason>`: a case with no fixture, with its reason.
+
+For `git.worktree-sha` it lists the twelve cases of `test_worktree_sha.py`.
+Two are excluded: `test_accepts_str_path`, because a Java `Path` has no `str` form, and `test_missing_git_binary_returns_none`, because the native variant starts no process; a failing step is covered by the `unavailable` fixtures.
+
+== Scenario Runner and Comparison Helper
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2]
+
+link:{ported}/WorktreeShaScenario.java[`WorktreeShaScenario`] runs a fixture on a fresh repository in a `@TempDir` directory, never on a real worktree or store.
+It creates and commits through `JGitOperations.init` and `JGitOperations.commit`, which open the repository with `RefusingFS`, so no process starts.
+Staging a single path, setting a configuration key and detaching `HEAD` are no operations of the git contract; the runner does them through JGit directly.
+Every `result` goes through `JGitOperations.worktreeSha`, the public contract; the runner returns the labelled results and the expectations as a `Run`.
+
+link:{ported}/DigestRelations.java[`DigestRelations`] checks a `Run`.
+It asserts relations, never digest bytes: `git.worktree-sha` is exempt from byte equivalence with the original, so no fixture holds a digest value.
+
+* `same a b`: both results succeeded and their digests are equal.
+* `different a b`: both results succeeded and their digests differ.
+* `unavailable a step`: the result is `UNAVAILABLE` and its detail starts with `<step>:`.
+* Every successful result has hash version `1` and a digest of 64 lower-case hexadecimal characters (its form, not its value).
+* An unavailable result never enters an equality assertion: `same` or `different` over it fails, because an unavailable value equals nothing, another unavailable value included.
+* Every recorded label must be named by an expectation, and a fixture without any expectation fails.
+
+== Deliberate Changes and Known Defects
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2]
+
+A known defect of the original is never the expected value.
+It gets a fixture of its own, headed `deliberate:`, which asserts the corrected PM-MCP behaviour and states the original's behaviour in its comment.
+The same holds for a behaviour PM-MCP changes on purpose.
+A defect that does not reproduce at the pin gets no fixture.
+
+The fixtures of `git.worktree-sha`, each checked against `worktree_sha.py` at the pin (link:../adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR 003]):
+
+[cols="2,3,3",options="header"]
+|===
+|Fixture |Original at the pin |Asserted
+
+|`deliberate-file-byte-framing`
+|hashes the text of `git diff HEAD`, which `diff.noprefix`, `core.quotePath` and `diff.renames` reshape
+|setting these keys after a change leaves the digest unchanged
+
+|`deliberate-unavailable-unreadable-file`
+|folds an unreadable untracked file in as empty content
+|`unavailable` in step `read`
+
+|`deliberate-non-ascii-untracked-content`
+|cannot open the quoted path `git ls-files` prints for an untracked non-ASCII name, so a content change is invisible
+|a content change of an untracked non-ASCII path changes the digest
+
+|`deliberate-untracked-entry-boundaries`
+|streams untracked entries as `path NUL content NUL` without lengths, so one file can stream like two
+|the one-file trees and the two-file tree differ
+
+|`deliberate-symlink-target`
+|hashes the content of a link's target (a dangling link as empty)
+|retargeting a link between targets of equal content changes the digest; a content change of the ignored target alone does not
+|===
+
+The behaviours of the equality rule that no pytest case covers but the original shows as well (`deletion`, `head-change`, `non-ascii-path`) are no deliberate changes; they are headed `original:` with the nearest pytest case.
+
+== Running the Suite
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2], link:{req}/11-migration.adoc#PM-MIG-4[PM-MIG-4]
+
+The suite runs with the module tests:
+`python3 .plan/execute-script.py plan-marshall:build-maven:maven run --command-args "test -pl pm-providers/pm-provider-git -am"`.
+
+[horizontal]
+link:{ported}/WorktreeShaPortedTest.java[`WorktreeShaPortedTest`]:: `equalityBehaviour` runs one case per fixture without a `requires:` line. `posixEqualityBehaviour` runs the fixtures that require `posix-permissions`, only on Linux and macOS (`@EnabledOnOs`) and only when the running user cannot read a file without read permission (an assumption that skips the case for root). `populationFloor` fails when the directory holds fewer than 17 fixtures or a fixture requires an unknown capability. `roster` closes the corpus in both directions: every case of the roster is mapped to exactly the fixtures that name it or is excluded with a reason, every case an `original:` header names is in the roster, and the roster holds twelve cases. The nested classes test the loader's refusals, the escapes, the roster parser, the comparison helper and the runner's refusals.
+link:{test}/WorktreeShaDigestTest.java[`WorktreeShaDigestTest`]:: Not a ported test: it pins the version-1 framing by an independent computation. A change of the framing is a new hash version, not a ported behaviour.
+link:{test}/JGitOperationsTest.java[`JGitOperationsTest`]:: `WorktreeShaTests.framing` checks the framing through `JGitOperations`, a symbolic link included. The equality cases it held before are carried by the ported suite.
+
+The fixtures were shown to catch a regression by changing `WorktreeShaDigest` by hand: dropping the length framing turns `deliberate-untracked-entry-boundaries` red, dropping the deletion entry turns `deletion` red, and leaving `HEAD` out turns `head-change` red.
+Dropping only the `D` tag byte is invisible to equality behaviour; `WorktreeShaDigestTest` pins it.
+
+== Pitfalls
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2], link:{req}/11-migration.adoc#PM-MIG-4[PM-MIG-4]
+
+1. **A hand-listed fixture set loses fixtures**: a fixture missing from a list never runs, and the suite stays green. Fixtures are enumerated from their directory, exclusions are written in the roster with a reason, and the population floor fails a directory that lost files.
+2. **A legacy mapping without owner and removal trigger stays forever**: state both in the `package-info.java` of the package that holds the mapping, and keep the mapping out of production code.
+3. **Ported tests written before a pending behaviour fix freeze the defect**: write the tests of a primitive only from its corrected behaviour, after every behaviour fix touching the same code has landed.
+4. **Expected values copied from the original's defects**: a value the original produces is not a requirement. Check each defect at the pin and give it a `deliberate-` fixture that asserts the corrected behaviour.
+5. **Bytes instead of behaviour**: a digest literal in a fixture would tie the suite to one framing. Assert relations; the framing has its own test.
+6. **A stand-in instead of the real producer**: a test double of the status or of the file reads proves nothing about the primitive. The scenarios build real repositories and call the public contract.
+
+== A Second Primitive
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2]
+
+A further `Ported` primitive of this module gets its own fixture directory `ported/<primitive>/` with its roster, its own scenario runner with its grammar, and its own test class; `PortedFixtures` is shared.
+When a primitive of another module needs the loader or a comparison helper, the utilities move to a shared test JAR; that move and its build change are decided then, not before (link:../adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR 002]).
+
+== Advancing the Pin
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2]
+
+The pin is advanced in a pull request of plan-marshall-documentation that changes the migration inventory, classifies the scripts added and deleted since the previous pin and re-verifies the legacy formats of the `Ported` set.
+In this repository, the change then sets `PortedFixtures.INVENTORY_PIN` to the new commit, re-reads the original and its pytest suite at that commit, adapts the fixtures and the roster to what changed, and moves every `original:` header and the `suite:` line of the roster to the new pin.
+The loader refuses any fixture or roster still naming the old pin, so no file can be left behind.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/12-testing.adoc#PM-TEST-2[PM-TEST-2], link:{req}/11-migration.adoc#PM-MIG-4[PM-MIG-4]
+
+* Specification: link:{spec}/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests], link:{spec}/job-runtime/03-parsers-and-gates.adoc#worktree-sha[Job Runtime Specification § Working-Tree Hash]
+* Watch: link:{docs}/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-32[PM-WATCH-GEN-32], link:{docs}/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-57[PM-WATCH-GEN-57], link:{docs}/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-58[PM-WATCH-GEN-58]
+* Decisions: link:../adr/provider-git-ported/001-ported-tests-derived-from-the-original-one-script-at-a-time.adoc[ADR 001], link:../adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR 002], link:../adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR 003]

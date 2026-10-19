@@ -248,12 +248,6 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |`open`
 |nothing
 |Milestone 10
-
-|link:differential-test-harness.adoc[`differential-test-harness`]
-|Tests of the ported primitives, derived from their original scripts
-|`open`
-|nothing
-|Milestone 4
 |===
 
 The work packages of the other repositories: link:../../../pm-mcp-clients/doc/plans/README.adoc[`pm-mcp-clients`] and link:../../../plan-marshall-mcp/doc/plans/README.adoc[`plan-marshall-mcp`].

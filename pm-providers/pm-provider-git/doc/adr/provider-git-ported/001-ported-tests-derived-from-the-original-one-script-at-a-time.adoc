@@ -1,0 +1,64 @@
+= ADR 001: Ported Tests Derived from the Original, One Script at a Time
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+A primitive whose `plan-marshall` original is classified `Ported` in the migration inventory is released only when its
+ported Java tests exist and pass (PM-MIG-4). The tests are written per script with the original script and its pytest
+suite as the guide, run in Java and Maven alone, and need no Python interpreter and no `plan-marshall` checkout; no
+run compares a Java result with a Python result, live or recorded (PM-TEST-2). The original changes over time, so the
+tests need a fixed commit to be derived from, and the legacy formats of the original must not leak into production
+code.
+
+== Decision
+
+The ported tests of a primitive are written in Java, together with plain-file test data, derived by hand from the
+original script and its pytest suite at the commit the migration inventory pins, one `Ported` script at a time:
+
+* The pinned commit is the constant `PortedFixtures.INVENTORY_PIN`. Every fixture derived from a pytest case names it
+  in its header (`original: plan-marshall@<pin> <pytest path>::<case>`), and the roster names it on its `suite:`
+  line; the loader refuses any other commit.
+* The roster `original-cases.txt` maps every pytest case of the suite to its fixtures or excludes it with a reason,
+  and a test checks the mapping in both directions.
+* The legacy-to-target mapping lives in the test package and its data only (for `git.worktree-sha` in
+  `WorktreeShaScenario`), never in a production class. Its owner, the package, and its removal trigger, the release of
+  the primitive with the pin no longer advancing for it, are stated in the `package-info.java` of the package.
+* The pin is advanced by a pull request of plan-marshall-documentation that changes the inventory and re-verifies the
+  legacy formats; the fixtures follow it in this repository.
+
+== Alternatives Considered
+
+1. *A recorded oracle*: run the original once and commit its outputs as expected values. Not taken: PM-TEST-2 rules
+   out a comparison with a recorded Python result, and the recording would carry the original's defects as
+   expectations.
+2. *A live comparison with Python*: run the original beside the Java primitive in the build. Not taken: the build and
+   CI need no Python and no `plan-marshall` checkout (PM-TEST-2), and the runtime has no routing seam or fallback to
+   Python (PM-MIG-2).
+3. *A converter from legacy data*: translate the original's data or results into the target format by a program.
+   Not taken: the mapping belongs in test code only and is no part of the specification (PM-TEST-2); a converter
+   would be a second, permanent mapping surface.
+
+== Consequences
+
+* A `Ported` script is adapted only after its original and its pytest suite have been read at the pin; a fixture of a
+  case that changed behaviour at a new pin has to be re-derived.
+* Advancing the pin touches the constant, every `original:` header and the roster in one change, because the loader
+  refuses a mixed corpus.
+* A pytest case without a Java counterpart cannot vanish silently: it is a fixture or an exclusion with a reason.
+
+== Source
+
+* Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/ce43548/doc/plans/differential-test-harness.adoc[`doc/plans/differential-test-harness.adoc`]
+* Plan `plan-37-ported-primitive-tests` and its pull request
+* Requirements PM-TEST-2 (`doc/requirements/12-testing.adoc`), PM-MIG-2 and PM-MIG-4
+  (`doc/requirements/11-migration.adoc`) of plan-marshall-documentation
+* Specification link:../../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#ported-tests[Store Schemas Specification § Ported-Primitive Tests]
+* Developer documentation: link:../../developer/provider-git-ported.adoc[`provider-git-ported.adoc`]
