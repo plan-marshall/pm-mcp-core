@@ -710,13 +710,7 @@ decision or a dependency outside this repository.
 
 ## Open Defects
 
-- **`plan-marshall-mcp` does not compile against the pm-runtime SNAPSHOT since #90 (owed by PLAN-74 deliverable 7).** `SecretStoreProducer`
-  in `pm-mcp-server` uses the deleted `SecretStoreSelector`; the producer of the active store must read the recorded choice and the
-  credential-store aspect of the onboarding must call `CredentialStoreChoice.record`. The checkout of `plan-marshall-mcp` is 11 commits
-  behind `origin/main`, whose newest are docs(plans). No package of `plan-marshall-mcp` owns it and no issue exists (verified by
-  listing `doc/plans` there on 2026-10-18). Fix: a package file (or a bullet of the package that wires the credentials) and then a
-  plan in that repository; the repository is outside this epic's ledger, so the operator decides whether to file an issue or open the
-  `docs(plans)` change — source: landing PLAN-74.
+> ↪ Relocated to `settled.md` § "Defect: plan-marshall-mcp did not compile against the pm-runtime SNAPSHOT" — closed by plan-marshall-mcp #88 (8137c9e), verified 2026-10-19
 
 > ↪ Relocated to `settled.md` § "Defect: staged specs behind doc/plans/" — reconciled by cleanup on 2026-10-15 at a8a4214
 
@@ -730,13 +724,13 @@ decision or a dependency outside this repository.
   - Open `plan-marshall-documentation` #59 (PLAN-12) puts `"format_version": 3` into the store schema
     specification.
 
-  The target: the journal at version 1 everywhere — code, tests, fixtures, guide, ADR (record the
+  **Staged on 2026-10-19 as PLAN-87 `journal-format-version-reset`.** The target: the journal at version 1 everywhere — code, tests, fixtures, guide, ADR (record the
   decision instead of the bump) and specification. Every other versioned artifact is at 1 (checked on
   2026-10-13 at bed24eb) — source: operator, 2026-10-13.
 
 - Documentation behind the code: the Job Runtime specification (now in pm-mcp-core, `doc/specification/job-runtime/`)
   lacks PLAN-18's mandatory `maxLength` for enrolled patterns (doc #46 merged before the review fixes). A small direct
-  PR in pm-mcp-core — source: PR check of 2026-10-13. (Part (b), the Workflow DSL watch items, was
+  PR in pm-mcp-core — source: PR check of 2026-10-13; **staged on 2026-10-19 as item 4 of PLAN-89** (to be re-read first). (Part (b), the Workflow DSL watch items, was
   closed by documentation #72, merged 2026-10-14 with PLAN-56.)
 
 > ↪ Relocated to `settled.md` § "Defect: static verifier residuals after PLAN-54" — PLAN-56 shipped as #66 (7981d17)
@@ -759,12 +753,12 @@ decision or a dependency outside this repository.
 - **No package owns the `pm-runtime` adapter for `QuestionRecordReader`** (found by the landing of PLAN-14, 2026-10-18; verified: no file of
   `doc/plans/` names `QuestionRecordReader`). PLAN-14 delivered the store in `pm-core` and states that the adapter is not part of it; the
   module structure places the question records in `pm-workflow` `workflow.question` and the port in `pm-core`. Candidates to take it:
-  `question-continuation` (PLAN-73), `task-queue-and-protocol` (PLAN-28) or a bullet of `runtime-control`. For the operator.
+  `question-continuation` (PLAN-73), `task-queue-and-protocol` (PLAN-28) or a bullet of `runtime-control`. **Staged on 2026-10-19 as PLAN-88 `question-record-reader-adapter`** (its own plan, sequenced against PLAN-73 by the disjointness check).
 - **`doc/Traceability.adoc` cites two tests that do not prove the spend removal.** Lines 247 and 248 list `CompositionRulesTest`
   and `PlanInstanceComposerTest` under PM-WF-14 "Verified by (no spend limit)", although #83 only renamed a gate name in their
   fixtures. Two entries to remove: the advisory code-review finding PLAN-72 left open (verified on acb5bba). Fold it into the next
   plan that edits the PM-WF-14 block (PLAN-61 `token-usage` implements PM-WF-14) or into a one-line `docs` change — source:
-  landing PLAN-72.
+  landing PLAN-72. **Staged on 2026-10-19 as item 3 of PLAN-89** (the lines are 279-280 at 98ce971).
 - **New specification obligations that no package file owns (pm-mcp-core #84, merged `5197490`; documentation #84, merged). Operator
   said yes on 2026-10-17: staged as PLAN-78 `spec-obligation-owners`, docs only, ready, not yet emitted (no free slot).** The change adds
   to the engine specifications: the worker egress proxy and macOS (Seatbelt) confinement (`job-runtime/02`); the launcher staying
@@ -782,13 +776,29 @@ decision or a dependency outside this repository.
   operator: one `docs(plans)` change that adds the obligations to those package files; then `cleanup` regenerates the specs.
   Without it the specs of these plans are regenerated from package files that omit the new scope — source: analysis of
   2026-10-17.
+- **Two decisions of 2026-10-18 reached the specifications after the last reconciliation: pm-mcp-core #101 (`98ce971`, 21:49 local) and
+  documentation #94 (`273171d`); analysed on 2026-10-19 and reconciled the same day.** PLAN-37 re-written (the differential harness is gone; the
+  package is the tests of the ported scripts, `open`, no dependency; unparked to `staged`); PLAN-60 (Micrometer decided, dependency
+  `micrometer-core` in `pm-runtime` only, `quarkus-micrometer` and the native build are `plan-marshall-mcp`'s); PLAN-49 (the HTTP base is
+  the module `pm-provider-http`, built by PLAN-86); PLAN-78 (deliverables 8 and 10 lose `differential-test-harness` as an owner; new
+  deliverable 14: the agreement per topic → `role-qualification`, the items owed to other repositories). **Staged as plans with no package
+  file (the precedent is PLAN-81 to 85): PLAN-86 `provider-http-module`** (the move of the HTTP base out of `pm-provider-ci`, due because
+  `pm-provider-sonar` already carries `SonarProvider` on it; one open design choice for the operator at refine: whether `pm-provider-ci`
+  stays as an empty module), **PLAN-87** (journal version), **PLAN-88** (the `QuestionRecordReader` adapter) and **PLAN-89** (the stale
+  `runtime-metrics` dependency in the index, the package file and row `module-developer-docs` for PLAN-40, the two Traceability entries,
+  the enrolled-pattern length rule). PLAN-40 returns to `staged` when PLAN-89 has landed. Owed outside this repository, for the owners of
+  those repositories: the skill tools without scope (`plan-marshall-mcp`), the ICU message subset in `pm-api` (`pm-mcp-clients`),
+  `quarkus-micrometer` with the native build (`plan-marshall-mcp`), the Landlock check on WSL2 moved to Milestone 7. `UC-PRJ-4` and
+  `UC-PLN-6` are `DRAFT` use cases without a requirement: no owner is sought yet. Not staged, because the entry itself is unverified: the
+  rest of the roadmap item behind PLAN-02 (validators for `request.md` and pull request bodies and the other items listed above), and the
+  `!===` reading of `AsciiDocValidator`.
 
 
 ## Watches
 
 - The native build of `pm-mcpd` in `plan-marshall-mcp` against the deployed SNAPSHOT has not run since #90 and #92. It is the only check of
-  the `kill` downcall descriptor of PLAN-20 and of the Keychain and Secret Service paths of PLAN-74, and `SecretStoreProducer` there does
-  not compile until the assembly change is made (Open Defect). PLAN-84 asks to run it or to name the plan that does.
+  the `kill` downcall descriptor of PLAN-20 and of the Keychain and Secret Service paths of PLAN-74, and `SecretStoreProducer` there compiles
+  again since plan-marshall-mcp #88 (8137c9e), but no native build has run. PLAN-84 asks to run it or to name the plan that does.
 
 - Owed after PLAN-69 (#91, 2026-10-18), CORRECTED 2026-10-18 after the operator asked: (1) the landing message said the change is
   "breaking for the daemon assembly (`pm-mcp-server`)" and the first version of this entry repeated it as a fact. Checked against

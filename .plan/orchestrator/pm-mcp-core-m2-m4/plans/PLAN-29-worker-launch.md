@@ -74,7 +74,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: the package makes no HTTP call, so the two HTTP constraints bind only if the trace matrix shows one — confirm/refute at the specification sections of the trace starting set (verify-at-outline)
   - verdict: corroborated | checked_at: 238c82395f9637992612f7f0b2935f9f9d86225b | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: the specification sections of the trace starting set name no HTTP call of this package; pm-core and pm-workflow cannot depend on cui-http anyway
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `worker-launch`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 3323ce7bfb2875b94b95dbeba5063171901f9c69 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row worker-launch is open in the index at 3323ce7; open PRs #71 (ci pr view): none names the package; the dependencies not done are listed in the spec's Depends on line
+  - verdict: corroborated | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row worker-launch is open in the index at 98ce971; open PRs (ci pr list): #71 (a dependabot bump) only, none names the package; doc/plans/worker-launch.adoc is unchanged since 3323ce7; code claims of the spec were not re-read
 
 ## Expected Surface
 

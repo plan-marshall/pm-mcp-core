@@ -80,7 +80,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - OBSERVED: the specification and watch parts of the Expected Surface changed since the specs of the former packages were last grounded at `238c823` only as listed in the verdict — `git diff --numstat 238c823..c281f6c`; the executing plan re-reads them at its branch point
   - verdict: corroborated | checked_at: c281f6c762a9c6e5cde21bb8b6fb5bef9cc3d852 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: git diff --numstat 238c823..c281f6c over the declared specification and watch parts: specification/model-work/08-epic-coordination.adoc (+2/-2); specification/model-work/01-roles-and-configuration.adoc (+2/-2)
 - Verify-first clause: before scoping, read the roadmap item this package serves for what the code already covers, list the open pull requests for one that names `epic-decomposition`, and check in `doc/plans/README.adoc` that every dependency is `done`; a refutation of any claim above loops back to re-scope.
-  - verdict: corroborated | checked_at: 3323ce7bfb2875b94b95dbeba5063171901f9c69 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row epic-decomposition is open in the index at 3323ce7; open PRs #71 (ci pr view): none names the package; the dependencies not done are listed in the spec's Depends on line
+  - verdict: corroborated | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row epic-decomposition is open in the index at 98ce971; open PRs (ci pr list): #71 (a dependabot bump) only, none names the package; doc/plans/epic-decomposition.adoc is unchanged since 3323ce7; code claims of the spec were not re-read
 
 ## Expected Surface
 

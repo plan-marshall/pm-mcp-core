@@ -71,7 +71,7 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: the Expected Surface below is inferred from the `Where` line — confirm/refute at the trace matrix (verify-at-outline)
   - verdict: corroborated | checked_at: 238c82395f9637992612f7f0b2935f9f9d86225b | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: the Expected Surface mirrors the Where line of doc/plans/project-onboarding-unit.adoc; listed paths exist or are declared new; packages the Where line names but the surface omitted were added by cleanup
 - Verify-first clause: before scoping, check that the index no longer says `blocked`, that the use cases are agreed, and which of the packages this one restructures have shipped since; a refutation loops back to re-scope.
-  - verdict: corroborated | checked_at: 3323ce7bfb2875b94b95dbeba5063171901f9c69 | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row project-onboarding-unit is open in the index at 3323ce7; open PRs #71 (ci pr view): none names the package; the dependencies not done are listed in the spec's Depends on line
+  - verdict: corroborated | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/cleanup | rescoped: n/a | evidence: row project-onboarding-unit is open in the index at 98ce971; open PRs (ci pr list): #71 (a dependabot bump) only, none names the package; doc/plans/project-onboarding-unit.adoc is unchanged since 3323ce7; code claims of the spec were not re-read
 
 ## Expected Surface
 

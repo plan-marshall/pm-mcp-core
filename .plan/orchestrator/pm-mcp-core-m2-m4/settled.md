@@ -134,3 +134,15 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
   repository, which holds no stalled item; the items PM-WATCH-RUN-2 and PM-WATCH-RUN-8 are in
   `doc/implementation-watch/runtime-lifecycle.adoc` here. PLAN-23 names the right file; the package file is owed a one-line fix
   — source: cleanup of 2026-10-16.
+
+## Defect: plan-marshall-mcp did not compile against the pm-runtime SNAPSHOT
+
+- **`plan-marshall-mcp` does not compile against the pm-runtime SNAPSHOT since #90 (owed by PLAN-74 deliverable 7).** `SecretStoreProducer`
+  in `pm-mcp-server` uses the deleted `SecretStoreSelector`; the producer of the active store must read the recorded choice and the
+  credential-store aspect of the onboarding must call `CredentialStoreChoice.record`. The checkout of `plan-marshall-mcp` is 11 commits
+  behind `origin/main`, whose newest are docs(plans). No package of `plan-marshall-mcp` owns it and no issue exists (verified by
+  listing `doc/plans` there on 2026-10-18). Fix: a package file (or a bullet of the package that wires the credentials) and then a
+  plan in that repository; the repository is outside this epic's ledger, so the operator decides whether to file an issue or open the
+  `docs(plans)` change — source: landing PLAN-74.
+
+Closed by `plan-marshall-mcp` #88 (`8137c9e`, 2026-10-18, `fix(credentials): serve the recorded credential store, not a selection`): `SecretStoreProducer` produces the runtime's `CredentialStoreChoice` and a `SecretStore` that resolves `choice.activeStore()` at every call; no reference to `SecretStoreSelector` remains in the checkout at `9bbe852` (verified 2026-10-19 by grep).
