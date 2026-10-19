@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 
 import org.junit.jupiter.api.BeforeEach;
@@ -108,7 +109,7 @@ class PlanInstanceStoreTest {
 
     private static List<SubUnitText> texts() {
         return PlanFixtures.subUnits().stream().map(subUnit -> new SubUnitText(subUnit.reference(),
-                InvariantFixtures.read(subUnit.reference().file().orElseThrow()))).toList();
+                PlanFixtures.subUnitText(subUnit.reference().file().orElseThrow()))).toList();
     }
 
     private static PlanInstance version1() {
@@ -368,16 +369,23 @@ class PlanInstanceStoreTest {
     class SubUnits {
 
         @Test
-        @DisplayName("the first version writes the text of every bound sub-unit, covered by the digest sidecar")
+        @DisplayName("the first version writes the text of every bound sub-unit, covered by the digest sidecar, and "
+                + "none of an asking variant it does not bind")
         void firstWrite() throws Exception {
-            recordComposed(version1(), texts());
+            var instance = version1();
+            var named = instance.header().inputs().subUnits();
+            recordComposed(instance, texts());
 
             var sidecar = Files.readString(scope.sidecarFile(), StandardCharsets.UTF_8);
             for (var text : texts()) {
                 var digest = text.reference().digest();
-                assertAll(
-                        () -> assertEquals(Optional.of(text.text()), store.readSubUnit(digest)),
-                        () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(digest)), sidecar));
+                if (named.contains(text.reference())) {
+                    assertAll(
+                            () -> assertEquals(Optional.of(text.text()), store.readSubUnit(digest)),
+                            () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(digest)), sidecar));
+                } else {
+                    assertEquals(Optional.empty(), store.readSubUnit(digest), text.reference()::unit);
+                }
             }
         }
 
@@ -406,9 +414,10 @@ class PlanInstanceStoreTest {
             var git = PlanFixtures.subUnits().getFirst();
             var changedReference = new UnitReference(git.reference().unit(), git.reference().file(),
                     PlanFacts.sha256(changedText), UnitOrigin.DEFAULT);
-            var subUnits = List.of(new CompositionRequest.SubUnit(changedReference, git.definition()),
-                    PlanFixtures.subUnits().get(1));
-            var texts = List.of(new SubUnitText(changedReference, changedText), texts().get(1));
+            var subUnits = Stream.concat(Stream.of(new CompositionRequest.SubUnit(changedReference,
+                    git.definition())), PlanFixtures.subUnits().stream().skip(1)).toList();
+            var texts = Stream.concat(Stream.of(new SubUnitText(changedReference, changedText)),
+                    texts().stream().skip(1)).toList();
 
             recordComposed(nextVersion(first, subUnits), texts);
 

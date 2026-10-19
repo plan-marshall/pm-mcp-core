@@ -7,9 +7,10 @@ version: 0.1.0
 author: plan-marshall
 ---
 # A merged plan template written for the composer tests, never copied from a unit of the product. The push barrier,
-# the pull request, a Q-Gate remediation call that binds every action, the merge gate and the merge execution the
-# rule merge.auto_merge = false prunes, the landing, and finalize.archive-plan, which alone enters the delivery
-# terminals. The completes clauses name the mandatory steps of the test roster.
+# the pull request, the call site of the asking axis, a Q-Gate remediation call that binds every action, the merge
+# gate and the merge execution (the dispatch, the queue wait and the queue exit) a rule over the bound asking variant
+# prunes, the landing, and finalize.archive-plan, which alone enters the delivery terminals. The completes clauses name
+# the mandatory steps of the test roster.
 workflow plan version 1 format 1
 scope plan
 start finalize.push-barrier
@@ -23,8 +24,14 @@ state finalize.push-barrier
 state finalize.create-pr
     phase finalize
     auto test.proceed
-        done -> finalize.remediate
+        done -> phases.ask
             completes default:create-pr as done
+
+state phases.ask
+    phase finalize
+    call ask.questions-only
+        continue -> finalize.remediate
+        stepped_out -> finalize.hand-back
 
 state finalize.remediate
     phase finalize
@@ -42,10 +49,20 @@ state finalize.merge-gate
 
 state finalize.merge-dispatch
     phase finalize
+    auto test.proceed
+        done -> finalize.merge-queue-wait
+
+state finalize.merge-queue-wait
+    phase finalize
     auto test.merge
-        merged -> finalize.land
+        merged -> finalize.merge-queue-exit
             completes default:branch-cleanup as done
         not_merged -> finalize.hand-back
+
+state finalize.merge-queue-exit
+    phase finalize
+    auto test.proceed
+        done -> finalize.land
 
 state finalize.land
     phase finalize

@@ -9,9 +9,15 @@
  */
 package de.planmarshall.workflow.plan;
 
+import static de.planmarshall.workflow.plan.PlanFixtures.ASK_SITE;
+import static de.planmarshall.workflow.plan.PlanFixtures.EVERY_PHASE;
 import static de.planmarshall.workflow.plan.PlanFixtures.FINALIZE_STEPS;
+import static de.planmarshall.workflow.plan.PlanFixtures.KEY_POINTS;
+import static de.planmarshall.workflow.plan.PlanFixtures.QUESTIONS_ONLY;
 import static de.planmarshall.workflow.plan.PlanFixtures.REMEDIATION_SITE;
 import static de.planmarshall.workflow.plan.PlanFixtures.TEMPLATE_FILE;
+import static de.planmarshall.workflow.plan.PlanFixtures.asking;
+import static de.planmarshall.workflow.plan.PlanFixtures.askingAtEveryLevel;
 import static de.planmarshall.workflow.plan.PlanFixtures.composer;
 import static de.planmarshall.workflow.plan.PlanFixtures.facts;
 import static de.planmarshall.workflow.plan.PlanFixtures.request;
@@ -20,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -82,6 +89,20 @@ class PlanInstanceComposerTest {
         return FINALIZE_STEPS.stream().map(CompositionRequest.Step::id).toList();
     }
 
+    /** The pruned elements of the composition rules, without the variants the asking axis binds away. */
+    private static List<PrunedElement> rulePrunes(PlanInstanceHeader header) {
+        return header.pruned().stream().filter(prune -> prune.reason() != PruneReason.PLAN_DEFAULT).toList();
+    }
+
+    private static String askingCallee(PlanInstance instance) {
+        return assertInstanceOf(StateBehavior.SubWorkflowCall.class,
+                instance.unit().states().get(ASK_SITE).behavior()).subWorkflowId();
+    }
+
+    private static PrunedElement planDefault(String variant, String sourceFact) {
+        return new PrunedElement(Kind.CALL, ASK_SITE + "/" + variant, PruneReason.PLAN_DEFAULT, sourceFact);
+    }
+
     @Nested
     @DisplayName("Composed version")
     class Composed {
@@ -112,7 +133,7 @@ class PlanInstanceComposerTest {
             var header = version1().header();
 
             assertAll(
-                    () -> assertEquals(List.of(), header.pruned()),
+                    () -> assertEquals(List.of(), rulePrunes(header)),
                     () -> assertEquals(allSteps(), header.steps().phase6()),
                     () -> assertEquals(PlanFixtures.VERIFICATION_STEPS, header.steps().phase5Verification()));
         }
@@ -168,7 +189,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(BoundArgument.fromTemplate(new CallValue.IntValue(3), TEMPLATE_FILE),
                             call.args().get("fix_budget")),
                     () -> assertEquals(1, instance.header().policyCalls().size()),
-                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings"),
+                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings", QUESTIONS_ONLY),
                             instance.header().inputs().subUnits().stream().map(UnitReference::unit).toList()),
                     () -> assertEquals(List.of("plan"),
                             instance.header().inputs().templates().stream().map(UnitReference::unit).toList()));
@@ -257,7 +278,7 @@ class PlanInstanceComposerTest {
                             new PrunedElement(Kind.POLICY_ACTION, REMEDIATION_SITE + "/loop_back",
                                     PruneReason.LAND_LANE, "lane"),
                             new PrunedElement(Kind.STEP, "default:finalize-step-simplify", PruneReason.LAND_LANE,
-                                    "lane")), instance.header().pruned()),
+                                    "lane")), rulePrunes(instance.header())),
                     () -> assertEquals(BoundArgument.fromCompositionRule(new CallValue.EnumList(List.of("retry"))),
                             remediationCall(instance).args().get("actions")),
                     () -> assertEquals(new CallValue.EnumList(List.of("retry")),
@@ -282,8 +303,8 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(List.of("default:push", "default:create-pr", "default:ci-verify",
                                     "default:automatic-review", "default:analysis-roundtrip"),
-                            instance.header().pruned().stream().map(PrunedElement::id).toList()),
-                    () -> assertTrue(instance.header().pruned().stream()
+                            rulePrunes(instance.header()).stream().map(PrunedElement::id).toList()),
+                    () -> assertTrue(rulePrunes(instance.header()).stream()
                             .allMatch(prune -> prune.reason() == PruneReason.LOCAL_ONLY)),
                     () -> assertEquals(List.of("default:finalize-step-simplify", "default:pre-push-quality-gate",
                                     "default:branch-cleanup", "default:lessons-capture", "default:emit-landing",
@@ -300,8 +321,8 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(List.of("default:lessons-capture", "default:emit-landing",
                             "default:archive-plan"), instance.header().steps().phase6()),
-                    () -> assertEquals(8, instance.header().pruned().size()),
-                    () -> assertTrue(instance.header().pruned().stream().allMatch(prune ->
+                    () -> assertEquals(8, rulePrunes(instance.header()).size()),
+                    () -> assertTrue(rulePrunes(instance.header()).stream().allMatch(prune ->
                             prune.reason() == PruneReason.RETURNED && "post_run".equals(prune.sourceFact()))),
                     () -> assertEquals(PlanFixtures.VERIFICATION_STEPS,
                             instance.header().steps().phase5Verification()));
@@ -368,6 +389,150 @@ class PlanInstanceComposerTest {
                             Waiver.Mode.MET, Optional.of(1))),
                     () -> assertEquals(Optional.of(Waiver.Mode.RAISE), Waiver.Mode.fromWireName("raise")),
                     () -> assertEquals(Optional.empty(), Waiver.met("W-1", "ci_check:build").raisedUnit()));
+        }
+    }
+
+    /**
+     * The plan behaviour axes (PM-WF-25): the asking call site of the template calls the variant the nearest level
+     * binds, else the shipped plan default, and every other variant of the axis is a pruned call with the reason
+     * {@code plan_default} and the binding level as source fact; an override of the plan composes the version after
+     * the one in force, unless it would not contain the plan's position.
+     */
+    @Nested
+    @DisplayName("Axes")
+    class Axes {
+
+        /**
+         * A rule file written for these cases: its one rule prunes the merge execution with reason
+         * {@code merge_by_operator} where the bound asking variant declares {@code self_merge = false}.
+         */
+        private static final CompositionRules SELF_MERGE_RULES = ((CompositionRules.Loaded) CompositionRules.parse("""
+                {"format_version": 1, "revision": "t1", "rules": [
+                  {"id": "merge-left-to-operator", "when": {"fact": "axes.asking.self_merge", "equals": "false"},
+                   "then": {"prune": [
+                    {"element": "state", "id": "finalize.merge-dispatch", "reason": "merge_by_operator"},
+                    {"element": "state", "id": "finalize.merge-queue-wait", "reason": "merge_by_operator"},
+                    {"element": "state", "id": "finalize.merge-queue-exit", "reason": "merge_by_operator"}]}}]}
+                """.getBytes(StandardCharsets.UTF_8))).rules();
+
+        private static final InstancePosition IN_MERGE_QUEUE = InstancePosition.at("finalize.merge-queue-wait");
+
+        @Test
+        @DisplayName("an axis set at plan, project and machine level binds the plan's variant and prunes the others "
+                + "as calls with plan_default")
+        void everyLevel() {
+            var instance = composed(composer().compose(start(askingAtEveryLevel().build())));
+
+            assertAll(
+                    () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
+                    () -> assertEquals(List.of(planDefault(KEY_POINTS, "plan.axes.asking"),
+                            planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned()),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())),
+                    () -> assertTrue(instance.header().inputs().subUnits().stream().map(UnitReference::unit)
+                            .toList().contains(EVERY_PHASE)),
+                    () -> assertFalse(instance.header().inputs().subUnits().stream().map(UnitReference::unit)
+                            .anyMatch(unit -> KEY_POINTS.equals(unit) || QUESTIONS_ONLY.equals(unit))));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = PlanFacts.Level.class, names = {"PLAN", "PROJECT", "MACHINE"})
+        @DisplayName("a level that alone sets the axis binds its variant, the machine's among them")
+        void oneLevel(PlanFacts.Level level) {
+            var instance = composed(composer().compose(start(asking(level, KEY_POINTS).build())));
+            var source = level.wireName() + ".axes.asking";
+
+            assertAll(
+                    () -> assertEquals(KEY_POINTS, askingCallee(instance)),
+                    () -> assertEquals(List.of(planDefault(EVERY_PHASE, source), planDefault(QUESTIONS_ONLY, source)),
+                            instance.header().pruned()));
+        }
+
+        @Test
+        @DisplayName("the project's value wins over the machine's")
+        void projectOverMachine() {
+            var instance = composed(composer().compose(start(asking(PlanFacts.Level.PROJECT, EVERY_PHASE)
+                    .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.MACHINE, KEY_POINTS).build())));
+
+            assertAll(
+                    () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
+                    () -> assertEquals(List.of(planDefault(KEY_POINTS, "project.axes.asking"),
+                            planDefault(QUESTIONS_ONLY, "project.axes.asking")), instance.header().pruned()));
+        }
+
+        @Test
+        @DisplayName("where no level sets the axis, the shipped plan default stays bound")
+        void shippedDefault() {
+            var instance = version1();
+
+            assertAll(
+                    () -> assertEquals(QUESTIONS_ONLY, askingCallee(instance)),
+                    () -> assertEquals(List.of(planDefault(EVERY_PHASE, "shipped.axes.asking"),
+                            planDefault(KEY_POINTS, "shipped.axes.asking")), instance.header().pruned()));
+        }
+
+        @Test
+        @DisplayName("an override of the plan composes the override version, which binds the plan's new variant")
+        void override() {
+            var instance = composed(composer().compose(request(CompositionEvent.OVERRIDE,
+                    asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), Optional.of(version1()), List.of(),
+                    AT_START)));
+
+            assertAll(
+                    () -> assertEquals(2, instance.version()),
+                    () -> assertEquals(CompositionEvent.OVERRIDE, instance.header().event()),
+                    () -> assertEquals(CompositionEvent.Trigger.OPERATOR, instance.header().event().trigger()),
+                    () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
+                    () -> assertEquals(List.of(planDefault(KEY_POINTS, "plan.axes.asking"),
+                            planDefault(QUESTIONS_ONLY, "plan.axes.asking")), instance.header().pruned()));
+        }
+
+        @Test
+        @DisplayName("an override whose version would not contain the position is refused position_not_contained")
+        void overrideOutsidePosition() {
+            var refused = refused(composer(SELF_MERGE_RULES).compose(request(CompositionEvent.OVERRIDE,
+                    asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), Optional.of(version1()), List.of(),
+                    IN_MERGE_QUEUE)));
+
+            assertAll(
+                    () -> assertEquals(Refusal.POSITION_NOT_CONTAINED, refused.refusal()),
+                    () -> assertTrue(refused.violations().getFirst().contains("finalize.merge-queue-wait"),
+                            refused.violations()::toString));
+        }
+
+        @Test
+        @DisplayName("an override to a variant that merges by itself keeps the position and is composed")
+        void overrideInsidePositionControl() {
+            var instance = composed(composer(SELF_MERGE_RULES).compose(request(CompositionEvent.OVERRIDE,
+                    asking(PlanFacts.Level.PLAN, QUESTIONS_ONLY).build(), Optional.of(version1()), List.of(),
+                    IN_MERGE_QUEUE)));
+
+            assertAll(
+                    () -> assertEquals(2, instance.version()),
+                    () -> assertTrue(instance.unit().states().containsKey("finalize.merge-queue-wait")),
+                    () -> assertEquals(List.of(), rulePrunes(instance.header())));
+        }
+
+        @Test
+        @DisplayName("plan_facts_digest changes with the plan's overrides.json and stays for the same document")
+        void overridesInDigest() {
+            var first = """
+                    {"format_version":1,"revision":1,"roles":{},"axes":{"asking":"ask.every-phase"}}""";
+            var second = """
+                    {"format_version":1,"revision":2,"roles":{},"axes":{"asking":"ask.every-phase"}}""";
+
+            var withFirst = version(facts().overrides(first).build());
+            var withFirstAgain = version(facts().overrides(first).build());
+            var withSecond = version(facts().overrides(second).build());
+            var without = version(facts().build());
+
+            assertAll(
+                    () -> assertEquals(withFirst, withFirstAgain),
+                    () -> assertNotEquals(withFirst, withSecond),
+                    () -> assertNotEquals(withFirst, without));
+        }
+
+        private static String version(PlanFacts facts) {
+            return composed(composer().compose(start(facts))).header().inputs().planFactsDigest();
         }
     }
 

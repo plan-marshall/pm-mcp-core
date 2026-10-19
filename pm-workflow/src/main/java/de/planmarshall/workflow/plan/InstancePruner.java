@@ -10,6 +10,7 @@
 package de.planmarshall.workflow.plan;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -28,9 +29,10 @@ import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 
 /**
- * Applies the effects of the composition rules and the waivers to the merged plan template (PM-IMPL-5): it leaves out
- * the pruned elements, binds the arguments of the policy calls and names every effect with its provenance. It only
- * ever removes or rebinds what the template declares; it adds no state, link, transition or argument.
+ * Applies the effects of the composition rules, the bound axis variants and the waivers to the merged plan template
+ * (PM-IMPL-5, PM-WF-25): it leaves out the pruned elements, binds the arguments of the policy calls and the variant of
+ * each axis call site, and names every effect with its provenance. It only ever removes or rebinds what the template
+ * declares; it adds no state, link, transition or argument.
  * <p>
  * A prune names its target as a selector, resolved against the template and the plan's step lists:
  * <ul>
@@ -39,13 +41,21 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * <li>a state: its id; the state and every transition into it are left out;</li>
  * <li>a link: {@code <state_id>/<link_id>}; the state no longer offers the link;</li>
  * <li>a policy action: {@code <call_site>/<action>}, the call site written as {@code *} for every policy call; the
- * action leaves the {@code actions} the call binds.</li>
+ * action leaves the {@code actions} the call binds;</li>
+ * <li>a call: {@code <call_site>/<subworkflow_id>}, the state that calls the sub-workflow; the call state and every
+ * transition into it are left out.</li>
  * </ul>
  * A selector that names nothing the template declares prunes nothing and is not listed; an element two rules prune is
  * listed once, with the reason of the first rule. A binding of a rule replaces the value of an argument the call binds,
  * at every policy call ({@code *}) or at the one call site it names, and a {@code raise} waiver replaces the budget it
  * names at every call of its remediation unit; an argument a call does not bind is never added. A {@code met} waiver
  * marks its gate waived.
+ * <p>
+ * An axis call site is a kept state that calls a variant of a plan behaviour axis ({@link PlanFacts.Axis}). It calls
+ * the variant bound on its axis instead, with the template's entry, arguments and transitions, and every other variant
+ * of the axis is listed after the prunes of the rules as a pruned call {@code <call_site>/<variant>} with the reason
+ * {@code plan_default} and the level that bound the variant as source fact
+ * ({@link PlanFacts.BoundVariant#sourceFact()}).
  */
 final class InstancePruner {
 
@@ -64,15 +74,18 @@ final class InstancePruner {
     /**
      * @param template          the merged plan template
      * @param effects           the effects of the composition rules
+     * @param bound             the variant bound on each plan behaviour axis
      * @param waivers           the waivers in force
      * @param verificationSteps the Phase 5 verification step ids
      * @param finalizeSteps     the Phase 6 steps with their order
      * @return the kept states, the effects with their provenance and the kept step lists
      */
-    static Pruned prune(WorkflowDefinition template, RuleEffects effects, List<Waiver> waivers,
-            List<String> verificationSteps, List<CompositionRequest.Step> finalizeSteps) {
+    static Pruned prune(WorkflowDefinition template, RuleEffects effects, List<PlanFacts.BoundVariant> bound,
+            List<Waiver> waivers, List<String> verificationSteps, List<CompositionRequest.Step> finalizeSteps) {
         var selection = new Selection(template, verificationSteps, finalizeSteps);
         effects.prunes().forEach(selection::resolve);
+        Map<PlanFacts.Axis, PlanFacts.BoundVariant> variants = new EnumMap<>(PlanFacts.Axis.class);
+        bound.forEach(variant -> variants.put(variant.axis(), variant));
         var states = new LinkedHashMap<String, StateNode>();
         var policyCalls = new ArrayList<PolicyCall>();
         for (var state : template.states().values()) {
@@ -80,6 +93,7 @@ final class InstancePruner {
                 states.put(state.id(), keep(state, selection, effects, waivers, policyCalls));
             }
         }
+        states.replaceAll((id, state) -> bindVariant(state, variants, selection));
         var waivedGates = waivers.stream().filter(waiver -> waiver.mode() == Waiver.Mode.MET)
                 .map(waiver -> new WaivedGate(waiver.gate(), waiver.id())).toList();
         var keptVerification = verificationSteps.stream().filter(step -> !selection.steps.contains(step)).toList();
@@ -96,6 +110,32 @@ final class InstancePruner {
     static boolean isPolicyCall(StateNode state) {
         return state.behavior() instanceof StateBehavior.SubWorkflowCall call
                 && HeaderSchemaCheck.POLICY_UNITS.contains(call.subWorkflowId());
+    }
+
+    /**
+     * @return the state unchanged, or for an axis call site whose axis is bound the call of the bound variant, every
+     *         other variant of the axis listed as a pruned call
+     */
+    private static StateNode bindVariant(StateNode state, Map<PlanFacts.Axis, PlanFacts.BoundVariant> variants,
+            Selection selection) {
+        if (!(state.behavior() instanceof StateBehavior.SubWorkflowCall call)) {
+            return state;
+        }
+        var axis = PlanFacts.Axis.ofVariant(call.subWorkflowId());
+        if (axis.isEmpty() || !variants.containsKey(axis.get())) {
+            return state;
+        }
+        var variant = variants.get(axis.get());
+        axis.get().variants().stream().filter(other -> !other.equals(variant.variant()))
+                .forEach(other -> selection.list(new PrunedElement(PrunedElement.Kind.CALL, state.id() + "/" + other,
+                        PruneReason.PLAN_DEFAULT, variant.sourceFact()), state.id() + "/" + other));
+        if (variant.variant().equals(call.subWorkflowId())) {
+            return state;
+        }
+        return new StateNode(state.id(), state.phase(), state.terminalOutcome(), state.skillPath(),
+                state.factsPrimitiveId(), new StateBehavior.SubWorkflowCall(variant.variant(), call.entry(),
+                        call.paramBindings(), call.transitions()),
+                state.location());
     }
 
     private static StateNode keep(StateNode state, Selection selection, RuleEffects effects, List<Waiver> waivers,
@@ -225,7 +265,16 @@ final class InstancePruner {
                         .filter(site -> allows(site, parts[1]))
                         .filter(site -> list(prune, site.id() + "/" + parts[1]))
                         .forEach(site -> actions.computeIfAbsent(site.id(), key -> new HashSet<>()).add(parts[1])));
+                case CALL -> split(prune.id()).filter(parts -> calls(parts[0], parts[1]))
+                        .filter(parts -> list(prune, prune.id()))
+                        .ifPresent(parts -> states.add(parts[0]));
             }
+        }
+
+        private boolean calls(String stateId, String subWorkflowId) {
+            return template.states().get(stateId) instanceof StateNode state
+                    && state.behavior() instanceof StateBehavior.SubWorkflowCall call
+                    && call.subWorkflowId().equals(subWorkflowId);
         }
 
         private List<String> stepIds(String selector) {

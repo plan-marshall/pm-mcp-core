@@ -220,6 +220,23 @@ class CompositionRulesTest {
             assertEquals(new CallValue.IntValue(100), rules.getFirst().bindings().getFirst().value());
         }
 
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.workflow.plan.CompositionRulesTest#axisFacts")
+        @DisplayName("a rule over the bound variant of an axis or a declaration of it loads")
+        void axisFactLoads(String fact) {
+            var rules = loaded(file("""
+                    {"id": "r", "when": {"fact": "%s", "equals": "false"}, "then": {}}""".formatted(fact))).rules();
+
+            assertEquals(fact, rules.getFirst().when().fact());
+        }
+
+        @Test
+        @DisplayName("the registered axis facts are the bound variant of each axis and the declarations of its "
+                + "variants")
+        void registeredAxisFacts() {
+            assertEquals(PlanFacts.AXIS_FACT_NAMES, Set.copyOf(axisFacts()));
+        }
+
         @Test
         @DisplayName("the digest is the SHA-256 of the exact bytes, so a changed byte changes it")
         void digestOfBytes() {
@@ -281,6 +298,11 @@ class CompositionRulesTest {
         }
     }
 
+    static List<String> axisFacts() {
+        return List.of("axes.landing", "axes.method", "axes.asking", "axes.method.order", "axes.asking.wait_after",
+                "axes.asking.outline_review", "axes.asking.self_merge");
+    }
+
     static Stream<String> budgetParameters() {
         var parameters = CompiledInvariants.remediationBudgetParameters();
         assertFalse(parameters.isEmpty(), "the remediation schema declares no budget parameter");
@@ -325,6 +347,15 @@ class CompositionRulesTest {
                 refusal("an unregistered fact", file2("""
                         {"id": "r", "when": {"fact": "weather", "equals": "rain"}, "then": {}}"""),
                         Refusal.MALFORMED, "weather"),
+                refusal("an unregistered declaration of an axis", file2("""
+                        {"id": "r", "when": {"fact": "axes.asking.colour", "equals": "red"}, "then": {}}"""),
+                        Refusal.MALFORMED, "axes.asking.colour"),
+                refusal("an unregistered axis", file2("""
+                        {"id": "r", "when": {"fact": "axes.weather", "equals": "rain"}, "then": {}}"""),
+                        Refusal.MALFORMED, "axes.weather"),
+                refusal("a declaration the variants of another axis declare", file2("""
+                        {"id": "r", "when": {"fact": "axes.method.self_merge", "equals": "true"}, "then": {}}"""),
+                        Refusal.MALFORMED, "axes.method.self_merge"),
                 refusal("two operators in one condition", file2("""
                         {"id": "r", "when": {"fact": "lane", "equals": "land", "in": ["deep"]}, "then": {}}"""),
                         Refusal.MALFORMED, "exactly one"),
