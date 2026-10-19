@@ -115,7 +115,7 @@ class WorktreeShaPortedTest {
                 () -> assertTrue(FIXTURES.size() >= POPULATION_FLOOR,
                         "the corpus holds " + FIXTURES.size() + " fixtures, fewer than " + POPULATION_FLOOR),
                 () -> assertTrue(FIXTURES.stream().allMatch(f -> f.requires().isEmpty()
-                        || f.requires().equals(Set.of(WorktreeShaScenario.POSIX_PERMISSIONS))),
+                                || f.requires().equals(Set.of(WorktreeShaScenario.POSIX_PERMISSIONS))),
                         "a fixture requires a capability no test source runs"));
     }
 
