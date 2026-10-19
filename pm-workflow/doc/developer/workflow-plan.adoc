@@ -286,7 +286,7 @@ _Specification: link:../../../doc/specification/store-schemas/14-plan-instance-w
 
 The rule file is a compiled classpath resource of this module, `de/planmarshall/workflow/plan/composition-rules.json`, with no project copy and no override (link:../adr/workflow-plan/004-composition-rules-as-compiled-resource.adoc[ADR 004]).
 Its shape is closed: `format_version` 1, a non-empty `revision` and the list `rules`; each rule has a unique `id`, a `when` naming one registered fact and exactly one of `equals`, `in`, `empty`, `unset`, `disjoint`, and a `then` with `prune` and `bind`.
-A registered fact is a plan fact of `PlanFacts` (`lane`, `posture`, `change_type`, `post_run`, `footprint`), an axis fact (`axes.<axis>` and the declarations `axes.method.order`, `axes.asking.wait_after`, `axes.asking.outline_review`, `axes.asking.self_merge`), or a configuration key (`derived.push_remote`, `integrations.<provider>`).
+A registered fact is a name of one of the sets `CompositionRules` checks a `when` against: the plan facts `PlanFacts.PLAN_FACT_NAMES`, the axis facts `PlanFacts.AXIS_FACT_NAMES` (the bound variant of each axis and the declarations of the compiled schemas of its variants, derived from those schemas), and the configuration keys `CompositionRules.CONFIGURATION_FACTS` and those starting with `CompositionRules.PROVIDER_FACT_PREFIX`.
 A rule over any other name, the former `merge.auto_merge` and `recipe_id` among them, is refused as `MALFORMED`.
 
 The shipped rules, revision `2`, in file order:
