@@ -25,7 +25,6 @@ import de.planmarshall.core.service.InternalFaultException.Reason;
 import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.spi.JobStarter;
 import de.planmarshall.core.spi.Primitive;
-import de.planmarshall.core.spi.PrimitiveOutcome;
 import de.planmarshall.core.spi.PrimitiveRegistry;
 import de.planmarshall.core.spi.PrimitiveResult;
 import de.planmarshall.core.spi.QuestionRecordReader;
@@ -544,8 +543,8 @@ public final class WorkflowEngine {
         }
     }
 
-    private static <P extends Record, R extends Enum<R> & PrimitiveOutcome> PrimitiveResult<R> execute(
-            Primitive<P, R> primitive, WorkflowExecutionContext context, Record parameters) {
+    private static <P extends Record> PrimitiveResult<?> execute(
+            Primitive<P, ?> primitive, WorkflowExecutionContext context, Record parameters) {
         var parameterType = primitive.parameterType();
         if (!parameterType.isInstance(parameters)) {
             throw new IllegalStateException("the binder bound %s for the primitive '%s', which takes %s"

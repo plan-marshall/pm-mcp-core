@@ -42,6 +42,7 @@ final class LockHolderProcess {
      * @param args the base directory of the runtime, the project id, the plan id
      * @throws IOException if standard input cannot be read
      */
+    @SuppressWarnings("resource") // stdout belongs to the process; closing it would close our own output
     public static void main(String[] args) throws IOException {
         var key = LockKey.plan(Path.of(args[0]), args[1], args[2]);
         var standardOutput = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
