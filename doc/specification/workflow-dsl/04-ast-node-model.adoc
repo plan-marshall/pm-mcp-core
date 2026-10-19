@@ -125,7 +125,7 @@ The process a plan runs is made of units at three levels: the compiled default, 
 
 |`INV-INIT-2`
 |`init`, `outline`
-|Every path of a `light` plan into `outline.light` passes `init.light-gate`, and every new task of `outline.light` passes `outline.light-regate`; the `light -> deep` ratchet transitions of the default unit are present.
+|Every path of a `light` plan into `outline.light` passes `init.light-gate`, and every new task of `outline.light` passes `outline.light-regate`; in a version whose lane is `light` or not yet known, the `light -> deep` ratchet transitions of the default unit are present; a `deep` version holds no state of the light route (pruned with reason `other_lane`, xref:09-plan-instance.adoc#composition-rules[Composition Rules]) and requires none of them.
 
 |`INV-REFINE-1`
 |`refine`

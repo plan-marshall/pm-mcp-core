@@ -114,12 +114,12 @@ Every plan executes its own *plan instance*: DSL units, stored per version as on
   "$defs": {
     "unit_ref": { "type": "object", "required": ["unit", "digest", "origin"], "additionalProperties": false, "properties": { "unit": { "type": "string" }, "file": { "type": ["string", "null"] }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "origin": { "type": "string", "enum": ["default", "machine", "project"], "description": "The level the unit resolved at." } } },
     "composition_event": { "type": "string", "enum": ["start", "outline", "plan", "config_adopted", "waiver", "override", "fallback", "empty_harvest", "replan"] },
-    "prune_reason": { "type": "string", "enum": ["posture", "provider_unconfigured", "footprint_disjoint", "change_type_exempt", "local_only", "land_lane", "adopt", "merge_by_operator", "plan_default", "returned", "handed_back", "empty_harvest"] }
+    "prune_reason": { "type": "string", "enum": ["posture", "provider_unconfigured", "footprint_disjoint", "change_type_exempt", "local_only", "land_lane", "adopt", "other_lane", "merge_by_operator", "plan_default", "returned", "handed_back", "empty_harvest"] }
   }
 }
 ----
 
-*Composition Events*: The closed `composition_event` enum (link:../identifiers/02-registry-stores-to-web.adoc#id-composition-event[Identifier Registry]): `start` (version 1 in the plan's creation transaction: init and refine routes, both lanes open, the axis variants the project or the machine sets bound, the others pruned with reason `plan_default`), `outline` (lane known, the other lane's phase calls pruned; the posture bound with its prunes), `plan` (tasks and steps known; provider and footprint prunes; budgets bound), `config_adopted` (an adopted configuration or template change), `waiver` (a `met` waiver, a `raise`, or an `unwaive`), `override` (a value of the plan's own set or changed in `overrides.json`, <<plan-overrides-store>>), `fallback` (the post-run-only form of the `returned` and `handed_back` routes, pruned steps with reason `returned` / `handed_back`), `empty_harvest` (the post-run-only form of a recipe's plan whose harvest is empty, pruned steps with reason `empty_harvest`), and `replan` (a re-planning that revised the outline or the plan tasks, a revision the operator accepted in a chat among them, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Dynamic Re-Planning]). A loop-back to the outline re-runs `outline` and `plan`. Every version has exactly one event.
+*Composition Events*: The closed `composition_event` enum (link:../identifiers/02-registry-stores-to-web.adoc#id-composition-event[Identifier Registry]): `start` (version 1 in the plan's creation transaction: init and refine routes, both lanes open, the axis variants the project or the machine sets bound, the others pruned with reason `plan_default`), `outline` (lane known: the lanes split only at `init.ready`, whose deep exit enters `refine.baseline-reconcile` and whose light exit enters `init.light-gate`; from this event on, the composition prunes with reason `other_lane` exactly the states reachable from the entry of the other lane and not reachable from the entry of the chosen lane, both over all transitions, escalation included; the shared states before the split, every state reachable from the start of the unit without taking a lane exit of `init.ready` (`init.begin` through `init.ready`, the start state among them, and any `refine` state ahead of the deep entry), belong to no lane and are never pruned by lane, so a `light` version prunes nothing by lane and a `deep` version holds no state of the light route; the posture bound with its prunes), `plan` (tasks and steps known; provider and footprint prunes; budgets bound), `config_adopted` (an adopted configuration or template change), `waiver` (a `met` waiver, a `raise`, or an `unwaive`), `override` (a value of the plan's own set or changed in `overrides.json`, <<plan-overrides-store>>), `fallback` (the post-run-only form of the `returned` and `handed_back` routes, pruned steps with reason `returned` / `handed_back`), `empty_harvest` (the post-run-only form of a recipe's plan whose harvest is empty, pruned steps with reason `empty_harvest`), and `replan` (a re-planning that revised the outline or the plan tasks, a revision the operator accepted in a chat among them, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Dynamic Re-Planning]). A loop-back to the outline re-runs `outline` and `plan`. Every version has exactly one event.
 
 *Composition Log (`instance/composition.jsonl`)*: One line per composition attempt, appended in the transaction that evaluates the composition:
 
@@ -153,7 +153,32 @@ Every plan executes its own *plan instance*: DSL units, stored per version as on
       }
     },
     "input_digests": { "type": "object", "additionalProperties": { "type": "string" } },
-    "diff_summary": { "type": ["object", "null"], "description": "Pruned elements added and removed, ceilings changed, gates waived or unwaived, relative to the previous version." },
+    "diff_summary": {
+      "type": ["object", "null"],
+      "description": "The composed version relative to the previous version: pruned elements added and removed, ceilings changed, gates waived and unwaived. null for version 1 and unless result == composed.",
+      "required": ["pruned_added", "pruned_removed", "ceilings_changed", "gates_waived", "gates_unwaived"],
+      "additionalProperties": false,
+      "properties": {
+        "pruned_added": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/pruned/items" }, "description": "Pruned in this version, not in the previous one (element, id, reason, source_fact)." },
+        "pruned_removed": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/pruned/items" }, "description": "Pruned in the previous version, not in this one (element, id, reason, source_fact)." },
+        "ceilings_changed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["call_site", "argument", "previous", "value"],
+            "additionalProperties": false,
+            "properties": {
+              "call_site": { "type": "string", "description": "state_id of the calling state of the policy call." },
+              "argument": { "type": "string", "description": "The bound argument whose value changed (retry_budget, fix_budget, actions)." },
+              "previous": { "description": "The value in the previous version; null where the previous version did not bind the argument." },
+              "value": { "description": "The value in this version; null where this version does not bind the argument." }
+            }
+          }
+        },
+        "gates_waived": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/waived_gates/items" }, "description": "Waived in this version, not in the previous one (gate, waiver_id)." },
+        "gates_unwaived": { "type": "array", "items": { "$ref": "https://cuioss.de/plan-marshall-mcp/schemas/plan-instance-header.json#/properties/waived_gates/items" }, "description": "Waived in the previous version, not in this one (gate, waiver_id)." }
+      }
+    },
     "recorded_at": { "type": "string", "format": "date-time" }
   }
 }
