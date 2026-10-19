@@ -1632,3 +1632,36 @@ what the record omits, and the check passes a record that a builder could not us
 Guard:: A test composes the facts of `refine.builder-check` and asserts that they hold the intent record and the
 capability index only, with no member of `request.md`'s original input or clarifications and no earlier submission.
 Source:: Superpowers analysis of plan-marshall-documentation (the builder "will not be able to talk to the person").
+
+[#PM-WATCH-PHASE-110]
+=== PM-WATCH-PHASE-110: The ordering check reads criterion kinds, not deliverable names
+
+Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-satisfies[Phase Workflows § 6 `satisfies` Coverage]
+Hazard:: The rule refuses an outline in which the guard of an `unchanged` criterion depends on the change it guards.
+A check that follows only direct dependencies passes a chain of three deliverables; a check that counts a deliverable
+satisfying both kinds as a change refuses the plan that pins and changes in one place; a check that applies to every
+`unchanged` criterion refuses plans whose guard is an inspection or a demonstration, which no test precedes.
+Guard:: Tests over the outline DAG: the guard downstream of a change directly and through two others is refused
+naming both deliverables and the criterion; a deliverable satisfying both kinds is accepted; an `unchanged` criterion
+verified by `inspection` or `demonstration` is not checked; a plan without an `unchanged` criterion is unaffected;
+matched control: the guard first, the change after it, accepted.
+Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the plan's first task pins the
+old output before the refactor).
+
+[#PM-WATCH-PHASE-111]
+=== PM-WATCH-PHASE-111: A constraint the criteria accept is still judged
+
+Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`),
+link:../specification/phase-workflows/01-planning-phases-1-2.adoc#builder-check[Phase Workflows § Builder Check]
+Hazard:: A constraint rules out what no criterion states, so a plan can meet every criterion and break a constraint.
+A self-review that judges criteria alone passes it; a result `respected` without evidence is as good as no result; a
+submission that lists the criteria and leaves out the constraints is accepted when the omission check covers
+criteria only. The builder check misses the same case when it compares only criteria with each other.
+Guard:: Tests submit the self-review with a constraint or a non-goal omitted (refused with the item named), with
+`respected` and no evidence (refused), with `violated` (a finding, the round not clean), with `not_verified` (a
+non-blocking finding, `clean_unverified`), and for a record without constraints (unaffected). The facts of
+`refine.builder-check` are composed from a record whose accepted default permits what a constraint rules out; the
+question reaches the operator naming both items. Corpus fixture: the article's first-run case (spec and all tests
+accept a fallback that hides items, the constraint is "never lose an item silently").
+Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the review against the intent's
+constraint was the only step that caught the spec-approved default).
