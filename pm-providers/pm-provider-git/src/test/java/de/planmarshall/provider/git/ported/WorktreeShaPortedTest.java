@@ -285,16 +285,13 @@ class WorktreeShaPortedTest {
                     "u", GitResult.of(GitOutcome.UNAVAILABLE, "read: java.nio.file.AccessDeniedException"));
 
             DigestRelations.assertRelations(run(results, "same a a2", "different a b", "unavailable u read"));
+            var contradicted = run(results, "different a a2", "same a b", "unavailable u read");
+            var wrongReason = run(results, "same a a2", "different a b", "unavailable u head");
+            var wrongLabel = run(results, "same a a2", "different a b", "unavailable a read");
             assertAll(
-                    () -> assertThrows(AssertionError.class,
-                            () -> DigestRelations.assertRelations(run(results, "different a a2", "same a b",
-                                    "unavailable u read"))),
-                    () -> assertThrows(AssertionError.class,
-                            () -> DigestRelations.assertRelations(run(results, "same a a2", "different a b",
-                                    "unavailable u head"))),
-                    () -> assertThrows(AssertionError.class,
-                            () -> DigestRelations.assertRelations(run(results, "same a a2", "different a b",
-                                    "unavailable a read"))));
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(contradicted)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongReason)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongLabel)));
         }
 
         @Test
@@ -302,29 +299,30 @@ class WorktreeShaPortedTest {
         void unavailableNeverEqual() {
             var unavailable = GitResult.<WorktreeSha>of(GitOutcome.UNAVAILABLE, "open: x");
             Map<String, GitResult<WorktreeSha>> results = Map.of("u", unavailable, "v", unavailable);
+            var same = run(results, "same u v");
+            var different = run(results, "different u v");
 
             assertAll(
-                    () -> assertThrows(AssertionError.class,
-                            () -> DigestRelations.assertRelations(run(results, "same u v"))),
-                    () -> assertThrows(AssertionError.class,
-                            () -> DigestRelations.assertRelations(run(results, "different u v"))));
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(same)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(different)));
         }
 
         @Test
         @DisplayName("fails a wrong hash version, a malformed digest, an unnamed result and an unknown label")
         void wellFormedness() {
+            var wrongVersion = run(Map.of("a", GitResult.ok(new WorktreeSha(DIGEST_A, 2)), "b", ok(DIGEST_B)),
+                    "different a b");
+            var malformedDigest = run(Map.of("a", ok("A".repeat(64)), "b", ok(DIGEST_B)), "different a b");
+            var unnamedResult = run(Map.of("a", ok(DIGEST_A), "b", ok(DIGEST_B), "c", ok(DIGEST_B)), "different a b");
+            var unknownLabel = run(Map.of("a", ok(DIGEST_A)), "same a missing");
+            var noRelation = run(Map.of("a", ok(DIGEST_A)));
+
             assertAll(
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(
-                            run(Map.of("a", GitResult.ok(new WorktreeSha(DIGEST_A, 2)), "b", ok(DIGEST_B)),
-                                    "different a b"))),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(
-                            run(Map.of("a", ok("A".repeat(64)), "b", ok(DIGEST_B)), "different a b"))),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(
-                            run(Map.of("a", ok(DIGEST_A), "b", ok(DIGEST_B), "c", ok(DIGEST_B)), "different a b"))),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(
-                            run(Map.of("a", ok(DIGEST_A)), "same a missing"))),
-                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(
-                            run(Map.of("a", ok(DIGEST_A))))));
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(wrongVersion)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(malformedDigest)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(unnamedResult)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(unknownLabel)),
+                    () -> assertThrows(AssertionError.class, () -> DigestRelations.assertRelations(noRelation)));
         }
     }
 
@@ -341,12 +339,16 @@ class WorktreeShaPortedTest {
         var unknownKind = new Fixture("w", new Header(false, "", Set.of()), Set.of(),
                 List.of(new Directive(1, "repository", List.of("bare"))));
 
+        var twoRepositoriesRoot = temp.resolve("2");
+        var twiceRoot = temp.resolve("3");
+        var unknownKindRoot = temp.resolve("4");
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(noRepository, temp)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> WorktreeShaScenario.run(twoRepositories, temp.resolve("2"))),
-                () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(twice, temp.resolve("3"))),
+                        () -> WorktreeShaScenario.run(twoRepositories, twoRepositoriesRoot)),
+                () -> assertThrows(IllegalArgumentException.class, () -> WorktreeShaScenario.run(twice, twiceRoot)),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> WorktreeShaScenario.run(unknownKind, temp.resolve("4"))));
+                        () -> WorktreeShaScenario.run(unknownKind, unknownKindRoot)));
     }
 }
