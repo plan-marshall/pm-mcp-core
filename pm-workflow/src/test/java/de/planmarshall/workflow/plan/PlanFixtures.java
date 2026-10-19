@@ -44,10 +44,9 @@ import de.planmarshall.workflow.verify.SchemaRegistry;
  * registries of the verification, which come from the invariant fixtures as well, and a request per event over facts
  * that make no shipped rule hold.
  * <p>
- * The asking variants declare the choices of their schema. {@code ask.every-phase} declares its shipped values; the
- * shipped {@code wait_after} of {@code ask.key-points} and {@code ask.questions-only} is the empty list, which the
- * grammar cannot write, so these two are designed variants that wait after one phase and keep the other shipped
- * choices: {@code ask.questions-only} merges by itself ({@code self_merge = true}), the other two do not.
+ * The asking variants declare the shipped values of their schema: {@code ask.every-phase} waits after every phase but
+ * the outline, {@code ask.key-points} and {@code ask.questions-only} after none ({@code wait_after = []});
+ * {@code ask.questions-only} merges by itself ({@code self_merge = true}), the other two do not.
  * <p>
  * The cases of the lanes compose the merged plan unit of the invariant fixtures instead
  * ({@link #mergedComposer()}, {@link #mergedRequest}), whose phase files hold both lanes and their per-lane rework
@@ -172,8 +171,8 @@ final class PlanFixtures {
     private static Map<String, String> variantTexts() {
         var texts = new LinkedHashMap<String, String>();
         texts.put(fileOf(EVERY_PHASE), variant(EVERY_PHASE, "[init, refine, plan, execute]", "true", "false"));
-        texts.put(fileOf(KEY_POINTS), variant(KEY_POINTS, "[outline]", "true", "false"));
-        texts.put(fileOf(QUESTIONS_ONLY), variant(QUESTIONS_ONLY, "[execute]", "false", "true"));
+        texts.put(fileOf(KEY_POINTS), variant(KEY_POINTS, "[]", "true", "false"));
+        texts.put(fileOf(QUESTIONS_ONLY), variant(QUESTIONS_ONLY, "[]", "false", "true"));
         return Collections.unmodifiableMap(texts);
     }
 

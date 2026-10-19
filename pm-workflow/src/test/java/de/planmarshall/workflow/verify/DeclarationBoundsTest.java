@@ -51,9 +51,9 @@ import de.planmarshall.workflow.verify.InvariantFixtures.Mutation;
  * named {@code declaration_invalid} at the file and the line of the offending {@code declare} or {@code decide} line,
  * and at the unit header for a missing declaration. A name or a decision kind declared twice, a decision kind outside
  * the closed set and an empty quorum are refused by the parser before the bounds are checked. A value below an
- * integer bound of {@code 0} cannot be written, since the language has no negative integer, and an empty list cannot be
- * written either, so the shipped {@code wait_after} of the asking variants that wait after no phase is asserted on the
- * compiled schema alone.
+ * integer bound of {@code 0} cannot be written, since the language has no negative integer; the empty list {@code []}
+ * can, so the asking variants that wait after no phase declare their shipped {@code wait_after} like every other
+ * variant.
  */
 @EnableGeneratorController
 @DisplayName("DeclarationBounds")
@@ -354,6 +354,18 @@ class DeclarationBoundsTest {
         }
 
         @Test
+        @DisplayName("an asking variant declares the empty wait_after, which its compiled list bound admits")
+        void emptyWaitAfterCompiles() {
+            var source = everyPhase().replace("[init, refine, plan, execute]", "[]");
+            var unit = InvariantFixtures.parse(VARIANT_FILE, source, UnitOrigin.PROJECT);
+
+            assertAll(
+                    () -> assertEquals(new CallValue.EnumList(List.of()),
+                            unit.declarations().get(DeclarationBounds.WAIT_AFTER).value()),
+                    () -> assertEquals(List.of(), DeclarationBounds.check(unit)));
+        }
+
+        @Test
         @DisplayName("an asking variant may change a choice to another value of its enumeration")
         void designedChoicePasses() {
             var designed = everyPhase().replace("declare self_merge = false", "declare self_merge = true")
@@ -416,7 +428,11 @@ class DeclarationBoundsTest {
         return Stream.of(
                 Arguments.of("method.test-first", variant("method.test-first", "declare order = tests_first")),
                 Arguments.of("method.tests-after", variant("method.tests-after", "declare order = tests_after")),
-                Arguments.of("ask.every-phase", everyPhase()));
+                Arguments.of("ask.every-phase", everyPhase()),
+                Arguments.of(DeclarationBounds.ASK_KEY_POINTS, variant(DeclarationBounds.ASK_KEY_POINTS,
+                        "declare wait_after = []", "declare outline_review = true", "declare self_merge = false")),
+                Arguments.of(DeclarationBounds.ASK_QUESTIONS_ONLY, variant(DeclarationBounds.ASK_QUESTIONS_ONLY,
+                        "declare wait_after = []", "declare outline_review = false", "declare self_merge = true")));
     }
 
     static Stream<Arguments> variantRefusals() {

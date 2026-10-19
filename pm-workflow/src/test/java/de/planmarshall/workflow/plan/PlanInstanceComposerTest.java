@@ -499,6 +499,26 @@ class PlanInstanceComposerTest {
                             instance.header().pruned()));
         }
 
+        @ParameterizedTest(name = "{0} waits after {1}")
+        @CsvSource(delimiter = ';', value = {"ask.key-points;''", "ask.questions-only;''",
+                "ask.every-phase;init,refine,plan,execute"})
+        @DisplayName("an asking variant declaring its shipped wait_after, the empty list among them, compiles against"
+                + " the asking schema and binds")
+        void shippedWaitAfterBinds(String variant, String waitAfter) {
+            var definition = PlanFixtures.subUnits().stream().map(CompositionRequest.SubUnit::definition)
+                    .filter(unit -> variant.equals(unit.id())).findFirst().orElseThrow();
+            var expected = waitAfter.isEmpty() ? List.<String>of() : List.of(waitAfter.split(","));
+
+            var instance = composed(composerWithoutRules().compose(start(asking(PlanFacts.Level.PLAN, variant)
+                    .build())));
+
+            assertAll(
+                    () -> assertEquals(new CallValue.EnumList(expected),
+                            definition.declarations().get(DeclarationBounds.WAIT_AFTER).value()),
+                    () -> assertEquals(List.of(), DeclarationBounds.check(definition)),
+                    () -> assertEquals(variant, askingCallee(instance)));
+        }
+
         @Test
         @DisplayName("the project's value wins over the machine's")
         void projectOverMachine() {

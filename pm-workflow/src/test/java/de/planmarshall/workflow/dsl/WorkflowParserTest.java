@@ -745,6 +745,81 @@ class WorkflowParserTest {
     }
 
     @Nested
+    @DisplayName("Empty list")
+    class EmptyList {
+
+        private static final CallValue EMPTY = new CallValue.EnumList(List.of());
+
+        /** A plan unit declaring the list and binding it as the argument of a call. */
+        private static String withList(String list) {
+            return frontmatter(UnitType.WORKFLOW) + lines("workflow demo version 1 format 1", "scope plan",
+                    "declare wait_after = " + list, "start demo.begin", "state demo.begin", "    phase setup",
+                    "    call demo.sub(actions = " + list + ")", "        done -> demo.end",
+                    "state demo.end terminal done success", "    phase setup");
+        }
+
+        private static CallValue declared(WorkflowDefinition definition) {
+            return definition.declarations().get("wait_after").value();
+        }
+
+        private static CallValue bound(WorkflowDefinition definition) {
+            return ((StateBehavior.SubWorkflowCall) definition.states().get("demo.begin").behavior()).paramBindings()
+                    .get("actions");
+        }
+
+        @Test
+        @DisplayName("parses [] as the list without an element, declared and bound")
+        void parsesEmpty() {
+            var definition = parse(withList("[]"));
+
+            assertAll(
+                    () -> assertEquals(EMPTY, declared(definition)),
+                    () -> assertEquals(EMPTY, bound(definition)));
+        }
+
+        @Test
+        @DisplayName("parses [] with blanks inside the brackets as the empty list")
+        void parsesEmptyWithBlank() {
+            assertEquals(EMPTY, declared(parse(withList("[ ]"))));
+        }
+
+        @Test
+        @DisplayName("still parses a list with elements, in source order")
+        void parsesNonEmpty() {
+            var expected = new CallValue.EnumList(List.of("outline", "execute"));
+            var definition = parse(withList("[outline, execute]"));
+
+            assertAll(
+                    () -> assertEquals(expected, declared(definition)),
+                    () -> assertEquals(expected, bound(definition)));
+        }
+
+        @Test
+        @DisplayName("prints the empty list as [] and reads the printed text back equal")
+        void printerRoundTrip() {
+            var definition = parse(withList("[]"));
+
+            var printed = WorkflowPrinter.print(definition);
+            var reread = parse(printed);
+
+            assertAll(
+                    () -> assertTrue(printed.contains("declare wait_after = []"), printed),
+                    () -> assertEquals(EMPTY, declared(reread)),
+                    () -> assertEquals(EMPTY, bound(reread)));
+        }
+
+        @Test
+        @DisplayName("parses the empty list of a text with CRLF line ends like that of a text with LF")
+        void crlfTwin() {
+            var definition = parse(withList("[]").replace("\n", "\r\n"));
+
+            assertAll(
+                    () -> assertEquals(EMPTY, declared(definition)),
+                    () -> assertEquals(EMPTY, bound(definition)));
+        }
+    }
+
+    @Nested
     @DisplayName("Focused constructs")
     class FocusedConstructs {
 
