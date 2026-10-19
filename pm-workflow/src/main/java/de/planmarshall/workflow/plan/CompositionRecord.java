@@ -80,9 +80,9 @@ Optional<DiffSummary> diffSummary, Instant recordedAt) {
                     result == Result.COMPOSED ? "needs" : "has no"));
         }
         if (version.filter(composed -> composed > 1).isPresent() != diffSummary.isPresent()) {
-            throw new IllegalArgumentException("a %s attempt%s %s a diff summary".formatted(result.wireName(),
+            throw new IllegalArgumentException("a %s attempt%s %s".formatted(result.wireName(),
                     version.map(composed -> " of version " + composed).orElse(""),
-                    diffSummary.isPresent() ? "takes no" : "needs"));
+                    diffSummary.isPresent() ? "takes no diff summary" : "needs a diff summary"));
         }
     }
 

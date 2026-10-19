@@ -470,6 +470,33 @@ class PlanInstanceStoreTest {
                                 () -> CompositionRecord.composed(first, Optional.of(first), COMPOSED_AT)));
             }
         }
+
+        @Test
+        @DisplayName("a version 2 is refused with the cause attached when the recorded version 1 carries a header "
+                + "that fails the schema, and nothing is recorded")
+        void unreadablePreviousHeader() throws Exception {
+            var first = version1();
+            recordComposed(first, texts());
+            var second = waiverVersion(first, List.of());
+            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var texts = texts();
+            var corrupted = first.text().replace("\"format_version\":1,", "\"format_version\":2,");
+            Files.writeString(scope.resolve(PlanInstanceStore.versionPath(1)), corrupted, StandardCharsets.UTF_8);
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var refused = assertThrows(IllegalStateException.class,
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                assertAll(
+                        () -> assertNotEquals(first.text(), corrupted, "the recorded text was changed"),
+                        () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
+                        () -> assertInstanceOf(IllegalArgumentException.class, refused.getCause()),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2)),
+                        () -> assertEquals(1, logLines().size(), "no log line was written"));
+            }
+        }
     }
 
     @Nested

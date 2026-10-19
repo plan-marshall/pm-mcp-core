@@ -16,6 +16,7 @@ import static de.planmarshall.workflow.plan.PlanFixtures.request;
 import static de.planmarshall.workflow.plan.PlanFixtures.start;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -149,6 +150,38 @@ class DiffSummaryTest {
             assertAll(
                     () -> assertEquals(List.of(otherReason), summary.prunedAdded()),
                     () -> assertEquals(List.of(step), summary.prunedRemoved()));
+        }
+
+        @Test
+        @DisplayName("a policy call present in one version only changes every argument it binds, the absent side "
+                + "empty")
+        void policyCallInOneVersionOnly() {
+            var with = version1().header();
+            var without = new PlanInstanceHeader(with.planId(), with.version(), with.event(), with.composedAt(),
+                    with.inputs(), with.lane(), with.posture(), with.steps(), with.pruned(), List.of(),
+                    with.waivedGates());
+            var expectedAdded = with.policyCalls().stream()
+                    .flatMap(call -> call.args().entrySet().stream()
+                            .map(argument -> new CeilingChange(call.callSite(), argument.getKey(), Optional.empty(),
+                                    Optional.of(argument.getValue().value()))))
+                    .toList();
+            var expectedRemoved = with.policyCalls().stream()
+                    .flatMap(call -> call.args().entrySet().stream()
+                            .map(argument -> new CeilingChange(call.callSite(), argument.getKey(),
+                                    Optional.of(argument.getValue().value()), Optional.empty())))
+                    .toList();
+
+            var added = DiffSummary.between(without, with);
+            var removed = DiffSummary.between(with, without);
+
+            assertAll(
+                    () -> assertTrue(with.policyCalls().stream().anyMatch(call -> REMEDIATION_SITE.equals(call.callSite())),
+                            "the fixture version binds the policy call of the remediation site"),
+                    () -> assertFalse(expectedAdded.isEmpty(), "the fixture policy calls bind arguments"),
+                    () -> assertEquals(expectedAdded, added.ceilingsChanged()),
+                    () -> assertEquals(expectedRemoved, removed.ceilingsChanged()),
+                    () -> assertEquals(List.of(), added.prunedAdded()),
+                    () -> assertEquals(List.of(), removed.gatesWaived()));
         }
 
         private static PlanInstanceHeader header(PlanInstanceHeader template, List<PrunedElement> pruned) {

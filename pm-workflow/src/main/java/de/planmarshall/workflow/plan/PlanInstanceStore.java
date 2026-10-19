@@ -211,7 +211,8 @@ public final class PlanInstanceStore {
     /**
      * @return the header of the recorded version before the version, empty for version 1
      * @throws IllegalArgumentException if a version after the first has no recorded version before it
-     * @throws IllegalStateException    if the recorded version before it carries no readable header
+     * @throws IllegalStateException    if the recorded version before it carries no readable header, or a header
+     *                                  that fails the schema of the instance header
      */
     private Optional<PlanInstanceHeader> previousHeader(int version) {
         if (version == 1) {
@@ -223,7 +224,12 @@ public final class PlanInstanceStore {
                         scope.scopeId(), version - 1)));
         if (WorkflowParser.parse(path, text, UnitOrigin.DEFAULT) instanceof ParseResult.Parsed parsed
                 && parsed.definition().instance().isPresent()) {
-            return Optional.of(HeaderJson.read(parsed.definition().instance().orElseThrow().json()));
+            try {
+                return Optional.of(HeaderJson.read(parsed.definition().instance().orElseThrow().json()));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalStateException("the recorded version %d of the plan '%s' carries no readable header"
+                        .formatted(version - 1, scope.scopeId()), e);
+            }
         }
         throw new IllegalStateException("the recorded version %d of the plan '%s' carries no readable header"
                 .formatted(version - 1, scope.scopeId()));

@@ -155,7 +155,7 @@ Every plan executes its own *plan instance*: DSL units, stored per version as on
     "input_digests": { "type": "object", "additionalProperties": { "type": "string" } },
     "diff_summary": {
       "type": ["object", "null"],
-      "description": "The composed version relative to the previous version: pruned elements added and removed, ceilings changed, gates waived and unwaived. null for version 1 and unless result == composed.",
+      "description": "The composed version relative to the previous version: pruned elements added and removed, ceilings changed, gates waived and unwaived. The member is present only on a line with result == composed: null for version 1, the summary for a later version; every other line omits it.",
       "required": ["pruned_added", "pruned_removed", "ceilings_changed", "gates_waived", "gates_unwaived"],
       "additionalProperties": false,
       "properties": {

@@ -460,8 +460,8 @@ class PlanInstanceComposerTest {
      * binds, else the shipped plan default, and every other variant of the axis is a pruned call with the reason
      * {@code plan_default} and the binding level as source fact; an override of the plan composes the version after
      * the one in force, unless it would not contain the plan's position. The binding cases compose without rules,
-     * because the shipped rule {@code merge-by-operator} prunes the merge execution of a variant that does not merge
-     * itself, which the template cannot route around (the cases of {@link MergeByOperator}).
+     * because the rules are not what these cases examine; with the shipped rules a variant that does not merge itself
+     * composes as well, the engine settling the pruned merge execution (the cases of {@link MergeByOperator}).
      */
     @Nested
     @DisplayName("Axes")
