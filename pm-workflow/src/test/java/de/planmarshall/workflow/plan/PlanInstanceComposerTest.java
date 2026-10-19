@@ -778,8 +778,8 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
                     () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
-                                    + " transition 'deep' -> 'refine.baseline-reconcile' of 'init.light-gate' is"
-                                    + " missing"), refused.violations()::toString));
+                            + " transition 'deep' -> 'refine.baseline-reconcile' of 'init.light-gate' is"
+                            + " missing"), refused.violations()::toString));
         }
 
         @Test

@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Optional;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -101,7 +102,7 @@ class DiffSummaryTest {
 
             assertAll(
                     () -> assertEquals(List.of(new CeilingChange(REMEDIATION_SITE, "fix_budget",
-                            Optional.of(new CallValue.IntValue(3)), Optional.of(new CallValue.IntValue(4)))),
+                                    Optional.of(new CallValue.IntValue(3)), Optional.of(new CallValue.IntValue(4)))),
                             summary.ceilingsChanged()),
                     () -> assertEquals(List.of(), summary.prunedAdded()),
                     () -> assertEquals(List.of(), summary.gatesWaived()));

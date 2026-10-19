@@ -417,8 +417,8 @@ class PlanInstanceStoreTest {
                     () -> assertEquals(3, lines.size()),
                     () -> assertTrue(lines.get(0).contains("\"diff_summary\":null"), lines.get(0)),
                     () -> assertTrue(lines.get(1).contains("\"diff_summary\":{\"ceilings_changed\":[{\"argument\":"
-                            + "\"fix_budget\",\"call_site\":\"finalize.remediate\",\"previous\":3,\"value\":4}],"
-                            + "\"gates_unwaived\":[],\"gates_waived\":[],\"pruned_added\":[],\"pruned_removed\":[]}"),
+                                    + "\"fix_budget\",\"call_site\":\"finalize.remediate\",\"previous\":3,\"value\":4}],"
+                                    + "\"gates_unwaived\":[],\"gates_waived\":[],\"pruned_added\":[],\"pruned_removed\":[]}"),
                             lines.get(1)),
                     () -> assertFalse(lines.get(2).contains("diff_summary"), lines.get(2)));
         }

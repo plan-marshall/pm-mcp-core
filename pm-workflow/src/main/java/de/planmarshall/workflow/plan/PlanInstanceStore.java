@@ -205,7 +205,7 @@ public final class PlanInstanceStore {
                 && compositionRecord.trigger() == header.event().trigger()
                 && compositionRecord.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()))
                 && compositionRecord.diffSummary().equals(previousHeader(instance.version())
-                        .map(previous -> DiffSummary.between(previous, header)));
+                .map(previous -> DiffSummary.between(previous, header)));
     }
 
     /**
