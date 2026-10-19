@@ -1,0 +1,55 @@
+= ADR 029: INV-INIT-2 Holds per Lane, with the Lane as an Input of the Check
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+`INV-INIT-2` guards the light lane: every path into `outline.light` passes `init.light-gate`, every path from it into
+`outline.gate` passes `outline.light-regate`, and the `light -> deep` ratchet transitions of the default unit, those
+leaving the two gates, are present. A `deep` plan instance version composed at the `outline` event holds no state of the
+light route, pruned with `other_lane` (ADR link:../workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[workflow-plan 012]),
+so its ratchet transitions are gone, and the invariant as written refused every such version.
+The tree of a unit does not say which lane a version is composed for; a project unit loaded from `.marshall/config/` is a
+template whose lane is unknown.
+
+== Decision
+
+* The specification words `INV-INIT-2` per lane: the ratchet transitions are required in a version whose lane is
+  `light` or not yet known, never in a `deep` version.
+* `CompiledInvariants.check(unit, rules, pipeline, lane)` takes the lane as an input value: the wire name of the lane
+  (`light`, `deep`, `land`, `adopt`), or empty where it is unknown. It is a string, so `workflow.verify` takes no type of
+  `workflow.plan`.
+* `InitInvariants` keeps the path clauses wherever `outline.light` is a state of the unit and requires the ratchet only
+  for the lane `light` or an empty lane.
+* `PlanInstanceComposer` passes the lane of the version for every event after `start` and none for `start`;
+  `ProjectUnitLoader` passes none, so a project unit owes the ratchet.
+
+Rationale not recorded beyond the specification of the lane prune.
+
+== Alternatives Considered
+
+Alternatives not recorded. Unlike `CompiledInvariants.Subject`, a constructor argument
+(link:027-inv-gen-1-compares-type-and-interface.adoc[ADR 027]), the lane is a parameter of `check`, because one
+composer and its one checker compose the versions of every lane.
+
+== Consequences
+
+* *Breaking for the assembly in `plan-marshall-mcp`*: `check` has a fourth parameter; a caller that knows no lane passes
+  `Optional.empty()`. Pre-1.0, no compatibility form is kept.
+* A `land` or `adopt` version owes no ratchet either; the units of those lanes call no outline.
+* A caller that passes a lane it does not know weakens the invariant for that unit; only the composer, which composes
+  the version for the lane of its facts, passes one.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Designable Workflow Units, Levels & Compiled Invariants] (`INV-INIT-2`)
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (Lanes)
+* `doc/plans/plan-instance-alignment.adoc`
+* link:../../developer/workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification Developer Guide § INV-INIT-2 per Lane]

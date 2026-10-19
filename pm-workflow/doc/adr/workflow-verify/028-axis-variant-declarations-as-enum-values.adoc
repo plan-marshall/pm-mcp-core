@@ -1,0 +1,55 @@
+= ADR 028: The Declarations of the Axis Variants Are Enumeration Values
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The variants of the method and the asking axis carry their choices as declarations of a compiled declaration schema:
+`order` (`tests_first` or `tests_after`) for a method variant; `wait_after` (a list of the phases `init`, `refine`,
+`outline`, `plan`, `execute`), `outline_review` and `self_merge` (each `true` or `false`) for an asking variant. The
+composition rules read them, so the merge execution is pruned with `merge_by_operator` where the bound asking variant
+declares `self_merge = false`.
+`DeclarationBounds` held schemas only for `adjudicate.decisions` and `replan`, with integer ranges and decision kinds as
+bounds, and the tree knows three kinds of `CallValue`: an enumeration value, an integer and a list of enumeration
+values. A boolean `CallValue` would have rippled into `CallStack`, `WorkflowPrinter` and `HeaderJson`, files another
+plan was changing at the time.
+
+== Decision
+
+* `DeclarationBounds` holds the schemas of `method.test-first`, `method.tests-after`, `ask.every-phase`,
+  `ask.key-points` and `ask.questions-only`, each declaration with its shipped value.
+* Two bound kinds join `IntRange` and `DecisionKind`: `EnumOf`, one value of a closed enumeration, and `EnumListOf`, a
+  list of values of one, the empty list among them.
+* A yes-or-no choice is the enumeration `true|false`, held as a `CallValue.EnumValue`; no boolean `CallValue` is added.
+* An enumeration bound admits every value of its enumeration, so a designed variant may change its choice; the integer
+  bounds keep admitting the shipped value and stricter ones only.
+
+The decision is a judgment of the refine phase; its rationale is the ripple a boolean value would have caused.
+
+== Alternatives Considered
+
+1. *A boolean `CallValue`.*
+_Rejected_ at refine: it changes the call stack codec, the printer and the header JSON for two declarations whose
+values an enumeration already expresses.
+
+== Consequences
+
+* The rules compare a declaration as text: `axes.asking.self_merge` = `false` is an `equals` on the text `false`.
+* `PlanFacts.Axis.declarationNames()` derives the declaration facts the rules may read from these schemas, so a new
+  declaration of a variant schema is a readable fact without a second edit.
+* `ask.key-points` and `ask.questions-only` ship `wait_after = []`; the grammar admits the empty list
+  (link:../workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR workflow-dsl 006]).
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes], item 4
+* link:../../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL § Unit Declarations]
+* `doc/plans/plan-instance-alignment.adoc`; judgment of the refine phase (`self_merge` and `outline_review` stay `EnumValue`)
+* link:../../developer/workflow-verify.adoc#_declaration_bounds[Workflow Verification Developer Guide § Declaration Bounds]

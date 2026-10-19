@@ -5,7 +5,7 @@
 
 == Purpose
 
-_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]_
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]_
 
 Package `de.planmarshall.workflow.plan` composes the plan instance: the workflow unit one plan executes, built from the merged plan template, the composition rules and the facts of the plan.
 Every instance version is immutable; a composition event composes the next version, which is kept only when it verifies and contains the position of the plan, and is otherwise refused as a value while the version in force stays.
@@ -24,30 +24,35 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 `PlanInstanceHeader`:: The header of one version: plan id, version, `CompositionEvent`, `composedAt`, `CompositionInputs`, lane, posture, the kept step lists (`Steps`), the pruned elements, the policy calls and the waived gates. The nested enums `Lane` and `Posture` carry the wire names. The record holds values as given; the schema is answered by `HeaderSchemaCheck`.
 `CompositionInputs`:: Every input of a version by digest: `config_hash`, the templates and sub-units as `UnitReference`, the revision and digest of the composition rules, the digest of the plan facts, and the optional digests of the realized footprint and the providers with the change type.
 `UnitReference`:: A template or sub-unit named by id, optional file, SHA-256 of its text and origin.
-`CompositionEvent`:: The closed set of the eight events (`start`, `outline`, `plan`, `config_adopted`, `waiver`, `fallback`, `empty_harvest`, `replan`), each with its `Trigger` (`server` or `operator`).
-`PrunedElement`:: One element the composition left out: its `Kind` (`step`, `state`, `link`, `policy_action`), id, `PruneReason` and the source fact.
-`PruneReason`:: The closed set of the twelve prune reasons of the header schema.
+`CompositionEvent`:: The closed set of the nine events (`start`, `outline`, `plan`, `config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`, `replan`), each with its `Trigger` (`server` or `operator`); `override`, the operator setting or changing one of the plan's own values, is an operator event.
+`PrunedElement`:: One element the composition left out: its `Kind` (`step`, `state`, `link`, `policy_action`, `call`), id, `PruneReason` and the source fact. A `call` is a call of a phase sub-workflow or of an axis variant, its id `<call_site>/<subworkflow_id>`.
+`PruneReason`:: The closed set of the thirteen prune reasons of the header schema, `other_lane`, `merge_by_operator` and `plan_default` among them.
 `PolicyCall`:: One call of a remediation unit in the kept states with its effective arguments.
 `BoundArgument`:: The effective value of one argument with its `Source`: the template (with its file), a composition rule, or the `raise` waiver (with its id).
 `WaivedGate`:: A gate a `met` waiver marks waived, with the waiver id.
-`HeaderSchemaCheck`:: Checks a header, as a `PlanInstanceHeader` or as the JSON of an `instance` line, against every constraint of the header schema; returns every `HeaderViolation`, never throws for a bad header.
+`HeaderSchemaCheck`:: Checks a header, as a `PlanInstanceHeader` or as the JSON of an `instance` line, against every constraint of the header schema; returns every `HeaderViolation`, never throws for a bad header. Each closed enumeration is read from its type, so the check and the type cannot part.
 `HeaderViolation`:: One violation: the JSON pointer of the member and what is wrong.
 
 The canonical JSON form of the header is written and read by the package-private `HeaderJson`.
+The enumerations equal those of the specification, in its order: `PruneReason` the `prune_reason` of the header schema, `CompositionEvent` its `composition_event`, and `CompositionCause.FallbackCause` the `fallback_cause` of the composition record (`exhausted`, `stepped_out`, `decided`, `infeasible`, `condition`, `provider_refused`, `merge_by_operator`, `local_only`, `files_not_applicable`).
+A header or a log line with a value outside them, such as the former `recipe_override`, `auto_merge_off` or `question_expired`, is refused.
 
-=== The rules
+=== The rules and the facts
 
 [horizontal]
 `CompositionRules`:: The rule file with its revision and the SHA-256 of its bytes. `shipped()` loads the classpath resource `/de/planmarshall/workflow/plan/composition-rules.json`, `parse(byte[])` checks any bytes; both return `Loading`, `Loaded` or `Refused` with a `Refusal` (`UNREADABLE`, `MALFORMED`, `ADDS_ELEMENT`, `RAISES_BUDGET`, `NAMES_GATE`) and a detail.
 `CompositionRule`:: One rule: an id, a `Condition` over one fact (`Equals`, `In`, `Empty`, `Unset`, `Disjoint`), the prunes (`Prune`) and the bindings (`Binding`).
-`PlanFacts`:: The facts one composition reads: lane, posture, change type, recipe id, the post-run-only form, the declared footprint, the effective configuration by key, the step and task ids. Its digest is the header's `plan_facts_digest`.
-`CompositionRuleEvaluator`:: `evaluate(rules, facts)` returns the `RuleEffects` of every rule that holds, in rule order, each prune carrying the rule's reason and the fact it read.
+`PlanFacts`:: The facts one composition reads: lane, posture, change type, the post-run-only form, the declared footprint, the effective configuration by key, the step and task ids, the variant each level sets on each plan behaviour axis, the text of the plan's `overrides.json`, and the declarations of the axis variants. Its digest is the header's `plan_facts_digest` (<<_the_plan_behaviour_axes>>).
+`PlanFacts.Axis`:: The three plan behaviour axes `landing`, `method` and `asking`, each with its closed list of variants and its shipped plan default (`landing.pull-request`, `method.tests-after`, `ask.questions-only`).
+`PlanFacts.Level`:: The levels that set an axis, from the nearest: `plan`, `project`, `machine`, and `shipped` for the plan default where no level sets it.
+`PlanFacts.BoundVariant`:: The variant bound on an axis and the level that set it; its source fact is `<level>.axes.<axis>`, for example `plan.axes.asking`.
+`CompositionRuleEvaluator`:: `evaluate(rules, facts)` returns the `RuleEffects` of every rule that holds, in rule order, each prune carrying the rule's reason and the fact it read; a rule over a declaration of a bound variant (`axes.asking.self_merge`) names the bound variant of its axis (`axes.asking`) as the source fact.
 `RuleEffects`:: The prunes and the bindings of one evaluation; a prune still carries the selector of its rule.
 
 === Composition and storage
 
 [horizontal]
-`CompositionRequest`:: Everything one composition reads, as values: plan id, event, merged template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one. The event and the `post_run` fact of the facts agree: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, every other event leaves the fact unset.
+`CompositionRequest`:: Everything one composition reads, as values: plan id, event, merged template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one. The event and the `post_run` fact of the facts agree: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, every other event, `override` among them, leaves the fact unset.
 `Waiver`:: A waiver in force: `met` marks its gate waived, `raise` names `<argument>:<policy>` and the new ceiling.
 `InstancePosition`:: The current state and the calling state of every call-stack frame.
 `PlanInstanceComposer`:: `compose(request)` returns a `CompositionResult`. Constructed with the `VerificationContext`, the verified default units, the default finalize roster, the rules and a `Clock`.
@@ -55,53 +60,59 @@ The canonical JSON form of the header is written and read by the package-private
 `PlanInstance`:: One version: number, header, composed unit and its printed text, the content of `instance/plan.v<N>.pmwf`.
 `PlanInstanceStore`:: Writes the versions, the sub-unit texts and the composition log through a `ScopeTransaction` of the plan, and reads versions and sub-unit texts back.
 `SubUnitText`:: The verified text of a sub-unit a version names, handed to the store with the version.
-`CompositionRecord`:: One line of the composition log: event, `Result` (`composed`, `identical_adopted`, `kept`, `refused`), version, trigger, cause, input digests, time.
+`CompositionRecord`:: One line of the composition log: event, `Result` (`composed`, `identical_adopted`, `kept`, `refused`), version, trigger, cause, input digests, `diff_summary`, time. `composed(instance, previous, recordedAt)` builds the record of a composed version from the version before it, empty exactly for version 1.
+`DiffSummary`:: The `diff_summary` of a composed version after the first: five flat arrays relative to the version before it (<<_the_diff_summary>>).
 `CompositionCause`:: The `cause` object of a log line: gate, `FallbackCause`, waiver id, deliverable id, replan id, configuration hashes, refusal.
 
-The package-private `InstancePruner` applies the rule effects and the waivers to the template.
+The package-private `InstancePruner` applies the rule effects, the bound axis variants, the lane and the waivers to the template.
 
 [source]
 ----
-PlanFacts ──┐
-            ├─ CompositionRuleEvaluator ── RuleEffects ──┐
-CompositionRules                                         │
-                                                         ▼
-CompositionRequest ─── PlanInstanceComposer ── InstancePruner (prune, bind, waive)
-                              │
+PlanFacts ── axis variant declarations (from the sub-units) ──┐
+            ├─ CompositionRuleEvaluator ── RuleEffects ───────┤
+CompositionRules                                              │
+                                                              ▼
+CompositionRequest ─── PlanInstanceComposer ── InstancePruner (prune, other_lane, bind variants, bind, waive)
+                              │                      └── outcomes settled by a prune record
                               ├─ position rule ─────────────── Refused(position_not_contained)
-                              ├─ HeaderSchemaCheck, Rules 1-12,
-                              │  finalize pipeline, invariants ─ Refused(invariant_failed)
+                              ├─ HeaderSchemaCheck, Rules 1-12 (settled outcomes routed),
+                              │  finalize pipeline, invariants (with the lane) ─ Refused(invariant_failed)
                               ▼
                        Composed(PlanInstance)
                               │
                               ▼
                PlanInstanceStore ── ScopeTransaction (caller's, committed by the caller)
-                 instance/plan.v<N>.pmwf, instance/composition.jsonl, mcp/units/<digest>.pmwf
+                 instance/plan.v<N>.pmwf, instance/composition.jsonl (diff_summary), mcp/units/<digest>.pmwf
 ----
 
 == The Composition
 
-_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1]_
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25]_
 
 `PlanInstanceComposer.compose` runs these steps in order:
 
-. *Evaluate the rules.* `CompositionRuleEvaluator` evaluates every rule against the request's facts. An absent fact is unknown: every condition over it is false, except `unset`.
+. *Read the variant declarations.* The declarations of every axis variant among the request's sub-units are taken from its tree into the facts, so a rule can read them (<<_the_plan_behaviour_axes>>).
+. *Evaluate the rules.* `CompositionRuleEvaluator` evaluates every rule against the facts. An absent fact is unknown: every condition over it is false, except `unset`.
 . *Prune, bind, waive.* `InstancePruner` resolves each prune selector against the template and the step lists:
 ** a step: an exact id of the Phase 5 or Phase 6 list, or `order<n>` for every Phase 6 step below the order `n`;
 ** a state: its id; the state and every transition into it are left out;
 ** a link: `<state_id>/<link_id>`;
-** a policy action: `<call_site>/<action>`, `*` for every policy call; the action leaves the call's `actions`.
+** a policy action: `<call_site>/<action>`, `*` for every policy call; the action leaves the call's `actions`;
+** a call: `<call_site>/<subworkflow_id>`, the state that calls the sub-workflow; the call state and every transition into it are left out.
 +
 A selector that names nothing the template declares prunes nothing and is not listed; an element two rules prune is listed once, with the reason of the first rule.
+After the prunes of the rules come the states of the other lane (<<_lane_pruning>>), and every kept call site of an axis calls the variant bound on its axis, the other variants listed as pruned calls (<<_the_plan_behaviour_axes>>).
 The effective arguments of a policy call follow the precedence template, then the actions a prune removed, then the rule bindings, then the `raise` waivers; a binding or a raise only replaces an argument the call already binds, never adds one.
 A `met` waiver adds its gate to `waived_gates`.
+For every kept state the pruner also records the outcomes whose every transition led into a state pruned with a prune record (<<_outcomes_settled_by_a_prune>>).
 . *Position rule.* The kept states must contain the current state and every calling state of the call stack; otherwise the result is `Refused(position_not_contained)` with one line per missing state, and nothing else is checked.
-. *Header.* The version is the one after the version in force (`1` for `start`); the inputs name the templates, the sub-units the kept states reach through their calls (transitively), the rules' revision and digest, and the facts' digest.
+. *Header.* The version is the one after the version in force (`1` for `start`); the inputs name the templates, the sub-units the kept states reach through their calls (transitively), the adjudication unit `adjudicate.decisions` whenever the request supplies it, the rules' revision and digest, and the facts' digest.
+No call site calls `adjudicate.decisions`; the engine runs it for the decisions of the version, so it is listed with its digest and origin like every bound sub-unit, and the store keeps its verified text.
 The composed unit has the id `plan`, the version as revision and the header as its `instance` line.
 Its frontmatter is the template's with the type `instance`, the type of a plan instance version, which only the server composes (link:workflow-ast.adoc#unit-types[Workflow AST § Unit Types]); name, description, entries, exits, modification date, release, author and signature are the template's.
 Its start state and entry bindings are the template's as well.
 The printed text of the version therefore opens with that frontmatter, and the verification below checks the type `instance` against the row of its type (scope `plan`, no entries, no exits) and, in `INV-GEN-1`, admits it against a default unit of the type `workflow` or `recipe` (link:workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification § INV-GEN-1 over Type and Interface]).
-. *Verify.* `HeaderSchemaCheck`, the static verification Rules 1-12 (`WorkflowValidator` over the compiled units and the request's sub-units, without a released baseline), `FinalizePipelineValidator` over the default descriptors of the kept Phase 6 steps, and `CompiledInvariants` against the default units, dropping the violations an invariant only re-reports.
+. *Verify.* `HeaderSchemaCheck`, the static verification Rules 1-12 (`WorkflowValidator.verify(unit, settledByPrune)` over the compiled units and the request's sub-units, without a released baseline, the outcomes settled by a prune record counted as routed), `FinalizePipelineValidator` over the default descriptors of the kept Phase 6 steps, and `CompiledInvariants` against the default units with the lane the version is composed for (none for `start`), dropping the violations an invariant only re-reports.
 Any violation gives `Refused(invariant_failed)` with every violation found, one line each.
 . *Composed.* Otherwise the result is `Composed` with the version and its printed text.
 
@@ -110,19 +121,114 @@ The composer reads no store and writes nothing; Rules 13 and 14 are not checked.
 === Events
 
 The composer composes a version for every event the same way: the event decides the version number and is written to the header, and the rules decide what is pruned.
-Event-specific effects are expressed through the facts: the post-run-only forms of `fallback` and `empty_harvest` come from the fact `post_run`, whose rules prune every Phase 6 step below order 900.
+Event-specific effects are expressed through the facts: the post-run-only forms of `fallback` and `empty_harvest` come from the fact `post_run`, whose rules prune every Phase 6 step below order 900; the `outline` event and every later one prune the other lane, because the facts then carry the lane.
 `CompositionRequest` refuses a request whose event and `post_run` fact disagree, with an `IllegalArgumentException` naming the event and the fact: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, and every other event has no `post_run` fact.
+An `override` is composed like every other event from the facts that carry the changed value; a version that would not contain the plan's position is refused `position_not_contained`, and the version in force stays.
 When a composed version comes into force, server events for the rest of their chain and operator events from the next transition, is the engine's concern, not this package's.
+
+[#_lane_pruning]
+=== Lane Pruning
+
+_Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (Lanes); link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance] (Composition Events, `outline`)_
+
+For every event after `start` whose facts know the lane `light` or `deep`, `InstancePruner` prunes the states of the other lane, each a pruned `state` with the reason `other_lane` and the source fact `lane`:
+
+* The lanes split at the two exits of `init.ready`: the deep one enters `refine.baseline-reconcile`, the light one `init.light-gate`.
+* Pruned are exactly the states reachable from the entry of the other lane and not reachable from the entry of the chosen lane, both over all transitions, escalation included.
+* The shared states before the split, those reachable from a starting state of the unit without taking a lane exit of `init.ready` (`init.begin` through `init.ready`, the start state, and any refine state ahead of the deep entry), belong to no lane and are never pruned by lane.
+
+A `light` version keeps the deep route, the target of its escalation, and so prunes nothing by lane; a `deep` version holds no state of the light route.
+The lanes `land` and `adopt`, an unknown lane, and a template without both lane entries prune nothing by lane, and neither does `start`.
+The reach of a lane is plain reachability: it works because the specification gives each lane its own rework and replan routes and no router reads the lane (link:../adr/workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[ADR 012]).
+The other lane's prune removes the transitions into its states, among them the `light` exit of `init.ready` in a `deep` version; that outcome is settled by the prune record (<<_outcomes_settled_by_a_prune>>), and `INV-INIT-2` requires the `light -> deep` ratchet only where the lane is `light` or unknown (link:workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification § INV-INIT-2 per Lane]).
+
+[#_outcomes_settled_by_a_prune]
+=== Outcomes Settled by a Prune
+
+_Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (Outcomes settled by a prune)_
+
+Pruning a state removes the state and every transition into it; it never re-routes the outcome that led there.
+Rule 2 refuses an unrouted outcome, so a version that prunes the target of an outcome would never verify.
+An outcome of a kept state whose every transition led into a state the composition pruned with a prune record is therefore settled by that record: `InstancePruner.Pruned.settled()` lists these outcomes by state, and the composer passes them to `WorkflowValidator.verify(unit, settledByPrune)`, which counts them as routed for Rule 2 (`OUTCOME_COVERAGE`) at an `auto` or `job` state.
+An outcome with one kept target is routed and not listed.
+The one mechanism serves two prunes (link:../adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[ADR 016]):
+
+* the lane: the `light` exit of `init.ready` in a `deep` version, whose target `init.light-gate` is pruned with `other_lane`;
+* the merge left to the operator: the `pass` of `finalize.merge-barrier` in a version that prunes `finalize.merge-dispatch`, `finalize.merge-queue-wait` and `finalize.merge-queue-exit` with `merge_by_operator`; the barrier settles `pass_hand_back` into the hand-back instead, so a version whose asking variant declares `self_merge = false` composes and verifies.
+
+Only the composer passes settled outcomes.
+Every other caller calls `verify(unit)`, which settles nothing, so a unit verified without the prune records of its composition, and a transition into a state removed without a prune record, still fail Rule 2.
+A link's transitions and a `job llm` or question state are never settled.
+
+[#_the_plan_behaviour_axes]
+=== The Plan Behaviour Axes
+
+_Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes]; link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-overrides[§ Plan Overrides]_
+
+`PlanFacts` carries per axis the variant each level sets: the plan's own value (the `axes` member of its `overrides.json`), the project's and the machine's.
+`bound(axis)` returns the variant of the nearest level that sets the axis, else the shipped plan default, with the level that set it.
+A level that sets a value that is no variant of its axis, or the level `shipped`, is refused when the facts are built.
+The text of `overrides.json` is a fact of its own; both the axis levels and the overrides are counted in `plan_facts_digest`, so a changed override gives a new digest.
+`CompositionRequest` is unchanged: the axes reach the composition only through its facts (link:../adr/workflow-plan/015-axis-levels-and-overrides-carried-in-plan-facts.adoc[ADR 015]).
+
+The composer reads the declarations of every axis variant among the request's sub-units from its tree into the facts (`withDeclarations`), and the rules read them as named facts:
+
+[cols="2,3"]
+|===
+|Fact |Value
+
+|`axes.landing`, `axes.method`, `axes.asking`
+|The bound variant of the axis; always known.
+
+|`axes.method.order`
+|The `order` the bound method variant declares (`tests_first`, `tests_after`).
+
+|`axes.asking.wait_after`
+|The list of phases after which the bound asking variant waits, possibly empty.
+
+|`axes.asking.outline_review`, `axes.asking.self_merge`
+|The bound asking variant's `true` or `false`.
+|===
+
+A declaration fact is known only where the bound variant's tree was passed in; the declarations themselves are not counted in the facts' digest, because the header names the variant's unit by its own digest.
+The declaration schemas of the variants are those of `DeclarationBounds` (link:workflow-verify.adoc#_declaration_bounds[Workflow Verification § Declaration Bounds]).
+
+At every kept call site of an axis, a state that calls one of its variants, `InstancePruner` binds the bound variant with the template's entry, arguments and transitions, and lists every other variant of the axis as a pruned `call` `<call_site>/<variant>` with the reason `plan_default` and the source fact `<level>.axes.<axis>` of the level that bound it.
+A later change of one of the plan's own values composes a version with the event `override` (<<_events>>).
+Writing the machine's and the project's values and the plan's overrides is not this package's, and neither is composing a landing variant into the finalize phase.
+
+[#_the_diff_summary]
+=== The Diff Summary
+
+_Specification: link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance] (Composition Log, `diff_summary`)_
+
+The log line of a composed version carries `diff_summary`: `null` for version 1, and for every later version a `DiffSummary` against the version before it, computed by `DiffSummary.between(previous, current)` from the two headers.
+It holds five flat arrays, all present and empty where nothing changed (link:../adr/workflow-plan/014-diff-summary-as-five-flat-arrays.adoc[ADR 014]):
+
+[cols="1,3"]
+|===
+|Member |Content
+
+|`pruned_added`, `pruned_removed`
+|The pruned elements of one version and not the other, in the shape of the header's `pruned[]` (`element`, `id`, `reason`, `source_fact`); an element whose reason or source fact changed is removed and added.
+
+|`ceilings_changed`
+|Each bound argument of a policy call whose value differs: `call_site`, `argument`, `previous` and `value`, `null` where a version does not bind the argument.
+
+|`gates_waived`, `gates_unwaived`
+|The waived gates of one version and not the other (`gate`, `waiver_id`).
+|===
+
+Each array keeps the order of the header it comes from; the ceilings the order of the call sites, those of the previous version first, and within a call site the order of the argument names.
+A line of an attempt that composed no version writes no `diff_summary`.
+`CompositionRecord` refuses a summary on version 1 or on an attempt that composed nothing, and a missing one on a later version; `PlanInstanceStore` checks that the summary is the one of the version against the recorded version before it, and refuses a version after the first that follows no recorded version.
 
 === Limitations
 
-* *Lane-route pruning is not implemented.* The specification says the `outline` event prunes the other lane; this package prunes no lane route, and a `deep` instance keeps the `light` route.
-The lane is recorded in the header.
-Pruning the light route leaves outcomes unrouted at `init.light-gate` and `outline.route-rework`, which Rule 2 refuses, and removes transitions `INV-INIT-2` requires; plain reachability prunes nothing because the shared lane-reading routers reach both lanes.
-The work package link:../../../doc/plans/plan-instance-alignment.adoc[`plan-instance-alignment`] takes this up; the decision is link:../adr/workflow-plan/011-lane-route-pruning-deferred.adoc[ADR 011].
 * *Rules 13 and 14* (role and skill resolution) are left to the packages that own the role sets and the skill catalogue (link:../adr/workflow-plan/007-rules-13-and-14-left-to-their-packages.adoc[ADR 007]).
 * *The provider rule reads `integrations.sonar` only*, the one shipped analysis adapter; a second adapter needs a derived fact or a conjunction in the rule language first (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
-* *`diff_summary`* of the composition log is not computed; the store never writes it.
+* *One composed unit per version.* The version is the merged plan unit; one composed file per phase sub-workflow and bound variant, and the landing variant composed into the finalize phase, are not written.
+* *The outline review* is not pruned by `outline_review = false`; no shipped rule reads that declaration yet.
 
 == Verification and the Position Rule
 
@@ -131,7 +237,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 A version is checked in full before anyone may write it (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]), and a version that fails is a `CompositionResult.Refused` value, never an exception (link:../adr/workflow-plan/002-refused-composition-is-a-value.adoc[ADR 002]).
 State ids are stable across versions, so the position maps onto the new version unchanged; a version that drops the current state or a calling state of the call stack would strand the plan, so it is refused before the other checks.
 
-The reference of the compiled invariants is the set of verified default units passed to the constructor; the composed unit is checked against them as a project plan unit would be.
+The reference of the compiled invariants is the set of verified default units passed to the constructor; the composed unit is checked against them as a project plan unit would be, with the lane of the version as the input of `CompiledInvariants.check`.
 
 == Persistence
 
@@ -147,13 +253,13 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |The text of version `N`; written once, never rewritten. `recordComposed` refuses with `IllegalStateException` when the file exists already, and collects the file with `ScopeTransaction.create`, so the commit refuses it as well when another transaction created it in between (link:../../../pm-core/doc/adr/core-store/028-create-target-refused-at-commit-when-the-store-exists.adoc[core-store ADR 028]).
 
 |`instance/composition.jsonl`
-|One canonical JSON line per composition attempt, whatever its result; `version` is `null` unless composed, an absent `cause` is not written.
+|One canonical JSON line per composition attempt, whatever its result; `version` is `null` unless composed, an absent `cause` is not written, and `diff_summary` is written for a composed version only, `null` for version 1 (<<_the_diff_summary>>).
 
 |`mcp/units/<digest>.pmwf`
-|The verified text of each sub-unit a version names, content-addressed; written in the transaction of the first version naming the digest and never rewritten (link:../adr/workflow-plan/009-sub-unit-texts-stored-once-per-digest.adoc[ADR 009]).
+|The verified text of each sub-unit a version names, `adjudicate.decisions` among them, content-addressed; written in the transaction of the first version naming the digest and never rewritten (link:../adr/workflow-plan/009-sub-unit-texts-stored-once-per-digest.adoc[ADR 009]).
 |===
 
-`recordComposed` checks before staging anything that the record is the composed record of the version, that every text matches its digest and that every sub-unit the header names has a text; `recordAttempt` writes the log line of an attempt that composed no version.
+`recordComposed` checks before staging anything that the record is the composed record of the version, its diff summary the one against the recorded version before it, that every text matches its digest and that every sub-unit the header names has a text; `recordAttempt` writes the log line of an attempt that composed no version.
 The store creates `instance/` and `mcp/units/` before staging, because the transaction writes into existing directories; the digest sidecar of the plan covers every file through the commit.
 
 A version file is refused twice.
@@ -174,13 +280,16 @@ A number such as `1e999999999` is held as a mantissa and an exponent, and conver
 
 == The Rule File
 
-_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]_
+_Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25]_
+
+_Specification: link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]_
 
 The rule file is a compiled classpath resource of this module, `de/planmarshall/workflow/plan/composition-rules.json`, with no project copy and no override (link:../adr/workflow-plan/004-composition-rules-as-compiled-resource.adoc[ADR 004]).
 Its shape is closed: `format_version` 1, a non-empty `revision` and the list `rules`; each rule has a unique `id`, a `when` naming one registered fact and exactly one of `equals`, `in`, `empty`, `unset`, `disjoint`, and a `then` with `prune` and `bind`.
-A registered fact is a plan fact of `PlanFacts` or a configuration key (`merge.auto_merge`, `derived.push_remote`, `integrations.<provider>`).
+A registered fact is a plan fact of `PlanFacts` (`lane`, `posture`, `change_type`, `post_run`, `footprint`), an axis fact (`axes.<axis>` and the declarations `axes.method.order`, `axes.asking.wait_after`, `axes.asking.outline_review`, `axes.asking.self_merge`), or a configuration key (`derived.push_remote`, `integrations.<provider>`).
+A rule over any other name, the former `merge.auto_merge` and `recipe_id` among them, is refused as `MALFORMED`.
 
-The shipped rules, in file order:
+The shipped rules, revision `2`, in file order:
 
 [cols="2,3,3"]
 |===
@@ -189,38 +298,40 @@ The shipped rules, in file order:
 |`land-lane` |`lane` = `land` |prune `finalize.allocate-remediation`, `*/fix`, `*/loop_back`, `default:finalize-step-simplify` (`land_lane`); bind `actions` = `[retry]` at every policy call
 |`adopt-lane` |`lane` = `adopt` |prune `default:create-pr` (`adopt`)
 |`local-only` |`derived.push_remote` empty |prune `default:push`, `default:create-pr`, `default:ci-verify`, `default:automatic-review`, `default:analysis-roundtrip` (`local_only`)
-|`auto-merge-off` |`merge.auto_merge` = `false` |prune `finalize.merge-dispatch`, `finalize.merge-queue-wait`, `finalize.merge-queue-exit` (`auto_merge_off`)
+|`merge-by-operator` |`axes.asking.self_merge` = `false` |prune the states `finalize.merge-dispatch`, `finalize.merge-queue-wait`, `finalize.merge-queue-exit` (`merge_by_operator`, source fact `axes.asking`)
 |`posture-minimal` |`posture` = `minimal` |prune six Phase 6 steps (`posture`)
 |`posture-standard` |`posture` = `standard` |prune `default:finalize-step-security-audit` (`posture`)
 |`posture-default-off` |`posture` in `minimal`, `standard`, `full` |prune `default:adr-propose`, `default:plan-retrospective` (`posture`)
 |`analysis-provider-unconfigured` |`integrations.sonar` unset |prune `default:analysis-roundtrip` (`provider_unconfigured`)
 |`no-code-delta` |`footprint` disjoint from the code and build globs |prune `default:finalize-step-simplify`, `default:adr-propose` (`footprint_disjoint`)
 |`report-change-type` |`change_type` in `analysis`, `verification` |prune `default:finalize-step-simplify` (`change_type_exempt`)
-|`simplify-recipe` |`recipe_id` = `simplify-codebase` |prune `default:finalize-step-simplify` (`recipe_override`)
 |`post-run-returned`, `post-run-handed-back`, `post-run-empty-harvest` |`post_run` = the form |prune `order<900` (the form's reason)
 |===
 
-The targets of the provider, footprint, change-type and recipe rules are derived from the step catalogue (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
+The targets of the provider, footprint and change-type rules are derived from the step catalogue (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
+The `plan_default` prunes of the axis variants and the `other_lane` prunes are not rules of the file: the composer derives them from the bound variants and the lane (<<_the_plan_behaviour_axes>>, <<_lane_pruning>>).
 
 === Adding a rule
 
 . Add the rule to `composition-rules.json` and raise its `revision`; the digest changes with the bytes.
-. A new fact name must be registered: a new plan fact in `PlanFacts` (its component, its name constant and `PLAN_FACT_NAMES`), or a configuration key the rules already admit.
-. A new prune reason is a constant of `PruneReason` and a value of the header schema's enumeration; the schema is corrected in the documentation repository first.
+. A new fact name must be registered: a new plan fact in `PlanFacts` (its component, its name constant and `PLAN_FACT_NAMES`), a declaration of an axis variant's compiled schema in `DeclarationBounds`, which `PlanFacts.Axis.declarationNames()` reads, or a configuration key the rules already admit.
+. A new prune reason is a constant of `PruneReason` and a value of the header schema's enumeration; the schema is corrected in the specification first.
 . A rule never adds an element, never binds a budget parameter of the remediation schema (`retry_budget`, `fix_budget`, `waiver_wait_seconds`), and never names a gate; `CompositionRules` refuses such a file with `ADDS_ELEMENT`, `RAISES_BUDGET` or `NAMES_GATE`.
 The refused budget parameters are not listed in this package: `CompositionRules` reads them from their one definition, `CompiledInvariants.remediationBudgetParameters()` of `workflow.verify`, which the remediation invariants (`INV-REM-1`, `INV-REM-5`) use as well, so a budget parameter added to the schema is refused by the rule file check without a second edit.
+. A rule whose prune leaves an outcome without a kept target needs no re-routing: the outcome is settled by the prune record (<<_outcomes_settled_by_a_prune>>), as long as the template routes the other outcome of the deciding state to a kept state.
 . Add a positive case and a matched negative control to `CompositionRuleEvaluatorTest`, and the rule's shape to `CompositionRulesTest`.
 
 == Invariants
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]_
 
-. *Never adds.* The composition only removes or rebinds what the template declares; it adds no state, link, transition or argument.
+. *Never adds.* The composition only removes or rebinds what the template declares; it adds no state, link, transition or argument. Binding an axis variant replaces the callee of a call state the template declares, keeping its entry, arguments and transitions.
 . *Values in, values out.* Facts, configuration and waivers arrive as values (link:../adr/workflow-plan/005-facts-configuration-and-waivers-as-input-values.adoc[ADR 005]); the composer reads no store; a refusal is a value.
 . *Verified before written.* The composer is the only code of the package that composes a version and verifies it, and a refused attempt writes its log line only. `recordComposed` re-checks the composition record against the version but not the verification; its caller owns passing only a version the composer returned as `CompositionResult.Composed` (link:../adr/workflow-plan/001-composed-version-verified-before-write.adoc[ADR 001]).
+. *Settled only by a prune record.* An outcome counts as routed without a transition only where every transition of it led into a state this composition pruned with a prune record; no other caller of the verifier settles an outcome.
 . *Write-once.* A version file and a sub-unit file are never rewritten; for a version file the commit checks it under the plan lock, a sub-unit file is content-addressed and is only ever written with the bytes it already holds.
 . *Reproducible header.* The same header always gives the same bytes and the same digest; the schema is checked in code in full (link:../adr/workflow-plan/006-header-schema-checked-in-code.adoc[ADR 006]).
-. *Ordered, not sorted.* Pruned elements follow rule order, policy calls the declaration order of the states, waived gates the order of the waivers.
+. *Ordered, not sorted.* Pruned elements follow rule order, then the other lane's states and the axis variants' calls; policy calls the declaration order of the states, waived gates the order of the waivers.
 
 == Failure Modes
 
@@ -230,7 +341,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |===
 |Situation |Behaviour
 
-|The version lacks the current state or a calling state
+|The version lacks the current state or a calling state, an `override` among the events
 |`Refused(position_not_contained)`, one line per missing state.
 
 |The version breaks the header schema, a rule, the finalize pipeline or a compiled invariant
@@ -239,17 +350,26 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 |`start` with a previous version, another event without one, a previous version of another plan, an event and a `post_run` fact that disagree
 |`IllegalArgumentException` from `CompositionRequest`.
 
+|An axis level set to a value that is no variant of its axis, the level `shipped` set, declarations of a unit that is no axis variant
+|`IllegalArgumentException` from `PlanFacts`.
+
 |A header integer whose magnitude no `int` reaches, such as `1e999999999`
 |`IllegalArgumentException` (out of range) from the header reader, before the number is expanded.
 
-|The rule file is unreadable or breaks its shape
+|The rule file is unreadable or breaks its shape, a rule reads an unregistered fact
 |`CompositionRules.Refused` with the `Refusal` and a detail.
 
 |A header line is no single JSON value or names a member twice
 |One `HeaderViolation` of the line or the member.
 
-|`recordComposed` with a wrong record, a text that does not match its digest or a missing text
+|A composition record with a diff summary on version 1 or on an attempt that composed nothing, or without one on a later version; `composed` with a previous version that is not the one before
+|`IllegalArgumentException` from `CompositionRecord`.
+
+|`recordComposed` with a wrong record, a wrong diff summary, a version after the first that follows no recorded version, a text that does not match its digest or a missing text
 |`IllegalArgumentException`; nothing staged.
+
+|The recorded version before it carries no readable header
+|`IllegalStateException`; nothing staged.
 
 |The version file exists already
 |`IllegalStateException`; nothing staged.
@@ -265,16 +385,17 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/12-testing.adoc#PM-TEST-3[PM-TEST-3]_
 
-* `PlanInstanceHeaderTest`: canonical JSON (sorted members, byte-identical re-serialisation and digest), round trip, reading refusals, wire names and value semantics.
-* `HeaderSchemaCheckTest`: a valid header, one violation per constraint, malformed text.
-* `CompositionRulesTest`: the shipped file (one rule per family, floor immunity), the rule shape and each refusal, a binding of every budget parameter `CompiledInvariants.remediationBudgetParameters()` names included.
-* `CompositionRuleEvaluatorTest`: lanes, configuration, posture, the four families with a matched negative control each, the post-run forms, evaluation order and the plan facts.
-* `PlanInstanceComposerTest`: the composed version, one version per event with its number, the agreement of the event and the `post_run` fact (a matched positive and negative control per arm), the rules, the waivers, and the refusals (position rule, invariant failure).
-* `PlanInstanceStoreTest`: write-once versions (the early refusal of an existing version, and two transactions of one lock transaction recording the same version: the second commit is refused, the first text stays), one log line per attempt, sub-unit texts stored once per digest.
-* `PlanFixtures` builds the requests over the plan template `plan/plan-template-fixture.pmwf`, written for these tests, with the sub-units and registries of `InvariantFixtures`; its facts make no shipped rule hold. The invariant refusal is driven by `merge.auto_merge=false`, which prunes `finalize.merge-dispatch` and leaves the outcome of `finalize.merge-gate` unrouted.
+* `PlanInstanceHeaderTest`: canonical JSON (sorted members, byte-identical re-serialisation and digest), round trip, reading refusals, wire names and value semantics; the enumerations derived from the types at run time and compared with the lists of the specification.
+* `HeaderSchemaCheckTest`: a valid header, one violation per constraint, the element `call` and the event `override`, the removed reasons refused, malformed text.
+* `CompositionRulesTest`: the shipped file (one rule per family, the `merge-by-operator` rule, revision `2`, no rule over `merge.auto_merge` or `recipe_id`, floor immunity), the rule shape and each refusal, a rule over an unregistered fact, a binding of every budget parameter `CompiledInvariants.remediationBudgetParameters()` names included.
+* `CompositionRuleEvaluatorTest`: lanes, configuration, posture, the families with a matched negative control each, the axis facts and the declarations of a bound variant, `self_merge` `false` against `true`, the post-run forms, evaluation order and the plan facts.
+* `DiffSummaryTest`: added and removed prunes, a changed ceiling, a waived and an unwaived gate, an identical pair giving five empty arrays, and the JSON.
+* `PlanInstanceComposerTest`: the composed version, one version per event with its number, the agreement of the event and the `post_run` fact (a matched positive and negative control per arm), the rules, the waivers, the refusals (position rule, invariant failure); the three-level binding of an axis with `plan_default` calls and the machine-only control, the `override` version and its position refusal, `plan_facts_digest` changing with `overrides.json`; `adjudicate.decisions` in the header with its control; the lane prune per lane (a `deep` version at `outline` without the light route, a `light` version keeping the deep route, the shared states before the split kept in both, the same template at `start` pruning nothing); a `self_merge = false` version that composes without the merge execution and the `self_merge = true` control that keeps it.
+* `PlanInstanceStoreTest`: write-once versions (the early refusal of an existing version, and two transactions of one lock transaction recording the same version: the second commit is refused, the first text stays), one log line per attempt, the `diff_summary` of versions one and two, sub-unit texts stored once per digest, the text of `adjudicate.decisions` among them.
+* `PlanFixtures` builds the requests over the plan template `plan/plan-template-fixture.pmwf`, written for these tests, with the sub-units and registries of `InvariantFixtures`, the asking variants and the axis levels; its facts make no shipped rule hold. The template holds the call site of the asking axis, the merge barrier with `pass` and `pass_hand_back`, and the merge execution. The invariant refusals use a rule file written for the test that prunes the merge execution where no prune record settles the outcome, and the lane tests compose the merged units of `unit-fixtures/defaults/` (link:../adr/workflow-plan/013-default-plan-unit-in-the-specification-and-test-fixtures.adoc[ADR 013]).
 
 == Specification Tracing
 
-* Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
-* Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]
-* Decisions: `pm-workflow/doc/adr/workflow-plan/` ADRs 001 to 011
+* Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-1[PM-WF-1], link:../../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-25[PM-WF-25], link:../../../../plan-marshall-documentation/doc/requirements/15-extensions-and-recipes.adoc#PM-EXT-7[PM-EXT-7]
+* Specification: link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-instance[Workflow DSL § Plan Instance], link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[§ Composition Rules], link:../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[§ Plan Behaviour Axes]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance]; link:../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]; link:../../../doc/specification/identifiers/02-registry-stores-to-web.adoc#id-prune-reason[Identifier Registry § Prune reason]
+* Decisions: `pm-workflow/doc/adr/workflow-plan/` ADRs 001 to 016; ADR 011 is superseded by ADR 012

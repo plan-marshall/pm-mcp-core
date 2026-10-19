@@ -1,0 +1,39 @@
+= ADR 014: `diff_summary` as Five Flat Arrays
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The composition record of `instance/composition.jsonl` carries `diff_summary`, which the specification described only by its content: the pruned elements added and removed, the ceilings changed, and the gates waived or unwaived relative to the previous version, `null` for version 1.
+It named no member of the object, and the code did not compute it; the store never wrote it.
+The operator answered at refine (question q3) which members the schema states, and the schema lives in this repository (Store Schemas part 14, link:../../../../doc/adr/007-specifications-of-the-engine-in-this-repository.adoc[ADR 007]).
+
+== Decision
+
+* The schema of `diff_summary` names five required arrays, empty where nothing changed: `pruned_added` and `pruned_removed` (items in the shape of the header's `pruned[]`), `ceilings_changed` (`call_site`, `argument`, `previous`, `value`, `null` where a version does not bind the argument), and `gates_waived` and `gates_unwaived` (items in the shape of `waived_gates[]`). It is `null` for version 1, and a line of an attempt that composed no version carries none. The specification states this before the code writes it.
+* `DiffSummary` computes the five arrays from the header of the previous and of the new version (`between(previous, current)`); a pruned element whose reason or source fact changed is removed and added.
+* `CompositionRecord` carries the summary: `composed(instance, previous, recordedAt)` takes the version before the composed one, empty exactly for version 1, and the record refuses a summary that does not fit its version.
+* `PlanInstanceStore` checks the summary of a recorded version against the recorded version before it.
+
+== Alternatives Considered
+
+Other shapes of the object were not recorded; the operator's answer (q3) fixed the five flat arrays.
+One detail differs from the answer: it named the members of a changed ceiling `from` and `to`, and the schema written before the code names them `previous` and `value`, with the same meaning; the reason for the names is not recorded.
+
+== Consequences
+
+* *Breaking for the assembly in `plan-marshall-mcp`*: `CompositionRecord` gains the component `diffSummary`, and `CompositionRecord.composed` takes the previous version (`composed(instance, previous, recordedAt)`); a caller passes `Optional.empty()` for version 1 and the version in force otherwise. Pre-1.0, no compatibility form is kept.
+* A version after the first can be recorded only after the version before it; the store refuses a version that follows no recorded version, and one whose predecessor carries no readable header.
+* The format version of the composition record stays 1; the member was already in its schema.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Composition Log
+* `doc/plans/plan-instance-alignment.adoc`; operator answer q3 at refine (five flat arrays, `null` for version 1)

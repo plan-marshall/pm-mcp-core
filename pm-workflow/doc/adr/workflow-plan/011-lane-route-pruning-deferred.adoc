@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by ADR link:012-per-lane-routes-and-other-lane-pruning.adoc[012]
 
 == Date
 
@@ -43,7 +43,7 @@ _Rejected_: it needs engine support that does not exist, and a new event in the 
 
 * The specification sentence of the `outline` event states more than the code does until the follow-up package corrects it or implements it.
 * The follow-up package starts from the operator's model: escalation is an ordinary outcome of the light lane. That works once the default plan unit has per-lane rework and replan routes instead of shared lane-reading routers, and `INV-INIT-2`'s ratchet clause is reworded per lane; then plain reachability from the chosen lane's entry prunes correctly, with a prune reason for the other lane.
-* The developer guide of `workflow.plan` lists lane-route pruning under its limitations.
+* The developer guide of `workflow.plan` listed lane-route pruning under its limitations until ADR 012 implemented it on the per-lane routes this consequence describes.
 
 == Source
 

@@ -266,7 +266,7 @@ Hazard:: A catalogue row that routes one outcome to several targets by lane, fac
 to an implicit engine branch that no validator checks and no diagram shows.
 Guard:: Static check over every compiled unit and the state catalogue: each outcome of every state routes to exactly
 one target, or to complementary result guards at a call site; the routers (`execute.route-commit-cause`,
-`execute.route-build-cause`, `setup.route-setup-run`, `outline.route-rework`, `outline.route-review`) are `auto` states whose outcomes read persisted facts; the catalogue drift test compares
+`execute.route-build-cause`, `setup.route-setup-run`, `outline.route-review`) are `auto` states whose outcomes read persisted facts, and no router reads the lane, each lane routing its rework to its own call states; the catalogue drift test compares
 every catalogue exit with the DSL.
 Source:: design review.
 

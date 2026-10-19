@@ -1,0 +1,43 @@
+= ADR 015: The Axis Levels and the Plan's Overrides Are Carried in `PlanFacts`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The composition binds the variant of each plan behaviour axis (`landing`, `method`, `asking`) from the nearest level that sets it: the plan's own value in its `overrides.json`, the project's, the machine's, else the shipped plan default; the variants not chosen are pruned calls with the reason `plan_default`.
+`overrides.json` counts in `plan_facts_digest`, a later change of a plan's own value composes a version with the event `override`, and a rule may read the bound variant and its declarations, so the merge execution is pruned with `merge_by_operator` where the bound asking variant declares `self_merge = false`.
+The facts, the configuration and the waivers reach the composer as values (ADR link:005-facts-configuration-and-waivers-as-input-values.adoc[005]); the levels had to enter one of those values or a new component of `CompositionRequest`.
+
+== Decision
+
+* `PlanFacts` carries, per axis, the variant each level sets (`PlanFacts.Axis`, `PlanFacts.Level`), the text of the plan's `overrides.json`, and the declarations of the axis variants. The levels and the overrides are counted in its digest; the declarations are not, because the header names the variant's unit by its own digest.
+* `PlanFacts.bound(axis)` resolves the bound variant with the level that set it; its source fact is `<level>.axes.<axis>`.
+* The rules read the axis facts `axes.<axis>` and `axes.<axis>.<declaration>`; the declarations are taken from the variant's tree among the request's sub-units by the composer. A prune of a rule over a declaration is sourced to the bound variant of its axis (`axes.asking`).
+* `CompositionRequest` is unchanged.
+* The configuration fact `merge.auto_merge` and the plan fact `recipe_id` leave `CompositionRules` and `PlanFacts`; the composition event `override` joins `CompositionEvent`.
+
+The decision is a judgment of the refine phase; beyond keeping `CompositionRequest` unchanged, its rationale is not recorded.
+
+== Alternatives Considered
+
+1. *A component of `CompositionRequest` for the axis levels and the overrides*, the other reading the request left open.
+_Not taken_ at refine; the reason is not recorded.
+
+== Consequences
+
+* *Breaking for the assembly in `plan-marshall-mcp`*: the canonical constructor of `PlanFacts` loses `recipeId` and gains `axes`, `overrides` and `declarations`; `PlanFacts.RECIPE_ID_FACT` is removed; a rule file over `merge.auto_merge` or `recipe_id` is refused; `CompositionEvent` has the member `OVERRIDE`, which an exhaustive switch over the events must handle. Pre-1.0, no compatibility form is kept.
+* The caller reads the three levels and `overrides.json` and builds the facts; writing the machine's and the project's values and the plan's overrides is the work of `machine-onboarding-unit` and `plan-and-epic-control`.
+* A rule over a new declaration needs only the declaration in the variant's compiled schema (ADR link:../workflow-verify/028-axis-variant-declarations-as-enum-values.adoc[workflow-verify 028]); `PlanFacts.Axis.declarationNames()` registers it.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL § Plan Behaviour Axes]; link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#plan-overrides[§ Plan Overrides]
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#composition-rules[Store Schemas § Composition Rules]; link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-overrides-store[§ Plan Overrides]
+* `doc/plans/plan-instance-alignment.adoc`; judgment of the refine phase (axis levels and overrides in `PlanFacts`, `CompositionRequest` unchanged, the event `override` added)

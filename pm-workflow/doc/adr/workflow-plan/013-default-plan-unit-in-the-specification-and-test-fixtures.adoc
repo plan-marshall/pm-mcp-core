@@ -1,0 +1,45 @@
+= ADR 013: The Default Plan Unit Lives in the State Catalogue and the Test Fixtures Only
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The work package named the default plan unit and its templates in `plan-marshall-mcp` as a place the per-lane routes of ADR link:012-per-lane-routes-and-other-lane-pruning.adoc[012] had to change.
+No such unit exists there: `plan-marshall-mcp` holds no `.pmwf` file and no `outline.route-rework` or light-gate state on its `main`.
+The plan unit exists as the State Catalogue of this repository's specification and as the units `pm-workflow` writes for its tests below `src/test/resources/unit-fixtures/defaults/` and `plan/plan-template-fixture.pmwf`, which are never copied from the product (link:../workflow-verify/018-invariants-over-test-written-units.adoc[ADR workflow-verify 018]).
+The operator answered at refine (question q2) where the plan unit changes.
+
+== Decision
+
+* The per-lane routes change in the State Catalogue and in the `pm-workflow` fixture units only; nothing changes in `plan-marshall-mcp`.
+* The fixture units stay flat: the phase files are merged into one unit `plan` with no per-lane call states and no phase calls. They hold the per-lane routing the composition needs in the smallest form that verifies:
+** the shared phases `plan` and `execute` route their rework (`fix_requested` of `plan.remediate` and `execute.remediate`) to `outline.deep`, the authoring entry every lane keeps, the light lane through its escalation, so the deep entry reaches no light state;
+** the deep Q-Gate remediation of the outline re-enters `outline.deep`;
+** the light outline's re-gate passes the job `outline.light-review`, whose failure re-enters `outline.light-regate`, so the light rework cycle awaits an event (Rule 11b) and never leaves the light route;
+** `outline.deep` is a model job, so the deep rework cycle awaits an event as well.
+
+== Alternatives Considered
+
+1. *Write a default plan unit in `plan-marshall-mcp`* with the per-lane call states.
+_Rejected_ by the operator (q2): the content of the product is not this package's, and the composer is tested against units written for the tests.
+2. *Per-lane call states in the fixtures*, mirroring the catalogue's `phases.<phase>-light` states.
+_Rejected_: the fixtures are merged phase files without phase sub-workflows, and the prune and `INV-INIT-2` need only the two lane entries, the split and routes that do not cross; per-lane call states would add states no test reads.
+
+== Consequences
+
+* The prune of the other lane and `INV-INIT-2` per lane are proved on the fixture units; the drift between the State Catalogue and the shipped units is checked where the shipped units are, in `plan-marshall-mcp`, when they are written.
+* A light plan's rework in the fixtures re-enters `outline.deep` from the shared phases, where the catalogue re-enters the light lane's own outline call; the fixtures model a routing that never crosses from deep to light, not the catalogue's call structure.
+* A test that needs the per-lane call states of the catalogue has to write them first.
+
+== Source
+
+* link:../../../../doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[State Catalogue § Plan Unit]
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 11b)
+* `doc/plans/plan-instance-alignment.adoc`; operator answer q2 at refine (the State Catalogue and the `pm-workflow` fixtures only)

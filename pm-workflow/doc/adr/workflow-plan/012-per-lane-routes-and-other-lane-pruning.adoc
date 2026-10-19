@@ -1,0 +1,56 @@
+= ADR 012: Per-Lane Routes and Reachability Pruning of the Other Lane
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-19
+
+== Context
+
+The specification says the `outline` event composes a version in which the other lane is pruned.
+ADR link:011-lane-route-pruning-deferred.adoc[011] deferred it: shared routers read the plan's lane and route into either lane, so the reach of each lane contained the other, and plain reachability pruned nothing.
+The phases `plan`, `execute` and `finalize` are shared by both lanes, and their replan and loop-back exits (`plan.revise-tasks`, `execute.replan`, `finalize.replan`) reached the router `outline.route-rework`, which reached the light route from the deep one.
+`INV-INIT-2` required the `light -> deep` ratchet transitions in every unit, and Rule 2 refuses an outcome a prune leaves unrouted.
+
+The operator answered at refine (question q1) how the plan unit's lane structure is shaped.
+
+== Decision
+
+* *Per-lane routes.* The plan unit calls `outline`, `plan`, `execute` and `finalize` once per lane from the split on (the light lane's call states suffixed `-light`, with `phases.ask-light` and `phases.route-light`); each lane routes the rework and replan exits of its calls to its own outline entry, `outline.deep` for `deep` and `outline.light-regate` for `light`. The router `outline.route-rework` is removed, the change-type detection has a light form, and no state reads the lane to choose a route. The light lane keeps its escalation into `deep`. The State Catalogue and the Phase Workflows specification state these routes.
+* *Reachability pruning.* From the `outline` event on, `InstancePruner` prunes with the new reason `other_lane` exactly the states reachable from the entry of the other lane and not reachable from the entry of the chosen lane, both over all transitions, escalation included. The lanes split at the two exits of `init.ready` (`refine.baseline-reconcile` for `deep`, `init.light-gate` for `light`). The shared states before the split, those reachable from a starting state without taking a lane exit of `init.ready`, are never pruned by lane.
+* *Outcomes of the split.* The `light` exit of `init.ready` in a `deep` version leads into a pruned state; it is settled by the prune record (ADR link:016-pruned-merge-gate-settles-in-the-engine.adoc[016]).
+* *`INV-INIT-2` per lane.* The ratchet is required only of a `light` or an unknown lane (ADR link:../workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc[workflow-verify 029]).
+
+A `light` version keeps the deep route, the target of its escalation, and so prunes nothing by lane; a `deep` version holds no state of the light route.
+
+== Alternatives Considered
+
+1. *Keep the shared routers and fold them by lane* (take only the router outcome of the plan's lane).
+_Rejected_ in ADR 011: it cuts the `light -> deep` escalation.
+2. *A lane clause in the DSL* marking each state with its lane.
+_Rejected_ in ADR 011: a grammar, AST and verifier change for one prune.
+3. *Prune by a composition rule over the lane fact.*
+_Rejected_ in ADR 011 after it was built: the version failed Rule 2 and `INV-INIT-2`.
+4. *Reachability pruning over the shared routes*, as the first outline of this package proposed.
+_Rejected_ at refine: the shared phases' replan entries reach the light route from the deep entry, so the prune cuts nothing; the operator chose per-lane phase calls (q1).
+5. *Reachability from the lane entry alone*, without keeping the shared states.
+_Rejected_ by the outline Q-Gate: it would prune the states before the split (`init.begin` through `init.ready` and refine states ahead of the deep entry), which the `INV-INIT` checks and the position rule need.
+
+== Consequences
+
+* The prune is plain reachability over the unit; it needs no lane marks and no knowledge of which states belong to which lane, only the two entries and the split state.
+* A unit whose deep route reaches a light state would keep that state in a `deep` version; the per-lane routes of the State Catalogue are what make the prune complete, and a designed unit has to keep them.
+* The test fixtures are flat units, not the per-lane plan unit of the catalogue (ADR link:013-default-plan-unit-in-the-specification-and-test-fixtures.adoc[013]).
+* ADR 011 is superseded.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (Lanes, Outcomes settled by a prune)
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Composition Events (`outline`), `prune_reason`
+* link:../../../../doc/specification/state-catalogue/18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[State Catalogue § Plan Unit]; link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-catalogue-outline[§ Phase 3 `outline`]
+* link:../../../../doc/specification/identifiers/02-registry-stores-to-web.adoc#id-prune-reason[Identifier Registry § Prune reason]
+* `doc/plans/plan-instance-alignment.adoc`; operator answer q1 at refine (per-lane phase calls); outline Q-Gate finding (shared states before the split kept)
