@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
@@ -55,13 +57,26 @@ class BuildGuardsIT {
     void fixtureFails(String fixture, String phase, String execution, @TempDir Path temp) throws Exception {
         var root = Path.of(System.getProperty("pm.root"));
         var pom = root.resolve("src/guard-controls").resolve(fixture).resolve("pom.xml");
+        var fixtureDir = pom.getParent();
         // Started in the fixture's directory, so that Maven takes the .mvn of the fixture where it has one
         // (central-before-registry) and the one of the repository otherwise.
+        // The repository's maven.config names the global settings relative to the repository root, because
+        // m2e cannot expand ${session.rootDirectory}. A fixture without its own .mvn would resolve that
+        // relative path against its own directory, so the root settings are named explicitly; the command
+        // line wins over maven.config.
         // The output goes to a file: reading the pipe to its end would wait for a build that hangs, and the
         // time limit below would never apply.
         var log = temp.resolve("fixture.log");
-        var builder = new ProcessBuilder(root.resolve("mvnw").toString(), "-B", "--no-transfer-progress", "-f",
-                pom.toString(), phase).directory(pom.getParent().toFile()).redirectErrorStream(true)
+        var command = new ArrayList<>(
+                List.of(root.resolve("mvnw").toString(), "-B", "--no-transfer-progress"));
+        if (!Files.exists(fixtureDir.resolve(".mvn/maven.config"))) {
+            command.add("-gs");
+            command.add(root.resolve(".mvn/settings.xml").toString());
+        }
+        command.add("-f");
+        command.add(pom.toString());
+        command.add(phase);
+        var builder = new ProcessBuilder(command).directory(fixtureDir.toFile()).redirectErrorStream(true)
                 .redirectOutput(log.toFile());
 
         var process = builder.start();
