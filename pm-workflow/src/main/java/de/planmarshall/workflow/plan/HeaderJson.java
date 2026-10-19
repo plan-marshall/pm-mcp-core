@@ -380,7 +380,7 @@ final class HeaderJson {
         root.put(POSTURE, optional(header.posture().map(PlanInstanceHeader.Posture::wireName)));
         root.put(STEPS, new ObjectNode(Map.of(PHASE_5_VERIFICATION, strings(header.steps().phase5Verification()),
                 PHASE_6, strings(header.steps().phase6()))));
-        root.put(PRUNED, new ArrayNode(header.pruned().stream().map(HeaderJson::pruned).toList()));
+        root.put(PRUNED, new ArrayNode(header.pruned().stream().map(HeaderJson::prunedElement).toList()));
         root.put(POLICY_CALLS, new ArrayNode(header.policyCalls().stream().map(HeaderJson::policyCall).toList()));
         root.put(WAIVED_GATES, new ArrayNode(header.waivedGates().stream().map(HeaderJson::waivedGate).toList()));
         return new ObjectNode(root);
@@ -423,7 +423,7 @@ final class HeaderJson {
      * @param element a pruned element
      * @return its tree, as the header and the diff summary of the composition log write it
      */
-    static Node pruned(PrunedElement element) {
+    static Node prunedElement(PrunedElement element) {
         return new ObjectNode(Map.of(ELEMENT, new StringNode(element.element().wireName()), ID,
                 new StringNode(element.id()), REASON, new StringNode(element.reason().wireName()), SOURCE_FACT,
                 new StringNode(element.sourceFact())));

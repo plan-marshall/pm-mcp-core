@@ -42,6 +42,9 @@ import de.planmarshall.workflow.plan.HeaderJson.StringNode;
 public record DiffSummary(List<PrunedElement> prunedAdded, List<PrunedElement> prunedRemoved,
 List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGate> gatesUnwaived) {
 
+    /** The name of the previous version's side: a parameter name and the member of a ceiling change. */
+    private static final String PREVIOUS = "previous";
+
     /**
      * Copies every list into an unmodifiable list.
      *
@@ -67,7 +70,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
      * @throws NullPointerException if a header is {@code null}
      */
     public static DiffSummary between(PlanInstanceHeader previous, PlanInstanceHeader current) {
-        Objects.requireNonNull(previous, "previous");
+        Objects.requireNonNull(previous, PREVIOUS);
         Objects.requireNonNull(current, "current");
         return new DiffSummary(missingFrom(current.pruned(), previous.pruned()),
                 missingFrom(previous.pruned(), current.pruned()), ceilings(previous, current),
@@ -80,8 +83,8 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
      */
     Node toNode() {
         var members = new LinkedHashMap<String, Node>();
-        members.put("pruned_added", new ArrayNode(prunedAdded.stream().map(HeaderJson::pruned).toList()));
-        members.put("pruned_removed", new ArrayNode(prunedRemoved.stream().map(HeaderJson::pruned).toList()));
+        members.put("pruned_added", new ArrayNode(prunedAdded.stream().map(HeaderJson::prunedElement).toList()));
+        members.put("pruned_removed", new ArrayNode(prunedRemoved.stream().map(HeaderJson::prunedElement).toList()));
         members.put("ceilings_changed", new ArrayNode(ceilingsChanged.stream().map(CeilingChange::toNode).toList()));
         members.put("gates_waived", new ArrayNode(gatesWaived.stream().map(HeaderJson::waivedGate).toList()));
         members.put("gates_unwaived", new ArrayNode(gatesUnwaived.stream().map(HeaderJson::waivedGate).toList()));
@@ -149,7 +152,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
         public CeilingChange {
             Objects.requireNonNull(callSite, "callSite");
             Objects.requireNonNull(argument, "argument");
-            Objects.requireNonNull(previous, "previous");
+            Objects.requireNonNull(previous, PREVIOUS);
             Objects.requireNonNull(value, "value");
             if (previous.equals(value)) {
                 throw new IllegalArgumentException("the argument '%s' of '%s' did not change".formatted(argument,
@@ -161,7 +164,7 @@ List<CeilingChange> ceilingsChanged, List<WaivedGate> gatesWaived, List<WaivedGa
             var members = new LinkedHashMap<String, Node>();
             members.put("call_site", new StringNode(callSite));
             members.put("argument", new StringNode(argument));
-            members.put("previous", previous.map(HeaderJson::callValue).orElse(NullNode.INSTANCE));
+            members.put(PREVIOUS, previous.map(HeaderJson::callValue).orElse(NullNode.INSTANCE));
             members.put("value", value.map(HeaderJson::callValue).orElse(NullNode.INSTANCE));
             return new ObjectNode(members);
         }

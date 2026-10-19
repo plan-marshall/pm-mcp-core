@@ -94,8 +94,14 @@ public final class DeclarationBounds {
     private static final EnumListOf WAIT_PHASES = new EnumListOf(List.of("init", "refine", "outline", "plan",
             "execute"));
 
+    /** The yes of a yes-or-no choice. */
+    private static final String YES = "true";
+
+    /** The no of a yes-or-no choice. */
+    private static final String NO = "false";
+
     /** The two values of a yes-or-no choice, an enumeration and never a boolean value. */
-    private static final EnumOf YES_OR_NO = new EnumOf(List.of("true", "false"));
+    private static final EnumOf YES_OR_NO = new EnumOf(List.of(YES, NO));
 
     /** The fewest roles of a quorum. */
     public static final int MIN_QUORUM_ROLES = 1;
@@ -128,9 +134,9 @@ public final class DeclarationBounds {
                             new CallValue.IntValue(604800))),
             METHOD_TEST_FIRST, methodSchema("tests_first"),
             METHOD_TESTS_AFTER, methodSchema("tests_after"),
-            ASK_EVERY_PHASE, askingSchema(List.of("init", "refine", "plan", "execute"), "true", "false"),
-            ASK_KEY_POINTS, askingSchema(List.of(), "true", "false"),
-            ASK_QUESTIONS_ONLY, askingSchema(List.of(), "false", "true"));
+            ASK_EVERY_PHASE, askingSchema(List.of("init", "refine", "plan", "execute"), YES, NO),
+            ASK_KEY_POINTS, askingSchema(List.of(), YES, NO),
+            ASK_QUESTIONS_ONLY, askingSchema(List.of(), NO, YES));
 
     private DeclarationBounds() {
     }

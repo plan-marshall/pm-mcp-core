@@ -1163,12 +1163,13 @@ class WorkflowValidatorTest {
         @DisplayName("Should refuse a null argument")
         void shouldRefuseNull() {
             var registry = TestPrimitives.registry();
+            Map<String, Set<String>> noEntries = Map.of();
+            var workspace = unit("workspace", DONE_TERMINAL);
             assertAll(() -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(null, RELEASED)),
                     () -> assertThrows(NullPointerException.class, () -> new WorkflowValidator(registry, null)),
                     () -> assertThrows(NullPointerException.class, () -> validator.verify(null)),
-                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null, Map.of())),
-                    () -> assertThrows(NullPointerException.class,
-                            () -> validator.verify(unit("workspace", DONE_TERMINAL), null)));
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(null, noEntries)),
+                    () -> assertThrows(NullPointerException.class, () -> validator.verify(workspace, null)));
         }
     }
 }

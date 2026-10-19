@@ -453,8 +453,10 @@ class PlanInstanceStoreTest {
         void previousVersionRequired() {
             var first = version1();
             var second = waiverVersion(first, List.of());
-            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var previous = Optional.of(first);
+            var compositionRecord = CompositionRecord.composed(second, previous, COMPOSED_AT);
             var texts = texts();
+            Optional<PlanInstance> noPrevious = Optional.empty();
 
             try (var lock = new HoldingEverything()) {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
@@ -465,9 +467,9 @@ class PlanInstanceStoreTest {
                 assertAll(
                         () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> CompositionRecord.composed(second, Optional.empty(), COMPOSED_AT)),
+                                () -> CompositionRecord.composed(second, noPrevious, COMPOSED_AT)),
                         () -> assertThrows(IllegalArgumentException.class,
-                                () -> CompositionRecord.composed(first, Optional.of(first), COMPOSED_AT)));
+                                () -> CompositionRecord.composed(first, previous, COMPOSED_AT)));
             }
         }
 

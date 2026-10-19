@@ -222,10 +222,10 @@ public final class PlanInstanceStore {
         var text = read(path).orElseThrow(() -> new IllegalArgumentException(
                 "version %d of the plan '%s' follows version %d, which is not recorded".formatted(version,
                         scope.scopeId(), version - 1)));
-        if (WorkflowParser.parse(path, text, UnitOrigin.DEFAULT) instanceof ParseResult.Parsed parsed
-                && parsed.definition().instance().isPresent()) {
+        if (WorkflowParser.parse(path, text, UnitOrigin.DEFAULT) instanceof ParseResult.Parsed(var definition)
+                && definition.instance().isPresent()) {
             try {
-                return Optional.of(HeaderJson.read(parsed.definition().instance().orElseThrow().json()));
+                return Optional.of(HeaderJson.read(definition.instance().orElseThrow().json()));
             } catch (IllegalArgumentException e) {
                 throw new IllegalStateException("the recorded version %d of the plan '%s' carries no readable header"
                         .formatted(version - 1, scope.scopeId()), e);

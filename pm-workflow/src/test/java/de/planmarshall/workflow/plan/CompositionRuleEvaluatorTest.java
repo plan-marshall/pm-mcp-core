@@ -481,13 +481,15 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("a value that is no variant of its axis, the shipped level and a unit that is no variant are "
                 + "refused")
         void refusals() {
+            var foreignVariant = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN,
+                    "method.test-first");
+            var shippedLevel = PlanFacts.builder().axis(PlanFacts.Axis.ASKING, PlanFacts.Level.SHIPPED, EVERY_PHASE);
+            var noVariant = PlanFacts.builder().declarations("replan", Map.of());
+
             assertAll(
-                    () -> assertThrows(IllegalArgumentException.class, () -> PlanFacts.builder()
-                            .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.PLAN, "method.test-first").build()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> PlanFacts.builder()
-                            .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.SHIPPED, EVERY_PHASE).build()),
-                    () -> assertThrows(IllegalArgumentException.class, () -> PlanFacts.builder()
-                            .declarations("replan", Map.of()).build()));
+                    () -> assertThrows(IllegalArgumentException.class, foreignVariant::build),
+                    () -> assertThrows(IllegalArgumentException.class, shippedLevel::build),
+                    () -> assertThrows(IllegalArgumentException.class, noVariant::build));
         }
 
         @Test

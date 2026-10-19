@@ -19,11 +19,15 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 
@@ -32,6 +36,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.Generators;
@@ -42,6 +47,7 @@ import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.RefusalRule;
 import de.planmarshall.workflow.dsl.WorkflowParser;
+import de.planmarshall.workflow.plan.PlanFacts;
 import de.planmarshall.workflow.verify.InvariantFixtures.Mutation;
 
 /**
@@ -346,6 +352,27 @@ class DeclarationBoundsTest {
                             schema::toString));
         }
 
+        /*
+         * The landing axis has no schema by design, so only the method and the asking axis are compared. The schema
+         * keys are read off the unit identifiers DeclarationBounds publishes, which are the keys of its schemas.
+         */
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = PlanFacts.Axis.class, names = {"METHOD", "ASKING"})
+        @DisplayName("every variant of the axis has a schema, and every variant schema is of a variant of an axis")
+        void axisVariantsMatchSchemas(PlanFacts.Axis axis) throws Exception {
+            var schemaAxes = EnumSet.of(PlanFacts.Axis.METHOD, PlanFacts.Axis.ASKING);
+            var variantSchemaKeys = new TreeSet<>(publishedUnitIds());
+            variantSchemaKeys.removeIf(unitId -> DeclarationBounds.schema(unitId).isEmpty());
+            variantSchemaKeys.removeAll(List.of(DeclarationBounds.ADJUDICATION_UNIT, DeclarationBounds.REPLAN_UNIT));
+
+            assertAll(axis.wireName(),
+                    () -> axis.variants().forEach(variant -> assertTrue(
+                            DeclarationBounds.schema(variant).isPresent(), variant)),
+                    () -> assertTrue(variantSchemaKeys.containsAll(axis.variants()), variantSchemaKeys::toString),
+                    () -> variantSchemaKeys.forEach(unitId -> assertTrue(PlanFacts.Axis.ofVariant(unitId)
+                            .filter(schemaAxes::contains).isPresent(), unitId)));
+        }
+
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.verify.DeclarationBoundsTest#writableVariants")
         @DisplayName("a variant unit that declares its shipped values passes")
@@ -404,6 +431,20 @@ class DeclarationBoundsTest {
                     () -> assertFalse(phases.admits(new CallValue.EnumList(List.of("init", "plan")))),
                     () -> assertFalse(phases.admits(new CallValue.EnumValue("init"))));
         }
+    }
+
+    /**
+     * @return the values of the public text constants of {@link DeclarationBounds}, among them every unit identifier
+     *         its schemas are keyed by
+     */
+    private static List<String> publishedUnitIds() throws IllegalAccessException {
+        var values = new ArrayList<String>();
+        for (var field : DeclarationBounds.class.getFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && field.getType() == String.class) {
+                values.add((String) field.get(null));
+            }
+        }
+        return values;
     }
 
     static Stream<Arguments> variantSchemas() {
