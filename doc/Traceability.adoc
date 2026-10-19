@@ -679,7 +679,39 @@ Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/EnrolmentC
 
 Documentation: link:../../plan-marshall-documentation/doc/concepts/enrolment.adoc#enrolment-file[Concepts § Enrolment, One File per Project], link:../../plan-marshall-documentation/doc/developer/enrolment-store.adoc#schema-and-codec[Developer Guide § Enrolment Store, Schema and Codec]
 
+[#PM-MIG-4]
+=== PM-MIG-4: Stage Exit Criteria & Lifecycle Gate
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-MIG-4[PM-MIG-4]
+
+Implementation (bullet 1, sub-bullet 1, for `worktree_sha` only: the primitive `git.worktree-sha`, whose ported Java tests, written from the original `worktree_sha.py` and its pytest suite at the pinned commit, exist and pass; the other `Ported` scripts, the further sub-bullets of bullet 1 and bullets 2 and 3 are not implemented yet): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/WorktreeShaDigest.java[WorktreeShaDigest],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
+
+Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/ported/WorktreeShaPortedTest.java[WorktreeShaPortedTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/WorktreeShaDigestTest.java[WorktreeShaDigestTest]
+
+Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git-ported.adoc[Ported-Primitive Tests Developer Guide],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/001-ported-tests-derived-from-the-original-one-script-at-a-time.adoc[ADR provider-git-ported/001],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR provider-git-ported/002],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR provider-git-ported/003]
+
 == link:../../plan-marshall-documentation/doc/requirements/12-testing.adoc[Testing]
+
+[#PM-TEST-2]
+=== PM-TEST-2: Ported-Primitive Tests Derived from the Original
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-2[PM-TEST-2]
+
+Implementation (the ported tests of the primitive `git.worktree-sha`: the convention of adapting one `Ported` script at a time from the original and its pytest suite at the pinned commit, plain-file test data with the legacy mapping in test code only, no Python and no `plan-marshall` checkout at test time, equality behaviour instead of byte equivalence, and a fixture of its own for every deliberate change and known defect; the other `Ported` scripts, the canonical JSON/JSONL store state of the store primitives, the primitives with external side effects, and invocation logs of real runs are not implemented yet): link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/WorktreeShaDigest.java[WorktreeShaDigest],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
+
+Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/ported/WorktreeShaPortedTest.java[WorktreeShaPortedTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/WorktreeShaDigestTest.java[WorktreeShaDigestTest]
+
+Documentation: link:../pm-providers/pm-provider-git/doc/developer/provider-git-ported.adoc[Ported-Primitive Tests Developer Guide],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/001-ported-tests-derived-from-the-original-one-script-at-a-time.adoc[ADR provider-git-ported/001],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/002-test-utilities-stay-in-the-test-tree-until-a-second-module-needs-them.adoc[ADR provider-git-ported/002],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-ported/003-worktree-sha-tested-by-equality-behaviour-over-plain-file-scenarios.adoc[ADR provider-git-ported/003]
 
 [#PM-TEST-3]
 === PM-TEST-3: State-Machine Invariant, Property & McpAssured Protocol Verification
