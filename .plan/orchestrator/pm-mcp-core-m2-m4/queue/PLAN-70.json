@@ -2,9 +2,9 @@
   "id": "PLAN-70",
   "slug": "plan-instance-alignment",
   "workstream": "WS-03",
-  "status": "running",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "plan_marshall_plan_id": "plan-70-plan-instance-alignment",
+  "pr": "#107",
+  "landing": "landings/PLAN-70.md",
   "seq": 70
 }
