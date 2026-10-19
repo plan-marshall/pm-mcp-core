@@ -28,8 +28,11 @@ public enum CompositionEvent {
     /** Version 1, composed when the plan is created: both lanes open, the posture prunes applied. */
     START("start", Trigger.SERVER),
     /**
-     * The lane is known and recorded in the header ({@code lane}). No lane route is pruned: lane-route pruning is
-     * deferred to the work package {@code doc/plans/plan-instance-alignment.adoc} (ADR {@code workflow-plan/011}).
+     * The lane is known and recorded in the header ({@code lane}). From this event on, the states of the other lane
+     * are pruned with the reason {@code other_lane}: exactly the states reachable from the entry of the other lane and
+     * not from the entry of the chosen lane, the shared states before the split at {@code init.ready} never. A
+     * {@code light} version keeps the deep route, the target of its escalation, and so prunes nothing by lane; a
+     * {@code deep} version holds no state of the light route.
      */
     OUTLINE("outline", Trigger.SERVER),
     /** Steps and tasks are known: provider and footprint prunes, budgets bound. */

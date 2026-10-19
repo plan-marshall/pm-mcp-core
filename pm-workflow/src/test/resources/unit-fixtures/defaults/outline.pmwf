@@ -8,15 +8,19 @@ author: plan-marshall
 ---
 # The outline phase of the plan unit, written for the invariant and unit-loader tests, never copied from the product.
 # The deep lane passes outline.qgate before outline.gate; the light lane passes outline.light-regate, whose deep
-# outcome is the light -> deep ratchet; only outline.gate enters Phase 4.
+# outcome is the light -> deep ratchet; only outline.gate enters Phase 4. Each lane routes its rework to its own
+# authoring entry, no router reads the lane: the deep Q-Gate remediation re-enters outline.deep, a failed check of the
+# light outline re-enters outline.light-regate, so the deep route reaches no state of the light route. Every rework
+# cycle passes a job, its awaited event.
 workflow plan version 1 format 1
 scope plan
 start outline.deep
 
 state outline.deep
     phase outline
-    auto test.proceed
-        done -> outline.qgate
+    job llm change role outline
+        approved -> outline.qgate
+        lost -> plan.return
 
 state outline.qgate
     phase outline
@@ -30,7 +34,7 @@ state outline.remediate
         resolved -> outline.gate
         waived -> outline.gate
         exhausted -> plan.return
-        fix_requested -> plan.return
+        fix_requested -> outline.deep
         stepped_out -> plan.return
 
 state outline.light
@@ -41,8 +45,15 @@ state outline.light
 state outline.light-regate
     phase outline
     auto test.gate
-        pass -> outline.gate
+        pass -> outline.light-review
         deep -> outline.deep
+
+state outline.light-review
+    phase outline
+    job test.build
+        succeeded -> outline.gate
+        failed -> outline.light-regate
+        cancelled -> plan.return
 
 state outline.gate
     phase outline

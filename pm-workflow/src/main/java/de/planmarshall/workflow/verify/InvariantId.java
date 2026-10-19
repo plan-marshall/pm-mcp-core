@@ -60,7 +60,10 @@ public enum InvariantId {
     /** {@code init.classify} on every path, init questions return to it, the stamps before {@code init.ready}. */
     INV_INIT_1("INV-INIT-1", List.of(InvariantId.PLAN_UNIT), null),
 
-    /** The light lane passes {@code init.light-gate} and {@code outline.light-regate}; the ratchet is present. */
+    /**
+     * Per lane: the light lane passes {@code init.light-gate} and {@code outline.light-regate} wherever
+     * {@code outline.light} is present; the ratchet is present for the lane {@code light} or an unknown lane.
+     */
     INV_INIT_2("INV-INIT-2", List.of(InvariantId.PLAN_UNIT), null),
 
     /** Every deep path passes {@code refine.baseline-reconcile} and {@code refine.analyze}; the lesson Q-Gate. */

@@ -28,10 +28,12 @@ import de.planmarshall.workflow.verify.CompiledInvariants.Context;
  * question state of phase {@code init} returns every resolution to {@code init.classify}; and every state that lies on
  * every path of the default unit into {@code init.ready}, the stamp of {@code main_sha} included, lies on every path
  * of the unit into it.</li>
- * <li>{@link InvariantId#INV_INIT_2}: every path into {@code outline.light} passes {@code init.light-gate}; every path
- * from {@code outline.light} into {@code outline.gate} passes {@code outline.light-regate}; and every transition of the
- * default unit that leaves {@code init.light-gate} or {@code outline.light-regate} (the {@code light -> deep}
- * ratchet) is a transition of the unit.</li>
+ * <li>{@link InvariantId#INV_INIT_2}, per lane: wherever {@code outline.light} is a state of the unit, every path into
+ * it passes {@code init.light-gate} and every path from it into {@code outline.gate} passes
+ * {@code outline.light-regate}; and for the lane {@code light} or an unknown lane, every transition of the default
+ * unit that leaves {@code init.light-gate} or {@code outline.light-regate} (the {@code light -> deep} ratchet) is a
+ * transition of the unit. A version of another lane, such as a {@code deep} version that holds no state of the light
+ * route, owes no ratchet.</li>
  * </ul>
  *
  * @since 0.1
@@ -55,6 +57,9 @@ final class InitInvariants {
 
     /** The phase value of the init phase. */
     private static final String PHASE_INIT = "init";
+
+    /** The wire name of the light lane, the one lane besides an unknown lane that needs the ratchet. */
+    static final String LANE_LIGHT = "light";
 
     private InitInvariants() {
     }
@@ -91,6 +96,9 @@ final class InitInvariants {
                         "a path reaches '%s' without passing '%s'".formatted(OUTLINE_LIGHT, LIGHT_GATE));
             }
             regate(context);
+        }
+        if (context.lane().filter(lane -> !LANE_LIGHT.equals(lane)).isPresent()) {
+            return;
         }
         for (var gate : List.of(LIGHT_GATE, LIGHT_REGATE)) {
             context.referenceState(gate).ifPresent(ratchet -> Context.transitions(ratchet).stream()

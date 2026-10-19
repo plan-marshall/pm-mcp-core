@@ -73,7 +73,8 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * <li>Check the compiled invariants against the default units ({@link CompiledInvariants}) as project replacements
  * ({@link CompiledInvariants.Subject#PROJECT_REPLACEMENT}), so a unit whose type differs from its default unit's, the
  * type {@code instance} included, is refused; a violation that only re-reports a finding of the earlier stages is not
- * listed again.</li>
+ * listed again. A project unit is a template whose lane is unknown, so the check runs without a lane and INV-INIT-2
+ * requires the {@code light -> deep} ratchet.</li>
  * <li>Report {@value UnitFinding#PROJECT_STEP_UNBOUND} where the unit, the declared steps and the bound step ids
  * disagree.</li>
  * </ol>
@@ -162,7 +163,7 @@ public final class ProjectUnitLoader {
             pipeline.forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.PIPELINE,
                     violation.rule().name(), completingStateOrHeader(unit, violation.stepName()),
                     "step '%s': %s".formatted(violation.stepName(), violation.message()))));
-            invariants.check(unit, rules, pipeline).stream()
+            invariants.check(unit, rules, pipeline, Optional.empty()).stream()
                     .filter(violation -> !CompiledInvariants.reReports(violation, unit, rules))
                     .forEach(violation -> findings.add(UnitFinding.at(UnitFinding.Kind.INVARIANT,
                             violation.id().wireId(), violation.location(), violation.message())));

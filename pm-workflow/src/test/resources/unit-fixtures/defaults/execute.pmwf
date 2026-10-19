@@ -9,7 +9,9 @@ author: plan-marshall
 # The execute phase (Phase 5) of the plan unit, written for the invariant and unit-loader tests, never copied from
 # the product. The worktree initialization precedes every task, job and commit; one envelope task state reacts only
 # through execute.evaluate-envelope-return; commits go through git.commit_and_push; the deliverable build and the
-# verify sweep precede the exit barrier, the only way into Phase 6 besides the fallback.
+# verify sweep precede the exit barrier, the only way into Phase 6 besides the fallback. The phase is shared by both
+# lanes, so its loop-back to the outline (the fix_requested exit of the remediation, its action loop_back) re-enters
+# outline.deep, the authoring entry every lane keeps, never a state of the light route.
 workflow plan version 1 format 1
 scope plan
 start execute.worktree-init
@@ -57,7 +59,7 @@ state execute.remediate
         resolved -> execute.verify-sweep
         waived -> execute.exit-barrier
         exhausted -> execute.replan
-        fix_requested -> finalize.hand-back
+        fix_requested -> outline.deep
         stepped_out -> finalize.hand-back
 
 state execute.replan

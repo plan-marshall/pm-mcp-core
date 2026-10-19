@@ -204,7 +204,25 @@ public final class WorkflowValidator {
      * @throws NullPointerException if the definition is {@code null}
      */
     public VerificationResult verify(WorkflowDefinition definition) {
+        return verify(definition, Map.of());
+    }
+
+    /**
+     * Runs every check over a composed plan instance version, whose composition pruned states with a prune record.
+     * Pruning removes a state and every transition into it; an outcome whose transitions all led into a state pruned
+     * with a prune record of the closed reason set is settled by that record, and Rule 2 counts it as routed. Every
+     * other unrouted outcome is refused as by {@link #verify(WorkflowDefinition)}, so a transition into a state
+     * removed without a prune record is still refused.
+     *
+     * @param definition     the composed version
+     * @param settledByPrune by state id, the outcomes of an auto or job state whose transitions led into a state the
+     *                       composition pruned with a prune record; empty for a unit no composition pruned
+     * @return every violation of the unit; {@link VerificationResult#passed()} when there is none
+     * @throws NullPointerException if an argument is {@code null}
+     */
+    public VerificationResult verify(WorkflowDefinition definition, Map<String, Set<String>> settledByPrune) {
         Objects.requireNonNull(definition, "definition");
+        Objects.requireNonNull(settledByPrune, "settledByPrune");
         var violations = new ArrayList<Violation>();
         var graph = UnitGraph.of(definition);
         var defaultLostRoute = routesLostByDefault(definition);
@@ -216,7 +234,8 @@ public final class WorkflowValidator {
         for (var state : definition.states().values()) {
             checkPrimitiveBinding(definition, state, violations);
             checkParameterEquivalence(state, violations);
-            checkOutcomeCoverage(state, defaultLostRoute, violations);
+            checkOutcomeCoverage(state, defaultLostRoute, settledByPrune.getOrDefault(state.id(), Set.of()),
+                    violations);
             checkLinkIdentifiers(definition.scope(), state, violations);
             checkLinkCompatibility(state, violations);
             checkJobStartingOutcomes(definition, state, violations);
@@ -773,12 +792,13 @@ public final class WorkflowValidator {
                 "the link '%s' of the primitive '%s' %s".formatted(link.idPattern(), primitive.id(), detail));
     }
 
-    private void checkOutcomeCoverage(StateNode state, boolean defaultLostRoute, List<Violation> violations) {
+    private void checkOutcomeCoverage(StateNode state, boolean defaultLostRoute, Set<String> settled,
+            List<Violation> violations) {
         switch (state.behavior()) {
             case StateBehavior.AutoStep auto ->
-                coverOutcomes(state, auto.primitiveId(), auto.transitions(), state.location(), violations);
+                coverOutcomes(state, auto.primitiveId(), auto.transitions(), settled, state.location(), violations);
             case StateBehavior.JobStep job ->
-                coverOutcomes(state, job.primitiveId(), job.transitions(), state.location(), violations);
+                coverOutcomes(state, job.primitiveId(), job.transitions(), settled, state.location(), violations);
             case StateBehavior.ModelJob modelJob ->
                 coverModelJobOutcomes(state, modelJob, defaultLostRoute, violations);
             case StateBehavior.QuestionWait question ->
@@ -789,12 +809,13 @@ public final class WorkflowValidator {
             }
         }
         for (var link : UnitGraph.declaredLinks(state.behavior())) {
-            coverOutcomes(state, primitiveOf(link), link.transitions(), link.location(), violations);
+            coverOutcomes(state, primitiveOf(link), link.transitions(), Set.of(), link.location(), violations);
         }
     }
 
+    /** Rule 2 over the transitions of one primitive; an outcome in {@code settled} a prune record settles. */
     private void coverOutcomes(StateNode state, String primitiveId, List<OutcomeTransition> transitions,
-            SourceLocation siteLocation, List<Violation> violations) {
+            Set<String> settled, SourceLocation siteLocation, List<Violation> violations) {
         var primitive = registry.find(primitiveId);
         if (primitive.isEmpty()) {
             return;
@@ -812,7 +833,7 @@ public final class WorkflowValidator {
                         "routes the outcome '%s' of the primitive '%s' twice".formatted(outcome, primitiveId)));
             }
         }
-        wireNames.stream().filter(outcome -> !routed.contains(outcome))
+        wireNames.stream().filter(outcome -> !routed.contains(outcome) && !settled.contains(outcome))
                 .forEach(outcome -> violations.add(outcomeViolation(state, siteLocation,
                         "does not route the outcome '%s' of the primitive '%s'".formatted(outcome, primitiveId))));
     }

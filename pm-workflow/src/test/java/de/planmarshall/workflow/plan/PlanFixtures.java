@@ -48,6 +48,10 @@ import de.planmarshall.workflow.verify.SchemaRegistry;
  * shipped {@code wait_after} of {@code ask.key-points} and {@code ask.questions-only} is the empty list, which the
  * grammar cannot write, so these two are designed variants that wait after one phase and keep the other shipped
  * choices: {@code ask.questions-only} merges by itself ({@code self_merge = true}), the other two do not.
+ * <p>
+ * The cases of the lanes compose the merged plan unit of the invariant fixtures instead
+ * ({@link #mergedComposer()}, {@link #mergedRequest}), whose phase files hold both lanes and their per-lane rework
+ * routes.
  */
 final class PlanFixtures {
 
@@ -333,5 +337,38 @@ final class PlanFixtures {
     static CompositionRequest start(PlanFacts facts) {
         return request(CompositionEvent.START, facts, Optional.empty(), List.of(),
                 InstancePosition.at("finalize.push-barrier"));
+    }
+
+    /**
+     * @return a composer with the shipped composition rules whose default units are the passing units of the invariant
+     *         fixtures, the merged plan unit of their seven phase files with both lanes among them
+     */
+    static PlanInstanceComposer mergedComposer() {
+        return new PlanInstanceComposer(context(), InvariantFixtures.passingUnits(UnitOrigin.DEFAULT).values(),
+                InvariantFixtures.defaultRoster(), ((CompositionRules.Loaded) CompositionRules.shipped()).rules(),
+                Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+    }
+
+    /**
+     * A request over the merged plan unit of the invariant fixtures, the project's units after the changes, and its
+     * sub-units.
+     *
+     * @param event     the composition event
+     * @param facts     the facts of the plan
+     * @param previous  the version in force
+     * @param position  the position of the plan
+     * @param mutations the changes of the fixture files the project's units carry; empty for the passing units
+     * @return the request; its templates are the seven phase files
+     */
+    static CompositionRequest mergedRequest(CompositionEvent event, PlanFacts facts, Optional<PlanInstance> previous,
+            InstancePosition position, List<InvariantFixtures.Mutation> mutations) {
+        var units = InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, mutations);
+        var templates = InvariantFixtures.PLAN_FILES.stream().map(file -> new UnitReference("plan", Optional.of(file),
+                PlanFacts.sha256(InvariantFixtures.read(file)), UnitOrigin.PROJECT)).toList();
+        var subUnits = InvariantFixtures.SUB_UNIT_FILES.stream()
+                .map(file -> subUnit(file, InvariantFixtures.read(file))).toList();
+        return new CompositionRequest(PLAN_ID, event, units.get("plan"), templates, subUnits, facts,
+                PlanFacts.sha256("effective configuration"), Optional.empty(), Optional.empty(), List.of(), position,
+                previous, VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 }

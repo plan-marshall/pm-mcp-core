@@ -153,7 +153,7 @@ class DeclarationBoundsTest {
             var unit = InvariantFixtures.mutatedUnit(mutation);
 
             var found = InvariantFixtures.invariants().check(unit, InvariantFixtures.validator().verify(unit),
-                    List.of());
+                    List.of(), Optional.empty());
 
             assertEquals(List.of(new Located("INV-ADJ-1", ADJUDICATION_FILE,
                             InvariantFixtures.lineOf(mutation.applied(), "declare vote_wait_seconds"))),
