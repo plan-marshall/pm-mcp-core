@@ -27,6 +27,9 @@ import de.cuioss.tools.logging.CuiLogger;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.dsl.ParseResult;
+import de.planmarshall.workflow.dsl.WorkflowParser;
 
 /**
  * The versions of a plan instance, the composition log and the texts of the bound sub-units, in the plan's directory
@@ -34,7 +37,9 @@ import de.planmarshall.core.store.ScopeTransaction;
  * and commits:
  * <ul>
  * <li>{@code instance/plan.v<N>.pmwf}: the text of version {@code N}, written once and never rewritten;</li>
- * <li>{@code instance/composition.jsonl}: one line per composition attempt, whatever its result;</li>
+ * <li>{@code instance/composition.jsonl}: one line per composition attempt, whatever its result; the line of a
+ * composed version carries its {@code diff_summary} against the recorded version before it ({@link DiffSummary}),
+ * {@code null} for version 1;</li>
  * <li>{@code mcp/units/<digest>.pmwf}: the verified text of each sub-unit a version names, content-addressed, written
  * in the transaction of the first version naming the digest and never rewritten.</li>
  * </ul>
@@ -97,9 +102,11 @@ public final class PlanInstanceStore {
      * @param texts             the verified texts of the sub-units; every sub-unit the header names needs its text
      * @param compositionRecord the log line of the composition
      * @throws IllegalArgumentException if the composition record is not the composed record of the version (its
-     *                                  result, version, event, trigger and input digests are those of the version), a
-     *                                  text does not match its digest, or a sub-unit the header names has no text;
-     *                                  nothing was recorded
+     *                                  result, version, event, trigger and input digests are those of the version, its
+     *                                  diff summary the version against the recorded version before it), a version
+     *                                  after the first follows no recorded version, a text does not match its digest,
+     *                                  or a sub-unit the header names has no text; nothing was recorded
+     * @throws IllegalStateException    also if the recorded version before it carries no readable header
      * @throws IllegalStateException    if the version file exists already; nothing was recorded. A version file that
      *                                  another transaction creates after this call is refused by the commit of
      *                                  {@code transaction} instead, which then throws this exception and writes
@@ -187,16 +194,39 @@ public final class PlanInstanceStore {
     }
 
     /**
-     * The composition record is the composed record of the version: its result, version, event, trigger and input
-     * digests.
+     * The composition record is the composed record of the version: its result, version, event, trigger, input
+     * digests and diff summary, the latter against the recorded version before it.
      */
-    private static boolean recordsComposition(CompositionRecord compositionRecord, PlanInstance instance) {
+    private boolean recordsComposition(CompositionRecord compositionRecord, PlanInstance instance) {
         var header = instance.header();
         return compositionRecord.result() == CompositionRecord.Result.COMPOSED
                 && compositionRecord.version().equals(Optional.of(instance.version()))
                 && compositionRecord.event() == header.event()
                 && compositionRecord.trigger() == header.event().trigger()
-                && compositionRecord.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()));
+                && compositionRecord.inputDigests().equals(CompositionRecord.inputDigests(header.inputs()))
+                && compositionRecord.diffSummary().equals(previousHeader(instance.version())
+                        .map(previous -> DiffSummary.between(previous, header)));
+    }
+
+    /**
+     * @return the header of the recorded version before the version, empty for version 1
+     * @throws IllegalArgumentException if a version after the first has no recorded version before it
+     * @throws IllegalStateException    if the recorded version before it carries no readable header
+     */
+    private Optional<PlanInstanceHeader> previousHeader(int version) {
+        if (version == 1) {
+            return Optional.empty();
+        }
+        var path = versionPath(version - 1);
+        var text = read(path).orElseThrow(() -> new IllegalArgumentException(
+                "version %d of the plan '%s' follows version %d, which is not recorded".formatted(version,
+                        scope.scopeId(), version - 1)));
+        if (WorkflowParser.parse(path, text, UnitOrigin.DEFAULT) instanceof ParseResult.Parsed parsed
+                && parsed.definition().instance().isPresent()) {
+            return Optional.of(HeaderJson.read(parsed.definition().instance().orElseThrow().json()));
+        }
+        throw new IllegalStateException("the recorded version %d of the plan '%s' carries no readable header"
+                .formatted(version - 1, scope.scopeId()));
     }
 
     private static byte[] line(CompositionRecord compositionRecord) {

@@ -254,6 +254,28 @@ class PlanInstanceComposerTest {
         }
 
         @Test
+        @DisplayName("the log line of version 1 carries diff_summary null, that of version 2 the summary against "
+                + "version 1")
+        void diffSummary() {
+            var first = version1();
+            var second = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
+                    Optional.of(first), List.of(Waiver.met("W-2", "ci_check:build")), AT_START)));
+
+            var firstRecord = CompositionRecord.composed(first, Optional.empty(), PlanFixtures.COMPOSED_AT);
+            var secondRecord = CompositionRecord.composed(second, Optional.of(first), PlanFixtures.COMPOSED_AT);
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), firstRecord.diffSummary()),
+                    () -> assertTrue(firstRecord.toJson().contains("\"diff_summary\":null"), firstRecord.toJson()),
+                    () -> assertEquals(Optional.of(DiffSummary.between(first.header(), second.header())),
+                            secondRecord.diffSummary()),
+                    () -> assertEquals(List.of(new WaivedGate("ci_check:build", "W-2")),
+                            secondRecord.diffSummary().orElseThrow().gatesWaived()),
+                    () -> assertTrue(secondRecord.toJson().contains("\"gates_waived\":[{\"gate\":\"ci_check:build\","
+                            + "\"waiver_id\":\"W-2\"}]"), secondRecord.toJson()));
+        }
+
+        @Test
         @DisplayName("the start event has no previous version, every other event needs one")
         void eventAndPrevious() {
             var previous = Optional.of(version1());

@@ -129,14 +129,28 @@ class PlanInstanceStoreTest {
         return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
     }
 
+    /** Composes the waiver version after the previous one, under the waivers in force. */
+    private static PlanInstance waiverVersion(PlanInstance previous, List<Waiver> waivers) {
+        var result = composer().compose(PlanFixtures.request(CompositionEvent.WAIVER, facts().build(),
+                Optional.of(previous), waivers, InstancePosition.at("finalize.push-barrier")));
+        return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+    }
+
+    /** Records version 1. */
     private void recordComposed(PlanInstance instance, List<SubUnitText> texts) {
         committed(transaction -> store.recordComposed(transaction, instance, texts,
-                CompositionRecord.composed(instance, COMPOSED_AT)));
+                CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT)));
+    }
+
+    /** Records the version after the previous one. */
+    private void recordComposed(PlanInstance previous, PlanInstance instance, List<SubUnitText> texts) {
+        committed(transaction -> store.recordComposed(transaction, instance, texts,
+                CompositionRecord.composed(instance, Optional.of(previous), COMPOSED_AT)));
     }
 
     private static CompositionRecord attempt(CompositionRecord.Result result, Optional<CompositionCause> cause) {
         return new CompositionRecord(CompositionEvent.CONFIG_ADOPTED, result, Optional.empty(),
-                CompositionEvent.Trigger.OPERATOR, cause, new TreeMap<>(), COMPOSED_AT);
+                CompositionEvent.Trigger.OPERATOR, cause, new TreeMap<>(), Optional.empty(), COMPOSED_AT);
     }
 
     private List<String> logLines() throws IOException {
@@ -175,7 +189,7 @@ class PlanInstanceStoreTest {
                 var transaction = ScopeTransaction.open(lock, scope, event -> {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
-                var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
+                var compositionRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
                 var texts = texts();
                 assertThrows(IllegalStateException.class, () -> store.recordComposed(transaction, instance, texts,
                         compositionRecord));
@@ -207,9 +221,9 @@ class PlanInstanceStoreTest {
                 var secondTransaction = ScopeTransaction.open(lock, scope, event -> {
                     // no audit record is owed
                 }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
-                store.recordComposed(firstTransaction, first, texts, CompositionRecord.composed(first, COMPOSED_AT));
+                store.recordComposed(firstTransaction, first, texts, CompositionRecord.composed(first, Optional.empty(), COMPOSED_AT));
                 store.recordComposed(secondTransaction, second, texts,
-                        CompositionRecord.composed(second, COMPOSED_AT));
+                        CompositionRecord.composed(second, Optional.empty(), COMPOSED_AT));
 
                 firstTransaction.commit();
 
@@ -226,7 +240,7 @@ class PlanInstanceStoreTest {
         void mismatchedRecord() {
             var instance = version1();
             var refusedRecord = attempt(CompositionRecord.Result.REFUSED, Optional.empty());
-            var composedRecord = CompositionRecord.composed(instance, COMPOSED_AT);
+            var composedRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
             var texts = texts();
 
             try (var lock = new HoldingEverything()) {
@@ -249,7 +263,7 @@ class PlanInstanceStoreTest {
         private CompositionRecord composedWith(CompositionEvent event, CompositionEvent.Trigger trigger,
                 SortedMap<String, String> digests) {
             return new CompositionRecord(event, CompositionRecord.Result.COMPOSED, Optional.of(1), trigger,
-                    Optional.empty(), digests, COMPOSED_AT);
+                    Optional.empty(), digests, Optional.empty(), COMPOSED_AT);
         }
 
         private void assertRefused(CompositionRecord compositionRecord) {
@@ -340,7 +354,7 @@ class PlanInstanceStoreTest {
             var instance = version1();
             var inputs = instance.header().inputs();
 
-            var digests = CompositionRecord.composed(instance, COMPOSED_AT).inputDigests();
+            var digests = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT).inputDigests();
 
             assertAll(
                     () -> assertEquals(inputs.configHash(), digests.get("config_hash")),
@@ -358,10 +372,103 @@ class PlanInstanceStoreTest {
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
                             CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, Optional.empty(),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), COMPOSED_AT)),
+                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), Optional.empty(),
+                            COMPOSED_AT)),
                     () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
                             CompositionEvent.PLAN, CompositionRecord.Result.KEPT, Optional.of(2),
-                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), COMPOSED_AT)));
+                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), Optional.empty(),
+                            COMPOSED_AT)));
+        }
+
+        @Test
+        @DisplayName("a diff summary belongs to a composed version after the first, and to nothing else")
+        @SuppressWarnings("java:S5778") // each lambda is one constructor call; its arguments are the case table
+        void diffSummaryFitsVersion() {
+            var summary = Optional.of(new DiffSummary(List.of(), List.of(), List.of(), List.of(), List.of()));
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
+                            CompositionEvent.PLAN, CompositionRecord.Result.COMPOSED, Optional.of(2),
+                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), Optional.empty(),
+                            COMPOSED_AT)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
+                            CompositionEvent.START, CompositionRecord.Result.COMPOSED, Optional.of(1),
+                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), summary,
+                            COMPOSED_AT)),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new CompositionRecord(
+                            CompositionEvent.PLAN, CompositionRecord.Result.REFUSED, Optional.empty(),
+                            CompositionEvent.Trigger.SERVER, Optional.empty(), new TreeMap<>(), summary,
+                            COMPOSED_AT)));
+        }
+
+        @Test
+        @DisplayName("the line of version 1 carries diff_summary null, that of version 2 the summary against "
+                + "version 1, and an attempt without a version none")
+        void diffSummaryLines() throws Exception {
+            var first = version1();
+            var second = waiverVersion(first, List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", 4)));
+            recordComposed(first, texts());
+            recordComposed(first, second, texts());
+            committed(transaction -> store.recordAttempt(transaction, attempt(CompositionRecord.Result.KEPT,
+                    Optional.empty())));
+
+            var lines = logLines();
+            assertAll(
+                    () -> assertEquals(3, lines.size()),
+                    () -> assertTrue(lines.get(0).contains("\"diff_summary\":null"), lines.get(0)),
+                    () -> assertTrue(lines.get(1).contains("\"diff_summary\":{\"ceilings_changed\":[{\"argument\":"
+                            + "\"fix_budget\",\"call_site\":\"finalize.remediate\",\"previous\":3,\"value\":4}],"
+                            + "\"gates_unwaived\":[],\"gates_waived\":[],\"pruned_added\":[],\"pruned_removed\":[]}"),
+                            lines.get(1)),
+                    () -> assertFalse(lines.get(2).contains("diff_summary"), lines.get(2)));
+        }
+
+        @Test
+        @DisplayName("a version 2 whose summary is not the one against the recorded version 1 is refused")
+        void diffSummaryAgainstRecordedVersion() {
+            var first = version1();
+            recordComposed(first, texts());
+            var raised = waiverVersion(first, List.of(Waiver.raise("W-1", "fix_budget:qgate-findings", 4)));
+            var plain = waiverVersion(first, List.of());
+            var foreign = CompositionRecord.composed(raised, Optional.of(first), COMPOSED_AT);
+            var mismatched = new CompositionRecord(plain.header().event(), CompositionRecord.Result.COMPOSED,
+                    Optional.of(2), plain.header().event().trigger(), Optional.empty(),
+                    CompositionRecord.inputDigests(plain.header().inputs()), foreign.diffSummary(), COMPOSED_AT);
+            var texts = texts();
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                assertAll(
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> store.recordComposed(transaction, plain, texts, mismatched)),
+                        () -> assertEquals(Optional.empty(), store.readVersion(2)));
+            }
+        }
+
+        @Test
+        @DisplayName("a version 2 is refused while version 1 is not recorded, and a record is refused whose previous "
+                + "version is not the one before")
+        void previousVersionRequired() {
+            var first = version1();
+            var second = waiverVersion(first, List.of());
+            var compositionRecord = CompositionRecord.composed(second, Optional.of(first), COMPOSED_AT);
+            var texts = texts();
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var refused = assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, second, texts, compositionRecord));
+                assertAll(
+                        () -> assertTrue(refused.getMessage().contains("version 1"), refused.getMessage()),
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> CompositionRecord.composed(second, Optional.empty(), COMPOSED_AT)),
+                        () -> assertThrows(IllegalArgumentException.class,
+                                () -> CompositionRecord.composed(first, Optional.of(first), COMPOSED_AT)));
+            }
         }
     }
 
@@ -414,7 +521,7 @@ class PlanInstanceStoreTest {
                 + "write")
         void adjudicationUnitTextMissing() {
             var instance = withAdjudication();
-            var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
             var texts = texts();
 
             try (var lock = new HoldingEverything()) {
@@ -450,7 +557,7 @@ class PlanInstanceStoreTest {
             var untouched = FileTime.fromMillis(0);
             Files.setLastModifiedTime(subUnitFile(digest), untouched);
 
-            recordComposed(nextVersion(first, PlanFixtures.subUnits()), texts());
+            recordComposed(first, nextVersion(first, PlanFixtures.subUnits()), texts());
 
             assertAll(
                     () -> assertEquals(untouched, Files.getLastModifiedTime(subUnitFile(digest))),
@@ -471,7 +578,7 @@ class PlanInstanceStoreTest {
             var texts = Stream.concat(Stream.of(new SubUnitText(changedReference, changedText)),
                     texts().stream().skip(1)).toList();
 
-            recordComposed(nextVersion(first, subUnits), texts);
+            recordComposed(first, nextVersion(first, subUnits), texts);
 
             assertAll(
                     () -> assertEquals(Optional.of(changedText), store.readSubUnit(changedReference.digest())),
@@ -482,7 +589,7 @@ class PlanInstanceStoreTest {
         @DisplayName("a text that does not match its digest, or a missing text, is refused before any write")
         void refusedBeforeWrite() {
             var instance = version1();
-            var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
+            var compositionRecord = CompositionRecord.composed(instance, Optional.empty(), COMPOSED_AT);
             var reference = texts().getFirst().reference();
             var otherText = InvariantFixtures.read(InvariantFixtures.GIT_FILE)
                     .replace("workflow git.commit_and_push version", "workflow other version");
