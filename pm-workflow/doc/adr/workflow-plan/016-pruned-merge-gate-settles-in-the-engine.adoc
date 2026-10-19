@@ -75,5 +75,5 @@ unrouted outcome.
 * link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules] (The merge left to the operator; Outcomes settled by a prune)
 * link:../../../../doc/specification/state-catalogue/07-plan-finalize-merge-post-run.adoc[State Catalogue § Finalize Merge and Post-Run] (`finalize.merge-barrier`)
 * link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 2)
-* `doc/plans/plan-instance-alignment.adoc`; operator decision when execution handed back the gap of the pruned merge gate (the engine supports it, Rule 2 not weakened for any other caller)
+* The operator decision of the work package plan-instance-alignment, taken when execution handed back the gap of the pruned merge gate (the engine supports it, Rule 2 not weakened for any other caller); the package file is deleted with the package's close
 * link:../../developer/workflow-plan.adoc#_outcomes_settled_by_a_prune[Plan Instance Developer Guide § Outcomes Settled by a Prune]
