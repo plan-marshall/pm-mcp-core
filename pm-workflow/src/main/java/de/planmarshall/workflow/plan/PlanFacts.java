@@ -41,8 +41,7 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * <p>
  * The composition rules address a fact by name:
  * <ul>
- * <li>{@value #LANE_FACT}, {@value #POSTURE_FACT}, {@value #CHANGE_TYPE_FACT}, {@value #RECIPE_ID_FACT}: the plan
- * facts of the same names;</li>
+ * <li>{@value #LANE_FACT}, {@value #POSTURE_FACT}, {@value #CHANGE_TYPE_FACT}: the plan facts of the same names;</li>
  * <li>{@value #POST_RUN_FACT}: the post-run-only form a fallback or an empty harvest composes ({@code returned},
  * {@code handed_back} or {@code empty_harvest});</li>
  * <li>{@value #FOOTPRINT_FACT}: the declared footprint, a list of paths; absent when it could not be read;</li>
@@ -53,9 +52,8 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * {@code axes.method.order}, {@code axes.asking.wait_after} (a list), {@code axes.asking.outline_review} and
  * {@code axes.asking.self_merge}; known only where the declarations of the bound variant were passed in
  * ({@link #withDeclarations(String, Map)}), which the composer does from the variant's tree;</li>
- * <li>every other name is a key of the effective configuration, among them {@code merge.auto_merge},
- * {@code derived.push_remote} and the provider keys {@code integrations.<provider>}; a key the configuration does
- * not set is absent.</li>
+ * <li>every other name is a key of the effective configuration, among them {@code derived.push_remote} and the
+ * provider keys {@code integrations.<provider>}; a key the configuration does not set is absent.</li>
  * </ul>
  * An absent fact is unknown: a rule over it never holds except the one that asks whether it is unset.
  * <p>
@@ -67,7 +65,6 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * @param lane          the lane of the plan, if known
  * @param posture       the posture of the plan, if set
  * @param changeType    the change type of the plan, if known
- * @param recipeId      the recipe the plan runs, if any
  * @param postRun       the post-run-only form being composed, if any
  * @param footprint     the declared footprint, if it could be read
  * @param configuration the effective configuration values by key, derived facts included
@@ -79,7 +76,7 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * @since 0.1
  */
 public record PlanFacts(Optional<PlanInstanceHeader.Lane> lane, Optional<PlanInstanceHeader.Posture> posture,
-Optional<String> changeType, Optional<String> recipeId, Optional<String> postRun, Optional<List<String>> footprint,
+Optional<String> changeType, Optional<String> postRun, Optional<List<String>> footprint,
 SortedMap<String, String> configuration, List<String> steps, List<String> tasks, Map<Axis, Map<Level, String>> axes,
 Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
 
@@ -89,8 +86,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
     public static final String POSTURE_FACT = "posture";
     /** The fact name of the change type. */
     public static final String CHANGE_TYPE_FACT = "change_type";
-    /** The fact name of the recipe id. */
-    public static final String RECIPE_ID_FACT = "recipe_id";
     /** The fact name of the post-run-only form. */
     public static final String POST_RUN_FACT = "post_run";
     /** The fact name of the declared footprint. */
@@ -100,8 +95,8 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
     private static final String AXES_PREFIX = "axes.";
 
     /** The names of the plan facts; every other fact name is an axis fact or a configuration key. */
-    static final Set<String> PLAN_FACT_NAMES = Set.of(LANE_FACT, POSTURE_FACT, CHANGE_TYPE_FACT, RECIPE_ID_FACT,
-            POST_RUN_FACT, FOOTPRINT_FACT);
+    static final Set<String> PLAN_FACT_NAMES = Set.of(LANE_FACT, POSTURE_FACT, CHANGE_TYPE_FACT, POST_RUN_FACT,
+            FOOTPRINT_FACT);
 
     /** The names of the axis facts: the bound variant of each axis and the declarations of its variants. */
     static final Set<String> AXIS_FACT_NAMES = axisFactNames();
@@ -114,7 +109,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
      * @param lane          the lane of the plan, if known
      * @param posture       the posture of the plan, if set
      * @param changeType    the change type of the plan, if known
-     * @param recipeId      the recipe the plan runs, if any
      * @param postRun       the post-run-only form being composed, if any
      * @param footprint     the declared footprint, if it could be read
      * @param configuration the effective configuration values by key
@@ -130,7 +124,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
         Objects.requireNonNull(lane, "lane");
         Objects.requireNonNull(posture, POSTURE_FACT);
         Objects.requireNonNull(changeType, "changeType");
-        Objects.requireNonNull(recipeId, "recipeId");
         Objects.requireNonNull(postRun, "postRun");
         footprint = Objects.requireNonNull(footprint, FOOTPRINT_FACT).map(List::copyOf);
         configuration = Collections.unmodifiableSortedMap(new TreeMap<>(Objects.requireNonNull(configuration,
@@ -203,7 +196,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
             case LANE_FACT -> lane.map(PlanInstanceHeader.Lane::wireName);
             case POSTURE_FACT -> posture.map(PlanInstanceHeader.Posture::wireName);
             case CHANGE_TYPE_FACT -> changeType;
-            case RECIPE_ID_FACT -> recipeId;
             case POST_RUN_FACT -> postRun;
             case FOOTPRINT_FACT -> Optional.empty();
             default -> fact.startsWith(AXES_PREFIX) ? axisValue(fact).flatMap(PlanFacts::textOf)
@@ -251,8 +243,8 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
     public PlanFacts withDeclarations(String variant, Map<String, CallValue> declared) {
         var replaced = new TreeMap<>(declarations);
         replaced.put(variant, declared);
-        return new PlanFacts(lane, posture, changeType, recipeId, postRun, footprint, configuration, steps, tasks,
-                axes, overrides, replaced);
+        return new PlanFacts(lane, posture, changeType, postRun, footprint, configuration, steps, tasks, axes,
+                overrides, replaced);
     }
 
     /**
@@ -280,7 +272,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
         members.put(LANE_FACT, optional(text(LANE_FACT)));
         members.put(POSTURE_FACT, optional(text(POSTURE_FACT)));
         members.put(CHANGE_TYPE_FACT, optional(changeType));
-        members.put(RECIPE_ID_FACT, optional(recipeId));
         members.put(POST_RUN_FACT, optional(postRun));
         members.put(FOOTPRINT_FACT, footprint.<Node>map(PlanFacts::strings).orElse(NullNode.INSTANCE));
         var config = new LinkedHashMap<String, Node>();
@@ -363,7 +354,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
         private PlanInstanceHeader.Lane lane;
         private PlanInstanceHeader.Posture posture;
         private String changeType;
-        private String recipeId;
         private String postRun;
         private List<String> footprint;
         private final Map<String, String> configuration = new TreeMap<>();
@@ -400,15 +390,6 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
          */
         public Builder changeType(String value) {
             changeType = value;
-            return this;
-        }
-
-        /**
-         * @param value the recipe id
-         * @return this builder
-         */
-        public Builder recipeId(String value) {
-            recipeId = value;
             return this;
         }
 
@@ -494,7 +475,7 @@ Optional<String> overrides, Map<String, Map<String, CallValue>> declarations) {
          */
         public PlanFacts build() {
             return new PlanFacts(Optional.ofNullable(lane), Optional.ofNullable(posture),
-                    Optional.ofNullable(changeType), Optional.ofNullable(recipeId), Optional.ofNullable(postRun),
+                    Optional.ofNullable(changeType), Optional.ofNullable(postRun),
                     Optional.ofNullable(footprint), new TreeMap<>(configuration), steps, tasks, axes,
                     Optional.ofNullable(overrides), declarations);
         }

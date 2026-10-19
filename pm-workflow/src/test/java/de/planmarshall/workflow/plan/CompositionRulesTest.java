@@ -45,7 +45,7 @@ import de.planmarshall.workflow.verify.CompiledInvariants;
 class CompositionRulesTest {
 
     private static final List<String> SHIPPED_RULE_IDS = List.of("land-lane", "adopt-lane", "local-only",
-            "posture-minimal", "posture-standard", "posture-default-off", "analysis-provider-unconfigured",
+            "merge-by-operator", "posture-minimal", "posture-standard", "posture-default-off", "analysis-provider-unconfigured",
             "no-code-delta", "report-change-type", "post-run-returned", "post-run-handed-back",
             "post-run-empty-harvest");
 
@@ -86,7 +86,7 @@ class CompositionRulesTest {
             }
 
             assertAll(
-                    () -> assertEquals("1", rules.revision()),
+                    () -> assertEquals("2", rules.revision()),
                     () -> assertTrue(rules.digest().matches("[0-9a-f]{64}"), rules.digest()),
                     () -> assertEquals(PlanFacts.sha256(bytes), rules.digest()),
                     () -> assertEquals(SHIPPED_RULE_IDS, rules.rules().stream().map(CompositionRule::id).toList()));
@@ -141,6 +141,31 @@ class CompositionRulesTest {
                     () -> assertTrue(rule.prunes().stream().allMatch(prune -> prune.reason() == reason
                             && prune.element() == PrunedElement.Kind.STEP)),
                     () -> assertEquals(List.of(), rule.bindings()));
+        }
+
+        @Test
+        @DisplayName("ships the merge_by_operator rule over the bound asking variant's self_merge, pruning the merge "
+                + "execution")
+        void mergeByOperator() {
+            var rules = loaded(CompositionRules.shipped()).rules().stream()
+                    .filter(rule -> rule.prunes().stream()
+                            .anyMatch(prune -> prune.reason() == PruneReason.MERGE_BY_OPERATOR)).toList();
+
+            assertEquals(List.of(new CompositionRule("merge-by-operator",
+                    new CompositionRule.Equals("axes.asking.self_merge", "false"), List.of(
+                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-dispatch",
+                                    PruneReason.MERGE_BY_OPERATOR),
+                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-wait",
+                                    PruneReason.MERGE_BY_OPERATOR),
+                            new CompositionRule.Prune(PrunedElement.Kind.STATE, "finalize.merge-queue-exit",
+                                    PruneReason.MERGE_BY_OPERATOR)), List.of())), rules);
+        }
+
+        @Test
+        @DisplayName("has no rule on merge.auto_merge or recipe_id")
+        void noRemovedFacts() {
+            assertTrue(loaded(CompositionRules.shipped()).rules().stream().map(rule -> rule.when().fact())
+                    .noneMatch(fact -> "merge.auto_merge".equals(fact) || "recipe_id".equals(fact)));
         }
 
         @Test
@@ -347,6 +372,12 @@ class CompositionRulesTest {
                 refusal("an unregistered fact", file2("""
                         {"id": "r", "when": {"fact": "weather", "equals": "rain"}, "then": {}}"""),
                         Refusal.MALFORMED, "weather"),
+                refusal("the removed configuration fact merge.auto_merge", file2("""
+                        {"id": "r", "when": {"fact": "merge.auto_merge", "equals": "false"}, "then": {}}"""),
+                        Refusal.MALFORMED, "merge.auto_merge"),
+                refusal("the removed plan fact recipe_id", file2("""
+                        {"id": "r", "when": {"fact": "recipe_id", "equals": "simplify-codebase"}, "then": {}}"""),
+                        Refusal.MALFORMED, "recipe_id"),
                 refusal("an unregistered declaration of an axis", file2("""
                         {"id": "r", "when": {"fact": "axes.asking.colour", "equals": "red"}, "then": {}}"""),
                         Refusal.MALFORMED, "axes.asking.colour"),

@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "revision": "1",
+  "revision": "2",
   "rules": [
     {
       "id": "land-lane",
@@ -36,6 +36,17 @@
           { "element": "step", "id": "default:ci-verify", "reason": "local_only" },
           { "element": "step", "id": "default:automatic-review", "reason": "local_only" },
           { "element": "step", "id": "default:analysis-roundtrip", "reason": "local_only" }
+        ]
+      }
+    },
+    {
+      "id": "merge-by-operator",
+      "when": { "fact": "axes.asking.self_merge", "equals": "false" },
+      "then": {
+        "prune": [
+          { "element": "state", "id": "finalize.merge-dispatch", "reason": "merge_by_operator" },
+          { "element": "state", "id": "finalize.merge-queue-wait", "reason": "merge_by_operator" },
+          { "element": "state", "id": "finalize.merge-queue-exit", "reason": "merge_by_operator" }
         ]
       }
     },

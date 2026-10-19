@@ -225,13 +225,21 @@ final class PlanFixtures {
     }
 
     /**
-     * @return facts that make no shipped rule hold: a deep plan of full posture with a push remote, an analysis
-     *         provider and the merge policy on
+     * @return a composer that evaluates no composition rule, for the cases about the binding of the axes alone
+     */
+    static PlanInstanceComposer composerWithoutRules() {
+        return composer(((CompositionRules.Loaded) CompositionRules.parse(
+                "{\"format_version\": 1, \"revision\": \"t0\", \"rules\": []}".getBytes(StandardCharsets.UTF_8)))
+                .rules());
+    }
+
+    /**
+     * @return facts that make no shipped rule hold: a deep plan of full posture with a push remote and an analysis
+     *         provider, whose asking axis no level sets, so the shipped {@link #QUESTIONS_ONLY} merges by itself
      */
     static PlanFacts.Builder facts() {
         return PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
-                .configuration("integrations.sonar", "sonarcloud").configuration("derived.push_remote", "origin")
-                .configuration("merge.auto_merge", "true");
+                .configuration("integrations.sonar", "sonarcloud").configuration("derived.push_remote", "origin");
     }
 
     /**

@@ -19,6 +19,7 @@ import static de.planmarshall.workflow.plan.PlanFixtures.TEMPLATE_FILE;
 import static de.planmarshall.workflow.plan.PlanFixtures.asking;
 import static de.planmarshall.workflow.plan.PlanFixtures.askingAtEveryLevel;
 import static de.planmarshall.workflow.plan.PlanFixtures.composer;
+import static de.planmarshall.workflow.plan.PlanFixtures.composerWithoutRules;
 import static de.planmarshall.workflow.plan.PlanFixtures.facts;
 import static de.planmarshall.workflow.plan.PlanFixtures.request;
 import static de.planmarshall.workflow.plan.PlanFixtures.start;
@@ -30,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
@@ -396,24 +397,13 @@ class PlanInstanceComposerTest {
      * The plan behaviour axes (PM-WF-25): the asking call site of the template calls the variant the nearest level
      * binds, else the shipped plan default, and every other variant of the axis is a pruned call with the reason
      * {@code plan_default} and the binding level as source fact; an override of the plan composes the version after
-     * the one in force, unless it would not contain the plan's position.
+     * the one in force, unless it would not contain the plan's position. The binding cases compose without rules,
+     * because the shipped rule {@code merge-by-operator} prunes the merge execution of a variant that does not merge
+     * itself, which the template cannot route around (the cases of {@link MergeByOperator}).
      */
     @Nested
     @DisplayName("Axes")
     class Axes {
-
-        /**
-         * A rule file written for these cases: its one rule prunes the merge execution with reason
-         * {@code merge_by_operator} where the bound asking variant declares {@code self_merge = false}.
-         */
-        private static final CompositionRules SELF_MERGE_RULES = ((CompositionRules.Loaded) CompositionRules.parse("""
-                {"format_version": 1, "revision": "t1", "rules": [
-                  {"id": "merge-left-to-operator", "when": {"fact": "axes.asking.self_merge", "equals": "false"},
-                   "then": {"prune": [
-                    {"element": "state", "id": "finalize.merge-dispatch", "reason": "merge_by_operator"},
-                    {"element": "state", "id": "finalize.merge-queue-wait", "reason": "merge_by_operator"},
-                    {"element": "state", "id": "finalize.merge-queue-exit", "reason": "merge_by_operator"}]}}]}
-                """.getBytes(StandardCharsets.UTF_8))).rules();
 
         private static final InstancePosition IN_MERGE_QUEUE = InstancePosition.at("finalize.merge-queue-wait");
 
@@ -421,7 +411,7 @@ class PlanInstanceComposerTest {
         @DisplayName("an axis set at plan, project and machine level binds the plan's variant and prunes the others "
                 + "as calls with plan_default")
         void everyLevel() {
-            var instance = composed(composer().compose(start(askingAtEveryLevel().build())));
+            var instance = composed(composerWithoutRules().compose(start(askingAtEveryLevel().build())));
 
             assertAll(
                     () -> assertEquals(EVERY_PHASE, askingCallee(instance)),
@@ -438,7 +428,7 @@ class PlanInstanceComposerTest {
         @EnumSource(value = PlanFacts.Level.class, names = {"PLAN", "PROJECT", "MACHINE"})
         @DisplayName("a level that alone sets the axis binds its variant, the machine's among them")
         void oneLevel(PlanFacts.Level level) {
-            var instance = composed(composer().compose(start(asking(level, KEY_POINTS).build())));
+            var instance = composed(composerWithoutRules().compose(start(asking(level, KEY_POINTS).build())));
             var source = level.wireName() + ".axes.asking";
 
             assertAll(
@@ -450,7 +440,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("the project's value wins over the machine's")
         void projectOverMachine() {
-            var instance = composed(composer().compose(start(asking(PlanFacts.Level.PROJECT, EVERY_PHASE)
+            var instance = composed(composerWithoutRules().compose(start(asking(PlanFacts.Level.PROJECT, EVERY_PHASE)
                     .axis(PlanFacts.Axis.ASKING, PlanFacts.Level.MACHINE, KEY_POINTS).build())));
 
             assertAll(
@@ -473,7 +463,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("an override of the plan composes the override version, which binds the plan's new variant")
         void override() {
-            var instance = composed(composer().compose(request(CompositionEvent.OVERRIDE,
+            var instance = composed(composerWithoutRules().compose(request(CompositionEvent.OVERRIDE,
                     asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), Optional.of(version1()), List.of(),
                     AT_START)));
 
@@ -489,7 +479,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("an override whose version would not contain the position is refused position_not_contained")
         void overrideOutsidePosition() {
-            var refused = refused(composer(SELF_MERGE_RULES).compose(request(CompositionEvent.OVERRIDE,
+            var refused = refused(composer().compose(request(CompositionEvent.OVERRIDE,
                     asking(PlanFacts.Level.PLAN, EVERY_PHASE).build(), Optional.of(version1()), List.of(),
                     IN_MERGE_QUEUE)));
 
@@ -502,7 +492,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("an override to a variant that merges by itself keeps the position and is composed")
         void overrideInsidePositionControl() {
-            var instance = composed(composer(SELF_MERGE_RULES).compose(request(CompositionEvent.OVERRIDE,
+            var instance = composed(composer().compose(request(CompositionEvent.OVERRIDE,
                     asking(PlanFacts.Level.PLAN, QUESTIONS_ONLY).build(), Optional.of(version1()), List.of(),
                     IN_MERGE_QUEUE)));
 
@@ -536,35 +526,58 @@ class PlanInstanceComposerTest {
         }
     }
 
+    /**
+     * The shipped rule {@code merge-by-operator}: an asking variant that declares {@code self_merge = false} loses the
+     * merge execution, the states {@code finalize.merge-dispatch}, {@code finalize.merge-queue-wait} and
+     * {@code finalize.merge-queue-exit}; one that merges by itself keeps them. The template routes the merge gate only
+     * into the merge execution, so the version without it breaks Rule 2 at the gate and is refused; the prunes
+     * themselves are asserted on the rule evaluation ({@code CompositionRuleEvaluatorTest}).
+     */
+    @Nested
+    @DisplayName("Merge by operator")
+    class MergeByOperator {
+
+        private static final List<String> MERGE_EXECUTION = List.of("finalize.merge-dispatch",
+                "finalize.merge-queue-wait", "finalize.merge-queue-exit");
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"ask.every-phase", "ask.key-points"})
+        @DisplayName("a variant that leaves the merge to the operator loses the merge execution behind the merge gate")
+        void selfMergeFalse(String variant) {
+            var refused = refused(composer().compose(start(asking(PlanFacts.Level.PLAN, variant).build())));
+
+            assertAll(
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal()),
+                    () -> assertTrue(refused.violations().stream()
+                                    .anyMatch(violation -> violation.contains("finalize.merge-gate")),
+                            refused.violations()::toString));
+        }
+
+        @Test
+        @DisplayName("a variant that merges by itself keeps the merge execution")
+        void selfMergeTrueControl() {
+            var instance = composed(composer().compose(start(asking(PlanFacts.Level.PLAN, QUESTIONS_ONLY)
+                    .build())));
+
+            assertAll(
+                    () -> assertTrue(instance.unit().states().keySet().containsAll(MERGE_EXECUTION)),
+                    () -> assertEquals(List.of(), rulePrunes(instance.header())));
+        }
+    }
+
     @Nested
     @DisplayName("Refusals")
     class Refusals {
 
-        /** The fact the rule file written for these cases reads, with the value that makes its rule hold. */
-        private static final String MERGE_FACT = "merge.auto_merge";
-
-        /**
-         * A rule file written for these cases: its one rule prunes the merge execution with reason
-         * {@code merge_by_operator} where {@link #MERGE_FACT} is {@code false}, so a version can be made to lack a
-         * state of the merge path.
-         */
-        private static final CompositionRules MERGE_RULES = ((CompositionRules.Loaded) CompositionRules.parse("""
-                {"format_version": 1, "revision": "t1", "rules": [
-                  {"id": "merge-left-to-operator", "when": {"fact": "%s", "equals": "false"}, "then": {"prune": [
-                    {"element": "state", "id": "finalize.merge-dispatch", "reason": "merge_by_operator"},
-                    {"element": "state", "id": "finalize.merge-queue-wait", "reason": "merge_by_operator"},
-                    {"element": "state", "id": "finalize.merge-queue-exit", "reason": "merge_by_operator"}]}}]}
-                """.formatted(MERGE_FACT).getBytes(StandardCharsets.UTF_8))).rules();
-
-        /** The facts under which {@link #MERGE_RULES} prunes the merge execution. */
+        /** The facts under which the shipped rule {@code merge-by-operator} prunes the merge execution. */
         private static PlanFacts mergePruned() {
-            return facts().configuration(MERGE_FACT, "false").build();
+            return asking(PlanFacts.Level.PLAN, EVERY_PHASE).build();
         }
 
         @Test
         @DisplayName("a version without the current state is refused position_not_contained")
         void currentStateMissing() {
-            var refused = refused(composer(MERGE_RULES).compose(request(CompositionEvent.CONFIG_ADOPTED,
+            var refused = refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
                     mergePruned(), Optional.of(version1()), List.of(),
                     InstancePosition.at("finalize.merge-dispatch"))));
 
@@ -578,7 +591,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a version without a state of the call stack is refused position_not_contained")
         void callStackStateMissing() {
-            var refused = refused(composer(MERGE_RULES).compose(request(CompositionEvent.WAIVER,
+            var refused = refused(composer().compose(request(CompositionEvent.WAIVER,
                     mergePruned(), Optional.of(version1()), List.of(),
                     new InstancePosition("finalize.push-barrier", List.of("finalize.merge-dispatch")))));
 
@@ -588,7 +601,7 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("a prune that breaks a verification rule is refused invariant_failed")
         void invariantFailed() {
-            var refused = refused(composer(MERGE_RULES).compose(request(CompositionEvent.CONFIG_ADOPTED,
+            var refused = refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED,
                     mergePruned(), Optional.of(version1()), List.of(), AT_START)));
 
             assertAll(
@@ -616,7 +629,7 @@ class PlanInstanceComposerTest {
         @DisplayName("a refused version composes nothing: the next composition follows the version in force")
         void versionInForceKept() {
             var inForce = version1();
-            refused(composer(MERGE_RULES).compose(request(CompositionEvent.CONFIG_ADOPTED, mergePruned(),
+            refused(composer().compose(request(CompositionEvent.CONFIG_ADOPTED, mergePruned(),
                     Optional.of(inForce), List.of(), AT_START)));
 
             var next = composed(composer().compose(request(CompositionEvent.WAIVER, facts().build(),
