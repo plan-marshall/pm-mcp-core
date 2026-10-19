@@ -36,6 +36,7 @@ import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
 import de.planmarshall.workflow.unit.VerificationContext;
 import de.planmarshall.workflow.verify.CompiledInvariants;
+import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.WorkflowCatalog;
 import de.planmarshall.workflow.verify.WorkflowValidator;
 
@@ -49,7 +50,9 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * composition rules against them, applies their prunes and bindings, the bound variants and the waivers in force to
  * the merged plan template ({@link InstancePruner}: each axis call site calls its bound variant, every other variant
  * of the axis is a pruned call with the reason {@code plan_default} and the level as source fact), and builds the
- * instance header: the version after the one in force, the event, every input by digest, the lane and posture, the
+ * instance header: the version after the one in force, the event, every input by digest (among the sub-units those
+ * a call of the version reaches and the adjudication unit, which the engine runs for the decisions of the version
+ * without a call site), the lane and posture, the
  * kept step lists, every
  * pruned element with its reason and source fact, every policy call with its effective arguments and their provenance,
  * and the waived gates. The composed unit is the template's states under the id {@code plan}, with the version as its
@@ -156,10 +159,17 @@ public final class PlanInstanceComposer {
         return read;
     }
 
+    /**
+     * @return the inputs of the header: the sub-units a call of the states reaches, and the adjudication unit
+     *         {@value DeclarationBounds#ADJUDICATION_UNIT} whenever the request supplies it, which no call site calls
+     *         because the engine runs it for the decisions of the version
+     */
     private CompositionInputs inputs(CompositionRequest request, Collection<StateNode> states) {
         var called = called(states, request.subUnits());
         var subUnits = request.subUnits().stream().map(CompositionRequest.SubUnit::reference)
-                .filter(reference -> called.contains(reference.unit())).toList();
+                .filter(reference -> called.contains(reference.unit())
+                        || DeclarationBounds.ADJUDICATION_UNIT.equals(reference.unit()))
+                .toList();
         return new CompositionInputs(request.configHash(), request.templates(), subUnits, rules.revision(),
                 rules.digest(), request.facts().digest(), request.realizedFootprintDigest(),
                 request.facts().changeType(), request.providersDigest());

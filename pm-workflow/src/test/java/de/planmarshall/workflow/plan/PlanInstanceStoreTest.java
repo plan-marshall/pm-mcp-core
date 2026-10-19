@@ -49,6 +49,7 @@ import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.workflow.ast.UnitOrigin;
+import de.planmarshall.workflow.verify.DeclarationBounds;
 import de.planmarshall.workflow.verify.InvariantFixtures;
 
 /**
@@ -387,6 +388,57 @@ class PlanInstanceStoreTest {
                     assertEquals(Optional.empty(), store.readSubUnit(digest), text.reference()::unit);
                 }
             }
+        }
+
+        @Test
+        @DisplayName("a version that names the adjudication unit stores its verified text content-addressed like "
+                + "every bound sub-unit")
+        void adjudicationUnitStored() throws Exception {
+            var instance = withAdjudication();
+            var adjudication = instance.header().inputs().subUnits().getLast();
+
+            recordComposed(instance, textsWithAdjudication());
+
+            var sidecar = Files.readString(scope.sidecarFile(), StandardCharsets.UTF_8);
+            assertAll(
+                    () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, adjudication.unit()),
+                    () -> assertEquals(Optional.of(InvariantFixtures.read(InvariantFixtures.ADJUDICATION_FILE)),
+                            store.readSubUnit(adjudication.digest())),
+                    () -> assertTrue(Files.isRegularFile(subUnitFile(adjudication.digest()))),
+                    () -> assertTrue(sidecar.contains(PlanInstanceStore.subUnitPath(adjudication.digest())),
+                            sidecar));
+        }
+
+        @Test
+        @DisplayName("a version that names the adjudication unit is refused when its texts lack it, before any "
+                + "write")
+        void adjudicationUnitTextMissing() {
+            var instance = withAdjudication();
+            var compositionRecord = CompositionRecord.composed(instance, COMPOSED_AT);
+            var texts = texts();
+
+            try (var lock = new HoldingEverything()) {
+                var transaction = ScopeTransaction.open(lock, scope, event -> {
+                    // no audit record is owed
+                }, Clock.fixed(COMPOSED_AT, ZoneOffset.UTC));
+                var refused = assertThrows(IllegalArgumentException.class,
+                        () -> store.recordComposed(transaction, instance, texts, compositionRecord));
+                assertAll(
+                        () -> assertTrue(refused.getMessage().contains(DeclarationBounds.ADJUDICATION_UNIT),
+                                refused.getMessage()),
+                        () -> assertFalse(Files.exists(scope.resolve("instance"))));
+            }
+        }
+
+        private static PlanInstance withAdjudication() {
+            var result = composer().compose(PlanFixtures.withAdjudication(PlanFixtures.start(facts().build())));
+            return assertInstanceOf(CompositionResult.Composed.class, result, result::toString).instance();
+        }
+
+        private static List<SubUnitText> textsWithAdjudication() {
+            var request = PlanFixtures.withAdjudication(PlanFixtures.start(facts().build()));
+            return request.subUnits().stream().map(subUnit -> new SubUnitText(subUnit.reference(),
+                    PlanFixtures.subUnitText(subUnit.reference().file().orElseThrow()))).toList();
         }
 
         @Test

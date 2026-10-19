@@ -23,6 +23,7 @@ import static de.planmarshall.workflow.plan.PlanFixtures.composerWithoutRules;
 import static de.planmarshall.workflow.plan.PlanFixtures.facts;
 import static de.planmarshall.workflow.plan.PlanFixtures.request;
 import static de.planmarshall.workflow.plan.PlanFixtures.start;
+import static de.planmarshall.workflow.plan.PlanFixtures.withAdjudication;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,11 +47,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.workflow.ast.CallValue;
 import de.planmarshall.workflow.ast.InstanceHeader;
 import de.planmarshall.workflow.ast.StateBehavior;
+import de.planmarshall.workflow.ast.StateNode;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.plan.CompositionResult.Refusal;
 import de.planmarshall.workflow.plan.PlanInstanceHeader.Lane;
 import de.planmarshall.workflow.plan.PrunedElement.Kind;
+import de.planmarshall.workflow.verify.DeclarationBounds;
+import de.planmarshall.workflow.verify.InvariantFixtures;
 
 /**
  * The composition of a plan instance version (PM-IMPL-5, PM-WF-1, PM-EXT-7): a composed version passes Rules 1-12, the
@@ -194,6 +198,41 @@ class PlanInstanceComposerTest {
                             instance.header().inputs().subUnits().stream().map(UnitReference::unit).toList()),
                     () -> assertEquals(List.of("plan"),
                             instance.header().inputs().templates().stream().map(UnitReference::unit).toList()));
+        }
+
+        @Test
+        @DisplayName("lists the adjudication unit the request supplies among the sub-units with its digest and origin, "
+                + "although no call site calls it")
+        void adjudicationUnit() {
+            var text = PlanFixtures.subUnitText(InvariantFixtures.ADJUDICATION_FILE);
+
+            var instance = composed(composer().compose(withAdjudication(start(facts().build()))));
+            var subUnits = instance.header().inputs().subUnits();
+            var adjudication = subUnits.getLast();
+            var line = instance.unit().instance().orElseThrow().inputs().subUnits().getLast();
+
+            assertAll(
+                    () -> assertEquals(List.of("git.commit_and_push", "remediation.qgate-findings", QUESTIONS_ONLY,
+                            DeclarationBounds.ADJUDICATION_UNIT), subUnits.stream().map(UnitReference::unit).toList()),
+                    () -> assertEquals(Optional.of(InvariantFixtures.ADJUDICATION_FILE), adjudication.file()),
+                    () -> assertEquals(PlanFacts.sha256(text), adjudication.digest()),
+                    () -> assertEquals(UnitOrigin.DEFAULT, adjudication.origin()),
+                    () -> assertEquals(DeclarationBounds.ADJUDICATION_UNIT, line.unit()),
+                    () -> assertEquals(PlanFacts.sha256(text), line.digest()),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header())),
+                    () -> assertFalse(instance.unit().states().values().stream()
+                            .map(StateNode::behavior)
+                            .anyMatch(behavior -> behavior instanceof StateBehavior.SubWorkflowCall call
+                                    && DeclarationBounds.ADJUDICATION_UNIT.equals(call.subWorkflowId()))));
+        }
+
+        @Test
+        @DisplayName("a request without the adjudication unit lists no sub-unit beyond those its calls reach")
+        void noAdjudicationUnitControl() {
+            var instance = version1();
+
+            assertFalse(instance.header().inputs().subUnits().stream().map(UnitReference::unit)
+                    .anyMatch(DeclarationBounds.ADJUDICATION_UNIT::equals));
         }
     }
 

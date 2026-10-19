@@ -138,11 +138,25 @@ final class PlanFixtures {
     }
 
     /**
-     * @param file the file of a sub-unit of {@link #subUnits()}
+     * @param file the file of a sub-unit of {@link #subUnits()} or of {@link #withAdjudication(CompositionRequest)}
      * @return its text
      */
     static String subUnitText(String file) {
         return VARIANT_TEXTS.containsKey(file) ? VARIANT_TEXTS.get(file) : InvariantFixtures.read(file);
+    }
+
+    /**
+     * @param request a request of this class
+     * @return the request whose sub-units also hold the adjudication unit {@code adjudicate.decisions} of the invariant
+     *         fixtures, which no call site of the template calls
+     */
+    static CompositionRequest withAdjudication(CompositionRequest request) {
+        var subUnits = new ArrayList<>(request.subUnits());
+        subUnits.add(subUnit(InvariantFixtures.ADJUDICATION_FILE, subUnitText(InvariantFixtures.ADJUDICATION_FILE)));
+        return new CompositionRequest(request.planId(), request.event(), request.template(), request.templates(),
+                subUnits, request.facts(), request.configHash(), request.realizedFootprintDigest(),
+                request.providersDigest(), request.waivers(), request.position(), request.previous(),
+                request.verificationSteps(), request.finalizeSteps());
     }
 
     private static CompositionRequest.SubUnit subUnit(String file, String text) {
