@@ -9,28 +9,36 @@
  */
 package de.planmarshall.runtime.question;
 
+import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.core.spi.QuestionRecordReader;
+import de.planmarshall.core.store.ConfinementOutcome;
+import de.planmarshall.core.store.ConfinementOutcome.Confined;
+import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.QuestionLog;
 import de.planmarshall.core.store.QuestionLog.Lines;
 import de.planmarshall.core.store.QuestionRecord;
+import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /**
  * The adapter of the engine port {@link QuestionRecordReader} over the question log {@link QuestionLog} of
  * {@code core.store} (PM-ARCH-4, PM-IMPL-5; ADR {@code core-store/032}): it reads the record a {@code question} state
  * waits on for the scope the request addresses and returns the port's tri-state read.
  * <p>
- * The read is a read: it takes no lock that an append could wait on, writes nothing and repairs nothing. The log is
- * judged as a whole, so a record is never reported open on the strength of the readable lines alone: an absent log, a
- * line refused when read (an unparseable line, a record of another class, another {@code format_version}), a torn tail
- * and a log the store cannot read are all {@link QuestionRecordReader.QuestionRead.Unreadable}, never
- * {@link QuestionRecordReader.QuestionRead.Open} (ADR {@code core-store/039}).
+ * The read is a read: it takes no lock that an append could wait on, writes nothing and repairs nothing. The log path
+ * passes the workspace confinement ({@link WorkspaceConfinement}, PM-SEC-2, settled design of the project paths), and a
+ * refused path is a value of the read, never an exception. The log is judged as a whole, so a record is never reported
+ * open on the strength of the readable lines alone: an absent log, a line refused when read (an unparseable line, a
+ * record of another class, another {@code format_version}), a torn tail and a log the store cannot read are all
+ * {@link QuestionRecordReader.QuestionRead.Unreadable}, never {@link QuestionRecordReader.QuestionRead.Open} (ADR
+ * {@code core-store/039}).
  * <p>
  * The scope of the request is the plan or epic its id names, or the workspace scope of the project for an empty id. A
  * scope id that names a plan and an epic is refused rather than guessed, and an id that is no identifier is a value,
@@ -42,15 +50,31 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
 
     private final Path base;
     private final String projectId;
+    private final WorkspaceConfinement confinement;
 
     /**
-     * @param base      the base directory of the runtime, below which the project stores lie
-     * @param projectId the project whose question logs are read
+     * @param base        the base directory of the runtime, below which the project stores lie
+     * @param projectId   the project whose question logs are read
+     * @param confinement the confinement of the project paths the read passes
      * @throws NullPointerException if a component is {@code null}
      */
-    public QuestionLogRecordReader(Path base, String projectId) {
-        this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
+    public QuestionLogRecordReader(Path base, String projectId, WorkspaceConfinement confinement) {
+        this.base = canonical(base);
         this.projectId = Objects.requireNonNull(projectId, "projectId");
+        this.confinement = Objects.requireNonNull(confinement, "confinement");
+    }
+
+    /**
+     * The base is canonicalized where it exists, so that the confined canonical path of a store equals the store path
+     * and a symbolic link below the base is the only difference the read can find.
+     */
+    private static Path canonical(Path base) {
+        var absolute = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
+        try {
+            return absolute.toRealPath();
+        } catch (IOException _) {
+            return absolute;
+        }
     }
 
     /**
@@ -70,6 +94,15 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             return new QuestionRead.Unreadable(resolution.refusal());
         }
         var log = new QuestionLog(resolution.scope());
+        var store = log.store();
+        var outcome = confinement.confine(store.toString());
+        if (outcome instanceof Rejected rejected) {
+            return new QuestionRead.Unreadable("the question log is refused with " + rejected.code() + ": "
+                    + rejected.reason().name().toLowerCase(Locale.ROOT));
+        }
+        if (!((Confined) outcome).path().equals(store)) {
+            return new QuestionRead.Unreadable("the question log is not reached by its canonical path");
+        }
         Lines lines;
         try {
             lines = log.read();

@@ -60,7 +60,9 @@ import de.planmarshall.core.store.QuestionRecord.Reversibility;
 import de.planmarshall.core.store.QuestionRecordCodec;
 import de.planmarshall.core.store.QuestionRefusal;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.lock.FileLockManager;
+import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /**
  * The adapter of the engine port {@code QuestionRecordReader} over the question log of {@code core.store} (PM-ARCH-4,
@@ -98,7 +100,8 @@ class QuestionLogRecordReaderTest {
         locks = new FileLockManager(event -> {
             // a lock acquisition of these tests records nothing
         });
-        reader = new QuestionLogRecordReader(base, PROJECT);
+        reader = new QuestionLogRecordReader(base, PROJECT,
+                new WorkspaceConfinement(new WorkspaceRoots(base, Set.of())));
     }
 
     private static ReadRequest request(String questionId) {
