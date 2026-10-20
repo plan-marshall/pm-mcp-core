@@ -1,0 +1,79 @@
+= ADR 014: A Stall Is Derived on Read, Recorded Once per Episode, and Announced through a Port
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+A non-terminal plan or epic is `stalled` when it is neither paused nor pausing, is in no operator wait and under no
+hold of another kind, has no pending condition, awaits no event (no running job, no task, no open wait), and its last
+transition or task progress is older than the compiled stalled threshold
+(link:../../../../doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime
+Lifecycle Specification, Stalled Plans]). Stalled is derived from persisted state on read and is never stored as
+workflow state; the first detection of an episode appends one `plan_stalled` audit record, the hold clears by itself
+with the scope's next transition or task progress, and neither the hold, its cause nor the record appears in a
+model-facing representation. The runtime has no event-stream or `needs_operator` type of its own yet, and the act a
+hold offers is specified by `plan-and-epic-control`.
+
+== Decision
+
+`StalledScopeDetector` of `runtime.start` decides the hold from the scope's stored status and the facts its caller
+knows:
+
+1. The detector takes a `View`: the project id, the `WorkflowStatus`, and whether the scope is paused, rests in an
+   operator wait, or is held for another kind. The status supplies the state, the phase, the update instant, the
+   active job, the active tasks and the pending condition; the workspace scope and an ended scope never stall.
+2. A scope is held when it awaits no event and has been idle for at least `StalledScopeDetector.THRESHOLD`, the
+   compiled `600` seconds of the timeouts specification. The hold is a `StalledHold` with kind `stalled`, the closed
+   cause `NO_PROGRESS` (`no_progress`), the state, the instant of the last progress and the idle seconds; its
+   `needsOperator()` is `1`, so a caller counts it in the `needs_operator` summary.
+3. The detector keeps the open episodes in memory, keyed by project, scope type and scope id. The first detection of an
+   episode hands one `AuditEvent.planStalled` record (`transition`, `warning`, `details{scope_type, scope_id, state,
+   cause, idle_since, idle_seconds}`) to the `AuditSink` and announces the opened hold on the `OperatorPort`; every
+   further detection of the same episode appends nothing.
+4. A detection that finds the scope no longer stalled ends an open episode by itself: the detector announces the hold
+   on the `OperatorPort` as released, whose report is `plan.hold_released`, and forgets the episode. A later stall is a
+   new episode with its own record.
+5. The detector writes no store and adds no member to the status document; the assembly wires the audit sink and the
+   port, and `plan-and-epic-control` serves the hold's acts.
+
+== Alternatives Considered
+
+1. *Store the hold in `mcp/status.json`*.
+   _Rejected_: the specification derives a stall from the persisted state on read and keeps it out of the workflow
+   state; a stored hold would also need a writer and a clearing rule the engine does not have.
+2. *Detect in the periodic sweep*.
+   _Rejected_: the threshold is ten minutes and the sweep runs hourly, so a stall would appear up to an hour late; the
+   detection is a read-side decision, not a residue removal.
+3. *Keep the episode in the audit log*.
+   _Rejected_: a reader would have to scan the log on every read to know whether an episode is open; the episode is a
+   property of the running runtime, and a restart starts a new one, which the next detection records again.
+4. *Announce through a type of the clients*.
+   _Rejected_: the runtime may not depend on the client contract; a narrow `OperatorPort` keeps the dependency on the
+   assembly, which owns the local API.
+
+== Consequences
+
+* A restart loses the open-episode memory, so the first detection after a start records the stall again; the log then
+  holds one record per detection episode of one runtime run, which is what the operator reads as the gap.
+* The detector needs the pause, operator-wait and other-hold facts from its caller, because the status document does
+  not carry them yet; `plan-and-epic-control` supplies them when it builds the activity and the holds.
+* `StalledScopeDetectorTest` covers the threshold from one second below to past it, every awaited event, a pause, an
+  operator wait and another hold, one record per episode, the release by itself, the `needs_operator` count, the
+  untouched status document, and the threshold read from the timeouts specification.
+
+== Source
+
+* Work package `removed-concepts` (PLAN-64), deliverable 8
+* link:../../../../doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime
+  Lifecycle Specification, Stalled Plans]
+* link:../../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts &
+  Budgets Specification, Stalled Threshold]
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas Specification, Audit
+  Log, Stall records]

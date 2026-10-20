@@ -10,7 +10,9 @@
 package de.planmarshall.core.service;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +49,12 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
 
     /** The category of the events of the stores and their locks. */
     public static final String CATEGORY_STORE = "store";
+
+    /** The category of a state transition and of the stall records that mirror one. */
+    public static final String CATEGORY_TRANSITION = "transition";
+
+    /** The outcome of a record that states a condition the operator should know of. */
+    public static final String OUTCOME_WARNING = "warning";
 
     /** The outcome of an action that was refused. */
     public static final String OUTCOME_REFUSED = "refused";
@@ -160,6 +168,24 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The detail of a removed pending entry record that holds the instant the record was created. */
     public static final String DETAIL_CREATED_AT = "created_at";
 
+    /**
+     * The name of the record a stalled plan or epic appends once per episode (PM-ARCH-8; Store Schemas § Audit Log,
+     * Stall records).
+     */
+    public static final String PLAN_STALLED = "plan_stalled";
+
+    /** The detail of a stall record that names the state the scope rests in. */
+    public static final String DETAIL_STATE = "state";
+
+    /** The detail of a stall record that names its closed cause. */
+    public static final String DETAIL_CAUSE = "cause";
+
+    /** The detail of a stall record that holds the instant of the last transition or task progress. */
+    public static final String DETAIL_IDLE_SINCE = "idle_since";
+
+    /** The detail of a stall record that holds the seconds since that instant. */
+    public static final String DETAIL_IDLE_SECONDS = "idle_seconds";
+
     /** The name of the transaction id argument, as a null check reports it. */
     private static final String TRANSACTION_ID_ARGUMENT = "transactionId";
 
@@ -255,6 +281,32 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
                         Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
                         Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
                         Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
+    }
+
+    /**
+     * The one {@code plan_stalled} record of a stall episode (PM-ARCH-8; Store Schemas § Audit Log, Stall records): a
+     * {@code transition} record with outcome {@code warning}, the scope, the state the scope rests in, the closed cause
+     * and the idle span. It is operator and metrics data only and never part of a model-facing representation.
+     *
+     * @param scopeType   the type of the scope, {@code plan} or {@code epic}
+     * @param scopeId     the id of the plan or epic
+     * @param state       the state the scope rests in
+     * @param cause       the closed cause of the stall
+     * @param idleSince   the instant of the last transition or task progress
+     * @param idleSeconds the seconds since that instant
+     * @return the record of the stall
+     * @throws NullPointerException if a component is {@code null}
+     */
+    public static AuditEvent planStalled(String scopeType, String scopeId, String state, String cause,
+            Instant idleSince, long idleSeconds) {
+        var details = new LinkedHashMap<String, Object>();
+        details.put(DETAIL_SCOPE_TYPE, Objects.requireNonNull(scopeType, "scopeType"));
+        details.put(DETAIL_SCOPE_ID, Objects.requireNonNull(scopeId, "scopeId"));
+        details.put(DETAIL_STATE, Objects.requireNonNull(state, "state"));
+        details.put(DETAIL_CAUSE, Objects.requireNonNull(cause, "cause"));
+        details.put(DETAIL_IDLE_SINCE, Objects.requireNonNull(idleSince, "idleSince").toString());
+        details.put(DETAIL_IDLE_SECONDS, idleSeconds);
+        return new AuditEvent(PLAN_STALLED, CATEGORY_TRANSITION, OUTCOME_WARNING, details);
     }
 
     /**
