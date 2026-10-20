@@ -139,13 +139,6 @@ final class ScenarioFixtures {
                 phase completed
             """;
 
-    /**
-     * The outcome a question of a class resolves with when its deadline fires: the class fallback of the fixture
-     * unit's question classes. The question records and their deadlines are not built yet, so the fixture states the
-     * fallback the deadline would take.
-     */
-    static final Map<String, String> DEADLINE_OUTCOMES = Map.of("review", "returned", "clarification", "assumed");
-
     /** The clock of the engine and of the transactions. */
     final ManualClock clock = new ManualClock(T0);
 

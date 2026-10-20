@@ -14,10 +14,10 @@
  * A {@link de.planmarshall.workflow.scenario.ScenarioScript} is read from the text of a script in the test: a line
  * {@code scenario <name>}, the declaration of the scripted worker of each role, and one directive per line. The
  * harness runs the directives the engine supports today: {@code start}, {@code complete_job},
- * {@code answer_question}, {@code expire_question}, {@code assert_state}, {@code assert_outcome} and
+ * {@code answer_question}, {@code assert_state}, {@code assert_outcome} and
  * {@code assert_task_outcome}. Every other directive the specification names (the link and worker directives, the
  * worker faults, the runtime restart, the operator verbs) is refused by name with its line and the work package that
- * brings it.
+ * brings it; a word that is no directive at all is refused as unknown.
  * <p>
  * The {@link de.planmarshall.workflow.scenario.ScenarioReplayRunner} replays a script against the real
  * {@link de.planmarshall.workflow.engine.WorkflowEngine} over the fixtures of

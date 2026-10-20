@@ -61,7 +61,7 @@ class ScenarioReplayRunnerTest {
             assert_state execute.ask
             answer_question Q-001 web {"branch_key":"approve"}
             assert_state execute.confirm
-            expire_question Q-002
+            answer_question Q-002 web {"branch_key":"assumed"}
             assert_state completed
             assert_outcome merged
             """;
@@ -124,11 +124,6 @@ class ScenarioReplayRunnerTest {
                         start plan scenario-plan
                         complete_job b-00000000000000ff {"outcome":"succeeded"}
                         """, "the event was not accepted: the state 'execute.build' waits for"),
-                Arguments.of("""
-                        scenario expire-at-job
-                        start plan scenario-plan
-                        expire_question Q-001
-                        """, "expire_question Q-001, but the scope is in 'execute.build', no question state"),
                 Arguments.of("""
                         scenario before-start
                         worker reviewer submitted

@@ -25,7 +25,6 @@ import de.planmarshall.core.spi.AwaitedEvent;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatusStore;
-import de.planmarshall.workflow.ast.StateBehavior;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.engine.EngineEvent;
 import de.planmarshall.workflow.engine.EngineStep;
@@ -40,8 +39,7 @@ import de.planmarshall.workflow.engine.WorkflowEngine;
  * <ul>
  * <li>{@code start} starts the scope ({@link WorkflowEngine#start});</li>
  * <li>{@code complete_job} delivers {@link EngineEvent.JobSettled}, {@code answer_question} the answer's
- * {@link EngineEvent.QuestionResolved}, and {@code expire_question} the resolution with the deadline outcome of the
- * question's class ({@link ScenarioFixtures#DEADLINE_OUTCOMES});</li>
+ * {@link EngineEvent.QuestionResolved};</li>
  * <li>{@code assert_state} compares the state of the stored status, {@code assert_outcome} the outcome the run ended
  * with, and {@code assert_task_outcome} the outcome of the last task the worker of a role settled.</li>
  * </ul>
@@ -170,7 +168,6 @@ final class ScenarioReplayRunner {
                 fixtures.questionReader.resolve(answer.questionId(), answer.outcome());
                 advance(answer.line(), new EngineEvent.QuestionResolved(answer.questionId(), answer.outcome()));
             }
-            case ScenarioDirective.ExpireQuestion expire -> expire(expire);
             case ScenarioDirective.AssertState assertion -> {
                 var actual = storedStatus(assertion.line()).state();
                 if (!assertion.stateId().equals(actual)) {
@@ -231,22 +228,6 @@ final class ScenarioReplayRunner {
         store.write(transaction, step.status());
         transaction.commit();
         apply(step);
-    }
-
-    private void expire(ScenarioDirective.ExpireQuestion expire) {
-        var current = storedStatus(expire.line());
-        var node = engine.unit().states().get(current.state());
-        if (!(node.behavior() instanceof StateBehavior.QuestionWait question)) {
-            throw new ScenarioFailure(expire.line(), "expire_question %s, but the scope is in '%s', no question state"
-                    .formatted(expire.questionId(), current.state()));
-        }
-        var outcome = ScenarioFixtures.DEADLINE_OUTCOMES.get(question.questionClass());
-        if (outcome == null) {
-            throw new ScenarioFailure(expire.line(), "the fixtures state no deadline outcome of the question class "
-                    + question.questionClass());
-        }
-        fixtures.questionReader.resolve(expire.questionId(), outcome);
-        advance(expire.line(), new EngineEvent.QuestionResolved(expire.questionId(), outcome));
     }
 
     /** Lets the worker of each role settle the task state the scope rests in, if it rests in one. */

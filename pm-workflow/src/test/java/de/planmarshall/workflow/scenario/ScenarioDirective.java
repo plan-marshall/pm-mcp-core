@@ -134,21 +134,6 @@ sealed interface ScenarioDirective {
     }
 
     /**
-     * Fires the deadline of a question record.
-     *
-     * @param line       the line of the script
-     * @param questionId the question, {@code ^Q-[0-9]{3,6}$}
-     */
-    record ExpireQuestion(int line, String questionId) implements ScenarioDirective {
-
-        /** @throws IllegalArgumentException if the line is not positive or the question id has another shape */
-        public ExpireQuestion {
-            requireLine(line);
-            requireQuestionId(questionId);
-        }
-    }
-
-    /**
      * Asserts the closed outcome the last task of a role ended with.
      *
      * @param line    the line of the script

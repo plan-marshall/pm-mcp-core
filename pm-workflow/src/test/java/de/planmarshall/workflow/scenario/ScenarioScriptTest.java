@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AnswerQuestion;
@@ -32,7 +33,6 @@ import de.planmarshall.workflow.scenario.ScenarioDirective.AssertOutcome;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertState;
 import de.planmarshall.workflow.scenario.ScenarioDirective.AssertTaskOutcome;
 import de.planmarshall.workflow.scenario.ScenarioDirective.CompleteJob;
-import de.planmarshall.workflow.scenario.ScenarioDirective.ExpireQuestion;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Start;
 import de.planmarshall.workflow.scenario.ScenarioDirective.Worker;
 
@@ -65,7 +65,6 @@ class ScenarioScriptTest {
                 Arguments.of("assert_outcome", "missing argument"),
                 Arguments.of("assert_task_outcome reviewer", "missing argument"),
                 Arguments.of("assert_task_outcome reviewer done", "'done' is no outcome of a task"),
-                Arguments.of("expire_question Q-1", "question id does not match"),
                 Arguments.of("complete_job x-0000000000000001 {\"outcome\":\"succeeded\"}", "job id does not match"),
                 Arguments.of("complete_job b-0000000000000001 {\"outcome\":\"vanished\"}", "'vanished' is no fate"),
                 Arguments.of("complete_job b-0000000000000001", "missing argument"),
@@ -105,7 +104,6 @@ class ScenarioScriptTest {
                     complete_job b-00000000000000a1 {"outcome":"succeeded","worktree_sha":"e3b0c442"}
                     assert_task_outcome reviewer submitted
                     answer_question Q-003 web {"branch_key":"approve"}   # the review question
-                    expire_question Q-004
                     assert_state completed
                     assert_outcome completed
                     """);
@@ -120,9 +118,8 @@ class ScenarioScriptTest {
                             new CompleteJob(7, "b-00000000000000a1", "succeeded"),
                             new AssertTaskOutcome(8, "reviewer", "submitted"),
                             new AnswerQuestion(9, "Q-003", "web", "approve"),
-                            new ExpireQuestion(10, "Q-004"),
-                            new AssertState(11, "completed"),
-                            new AssertOutcome(12, "completed")), script.directives()));
+                            new AssertState(10, "completed"),
+                            new AssertOutcome(11, "completed")), script.directives()));
         }
 
         @Test
@@ -203,6 +200,21 @@ class ScenarioScriptTest {
         }
 
         @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"expire_question Q-001", "expire_question", "finish_plan", "no_such_directive"})
+        @DisplayName("Should refuse a directive this harness does not run, expire_question included, by name and line")
+        void shouldRefuseUnknownDirective(String line) {
+            var directive = line.split(" ")[0];
+            var text = thirdLine(line);
+
+            var refused = assertThrows(IllegalArgumentException.class, () -> ScenarioScript.read(text));
+
+            assertAll(
+                    () -> assertTrue(refused.getMessage().startsWith("line 3: "), refused.getMessage()),
+                    () -> assertTrue(refused.getMessage().endsWith("'%s' is no directive".formatted(directive)),
+                            refused.getMessage()));
+        }
+
+        @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.scenario.ScenarioScriptTest#malformedLines")
         @DisplayName("Should refuse a malformed line with a diagnostic naming the line")
         void shouldRefuseMalformedLine(String line, String reason) {
@@ -275,8 +287,7 @@ class ScenarioScriptTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> new Worker(1, "reviewer", noOutcomes)),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new AnswerQuestion(1, "Q-001", " ", "approve")),
-                    () -> assertThrows(NullPointerException.class, () -> new ExpireQuestion(1, null)));
+                            () -> new AnswerQuestion(1, "Q-001", " ", "approve")));
         }
     }
 }

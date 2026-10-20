@@ -35,7 +35,10 @@ import de.planmarshall.workflow.scenario.ScenarioReplayRunner.Snapshot;
 @DisplayName("Scenario determinism")
 class ScenarioDeterminismTest {
 
-    /** The script of the proof; the question expires on line 11 and line 12 asserts where its deadline leads. */
+    /**
+     * The script of the proof; the clarification question is answered on line 11 and line 12 asserts where its branch
+     * leads.
+     */
     private static final String SCRIPT = """
             scenario determinism
             worker reviewer submitted
@@ -47,7 +50,7 @@ class ScenarioDeterminismTest {
             assert_state execute.ask
             answer_question Q-001 web {"branch_key":"approve"}
             assert_state execute.confirm
-            expire_question Q-002
+            answer_question Q-002 web {"branch_key":"assumed"}
             assert_state completed
             assert_outcome merged
             """;
@@ -105,6 +108,6 @@ class ScenarioDeterminismTest {
                 () -> assertEquals(expected.subList(0, 8), changed.subList(0, 8),
                         "every step before the changed transition writes the same bytes"),
                 () -> assertFalse(Arrays.equals(expected.get(8).status(), changed.get(8).status()),
-                        "expire_question takes the changed transition"));
+                        "the answered clarification takes the changed transition"));
     }
 }
