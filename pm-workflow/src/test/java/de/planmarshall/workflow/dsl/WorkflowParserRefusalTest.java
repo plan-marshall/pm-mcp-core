@@ -198,6 +198,26 @@ class WorkflowParserRefusalTest {
         }
 
         @ParameterizedTest(name = "{0}")
+        @MethodSource("malformedFixtures")
+        @DisplayName("refuses the CRLF twin of every malformed fixture with the same rule, line and column")
+        void refusesCrlfTwin(String resource) {
+            var lf = DslFixtures.read(resource);
+            var expectation = EXPECTATION.matcher(lf);
+            assertTrue(expectation.find(), () -> resource + " states no '# expect: <RULE> line <n>' comment");
+            var expectedRule = RefusalRule.valueOf(expectation.group(1));
+            var expectedLine = Integer.parseInt(expectation.group(2));
+            var expectedColumn = Optional.ofNullable(expectation.group(3)).map(Integer::parseInt);
+
+            var diagnostic = refuse(resource + "-crlf", lf.replace("\n", "\r\n"));
+
+            assertAll(
+                    () -> assertEquals(expectedRule, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(expectedLine, diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(expectedColumn.orElse(diagnostic.column()), diagnostic.column(),
+                            diagnostic::message));
+        }
+
+        @ParameterizedTest(name = "{0}")
         @MethodSource("frontmatterAndEntryFixtures")
         @DisplayName("refuses every fixture of the frontmatter with the rule FRONTMATTER, and no other fixture")
         void frontmatterRule(String resource) {

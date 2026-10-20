@@ -50,6 +50,7 @@ import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.RefusalRule;
+import de.planmarshall.workflow.dsl.UnitFrontmatterReader;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.PipelineRule;
 import de.planmarshall.workflow.verify.InvariantFixtures;
@@ -183,6 +184,10 @@ class ProjectUnitLoaderTest {
                     Arguments.of("a zero width space inside", "plan\u200B-marshall"),
                     Arguments.of("a full-width form NFKC folds to the reserved author",
                             "\uFF50\uFF4C\uFF41\uFF4E\uFF0D\uFF4D\uFF41\uFF52\uFF53\uFF48\uFF41\uFF4C\uFF4C"),
+                    Arguments.of("a trailing no-break space NFKC folds to a blank", "plan-marshall\u00A0"),
+                    Arguments.of("a trailing figure space", "plan-marshall\u2007"),
+                    Arguments.of("a trailing narrow no-break space", "plan-marshall\u202F"),
+                    Arguments.of("a long s the case folding turns into s", "plan-mar\u017Fhall"),
                     Arguments.of("a double-quoted form", "\"plan-marshall\""),
                     Arguments.of("a quoted form with surrounding whitespace", "\"  plan-marshall  \""));
         }
@@ -276,6 +281,29 @@ class ProjectUnitLoaderTest {
             return Stream.of(
                     Arguments.of("one byte past the cap", ProjectUnitLoader.MAX_UNIT_FILE_BYTES + 1),
                     Arguments.of("four times the cap", ProjectUnitLoader.MAX_UNIT_FILE_BYTES * 4));
+        }
+
+        @Test
+        @DisplayName("does not report an author below the frontmatter line cap")
+        void authorBelowTheLineCap() throws Exception {
+            UnitFixtures.writeProject(project);
+            var source = new StringBuilder("---\n");
+            for (var index = 1; index <= UnitFrontmatterReader.MAX_FRONTMATTER_LINES; index++) {
+                source.append("entry: e").append(index).append('\n');
+            }
+            source.append("author: ").append(ProjectUnitLoader.RESERVED_AUTHOR).append("\n---\n")
+                    .append("workflow replan version 1 format 1\nscope subworkflow\n");
+            Files.writeString(project.resolve(configPath(REPLAN)), source);
+
+            var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
+
+            assertAll(
+                    () -> assertFalse(result.isVerified()),
+                    () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE,
+                            RefusalRule.FRONTMATTER.name()).isPresent(), result.findings()::toString),
+                    () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE,
+                                    UnitFinding.AUTHOR_RESERVED).isEmpty(),
+                            "the author below the cap is not read"));
         }
     }
 

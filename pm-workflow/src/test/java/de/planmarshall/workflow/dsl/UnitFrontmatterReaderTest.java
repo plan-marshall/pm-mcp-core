@@ -463,6 +463,7 @@ class UnitFrontmatterReaderTest {
                 new String[]{"byte order mark", "\uFEFF"},
                 new String[]{"line separator", "\u2028"},
                 new String[]{"paragraph separator", "\u2029"},
+                new String[]{"supplementary language tag", "\uDB40\uDC01"},
                 new String[]{"control", "\u0007"});
 
         static Stream<Arguments> refusedCharacters() {
@@ -605,6 +606,27 @@ class UnitFrontmatterReaderTest {
                     () -> assertRefused(diagnostic, 10, 10),
                     () -> assertTrue(diagnostic.message().contains(echoed + "..."), diagnostic::message),
                     () -> assertFalse(diagnostic.message().contains(value), diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("truncates an echo far past the cap and counts the cap in code points")
+        void boundsAnEchoFarPastTheCap() {
+            var far = "k".repeat(1000);
+            var supplement = "\uD83D\uDE00";
+            var codePoints = "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH - 1) + supplement + "k";
+
+            var farDiagnostic = refuse(unit(appended(far + ": x")));
+            var codePointDiagnostic = refuse(unit(appended(codePoints + ": x")));
+
+            assertAll(
+                    () -> assertTrue(farDiagnostic.message().contains(
+                            "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH) + "..."), farDiagnostic::message),
+                    () -> assertFalse(farDiagnostic.message().contains(far), farDiagnostic::message),
+                    () -> assertTrue(codePointDiagnostic.message().contains(
+                                    "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH - 1) + supplement + "..."),
+                            codePointDiagnostic::message),
+                    () -> assertFalse(codePointDiagnostic.message().contains(codePoints),
+                            codePointDiagnostic::message));
         }
 
         @Test

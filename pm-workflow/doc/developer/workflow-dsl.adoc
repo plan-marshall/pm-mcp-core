@@ -178,8 +178,9 @@ revision, which the `version` of the `workflow` header counts.
 |`author`
 |1
 |Who made the unit, 1 to 100 characters: `plan-marshall` for the units compiled into the binary and only for them. The
-reader checks the length; the reserved name is checked per level by the loader, on the author's stripped,
-NFKC-normalised, case-folded form (link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
+reader checks the length; the reserved name is checked per level by the loader, on the author's NFKC-normalised,
+format-character-free, stripped and case-folded form
+(link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
 
 |`signature`
 |0..1

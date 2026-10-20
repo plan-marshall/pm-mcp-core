@@ -22,11 +22,12 @@ the author check ran.
 
 * `ProjectUnitLoader` reads the raw `author` value from the head of the source before it parses the unit, unquoting a
   double-quoted value with the reader's two escapes.
-* It compares that value with `ProjectUnitLoader.RESERVED_AUTHOR` after stripping its surrounding whitespace, removing
-  its format characters, NFKC normalising it and folding its case. A match is a `RULE` finding
+* It compares that value with `ProjectUnitLoader.RESERVED_AUTHOR` after NFKC normalising it, removing its format
+  characters, stripping its surrounding whitespace and folding its case. A match is a `RULE` finding
   `author_reserved` at the author line, whether or not the frontmatter reader also refuses the unit for a character.
-* `ProjectUnitLoader.read` refuses a unit file larger than `ProjectUnitLoader.MAX_UNIT_FILE_BYTES` (1048576 bytes)
-  before it reads it, as a `MISSING` finding with the new code `unit_too_large` at line `0`.
+* `ProjectUnitLoader.read` reads at most `ProjectUnitLoader.MAX_UNIT_FILE_BYTES + 1` bytes from a unit file and
+  refuses a file that needs more as a `MISSING` finding with the new code `unit_too_large` at line `0`, so no unit
+  file above the bound is read whole.
 
 Rationale: the reserved name identifies a delivered unit, so a displayed look-alike must be refused; and a bound on the
 file protects the loader from a file it would otherwise read whole.
@@ -44,9 +45,10 @@ file protects the loader from a file it would otherwise read whole.
 == Consequences
 
 * A project unit copied from a default unit must change its author, and a look-alike of the reserved name is refused
-  with `author_reserved` at its author line.
-* A unit file above the bound is never read; the load reports `unit_too_large` and, like every finding, refuses the
-  lifecycle with `config_invalid`.
+  with `author_reserved` at its author line. The no-break, figure and narrow no-break spaces NFKC folds to a blank and
+  the long s the case folding turns into `s` are look-alikes too.
+* A unit file above the bound is never read whole; the load reports `unit_too_large` and, like every finding, refuses
+  the lifecycle with `config_invalid`.
 * `ProjectUnitLoaderTest` covers the normalised forms, the near misses, the author read before the parse, the file at
   the cap and one and four times past it. The number is stated in the specification part and a test reads it from it.
 

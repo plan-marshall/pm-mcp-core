@@ -13,6 +13,10 @@ import static de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
 import static de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.text.Normalizer;
@@ -227,15 +231,15 @@ public final class ProjectUnitLoader {
                 yield Optional.empty();
             }
             case ConfinementOutcome.Confined(var confinedPath) -> {
-                try {
-                    var size = Files.size(confinedPath);
-                    if (size > MAX_UNIT_FILE_BYTES) {
+                try (var source = Files.newInputStream(confinedPath)) {
+                    var bytes = source.readNBytes(MAX_UNIT_FILE_BYTES + 1);
+                    if (bytes.length > MAX_UNIT_FILE_BYTES) {
                         findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_TOO_LARGE, path, 0,
-                                "the project unit '%s' holds %d bytes, above the bound of %d".formatted(path, size,
+                                "the project unit '%s' holds more than %d bytes".formatted(path,
                                         MAX_UNIT_FILE_BYTES)));
                         yield Optional.empty();
                     }
-                    yield Optional.of(Files.readString(confinedPath));
+                    yield Optional.of(decode(bytes));
                 } catch (NoSuchFileException _) {
                     findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING, path, 0,
                             "the project unit '%s' does not exist".formatted(path)));
@@ -278,34 +282,36 @@ public final class ProjectUnitLoader {
      * every other finding of it as well. The author is read from the raw head of the source before the parse, so a
      * unit whose frontmatter is refused for a format character is still reported as naming the reserved author.
      */
+    /** An author value and the line it stands on, read from the raw source. */
+    private record RawAuthor(int line, String value) {
+    }
+
     private static void checkAuthor(String path, String source, List<UnitFinding> findings) {
-        var author = rawAuthor(source);
-        if (author.isPresent() && RESERVED_AUTHOR.equals(normalised(author.get()))) {
-            findings.add(new UnitFinding(UnitFinding.Kind.RULE, UnitFinding.AUTHOR_RESERVED, path,
-                    authorLine(source, 1),
-                    "the project unit '%s' names the author '%s', which only a delivered unit carries"
-                            .formatted(path, RESERVED_AUTHOR)));
-        }
+        rawAuthor(source).filter(author -> RESERVED_AUTHOR.equals(normalised(author.value())))
+                .ifPresent(author -> findings.add(new UnitFinding(UnitFinding.Kind.RULE,
+                        UnitFinding.AUTHOR_RESERVED, path, author.line(),
+                        "the project unit '%s' names the author '%s', which only a delivered unit carries"
+                                .formatted(path, RESERVED_AUTHOR))));
     }
 
     /**
      * @param source the text of the unit file
-     * @return the author value of the frontmatter, read from the raw source as the reader would read it, without the
-     *         reader's refusals
+     * @return the author of the frontmatter with its line, read from the raw head of the source; empty when the file
+     *         does not open with {@code ---}, or has no author before the closing delimiter or the line cap
      */
-    private static Optional<String> rawAuthor(String source) {
+    private static Optional<RawAuthor> rawAuthor(String source) {
         var iterator = source.lines().iterator();
         if (!iterator.hasNext() || !FRONTMATTER_DELIMITER.equals(iterator.next().strip())) {
             return Optional.empty();
         }
-        var lines = 1;
-        while (iterator.hasNext() && ++lines <= UnitFrontmatterReader.MAX_FRONTMATTER_LINES) {
+        var number = 1;
+        while (iterator.hasNext() && ++number <= UnitFrontmatterReader.MAX_FRONTMATTER_LINES) {
             var line = iterator.next();
             if (FRONTMATTER_DELIMITER.equals(line.strip())) {
                 return Optional.empty();
             }
             if (line.startsWith(AUTHOR_KEY)) {
-                return Optional.of(rawValue(line.substring(AUTHOR_KEY.length())));
+                return Optional.of(new RawAuthor(number, rawValue(line.substring(AUTHOR_KEY.length()))));
             }
         }
         return Optional.empty();
@@ -313,58 +319,39 @@ public final class ProjectUnitLoader {
 
     /**
      * @param raw the raw value of an author line
-     * @return the value, without its surrounding whitespace and, for a double-quoted value, without the quotes and
-     *         with the reader's two escapes resolved
+     * @return the value without its surrounding whitespace and, for a double-quoted value, without the quotes
      */
     private static String rawValue(String raw) {
         var value = raw.strip();
-        if (value.length() < 2 || value.charAt(0) != '"' || value.charAt(value.length() - 1) != '"') {
-            return value;
+        if (value.length() >= 2 && value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
+            return value.substring(1, value.length() - 1);
         }
-        var unquoted = new StringBuilder();
-        for (var index = 1; index < value.length() - 1; index++) {
-            var character = value.charAt(index);
-            if (character == '\\' && index + 1 < value.length() - 1
-                    && (value.charAt(index + 1) == '"' || value.charAt(index + 1) == '\\')) {
-                unquoted.append(value.charAt(++index));
-            } else {
-                unquoted.append(character);
-            }
-        }
-        return unquoted.toString();
+        return value;
     }
 
     /**
      * @param author the author of a frontmatter
-     * @return the author with its surrounding whitespace stripped, its format characters removed, NFKC normalised and
+     * @return the author NFKC normalised, with its format characters removed, its surrounding whitespace stripped and
      *         its case folded, the form the reserved author is compared on
      */
     private static String normalised(String author) {
         var withoutFormat = new StringBuilder();
-        author.codePoints().filter(codePoint -> Character.getType(codePoint) != Character.FORMAT)
+        Normalizer.normalize(author, Normalizer.Form.NFKC).codePoints()
+                .filter(codePoint -> Character.getType(codePoint) != Character.FORMAT)
                 .forEach(withoutFormat::appendCodePoint);
-        return Normalizer.normalize(withoutFormat.toString().strip(), Normalizer.Form.NFKC)
-                .toLowerCase(Locale.ROOT);
+        return withoutFormat.toString().strip().toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
     }
 
     /**
-     * @param source  the text of the unit file
-     * @param opening the line of the opening {@code ---} of the frontmatter, counted from 1
-     * @return the line of the {@code author} key of the frontmatter, counted from 1; the opening line when there is
-     *         none
+     * @param bytes the bytes read from a unit file
+     * @return their text, decoded as UTF-8
+     * @throws CharacterCodingException if the bytes are not UTF-8
      */
-    private static int authorLine(String source, int opening) {
-        var lines = source.lines().toList();
-        for (var index = opening; index < lines.size(); index++) {
-            var line = lines.get(index);
-            if (FRONTMATTER_DELIMITER.equals(line.strip())) {
-                break;
-            }
-            if (line.startsWith(AUTHOR_KEY)) {
-                return index + 1;
-            }
-        }
-        return opening;
+    private static String decode(byte[] bytes) throws CharacterCodingException {
+        return StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     /**
