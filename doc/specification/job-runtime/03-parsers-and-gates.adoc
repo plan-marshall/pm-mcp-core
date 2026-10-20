@@ -158,6 +158,20 @@ Every remediation unit starts with a gather state: one server-side gathering per
 
 The `fingerprint` (class, kind, file, normalized message) lets the server recognise a repeated failure (`retry_not_applicable`) and the baseline proof. Every envelope states whether its gate is waivable and names the gate; a non-waivable failure (a security finding, a footprint breach) is marked `waivable: false`. Untrusted content (CI logs, bot comments, analysis messages) passes the ingestion validator (<<ingestion-validator>>) before it is stored; externally authored text (bot comments, analysis messages) is in addition gathered into one batch per firing and screened (link:../model-work/07-untrusted-text-screening.adoc#batch-v1[Model Work Specification, Batch Format]), while CI logs and build excerpts, the server's own job output, pass the validator only.
 
+[#provenance-provider]
+=== Snippet Provenance Provider
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9: Composite Wait States & Short-Circuit Failure Handling]_
+
+_Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-37[PM-WATCH-JOB-37]_
+
+A worker can reproduce licensed code it has seen without saying so, and no other gate looks at where a change's lines come from. The provenance provider is a code analysis provider behind the code-analysis contract, with the provider id `provenance`, that asks a snippet-matching service whether the lines a plan adds match a known open-source component.
+
+* *Off unless the operator enables it, per project*: the provider runs only for a project whose operator file `local-config.json` holds `integrations.provenance` (link:../store-schemas/08-project-configuration-local.adoc[Store Schemas Specification, Project Configuration (Local)]): the service's HTTPS `url` and its `credential_key`, `null` for a service on the operator's own network that takes no credential. The operator act that writes it shows what leaves the machine (the added lines of every plan of the project, with their file paths) and to which origin, and records `consented_at`. No team file and no machine default can enable it, because the decision to send a repository's code to a service is the operator's for each project.
+* *What is sent*: the lines the plan's branch adds against its merge base, per file, never an unchanged file, a deleted line, or a file outside the plan's footprint. The request goes only to the configured origin, through the outbound HTTPS stack, with the credential of its key (link:../credentials-and-enrolment/03-audit-and-outbound-https.adoc[Credentials & Enrolment Specification, Audit & Outbound HTTPS]).
+* *When*: once per pushed `HEAD` of the plan branch, as one constituent of `finalize.concurrent-wait` with target kind `commit`; it needs no CI and no pull request, so it also runs for a local-only plan. A result is current only for its `HEAD`.
+* *Result*: the provider has no quality gate. Every match becomes one finding of source `analysis` and provider `provenance`, kind `issue`, with the file, the added line range, the matched share in percent, the component and its version, the licences the service names, and the service's URL for the match; the analysis result record's `status` is `findings` when one match exists, `passed` when none, and `undecidable` when the service refused, failed, or answered outside its schema (rate limit, quota, timeout). The service's text is external text: it passes the ingestion validator and the screening batch like every analysis message (<<evidence-gathering>>).
+* *Remediation*: `findings` and `undecidable` call `remediation.analysis` like every provider: `retry` asks again, `fix` rewrites the matched lines in the branch, and `request_waiver` asks the operator, who may waive `findings:provenance` for the plan with a reason.
+
 [#ingestion-validator]
 === Ingestion Validator (Level 1, `PM-SEC-1`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1: Two-Boundary Security Model & Untrusted Content Containment]_

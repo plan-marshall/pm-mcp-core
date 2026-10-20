@@ -121,7 +121,8 @@ The operator's values of one project and its machine-local bindings, written onl
         "github":  { "$ref": "#/$defs/integration_with_variant" },
         "gitlab":  { "$ref": "#/$defs/integration_with_variant" },
         "forgejo": { "$ref": "#/$defs/integration_native" },
-        "sonar":   { "$ref": "#/$defs/integration_native" }
+        "sonar":   { "$ref": "#/$defs/integration_native" },
+        "provenance": { "$ref": "#/$defs/integration_provenance" }
       }
     },
     "language": {
@@ -194,6 +195,17 @@ The operator's values of one project and its machine-local bindings, written onl
       "additionalProperties": false,
       "properties": {
         "credential_key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" }
+      }
+    },
+    "integration_provenance": {
+      "type": "object",
+      "required": ["url", "credential_key", "consented_at"],
+      "additionalProperties": false,
+      "description": "The snippet provenance provider of this project (Job Runtime Specification, Snippet Provenance Provider); present only after the operator's act that showed what leaves the machine. No machine default exists.",
+      "properties": {
+        "url": { "type": "string", "pattern": "^https://", "maxLength": 2048 },
+        "credential_key": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$", "description": "null for a service on the operator's own network that takes no credential." },
+        "consented_at": { "type": "string", "format": "date-time" }
       }
     },
     "settings": {
