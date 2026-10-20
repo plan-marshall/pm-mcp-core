@@ -1665,3 +1665,20 @@ question reaches the operator naming both items. Corpus fixture: the article's f
 accept a fallback that hides items, the constraint is "never lose an item silently").
 Source:: Article analysis `ai-native-sdlc-four-files` of plan-marshall-documentation (the review against the intent's
 constraint was the only step that caught the spec-approved default).
+
+[#PM-WATCH-PHASE-112]
+=== PM-WATCH-PHASE-112: Behaviour nobody asked for is listed, not passed
+
+Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (`pre-submission-self-review`, the unclaimed behaviour)
+Hazard:: An empty `unclaimed[]` is the cheapest answer and looks like a clean review. A review that reads only the
+criteria and the deliverables never sees what the change does beside them: a migration that deletes rows, a changed
+default, a new configuration property. A list whose entries carry no effect lets a data-destroying entry pass as a
+note.
+Guard:: Tests submit the self-review without `unclaimed[]` (refused), with an entry that changes a default or deletes
+existing data and is not filed as a finding (refused), and with an empty list (accepted, recorded as "none found").
+Corpus fixtures: a change that meets its one criterion and adds an unrequested delete of duplicate rows on start-up;
+a change that adds two configuration properties whose default no longer honours a header, against a non-goal of no
+speculative configurability; the review role must list both, the first at the severity of data loss.
+Fixture:: nifi-extensions `2026-07-10-issue-416` (unrequested trusted-proxy properties with a changed default,
+merged); the duplicate-member delete of the article analysis `fixing-over-engineering`.
+Source:: Article analysis `fixing-over-engineering` of plan-marshall-documentation.
