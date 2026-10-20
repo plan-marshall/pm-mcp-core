@@ -12,10 +12,12 @@ package de.planmarshall.runtime.credentials;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.HashSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -78,6 +80,40 @@ class CredentialStoreMoveRecordTest {
                         "transaction_id":"018f0000-0000-7000-8000-000000000001"}
                         """, document),
                 () -> assertEquals(firstRecording, read(document)));
+    }
+
+    @Test
+    @DisplayName("a move whose target held the integrity key is read back with it")
+    void targetHeldKeyOfAMove() {
+        var moveRecord = new CredentialStoreMoveRecord(Store.FILE, Store.OS, STARTED, Phase.COPYING, true,
+                Operation.MOVE, TRANSACTION);
+
+        var document = new String(moveRecord.write(), StandardCharsets.UTF_8);
+
+        assertAll(
+                () -> assertEquals("""
+                        {"format_version":1,"from":"file","to":"os","started_at":"2026-10-17T15:00:00Z",\
+                        "phase":"copying","target_held_key":true,"operation":"move",\
+                        "transaction_id":"018f0000-0000-7000-8000-000000000001"}
+                        """, document),
+                () -> assertEquals(moveRecord, read(document)));
+    }
+
+    @Test
+    @DisplayName("every operation of the enum is written and read back under its own wire name")
+    void operations() {
+        var wireNames = new HashSet<String>();
+
+        for (var operation : Operation.values()) {
+            var record = new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, Phase.COPYING, false, operation,
+                    TRANSACTION);
+            var read = read(new String(record.write(), StandardCharsets.UTF_8));
+
+            assertAll(
+                    () -> assertEquals(operation, read.operation()),
+                    () -> assertTrue(wireNames.add(operation.value()), operation.value()));
+        }
+        assertEquals(Operation.values().length, wireNames.size(), "every operation has its own wire name");
     }
 
     @Test

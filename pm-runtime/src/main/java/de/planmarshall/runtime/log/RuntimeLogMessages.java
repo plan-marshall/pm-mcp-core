@@ -642,7 +642,7 @@ public final class RuntimeLogMessages {
 
         /**
          * Logged by {@code CredentialStoreChoice} when the first recording of a credential store fails before the
-         * switch: names the store the key is deleted from, the store being recorded, what became of the copy and of
+         * switch: names the store being recorded, the store the key is deleted from, what became of the copy and of
          * the record of the recording, and the reason. Never names a key.
          */
         public static final LogRecord CREDENTIAL_STORE_FIRST_RECORDING_FAILED = LogRecordModel.builder()

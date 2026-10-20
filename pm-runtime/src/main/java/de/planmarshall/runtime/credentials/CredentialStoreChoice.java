@@ -142,8 +142,9 @@ public final class CredentialStoreChoice {
     /** Who writes {@code machine-config.json}. The set is closed; only the owners of the key may write it. */
     public enum Writer {
         /**
-         * The credential-store aspect of the machine's onboarding, which records the store the first time only; a
-         * later change of the recorded store goes through the move ({@link CredentialStoreMove}).
+         * The credential-store aspect of the machine's onboarding, which records the store the first time only, in the
+         * transaction of its own first recording; a later change of the recorded store goes through the move
+         * ({@link CredentialStoreMove}).
          */
         CREDENTIAL_STORE_ASPECT(true),
         /** The move of every entry between the stores, which switches the key in one write. */
@@ -177,9 +178,9 @@ public final class CredentialStoreChoice {
             /** No store is recorded yet: no credential can be entered before the store step of the onboarding. */
             ONBOARDING_INCOMPLETE("onboarding_incomplete"),
             /**
-             * The writer does not own {@code credentials.store}: it is not one of its owners, a move between the
-             * stores is open, which alone owns the key until it ends, or the credential-store aspect asks for another
-             * store than the one recorded, which only the move changes.
+             * The writer does not own {@code credentials.store}: it is not one of its owners, an operation on the
+             * credential stores is open, which alone owns the key until it ends, or the credential-store aspect asks
+             * for another store than the one recorded, which only the move changes.
              */
             ASPECT_OWNED("aspect_owned");
 
@@ -325,13 +326,14 @@ public final class CredentialStoreChoice {
     }
 
     /**
-     * Records a store in the transaction of the store move, the switch of a move: under {@code locks/credentials.lock},
-     * which the move holds already, and the lock of the machine configuration, which this call acquires, the document
-     * is re-read, {@code credentials.store} set, {@code revision} incremented, and the file replaced in one atomic
-     * write; every other member is kept. A writer that does not own the key is refused; the credential-store aspect
-     * records through {@link #record(LockManager, String, Store)}, which refuses it while a move is open and carries
-     * the integrity key at the first recording. The store move records only while the record of a move exists, which
-     * is re-read under the credentials lock: a caller that names itself the store move outside a move is refused.
+     * Records a store in the transaction of an operation that already holds {@code locks/credentials.lock}: the switch
+     * of a move, or of the aspect's first recording. Under the lock of the machine configuration, which this call
+     * acquires, the document is re-read, {@code credentials.store} set, {@code revision} incremented, and the file
+     * replaced in one atomic write; every other member is kept. A writer that does not own the key is refused. Each of
+     * the two owners writes only while the record of its own operation exists, which is re-read under the credentials
+     * lock: the store move with a record of {@code operation: move}, the credential-store aspect with a record of
+     * {@code operation: first_recording} that its own carry wrote. The aspect's ordinary path is
+     * {@link #record(LockManager, String, Store)}, which coordinates both stores' keys.
      *
      * @param transaction the transaction of the write; it holds no lock that sorts after the credentials lock other
      *                    than the machine configuration lock
@@ -339,8 +341,8 @@ public final class CredentialStoreChoice {
      * @param writer      who writes the key
      * @throws Refusal                                 with {@code aspect_owned} if the writer does not own the key;
      *                                                 nothing was acquired or written then
-     * @throws IllegalArgumentException                if the writer is the credential-store aspect; nothing was
-     *                                                 acquired or written then
+     * @throws IllegalArgumentException                if the writer is the credential-store aspect and the record of its
+     *                                                 first recording is not open; nothing was acquired or written then
      * @throws IllegalStateException                   if the writer is the store move and no record of a move exists;
      *                                                 nothing was written then
      * @throws de.planmarshall.core.store.StoreRefusal if the document on disk is in another format version or
@@ -358,17 +360,40 @@ public final class CredentialStoreChoice {
                             .formatted(file.store()));
         }
         if (writer == Writer.CREDENTIAL_STORE_ASPECT) {
-            throw new IllegalArgumentException("the credential-store aspect records its store through "
-                    + "record(LockManager, String, Store), which carries the integrity key at the first recording");
+            requireFirstRecording(transaction);
+            write(transaction, store, writer);
+            return;
         }
         transaction.acquire(moveRecord.lockKey());
         requireMove(transaction);
         write(transaction, store, writer);
     }
 
+    /**
+     * Refuses the aspect in a transaction of another caller unless the record of its own first recording is open, which
+     * only the aspect of this instance writes before this call; the transaction holds the credentials lock.
+     */
+    private void requireFirstRecording(LockTransaction transaction) {
+        if (!transaction.holds(moveRecord.lockKey())) {
+            throw new IllegalArgumentException("the credential-store aspect writes credentials.store only in the "
+                    + "transaction of its own first recording, which holds " + moveRecord.lockKey().lockFile());
+        }
+        var firstRecording = moveRecord.read(transaction)
+                .map(document -> CredentialStoreMoveRecord.read(moveRecord.store(), document))
+                .filter(record -> record.operation() == Operation.FIRST_RECORDING);
+        if (firstRecording.isEmpty()) {
+            throw new IllegalArgumentException("the credential-store aspect writes credentials.store in the transaction "
+                    + "of another caller only while the record of its first recording is open; it records a store "
+                    + "through record(LockManager, String, Store)");
+        }
+    }
+
     /** Refuses the store move outside a move, where no record of a move exists; the transaction holds its lock. */
     private void requireMove(LockTransaction transaction) {
-        if (moveRecord.read(transaction).isEmpty()) {
+        var move = moveRecord.read(transaction)
+                .map(document -> CredentialStoreMoveRecord.read(moveRecord.store(), document))
+                .filter(record -> record.operation() == Operation.MOVE);
+        if (move.isEmpty()) {
             throw new IllegalStateException(
                     "the store move records credentials.store of %s only while the record %s of a move exists"
                             .formatted(file.store(), moveRecord.store()));
@@ -615,12 +640,12 @@ public final class CredentialStoreChoice {
                                         sourceKey.readable() ? "empty" : "unreadable", moveRecord.store(),
                                         firstRecording.to().value()));
             }
-            record(transaction, firstRecording.to(), Writer.STORE_MOVE);
+            record(transaction, firstRecording.to(), Writer.CREDENTIAL_STORE_ASPECT);
         } catch (SecretStoreException | UncheckedIOException | StoreRefusal | InvalidCredentialNameException e) {
             throw failedFirstRecording(transaction, firstRecording, keyCarry, copied, e);
         }
         moveRecord.write(transaction, firstRecording.switched().write());
-        deleteKeyOfSource(firstRecording, keyCarry, sourceKey);
+        deleteKeyOfSource(firstRecording, keyCarry, false);
         CredentialStoreMove.deleteRecord(transaction, moveRecord);
     }
 
@@ -636,19 +661,16 @@ public final class CredentialStoreChoice {
             RuntimeException cause) {
         var to = firstRecording.to().value();
         var from = firstRecording.from().value();
-        var removed = !copied || removeCopy(firstRecording, keyCarry, cause);
         var recordedNow = recordedNow(cause);
+        var switched = recordedNow.equals(Optional.of(firstRecording.to()));
+        var removed = switched || !copied || removeCopy(firstRecording, keyCarry, cause);
         String outcome;
-        if (!removed) {
+        if (switched) {
+            outcome = ("'%s' is recorded although the recording failed; the copy stays and the record is kept, so the "
+                    + "next start finishes the recording and deletes the key from '%s'").formatted(to, from);
+        } else if (!removed) {
             outcome = ("nothing was recorded and '%s' keeps the integrity key; the copy could not be removed from "
                     + "'%s', so the record is kept and the next start removes it").formatted(from, to);
-            if (recordedNow.equals(Optional.of(firstRecording.to()))) {
-                outcome = ("'%s' is recorded already and the key stays in '%s'; the record is kept, so the next start "
-                        + "finishes the recording").formatted(to, from);
-            }
-        } else if (recordedNow.equals(Optional.of(firstRecording.to()))) {
-            outcome = ("'%s' is recorded although the recording failed; the key stays in '%s' and the record is kept, so "
-                    + "the next start finishes the recording").formatted(to, from);
         } else {
             outcome = "nothing was recorded and '%s' keeps the integrity key".formatted(from);
             try {
@@ -657,7 +679,7 @@ public final class CredentialStoreChoice {
                 cause.addSuppressed(e);
             }
         }
-        LOGGER.warn(cause, WARN.CREDENTIAL_STORE_FIRST_RECORDING_FAILED, from, to, outcome, cause.getMessage());
+        LOGGER.warn(cause, WARN.CREDENTIAL_STORE_FIRST_RECORDING_FAILED, to, from, outcome, cause.getMessage());
         return new SecretStoreException(SecretStoreException.Reason.FAILED,
                 "the first recording of '%s' failed, %s: %s".formatted(to, outcome, cause.getMessage()), cause);
     }
@@ -690,13 +712,26 @@ public final class CredentialStoreChoice {
     }
 
     /**
-     * Deletes the kept key from the store the first recording did not record, after the switch, where that store holds
-     * one. A failure keeps the record, so the next start finishes the deletion; the message says the recording stands.
+     * Deletes the kept key from the store the first recording did not record, after the switch: under the credentials
+     * lock, and only once the store being recorded provably holds that same key. A store that cannot be read, or a
+     * recorded store that holds no key or another one, refuses the deletion with an {@code IllegalStateException} and
+     * keeps the record, so the key is never deleted from the only store that holds it; a failing deletion keeps the
+     * record too, so the next start finishes it.
      */
     private void deleteKeyOfSource(CredentialStoreMoveRecord firstRecording, IntegrityKeyCarry keyCarry,
-            OtherKey sourceKey) {
-        if (!sourceKey.readable() || sourceKey.key().isEmpty()) {
+            boolean resume) {
+        var targetKey = keyCarry.keyIn(backendOf(firstRecording.to())).read();
+        var sourceKey = resume ? keyCarry.keyIn(backendOf(firstRecording.from())).read()
+                : readKeyOfStore(keyCarry, firstRecording.from()).key();
+        if (sourceKey.isEmpty()) {
             return;
+        }
+        if (!firstRecording.targetHeldKey()
+                && (targetKey.isEmpty() || !IntegrityKeyCarry.sameKey(sourceKey.get(), targetKey.get()))) {
+            throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but '%s' "
+                    + "holds no key or another one than '%s'; nothing was deleted and the record is kept")
+                    .formatted(moveRecord.store(), firstRecording.to().value(), firstRecording.phase().value(),
+                            firstRecording.to().value(), firstRecording.from().value()));
         }
         try {
             keyCarry.keyIn(backendOf(firstRecording.from())).delete();
@@ -725,15 +760,21 @@ public final class CredentialStoreChoice {
     Optional<CredentialStoreMoveRecord> resumeFirstRecording(LockTransaction transaction,
             CredentialStoreMoveRecord firstRecording, String user, LockManager locks) {
         var keyCarry = new IntegrityKeyCarry(base, locks, user);
-        if (firstRecording.phase() == Phase.SWITCHED || recorded().equals(Optional.of(firstRecording.to()))) {
-            requireTargetRecorded(firstRecording);
+        var recorded = recorded();
+        if (firstRecording.phase() == Phase.SWITCHED || recorded.equals(Optional.of(firstRecording.to()))) {
+            requireTargetRecorded(firstRecording, recorded);
             if (firstRecording.phase() == Phase.COPYING) {
                 moveRecord.write(transaction, firstRecording.switched().write());
             }
-            deleteKeyOfSource(firstRecording, keyCarry,
-                    readKeyOfStore(keyCarry, firstRecording.from()));
+            deleteKeyOfSource(firstRecording, keyCarry, true);
             CredentialStoreMove.deleteRecord(transaction, moveRecord);
             return Optional.of(firstRecording);
+        }
+        if (recorded.isPresent()) {
+            throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but "
+                    + "credentials.store names '%s'; a first recording switches only where no store is recorded. "
+                    + "Nothing was deleted and the record is kept").formatted(moveRecord.store(),
+                    firstRecording.to().value(), firstRecording.phase().value(), recorded.get().value()));
         }
         deleteCopyOfFirstRecording(firstRecording, keyCarry);
         completeFirstRecording(transaction, firstRecording, keyCarry);
@@ -741,8 +782,7 @@ public final class CredentialStoreChoice {
     }
 
     /** Refuses to finish a first recording whose store is not recorded; nothing is deleted then. */
-    private void requireTargetRecorded(CredentialStoreMoveRecord firstRecording) {
-        var recorded = recorded();
+    private void requireTargetRecorded(CredentialStoreMoveRecord firstRecording, Optional<Store> recorded) {
         if (!recorded.equals(Optional.of(firstRecording.to()))) {
             throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but "
                     + "credentials.store names %s; nothing was deleted from '%s' or '%s' and the record is kept")
@@ -752,19 +792,22 @@ public final class CredentialStoreChoice {
         }
     }
 
-    /** Deletes the copy a first recording left in the store it records, before it starts again; and only that copy. */
+    /**
+     * Deletes the copy a first recording left in the store it records, before it starts again; and only that copy. A
+     * store that cannot be read fails the resume and keeps the record, so the copy is never left behind unnoticed.
+     */
     private void deleteCopyOfFirstRecording(CredentialStoreMoveRecord firstRecording, IntegrityKeyCarry keyCarry) {
         if (!firstRecording.targetHeldKey()
-                && readKeyOfStore(keyCarry, firstRecording.from()).key().isPresent()) {
+                && keyCarry.keyIn(backendOf(firstRecording.from())).read().isPresent()) {
             keyCarry.keyIn(backendOf(firstRecording.to())).delete();
         }
     }
 
-    /** Refuses every writer but the move while the record of a move exists; the transaction holds its lock. */
+    /** Refuses every writer but the operation that owns it while a record exists; the transaction holds its lock. */
     private void requireNoMove(LockTransaction transaction) {
         if (moveRecord.read(transaction).isPresent()) {
             throw new Refusal(Refusal.Reason.ASPECT_OWNED,
-                    "a move between the credential stores is open in %s; until it ends only the move records %s"
+                    "an operation on the credential stores is open in %s; until it ends only that operation records %s"
                             .formatted(moveRecord.store(), "credentials.store of " + file.store()));
         }
     }

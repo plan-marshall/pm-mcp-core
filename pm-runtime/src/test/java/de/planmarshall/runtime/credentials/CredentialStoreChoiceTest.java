@@ -31,12 +31,14 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -397,7 +399,8 @@ class CredentialStoreChoiceTest {
             var afterwards = assertThrows(Refusal.class, () -> choice.record(locks, USER, Store.FILE));
 
             assertAll(
-                    () -> assertTrue(whileOpen.getMessage().contains("only the move records"), whileOpen.getMessage()),
+                    () -> assertTrue(whileOpen.getMessage().contains("only that operation records"),
+                            whileOpen.getMessage()),
                     () -> assertEquals(Refusal.Reason.ASPECT_OWNED, afterwards.reason()),
                     () -> assertTrue(afterwards.getMessage().contains("a change to 'file' is a move"),
                             afterwards.getMessage()),
@@ -1031,6 +1034,7 @@ class CredentialStoreChoiceTest {
                     () -> assertTrue(keyIn(secretService).read().isEmpty(), "the key of the OS store is deleted"),
                     () -> assertArrayEquals(created.getEncoded(), keyIn(fileStoreName()).read().orElseThrow()
                             .getEncoded()),
+                    () -> assertTrue(verified(created).isEmpty(), "every sidecar verifies under the recorded key"),
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertFalse(Files.exists(CredentialStoreMoveRecord.file(base))),
                     () -> assertTrue(secondRun.isEmpty(), "a second resume on the finished state does nothing"));
@@ -1129,7 +1133,6 @@ class CredentialStoreChoiceTest {
         @DisplayName("a store that cannot be read while it is not the one being recorded is taken as holding no key, "
                 + "with a warning, and the recording proceeds")
         void unreadableOtherStore() throws Exception {
-            osAvailable[0] = false;
             var choice = choice();
             var created = keyIn(fileStoreName()).readOrCreate();
             signHarnesses(created);
@@ -1167,47 +1170,47 @@ class CredentialStoreChoiceTest {
          * @return the key the placement signs the sidecars under
          */
         private SecretKey arrange(Placement placement, CredentialStoreChoice choice) throws IOException {
-            switch (placement) {
+            return switch (placement) {
                 case FOUND_ONLY -> {
                     var found = key(choice).readOrCreate();
                     signHarnesses(found);
-                    return found;
+                    yield found;
                 }
                 case OTHER_ONLY -> {
                     var other = keyIn(fileStoreName()).readOrCreate();
                     signHarnesses(other);
-                    return other;
+                    yield other;
                 }
                 case BOTH_SAME -> {
                     var found = key(choice).readOrCreate();
                     keyIn(fileStoreName()).write(found);
                     signHarnesses(found);
-                    return found;
+                    yield found;
                 }
                 case BOTH_DIFFERENT_FOUND_VERIFIES -> {
                     var found = key(choice).readOrCreate();
                     keyIn(fileStoreName()).write(freshKey());
                     signHarnesses(found);
-                    return found;
+                    yield found;
                 }
                 case BOTH_DIFFERENT_OTHER_VERIFIES -> {
                     key(choice).readOrCreate();
                     var other = keyIn(fileStoreName()).readOrCreate();
                     signHarnesses(other);
-                    return other;
+                    yield other;
                 }
                 case BOTH_DIFFERENT_UNDECIDED -> {
                     var found = key(choice).readOrCreate();
                     keyIn(fileStoreName()).write(freshKey());
-                    return found;
+                    yield found;
                 }
-                default -> {
+                case BOTH_DIFFERENT_NEITHER_VERIFIES -> {
                     var found = key(choice).readOrCreate();
                     keyIn(fileStoreName()).write(freshKey());
                     signHarnesses(freshKey());
-                    return found;
+                    yield found;
                 }
-            }
+            };
         }
 
         /**
@@ -1238,26 +1241,128 @@ class CredentialStoreChoiceTest {
         }
 
         @Test
-        @DisplayName("neither the integrity key nor a credential value reaches a log or an exception on the path of the "
-                + "first recording, neither where it succeeds nor where it is refused")
-        void noSecretInALog() throws Exception {
-            var marker = "MARKER-6a1f0c-of-the-first-recording";
+        @DisplayName("neither the integrity key nor a credential value reaches a log record or a message, on the "
+                + "succeeding path")
+        void noSecretInALogOnSuccess() throws Exception {
+            var marker = "MARKER-6a1f0c-success";
             var choice = choice();
-            var key = keyIn(new MemoryStore(SecretStore.KEYCHAIN)).readOrCreate();
-            signHarnesses(key);
+            var key = markerKey(marker);
             keyIn(fileStoreName()).write(key);
+            signHarnesses(key);
             secretService.put(GITHUB, marker);
+
+            choice.record(locks, USER, Store.OS);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertNoMarker(marker, key, null));
+        }
+
+        @Test
+        @DisplayName("neither the integrity key nor a credential value reaches a log record or a message, on the "
+                + "refused path")
+        void noSecretInALogOnARefusal() throws Exception {
+            var marker = "MARKER-6a1f0c-refusal";
+            var choice = choice();
+            var key = markerKey(marker);
+            keyIn(secretService).write(key);
+            keyIn(fileStoreName()).write(markerKey(marker + "-the-other-key"));
+            secretService.put(GITHUB, marker);
+
+            var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.OS));
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("hold different integrity keys"),
+                            failure.getMessage()),
+                    () -> assertNoMarker(marker, key, failure));
+        }
+
+        @Test
+        @DisplayName("neither the integrity key nor a credential value reaches a log record or a message, on the "
+                + "failing path before the switch")
+        void noSecretInALogOnAFailure() throws Exception {
+            var marker = "MARKER-6a1f0c-failure";
+            var choice = choice();
+            var key = markerKey(marker);
+            keyIn(secretService).write(key);
+            signHarnesses(markerKey(marker + "-the-other-key"));
+            secretService.put(GITHUB, marker);
+
+            var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.FILE));
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("does not verify"), failure.getMessage()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.CREDENTIAL_STORE_FIRST_RECORDING_FAILED.resolveIdentifierString()),
+                    () -> assertNoMarker(marker, key, failure));
+        }
+
+        @Test
+        @DisplayName("neither the integrity key nor a credential value reaches a log record or a message, on the path "
+                + "of a store that cannot be read")
+        void noSecretInALogOnAnUnreadableStore() throws Exception {
+            var marker = "MARKER-6a1f0c-unreadable";
+            var choice = choice();
+            var key = markerKey(marker);
+            keyIn(fileStoreName()).write(key);
+            signHarnesses(key);
+            secretService.put(GITHUB, marker);
+            osAvailable[0] = false;
 
             choice.record(locks, USER, Store.FILE);
 
-            var refusal = assertThrows(RuntimeException.class, () -> choice.record(locks, USER, Store.OS));
-
             assertAll(
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
-                    () -> assertNoMarker(marker, key, refusal));
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            WARN.CREDENTIAL_STORE_UNREADABLE_WHILE_RECORDING.resolveIdentifierString()),
+                    () -> assertNoMarker(marker, key, null));
         }
 
-        /** Asserts that neither the marker nor the encoded key is in a log record or in the failure. */
+        @Test
+        @DisplayName("neither the integrity key nor a credential value reaches a log record or a message, on the path "
+                + "the next start resumes")
+        void noSecretInALogOnTheResume() throws Exception {
+            var marker = "MARKER-6a1f0c-resume";
+            var choice = choice();
+            var key = markerKey(marker);
+            keyIn(secretService).write(key);
+            signHarnesses(key);
+            secretService.put(GITHUB, marker);
+            secretService.failDeletesWith(SecretStoreException.Reason.LOCKED);
+
+            var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.FILE));
+            secretService.acceptsDeletes();
+            new de.planmarshall.runtime.start.CredentialStoreMoveResume(move(choice)).run();
+
+            assertAll(
+                    () -> assertTrue(keyIn(secretService).read().isEmpty()),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.CREDENTIAL_STORE_FIRST_RECORDING_RESUMED.resolveIdentifierString()),
+                    () -> assertNoMarker(marker, key, failure));
+        }
+
+        @Test
+        @DisplayName("a store being recorded that cannot be read while no key has to be moved is recorded without a "
+                + "record")
+        void unreadableStoreWithoutAKeyRecordsWithoutARecord() {
+            osAvailable[0] = false;
+            var choice = choice();
+
+            choice.record(locks, USER, Store.OS);
+
+            assertAll(
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertTrue(keyIn(secretService).read().isEmpty()),
+                    () -> assertFalse(Files.exists(CredentialStoreMoveRecord.file(base)), "the key moved, so no record"));
+        }
+
+        /** A key of 32 bytes that carries the marker, so a log record that printed it in any form would show it. */
+        private static SecretKey markerKey(String marker) {
+            return new SecretKeySpec(Arrays.copyOf(marker.getBytes(StandardCharsets.UTF_8), 32),
+                    EnrolmentKey.ALGORITHM);
+        }
+
+        /** Asserts that neither the marker nor the encoded key is in a log record or in the failure, at any level. */
         private static void assertNoMarker(String marker, SecretKey key, Throwable failure) {
             var encodedKey = Base64.getUrlEncoder().withoutPadding().encodeToString(key.getEncoded());
             for (var level : TestLogLevel.values()) {

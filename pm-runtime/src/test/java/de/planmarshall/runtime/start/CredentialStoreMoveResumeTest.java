@@ -43,6 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.credentials.CredentialAccount;
@@ -129,6 +130,14 @@ class CredentialStoreMoveResumeTest {
         }
         try (var transaction = locks.openTransaction()) {
             choice.record(transaction, store, writer);
+        }
+    }
+
+    /** Switches {@code credentials.store} as the first recording does, in a transaction that holds the credentials lock. */
+    private void switchStore(Store store) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(LockKey.credentials(base));
+            choice.record(transaction, store, Writer.CREDENTIAL_STORE_ASPECT);
         }
     }
 
@@ -382,7 +391,7 @@ class CredentialStoreMoveResumeTest {
             var key = machineBeforeTheChoice();
             keyIn(fileStore).write(key);
             openFirstRecording(Phase.COPYING, false);
-            recordStore(Store.FILE, Writer.STORE_MOVE);
+            switchStore(Store.FILE);
 
             var resumed = resume.run();
 
@@ -395,7 +404,7 @@ class CredentialStoreMoveResumeTest {
             var key = machineBeforeTheChoice();
             keyIn(fileStore).write(key);
             openFirstRecording(Phase.SWITCHED, false);
-            recordStore(Store.FILE, Writer.STORE_MOVE);
+            switchStore(Store.FILE);
 
             var resumed = resume.run();
 
@@ -408,7 +417,7 @@ class CredentialStoreMoveResumeTest {
             var key = machineBeforeTheChoice();
             keyIn(fileStore).write(key);
             openFirstRecording(Phase.SWITCHED, false);
-            recordStore(Store.FILE, Writer.STORE_MOVE);
+            switchStore(Store.FILE);
             resume.run();
 
             var second = resume.run();
@@ -422,8 +431,7 @@ class CredentialStoreMoveResumeTest {
 
         @Test
         @DisplayName("a first recording in phase switched without the store it records is refused and deletes nothing")
-        void switchedWithoutTheRecordedStore() throws Exception {
-            var key = machineBeforeTheChoice();
+        void switchedWithoutTheRecordedStore() throws Exception {            var key = machineBeforeTheChoice();
             keyIn(fileStore).write(key);
             openFirstRecording(Phase.SWITCHED, false);
 
@@ -438,18 +446,62 @@ class CredentialStoreMoveResumeTest {
         }
 
         @Test
-        @DisplayName("while the record of a first recording exists the aspect records no store")
+        @DisplayName("while the record of a first recording exists the aspect records no store and no move starts")
         void aspectRefusedUntilTheResume() throws Exception {
             machineBeforeTheChoice();
             openFirstRecording(Phase.COPYING, false);
 
             var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
                     () -> choice.record(locks, USER, Store.FILE));
+            var move = assertThrows(IllegalStateException.class, () -> resumeMove().move(Store.OS));
 
             assertAll(
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),
+                    () -> assertTrue(move.getMessage().contains("the next start of the runtime resumes it"),
+                            move.getMessage()),
                     () -> assertTrue(choice.recorded().isEmpty()),
                     () -> assertTrue(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("a first recording cut before the switch while another store is recorded is refused and deletes "
+                + "nothing")
+        void anotherStoreRecorded() throws Exception {
+            var key = machineBeforeTheChoice();
+            recordStore(Store.OS, Writer.CREDENTIAL_STORE_ASPECT);
+            keyIn(fileStore).write(key);
+            openFirstRecording(Phase.COPYING, false);
+
+            var failure = assertThrows(IllegalStateException.class, resume::run);
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("a first recording switches only where no store is "
+                            + "recorded"), failure.getMessage()),
+                    () -> assertEquals(Optional.of(Store.OS), choice.recorded()),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("a first recording cut before the switch whose other store holds no key while the store being "
+                + "recorded does is refused, records nothing and ends its record")
+        void sourceWithoutTheKeptKey() throws Exception {
+            keyIn(fileStore).readOrCreate();
+            openFirstRecording(Phase.COPYING, false);
+
+            var failure = assertThrows(SecretStoreException.class, resume::run);
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("cannot be completed"), failure.getMessage()),
+                    () -> assertTrue(choice.recorded().isEmpty()),
+                    () -> assertFalse(Files.exists(recordFile()), "nothing was copied, so there is nothing to resume"),
+                    () -> assertTrue(keyIn(fileStore).read().isPresent()),
+                    () -> assertTrue(keyIn(osStore).read().isEmpty()));
+        }
+
+        private CredentialStoreMove resumeMove() {
+            return new CredentialStoreMove(base, choice, locks, events::add, USER,
+                    Clock.fixed(STARTED, ZoneOffset.UTC));
         }
     }
 

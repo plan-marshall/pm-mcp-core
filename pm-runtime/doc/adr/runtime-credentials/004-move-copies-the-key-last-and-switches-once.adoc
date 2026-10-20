@@ -23,8 +23,8 @@ move could land in the old store after it was copied, and a stop may cut the mov
   re-reads its record inside the lock before every phase. It takes `locks/machine-config.lock` only inside it, for the
   switch.
 * The record `state/credential-store-move.json` (`CredentialStoreMoveRecord`: `from`, `to`, `started_at`, `phase`,
-  `target_held_key`) is written under the credentials lock in phase `copying`, rewritten once in phase `switched`, and
-  deleted when the move ends.
+  `target_held_key`; ADR 008 added the `operation` of the record and ADR 009 its `transaction_id`) is written under the
+  credentials lock in phase `copying`, rewritten once in phase `switched`, and deleted when the move ends.
 * While the record exists only the move records `credentials.store`: `CredentialStoreChoice` refuses every other
   writer, the credential-store aspect included, with `aspect_owned`, and checks the record under the credentials lock
   before it takes `locks/machine-config.lock`, so no writer records a store between the check and its write.
@@ -42,8 +42,9 @@ move could land in the old store after it was copied, and a stop may cut the mov
   the clean-up of a failed move, which deletes from the target every account the old store holds, deletes only copies
   of this move.
 * The integrity key is no Token Lane entry, and a key can stay outside the recorded store, so the target is compared
-  with the old store before the record is written (`IntegrityKeyCarry.targetKey`, the comparison the first recording
-  of a store uses as well). A target that holds another key than the old store is refused with
+  with the old store before the record is written (`IntegrityKeyCarry.targetKey`, the comparison the first recording of
+  a store used at the date of this decision; ADR 007 reconciled the first recording on the sidecars instead). A target
+  that holds another key than the old store is refused with
   `credential_store_failed`, naming both stores, and nothing is written or deleted: the copy would overwrite a keyring
   entry, and the clean-up of a failed move would delete a key file the move never wrote, and every sidecar signed under
   that key could never be verified again. A target that holds the same key is moved into; `IntegrityKeyCarry.copy`

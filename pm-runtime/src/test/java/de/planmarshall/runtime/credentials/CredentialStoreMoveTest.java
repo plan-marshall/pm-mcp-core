@@ -631,7 +631,7 @@ class CredentialStoreMoveTest {
             assertAll(
                     () -> assertEquals(1, refusals.size()),
                     () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusals.getFirst().reason()),
-                    () -> assertTrue(refusals.getFirst().getMessage().contains("only the move records"),
+                    () -> assertTrue(refusals.getFirst().getMessage().contains("only that operation records"),
                             refusals.getFirst().getMessage()),
                     () -> assertMoved(Store.OS, Store.FILE, fileStore, osStore, key));
         }
