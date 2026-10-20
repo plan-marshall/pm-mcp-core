@@ -1,0 +1,28 @@
+= The review of an epic's findings and watches, by the operator
+:nofooter:
+
+link:README.adoc[Work packages of `pm-mcp-core`] » `epic-review`
+
+[horizontal]
+Serves:: roadmap Milestone 12 (the review of an epic's findings and watches in both clients); link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-6[Use Cases, UC-STA-6] and link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-3[UC-CTL-3]; the reviews in both clients of `pm-mcp-clients`
+Where:: pm-workflow (the sub-workflow `review`, called by `epic.review`, the epic's tasks that add items, the watches' re-check `epic.recheck-watches`); pm-core (the two registers in the ledger)
+Status and dependencies:: in the link:README.adoc#packages[index], the only place that states them
+
+== What
+
+* *Implements* link:../specification/model-work/08-epic-coordination.adoc#findings-watches[Model Work § An Epic's Findings and Watches], link:../specification/model-work/08-epic-coordination.adoc#epic-review[§ The Review], link:../specification/state-catalogue/17-epic-decomposition-and-review.adoc#state-catalogue-review[State Catalogue § Review: `review`], and the registers of link:../specification/store-schemas/04-epic-and-change-ledger.adoc#epic-registers[Store Schemas § Findings and Watches Registers] (`PM-WF-15`).
+* The registers of findings (a problem no plan owns yet, to be fixed; never called a defect) and watches (an observation to check again, with its trigger) in the epic's ledger; each item with its epic-scoped id, statement, rules, origin, and state `open` (not decided yet), `kept`, `dropped` (with the reason), or `promoted` with its row; the epic's tasks adding items with the repeatable submit `submit register_item`; a watch's trigger (`landing` or `base_advanced`) re-checked, the watch becoming a finding or closed; new findings as a `needs_operator` kind. Only an `open` finding holds the epic's archive; kept findings and watches are carried into it (the check is link:epic-resource-and-release.adoc[`epic-resource-and-release`]'s).
+* The sub-workflow `review`, called by `epic.review`: `review.open` with the planning role's proposal per item; at `review.item` keep (`review.keep`: kept as a finding, or moved to the watches where the kind changes), drop (`review.drop`, with the reason), promote, edit, chat (the sub-workflow link:chat.adoc[`chat`] with one item or the whole register as its scope); the remaining proposals accepted at once after one confirmation; `review.commit` writes the dispositions and lands them in one ledger write.
+* *Promote*: `review.draft-plan` by the planning role, then `review.confirm-plan` with stage (a staged row under the surface checks), back, and edit: `review.instruct-plan` (the operator's words for the drafted plan), `review.redraft-plan` (the role drafts the plan again), `review.read-back-plan` (old against new: accept back to `review.confirm-plan` with the new draft, instruct again, or discard back to `review.confirm-plan` with the draft before).
+* *Edit*: `review.instruct`, the role's rewrite `review.rewrite`, `review.read-back` (accept: applied, back to `review.item`; instruct again; discard: back to `review.item`, the item unchanged).
+* *The operator's words* in edit and chat are not interpreted: the role works from them, and only what it proposes (a rewrite, a redrafted plan, a change in a chat) passes a read-back; the role reads the items as data, a finding from outside the machine still marked untrusted.
+
+== Trace
+
+* Use cases: link:../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-6[UC-STA-6]; link:../../../plan-marshall-documentation/doc/use-cases/06-controlling-work.adoc#UC-CTL-3[UC-CTL-3]
+* Requirements: link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-15[PM-WF-15]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-20[PM-WF-20]; link:../../../plan-marshall-documentation/doc/requirements/02-workflow.adoc#PM-WF-24[PM-WF-24] (the chat in the review)
+* Specification: the sections the _Implements_ bullet of _What_ names; link:../specification/model-work/08-epic-coordination.adoc[Model Work § Epic Coordination]; link:../specification/model-work/08-epic-coordination.adoc#epic-workflow[§ Epic Workflow]; link:../specification/model-work/08-epic-coordination.adoc#epic-surface-disjointness[§ Staging-Time Surface Disjointness]; link:../specification/model-work/01-roles-and-configuration.adoc#default-roles[§ Default Role Set]; link:../specification/store-schemas/04-epic-and-change-ledger.adoc[Store Schemas § Epic & Change Ledger]; link:../specification/state-catalogue/06-setup-epic-other.adoc[State Catalogue § Epic]
+
+== Done When
+
+A landing and an inbox finding each add an item; a review takes every disposition, also keeping a finding as a watch and the reverse, and lands them in one ledger write; each operator act of the review is tested; no model's change reaches a register or a drafted plan without the operator's read-back, and each branch of `review.read-back` and `review.read-back-plan` is tested; a promoted item is a staged row that passed the surface check.

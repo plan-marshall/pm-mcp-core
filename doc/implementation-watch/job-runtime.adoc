@@ -456,6 +456,22 @@ parser fault; no record outside the failure envelope schema is stored; matched c
 pass unchanged.
 Source:: design review.
 
+[#PM-WATCH-JOB-37]
+=== PM-WATCH-JOB-37: The provenance provider sends only the added lines, only where the operator enabled it
+
+Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#provenance-provider[Job Runtime § Snippet Provenance Provider],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-9[PM-WF-9]
+Hazard:: The provider sends the repository's code to a third party: a request built from the whole file, from a
+deleted line, or from a path outside the footprint discloses more than the operator agreed to; a configuration read
+from a team file or a machine default lets a cloned repository or another project switch the upload on; a service
+error mapped to `passed` reports a clean result that no scan produced.
+Guard:: Scenario tests against a recorded fake service: the request body holds exactly the added lines of the
+footprint's files; a project without `integrations.provenance` in `local-config.json` sends nothing, whatever its team
+files say; a request goes only to the configured origin; a timeout, a quota refusal and an answer outside the schema
+each give `undecidable`; matched control: a diff without a match gives `passed`, one with a match one finding with its
+licences.
+Source:: analysis of Eclipse Theia (doc/articles/theia.adoc in plan-marshall-documentation).
+
 [#PM-WATCH-JOB-33]
 === PM-WATCH-JOB-33: A warm worker feeds the learned budget only with the time of its closed attempts
 

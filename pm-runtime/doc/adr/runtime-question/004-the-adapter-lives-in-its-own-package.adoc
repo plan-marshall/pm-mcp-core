@@ -1,0 +1,49 @@
+= ADR 004: The Adapter Lives in Its Own Package `runtime.question`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+The operator's brief for the plan left the package of the question record reader open: a new package, or one of the
+existing packages of `pm-runtime` that fits. The adapter reads the question log of `core.store` and is the runtime side
+of the engine port `core.spi.QuestionRecordReader`; it is neither a workspace-path operation (`runtime.workspace`) nor a
+job, a credential store or a start step.
+
+The operator was asked before the implementation which of two readings to take, because the two differ in the files
+they create (a new package with its `package-info.java`, developer guide and ADR directory, or an existing package with
+none).
+
+== Decision
+
+The adapter, its tests, its developer guide `pm-runtime/doc/developer/runtime-question.adoc` and its ADRs live in a new
+package `de.planmarshall.runtime.question`, with the test package beside it. The module README gained the package's
+one-line entry, its developer-guide link and its ADR-directory link, and the repository ADR index
+`doc/adr/README.adoc` gained the directory.
+
+== Alternatives Considered
+
+1. *The existing package `de.planmarshall.runtime.workspace`, beside `WorkspaceConfinement`.*
+_Not taken_: the package is the entry for confined project paths; a question store reader is not a path operation, and
+placing it there would mix a file reader of the machine store into the confinement entry. It would also have reused the
+`runtime-workspace` ADR numbering for decisions that are not about confinement.
+
+2. *No new package, the class in `de.planmarshall.runtime` directly.*
+_Not taken_: the root package holds the module's overview types, not one reader; every other concern of the module has
+its own package.
+
+== Consequences
+
+* The package is the home of the runtime side of the question port; a change of the store's read surface settles there.
+* The new package is documented like every other new package: `package-info.java`, the developer guide, the ADRs.
+
+== Source
+
+* Operator decision taken before the implementation (2026-10-20): the new package `de.planmarshall.runtime.question`
+* `pm-runtime/README.adoc`, `doc/adr/README.adoc`

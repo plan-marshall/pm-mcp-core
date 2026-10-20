@@ -1,0 +1,142 @@
+= Client Profiles Specification: Endpoint Harness
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles Specification] » Endpoint Harness
+
+[#endpoint-harness]
+== A Model on This Machine
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
+
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-14[PM-WATCH-CLIENT-14]_
+
+A model that a program of the machine serves over HTTP on the loopback interface (an operating system's own model server, or a local model runner) is a harness of its own kind, the *endpoint harness*. It has no tools, no MCP connection, and no session, so it runs exactly one role class, `zero_tool` (the screener and the judge, link:01-profile-schema.adoc#role-classes[Role Classes of a Harness]), and no other. Nothing it is given leaves the machine, so untrusted text screened on it reaches no model provider.
+
+* *A profile of its own kind*: an endpoint harness is described by an *endpoint profile* (<<endpoint-profile-schema>>), a document of the same profile sets, verification, and override rules as a client profile (link:01-profile-schema.adoc#profile-sets[Profile Sets]), told apart by its member `profile_kind: "endpoint"`. Its `client_id` shares the namespace of the client profiles. It has no `tools`, `skill_loading`, `headless`, `connection`, `detection`, or `worker` block: it is never a host of the operator, never a target of a client bundle, and has none of the per-host values of the task protocol.
+* *Started by the operator, never by `PM-MCP`*: the serving program runs under the operator's own account and its own terms (a licence it asks to accept, a model it downloads); the runtime never starts, stops, or configures it. The runtime only sends requests to it and checks before each request that the program listening on the profile's port is the enrolled one (<<endpoint-enrolment>>).
+* *Loopback only*: `base_url` names `127.0.0.1` or `[::1]`; profile validation refuses any other host. A request to an endpoint is no outbound request of the runtime (link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2]); whether the serving program itself makes network requests is the operator's knowledge of that program and is never claimed by a profile.
+* *No shipped endpoint profile*: the release ships no endpoint profile. The operator adds one through the onboarding's `harness.add` in the endpoint form (<<endpoint-verification>>), and roles are assigned to it like to any harness (link:../model-work/01-roles-and-configuration.adoc#role-assignment[Model Work Specification, Role Assignment]), each graded before it runs (link:../model-work/01-roles-and-configuration.adoc#qualification-records[Model Work Specification, Qualification Records]).
+* *A judge on an endpoint is the operator's risk*: the `judge` is exempt from qualification, so nothing grades a judge assigned to an endpoint harness, and every grade it gives rests on that model. The assignment is allowed; `pm-operator roles show` and the role views of both clients mark a `judge` on an endpoint harness as ungraded wherever its assignment is shown.
+
+[#endpoint-profile-schema]
+=== Endpoint Profile Schema
+
+[source,json]
+----
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuioss.de/plan-marshall-mcp/schemas/endpoint-profile.json",
+  "title": "EndpointProfile",
+  "type": "object",
+  "required": ["profile_kind", "schema_version", "client_id", "display_name", "min_daemon_version", "icon", "executable", "identity", "update_evidence", "endpoint", "model_tiers", "weights_probe"],
+  "additionalProperties": false,
+  "properties": {
+    "profile_kind": { "type": "string", "const": "endpoint" },
+    "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "client_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "min_daemon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "icon": { "description": "As the icon of a client profile (Client Profile Schema)." },
+    "executable": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Name of the serving program; the operator enrols its absolute path, and the runtime checks that it owns the listening socket of base_url." },
+    "identity": {
+      "type": "object",
+      "required": ["version_probe", "version_pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "version_probe": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "version_pattern": { "type": "string" }
+      }
+    },
+    "update_evidence": { "description": "As headless.update_evidence of a client profile (Update Evidence)." },
+    "endpoint": {
+      "type": "object",
+      "required": ["protocol", "base_url", "readiness_path", "models_path", "models_pointer", "result_schema", "context_tokens", "answer_reserve_tokens", "request_timeout_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "protocol": { "type": "string", "enum": ["openai_chat"], "description": "The request and answer format; a new protocol is a change of this list and of the code, made once for all endpoints." },
+        "base_url": { "type": "string", "pattern": "^http://(127\\.0\\.0\\.1|\\[::1\\]):[0-9]{1,5}$" },
+        "readiness_path": { "type": ["string", "null"], "pattern": "^/[A-Za-z0-9._/-]{0,127}$", "description": "A path answering 200 once the program serves; null: the models path is the readiness check." },
+        "models_path": { "type": "string", "pattern": "^/[A-Za-z0-9._/-]{0,127}$" },
+        "models_pointer": { "type": "string", "description": "JSON Pointer to the array of model objects in the answer of models_path; each object's id is a model id." },
+        "result_schema": { "type": "string", "enum": ["enforced", "advisory", "none"], "description": "Measured: enforced, the endpoint holds its answer to a JSON Schema sent with the request; advisory, it accepts the schema and does not hold to it; none, it refuses it. The server validates every answer itself in each case." },
+        "context_tokens": { "type": "integer", "minimum": 1024, "description": "Measured: the largest request, prompt and answer together, the endpoint accepts." },
+        "answer_reserve_tokens": { "type": "integer", "minimum": 64, "description": "The part of context_tokens kept for the answer." },
+        "request_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 3600 }
+      }
+    },
+    "model_tiers": { "description": "As headless.model_tiers of a client profile (Model Tiers & Models of a Harness)." },
+    "weights_probe": { "$ref": "#/$defs/weights_probe" }
+  },
+  "$defs": {
+    "weights_probe": {
+      "type": ["object", "null"],
+      "description": "How the identity of a model's weights is read (Weights Identity); null: the harness reports none.",
+      "required": ["source", "pointer", "argv", "pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "enum": ["models_listing", "argv"] },
+        "pointer": { "type": ["string", "null"], "description": "For models_listing: the JSON Pointer, relative to a model object of the listing, to its weights identity." },
+        "argv": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 }, "description": "For argv: a probe run without a shell, with the slot {{model}}." },
+        "pattern": { "type": ["string", "null"], "description": "For argv: the pattern whose first group in the probe's output is the weights identity." }
+      }
+    }
+  }
+}
+----
+
+Profile validation applies the rules of a client profile where they concern the same members (link:01-profile-schema.adoc#profile-hardening[A Profile Is Untrusted Input]) and refuses an endpoint profile whose `answer_reserve_tokens` is not below `context_tokens`, or whose `weights_probe` fills the members of the other source.
+
+[#endpoint-request]
+=== The Request
+
+A task of a `zero_tool` role on an endpoint harness is one HTTP request, composed by the server:
+
+* *What it sends*: the launch prompt of a `zero_tool` worker (link:../model-work/04-worker-launch.adoc[Model Work Specification, Worker Launch]) as the system message and the task input as the user message; the model of the role's effective configuration; streaming explicitly off; the role's result schema as the response format where `result_schema` is `enforced` or `advisory`. It sends no `tools` member and no tool choice, whatever the endpoint accepts. Every request value the endpoint has a default for is sent explicitly, so no default of the serving program decides how the task runs.
+* *What fits*: the role's context budget on an endpoint harness is `context_tokens` less `answer_reserve_tokens`, and the batch of a screening (link:../model-work/07-untrusted-text-screening.adoc#batch-v1[Model Work Specification, Batch Format]) is packed to it like an envelope to its budget. A role artifact whose launch prompt alone does not fit is invalid on that harness and counts as undefined (link:../model-work/01-roles-and-configuration.adoc[Model Work Specification, Roles & Configuration]).
+* *What it accepts*: the answer is validated against the result schema by the server, never trusted because the endpoint enforces a schema. An answer that does not validate, a refusal text, an HTTP error, or a timeout ends the attempt like a worker without a valid result, and the task's own rules apply (a screening fails closed and leaves its sources `unscreened`, link:../model-work/07-untrusted-text-screening.adoc#screen-stored[Model Work Specification, Screened Once Stored]). An endpoint that does not answer its readiness check counts as a start failure (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work Specification, Start-Failure Guard]).
+* *Usage*: the token counts of the answer's usage object are recorded per task; a count the answer lacks is `unmeasured` (link:01-profile-schema.adoc#token-usage[Tokens, Not Money]).
+
+[#endpoint-enrolment]
+=== Enrolment
+
+An endpoint harness is enrolled like a harness started as a process (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]): the absolute path, digest, and version of its serving program, checked against its update evidence when the digest changes. Before each request the runtime checks that the process that owns the listening socket of `base_url` runs the enrolled executable; another program on the port refuses the request before it is sent (fate `refused`, reason `harness_not_enrolled`), so no task text reaches a program that is not the enrolled one.
+
+[#weights-identity]
+=== Weights Identity
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation]_
+
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-14[PM-WATCH-CLIENT-14]_
+
+The same model name may load different weights: another chip, another operating system build, or a model runner's tag that now points to other weights. Where a profile's `weights_probe` (an endpoint profile's, or `headless.weights_probe` of a client profile) is not `null`, the runtime reads the weights identity of every model the catalogue allows on that harness when the harness is enrolled, at every start of the runtime, and at every project setup run, and records it in the harness enrolment beside the model. The weights identity is a member of the qualification digest (link:../model-work/01-roles-and-configuration.adoc#role-artifact[Model Work Specification, Role Artifact]), so a model whose weights changed is unqualified until it is graded again; the change is audited (`harness_updated`, naming the model and both identities). A harness whose probe is `null` keeps the digest it has: its model name stands for its weights.
+
+[#endpoint-verification]
+=== Verification of an Endpoint
+
+`pm-operator profile verify` and the onboarding's `harness.verify-profile` verify an endpoint draft by the stages that apply to it, decided from what the runtime observes and never from the model's statement (link:01-profile-schema.adoc#profile-verification[Profile Verification]):
+
+[cols="1,4,3"]
+|===
+|Stage |What it does |Profile values it settles
+
+|`identity`
+|Runs the version probe; finds the listening socket of `base_url` and the executable that owns it; reads the models listing and, where declared, the weights identity of each model.
+|`identity`, `executable`, `endpoint.models_path`, `models_pointer`, `weights_probe`
+
+|`launch`
+|Checks readiness, then sends the base task with streaming off and with the result schema; checks that the answer is one JSON document and not an event stream, and that it validates. Sends the same task with a result schema whose answer the task text contradicts, and once without the schema.
+|`endpoint.readiness_path`, `result_schema` (`enforced` when the contradicted schema still holds the answer, `advisory` when it does not, `none` when the request is refused)
+
+|`classes`
+|Sends a task that asks for a tool call and declares a probe tool in a `tools` member, once only for this stage, and checks the answer for a tool call and for the decoy result the task text names. The class `zero_tool` is runnable on an endpoint whatever the answer, because the server never sends tools; an endpoint that answers with an invented tool result is recorded as `tools_ignored` and shown at the profile, so no one wires it to a tool caller.
+|the record only
+
+|`limits`
+|Finds the largest accepted request by bisection between `1024` tokens and the endpoint's refusal, counting with the endpoint's own usage figures.
+|`endpoint.context_tokens`
+|===
+
+A failed `identity` or `launch` stage refuses the draft; `classes` and `limits` record what they found.

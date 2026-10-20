@@ -26,17 +26,17 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
 |`PHASE`
-|110
+|111
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
 |`DISP`
-|57
+|58
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]
 |`EXT`
-|36
+|37
 |link:specification/domain-extensions.adoc[Domain Extensions, Build Map & Configuration Split Specification]
 
 |link:implementation-watch/filesystem-layout.adoc[Filesystem Layout]
@@ -51,12 +51,12 @@ Defect archetypes, real-corpus fixtures and verification hints that guard the sp
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]
 |`JOB`
-|33
+|34
 |link:specification/job-runtime.adoc[Job Runtime Specification]
 
 |link:implementation-watch/client-profiles.adoc[Client Profiles]
 |`CLIENT`
-|9
+|10
 |link:specification/client-profiles.adoc[Client Profiles Specification]
 
 |link:implementation-watch/runtime-lifecycle.adoc[Runtime Lifecycle]

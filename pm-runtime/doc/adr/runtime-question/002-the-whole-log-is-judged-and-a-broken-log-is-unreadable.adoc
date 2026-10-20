@@ -1,0 +1,67 @@
+= ADR 002: The Whole Log Is Judged, and a Broken Log Is Unreadable
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+`QuestionLog.read()` reports the complete lines of the log as records or refused lines, and a torn tail apart from
+them. A refused line is unparseable, names another class of record or declares another `format_version`; it names no
+question the store can trust. ADR `core-store/039` therefore refuses every append to such a log, and the port
+`QuestionRecordReader` requires a record that cannot be read to be `Unreadable`, never `Open` (ADR `core-store/032`).
+
+The question may have several lines: `asked`, `revised`, `adjudicated`, `delivered` and one closing line `answered`,
+`withdrawn` or `cancelled`. The last readable line of a question is its current line.
+
+== Decision
+
+The adapter judges the whole log before it reads the question:
+
+* a log that holds a refused line anywhere is `Unreadable`, naming the first refused line;
+* a log that ends in a torn tail is `Unreadable`, naming the byte offset — an interrupted append may be the closing
+  line, and the log is not settled;
+* a log the store cannot read is `Unreadable`, naming the file;
+* a log that has no readable line for the question is `Unreadable`, naming the question.
+
+Only then is the question's current line read: a closing line is `Resolved` with that event's wire name
+(`answered`, `withdrawn`, `cancelled` — the closed set `QuestionEvent.values()` filtered by `closes()`), every other
+current line is `Open`.
+
+== Alternatives Considered
+
+1. *Reading only the lines of the question and ignoring a refused line elsewhere in the log.*
+_Not taken_: a refused line may be the closing line or the revision of any question; the store itself refuses every
+append because of it (ADR `core-store/039`).
+
+2. *Treating a torn tail as absent and reading the last complete line.*
+_Not taken_: the torn tail is the line an interrupted append did not finish, and it may be the closing line of the
+question; reporting the previous line could report a resolved question open, or the reverse.
+
+3. *Reporting an absent log or an unanswered question as `Open`.*
+_Not taken_: that is exactly the confusion ADR `core-store/032` forbids — a broken or absent store mistaken for a
+question still awaiting an answer.
+
+== Consequences
+
+* A broken log makes its whole scope's questions unreadable until the store is repaired; the engine raises
+  `precondition_unmet` with the reason instead of waiting forever.
+* A torn tail is also the normal transient of a lock-free read that races an append: such a read answers `Unreadable`
+  and the engine raises `precondition_unmet`; the next read after the append settles sees the record. That cost is
+  accepted for the lock-free read (ADR 003).
+* The outcome of a resolved record is derived from the closing event, so the adapter has no second list of outcomes to
+  keep in step.
+* `QuestionLogRecordReaderTest` proves each cause, the mixed content and the agreement with `QuestionLog`;
+  `QuestionLogRecordReaderBoundaryTest` proves the refused closing line never reads `Open`.
+
+== Source
+
+* `pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc`
+* `pm-core/doc/adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc`
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java`
+* `doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc` § Question Record
