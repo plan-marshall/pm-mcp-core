@@ -18,7 +18,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import de.planmarshall.core.spi.QuestionRecordReader;
-import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.ConfinementOutcome.Confined;
 import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 import de.planmarshall.core.store.JournalScope;

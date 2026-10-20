@@ -1,0 +1,61 @@
+= ADR 003: The Read Is Lock-Free, Writes Nothing and Is Confined
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+The question log is appended under the scope's lock, and an append may run while the engine asks for a record. The
+settled design of the project paths (PM-SEC-2) confines every project path through `WorkspaceConfinement` and returns a
+refusal as a `ConfinementOutcome`, never as an exception. The port's read has no failure mode: it answers `Unreadable`.
+
+A read that took the scope lock would block the append, and the engine would wait on a lock it has no reason to hold.
+
+== Decision
+
+* The adapter calls `QuestionLog.read()`, the lock-free snapshot of the log. It takes no lock, creates no store, writes
+  nothing and repairs nothing; a torn tail is reported, not cut.
+* It passes the log path through the `WorkspaceConfinement` the constructor is given. `Rejected` is
+  `Unreadable` with the outcome code `path_traversal_rejected` and the reason's wire name.
+* Because reading through a link would follow a path the store refuses on its write side, the confined canonical path
+  must equal the resolved store path; a difference is `Unreadable` with
+  `the question log is not reached by its canonical path`.
+* The base the constructor is given is canonicalized where it exists, so a symlinked ancestor of the runtime base does
+  not turn every read into a refusal.
+
+== Alternatives Considered
+
+1. *Taking the scope lock for a consistent view.*
+_Not taken_: it blocks every append for the duration of the read and violates the requirement that a read is a read.
+The log is append-only and a snapshot sees the content before or after a write, never a part of one.
+
+2. *Reading the confined canonical path through a second store class.*
+_Not taken_: it would duplicate the codec, the line handling and the invariant checks of `QuestionLog` in `pm-runtime`,
+and the adapter is specified to read over `QuestionLog`.
+
+3. *Using the confined canonical path while `QuestionLog` reads the resolved path.*
+_Not taken_: that is a check-then-act on two different paths; the path the check approved must be the path that is read
+or the read must be refused.
+
+== Consequences
+
+* An append and a read never wait for each other.
+* A read leaves the file tree of the scope exactly as it is; `QuestionLogRecordReaderReadTest` asserts names, sizes and
+  modification times before and after.
+* A log reached through a symbolic link is unreadable; the store is reachable by its real path, which is what the
+  assembly configures.
+* The assembly hands the adapter a confinement over the project store root; the adapter never retries a refused path on
+  the raw text.
+
+== Source
+
+* `pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java` (the lock-free read)
+* `pm-core/src/main/java/de/planmarshall/core/store/PathConfinement.java`, `ConfinementOutcome`
+* `pm-runtime/src/main/java/de/planmarshall/runtime/workspace/WorkspaceConfinement.java`
+* `doc/specification/store-schemas/13-leases-integrity-testing.adoc` § Lock-Free Snapshot Reads

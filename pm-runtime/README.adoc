@@ -24,6 +24,7 @@ All packages lie below `de.planmarshall.runtime`. Each line is the first sentenc
 * `lock`: the lock manager of the runtime and the stale lease sweep: the implementation of the locking interface of `pm-core`.
 * `log`: the log messages of the module, `RuntimeLogMessages` with the prefix `PM_RUNTIME`, and the messages of the assembly `pm-mcp-server` until it takes them over.
 * `lsp`: the product LSP client of the warm language-server pool.
+* `question`: the adapter through which the daemon hands the engine the question record a `question` state waits on.
 * `security`: what the authentication of the daemon resolves a presented credential through.
 * `start`: the start sequence of the runtime up to the socket bind.
 * `web`: the state of web access and the self-signed TLS certificate of the web listener on a LAN address.
@@ -53,6 +54,7 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 * link:doc/developer/runtime-credentials.adoc[Credential Stores (`runtime.credentials`)]
 * link:doc/developer/runtime-enrolment.adoc[Integrity Key and Sidecars (`runtime.enrolment`)]
 * link:doc/developer/runtime-job.adoc[Job Verification and the Job Runner (`runtime.job`)]
+* link:doc/developer/runtime-question.adoc[Question Record Reader (`runtime.question`)]
 * link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`)]
 
 == ADRs
@@ -74,6 +76,8 @@ The module builds a test JAR with the fixtures the tests of the assembly share: 
 ** link:doc/adr/runtime-job/009-launch-report-wait-bounded-apart-from-the-budget.adoc[ADR 009] the wait for the launch
    report bounded apart from the budget.
 * link:doc/adr/runtime-lock/[`doc/adr/runtime-lock/`]: the lock manager and the stale lease sweep.
+* link:doc/adr/runtime-question/[`doc/adr/runtime-question/`]: the question record reader: the scope it resolves from
+  the request, the whole log judged, and the lock-free, confined, read-only read.
 * link:doc/adr/runtime-start/[`doc/adr/runtime-start/`]: the start sequence and the lifecycle of the runtime;
   link:doc/adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013] the jobs part of recovery step 3,
   its worker part a seam.

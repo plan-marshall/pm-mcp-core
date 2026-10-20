@@ -1,0 +1,142 @@
+= Question Record Reader (`runtime.question`) Developer Guide
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/question
+:test: ../../src/test/java/de/planmarshall/runtime/question
+
+== Purpose
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4], link:{req}/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
+
+Package `de.planmarshall.runtime.question` of `pm-runtime` holds the adapter of the engine port
+`de.planmarshall.core.spi.QuestionRecordReader` over the question store of `pm-core`. The engine's `question` state
+waits on a persisted record; the adapter reads that record for the scope the request addresses and answers with the
+port's tri-state read (`Open`, `Resolved` with the closed resolution outcome, `Unreadable`). No class of `pm-core`
+implements the port (PM-IMPL-5), and this adapter is the only implementation in the product code
+(link:../adr/runtime-question/001-the-adapter-resolves-the-scope-of-the-request.adoc[ADR 001]).
+
+The question log itself, its record, its codec and its append invariants stay in `pm-core` package `core.store`
+(link:../../../pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR
+core-store/032]); this package only reads it.
+
+== Core Types
+
+[horizontal]
+`QuestionLogRecordReader`:: The adapter: a constructor `(Path base, String projectId, WorkspaceConfinement
+confinement)` and `read(ReadRequest)`. The base is the runtime's base directory, below which the project stores lie
+(`projects/<project_id>/`).
+`QuestionRecordReader.ReadRequest`:: What the engine asks to read: the scope id (`Optional.empty()` for the workspace
+scope, else a plan or epic id) and the question id (`^Q-[0-9]{3,6}$`).
+`QuestionRecordReader.QuestionRead`:: The result: `Open`, `Resolved(outcome)` or `Unreadable(reason)`.
+
+=== Component Interaction
+
+[source]
+----
+question state ──► QuestionLogRecordReader.read(ReadRequest(scopeId, questionId))
+                     resolve the scope: workspace | plan | epic of the store directory
+                     confine the log path  ──► WorkspaceConfinement (PM-SEC-2)
+                     QuestionLog(scope).read()  (no lock, no write, no repair)
+                     refused line? torn tail? store unreadable? ──► Unreadable
+                     Lines.current(questionId) ──► Open | Resolved(closing event)
+----
+
+== The Scope of the Request
+
+The workspace scope is the empty scope id: `projects/<project_id>/workspace/questions.jsonl`. A non-empty scope id is
+resolved from the store directory it names: `plans/<id>/questions.jsonl` is a plan, `epics/<id>/questions.jsonl` an
+epic. Both directories of one id is refused as a value — the adapter never guesses which scope the engine meant — and so
+is an id that is no identifier. An id whose store directory does not exist answers `no question log for the scope`.
+The choice and its alternatives are recorded in
+link:../adr/runtime-question/001-the-adapter-resolves-the-scope-of-the-request.adoc[ADR 001].
+
+== The Tri-State Read
+
+The read judges the whole log, not only the lines of the question (ADR
+link:../../../pm-core/doc/adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[core-store/039]):
+
+* `Open` — the question's current line is an `asked`, `revised`, `adjudicated` or `delivered` line.
+* `Resolved(outcome)` — the question's current line is a closing line; the outcome is that event's wire name,
+  `answered`, `withdrawn` or `cancelled`. The closed set is `QuestionEvent.values()` filtered by `closes()`.
+* `Unreadable(reason)` — the scope has no store, the question has no asked line in it, the log holds a refused line
+  (unparseable, of another class, of another `format_version`), the log ends in a torn tail, or the store cannot be
+  read. The reason names the refused line's number or the torn tail's byte offset.
+
+A refused closing line may have closed the question, so the whole log is `Unreadable` and never `Open`: the property
+is tested by `QuestionLogRecordReaderBoundaryTest` and `QuestionLogRecordReaderTest`.
+link:../adr/runtime-question/002-the-whole-log-is-judged-and-a-broken-log-is-unreadable.adoc[ADR 002] records the
+ground.
+
+== The Read Is a Read
+
+The adapter takes no lock: `QuestionLog.read()` is the lock-free snapshot, so a read returns while an append holds the
+scope lock and the append is never delayed by it. It writes nothing, creates no file and repairs nothing (a torn tail is
+reported, not cut). The log path passes `WorkspaceConfinement`; a refusal is the value `Unreadable` with the outcome
+code `path_traversal_rejected` and the reason's wire name, never an exception. Because a read must not follow a link
+the store refuses on its write side, the confined canonical path must equal the resolved store path; a scope reached
+through a symbolic link is `Unreadable` as well
+(link:../adr/runtime-question/003-the-read-is-lock-free-confined-and-writes-nothing.adoc[ADR 003]).
+
+The base the constructor is given is canonicalized where it exists, so a symlinked ancestor of the runtime base does
+not turn every read into a refusal.
+
+== Testing
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4]
+
+The tests run on the JVM without Quarkus and use the shared short temp roots of `TestBases` from the module's test JAR.
+Every fixture log is appended through `QuestionLog` and its `ScopeTransaction`, and the raw lines the store refuses are
+written directly; every line-oriented fixture has a CRLF twin.
+
+[horizontal]
+link:{test}/QuestionLogRecordReaderTest.java[`QuestionLogRecordReaderTest`]:: `Open` for an asked record, also after a
+delivery; `Resolved` for every closing event, the set derived from the enum at run time; `Unreadable` for an absent
+log, an empty log, an unparseable line, a record of another class, a store that cannot be read and a torn tail, each
+also asserted not to be `Open`; the mixed content of an open record followed by an unparseable line and a resolved
+record followed by a refused line, the latter also proving that ADR core-store/039 refuses the append; the workspace,
+epic, absent, ambiguous and invalid scope; the agreement with `QuestionLog` on every record both see.
+link:{test}/QuestionLogRecordReaderReadTest.java[`QuestionLogRecordReaderReadTest`]:: the file tree (names, sizes,
+modification times) is identical before and after a read; a read returns within a bounded wait while another thread
+holds the append lock and does not block the append that follows; a path outside the confinement, an uncanonicalizable
+root and a scope reached through a symbolic link are `Unreadable` values.
+link:{test}/QuestionLogRecordReaderBoundaryTest.java[`QuestionLogRecordReaderBoundaryTest`]:: the question id at both
+grammar bounds, the scope id at both valid bounds and one below, a log of one record and of two hundred, revisions and
+deliveries before the closing line, and the refused closing line that must never read open.
+link:{test}/QuestionFixtures.java[`QuestionFixtures`]:: the shared record builders, the appending fixtures and the two
+line endings.
+
+== Pitfalls
+
+1. **Never repair or lock.** The reader takes no lock and never cuts a torn tail; it reports both. A repair belongs to
+   the next append under the scope lock.
+2. **Never read only the question's lines.** A refused line anywhere in the log may close or revise any question, so
+   the read is `Unreadable` for the whole log (ADR core-store/039).
+3. **Never report a broken store open.** An absent log, a refused closing line, a torn tail and an unreadable store
+   are `Unreadable`; the engine turns that into `precondition_unmet`, never into a still-waiting question.
+4. **Never bypass the confinement.** The assembly hands the adapter a `WorkspaceConfinement` over the project store
+   root; a refusal is a value and is never retried on the raw path.
+5. **The adapter is per project, not per scope.** One instance reads the workspace, plan and epic logs of one project;
+   the scope comes from the request.
+
+== Specification Tracing
+
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4], link:{req}/08-security.adoc#PM-SEC-2[PM-SEC-2]
+
+* Specification: link:{spec}/store-schemas/14-plan-instance-waivers-questions.adoc#question-record[Store Schemas §
+  Question Record], link:{spec}/model-work/06-envelopes-questions-deadlines.adoc#question-records[Model Work § Question
+  Records], link:{spec}/store-schemas/13-leases-integrity-testing.adoc#lock-free-snapshot-reads[Store Schemas §
+  Lock-Free Snapshot Reads]
+* Decisions: link:../adr/runtime-question/[`doc/adr/runtime-question/`]
+* The store and the port:
+  link:../../../pm-core/doc/developer/core-store.adoc#_question_log[Scope Stores Developer Guide § The Question Log],
+  link:../../../pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR
+  core-store/032],
+  link:../../../pm-core/doc/adr/core-store/039-question-append-refused-while-the-log-holds-a-refused-line.adoc[ADR
+  core-store/039]
+* Confinement:
+  link:../../src/main/java/de/planmarshall/runtime/workspace/WorkspaceConfinement.java[`WorkspaceConfinement`] and
+  `de.planmarshall.core.store.PathConfinement`

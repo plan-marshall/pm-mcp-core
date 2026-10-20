@@ -1,0 +1,61 @@
+= ADR 001: The Adapter Resolves the Scope of the Request from the Store Directory
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+The engine port `de.planmarshall.core.spi.QuestionRecordReader` takes one request,
+`ReadRequest(Optional<String> scopeId, String questionId)`: the scope id is empty for the workspace scope and names a
+plan or an epic otherwise. It carries no scope type. The question log of a scope lives at
+`projects/<project_id>/workspace/questions.jsonl`, `projects/<project_id>/plans/<plan_id>/questions.jsonl` or
+`projects/<project_id>/epics/<epic_id>/questions.jsonl`, and plan ids and epic ids share one grammar, so one id can
+name both a plan and an epic.
+
+The adapter of `pm-runtime` has to turn that request into the one store the engine meant.
+
+== Decision
+
+`QuestionLogRecordReader` is constructed with the runtime base, the project id and the workspace confinement, and
+resolves the scope per read:
+
+* an empty scope id is the project's workspace scope;
+* a non-empty scope id is the plan or the epic whose store directory exists — `plans/<id>/` or `epics/<id>/`;
+* an id whose plan and epic directories both exist is refused as `Unreadable` with
+  `the scope <id> names a plan and an epic`;
+* an id whose two directories do not exist is refused as `Unreadable` with `no question log for the scope`;
+* an id that is no identifier is refused as a value, not an exception.
+
+== Alternatives Considered
+
+1. *One adapter instance per scope, constructed with its `JournalScope`.*
+_Not taken_: the port's request carries the scope id, and the assembly would have to know every scope it serves and hold
+an adapter per plan and epic; the runtime serves many scopes with one port instance.
+
+2. *Adding the scope type to `ReadRequest`.*
+_Not taken_: that is a change of the engine's contract and of every implementation, for information the store
+directory already carries.
+
+3. *A plan-first lookup, with the epic tried when the plan directory is absent.*
+_Not taken_: an id that names both would silently read the plan while the engine asked about the epic. A refusal the
+operator sees is better than a wrong record that looks right.
+
+== Consequences
+
+* One adapter per project reads the workspace, plan and epic logs.
+* A collision of a plan id and an epic id is observable as `Unreadable` and has to be resolved by the operator, not by
+  the reader.
+* The adapter probes two store directories per read. The probe is read-only and has no side effect; it is not a
+  decision that is persisted.
+
+== Source
+
+* `pm-core/src/main/java/de/planmarshall/core/spi/QuestionRecordReader.java`
+* `pm-core/src/main/java/de/planmarshall/core/store/JournalScope.java`
+* `doc/specification/model-work/06-envelopes-questions-deadlines.adoc` § Question Records

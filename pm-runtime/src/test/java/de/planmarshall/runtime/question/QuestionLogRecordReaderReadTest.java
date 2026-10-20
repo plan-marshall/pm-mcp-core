@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -95,7 +96,7 @@ class QuestionLogRecordReaderReadTest {
 
         @Test
         @DisplayName("is identical before and after a read: same names, sizes and modification times")
-        void leavesTheTreeUnchanged() throws IOException {
+        void leavesTheTreeUnchanged() throws Exception {
             QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION),
                     closing(QUESTION, QuestionEvent.ANSWERED));
             var before = tree(plan.pathBase());
@@ -162,7 +163,7 @@ class QuestionLogRecordReaderReadTest {
                 release.countDown();
                 holder.join(10_000);
             }
-            assertTrue(failure.get() == null, "the lock holder should not fail: " + failure.get());
+            assertNull(failure.get(), "the lock holder should not fail: " + failure.get());
 
             QuestionFixtures.append(locks, plan, EndOfLine.LF, closing(QUESTION, QuestionEvent.ANSWERED));
 
@@ -177,7 +178,7 @@ class QuestionLogRecordReaderReadTest {
 
         @Test
         @DisplayName("answers Unreadable, as a value, for a log outside the confinement")
-        void refusesAPathOutsideTheConfinement() throws IOException {
+        void refusesAPathOutsideTheConfinement() throws Exception {
             QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION));
             var elsewhere = Files.createDirectories(base.resolve("elsewhere"));
             var confined = new QuestionLogRecordReader(base, PROJECT,
@@ -209,7 +210,7 @@ class QuestionLogRecordReaderReadTest {
         @Test
         @DisabledOnOs(OS.WINDOWS)
         @DisplayName("answers Unreadable for a scope directory reached through a symbolic link")
-        void refusesASymbolicLink() throws IOException {
+        void refusesASymbolicLink() throws Exception {
             QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION));
             var linkedScope = plan.pathBase().getParent().resolve("linked-plan");
             Files.createSymbolicLink(linkedScope, plan.pathBase());

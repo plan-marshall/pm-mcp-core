@@ -203,7 +203,7 @@ class QuestionLogRecordReaderTest {
         @ParameterizedTest(name = "{0} with {1}")
         @MethodSource("de.planmarshall.runtime.question.QuestionLogRecordReaderTest#unreadableCases")
         @DisplayName("reads Unreadable for every cause, never Open")
-        void readsUnreadable(UnreadableCause cause, EndOfLine endOfLine) throws IOException {
+        void readsUnreadable(UnreadableCause cause, EndOfLine endOfLine) throws Exception {
             var expectedReason = createFixture(cause, endOfLine);
 
             var read = reader.read(request(QUESTION));
