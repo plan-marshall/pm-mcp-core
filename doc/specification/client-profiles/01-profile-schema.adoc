@@ -190,6 +190,10 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           "required": ["argv", "format", "pointer"],
           "additionalProperties": false
         },
+        "weights_probe": {
+          "$ref": "endpoint-profile.json#/$defs/weights_probe",
+          "description": "How the identity of a model's weights is read (Endpoint Harness, Weights Identity); null: the harness reports none, and its model name stands for its weights."
+        },
         "model_tiers": {
           "type": "object",
           "description": "The model each tier of the shipped default assignment maps to on this harness (Model Tiers below); null: the harness has no model of that tier.",
@@ -403,7 +407,7 @@ A client profile is the one configuration document of a harness: `classpath:/pro
           "description": "Harness fallback of the context budget of a worker, used only for a role artifact that does not set context_budget_tokens (Model Work, Role Artifact Schema); the per-envelope packing budget is derived from the effective value (Model Work, Envelopes), compiled fallback 400000 when neither sets it, operator override envelope_budget_tokens in local-config.json."
         }
       },
-      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "endpoints", "writable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
+      "required": ["executable", "install_locations", "install_hint", "auth_probe", "models_probe", "weights_probe", "model_tiers", "supported_versions", "update_evidence", "agent_mode", "argv", "mcp_config", "classes", "env", "capabilities", "output", "usage", "events", "endpoints", "writable_paths", "data_home", "tool_result_limit_chars", "resource_tools", "session_residue", "resumability"],
       "additionalProperties": false
     },
     "connection": {
@@ -606,6 +610,8 @@ A harness exists for the system as its profile document and as nothing else. The
 |_(provisional)_
 |===
 
+A model served on this machine over HTTP runs `zero_tool` only, as an endpoint harness with a profile of its own kind (link:03-endpoint-harness.adoc#endpoint-harness[Endpoint Harness]).
+
 `antigravity` declares its `headless` block with these values and stays `worker.eligible: false` until its fault matrix has passed with confined workers (link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-11[PM-WATCH-CLIENT-11]).
 
 [#headless-block]
@@ -709,6 +715,7 @@ _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.
 
 * *Tiers*: `headless.model_tiers` maps each tier of the closed list `frontier`, `standard`, `fast` to the concrete model the harness takes for it, so the shipped default assignment, which names a tier per role, holds on any harness (link:../model-work/01-roles-and-configuration.adoc#default-assignment[Model Work Specification, Default Role Assignment]). A tier the harness has no model for is `null`; a role whose tier resolves to `null` on its harness is shown unresolved, and the operator chooses its model. The `steward` takes the model of the tier `standard` of the machine's default harness (link:../model-work/01-roles-and-configuration.adoc#steward-role[Model Work Specification, Steward Role]). The values of a shipped profile are those the release graded; a mapped model must appear in `worker.restricted_models` where the class of a role assigned to it is `enforced`, which profile validation checks.
 * *Models probe*: `headless.models_probe` is an argument vector whose output lists the models the harness offers (one id per line, or a JSON array at its pointer), run without a shell, as a probe job (link:../job-runtime/02-confinement-and-environment.adoc#probe-jobs[Job Runtime Specification, Probe Jobs]) of the onboarding's `catalogue` sub-workflow on the operator's consent (link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent]); its result fills the models the operator chooses from in `catalogue.select`, each recorded with the source `probe` in the model catalogue (link:../store-schemas/12-machine-stores.adoc#model-catalogue[Store Schemas Specification, Model Catalogue]). A harness that cannot list its models declares `null`, and the operator enters the model ids, recorded with the source `operator`.
+* *Weights probe*: `headless.weights_probe` reads the identity of a model's weights where the harness reports one, which binds the model's qualification to those weights (link:03-endpoint-harness.adoc#weights-identity[Endpoint Harness, Weights Identity]). The shipped profiles declare `null`.
 
 [#harness-scan]
 === Harness Scan
