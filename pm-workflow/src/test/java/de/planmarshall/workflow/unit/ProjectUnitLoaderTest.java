@@ -545,7 +545,7 @@ class ProjectUnitLoaderTest {
         @Test
         @DisplayName("does not report the reserved author when the opening delimiter is not exact")
         void authorBehindAnIndentedDelimiter() throws Exception {
-            UnitFixtures.writeProject(project);
+            UnitFixtures.writeProject(project, UnitFixtures.RESERVED_AUTHOR);
             var path = project.resolve(configPath(InvariantFixtures.REPLAN_FILE));
             Files.writeString(path, " " + Files.readString(path));
 
