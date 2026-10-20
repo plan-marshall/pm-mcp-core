@@ -144,6 +144,20 @@ digest gets no new offer and is recycled; matched control: an edit that leaves t
 the running generation. Only a worker launched by the runtime as a job of its role is ever offered a task.
 Source:: design review.
 
+[#PM-WATCH-DISP-62]
+=== PM-WATCH-DISP-62: A warm worker learns which files changed since its last task
+
+Anchor:: link:../specification/model-work/02-task-protocol.adoc#changed-since-last-task[Model Work § Changed since the Last Task],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2]
+Hazard:: A warm reviewer or writer that read a file in its previous task acts on that content after another worker
+changed it, and nothing in its context says the file moved; a list computed from commits alone misses the uncommitted
+changes, and one computed from the current status alone misses what was committed between the two tasks.
+Guard:: Scenario test: a warm generation closes a task, another worker commits a change to one file and leaves a
+second one modified; the next offer to the generation lists both paths; a list above the bound sends the task to a
+fresh worker; matched control: an offer with no change between the two tasks carries an empty list, and a fresh worker
+carries no list.
+Source:: analysis of Eclipse Theia (doc/articles/theia.adoc in plan-marshall-documentation).
+
 [#PM-WATCH-DISP-43]
 === PM-WATCH-DISP-43: The token budget reads the per-turn context, never a run total
 

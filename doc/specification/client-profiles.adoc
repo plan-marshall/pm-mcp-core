@@ -40,6 +40,7 @@ _See Requirements:_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-2[PM-WORK-2: Task Protocol]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling]_
+* _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6: Role Qualification]_
 * _See Requirement link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
 == Status: PLANNED
 
@@ -54,3 +55,4 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 
 * link:client-profiles/01-profile-schema.adoc[Client Profile Schema] — the normative client profile JSON schema with the `headless` launch contract, the `worker` block with its measured per-host values, model tiers and the models probe, the harness scan, the login probe, harness icons, tokens and not money (usage pointers and the usage report), what a worker does (activity events and journal), profile sets and verification, the unknown harness added from a draft, and the profile override hierarchy
 * link:client-profiles/02-placeholders.adoc[Placeholder Rendering] — placeholder rendering and its resolution table, the rendering invariants, the calibration decision, and the host-resident surface inventory
+* link:client-profiles/03-endpoint-harness.adoc[Endpoint Harness] — a model served over HTTP on the machine's loopback interface as a harness of the `zero_tool` class: the endpoint profile schema, the request, the enrolment of its serving program, the weights identity of a model, and the verification of an endpoint

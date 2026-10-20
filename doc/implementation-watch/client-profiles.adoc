@@ -184,3 +184,26 @@ one that connects to the decoy server, each of which must fail its stage. A cand
 `worker.eligible: true` or a non-null `zero_tool` from the draft alone, and the runtime honours both only for a
 record of its own platform. The probes record variable names, never values. Every rule of link:../specification/client-profiles/01-profile-schema.adoc#profile-hardening[Client Profiles § A Profile Is Untrusted Input] has a refusing fixture (an unknown member, an oversized document, a URL and an absolute path in `argv`, `LD_PRELOAD` and a credential-pattern name in `env`, a multi-line and a sentence-like tool name, a backtracking pattern, a `..` path), and a record whose HMAC fails is refused; a record written by the verification carries the version and commit of the binary that ran it, read from the binary, which a test compares.
 Source:: design review.
+
+== Endpoint Harness
+
+[#PM-WATCH-CLIENT-14]
+=== PM-WATCH-CLIENT-14: An endpoint's defaults and silent acceptance never decide a verdict
+
+Anchor:: link:../specification/client-profiles/03-endpoint-harness.adoc#endpoint-harness[Client Profiles § Endpoint Harness],
+link:../specification/client-profiles/03-endpoint-harness.adoc#weights-identity[Client Profiles § Weights Identity],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
+Hazard:: A local model server that speaks the OpenAI chat format is not the OpenAI service: it may stream by default
+where the client library expects one JSON document, accept a `tools` member and answer with an invented tool result
+and no tool call, accept a response schema and not hold to it, refuse in prose instead of an error status, and load
+other weights under the same model name after an operating system update or on another chip. Each of these returns a
+well-formed answer, so a screener verdict or a grade can rest on an answer the request never asked for, and a
+qualification record can outlive the weights it graded. Any program can listen on a loopback port.
+Guard:: The request sets every value the endpoint has a default for (streaming off among them) and never sends
+`tools`; the server validates every answer against the result schema whatever `result_schema` says; a refusal, a
+non-validating answer, an HTTP error, and a timeout each end the attempt without a result, and a screening stays
+`unscreened`. Fixtures: a stub endpoint that streams unless told not to, one that returns prose under a schema, one
+that answers a `tools` request with an invented result (recorded `tools_ignored`), one whose weights identity changes
+between two runtime starts (the record goes stale, `harness_updated` audited), and a stub listening on the profile's
+port from an executable other than the enrolled one (refused before any task text is sent).
+Source:: Article analysis `macos27-on-device-llm` of plan-marshall-documentation (the measurements of a local model server it records).

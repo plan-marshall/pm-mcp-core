@@ -514,3 +514,21 @@ Guard:: Enrolment validation refuses a template that contains any placeholder ot
 template and the placeholder; control: a template naming its build profile literally (`-Pintegration-tests`) is
 accepted.
 Source:: design review.
+
+[#PM-WATCH-EXT-38]
+=== PM-WATCH-EXT-38: A removed guard is found by construct, not by count
+
+Anchor:: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#self-review-surfacer[Domain Extensions § Pre-Submission Self-Review Surfacer] (Removed Guards)
+Hazard:: A guard count per file hides a removed guard behind an added one, and reports a guard moved to a shared
+helper as removed. Loose signatures (any `raise`, any `escape(`) miss a guard the domain writes differently and flag
+code that is no guard. A detector that compares against the previous round instead of the base commit misses a guard
+removed in an earlier round.
+Guard:: Fixture diffs per covered domain: a boundary check deleted while an unrelated check is added (one
+candidate); a check moved into the shared helper all callers use (no candidate); a constant-time compare replaced by
+`equals` (one candidate); a regression test deleted (one candidate); a guard removed in round 1 and the file edited
+again in round 2 (still a candidate in round 2, against the base commit).
+Fixture:: plan-marshall `2026-09-20-test-fidelity-rules-follow-up` ("3 surplus guards removed" by `simplify`, the
+deliverable-mandated pins reverted at push); API-Sheriff `2026-09-17-refresh-failure-dispositions` (five
+`requireNonNull` checks removed by `simplify`, approved, never re-reviewed); plan-marshall's commitment reconcile
+that returned `clear` over zero commitments (findings `b2153c`, `728523`, `418f3d`).
+Source:: Article analysis `fixing-over-engineering` of plan-marshall-documentation.
