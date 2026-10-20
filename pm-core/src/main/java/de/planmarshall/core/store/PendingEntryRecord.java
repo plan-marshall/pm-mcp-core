@@ -27,33 +27,33 @@ import de.planmarshall.core.store.WorkflowStatus.PendingCondition;
  * terminal of the bootstrap deletes it.
  * <p>
  * The envelope is typed: the id, the kind, what the user named ({@code requested_id}, {@code hint}, recorded as given
- * and validated only by the bootstrap), the parent epic of a plan the server starts, the instants, and the entry row of
- * the session ({@link ScopeSessionRow}). Of the bootstrap state the members the engine owns are typed as well: the
- * state position, the call frames and the condition overlay, in the shapes of the workflow state store, and the reason
- * of the last refused re-check. The members a source unit and the bootstrap's states own, {@code facts},
- * {@code source} and {@code options}, are kept as the raw JSON text they were read with and written back unchanged,
- * as the status document keeps the members the engine does not own (ADR 001 of {@code core.store}).
+ * and validated only by the bootstrap), the parent epic of a plan the server starts, and the instants. Of the bootstrap
+ * state the members the engine owns are typed as well: the state position, the call frames and the condition overlay,
+ * in the shapes of the workflow state store, and the reason of the last refused re-check. The members a source unit and
+ * the bootstrap's states own, {@code facts}, {@code source} and {@code options}, are kept as the raw JSON text they
+ * were read with and written back unchanged, as the status document keeps the members the engine does not own
+ * (ADR 001 of {@code core.store}).
  * <p>
  * The creation instant is the age the pending-record sweep compares with the pending entry record maximum age; the
  * update instant changes with every bootstrap transition and never makes a record younger.
  *
  * @param entryId     the id, which names the record
  * @param kind        whether the entry starts a plan or an epic
- * @param requestedId the id named at {@code pm-mcp enter}, as given, at most 64 characters; {@code null} when none
- * @param hint        the user's words relayed by the host entry command, at most 4000 characters; {@code null} when
- *                    none
+ * @param requestedId the id the client named when it opened the entry, as given, at most 64 characters;
+ *                    {@code null} when none
+ * @param hint        the user's words the client relayed when it opened the entry, at most 4000 characters;
+ *                    {@code null} when none
  * @param fromEpic    the parent epic of a plan the server starts for an epic row; {@code null} otherwise and always
  *                    for an epic
  * @param createdAt   the instant the record was created
  * @param updatedAt   the instant of the last write
- * @param session     the entry row of {@code pm-mcp enter}; {@code null} for a plan the server starts for an epic row
  * @param bootstrap   the state of the entry's bootstrap
  * @since 0.1
  */
 @With
 @Builder(toBuilder = true)
 public record PendingEntryRecord(EntryId entryId, Kind kind, String requestedId, String hint, String fromEpic,
-Instant createdAt, Instant updatedAt, ScopeSessionRow session, Bootstrap bootstrap) {
+Instant createdAt, Instant updatedAt, Bootstrap bootstrap) {
 
     /** The format version of a pending entry record that is read and written. */
     public static final int FORMAT_VERSION = 1;
@@ -158,9 +158,8 @@ Instant createdAt, Instant updatedAt, ScopeSessionRow session, Bootstrap bootstr
 
     /**
      * @throws NullPointerException     if the id, the kind, an instant or the bootstrap is {@code null}
-     * @throws IllegalArgumentException if a value breaks its form, if an epic names a parent epic, if a record without
-     *                                  a session is not a plan of an epic row, or if the record was updated before it
-     *                                  was created
+     * @throws IllegalArgumentException if a value breaks its form, if an epic names a parent epic, or if the record
+     *                                  was updated before it was created
      */
     public PendingEntryRecord {
         Objects.requireNonNull(entryId, "entryId");
@@ -178,9 +177,6 @@ Instant createdAt, Instant updatedAt, ScopeSessionRow session, Bootstrap bootstr
         if (kind == Kind.EPIC && fromEpic != null) {
             throw new IllegalArgumentException("An epic entry names no parent epic: " + fromEpic);
         }
-        if (session == null && (kind != Kind.PLAN || fromEpic == null)) {
-            throw new IllegalArgumentException("Only a plan the server starts for an epic row has no session");
-        }
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
         if (updatedAt.isBefore(createdAt)) {
@@ -196,10 +192,5 @@ Instant createdAt, Instant updatedAt, ScopeSessionRow session, Bootstrap bootstr
      */
     public boolean createdBefore(Instant instant) {
         return createdAt.isBefore(Objects.requireNonNull(instant, "instant"));
-    }
-
-    /** @return the entry row of the session; empty for a plan the server starts for an epic row */
-    public Optional<ScopeSessionRow> sessionRow() {
-        return Optional.ofNullable(session);
     }
 }

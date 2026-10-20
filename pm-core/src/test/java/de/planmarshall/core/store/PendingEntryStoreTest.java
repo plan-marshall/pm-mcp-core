@@ -101,7 +101,7 @@ class PendingEntryStoreTest {
 
     private static PendingEntryRecord entry(EntryId entryId, String state) {
         return PendingEntryRecord.builder().entryId(entryId).kind(Kind.PLAN).createdAt(CREATED_AT)
-                .updatedAt(CREATED_AT).session(ScopeSessionRowCodecTest.row())
+                .updatedAt(CREATED_AT)
                 .bootstrap(Bootstrap.builder().state(state).callStack(List.of()).facts("{}").options("{}").build())
                 .build();
     }

@@ -40,11 +40,10 @@ import de.planmarshall.core.store.PendingEntryRecord.Kind;
  * Reads and writes the pending entry record {@code pending/<entry_id>.json} (PM-CLIENT-1, PM-IMPL-2).
  * <p>
  * The reader checks the {@code format_version} first, then reads every member strictly: each at most once, only the
- * declared members, every required member, one JSON type per member, and the rules of the record. The entry row of
- * the session is read by {@link ScopeSessionRowCodec}, the call frames and the condition overlay of the bootstrap by
- * the readers of the status document. The raw members {@code facts}, {@code source} and {@code options} must be JSON
- * objects ({@code source} also {@code null}) and are captured as the exact text they were read with. Whatever does not
- * parse is a {@link StoreRefusal} naming the file.
+ * declared members, every required member, one JSON type per member, and the rules of the record. The call frames and
+ * the condition overlay of the bootstrap are read by the readers of the status document. The raw members {@code facts},
+ * {@code source} and {@code options} must be JSON objects ({@code source} also {@code null}) and are captured as the
+ * exact text they were read with. Whatever does not parse is a {@link StoreRefusal} naming the file.
  * <p>
  * The writer writes every member in the order of the schema, the raw members as the text they were read with, so what
  * a source unit or a bootstrap state wrote is re-emitted byte for byte.
@@ -61,7 +60,6 @@ public class PendingEntryCodec {
     private static final String FROM_EPIC = "from_epic";
     private static final String CREATED_AT = "created_at";
     private static final String UPDATED_AT = "updated_at";
-    private static final String SESSION = "session";
     private static final String BOOTSTRAP = "bootstrap";
     private static final String STATE = "state";
     private static final String CALL_STACK = "call_stack";
@@ -73,7 +71,7 @@ public class PendingEntryCodec {
 
     /** The members of the record, in the order of the schema. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, ENTRY_ID, KIND, REQUESTED_ID, HINT, FROM_EPIC,
-            CREATED_AT, UPDATED_AT, SESSION, BOOTSTRAP);
+            CREATED_AT, UPDATED_AT, BOOTSTRAP);
 
     /** The members of the bootstrap state, in the order of the schema. */
     static final List<String> BOOTSTRAP_MEMBERS = List.of(STATE, CALL_STACK, FACTS, SOURCE, OPTIONS,
@@ -96,12 +94,6 @@ public class PendingEntryCodec {
             writeNullable(generator, FROM_EPIC, entry.fromEpic());
             writeInstant(generator, CREATED_AT, entry.createdAt());
             writeInstant(generator, UPDATED_AT, entry.updatedAt());
-            generator.writeFieldName(SESSION);
-            if (entry.session() == null) {
-                generator.writeNull();
-            } else {
-                ScopeSessionRowCodec.write(generator, entry.session());
-            }
             writeBootstrap(generator, entry.bootstrap());
             generator.writeEndObject();
         } catch (IOException e) {
@@ -162,7 +154,6 @@ public class PendingEntryCodec {
                 case FROM_EPIC -> entry.fromEpic(nullableString(parser, field));
                 case CREATED_AT -> entry.createdAt(instant(parser, field));
                 case UPDATED_AT -> entry.updatedAt(instant(parser, field));
-                case SESSION -> entry.session(isNull(parser) ? null : ScopeSessionRowCodec.readObject(parser, field));
                 case BOOTSTRAP -> entry.bootstrap(readBootstrap(parser, document));
                 default -> throw undeclared(field);
             }
