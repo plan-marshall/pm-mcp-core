@@ -25,6 +25,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
@@ -113,15 +114,25 @@ class PeriodicSweepTest {
     }
 
     @Test
+    @DisplayName("the steps of the sweep are the technical residue removals, and no step of fenced generations")
+    void shouldRegisterOnlyResidueSteps() {
+        // PM-ARCH-10 bullet 4: the periodic sweep removes technical residue and never work history. The pending entry
+        // records are the residue of a start; the session generation record of the removed concept is no step.
+        var names = Arrays.stream(SweepStep.Name.values()).map(Enum::name).toList();
+
+        assertEquals(List.of("PENDING_ENTRY_RECORDS"), names);
+    }
+
+    @Test
     @DisplayName("a run passes now minus the maximum age to every step, for every enrolled project")
     void shouldRunEveryStepForEveryProject() {
         var summary = sweep(() -> List.of("p1", "p2"), _ -> true, step(SweepStep.Name.PENDING_ENTRY_RECORDS),
-                step(SweepStep.Name.FENCED_SESSION_GENERATIONS)).runOnce(NOW);
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS)).runOnce(NOW);
 
         assertAll(
                 () -> assertEquals(List.of(
-                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p1 " + OLDER_THAN,
-                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p2 " + OLDER_THAN),
+                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
+                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN),
                         calls),
                 () -> assertEquals(new PeriodicSweep.Summary(2, 0, 0), summary),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -153,7 +164,7 @@ class PeriodicSweepTest {
         });
 
         var summary = sweep(() -> List.of("p1", "p2", "p3"), _ -> true, failing,
-                step(SweepStep.Name.FENCED_SESSION_GENERATIONS)).runOnce(NOW);
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS)).runOnce(NOW);
 
         assertAll(
                 () -> assertEquals(6, calls.size(), calls::toString),
@@ -177,12 +188,12 @@ class PeriodicSweepTest {
         });
 
         var summary = sweep(() -> List.of("p1", "p2"), _ -> true, throwing,
-                step(SweepStep.Name.FENCED_SESSION_GENERATIONS)).runOnce(NOW);
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS)).runOnce(NOW);
 
         assertAll(
                 () -> assertEquals(List.of(
-                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p1 " + OLDER_THAN,
-                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "FENCED_SESSION_GENERATIONS p2 " + OLDER_THAN),
+                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
+                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN),
                         calls),
                 () -> assertEquals(new PeriodicSweep.Summary(1, 0, 1), summary),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
