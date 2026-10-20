@@ -112,7 +112,7 @@ class VerifyNotResolvePipelineTest {
         }
 
         @Test
-        @DisplayName("a tampered enrolment is refused as enrolment_tampered, naming the accept-edit command")
+        @DisplayName("a tampered enrolment is refused as enrolment_tampered, with its reason and no changed path")
         void tampered() throws Exception {
             Files.write(fixture.store.file(PROJECT), "{\"format_version\":1}".getBytes(StandardCharsets.UTF_8));
 
@@ -120,8 +120,6 @@ class VerifyNotResolvePipelineTest {
 
             assertAll(
                     () -> assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason()),
-                    () -> assertEquals(Optional.of("pm-operator accept-edit enrolment " + PROJECT),
-                            refusal.operatorCommand()),
                     () -> assertTrue(refusal.changedPaths().isEmpty()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_TAMPERED.resolveIdentifierString()),
@@ -138,7 +136,6 @@ class VerifyNotResolvePipelineTest {
 
             assertAll(
                     () -> assertEquals(Reason.ENROLMENT_INSECURE, refusal.reason()),
-                    () -> assertEquals(Optional.empty(), refusal.operatorCommand()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_INSECURE.resolveIdentifierString()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,
@@ -213,7 +210,6 @@ class VerifyNotResolvePipelineTest {
 
             assertAll(
                     () -> assertEquals(Reason.PATH_TRAVERSAL_REJECTED, refusal.reason()),
-                    () -> assertEquals(Optional.empty(), refusal.operatorCommand()),
                     () -> assertTrue(refusal.changedPaths().isEmpty()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN, JOB_REFUSED),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,

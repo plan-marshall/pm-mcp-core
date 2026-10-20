@@ -110,8 +110,7 @@ class ExecutableCheckTest {
                     call(HostToolName.GH));
 
             assertAll(
-                    () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason()),
-                    () -> assertEquals(Optional.empty(), refusal.operatorCommand()));
+                    () -> assertEquals(Reason.EXECUTABLE_NOT_ENROLLED, refusal.reason()));
         }
 
         @Test

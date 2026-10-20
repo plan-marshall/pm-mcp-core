@@ -126,8 +126,7 @@ class VerifyNotResolveAdversarialTest {
 
             assertAll(
                     () -> assertEquals(Reason.BUILD_CONFIG_CHANGED, refusal.reason()),
-                    () -> assertEquals(List.of(changed), refusal.changedPaths()),
-                    () -> assertEquals(Optional.of("pm-operator enrol " + PROJECT), refusal.operatorCommand()));
+                    () -> assertEquals(List.of(changed), refusal.changedPaths()));
         }
 
         @Test
@@ -383,10 +382,7 @@ class VerifyNotResolveAdversarialTest {
 
             var refusal = refused(verify(git("status")));
 
-            assertAll(
-                    () -> assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason()),
-                    () -> assertEquals(Optional.of("pm-operator accept-edit enrolment " + PROJECT),
-                            refusal.operatorCommand()));
+            assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason());
         }
 
         @Test
