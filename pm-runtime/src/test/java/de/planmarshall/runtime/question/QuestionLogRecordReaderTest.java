@@ -9,6 +9,10 @@
  */
 package de.planmarshall.runtime.question;
 
+import static de.planmarshall.runtime.question.QuestionFixtures.asked;
+import static de.planmarshall.runtime.question.QuestionFixtures.closing;
+import static de.planmarshall.runtime.question.QuestionFixtures.delivered;
+import static de.planmarshall.runtime.question.QuestionFixtures.line;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -21,20 +25,16 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -46,23 +46,14 @@ import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Resolved;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Unreadable;
 import de.planmarshall.core.spi.QuestionRecordReader.ReadRequest;
 import de.planmarshall.core.store.JournalScope;
-import de.planmarshall.core.store.QuestionChannel;
 import de.planmarshall.core.store.QuestionEvent;
 import de.planmarshall.core.store.QuestionLog;
 import de.planmarshall.core.store.QuestionRecord;
-import de.planmarshall.core.store.QuestionRecord.Answer;
-import de.planmarshall.core.store.QuestionRecord.AnswerKind;
-import de.planmarshall.core.store.QuestionRecord.Blocks;
-import de.planmarshall.core.store.QuestionRecord.Decision;
-import de.planmarshall.core.store.QuestionRecord.Origin;
-import de.planmarshall.core.store.QuestionRecord.QuestionClass;
-import de.planmarshall.core.store.QuestionRecord.Reversibility;
-import de.planmarshall.core.store.QuestionRecordCodec;
 import de.planmarshall.core.store.QuestionRefusal;
 import de.planmarshall.core.store.ScopeTransaction;
-import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.lock.FileLockManager;
-import de.planmarshall.runtime.workspace.WorkspaceConfinement;
+import de.planmarshall.runtime.question.QuestionFixtures.EndOfLine;
+import de.planmarshall.runtime.test.TestBases;
 
 /**
  * The adapter of the engine port {@code QuestionRecordReader} over the question log of {@code core.store} (PM-ARCH-4,
@@ -76,11 +67,6 @@ class QuestionLogRecordReaderTest {
     private static final String PLAN = "a-plan";
     private static final String EPIC = "an-epic";
     private static final String QUESTION = "Q-001";
-    private static final Instant AT = Instant.parse("2026-10-19T09:00:00Z");
-    private static final Clock CLOCK = Clock.fixed(AT, ZoneOffset.UTC);
-
-    @TempDir
-    Path temp;
 
     private Path base;
     private JournalScope plan;
@@ -90,7 +76,9 @@ class QuestionLogRecordReaderTest {
 
     @BeforeEach
     void createRuntime() throws IOException {
-        base = temp.toRealPath();
+        base = TestBases.create("pmq-");
+        Files.createDirectories(base);
+        base = base.toRealPath();
         plan = JournalScope.plan(base, PROJECT, PLAN);
         workspace = JournalScope.workspace(base, PROJECT);
         Files.createDirectories(plan.pathBase());
@@ -100,49 +88,16 @@ class QuestionLogRecordReaderTest {
         locks = new FileLockManager(event -> {
             // a lock acquisition of these tests records nothing
         });
-        reader = new QuestionLogRecordReader(base, PROJECT,
-                new WorkspaceConfinement(new WorkspaceRoots(base, Set.of())));
+        reader = QuestionFixtures.reader(base, PROJECT);
+    }
+
+    @AfterEach
+    void deleteRuntime() {
+        TestBases.delete(base);
     }
 
     private static ReadRequest request(String questionId) {
         return new ReadRequest(Optional.of(PLAN), questionId);
-    }
-
-    // ------------------------------------------------------------------ fixtures
-
-    private static QuestionRecord asked(String questionId) {
-        return QuestionRecord.builder()
-                .event(QuestionEvent.ASKED)
-                .questionId(questionId)
-                .questionClass(QuestionClass.ASK)
-                .origin(Origin.SERVER)
-                .sourceEntity("question-log-record-reader-test")
-                .questionSet(questionId)
-                .revision(1)
-                .decision(new Decision("A decision", "A header", "A description", List.of(), Blocks.NOTHING,
-                        Reversibility.REVERSIBLE))
-                .envelope("{}")
-                .at(AT)
-                .build();
-    }
-
-    private static QuestionRecord closing(String questionId, QuestionEvent event) {
-        var builder = QuestionRecord.builder().event(event).questionId(questionId).at(AT);
-        return switch (event) {
-            case ANSWERED -> builder
-                    .revision(1)
-                    .decisionId("D-0001")
-                    .answer(new Answer(AnswerKind.CHOSEN, List.of("option_a"), null, null, null, null, false))
-                    .channel(QuestionChannel.CLI)
-                    .build();
-            case WITHDRAWN, CANCELLED -> builder.reason("scope_ended").build();
-            default -> throw new IllegalArgumentException("not a closing event: " + event);
-        };
-    }
-
-    private static QuestionRecord delivered(String questionId) {
-        return QuestionRecord.builder().event(QuestionEvent.DELIVERED).questionId(questionId).revision(1).at(AT)
-                .build();
     }
 
     /** The closing events, derived from the enum at run time: the closed set of resolution outcomes. */
@@ -150,63 +105,8 @@ class QuestionLogRecordReaderTest {
         return Arrays.stream(QuestionEvent.values()).filter(QuestionEvent::closes);
     }
 
-    /** The two line endings every line-oriented fixture gets. */
-    enum EndOfLine {
-        LF("\n"),
-        CRLF("\r\n");
-
-        private final String text;
-
-        EndOfLine(String text) {
-            this.text = text;
-        }
-    }
-
     private void append(JournalScope scope, EndOfLine endOfLine, QuestionRecord... records) {
-        try (var transaction = locks.openTransaction()) {
-            transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, event -> {
-                // these fixtures record nothing
-            }, CLOCK);
-            var refusal = new QuestionLog(scope).append(write, List.of(records));
-            assertTrue(refusal.isEmpty(), "the fixture append should be accepted: " + refusal);
-            write.commit();
-        }
-        if (endOfLine == EndOfLine.CRLF) {
-            convertToCrlf(scope);
-        }
-    }
-
-    private void convertToCrlf(JournalScope scope) {
-        var store = new QuestionLog(scope).store();
-        try {
-            Files.writeString(store, Files.readString(store).replace("\n", "\r\n"), UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    /** Writes raw lines, each terminator the fixture's; the file is the scope's question log. */
-    private void writeRaw(JournalScope scope, EndOfLine endOfLine, String... lines) {
-        var store = new QuestionLog(scope).store();
-        try {
-            Files.createDirectories(store.getParent());
-            Files.writeString(store, String.join(endOfLine.text, lines) + endOfLine.text, UTF_8);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private static String line(QuestionRecord record) {
-        return new String(QuestionRecordCodec.write(record), UTF_8);
-    }
-
-    private static void appendLine(JournalScope scope, String line) {
-        try {
-            Files.writeString(new QuestionLog(scope).store(), line, UTF_8, StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        QuestionFixtures.append(locks, scope, endOfLine, records);
     }
 
     // ------------------------------------------------------------------ Open
@@ -326,11 +226,11 @@ class QuestionLogRecordReaderTest {
                     return "the question Q-001 is not in the log";
                 }
                 case UNPARSEABLE_LINE -> {
-                    writeRaw(plan, endOfLine, "this is no question record");
+                    QuestionFixtures.writeRaw(plan, endOfLine, "this is no question record");
                     return "the question log holds a refused line 1";
                 }
                 case RECORD_OF_ANOTHER_CLASS -> {
-                    writeRaw(plan, endOfLine,
+                    QuestionFixtures.writeRaw(plan, endOfLine,
                             "{\"format_version\":1,\"waiver_id\":\"W-0001\",\"plan_id\":\"a-plan\"}");
                     return "the question log holds a refused line 1";
                 }
@@ -357,7 +257,7 @@ class QuestionLogRecordReaderTest {
         @DisplayName("reads Unreadable for an open record followed by an unparseable line, and names the line")
         void openRecordThenUnparseableLine() {
             append(plan, EndOfLine.LF, asked(QUESTION));
-            appendLine(plan, "no question record\n");
+            QuestionFixtures.appendLine(plan, "no question record\n");
 
             var read = reader.read(request(QUESTION));
 
@@ -370,7 +270,7 @@ class QuestionLogRecordReaderTest {
         @DisplayName("reads Unreadable for a resolved record followed by a refused line (ADR core-store/039)")
         void resolvedRecordThenRefusedLine() {
             append(plan, EndOfLine.LF, asked(QUESTION), closing(QUESTION, QuestionEvent.ANSWERED));
-            appendLine(plan, "{\"format_version\":2}\n");
+            QuestionFixtures.appendLine(plan, "{\"format_version\":2}\n");
 
             var refusal = appendRefused(asked("Q-002"));
 
@@ -386,7 +286,7 @@ class QuestionLogRecordReaderTest {
                 transaction.acquire(plan.lockKey());
                 var write = ScopeTransaction.open(transaction, plan, event -> {
                     // the test records nothing
-                }, CLOCK);
+                }, QuestionFixtures.CLOCK);
                 var refusal = new QuestionLog(plan).append(write, List.of(record));
                 assertTrue(refusal.isPresent(), "ADR core-store/039 refuses every append to a log with a refused line");
                 return refusal.get();
