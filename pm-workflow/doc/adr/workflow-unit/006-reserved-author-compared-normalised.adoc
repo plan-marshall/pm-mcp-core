@@ -25,9 +25,10 @@ the author check ran.
 * It compares that value with `ProjectUnitLoader.RESERVED_AUTHOR` after NFKC normalising it, removing its format
   characters, stripping its surrounding whitespace and folding its case. A match is a `RULE` finding
   `author_reserved` at the author line, whether or not the frontmatter reader also refuses the unit for a character.
-* `ProjectUnitLoader.read` reads at most `ProjectUnitLoader.MAX_UNIT_FILE_BYTES + 1` bytes from a unit file and
-  refuses a file that needs more as a `MISSING` finding with the new code `unit_too_large` at line `0`, so no unit
-  file above the bound is read whole.
+* `ProjectUnitLoader.read` reads at most `ProjectUnitLoader.MAX_UNIT_FILE_BYTES + 1` bytes from a project unit file and
+  refuses a file that needs more as a `MISSING` finding with the new code `unit_too_large` at line `0`, so no project
+  unit file above the bound is read whole. The bound is that of the project level only: the compiled default units are
+  read from the binary's classpath, which is not untrusted input.
 
 Rationale: the reserved name identifies a delivered unit, so a displayed look-alike must be refused; and a bound on the
 file protects the loader from a file it would otherwise read whole.

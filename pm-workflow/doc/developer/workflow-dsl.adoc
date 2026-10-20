@@ -101,7 +101,7 @@ anchor, alias or merge key is ever resolved
   or a paragraph separator (Zp). A frontmatter with one is refused with its category, its code point and its line, so a
   display value cannot reorder or hide what the operator sees
   (link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]).
-* *Bounds*: a unit file holds at most 1048576 bytes (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`), a frontmatter holds at
+* *Bounds*: a project unit file holds at most 1048576 bytes (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`), a frontmatter holds at
   most 200 lines including its two `---` delimiters (`UnitFrontmatterReader.MAX_FRONTMATTER_LINES`), and a refusal
   echoes at most 80 characters of the source, marked with `...` where it cuts
   (`UnitFrontmatterReader.MAX_ECHO_LENGTH`). The reader reads the frontmatter from the head of the source and never
@@ -354,3 +354,5 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
   of a composed instance is derived from a part.
 * link:../adr/workflow-dsl/006-empty-list-admitted-as-a-call-value.adoc[ADR 006]: the grammar admits the empty list `[]`
   as a call value, and nothing else of the grammar changes.
+* link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]: the frontmatter refuses format,
+  line and paragraph separators, is bounded at 200 lines, and a refusal echoes at most 80 characters.

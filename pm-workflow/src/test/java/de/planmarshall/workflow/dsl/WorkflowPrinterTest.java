@@ -318,9 +318,9 @@ class WorkflowPrinterTest {
         }
 
         static Stream<String> valuesPlainRefuses() {
-            return Stream.of("-leading dash", "?question", ": colon", ", comma", "[open", "{brace", "#hash", "&anchor",
-                    "*alias", "!tag", "|pipe", ">fold", "'single", "\"double", "%percent", "@at", "`back", "a: b",
-                    "a #b", " leading", "trailing ");
+            var indicators = UnitFrontmatterReader.INDICATORS.chars().mapToObj(character ->
+                    (char) character + "value");
+            return Stream.concat(indicators, Stream.of("a: b", "a #b", " leading", "trailing "));
         }
 
         @ParameterizedTest(name = "[{0}]")

@@ -235,4 +235,4 @@ Every unit text of the tests opens with its frontmatter: `plan-marshall` as auth
 
 * Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL-5]
 * Specification: link:../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Project-Owned Workflow Units & Compiled Invariants], link:../../../doc/specification/workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL § Workflow Definition Units]
-* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 005; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005]
+* Decisions: `pm-workflow/doc/adr/workflow-unit/` ADRs 001 to 006; the reserved author in link:../adr/workflow-unit/005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005], its normalised comparison and the file size bound in link:../adr/workflow-unit/006-reserved-author-compared-normalised.adoc[ADR 006]

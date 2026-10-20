@@ -116,8 +116,8 @@ public final class UnitFrontmatterReader {
 
     private static final Pattern DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
-    /** The characters a plain YAML scalar may not start with. */
-    private static final String INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
+    /** The characters a plain YAML scalar may not start with, the one definition the reader and the printer share. */
+    static final String INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
 
     private static final String VALUE_TYPES = Arrays.stream(UnitType.values()).map(UnitType::wireName)
             .collect(Collectors.joining(", "));
