@@ -284,7 +284,12 @@ final class PortedFixtures {
             int excluded = body.indexOf(" excluded: ");
             if (arrow > 0) {
                 caseName = body.substring(0, arrow);
-                entry = new RosterEntry(Set.of(body.substring(arrow + " -> ".length()).strip().split(" ")), "");
+                String[] fixtures = body.substring(arrow + " -> ".length()).strip().split(" ");
+                try {
+                    entry = new RosterEntry(Set.of(fixtures), "");
+                } catch (IllegalArgumentException duplicate) {
+                    throw refusal(ROSTER, index + 1, "maps the case to a duplicate fixture: " + line);
+                }
             } else if (excluded > 0) {
                 caseName = body.substring(0, excluded);
                 entry = new RosterEntry(Set.of(), body.substring(excluded + " excluded: ".length()).strip());

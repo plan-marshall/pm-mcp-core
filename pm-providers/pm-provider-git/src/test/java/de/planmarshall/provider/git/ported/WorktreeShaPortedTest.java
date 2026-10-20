@@ -248,7 +248,9 @@ class WorktreeShaPortedTest {
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> PortedFixtures.roster(suite + "test_a -> f\n")),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> PortedFixtures.roster(suite + "case test_a -> f\ncase test_a excluded: r\n")));
+                            () -> PortedFixtures.roster(suite + "case test_a -> f\ncase test_a excluded: r\n")),
+                    () -> assertRefused("duplicate fixture",
+                            () -> PortedFixtures.roster(suite + "case test_a -> f f\n")));
         }
 
         private void assertRefused(String reason, Executable parse) {
