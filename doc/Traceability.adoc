@@ -45,6 +45,17 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EngineEventTes
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusStoreTest.java[WorkflowStatusStoreTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/EnginePortsTest.java[EnginePortsTest]
 
+Implementation (the runtime side of bullets 4 and 5, the reader of question records, not yet wired into the CDI
+assembly of `pm-mcpd`: the adapter of the engine port `QuestionRecordReader` over the question log of `core.store` for
+the plan, epic or workspace scope the request addresses, so the record a `question` state waits on is read from the
+persisted store alone; the whole log is judged, so an absent log, a refused line, a torn tail and an unreadable store
+are `Unreadable`, never `Open`; the read takes no lock, writes nothing and passes the log path through the workspace
+confinement, a refusal being a value): link:../pm-runtime/src/main/java/de/planmarshall/runtime/question/QuestionLogRecordReader.java[QuestionLogRecordReader]
+
+Verified by (the runtime reader of question records): link:../pm-runtime/src/test/java/de/planmarshall/runtime/question/QuestionLogRecordReaderTest.java[QuestionLogRecordReaderTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/question/QuestionLogRecordReaderReadTest.java[QuestionLogRecordReaderReadTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/question/QuestionLogRecordReaderBoundaryTest.java[QuestionLogRecordReaderBoundaryTest]
+
 Implementation (the scope identifier a primitive is handed with every execution, empty for the workspace scope; part of the second statement of this requirement): link:../pm-core/src/main/java/de/planmarshall/core/spi/WorkflowExecutionContext.java[WorkflowExecutionContext]
 
 Verified by (the scope identifier of a primitive): link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveContractTest.java[PrimitiveContractTest]
@@ -60,6 +71,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/spi/EnginePortsTest.java[Engi
 Documentation: link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer Guide],
 link:../pm-workflow/doc/developer/workflow-engine.adoc#_entity_addressing[Workflow Engine Developer Guide § Entity Addressing],
 link:../pm-core/doc/developer/core-store.adoc[Workflow State Store and Engine Ports Developer Guide],
+link:../pm-runtime/doc/developer/runtime-question.adoc[Question Record Reader Developer Guide],
 link:../../plan-marshall-documentation/doc/developer/primitive-spi.adoc#spi-contract[Developer Guide § The Contract of a Primitive]
 
 [#PM-ARCH-6]
@@ -1102,7 +1114,7 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/OrderedWriteTest.java[O
 link:../pm-core/src/test/java/de/planmarshall/core/store/EnrolmentStoreTest.java[EnrolmentStoreTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/enrolment/EnrolmentsTest.java[EnrolmentsTest]
 
-Implementation (the append-only operator and question stores of a scope as targets of its transaction: the waiver and waiver consumption logs of a plan, read as the last readable line of a key; the question log of a plan, an epic, the workspace and an entry, whose invariants (one closing line per question, the current revision) are decided under the scope lock and returned as refusal values with nothing added; the move of an entry's question log into the new scope as a create target and a delete target in two transactions; and the per-project machine store, whose identity record is created once under the project's workspace lock; the single writers of the waiver logs, their audit mirroring, and the engine's read of the question log through its runtime adapter are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverLog.java[WaiverLog],
+Implementation (the append-only operator and question stores of a scope as targets of its transaction: the waiver and waiver consumption logs of a plan, read as the last readable line of a key; the question log of a plan, an epic, the workspace and an entry, whose invariants (one closing line per question, the current revision) are decided under the scope lock and returned as refusal values with nothing added; the move of an entry's question log into the new scope as a create target and a delete target in two transactions; and the per-project machine store, whose identity record is created once under the project's workspace lock; the single writers of the waiver logs, their audit mirroring, and the runtime/CDI wiring of `QuestionLogRecordReader` into the engine are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverLog.java[WaiverLog],
 link:../pm-core/src/main/java/de/planmarshall/core/store/WaiverConsumptionLog.java[WaiverConsumptionLog],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionLog.java[QuestionLog],
 link:../pm-core/src/main/java/de/planmarshall/core/store/QuestionRefusal.java[QuestionRefusal],
