@@ -46,7 +46,7 @@ The write-ahead job journal, one record per job written at its fixed points (que
     "worker": {
       "type": ["object", "null"],
       "description": "Required (non-null) iff kind == llm: the launch contract, the job-bound connection, and the protocol state of a worker; null for every other kind.",
-      "required": ["role", "configuration_digest", "class", "form", "harness", "harness_version", "model", "effort", "generation_id", "workdir", "prompt_digest", "job_token_sha256", "connected_at", "state", "state_at", "task", "served_tasks", "idle_wakeups", "context_tokens", "delivered_skills", "end_reason", "start_failure", "harness_error"],
+      "required": ["role", "configuration_digest", "class", "form", "harness", "harness_version", "model", "effort", "generation_id", "workdir", "prompt_digest", "job_token_sha256", "connected_at", "state", "state_at", "task", "served_tasks", "worktree_mark", "idle_wakeups", "context_tokens", "delivered_skills", "end_reason", "start_failure", "harness_error"],
       "additionalProperties": false,
       "properties": {
         "role": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$", "description": "The role the worker serves (identifiers.adoc, role name)." },
@@ -67,6 +67,7 @@ The write-ahead job journal, one record per job written at its fixed points (que
         "state_at": { "type": "string", "format": "date-time" },
         "task": { "type": ["string", "null"], "pattern": "^qt-[0-9a-f]{16}$", "description": "The queue task leased to this generation; null while the worker holds none." },
         "served_tasks": { "type": "array", "items": { "type": "string", "pattern": "^qt-[0-9a-f]{16}$" }, "description": "The queue tasks this generation closed, in order; a token budget recycles a warm worker only after at least one." },
+        "worktree_mark": { "type": ["object", "null"], "required": ["head", "changed_paths", "marked_at"], "additionalProperties": false, "description": "The working directory's state when this warm generation closed its latest task: the next offer to it carries the paths changed since (model-work/02, Changed since the Last Task); null for a fresh worker and before the first close.", "properties": { "head": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" }, "changed_paths": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "marked_at": { "type": "string", "format": "date-time" } } },
         "idle_wakeups": { "type": "integer", "minimum": 0, "description": "Consecutive bounded waits that ended without a task; reset by an offer." },
         "context_tokens": { "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string", "const": "unmeasured" } ], "description": "The context size of the worker's last turn, from the harness's per-turn usage; compared with the role's token budget. Never taken from a run total." },
         "delivered_skills": {
