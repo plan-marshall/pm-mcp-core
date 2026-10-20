@@ -27,6 +27,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Open;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Resolved;
@@ -80,11 +82,13 @@ class QuestionLogRecordReaderBoundaryTest {
     @DisplayName("the question id at the grammar bounds")
     class QuestionIdBounds {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads a question with three digits and one with six")
-        void readsBothValidForms() {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked("Q-001"), closing("Q-001", QuestionEvent.ANSWERED),
-                    asked("Q-999999"), closing("Q-999999", QuestionEvent.CANCELLED));
+        void readsBothValidForms(EndOfLine endOfLine) {
+            QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"),
+                    closing("Q-001", QuestionEvent.ANSWERED), asked("Q-999999"),
+                    closing("Q-999999", QuestionEvent.CANCELLED));
 
             assertAll(
                     () -> assertEquals(new Resolved("answered"), reader.read(request("Q-001"))),
@@ -120,21 +124,23 @@ class QuestionLogRecordReaderBoundaryTest {
     @DisplayName("the log size")
     class LogSize {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads a log of one record")
-        void readsOneRecord() {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked("Q-001"));
+        void readsOneRecord(EndOfLine endOfLine) {
+            QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"));
 
             assertEquals(new Open(), reader.read(request("Q-001")));
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads a log of two hundred records of one question")
-        void readsManyRecords() {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked("Q-001"));
+        void readsManyRecords(EndOfLine endOfLine) {
+            QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"));
             IntStream.rangeClosed(2, 199).forEach(revision ->
-                    QuestionFixtures.append(locks, plan, EndOfLine.LF, revision("Q-001", revision)));
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, closing("Q-001", QuestionEvent.ANSWERED, 199));
+                    QuestionFixtures.append(locks, plan, endOfLine, revision("Q-001", revision)));
+            QuestionFixtures.append(locks, plan, endOfLine, closing("Q-001", QuestionEvent.ANSWERED, 199));
 
             assertEquals(new Resolved("answered"), reader.read(request("Q-001")));
         }
@@ -149,26 +155,30 @@ class QuestionLogRecordReaderBoundaryTest {
     @DisplayName("the lines of one question")
     class LinesOfOneQuestion {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Open after a revision and a delivery that did not close it")
-        void readsOpenBetweenRevisions() {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked("Q-001"),
-                    QuestionRecord.builder().event(QuestionEvent.REVISED).questionId("Q-001").revision(2)
-                            .envelope("{}").at(QuestionFixtures.AT).build(),
-                    delivered("Q-001", 2));
+        void readsOpenBetweenRevisions(EndOfLine endOfLine) {
+            QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"),
+                    revised("Q-001", 2), delivered("Q-001", 2));
 
             assertEquals(new Open(), reader.read(request("Q-001")));
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Resolved after the intermediate lines and the closing line")
-        void readsResolvedAfterIntermediateLines() {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked("Q-001"),
-                    QuestionRecord.builder().event(QuestionEvent.REVISED).questionId("Q-001").revision(2)
-                            .envelope("{}").at(QuestionFixtures.AT).build(),
-                    delivered("Q-001", 2), closing("Q-001", QuestionEvent.ANSWERED, 2));
+        void readsResolvedAfterIntermediateLines(EndOfLine endOfLine) {
+            QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"),
+                    revised("Q-001", 2), delivered("Q-001", 2),
+                    closing("Q-001", QuestionEvent.ANSWERED, 2));
 
             assertEquals(new Resolved("answered"), reader.read(request("Q-001")));
+        }
+
+        private QuestionRecord revised(String questionId, int revision) {
+            return QuestionRecord.builder().event(QuestionEvent.REVISED).questionId(questionId).revision(revision)
+                    .envelope("{}").at(QuestionFixtures.AT).build();
         }
     }
 
@@ -176,11 +186,13 @@ class QuestionLogRecordReaderBoundaryTest {
     @DisplayName("a refused closing line")
     class RefusedClosingLine {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Unreadable, never Open, when the closing line of the question was refused when read")
-        void neverReadsOpen() {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked("Q-001"));
-            QuestionFixtures.appendLine(plan, "{\"format_version\":1,\"event\":\"answered\",\"question_id\":\"Q-001\"}\n");
+        void neverReadsOpen(EndOfLine endOfLine) {
+            QuestionFixtures.append(locks, plan, endOfLine, asked("Q-001"));
+            QuestionFixtures.appendLine(plan, endOfLine,
+                    "{\"format_version\":1,\"event\":\"answered\",\"question_id\":\"Q-001\"}");
 
             var read = reader.read(request("Q-001"));
 
@@ -189,10 +201,11 @@ class QuestionLogRecordReaderBoundaryTest {
             assertEquals("the question log holds a refused line 2", unreadable.reason());
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Unreadable for a plan whose log holds only a refused line")
-        void readsUnreadableForARefusedFirstLine() {
-            QuestionFixtures.appendLine(plan, "{\"format_version\":2}\n");
+        void readsUnreadableForARefusedFirstLine(EndOfLine endOfLine) {
+            QuestionFixtures.appendLine(plan, endOfLine, "{\"format_version\":2}");
 
             var read = reader.read(request("Q-001"));
 

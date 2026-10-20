@@ -39,6 +39,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Open;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Resolved;
@@ -94,10 +96,11 @@ class QuestionLogRecordReaderReadTest {
     @DisplayName("the file tree of the scope")
     class FileTree {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("is identical before and after a read: same names, sizes and modification times")
-        void leavesTheTreeUnchanged() throws Exception {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION),
+        void leavesTheTreeUnchanged(EndOfLine endOfLine) throws Exception {
+            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION),
                     closing(QUESTION, QuestionEvent.ANSWERED));
             var before = tree(plan.pathBase());
 
@@ -134,10 +137,11 @@ class QuestionLogRecordReaderReadTest {
     @DisplayName("an append that holds the lock")
     class AppendLock {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("does not delay the read, and the read does not block the append it follows")
-        void readsWhileAnotherThreadHoldsTheAppendLock() throws Exception {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION));
+        void readsWhileAnotherThreadHoldsTheAppendLock(EndOfLine endOfLine) throws Exception {
+            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION));
             var locked = new CountDownLatch(1);
             var release = new CountDownLatch(1);
             var failure = new AtomicReference<Throwable>();
@@ -165,7 +169,7 @@ class QuestionLogRecordReaderReadTest {
             }
             assertNull(failure.get(), "the lock holder should not fail: " + failure.get());
 
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, closing(QUESTION, QuestionEvent.ANSWERED));
+            QuestionFixtures.append(locks, plan, endOfLine, closing(QUESTION, QuestionEvent.ANSWERED));
 
             assertEquals(new Resolved("answered"), reader.read(request(PLAN, QUESTION)),
                     "the append the read did not block is in the log");
@@ -176,10 +180,11 @@ class QuestionLogRecordReaderReadTest {
     @DisplayName("the confinement of the log path")
     class Confinement {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("answers Unreadable, as a value, for a log outside the confinement")
-        void refusesAPathOutsideTheConfinement() throws Exception {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION));
+        void refusesAPathOutsideTheConfinement(EndOfLine endOfLine) throws Exception {
+            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION));
             var elsewhere = Files.createDirectories(base.resolve("elsewhere"));
             var confined = new QuestionLogRecordReader(base, PROJECT,
                     new WorkspaceConfinement(new WorkspaceRoots(elsewhere, Set.of())));
@@ -207,11 +212,12 @@ class QuestionLogRecordReaderReadTest {
                     unreadable.reason());
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisabledOnOs(OS.WINDOWS)
         @DisplayName("answers Unreadable for a scope directory reached through a symbolic link")
-        void refusesASymbolicLink() throws Exception {
-            QuestionFixtures.append(locks, plan, EndOfLine.LF, asked(QUESTION));
+        void refusesASymbolicLink(EndOfLine endOfLine) throws Exception {
+            QuestionFixtures.append(locks, plan, endOfLine, asked(QUESTION));
             var linkedScope = plan.pathBase().getParent().resolve("linked-plan");
             Files.createSymbolicLink(linkedScope, plan.pathBase());
 

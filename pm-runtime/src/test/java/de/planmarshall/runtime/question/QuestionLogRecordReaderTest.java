@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -27,8 +28,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,7 +61,7 @@ import de.planmarshall.runtime.test.TestBases;
 /**
  * The adapter of the engine port {@code QuestionRecordReader} over the question log of {@code core.store} (PM-ARCH-4,
  * PM-IMPL-5): the tri-state read over a fixture log, the whole log judged so that a broken log is never reported open,
- * and the scope the request addresses.
+ * and the scope the request addresses. Every line-oriented fixture is written with both line endings.
  */
 @DisplayName("Question log record reader")
 class QuestionLogRecordReaderTest {
@@ -109,6 +112,14 @@ class QuestionLogRecordReaderTest {
         QuestionFixtures.append(locks, scope, endOfLine, records);
     }
 
+    private void createDirectory(Path path) {
+        try {
+            Files.createDirectories(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     // ------------------------------------------------------------------ Open
 
     @Nested
@@ -126,10 +137,11 @@ class QuestionLogRecordReaderTest {
             assertEquals(new Open(), read, "an asked record with a delivery and no closing line is open");
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Open for each part of a multi-part decision")
-        void readsOpenPartOfSet() {
-            append(plan, EndOfLine.LF, asked(QUESTION), asked("Q-002"));
+        void readsOpenPartOfSet(EndOfLine endOfLine) {
+            append(plan, endOfLine, asked(QUESTION), asked("Q-002"));
 
             assertAll(
                     () -> assertEquals(new Open(), reader.read(request(QUESTION))),
@@ -143,29 +155,33 @@ class QuestionLogRecordReaderTest {
     @DisplayName("a resolved record")
     class ResolvedRecord {
 
-        @ParameterizedTest
-        @EnumSource(EndOfLine.class)
-        @DisplayName("reads Resolved with the outcome of every closing event, the set derived from the enum")
-        void readsEveryOutcome(EndOfLine endOfLine) {
-            var expected = closingEvents().map(QuestionEvent::wireName).toList();
-            assertEquals(Set.copyOf(expected), Set.of("answered", "withdrawn", "cancelled"),
-                    "the closing events are the closed set of resolution outcomes");
-
-            for (var event : closingEvents().toList()) {
-                var questionId = "Q-%03d".formatted(event.ordinal() + 1);
-                append(plan, endOfLine, asked(questionId), closing(questionId, event));
-
-                var read = reader.read(request(questionId));
-
-                assertEquals(new Resolved(event.wireName()), read,
-                        "the adapter returns the outcome the closing line records");
-            }
+        static Stream<Arguments> closingOutcomes() {
+            return closingEvents().flatMap(event -> Stream.of(EndOfLine.values())
+                    .map(endOfLine -> Arguments.of(event, endOfLine)));
         }
 
-        @Test
+        @ParameterizedTest(name = "{0} with {1}")
+        @MethodSource("closingOutcomes")
+        @DisplayName("reads Resolved with the outcome of every closing event, the set derived from the enum")
+        void readsEveryOutcome(QuestionEvent event, EndOfLine endOfLine) {
+            var expected = closingEvents().map(QuestionEvent::wireName).collect(Collectors.toSet());
+            assertEquals(Set.of("answered", "withdrawn", "cancelled"), expected,
+                    "the closing events are the closed set of resolution outcomes");
+
+            var questionId = "Q-%03d".formatted(event.ordinal() + 1);
+            append(plan, endOfLine, asked(questionId), closing(questionId, event));
+
+            var read = reader.read(request(questionId));
+
+            assertEquals(new Resolved(event.wireName()), read,
+                    "the adapter returns the outcome the closing line records");
+        }
+
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Resolved for a closed question among open ones")
-        void readsClosedAmongOpenQuestions() {
-            append(plan, EndOfLine.LF, asked(QUESTION), asked("Q-002"), closing(QUESTION, QuestionEvent.ANSWERED));
+        void readsClosedAmongOpenQuestions(EndOfLine endOfLine) {
+            append(plan, endOfLine, asked(QUESTION), asked("Q-002"), closing(QUESTION, QuestionEvent.ANSWERED));
 
             assertAll(
                     () -> assertEquals(new Resolved("answered"), reader.read(request(QUESTION))),
@@ -189,11 +205,11 @@ class QuestionLogRecordReaderTest {
         return Stream.concat(
                 Stream.of(Arguments.of(UnreadableCause.ABSENT_LOG, EndOfLine.LF),
                         Arguments.of(UnreadableCause.EMPTY_LOG, EndOfLine.LF),
-                        Arguments.of(UnreadableCause.STORE_REFUSES, EndOfLine.LF),
-                        Arguments.of(UnreadableCause.TORN_TAIL, EndOfLine.LF)),
+                        Arguments.of(UnreadableCause.STORE_REFUSES, EndOfLine.LF)),
                 Stream.of(EndOfLine.values()).flatMap(endOfLine -> Stream.of(
                         Arguments.of(UnreadableCause.UNPARSEABLE_LINE, endOfLine),
-                        Arguments.of(UnreadableCause.RECORD_OF_ANOTHER_CLASS, endOfLine))));
+                        Arguments.of(UnreadableCause.RECORD_OF_ANOTHER_CLASS, endOfLine),
+                        Arguments.of(UnreadableCause.TORN_TAIL, endOfLine))));
     }
 
     @Nested
@@ -209,7 +225,6 @@ class QuestionLogRecordReaderTest {
             var read = reader.read(request(QUESTION));
 
             assertNotEquals(new Open(), read, "a broken log is never reported open");
-            assertNotEquals(new Resolved("answered"), read);
             var unreadable = assertInstanceOf(Unreadable.class, read);
             assertEquals(expectedReason, unreadable.reason());
         }
@@ -241,8 +256,9 @@ class QuestionLogRecordReaderTest {
                 case TORN_TAIL -> {
                     var asked = line(asked(QUESTION));
                     Files.createDirectories(store.getParent());
-                    Files.writeString(store, asked + "\n" + "{", UTF_8);
-                    return "the question log ends in a torn tail at byte " + (asked.getBytes(UTF_8).length + 1);
+                    Files.writeString(store, asked + endOfLine.text() + "{", UTF_8);
+                    return "the question log ends in a torn tail at byte "
+                            + (asked.getBytes(UTF_8).length + endOfLine.text().length());
                 }
             }
             throw new IllegalStateException("unhandled cause " + cause);
@@ -253,11 +269,12 @@ class QuestionLogRecordReaderTest {
     @DisplayName("a log holding a refused line")
     class RefusedLine {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Unreadable for an open record followed by an unparseable line, and names the line")
-        void openRecordThenUnparseableLine() {
-            append(plan, EndOfLine.LF, asked(QUESTION));
-            QuestionFixtures.appendLine(plan, "no question record\n");
+        void openRecordThenUnparseableLine(EndOfLine endOfLine) {
+            append(plan, endOfLine, asked(QUESTION));
+            QuestionFixtures.appendLine(plan, endOfLine, "no question record");
 
             var read = reader.read(request(QUESTION));
 
@@ -266,11 +283,12 @@ class QuestionLogRecordReaderTest {
             assertEquals("the question log holds a refused line 2", unreadable.reason());
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Unreadable for a resolved record followed by a refused line (ADR core-store/039)")
-        void resolvedRecordThenRefusedLine() {
-            append(plan, EndOfLine.LF, asked(QUESTION), closing(QUESTION, QuestionEvent.ANSWERED));
-            QuestionFixtures.appendLine(plan, "{\"format_version\":2}\n");
+        void resolvedRecordThenRefusedLine(EndOfLine endOfLine) {
+            append(plan, endOfLine, asked(QUESTION), closing(QUESTION, QuestionEvent.ANSWERED));
+            QuestionFixtures.appendLine(plan, endOfLine, "{\"format_version\":2}");
 
             var refusal = appendRefused(asked("Q-002"));
 
@@ -294,27 +312,65 @@ class QuestionLogRecordReaderTest {
         }
     }
 
+    @Nested
+    @DisplayName("a torn log")
+    class TornTail {
+
+        @Test
+        @DisplayName("reads Unreadable when the log is a torn tail at the first byte")
+        void readsUnreadableForATornTailAtTheFirstByte() {
+            QuestionFixtures.writeTorn(plan, EndOfLine.LF);
+
+            var read = reader.read(request(QUESTION));
+
+            assertEquals(new Unreadable("the question log ends in a torn tail at byte 0"), read);
+        }
+
+        @Test
+        @DisplayName("names the refused line before a torn tail that follows it")
+        void readsTheRefusedLineBeforeTheTornTail() {
+            QuestionFixtures.writeTorn(plan, EndOfLine.LF, "{\"format_version\":2}");
+
+            var read = reader.read(request(QUESTION));
+
+            assertEquals(new Unreadable("the question log holds a refused line 1"), read);
+        }
+
+        @Test
+        @DisplayName("names the first of several refused lines")
+        void readsTheFirstOfSeveralRefusedLines() {
+            QuestionFixtures.appendLine(plan, EndOfLine.LF, "{\"format_version\":2}");
+            QuestionFixtures.appendLine(plan, EndOfLine.LF, "{\"format_version\":3}");
+
+            var read = reader.read(request(QUESTION));
+
+            assertEquals(new Unreadable("the question log holds a refused line 1"), read);
+        }
+    }
+
     // ------------------------------------------------------------------ the scope of the request
 
     @Nested
     @DisplayName("the scope of the request")
     class ScopeResolution {
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads the workspace log for an empty scope id")
-        void readsTheWorkspaceScope() {
-            append(workspace, EndOfLine.LF, asked(QUESTION));
+        void readsTheWorkspaceScope(EndOfLine endOfLine) {
+            append(workspace, endOfLine, asked(QUESTION));
 
             assertEquals(new Open(), reader.read(new ReadRequest(Optional.empty(), QUESTION)));
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads an epic log for a scope id naming an epic")
-        void readsAnEpicScope() {
+        void readsAnEpicScope(EndOfLine endOfLine) {
             var epic = JournalScope.epic(base, PROJECT, EPIC);
             createDirectory(epic.pathBase());
             createDirectory(epic.journalFile().getParent());
-            append(epic, EndOfLine.LF, asked(QUESTION));
+            append(epic, endOfLine, asked(QUESTION));
 
             assertEquals(new Open(), reader.read(new ReadRequest(Optional.of(EPIC), QUESTION)));
         }
@@ -345,8 +401,7 @@ class QuestionLogRecordReaderTest {
                     () -> reader.read(new ReadRequest(Optional.of("../../escape"), QUESTION)));
 
             var unreadable = assertInstanceOf(Unreadable.class, read);
-            assertTrue(unreadable.reason().startsWith("the scope is not an identifier"),
-                    "the reason should name the refused scope id form: " + unreadable.reason());
+            assertEquals("the scope is not an identifier: ../../escape", unreadable.reason());
         }
 
         @Test
@@ -357,14 +412,6 @@ class QuestionLogRecordReaderTest {
             assertEquals(new Unreadable("the question Q-001 is not in the log"),
                     reader.read(request(QUESTION)));
         }
-
-        private void createDirectory(Path path) {
-            try {
-                Files.createDirectories(path);
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
     }
 
     // ------------------------------------------------------------------ agreement with the store
@@ -373,22 +420,64 @@ class QuestionLogRecordReaderTest {
     @DisplayName("agreement with QuestionLog")
     class Agreement {
 
-        @Test
-        @DisplayName("reads the same state as QuestionLog for every record both see")
-        void agreesOnEveryRecord() {
-            append(plan, EndOfLine.LF, asked(QUESTION), asked("Q-002"), closing(QUESTION, QuestionEvent.ANSWERED),
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
+        @DisplayName("reads the state QuestionLog records for each question, the expectation named per question")
+        void agreesOnEveryRecord(EndOfLine endOfLine) {
+            append(plan, endOfLine, asked(QUESTION), asked("Q-002"), closing(QUESTION, QuestionEvent.ANSWERED),
                     asked("Q-003"), closing("Q-003", QuestionEvent.WITHDRAWN));
+            var expected = Map.of(QUESTION, (QuestionRead) new Resolved("answered"),
+                    "Q-002", new Open(),
+                    "Q-003", new Resolved("withdrawn"));
             var lines = new QuestionLog(plan).read();
             var questionIds = lines.records().stream().map(QuestionRecord::questionId).distinct().toList();
             assertEquals(List.of(QUESTION, "Q-002", "Q-003"), questionIds);
 
-            for (var questionId : questionIds) {
-                var current = lines.current(questionId).orElseThrow();
-                QuestionRead expected = current.closes() ? new Resolved(current.event().wireName()) : new Open();
-
-                assertEquals(expected, reader.read(request(questionId)),
-                        "the adapter and the store agree on " + questionId);
+            for (var entry : expected.entrySet()) {
+                var current = lines.current(entry.getKey()).orElseThrow();
+                assertAll("the store and the adapter agree on " + entry.getKey(),
+                        () -> assertEquals(entry.getValue(), reader.read(request(entry.getKey()))),
+                        () -> assertEquals(entry.getValue() instanceof Resolved, current.closes(),
+                                "the store's current line closes exactly when the expected read is resolved"));
             }
+        }
+    }
+
+    // ------------------------------------------------------------------ construction
+
+    @Nested
+    @DisplayName("construction")
+    class Construction {
+
+        @Test
+        @DisplayName("refuses a null base, a null project id and a null request")
+        void refusesNulls() {
+            assertAll(
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new QuestionLogRecordReader(null, PROJECT)),
+                    () -> assertThrows(NullPointerException.class,
+                            () -> new QuestionLogRecordReader(base, null)),
+                    () -> assertThrows(NullPointerException.class, () -> reader.read(null)));
+        }
+
+        @Test
+        @DisplayName("refuses a project id that is no identifier")
+        void refusesAnInvalidProjectId() {
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new QuestionLogRecordReader(base, "../../escape"));
+
+            assertTrue(refusal.getMessage().contains("projectId"),
+                    "the refusal names the project id: " + refusal.getMessage());
+        }
+
+        @Test
+        @DisplayName("answers Unreadable, not an exception, when the base does not exist")
+        void readsUnreadableForANonExistentBase() {
+            var missing = new QuestionLogRecordReader(base.resolve("missing"), PROJECT);
+
+            var read = assertDoesNotThrow(() -> missing.read(request(QUESTION)));
+
+            assertEquals(new Unreadable("no question log for the scope"), read);
         }
     }
 }

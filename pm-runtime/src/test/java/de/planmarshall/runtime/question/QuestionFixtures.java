@@ -20,7 +20,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Set;
 
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.QuestionChannel;
@@ -36,9 +35,7 @@ import de.planmarshall.core.store.QuestionRecord.QuestionClass;
 import de.planmarshall.core.store.QuestionRecord.Reversibility;
 import de.planmarshall.core.store.QuestionRecordCodec;
 import de.planmarshall.core.store.ScopeTransaction;
-import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.lock.FileLockManager;
-import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /** The fixture log of the adapter tests: records the store accepts, the raw lines it refuses, and both line endings. */
 final class QuestionFixtures {
@@ -59,11 +56,14 @@ final class QuestionFixtures {
         EndOfLine(String text) {
             this.text = text;
         }
+
+        String text() {
+            return text;
+        }
     }
 
     static QuestionLogRecordReader reader(Path base, String projectId) {
-        return new QuestionLogRecordReader(base, projectId,
-                new WorkspaceConfinement(new WorkspaceRoots(base, Set.of())));
+        return new QuestionLogRecordReader(base, projectId);
     }
 
     static QuestionRecord asked(String questionId) {
@@ -127,11 +127,12 @@ final class QuestionFixtures {
         }
     }
 
-    static void appendLine(JournalScope scope, String line) {
+    static void appendLine(JournalScope scope, EndOfLine endOfLine, String line) {
         try {
             var store = new QuestionLog(scope).store();
             Files.createDirectories(store.getParent());
-            Files.writeString(store, line, UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(store, line + endOfLine.text, UTF_8, StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -152,10 +153,24 @@ final class QuestionFixtures {
         }
     }
 
+    /** Writes complete lines, each with the ending, and a last line without one: a torn tail. */
+    static void writeTorn(JournalScope scope, EndOfLine endOfLine, String... completeLines) {
+        var store = new QuestionLog(scope).store();
+        try {
+            Files.createDirectories(store.getParent());
+            var complete = completeLines.length == 0 ? ""
+                    : String.join(endOfLine.text, completeLines) + endOfLine.text;
+            Files.writeString(store, complete + "{", UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     private static void convertToCrlf(JournalScope scope) {
         var store = new QuestionLog(scope).store();
         try {
-            Files.writeString(store, Files.readString(store).replace("\n", "\r\n"), UTF_8);
+            var text = Files.readString(store).replace("\r\n", "\n").replace("\n", "\r\n");
+            Files.writeString(store, text, UTF_8);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

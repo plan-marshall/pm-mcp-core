@@ -21,8 +21,10 @@ A read that took the scope lock would block the append, and the engine would wai
 
 * The adapter calls `QuestionLog.read()`, the lock-free snapshot of the log. It takes no lock, creates no store, writes
   nothing and repairs nothing; a torn tail is reported, not cut.
-* It passes the log path through the `WorkspaceConfinement` the constructor is given. `Rejected` is
-  `Unreadable` with the outcome code `path_traversal_rejected` and the reason's wire name.
+* It passes the log path through a `WorkspaceConfinement` over the runtime base, the root of the project store. The
+  public constructor builds that confinement itself, so a caller cannot hand the adapter the enrolled repository root
+  (under which no question log lies); the package-private constructor that takes a confinement exists for the refusal
+  tests only. `Rejected` is `Unreadable` with the outcome code `path_traversal_rejected` and the reason's wire name.
 * Because reading through a link would follow a path the store refuses on its write side, the confined canonical path
   must equal the resolved store path; a difference is `Unreadable` with
   `the question log is not reached by its canonical path`.
@@ -50,8 +52,9 @@ or the read must be refused.
   modification times before and after.
 * A log reached through a symbolic link is unreadable; the store is reachable by its real path, which is what the
   assembly configures.
-* The assembly hands the adapter a confinement over the project store root; the adapter never retries a refused path on
-  the raw text.
+* The confinement root is fixed by the constructor rather than supplied by the assembly: the question store is no
+  repository file, so the enrolled repository root of `runtime.workspace`'s other readers is the wrong root here, and a
+  wiring that could pass it would make every read unreadable.
 
 == Source
 

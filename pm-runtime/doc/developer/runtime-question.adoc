@@ -16,8 +16,8 @@ Package `de.planmarshall.runtime.question` of `pm-runtime` holds the adapter of 
 `de.planmarshall.core.spi.QuestionRecordReader` over the question store of `pm-core`. The engine's `question` state
 waits on a persisted record; the adapter reads that record for the scope the request addresses and answers with the
 port's tri-state read (`Open`, `Resolved` with the closed resolution outcome, `Unreadable`). No class of `pm-core`
-implements the port (PM-IMPL-5), and this adapter is the only implementation in the product code
-(link:../adr/runtime-question/001-the-adapter-resolves-the-scope-of-the-request.adoc[ADR 001]).
+implements the port (PM-IMPL-5); this adapter is the sole implementation in the product code, and it lives in its own
+package (link:../adr/runtime-question/004-the-adapter-lives-in-its-own-package.adoc[ADR 004]).
 
 The question log itself, its record, its codec and its append invariants stay in `pm-core` package `core.store`
 (link:../../../pm-core/doc/adr/core-store/032-question-store-in-core-store-read-through-a-runtime-adapter.adoc[ADR
@@ -26,9 +26,10 @@ core-store/032]); this package only reads it.
 == Core Types
 
 [horizontal]
-`QuestionLogRecordReader`:: The adapter: a constructor `(Path base, String projectId, WorkspaceConfinement
-confinement)` and `read(ReadRequest)`. The base is the runtime's base directory, below which the project stores lie
-(`projects/<project_id>/`).
+`QuestionLogRecordReader`:: The adapter: the public constructor `(Path base, String projectId)` and
+`read(ReadRequest)`. The base is the runtime's base directory, below which the project stores lie
+(`projects/<project_id>/`); the read is confined to it. A package-private constructor takes a confinement and serves
+the refusal tests only.
 `QuestionRecordReader.ReadRequest`:: What the engine asks to read: the scope id (`Optional.empty()` for the workspace
 scope, else a plan or epic id) and the question id (`^Q-[0-9]{3,6}$`).
 `QuestionRecordReader.QuestionRead`:: The result: `Open`, `Resolved(outcome)` or `Unreadable(reason)`.
@@ -39,7 +40,7 @@ scope, else a plan or epic id) and the question id (`^Q-[0-9]{3,6}$`).
 ----
 question state ──► QuestionLogRecordReader.read(ReadRequest(scopeId, questionId))
                      resolve the scope: workspace | plan | epic of the store directory
-                     confine the log path  ──► WorkspaceConfinement (PM-SEC-2)
+                     confine the log path against the runtime base ──► WorkspaceConfinement (PM-SEC-2)
                      QuestionLog(scope).read()  (no lock, no write, no repair)
                      refused line? torn tail? store unreadable? ──► Unreadable
                      Lines.current(questionId) ──► Open | Resolved(closing event)
@@ -62,9 +63,9 @@ link:../../../pm-core/doc/adr/core-store/039-question-append-refused-while-the-l
 * `Open` — the question's current line is an `asked`, `revised`, `adjudicated` or `delivered` line.
 * `Resolved(outcome)` — the question's current line is a closing line; the outcome is that event's wire name,
   `answered`, `withdrawn` or `cancelled`. The closed set is `QuestionEvent.values()` filtered by `closes()`.
-* `Unreadable(reason)` — the scope has no store, the question has no asked line in it, the log holds a refused line
-  (unparseable, of another class, of another `format_version`), the log ends in a torn tail, or the store cannot be
-  read. The reason names the refused line's number or the torn tail's byte offset.
+* `Unreadable(reason)` — the scope has no store, the question has no readable line in the log, the log holds a refused
+  line (unparseable, of another class, of another `format_version`), the log ends in a torn tail, or the store cannot
+  be read. The reason names the refused line's number or the torn tail's byte offset.
 
 A refused closing line may have closed the question, so the whole log is `Unreadable` and never `Open`: the property
 is tested by `QuestionLogRecordReaderBoundaryTest` and `QuestionLogRecordReaderTest`.
@@ -75,10 +76,12 @@ ground.
 
 The adapter takes no lock: `QuestionLog.read()` is the lock-free snapshot, so a read returns while an append holds the
 scope lock and the append is never delayed by it. It writes nothing, creates no file and repairs nothing (a torn tail is
-reported, not cut). The log path passes `WorkspaceConfinement`; a refusal is the value `Unreadable` with the outcome
-code `path_traversal_rejected` and the reason's wire name, never an exception. Because a read must not follow a link
-the store refuses on its write side, the confined canonical path must equal the resolved store path; a scope reached
-through a symbolic link is `Unreadable` as well
+reported, not cut). The log path passes a `WorkspaceConfinement` over the runtime base — the root of the project store,
+not the enrolled repository, which holds no question log; the public constructor builds that confinement itself, and
+only the package-private test seam takes another. A refusal is the value `Unreadable` with the outcome code
+`path_traversal_rejected` and the reason's wire name, never an exception. Because a read must not follow a link the
+store refuses on its write side, the confined canonical path must equal the resolved store path; a scope reached through
+a symbolic link is `Unreadable` as well
 (link:../adr/runtime-question/003-the-read-is-lock-free-confined-and-writes-nothing.adoc[ADR 003]).
 
 The base the constructor is given is canonicalized where it exists, so a symlinked ancestor of the runtime base does
@@ -117,8 +120,8 @@ line endings.
    the read is `Unreadable` for the whole log (ADR core-store/039).
 3. **Never report a broken store open.** An absent log, a refused closing line, a torn tail and an unreadable store
    are `Unreadable`; the engine turns that into `precondition_unmet`, never into a still-waiting question.
-4. **Never bypass the confinement.** The assembly hands the adapter a `WorkspaceConfinement` over the project store
-   root; a refusal is a value and is never retried on the raw path.
+4. **Never bypass the confinement.** The adapter builds a `WorkspaceConfinement` over the runtime base itself; there is
+   no public way to give it another root, and a refusal is a value that is never retried on the raw path.
 5. **The adapter is per project, not per scope.** One instance reads the workspace, plan and epic logs of one project;
    the scope comes from the request.
 

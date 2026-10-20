@@ -27,7 +27,7 @@ The adapter judges the whole log before it reads the question:
 * a log that ends in a torn tail is `Unreadable`, naming the byte offset — an interrupted append may be the closing
   line, and the log is not settled;
 * a log the store cannot read is `Unreadable`, naming the file;
-* a log that has no asked line for the question is `Unreadable`, naming the question.
+* a log that has no readable line for the question is `Unreadable`, naming the question.
 
 Only then is the question's current line read: a closing line is `Resolved` with that event's wire name
 (`answered`, `withdrawn`, `cancelled` — the closed set `QuestionEvent.values()` filtered by `closes()`), every other
@@ -51,6 +51,9 @@ question still awaiting an answer.
 
 * A broken log makes its whole scope's questions unreadable until the store is repaired; the engine raises
   `precondition_unmet` with the reason instead of waiting forever.
+* A torn tail is also the normal transient of a lock-free read that races an append: such a read answers `Unreadable`
+  and the engine raises `precondition_unmet`; the next read after the append settles sees the record. That cost is
+  accepted for the lock-free read (ADR 003).
 * The outcome of a resolved record is derived from the closing event, so the adapter has no second list of outcomes to
   keep in step.
 * `QuestionLogRecordReaderTest` proves each cause, the mixed content and the agreement with `QuestionLog`;

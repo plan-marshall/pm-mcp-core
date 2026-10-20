@@ -16,14 +16,17 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.store.ConfinementOutcome.Confined;
 import de.planmarshall.core.store.ConfinementOutcome.Rejected;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.QuestionLog;
 import de.planmarshall.core.store.QuestionLog.Lines;
 import de.planmarshall.core.store.QuestionRecord;
+import de.planmarshall.core.store.WorkspaceRoots;
 import de.planmarshall.runtime.workspace.WorkspaceConfinement;
 
 /**
@@ -33,11 +36,13 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * <p>
  * The read is a read: it takes no lock that an append could wait on, writes nothing and repairs nothing. The log path
  * passes the workspace confinement ({@link WorkspaceConfinement}, PM-SEC-2, settled design of the project paths), and a
- * refused path is a value of the read, never an exception. The log is judged as a whole, so a record is never reported
- * open on the strength of the readable lines alone: an absent log, a line refused when read (an unparseable line, a
- * record of another class, another {@code format_version}), a torn tail and a log the store cannot read are all
- * {@link QuestionRecordReader.QuestionRead.Unreadable}, never {@link QuestionRecordReader.QuestionRead.Open} (ADR
- * {@code core-store/039}).
+ * refused path is a value of the read, never an exception. The path the adapter confines is the store path against
+ * the <em>runtime base</em>, the root of the project store, not against the enrolled repository: the question log is no
+ * repository file, and the public constructor fixes that root so a caller cannot hand the adapter the wrong one. The log
+ * is judged as a whole, so a record is never reported open on the strength of the readable lines alone: an absent log, a
+ * line refused when read (an unparseable line, a record of another class, another {@code format_version}), a torn tail
+ * and a log the store cannot read are all {@link QuestionRecordReader.QuestionRead.Unreadable}, never
+ * {@link QuestionRecordReader.QuestionRead.Open} (ADR {@code core-store/039}).
  * <p>
  * The scope of the request is the plan or epic its id names, or the workspace scope of the project for an empty id. A
  * scope id that names a plan and an epic is refused rather than guessed, and an id that is no identifier is a value,
@@ -52,14 +57,32 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     private final WorkspaceConfinement confinement;
 
     /**
-     * @param base        the base directory of the runtime, below which the project stores lie
-     * @param projectId   the project whose question logs are read
-     * @param confinement the confinement of the project paths the read passes
-     * @throws NullPointerException if a component is {@code null}
+     * @param base      the base directory of the runtime, below which the project stores lie; the read is confined to
+     *                  it, so the assembly never passes the enrolled repository root
+     * @param projectId the project whose question logs are read
+     * @throws NullPointerException     if a component is {@code null}
+     * @throws IllegalArgumentException if the project id is not an identifier
      */
-    public QuestionLogRecordReader(Path base, String projectId, WorkspaceConfinement confinement) {
+    public QuestionLogRecordReader(Path base, String projectId) {
         this.base = canonical(base);
         this.projectId = Objects.requireNonNull(projectId, "projectId");
+        LockKey.workspace(this.base, this.projectId);
+        this.confinement = new WorkspaceConfinement(new WorkspaceRoots(this.base, Set.of()));
+    }
+
+    /**
+     * The seam of the refusal tests: a confinement the caller names, which must cover the runtime base in production.
+     *
+     * @param base        the base directory of the runtime
+     * @param projectId   the project whose question logs are read
+     * @param confinement the confinement of the store path
+     * @throws NullPointerException     if a component is {@code null}
+     * @throws IllegalArgumentException if the project id is not an identifier
+     */
+    QuestionLogRecordReader(Path base, String projectId, WorkspaceConfinement confinement) {
+        this.base = canonical(base);
+        this.projectId = Objects.requireNonNull(projectId, "projectId");
+        LockKey.workspace(this.base, this.projectId);
         this.confinement = Objects.requireNonNull(confinement, "confinement");
     }
 
@@ -135,10 +158,10 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
      * directory of the scope tells the two apart; an id that names both is refused rather than guessed.
      */
     private Resolution resolve(Optional<String> scopeId) {
+        if (scopeId.isEmpty()) {
+            return Resolution.of(JournalScope.workspace(base, projectId));
+        }
         try {
-            if (scopeId.isEmpty()) {
-                return Resolution.of(JournalScope.workspace(base, projectId));
-            }
             var id = scopeId.get();
             var plan = JournalScope.plan(base, projectId, id);
             var epic = JournalScope.epic(base, projectId, id);
@@ -152,7 +175,7 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             }
             return Resolution.of(planExists ? plan : epic);
         } catch (IllegalArgumentException _) {
-            return Resolution.refused("the scope is not an identifier: " + scopeId.orElse(""));
+            return Resolution.refused("the scope is not an identifier: " + scopeId.get());
         }
     }
 
