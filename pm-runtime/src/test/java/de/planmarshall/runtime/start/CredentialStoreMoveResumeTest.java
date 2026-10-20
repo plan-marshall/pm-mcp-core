@@ -431,7 +431,8 @@ class CredentialStoreMoveResumeTest {
 
         @Test
         @DisplayName("a first recording in phase switched without the store it records is refused and deletes nothing")
-        void switchedWithoutTheRecordedStore() throws Exception {            var key = machineBeforeTheChoice();
+        void switchedWithoutTheRecordedStore() throws Exception {
+            var key = machineBeforeTheChoice();
             keyIn(fileStore).write(key);
             openFirstRecording(Phase.SWITCHED, false);
 

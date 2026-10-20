@@ -72,6 +72,7 @@ import de.planmarshall.runtime.enrolment.HarnessesSidecarCheck;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
+import de.planmarshall.runtime.start.CredentialStoreMoveResume;
 
 /**
  * The credential store as the operator's recorded choice (PM-CRED-2, PM-CRED-4): {@code credentials.store} of
@@ -1332,7 +1333,7 @@ class CredentialStoreChoiceTest {
 
             var failure = assertThrows(SecretStoreException.class, () -> choice.record(locks, USER, Store.FILE));
             secretService.acceptsDeletes();
-            new de.planmarshall.runtime.start.CredentialStoreMoveResume(move(choice)).run();
+            new CredentialStoreMoveResume(move(choice)).run();
 
             assertAll(
                     () -> assertTrue(keyIn(secretService).read().isEmpty()),
