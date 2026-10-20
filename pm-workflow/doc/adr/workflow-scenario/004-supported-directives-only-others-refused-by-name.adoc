@@ -14,9 +14,11 @@ Accepted
 The Workflow DSL specification names the directives of a scenario: the assertions `assert_state`, `assert_links`,
 `assert_skill`, `assert_rejected`, `assert_outcome`, `assert_instance_version`, `assert_task_outcome`,
 `assert_worker_state` and `assert_refused`, and the actions `do`, `worker_wait`, `worker_do`, `complete_job`,
-`answer_question`, `expire_question`, the worker faults `kill_worker`, `stall_worker`, `end_turn` and `kill_relay`,
-`restart_runtime`, `set_role_unqualified` and `operator_cli`. Most of them need layers that do not exist yet: the
-offered links and `pm_do`, the task protocol, plan instances, the supervisor, the runtime and the operator verbs.
+`answer_question`, the worker faults `kill_worker`, `stall_worker`, `end_turn` and `kill_relay`,
+`restart_runtime`, `set_role_unqualified` and `operator_cli`. The specification named `expire_question` too when this
+decision was taken; the directive went with the concept the specification removed (see Consequences). Most of the
+remaining directives need layers that do not exist yet: the offered links and `pm_do`, the task protocol, plan
+instances, the supervisor, the runtime and the operator verbs.
 
 == Decision
 

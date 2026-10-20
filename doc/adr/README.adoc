@@ -30,7 +30,7 @@ The repository:
 
 * link:../../pm-core/doc/adr/core-analysis/[`pm-core/doc/adr/core-analysis/`]: the code-analysis contract.
 * link:../../pm-core/doc/adr/core-findings/[`pm-core/doc/adr/core-findings/`]: the findings contract.
-* link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the task queue store's first record; its decisions are superseded.
+* link:../../pm-core/doc/adr/core-queue/[`pm-core/doc/adr/core-queue/`]: the task queue store's first record; ADR 002 stands, ADRs 001 and 003 are superseded.
 * link:../../pm-core/doc/adr/core-role-corpus/[`pm-core/doc/adr/core-role-corpus/`]: the corpus formats, the row readers, the verdict of an import, the corpus validator and the Python meaning of its patterns.
 * link:../../pm-core/doc/adr/core-service/[`pm-core/doc/adr/core-service/`]: the service interfaces.
 * link:../../pm-core/doc/adr/core-spi/[`pm-core/doc/adr/core-spi/`]: the primitive SPI and the content validators.

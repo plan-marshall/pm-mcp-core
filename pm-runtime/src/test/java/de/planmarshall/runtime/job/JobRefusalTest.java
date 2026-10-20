@@ -43,9 +43,9 @@ class JobRefusalTest {
 
     private static JobRefusal refusalOf(Reason reason) {
         return switch (reason) {
-            case Reason.BUILD_CONFIG_CHANGED -> JobRefusal.buildConfigChanged("pm-mcp-core",
+            case Reason.BUILD_CONFIG_CHANGED -> JobRefusal.buildConfigChanged(
                     List.of("pom.xml", ".mvn/maven.config"), DETAIL);
-            case Reason.ENROLMENT_TAMPERED -> JobRefusal.enrolmentTampered("pm-mcp-core", DETAIL);
+            case Reason.ENROLMENT_TAMPERED -> JobRefusal.enrolmentTampered(DETAIL);
             default -> JobRefusal.of(reason, DETAIL);
         };
     }
@@ -76,7 +76,7 @@ class JobRefusalTest {
     @Test
     @DisplayName("build_config_changed names every changed path once, in their natural order")
     void changedPathsAreSortedAndDistinct() {
-        var refusal = JobRefusal.buildConfigChanged("pm-mcp-core",
+        var refusal = JobRefusal.buildConfigChanged(
                 List.of("pom.xml", ".mvn/maven.config", "pom.xml"), DETAIL);
 
         assertEquals(List.of(".mvn/maven.config", "pom.xml"), refusal.changedPaths());
@@ -86,7 +86,7 @@ class JobRefusalTest {
     @DisplayName("a build_config_changed without a changed path is refused")
     void changedPathsAreRequiredForBuildConfigChanged() {
         var refusal = assertThrows(IllegalArgumentException.class,
-                () -> JobRefusal.buildConfigChanged("pm-mcp-core", List.of(), DETAIL));
+                () -> JobRefusal.buildConfigChanged(List.of(), DETAIL));
 
         assertTrue(refusal.getMessage().contains("build_config_changed"), refusal.getMessage());
     }
@@ -101,5 +101,14 @@ class JobRefusalTest {
         assertAll(
                 () -> assertTrue(emptyDetail.getMessage().contains("detail"), emptyDetail.getMessage()),
                 () -> assertTrue(nullReason.getMessage().contains("reason"), nullReason.getMessage()));
+    }
+
+    @Test
+    @DisplayName("of refuses a reason that names changed paths")
+    void ofRefusesBuildConfigChanged() {
+        var refusal = assertThrows(IllegalArgumentException.class,
+                () -> JobRefusal.of(Reason.BUILD_CONFIG_CHANGED, DETAIL));
+
+        assertTrue(refusal.getMessage().contains("build_config_changed"), refusal.getMessage());
     }
 }

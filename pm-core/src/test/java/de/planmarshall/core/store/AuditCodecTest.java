@@ -171,6 +171,20 @@ class AuditCodecTest {
         }
 
         @Test
+        @DisplayName("a stored line of the entry scope is read as that scope")
+        void entryScope() {
+            var line = PLAN_LINE.replace("\"scope_type\":\"plan\",\"scope_id\":\"audit-trail\"",
+                    "\"scope_type\":\"entry\",\"scope_id\":\"ent-0123456789abcdef\"");
+            var input = bytes(line);
+
+            var record = AuditCodec.readRecord(LOG, input);
+
+            assertAll(
+                    () -> assertEquals(AuditRecord.Scope.ENTRY, record.scopeType()),
+                    () -> assertEquals("ent-0123456789abcdef", record.scopeId()));
+        }
+
+        @Test
         @DisplayName("a stored line of the removed category identity is refused as unreadable")
         void removedIdentityCategory() {
             var line = PLAN_LINE.replace("\"category\":\"store\"", "\"category\":\"identity\"");

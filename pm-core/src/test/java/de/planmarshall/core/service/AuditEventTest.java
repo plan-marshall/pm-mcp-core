@@ -62,6 +62,40 @@ class AuditEventTest {
                         "transaction_id", TRANSACTION_ID), event.details()));
     }
 
+    @Test
+    @DisplayName("a stall record is one transition warning with the scope, the state, the cause and the span")
+    void planStalled() {
+        var progress = java.time.Instant.parse("2026-10-20T10:00:00Z");
+
+        var event = AuditEvent.planStalled("plan", "a-plan", "execute.review", "no_progress", progress, 610);
+
+        assertAll(
+                () -> assertEquals("plan_stalled", event.event()),
+                () -> assertEquals("transition", event.category()),
+                () -> assertEquals("warning", event.outcome()),
+                () -> assertEquals(Map.of("scope_type", "plan", "scope_id", "a-plan", "state", "execute.review",
+                        "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds", 610L),
+                        event.details()));
+    }
+
+    @Test
+    @DisplayName("a stall record without its scope, state, cause or instant is refused")
+    void planStalledRefusesMissingValues() {
+        var progress = java.time.Instant.parse("2026-10-20T10:00:00Z");
+
+        assertAll(
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled(null, "a-plan", "s", "no_progress", progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", null, "s", "no_progress", progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", "a-plan", null, "no_progress", progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", "a-plan", "s", null, progress, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> AuditEvent.planStalled("plan", "a-plan", "s", "no_progress", null, 1)));
+    }
+
     @Nested
     @DisplayName("roll-forward of a transaction")
     class RolledForward {

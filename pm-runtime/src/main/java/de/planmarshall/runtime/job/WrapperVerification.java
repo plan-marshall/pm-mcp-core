@@ -72,7 +72,7 @@ class WrapperVerification {
             }
         }
         if (!changed.isEmpty()) {
-            return VerifyNotResolvePipeline.Stage.failed(JobRefusal.buildConfigChanged(projectId, changed,
+            return VerifyNotResolvePipeline.Stage.failed(JobRefusal.buildConfigChanged(changed,
                     "the build wrapper %s or a file pinned to it differs from the enrolment"
                             .formatted(name.wireName())));
         }

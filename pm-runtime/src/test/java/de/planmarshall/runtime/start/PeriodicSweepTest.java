@@ -60,13 +60,13 @@ class PeriodicSweepTest {
         executor.shutdownNow();
     }
 
-    /** A step that records each call as {@code "NAME project olderThan"} and then does what its body says. */
-    private record RecordingStep(SweepStep.Name name, List<String> calls,
+    /** A step that records each call as {@code "TAG NAME project olderThan"} and then does what its body says. */
+    private record RecordingStep(String tag, SweepStep.Name name, List<String> calls,
     BiFunction<String, Instant, Outcome> body) implements SweepStep {
 
         @Override
         public Outcome run(String projectId, Instant olderThan) {
-            calls.add(name + " " + projectId + " " + olderThan);
+            calls.add(tag + " " + name + " " + projectId + " " + olderThan);
             return body.apply(projectId, olderThan);
         }
     }
@@ -97,7 +97,11 @@ class PeriodicSweepTest {
     }
 
     private RecordingStep step(SweepStep.Name name) {
-        return new RecordingStep(name, calls, (_, _) -> new Outcome.Done("done"));
+        return step(name, "step");
+    }
+
+    private RecordingStep step(SweepStep.Name name, String tag) {
+        return new RecordingStep(tag, name, calls, (_, _) -> new Outcome.Done("done"));
     }
 
     private PeriodicSweep sweep(EnrolledProjects enrolled, Predicate<String> recovered,
@@ -124,15 +128,18 @@ class PeriodicSweepTest {
     }
 
     @Test
-    @DisplayName("a run passes now minus the maximum age to every step, for every enrolled project")
+    @DisplayName("a run passes now minus the maximum age to every step, in order, for every enrolled project")
     void shouldRunEveryStepForEveryProject() {
-        var summary = sweep(() -> List.of("p1", "p2"), _ -> true, step(SweepStep.Name.PENDING_ENTRY_RECORDS),
-                step(SweepStep.Name.PENDING_ENTRY_RECORDS)).runOnce(NOW);
+        var summary = sweep(() -> List.of("p1", "p2"), _ -> true,
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS, "first"),
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS, "second")).runOnce(NOW);
 
         assertAll(
                 () -> assertEquals(List.of(
-                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
-                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN),
+                                "first PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
+                                "second PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
+                                "first PENDING_ENTRY_RECORDS p2 " + OLDER_THAN,
+                                "second PENDING_ENTRY_RECORDS p2 " + OLDER_THAN),
                         calls),
                 () -> assertEquals(new PeriodicSweep.Summary(2, 0, 0), summary),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
@@ -146,14 +153,14 @@ class PeriodicSweepTest {
                 .runOnce(NOW);
 
         assertAll(
-                () -> assertEquals(List.of("PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
+                () -> assertEquals(List.of("step PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
                 () -> assertEquals(new PeriodicSweep.Summary(1, 1, 0), summary));
     }
 
     @Test
     @DisplayName("a failing step stops neither the other steps nor the other projects")
     void shouldGoOnAfterFailingStep() {
-        var failing = new RecordingStep(SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
+        var failing = new RecordingStep("failing", SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
             if ("p1".equals(projectId)) {
                 return new Outcome.Failed("store gone");
             }
@@ -164,7 +171,7 @@ class PeriodicSweepTest {
         });
 
         var summary = sweep(() -> List.of("p1", "p2", "p3"), _ -> true, failing,
-                step(SweepStep.Name.PENDING_ENTRY_RECORDS)).runOnce(NOW);
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS, "second")).runOnce(NOW);
 
         assertAll(
                 () -> assertEquals(6, calls.size(), calls::toString),
@@ -180,7 +187,7 @@ class PeriodicSweepTest {
     @Test
     @DisplayName("a step throwing an unchecked exception is failed, and the following steps and projects still run")
     void shouldGoOnAfterUncheckedStepFailure() {
-        var throwing = new RecordingStep(SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
+        var throwing = new RecordingStep("throwing", SweepStep.Name.PENDING_ENTRY_RECORDS, calls, (projectId, _) -> {
             if ("p1".equals(projectId)) {
                 throw new IllegalStateException("contract broken");
             }
@@ -188,12 +195,14 @@ class PeriodicSweepTest {
         });
 
         var summary = sweep(() -> List.of("p1", "p2"), _ -> true, throwing,
-                step(SweepStep.Name.PENDING_ENTRY_RECORDS)).runOnce(NOW);
+                step(SweepStep.Name.PENDING_ENTRY_RECORDS, "second")).runOnce(NOW);
 
         assertAll(
                 () -> assertEquals(List.of(
-                                "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
-                                "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN, "PENDING_ENTRY_RECORDS p2 " + OLDER_THAN),
+                                "throwing PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
+                                "second PENDING_ENTRY_RECORDS p1 " + OLDER_THAN,
+                                "throwing PENDING_ENTRY_RECORDS p2 " + OLDER_THAN,
+                                "second PENDING_ENTRY_RECORDS p2 " + OLDER_THAN),
                         calls),
                 () -> assertEquals(new PeriodicSweep.Summary(1, 0, 1), summary),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
@@ -222,7 +231,7 @@ class PeriodicSweepTest {
             executor.command.run();
 
             assertAll(
-                    () -> assertEquals(List.of("PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
+                    () -> assertEquals(List.of("step PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
                     () -> assertFalse(executor.future.isDone(), "the schedule stays alive"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             "Periodic sweep run failed, the next run takes place at the interval: "
@@ -246,7 +255,7 @@ class PeriodicSweepTest {
             executor.command.run();
 
             assertAll(
-                    () -> assertEquals(List.of("PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
+                    () -> assertEquals(List.of("step PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls),
                     () -> assertFalse(executor.future.isDone(), "the schedule stays alive"),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.ERROR,
                             "java.lang.IllegalStateException: recovery state gone"));
@@ -264,7 +273,7 @@ class PeriodicSweepTest {
                     () -> assertEquals(3_600_000L, executor.initialDelay),
                     () -> assertEquals(3_600_000L, executor.period),
                     () -> assertEquals(TimeUnit.MILLISECONDS, executor.unit),
-                    () -> assertEquals(List.of("PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls));
+                    () -> assertEquals(List.of("step PENDING_ENTRY_RECORDS p1 " + OLDER_THAN), calls));
         }
 
         @Test

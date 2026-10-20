@@ -88,7 +88,7 @@ The guard-atom part of this property is checked by the seeded transition fuzzer 
 
 === Deterministic Scenario Replay Harness (`pm-scenario`, `PM-TEST-4`)
 
-The part of the harness that exists, its runner over the real engine with the directives `start`, `complete_job`, `answer_question`, `assert_state`, `assert_outcome`, and `assert_task_outcome` and its deterministic replay, is linked from link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]; the harness refuses by name every other directive below until it is built, and every directive that has no counterpart in the target, where a decision never expires. End-to-end lifecycle scenarios are authored as `.pmscenario` scripts and run against a hermetic temporary git repository; tasks are served by scripted fixture workers that follow the offered links only, one per role the scenario names:
+The part of the harness that exists, its runner over the real engine with the directives `start`, `complete_job`, `answer_question`, `assert_state`, `assert_outcome`, and `assert_task_outcome` and its deterministic replay, is linked from link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]; the harness refuses by name every other directive below until it is built, and a directive with no counterpart in the target — a decision never expires there — is refused the same way. End-to-end lifecycle scenarios are authored as `.pmscenario` scripts and run against a hermetic temporary git repository; tasks are served by scripted fixture workers that follow the offered links only, one per role the scenario names:
 
 [source,text]
 ----

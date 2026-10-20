@@ -58,17 +58,6 @@ class PendingEntryCodecTest {
     private static final String CONDITION = "{\"kind\":\"precondition_unmet\",\"remedy_attempts\":0,"
             + "\"integrity\":null,\"facts\":{ \"reason\" : \"config_dirty\" },\"raised_at\":\"2026-10-13T08:02:00Z\"}";
 
-    /**
-     * A complete entry row of the removed store, with every member it declared: the value a record that still carries
-     * the removed member is stored with.
-     */
-    private static final String SESSION_ROW = "{\"format_version\":1,\"client_session_id\":\"sess-1\","
-            + "\"client\":\"claude\",\"client_detected\":\"claude\",\"environment_match_tier\":\"MATCHED\","
-            + "\"client_build\":\"2.1.0\",\"model_family\":\"opus\",\"model_id\":\"claude-opus-5\","
-            + "\"model_source\":\"host\",\"pm_mcp_version\":\"0.1.0\",\"bundle_version\":\"0.1.0\","
-            + "\"project_id\":\"pm-mcp-core\",\"entered_from\":\"main_checkout\","
-            + "\"generation_id\":\"sg-0123456789abcdef\",\"entered_at\":\"2026-10-13T08:00:00Z\"}";
-
     /** @return the members of a plan entry, each with its JSON value, in schema order */
     private static Map<String, String> members() {
         var members = new LinkedHashMap<String, String>();
@@ -205,7 +194,7 @@ class PendingEntryCodecTest {
         void sessionMemberIsRefused() {
             var members = members();
             members.remove("session");
-            members.put("session", SESSION_ROW);
+            members.put("session", "{\"format_version\":1}");
 
             var refusal = assertRefused(Outcome.UNREADABLE, document(members));
 

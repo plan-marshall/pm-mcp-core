@@ -97,23 +97,19 @@ public record JobRefusal(Reason reason, String detail, List<String> changedPaths
     }
 
     /**
-     * @param projectId the project whose enrolment is refused
-     * @param detail    what failed
+     * @param detail what failed
      * @return the refusal as {@link Reason#ENROLMENT_TAMPERED}
      */
-    public static JobRefusal enrolmentTampered(String projectId, String detail) {
-        Objects.requireNonNull(projectId, "projectId");
+    public static JobRefusal enrolmentTampered(String detail) {
         return new JobRefusal(Reason.ENROLMENT_TAMPERED, detail, List.of());
     }
 
     /**
-     * @param projectId    the project whose build configuration changed
      * @param changedPaths every changed repository-relative path; not empty
      * @param detail       what changed
      * @return the refusal as {@link Reason#BUILD_CONFIG_CHANGED}, naming the paths in their natural order
      */
-    public static JobRefusal buildConfigChanged(String projectId, Collection<String> changedPaths, String detail) {
-        Objects.requireNonNull(projectId, "projectId");
+    public static JobRefusal buildConfigChanged(Collection<String> changedPaths, String detail) {
         return new JobRefusal(Reason.BUILD_CONFIG_CHANGED, detail, List.copyOf(changedPaths));
     }
 }

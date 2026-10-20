@@ -13,14 +13,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +43,7 @@ import de.planmarshall.core.store.WorkflowStatus;
 import de.planmarshall.core.store.WorkflowStatus.JobEntry;
 import de.planmarshall.core.store.WorkflowStatus.PendingCondition;
 import de.planmarshall.core.store.WorkflowStatus.TaskEntry;
+import de.planmarshall.runtime.start.StalledScopeDetector.Activity;
 import de.planmarshall.runtime.start.StalledScopeDetector.Cause;
 import de.planmarshall.runtime.start.StalledScopeDetector.OperatorPort;
 import de.planmarshall.runtime.start.StalledScopeDetector.StalledHold;
@@ -48,7 +55,7 @@ import de.planmarshall.runtime.start.StalledScopeDetector.View;
  * event, is held {@code stalled} with the cause {@code no_progress} and the idle span.
  * <p>
  * The detection is derived on read and kept nowhere: the stored status gains no member, the one
- * {@code plan_stalled} record of an episode carries the stall, and a hold that clears by itself announces
+ * {@code plan_stalled} record of an episode carries the stall, and a hold that clears by itself announces the report
  * {@code plan.hold_released}. The runtime module holds no model-facing representation yet; the stored status is the
  * only persisted representation the runtime serves, and it stays untouched (PM-ARCH-8, Hypermedia Format
  * Specification, Model-Facing Minimality).
@@ -64,6 +71,7 @@ class StalledScopeDetectorTest {
     private final List<AuditEvent> records = new ArrayList<>();
     private final List<StalledHold> opened = new ArrayList<>();
     private final List<StalledHold> released = new ArrayList<>();
+    private final List<String> reports = new ArrayList<>();
 
     private StalledScopeDetector detector() {
         return new StalledScopeDetector(records::add, new OperatorPort() {
@@ -74,8 +82,9 @@ class StalledScopeDetectorTest {
             }
 
             @Override
-            public void holdReleased(StalledHold hold) {
+            public void holdReleased(StalledHold hold, String report) {
                 released.add(hold);
+                reports.add(report);
             }
         });
     }
@@ -107,6 +116,7 @@ class StalledScopeDetectorTest {
 
     static Stream<Arguments> idleSpans() {
         return Stream.of(
+                Arguments.of(-1L, false),
                 Arguments.of(0L, false),
                 Arguments.of(599L, false),
                 Arguments.of(600L, true),
@@ -161,6 +171,8 @@ class StalledScopeDetectorTest {
                 Arguments.of("a workspace scope", status(JournalScopeType.WORKSPACE, null).build(), false, false,
                         false),
                 Arguments.of("an ended plan", plan().phase("completed").state("completed").build(), false, false,
+                        false),
+                Arguments.of("an aborted plan", plan().phase("aborted").state("plan.aborted").build(), false, false,
                         false));
     }
 
@@ -233,9 +245,96 @@ class StalledScopeDetectorTest {
                 () -> assertEquals("plan.hold_released", StalledScopeDetector.HOLD_RELEASED),
                 () -> assertTrue(cleared.hold().isEmpty()),
                 () -> assertEquals(1, released.size()),
+                () -> assertEquals(List.of("plan.hold_released"), reports),
                 () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince()),
                 () -> assertTrue(again.hold().isPresent()),
                 () -> assertEquals(2, records.size()));
+    }
+
+    @Test
+    @DisplayName("an epic's hold clears by itself with the same report")
+    void shouldReleaseAnEpic() {
+        var detector = detector();
+        detector.detect(View.of(PROJECT, epic().build()), LAST_PROGRESS.plusSeconds(700));
+
+        detector.detect(View.of(PROJECT, epic().updatedAt(LAST_PROGRESS.plusSeconds(750)).build()),
+                LAST_PROGRESS.plusSeconds(760));
+
+        assertAll(
+                () -> assertEquals(1, released.size()),
+                () -> assertEquals("an-epic", released.getFirst().scopeId()),
+                () -> assertEquals(List.of("plan.hold_released"), reports));
+    }
+
+    @Test
+    @DisplayName("two detections racing on one episode append one record and announce one hold")
+    void shouldKeepOneRecordUnderConcurrentDetections() {
+        var shared = detector();
+        var view = View.of(PROJECT, plan().build());
+        var now = LAST_PROGRESS.plusSeconds(700);
+        var start = new CyclicBarrier(2);
+
+        var first = new Thread(() -> await(start, shared, view, now));
+        var second = new Thread(() -> await(start, shared, view, now));
+        first.start();
+        second.start();
+        join(first);
+        join(second);
+
+        assertAll(
+                () -> assertEquals(1, records.size()),
+                () -> assertEquals(1, opened.size()));
+    }
+
+    private static void await(CyclicBarrier start, StalledScopeDetector detector, View view, Instant now) {
+        try {
+            start.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return;
+        } catch (BrokenBarrierException e) {
+            return;
+        }
+        detector.detect(view, now);
+    }
+
+    private static void join(Thread thread) {
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    @Test
+    @DisplayName("a refused audit record leaves the episode open, and the next detection records it once")
+    void shouldRetryARefusedRecord() {
+        var fail = new AtomicBoolean(true);
+        var detector = new StalledScopeDetector(event -> {
+            if (fail.getAndSet(false)) {
+                throw new UncheckedIOException(new IOException("audit log unavailable"));
+            }
+            records.add(event);
+        }, new OperatorPort() {
+
+            @Override
+            public void holdOpened(StalledHold hold) {
+                opened.add(hold);
+            }
+
+            @Override
+            public void holdReleased(StalledHold hold, String report) {
+                released.add(hold);
+            }
+        });
+
+        assertThrows(UncheckedIOException.class,
+                () -> detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700)));
+        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(710));
+
+        assertAll(
+                () -> assertEquals(1, records.size()),
+                () -> assertEquals(1, opened.size()));
     }
 
     @Test
@@ -258,12 +357,49 @@ class StalledScopeDetectorTest {
 
         detector().detect(View.of(PROJECT, status), LAST_PROGRESS.plusSeconds(700));
 
+        var components = Stream.of(WorkflowStatus.class.getRecordComponents())
+                .map(component -> component.getName()).toList();
         assertAll(
                 () -> assertEquals(plan().build(), status),
-                () -> assertFalse(status.retained().containsKey("hold")),
-                () -> assertFalse(status.retained().containsKey("stalled")),
-                () -> assertFalse(status.retained().containsKey("plan_stalled")),
-                () -> assertFalse(status.retained().containsKey(AuditEvent.PLAN_STALLED)));
+                () -> assertTrue(status.retained().isEmpty()),
+                () -> assertFalse(components.contains("hold")),
+                () -> assertFalse(components.contains("stalled")),
+                () -> assertFalse(components.contains(AuditEvent.PLAN_STALLED)));
+    }
+
+    @Test
+    @DisplayName("the cause is the one closed value of the specification")
+    void shouldNameOneCause() {
+        var causes = Stream.of(Cause.values()).map(Cause::wireName).toList();
+
+        assertEquals(List.of("no_progress"), causes);
+    }
+
+    @Test
+    @DisplayName("a missing project, status, view, instant or hold is refused")
+    void shouldRefuseMissingValues() {
+        var status = plan().build();
+
+        assertAll(
+                () -> assertThrows(NullPointerException.class, () -> new View(null, status, false, false, false)),
+                () -> assertThrows(NullPointerException.class, () -> new View(PROJECT, null, false, false, false)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> detector().detect(View.of(PROJECT, status), null)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new StalledHold(null, PLAN_ID, "execute.review", Cause.NO_PROGRESS, LAST_PROGRESS, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new StalledHold(AuditRecord.Scope.PLAN, null, "execute.review", Cause.NO_PROGRESS,
+                                LAST_PROGRESS, 1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new StalledHold(AuditRecord.Scope.PLAN, PLAN_ID, null, Cause.NO_PROGRESS, LAST_PROGRESS,
+                                1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new StalledHold(AuditRecord.Scope.PLAN, PLAN_ID, "execute.review", null, LAST_PROGRESS,
+                                1)),
+                () -> assertThrows(NullPointerException.class,
+                        () -> new StalledHold(AuditRecord.Scope.PLAN, PLAN_ID, "execute.review", Cause.NO_PROGRESS, null,
+                                1)),
+                () -> assertThrows(NullPointerException.class, () -> new Activity(null)));
     }
 
     @Test

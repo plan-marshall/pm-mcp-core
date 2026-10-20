@@ -64,9 +64,16 @@ knows:
   holds one record per detection episode of one runtime run, which is what the operator reads as the gap.
 * The detector needs the pause, operator-wait and other-hold facts from its caller, because the status document does
   not carry them yet; `plan-and-epic-control` supplies them when it builds the activity and the holds.
+* The open episodes are a concurrent map keyed by project, scope type and scope id: the first detection of an episode
+  appends the record inside the per-key computation and announces the hold only when its own hold was stored, so two
+  detections racing on one scope append one record. A record the sink refuses leaves the episode closed again (the
+  computation did not store), and the next detection retries.
+* The `needs_operator` summary itself is not built here: `Activity.needsOperator()` offers the count (1 with a hold,
+  0 without), and the summary that lists the hold's kind and link is the process-and-overview package's.
 * `StalledScopeDetectorTest` covers the threshold from one second below to past it, every awaited event, a pause, an
-  operator wait and another hold, one record per episode, the release by itself, the `needs_operator` count, the
-  untouched status document, and the threshold read from the timeouts specification.
+  operator wait and another hold, one record per episode, the release by itself and its report, an epic's release, two
+  detections racing on one episode, the `needs_operator` count, the untouched status document, the missing-value
+  refusals, and the threshold read from the timeouts specification.
 
 == Source
 

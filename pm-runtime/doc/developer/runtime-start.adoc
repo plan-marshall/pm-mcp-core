@@ -16,8 +16,9 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
 Package `de.planmarshall.runtime.start` of `pm-runtime` holds the start, the drain, the per-project recovery and the
 periodic sweep of the runtime; they are described in link:{docs}/developer/runtime-lifecycle.adoc[Developer Guide §
 Runtime Lifecycle]. This guide covers what the work package `session-log-and-generations` added to it: the step of the
-periodic sweep, which removes what has aged out of the store the package added in `pm-core`, and the stalled-scope
-detection. It also covers what the work package `audit-trail` changed in it: the audit chain seam of the bounded
+periodic sweep, which removes what has aged out of the store the package added in `pm-core`. It also covers the
+stalled-scope detection of the work package `removed-concepts`. It further covers what the work package `audit-trail`
+changed in it: the audit chain seam of the bounded
 verification, whose broken outcome now carries a reason and the first broken line (<<_the_audit_chain_seam>>), and the
 one `transaction_id` per record the pending-record step owes. Last, it covers what the work package
 `credential-store-choice` added: the resume of a move between the credential stores that a stop cut
@@ -108,11 +109,11 @@ scope never stall.
 link:../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts & Budgets
 Specification, Stalled Threshold]; the test reads the value from the specification.
 `StalledHold`:: The hold: its kind `stalled`, the closed cause `NO_PROGRESS` (`no_progress`), the scope, the state the
-scope rests in, the instant of the last transition or task progress and the idle seconds; `needsOperator()` is `1`, so
-the caller counts the hold in the scope's `needs_operator` summary.
-`Activity`:: What the detection found: the hold, or nothing, and the `needs_operator` count.
+scope rests in, the instant of the last transition or task progress and the idle seconds.
+`Activity`:: What the detection found: the hold, or nothing, and its `needs_operator()` count (1 with a hold, 0
+without), which the scope's `needs_operator` summary counts on read.
 `OperatorPort`:: Where the hold is announced: `holdOpened` when an episode begins, `holdReleased` when it clears by
-itself (the report `plan.hold_released`). `OperatorPort.none()` announces nothing.
+itself, with the report `plan.hold_released`.
 
 A scope is stalled when it has no pending condition, no active job, no active task, and has been idle at least the
 threshold. The detector keeps the open episodes in memory, keyed by project, scope type and scope id: the first

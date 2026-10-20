@@ -11,11 +11,11 @@ package de.planmarshall.runtime.start;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -25,7 +25,7 @@ import de.planmarshall.core.store.WorkflowStatus;
 
 /**
  * The detection of a stalled plan or epic (PM-ARCH-8): a scope is stalled when it has had no transition and no task
- * progress for longer than the compiled stalled threshold and awaits no event
+ * progress for at least the compiled stalled threshold and awaits no event
  * (doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc, Stalled Plans).
  *
  * @since 0.1
@@ -40,7 +40,7 @@ public final class StalledScopeDetector {
 
     private final AuditSink auditSink;
     private final OperatorPort operator;
-    private final Map<String, StalledHold> stalled = new HashMap<>();
+    private final Map<String, StalledHold> stalled = new ConcurrentHashMap<>();
 
     /** The phases a scope ends in; a scope that ended can never be stalled. */
     private static final Set<String> TERMINAL_PHASES = Set.of("completed", "aborted");
@@ -131,11 +131,6 @@ public final class StalledScopeDetector {
         public String kind() {
             return "stalled";
         }
-
-        /** @return how many items of {@code needs_operator} the hold is: one */
-        public int needsOperator() {
-            return 1;
-        }
     }
 
     /**
@@ -157,23 +152,10 @@ public final class StalledScopeDetector {
     }
 
     /**
-     * The port that shows the hold to the operator and announces it: the event streams of the scope and the report
-     * {@value #HOLD_RELEASED} when the hold ends by itself (the assembly wires the local API).
+     * The port that shows the hold to the operator and announces it: the event streams of the scope and, when the hold
+     * ends by itself, the report {@link #HOLD_RELEASED} (the assembly wires the local API).
      */
     public interface OperatorPort {
-
-        /** @return a port that announces nothing, for a caller that keeps no clients */
-        static OperatorPort none() {
-            return new OperatorPort() {
-                @Override
-                public void holdOpened(StalledHold hold) {
-                }
-
-                @Override
-                public void holdReleased(StalledHold hold) {
-                }
-            };
-        }
 
         /**
          * @param hold the hold that was found stalled
@@ -181,9 +163,10 @@ public final class StalledScopeDetector {
         void holdOpened(StalledHold hold);
 
         /**
-         * @param hold the hold that ended by itself because the scope transitioned or made task progress
+         * @param hold   the hold that ended by itself because the scope transitioned or made task progress
+         * @param report the report the release writes: {@link #HOLD_RELEASED}
          */
-        void holdReleased(StalledHold hold);
+        void holdReleased(StalledHold hold, String report);
     }
 
     /**
@@ -204,12 +187,15 @@ public final class StalledScopeDetector {
             if (idleSeconds >= THRESHOLD.toSeconds()) {
                 var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(),
                         Cause.NO_PROGRESS, status.updatedAt(), idleSeconds);
-                if (stalled.put(key, hold) == null) {
+                var open = stalled.computeIfAbsent(key, ignored -> {
                     auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(),
                             hold.state(), hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
+                    return hold;
+                });
+                if (open == hold) {
                     operator.holdOpened(hold);
                 }
-                return new Activity(Optional.of(hold));
+                return new Activity(Optional.of(open));
             }
         }
         release(key);
@@ -220,7 +206,7 @@ public final class StalledScopeDetector {
     private void release(String key) {
         var held = stalled.remove(key);
         if (held != null) {
-            operator.holdReleased(held);
+            operator.holdReleased(held, HOLD_RELEASED);
         }
     }
 
