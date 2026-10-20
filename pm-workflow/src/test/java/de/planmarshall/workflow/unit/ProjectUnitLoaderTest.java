@@ -543,6 +543,24 @@ class ProjectUnitLoaderTest {
         }
 
         @Test
+        @DisplayName("does not report the reserved author when the opening delimiter is not exact")
+        void authorBehindAnIndentedDelimiter() throws Exception {
+            UnitFixtures.writeProject(project);
+            var path = project.resolve(configPath(InvariantFixtures.REPLAN_FILE));
+            Files.writeString(path, " " + Files.readString(path));
+
+            var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
+
+            assertAll(
+                    () -> assertFalse(result.isVerified()),
+                    () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.PARSE,
+                            RefusalRule.FRONTMATTER.name()).isPresent(), result.findings()::toString),
+                    () -> assertTrue(UnitFixtures.find(result.findings(), UnitFinding.Kind.RULE,
+                                    UnitFinding.AUTHOR_RESERVED).isEmpty(),
+                            "the author behind a non-exact opening delimiter is not read"));
+        }
+
+        @Test
         @DisabledOnOs(value = OS.WINDOWS, disabledReason = "creating a symbolic link needs a privilege there")
         @DisplayName("a unit linked to a file outside the project is refused with path_traversal_rejected")
         void symlinkOutsideRoot() throws Exception {

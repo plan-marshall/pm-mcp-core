@@ -301,13 +301,13 @@ public final class ProjectUnitLoader {
      */
     private static Optional<RawAuthor> rawAuthor(String source) {
         var iterator = source.lines().iterator();
-        if (!iterator.hasNext() || !FRONTMATTER_DELIMITER.equals(iterator.next().strip())) {
+        if (!iterator.hasNext() || !FRONTMATTER_DELIMITER.equals(iterator.next())) {
             return Optional.empty();
         }
         var number = 1;
         while (iterator.hasNext() && ++number <= UnitFrontmatterReader.MAX_FRONTMATTER_LINES) {
             var line = iterator.next();
-            if (FRONTMATTER_DELIMITER.equals(line.strip())) {
+            if (FRONTMATTER_DELIMITER.equals(line)) {
                 return Optional.empty();
             }
             if (line.startsWith(AUTHOR_KEY)) {
