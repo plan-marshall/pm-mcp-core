@@ -113,6 +113,8 @@ final class PortedFixtures {
      * @param directory the class-path directory, e.g. {@code ported/worktree-sha}
      * @param grammar   the directives the primitive declares
      * @return the fixtures, sorted by name
+     * @throws UncheckedIOException if the fixture directory cannot be listed or a fixture cannot be read
+     * @throws IllegalStateException if the fixture directory is not on the test class path as a directory
      */
     static List<Fixture> load(String directory, Map<String, Shape> grammar) {
         Path root = directory(directory);
@@ -137,6 +139,8 @@ final class PortedFixtures {
      * @param directory the class-path directory
      * @param file      the file name
      * @return its content
+     * @throws UncheckedIOException if the file cannot be read
+     * @throws IllegalStateException if the fixture directory is not on the test class path as a directory
      */
     static String read(String directory, String file) {
         try {
@@ -251,6 +255,7 @@ final class PortedFixtures {
      *
      * @param text the roster content
      * @return the suite and, per case, its fixtures or the reason of its exclusion, in file order
+     * @throws IllegalArgumentException if the roster is malformed, naming the roster and the line where one applies
      */
     static Roster roster(String text) {
         String suite = null;
@@ -279,7 +284,12 @@ final class PortedFixtures {
             int excluded = body.indexOf(" excluded: ");
             if (arrow > 0) {
                 caseName = body.substring(0, arrow);
-                entry = new RosterEntry(Set.of(body.substring(arrow + " -> ".length()).strip().split(" ")), "");
+                String[] fixtures = body.substring(arrow + " -> ".length()).strip().split(" ");
+                try {
+                    entry = new RosterEntry(Set.of(fixtures), "");
+                } catch (IllegalArgumentException duplicate) {
+                    throw refusal(ROSTER, index + 1, "maps the case to a duplicate fixture: " + line);
+                }
             } else if (excluded > 0) {
                 caseName = body.substring(0, excluded);
                 entry = new RosterEntry(Set.of(), body.substring(excluded + " excluded: ".length()).strip());

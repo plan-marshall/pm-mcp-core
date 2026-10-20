@@ -10,7 +10,7 @@ https://github.com/plan-marshall/plan-marshall-documentation/blob/main/doc/speci
 The line is the first sentence of the package's `package-info.java`.
 
 * `de.planmarshall.provider.git`: the git contract of PM-MCP and its native variant on JGit.
-* `de.planmarshall.provider.git.ported` (test tree): the ported-primitive tests of the git contract (PM-TEST-2, PM-MIG-4).
+* `de.planmarshall.provider.git.ported` (test tree): the ported-primitive tests of the git contract (PM-TEST-2, PM-MIG-4): Java tests of a primitive whose `plan-marshall` original is classified `Ported` in the migration inventory.
 
 == Build and Test
 
