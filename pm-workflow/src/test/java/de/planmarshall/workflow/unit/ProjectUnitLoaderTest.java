@@ -530,6 +530,19 @@ class ProjectUnitLoaderTest {
         }
 
         @Test
+        @DisplayName("a unit that is not UTF-8 is refused with unit_unreadable")
+        void notUtf8() throws Exception {
+            UnitFixtures.writeProject(project);
+            Files.write(project.resolve(configPath(InvariantFixtures.REPLAN_FILE)),
+                    new byte[]{'-', '-', '-', '\n', (byte) 0xC3, 0x28});
+
+            var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
+
+            assertRefused(result, UnitFinding.Kind.MISSING, UnitFinding.UNIT_UNREADABLE,
+                    configPath(InvariantFixtures.REPLAN_FILE), 0);
+        }
+
+        @Test
         @DisabledOnOs(value = OS.WINDOWS, disabledReason = "creating a symbolic link needs a privilege there")
         @DisplayName("a unit linked to a file outside the project is refused with path_traversal_rejected")
         void symlinkOutsideRoot() throws Exception {

@@ -68,9 +68,9 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * {@link UnitFinding.Kind#MISSING} finding.</li>
  * <li>Parse as a {@link UnitOrigin#PROJECT} unit and refuse a DSL format other than {@value #COMPILED_FORMAT_VERSION}
  * with {@value UnitFinding#FORMAT_OUTDATED} or {@value UnitFinding#FORMAT_NEWER}; a unit whose frontmatter names the
- * author {@value #RESERVED_AUTHOR} after stripping, removing its format characters, NFKC normalisation and case folding
- * is a {@value UnitFinding#AUTHOR_RESERVED} finding at its author line, so a placed unit never passes as a delivered
- * one; a file that declares the identifier
+ * author {@value #RESERVED_AUTHOR} after NFKC normalisation, removal of its format characters, stripping of its
+ * surrounding whitespace and case folding is a {@value UnitFinding#AUTHOR_RESERVED} finding at its author line, so a
+ * placed unit never passes as a delivered one; a file that declares the identifier
  * of an earlier file, or {@value PlanUnitMerger#PLAN_UNIT}, is a {@value UnitFinding#DUPLICATE_UNIT_ID} finding and
  * never replaces the earlier unit.</li>
  * <li>Merge the phase files into the plan unit ({@link PlanUnitMerger}) and verify every unit with Rules 1-12, Rule 5
@@ -276,8 +276,8 @@ public final class ProjectUnitLoader {
     }
 
     /**
-     * Stage 2, the author: a project unit whose author equals {@value #RESERVED_AUTHOR} after stripping its surrounding
-     * whitespace, removing its format characters, NFKC normalising it and folding its case is a
+     * Stage 2, the author: a project unit whose author equals {@value #RESERVED_AUTHOR} after NFKC normalisation,
+     * removal of its format characters, stripping of its surrounding whitespace and case folding is a
      * {@value UnitFinding#AUTHOR_RESERVED} finding at its author line; the unit is verified on, so the load reports
      * every other finding of it as well. The author is read from the raw head of the source before the parse, so a
      * unit whose frontmatter is refused for a format character is still reported as naming the reserved author.

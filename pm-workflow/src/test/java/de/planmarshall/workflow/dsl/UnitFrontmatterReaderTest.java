@@ -311,6 +311,14 @@ class UnitFrontmatterReaderTest {
             assertRefused(diagnostic, APPENDED_LINE, 1);
         }
 
+        @Test
+        @DisplayName("refuses a frontmatter whose last line is unclosed without a trailing line feed")
+        void refusesUnclosedWithoutTrailingLineFeed() {
+            var diagnostic = refuse("---\nname: Commit and Push");
+
+            assertRefused(diagnostic, 2, 1);
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"name", "description", "type", "modification_date", "version", "author"})
         @DisplayName("refuses a frontmatter that lacks a required key at its closing line")

@@ -199,7 +199,7 @@ class WorkflowParserRefusalTest {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("malformedFixtures")
-        @DisplayName("refuses the CRLF twin of every malformed fixture with the same rule, line and column")
+        @DisplayName("refuses the CRLF twin of every malformed fixture with the same rule, line and stated column")
         void refusesCrlfTwin(String resource) {
             var lf = DslFixtures.read(resource);
             var expectation = EXPECTATION.matcher(lf);
