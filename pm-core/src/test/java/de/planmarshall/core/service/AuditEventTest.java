@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +66,7 @@ class AuditEventTest {
     @Test
     @DisplayName("a stall record is one transition warning with the scope, the state, the cause and the span")
     void planStalled() {
-        var progress = java.time.Instant.parse("2026-10-20T10:00:00Z");
+        var progress = Instant.parse("2026-10-20T10:00:00Z");
 
         var event = AuditEvent.planStalled("plan", "a-plan", "execute.review", "no_progress", progress, 610);
 
@@ -74,14 +75,14 @@ class AuditEventTest {
                 () -> assertEquals("transition", event.category()),
                 () -> assertEquals("warning", event.outcome()),
                 () -> assertEquals(Map.of("scope_type", "plan", "scope_id", "a-plan", "state", "execute.review",
-                        "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds", 610L),
+                                "cause", "no_progress", "idle_since", progress.toString(), "idle_seconds", 610L),
                         event.details()));
     }
 
     @Test
     @DisplayName("a stall record without its scope, state, cause or instant is refused")
     void planStalledRefusesMissingValues() {
-        var progress = java.time.Instant.parse("2026-10-20T10:00:00Z");
+        var progress = Instant.parse("2026-10-20T10:00:00Z");
 
         assertAll(
                 () -> assertThrows(NullPointerException.class,
