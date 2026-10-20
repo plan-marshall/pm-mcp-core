@@ -25,4 +25,4 @@ Status and dependencies:: in the link:README.adoc#packages[index], the only plac
 
 == Done When
 
-A landing and an inbox finding each add an item; a review takes every disposition, also keeping a finding as a watch and the reverse, and lands them in one ledger write; no model's change reaches a register or a drafted plan without the operator's read-back, and each branch of `review.read-back` and `review.read-back-plan` is tested; a promoted item is a staged row that passed the surface check.
+A landing and an inbox finding each add an item; a review takes every disposition, also keeping a finding as a watch and the reverse, and lands them in one ledger write; each operator act of the review is tested; no model's change reaches a register or a drafted plan without the operator's read-back, and each branch of `review.read-back` and `review.read-back-plan` is tested; a promoted item is a staged row that passed the surface check.
