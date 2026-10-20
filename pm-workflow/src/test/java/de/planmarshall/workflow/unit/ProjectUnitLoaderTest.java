@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -169,6 +173,109 @@ class ProjectUnitLoaderTest {
             assertAll(
                     () -> assertTrue(result.isVerified(), result.findings()::toString),
                     () -> assertEquals("Max Mustermann", result.units().get("replan").frontmatter().author()));
+        }
+
+        static Stream<Arguments> reservedForms() {
+            return Stream.of(
+                    Arguments.of("the exact reserved author", "plan-marshall"),
+                    Arguments.of("an upper-case initial", "Plan-Marshall"),
+                    Arguments.of("an upper-case author", "PLAN-MARSHALL"),
+                    Arguments.of("a zero width space inside", "plan\u200B-marshall"),
+                    Arguments.of("a full-width form NFKC folds to the reserved author",
+                            "\uFF50\uFF4C\uFF41\uFF4E\uFF0D\uFF4D\uFF41\uFF52\uFF53\uFF48\uFF41\uFF4C\uFF4C"),
+                    Arguments.of("a double-quoted form", "\"plan-marshall\""),
+                    Arguments.of("a quoted form with surrounding whitespace", "\"  plan-marshall  \""));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("reservedForms")
+        @DisplayName("refuses every form that equals the reserved author after stripping, NFKC and case folding")
+        void reservedForm(String name, String author) {
+            var mutation = new UnitFixtures.Mutation(name, InvariantFixtures.REPLAN_FILE,
+                    UnitFixtures.PROJECT_AUTHOR_LINE, "author: " + author);
+
+            var result = load(mutation);
+
+            var finding = assertRefused(result, UnitFinding.Kind.RULE, UnitFinding.AUTHOR_RESERVED,
+                    configPath(mutation.file()),
+                    UnitFixtures.lineOf(mutation.file(), "author: " + UnitFixtures.DEFAULT_AUTHOR));
+            assertAll(
+                    () -> assertTrue(finding.message().contains(ProjectUnitLoader.RESERVED_AUTHOR),
+                            finding::message),
+                    () -> assertEquals(1, result.findings().stream()
+                                    .filter(other -> UnitFinding.AUTHOR_RESERVED.equals(other.code())).count(),
+                            "only the unit naming the reserved author is refused for it"));
+        }
+
+        static Stream<String> nearMisses() {
+            return Stream.of("plan-marshall-x", "plan-marshal", "plan-marshaller", "Plan-Marshaller");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("nearMisses")
+        @DisplayName("loads an author that only resembles the reserved one")
+        void nearMiss(String author) {
+            var mutation = new UnitFixtures.Mutation("a near miss", InvariantFixtures.REPLAN_FILE,
+                    UnitFixtures.PROJECT_AUTHOR_LINE, "author: " + author);
+
+            var result = load(mutation);
+
+            assertAll(
+                    () -> assertTrue(result.isVerified(), result.findings()::toString),
+                    () -> assertEquals(author, result.units().get("replan").frontmatter().author()));
+        }
+    }
+
+    @Nested
+    @DisplayName("File size bound")
+    class FileSizeBound {
+
+        private static final String REPLAN = InvariantFixtures.REPLAN_FILE;
+
+        /** Pads the file after its frontmatter with one comment line to exactly the given number of bytes. */
+        private void padTo(int bytes) throws IOException {
+            var path = project.resolve(configPath(REPLAN));
+            var base = Files.readString(path);
+            var padding = bytes - base.length() - 3;
+            assertTrue(padding > 0, () -> "the fixture is longer than " + bytes + " bytes");
+            Files.writeString(path, base + "\n# " + "x".repeat(padding));
+        }
+
+        @Test
+        @DisplayName("reads a unit file at the size cap")
+        void acceptsAtCap() throws Exception {
+            UnitFixtures.writeProject(project);
+            padTo(ProjectUnitLoader.MAX_UNIT_FILE_BYTES);
+
+            var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
+
+            assertAll(
+                    () -> assertEquals(ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
+                            Files.size(project.resolve(configPath(REPLAN)))),
+                    () -> assertTrue(result.isVerified(), result.findings()::toString));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("aboveTheCap")
+        @DisplayName("refuses a unit file above the size cap before it is read whole")
+        void refusesAboveCap(String name, int bytes) throws Exception {
+            UnitFixtures.writeProject(project);
+            padTo(bytes);
+
+            var result = UnitFixtures.load(projectId, project, List.of(), Set.of());
+
+            var finding = assertRefused(result, UnitFinding.Kind.MISSING, UnitFinding.UNIT_TOO_LARGE,
+                    configPath(REPLAN), 0);
+            assertAll(
+                    () -> assertTrue(finding.message().contains(Integer.toString(ProjectUnitLoader.MAX_UNIT_FILE_BYTES)),
+                            finding::message),
+                    () -> assertEquals(bytes, Files.size(project.resolve(configPath(REPLAN)))));
+        }
+
+        static Stream<Arguments> aboveTheCap() {
+            return Stream.of(
+                    Arguments.of("one byte past the cap", ProjectUnitLoader.MAX_UNIT_FILE_BYTES + 1),
+                    Arguments.of("four times the cap", ProjectUnitLoader.MAX_UNIT_FILE_BYTES * 4));
         }
     }
 
