@@ -116,7 +116,7 @@ public final class VerifyNotResolvePipeline {
         try {
             enrolment = enrolmentCheck.verify(transaction, projectId);
         } catch (StoreRefusal e) {
-            var refusal = enrolmentRefusal(e);
+            var refusal = enrolmentRefusal(projectId, e);
             return LOGGED_BY_ENROLMENT_CHECK.contains(e.outcome()) ? new JobVerification.Refused(refusal)
                     : refused(projectId, refusal);
         }
@@ -213,9 +213,10 @@ public final class VerifyNotResolvePipeline {
         }
     }
 
-    /** Maps a refusal of the enrolment check to the refusal of the job. */
-    private static JobRefusal enrolmentRefusal(StoreRefusal refusal) {
-        var detail = refusal.getMessage();
+    /** Maps a refusal of the enrolment check to the refusal of the job; the detail never names an operator act. */
+    private static JobRefusal enrolmentRefusal(String projectId, StoreRefusal refusal) {
+        var detail = "the enrolment of project '%s' was refused (%s)".formatted(projectId,
+                refusal.outcome().code());
         return switch (refusal.outcome()) {
             case ABSENT -> JobRefusal.of(Reason.NOT_ENROLLED, "the project has no enrolment");
             case ENROLMENT_TAMPERED -> JobRefusal.enrolmentTampered(detail);

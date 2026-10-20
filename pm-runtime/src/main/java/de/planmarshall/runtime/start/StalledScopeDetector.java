@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -27,6 +28,13 @@ import de.planmarshall.core.store.WorkflowStatus;
  * The detection of a stalled plan or epic (PM-ARCH-8): a scope is stalled when it has had no transition and no task
  * progress for at least the compiled stalled threshold and awaits no event
  * (doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc, Stalled Plans).
+ * <p>
+ * The hold is derived on read and kept nowhere: the detector writes no store and adds no member to the status
+ * document. The open episodes are kept in memory, keyed by project, scope type and scope id; the first detection of
+ * an episode hands one {@code plan_stalled} record to the {@link AuditSink} and announces the hold on the
+ * {@link OperatorPort}, every further detection of the episode appends nothing, and a detection that finds the scope
+ * moved on ends the episode and announces the report {@link #HOLD_RELEASED}. The acts the hold offers are
+ * {@code plan-and-epic-control}'s.
  *
  * @since 0.1
  */
@@ -38,12 +46,12 @@ public final class StalledScopeDetector {
     /** The report and event name of a hold that ended by itself. */
     public static final String HOLD_RELEASED = "plan.hold_released";
 
+    /** The phases a scope ends in; a scope that ended can never be stalled. */
+    private static final Set<String> TERMINAL_PHASES = Set.of("completed", "aborted");
+
     private final AuditSink auditSink;
     private final OperatorPort operator;
     private final Map<String, StalledHold> stalled = new ConcurrentHashMap<>();
-
-    /** The phases a scope ends in; a scope that ended can never be stalled. */
-    private static final Set<String> TERMINAL_PHASES = Set.of("completed", "aborted");
 
     /**
      * @param auditSink where the one {@code plan_stalled} record of an episode is handed over
@@ -56,16 +64,19 @@ public final class StalledScopeDetector {
 
     /**
      * What the caller knows about a scope beside its stored status: the project it belongs to, whether it is paused,
-     * waits for the operator, or is held for another reason. Stalled is derived on read and never stored.
+     * waits for the operator, is held for another reason, or awaits an event the status does not carry (an open CI,
+     * merge-queue or review-bot wait, a prerequisite wait). Stalled is derived on read and never stored.
      *
-     * @param projectId    the project the scope belongs to
-     * @param status       the stored status of the scope
-     * @param paused       whether the operator paused the scope
-     * @param operatorWait whether the scope rests in an operator wait
-     * @param otherHold    whether a hold of another kind is shown for the scope
+     * @param projectId         the project the scope belongs to
+     * @param status            the stored status of the scope
+     * @param paused            whether the operator paused the scope
+     * @param operatorWait      whether the scope rests in an operator wait
+     * @param otherHold         whether a hold of another kind is shown for the scope
+     * @param awaitsExternalEvent whether the scope awaits an event outside the store: an open CI, merge-queue or
+     *                          review-bot wait, or a prerequisite wait
      */
-    public record View(String projectId, WorkflowStatus status, boolean paused, boolean operatorWait,
-    boolean otherHold) {
+    public record View(String projectId, WorkflowStatus status, boolean paused, boolean operatorWait, boolean otherHold,
+    boolean awaitsExternalEvent) {
 
         /** @throws NullPointerException if a component is {@code null} */
         public View {
@@ -75,11 +86,11 @@ public final class StalledScopeDetector {
 
         /**
          * @param projectId the project the scope belongs to
-         * @param status    a scope with no pause, no operator wait and no other hold
+         * @param status    a scope with no pause, no operator wait, no other hold and no external wait
          * @return the view of that scope
          */
         public static View of(String projectId, WorkflowStatus status) {
-            return new View(projectId, status, false, false, false);
+            return new View(projectId, status, false, false, false, false);
         }
     }
 
@@ -174,32 +185,39 @@ public final class StalledScopeDetector {
      *
      * @param view what the caller knows about the scope
      * @param now  the instant of the read
-     * @return the hold, when the scope is stalled
+     * @return the hold, when the scope is stalled, with the idle span of this read
      */
     public Activity detect(View view, Instant now) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(now, "now");
         var status = view.status();
         var key = key(view.projectId(), status);
-        if (stallable(status) && !view.paused() && !view.operatorWait() && !view.otherHold()
-                && awaitsNoEvent(status)) {
-            var idleSeconds = Duration.between(status.updatedAt(), now).toSeconds();
-            if (idleSeconds >= THRESHOLD.toSeconds()) {
-                var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(),
-                        Cause.NO_PROGRESS, status.updatedAt(), idleSeconds);
-                var open = stalled.computeIfAbsent(key, ignored -> {
-                    auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(),
-                            hold.state(), hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
-                    return hold;
-                });
-                if (open == hold) {
-                    operator.holdOpened(hold);
-                }
-                return new Activity(Optional.of(open));
-            }
+        if (!stallable(status) || view.paused() || view.operatorWait() || view.otherHold()
+                || view.awaitsExternalEvent() || !awaitsNoEvent(status)) {
+            release(key);
+            return new Activity(Optional.empty());
         }
-        release(key);
-        return new Activity(Optional.empty());
+        var idleSeconds = Duration.between(status.updatedAt(), now).toSeconds();
+        if (idleSeconds < THRESHOLD.toSeconds()) {
+            release(key);
+            return new Activity(Optional.empty());
+        }
+        var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(), Cause.NO_PROGRESS,
+                status.updatedAt(), idleSeconds);
+        var opened = new AtomicBoolean();
+        stalled.compute(key, (ignored, previous) -> {
+            if (previous != null) {
+                return previous;
+            }
+            auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(), hold.state(),
+                    hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
+            opened.set(true);
+            return hold;
+        });
+        if (opened.get()) {
+            operator.holdOpened(hold);
+        }
+        return new Activity(Optional.of(hold));
     }
 
     /** Ends the episode of the scope, if one is open, and announces that the hold cleared by itself. */
@@ -229,6 +247,6 @@ public final class StalledScopeDetector {
     }
 
     private static String key(String projectId, WorkflowStatus status) {
-        return projectId + "/" + status.scopeType().wireName() + "/" + Objects.toString(status.scopeId(), "");
+        return projectId + "/" + status.scopeType().wireName() + "/" + status.scopeId();
     }
 }

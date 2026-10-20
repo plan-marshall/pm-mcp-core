@@ -347,8 +347,9 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 4. **One audit record per removed record, owed by the transaction**: append nothing to the audit log after the commit;
    the owed record is handed over at least once, also after a crash. Give it `transaction.recordId()`, never
    `transaction.transactionId()`.
-5. **Fence age, not issue age**: a generation is removed by the age of its fence; a current generation is never old
-   enough.
+5. **A stall is derived, never stored**: the detection writes no status member and no store; its one record per episode
+   is appended inside the per-scope computation, so two racing reads append one record, and a refused record leaves the
+   episode open for the next read.
 6. **Never signal a job nobody can identify**: an in-process operation, a job spawned before the boot and a job whose
    record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
    recorded PID of an earlier boot may belong to anyone now.
@@ -356,15 +357,16 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 == Specification Tracing
 
-_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/requirements/16-model-work.adoc#PM-WORK-5[PM-WORK-5]
+_Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}/01-architecture.adoc#PM-ARCH-8[PM-ARCH-8], link:{req}/13-client-profiles.adoc#PM-CLIENT-1[PM-CLIENT-1]
 
 * Specification: link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Model § Periodic
   Sweep], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry Record
   Maximum Age], link:{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending
-  Entry Record], link:https://github.com/plan-marshall/plan-marshall-documentation/blob/9b54d54/doc/specification/store-schemas/16-task-queue.adoc#session-generation-record[Store Schemas § Session
-  Generation Record], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
+  Entry Record], link:{spec}/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Model §
+  Stalled Plans], link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#stalled-threshold[Timeouts § Stalled
+  Threshold], link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#_startup_sequence[Runtime Model § Startup
   Sequence] (step 4.1), link:{spec}/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition
-  Audit Log] (hash chain), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime
+  Audit Log] (hash chain, stall records), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime
   Model § Per-Project Recovery] (step 3), link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc[Runtime Model §
   Drain, Stop & Upgrade] (the jobs participant), link:{spec}/store-schemas/10-job-and-lesson-records.adoc#job-record[Store
   Schemas § Job Record]

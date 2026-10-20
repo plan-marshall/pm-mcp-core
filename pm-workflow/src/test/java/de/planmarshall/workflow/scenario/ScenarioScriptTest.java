@@ -153,6 +153,20 @@ class ScenarioScriptTest {
         }
 
         @Test
+        @DisplayName("Should read a script with CRLF line endings exactly like the same script with LF")
+        void shouldReadCrlfTwin() {
+            var lf = """
+                    scenario crlf-twin
+                    worker reviewer submitted
+                    start plan plan-a
+                    assert_state execute.review
+                    """;
+            var crlf = lf.replace("\n", "\r\n");
+
+            assertEquals(ScenarioScript.read(lf), ScenarioScript.read(crlf));
+        }
+
+        @Test
         @DisplayName("Should find the worker declaration of a role, and none for an undeclared role")
         void shouldFindWorkerOfRole() {
             var script = ScenarioScript.read("""

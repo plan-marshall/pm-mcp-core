@@ -30,7 +30,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
 `VerifyNotResolvePipeline`:: The entry point. Runs the four stages in order under the caller's `LockTransaction` and answers a `JobVerification`.
 `JobVerification`:: The sealed outcome: `Verified(VerifiedJob)` or `Refused(JobRefusal)`.
 `VerifiedJob`:: The canonical working directory, the verified absolute argument vector, the `TemplateSource` of a build job (`enrolled` or `compiled_default`), the validated arguments of a project script job (`projectScriptArguments`, empty for every other job) and the verified enrolment. The launch step receives everything the job runs with from this record.
-`JobRefusal`:: Why a job was refused: a closed `Reason`, a diagnostic detail that never carries an argument value or a secret, the changed paths of a changed build configuration and the operator command that re-baselines what was refused.
+`JobRefusal`:: Why a job was refused: a closed `Reason`, a diagnostic detail that never carries an argument value, a secret or an operator act, and the changed paths of a changed build configuration.
 `ExecutableCheck`:: Stage 2: the executable, its interpreter where one runs it, and their digests.
 `WrapperVerification`:: The wrapper part of stage 2: the build wrapper by location, enrolled name and digest, with every pinned file.
 `FileDigest`:: The SHA-256 of a file read without following a symbolic link; a missing file is `Absent`, a link or a non-regular file is `NotRegular`.
@@ -71,7 +71,7 @@ The verified argument vector is the absolute start that stage 2 answers (the int
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
 
 `EnrolmentCheck.verify` reads the project's enrolment under the caller's transaction and checks its HMAC, its digest and its per-use rules.
-Its refusal is mapped: a tampered file to `enrolment_tampered` (with the command `pm-operator accept-edit enrolment <project_id>`), a failed per-use check to `enrolment_insecure`, a refused strict read of the file or its sidecar, an outdated or newer format, or a violated enrolment rule to `enrolment_invalid`, and a project with neither file nor sidecar to `not_enrolled`.
+Its refusal is mapped: a tampered file to `enrolment_tampered`, a failed per-use check to `enrolment_insecure`, a refused strict read of the file or its sidecar, an outdated or newer format, or a violated enrolment rule to `enrolment_invalid`, and a project with neither file nor sidecar to `not_enrolled`. The detail names the project and the outcome code; no refusal names an operator act (Hypermedia Format Specification, No Operator Relay).
 
 === Stage 1: Working Directory
 
@@ -87,7 +87,7 @@ _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-1[PM-EXEC-1], link:{req}/06
 
 * A host tool must be enrolled by name (`executable_not_enrolled` otherwise), its recorded `executable_path` must be absolute and its current SHA-256 the enrolled one (`executable_digest_mismatch` otherwise). A host tool that is a script (`asciidoctor`) is verified with its enrolled interpreter (`ruby`) and starts as the interpreter followed by the script.
 * A build job of `npm` (`HostToolBuild`) runs the enrolled host tool `npm`.
-* A wrapper job is verified by `WrapperVerification`: the wrapper must sit at the root of the verified working-directory tree, match an enrolled wrapper name and its enrolled SHA-256, and every pinned file must match its digest; a pinned file recorded as must-stay-absent that now exists and a recorded file that is missing both count as changed. Any change is refused as `build_config_changed`, naming every changed repository-relative path, sorted, and the command `pm-operator enrol <project_id>`. `pw` runs through the enrolled host tool `python3` with the wrapper as its first argument.
+* A wrapper job is verified by `WrapperVerification`: the wrapper must sit at the root of the verified working-directory tree, match an enrolled wrapper name and its enrolled SHA-256, and every pinned file must match its digest; a pinned file recorded as must-stay-absent that now exists and a recorded file that is missing both count as changed. Any change is refused as `build_config_changed`, naming every changed repository-relative path, sorted. `pw` runs through the enrolled host tool `python3` with the wrapper as its first argument.
 * A project script must be enrolled by id and the job's `binding` (worker kind and target) must be its enrolled binding. A binding that does not match is refused as `executable_not_enrolled`: the script is not enrolled for that use. Its `script_path`, inside the verified tree, and its interpreter `python3` must match their digests (`executable_digest_mismatch` otherwise).
 
 === Stage 3: Arguments
@@ -113,7 +113,7 @@ Flags that repository files inject (`.mvn/maven.config` and the like) are govern
 _Requirements:_ link:{req}/06-execution.adoc#PM-EXEC-2[PM-EXEC-2]
 
 The closed set of reasons, their codes and the stage that raises each are declared in link:{src}/JobRefusal.java[`JobRefusal.Reason`]; this guide does not repeat the table.
-Two reasons name an operator command: `build_config_changed` (`pm-operator enrol <project_id>`) and `enrolment_tampered` (`pm-operator accept-edit enrolment <project_id>`).
+No reason names an operator act: a refusal carries its reason and its details, and the operator's next step is a hold or an operator wait of the scope (Hypermedia Format Specification, No Operator Relay; PM-WF-20).
 Only `build_config_changed` names changed paths.
 Each refusal is logged once at WARN as `PM_RUNTIME-122` (`JOB_REFUSED`); a refusal of the enrolment that `EnrolmentCheck` has logged and audited itself (tampered, insecure, unreadable, outdated or newer format) is not logged again, so of stage 0 the pipeline logs only `not_enrolled` and an `enrolment_invalid` raised by a violated enrolment rule.
 

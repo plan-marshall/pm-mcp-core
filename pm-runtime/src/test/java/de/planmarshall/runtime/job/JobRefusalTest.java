@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,7 +71,8 @@ class JobRefusalTest {
         assertAll(
                 () -> assertEquals(reason, refusal.reason()),
                 () -> assertEquals(DETAIL, refusal.detail()),
-                () -> assertEquals(expectedPaths, refusal.changedPaths()));
+                () -> assertEquals(expectedPaths, refusal.changedPaths()),
+                () -> assertFalse(refusal.detail().contains("pm-operator"), refusal.detail()));
     }
 
     @Test

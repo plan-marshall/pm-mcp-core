@@ -155,33 +155,37 @@ class StalledScopeDetectorTest {
         return Stream.of(
                 Arguments.of("an active job", plan().activeJobs(Map.of("build",
                                 new JobEntry("b-0000000000000001", "build", "running", LAST_PROGRESS))).build(), false,
-                        false, false),
+                        false, false, false),
+                Arguments.of("an active job binding", plan().activeJob(
+                                new WorkflowStatus.ActiveJob("execute.review", "b-0000000000000001")).build(), false,
+                        false, false, false),
+                Arguments.of("a CI or review wait", plan().build(), false, false, false, true),
                 Arguments.of("a queued task", plan().activeTasks(Map.of("reviewer",
                                 new TaskEntry("qt-0000000000000001", "reviewer", "queued", null, null))).build(), false, false,
-                        false),
+                        false, false),
                 Arguments.of("a leased task", plan().activeTasks(Map.of("reviewer",
                                 new TaskEntry("qt-0000000000000001", "reviewer", "leased", null, null))).build(), false, false,
-                        false),
+                        false, false),
                 Arguments.of("a pending condition", plan().pendingCondition(
                                 new PendingCondition("job_incomplete", 0, null, "{}", LAST_PROGRESS)).build(), false, false,
-                        false),
-                Arguments.of("an operator wait", plan().build(), false, true, false),
-                Arguments.of("a pause", plan().build(), true, false, false),
-                Arguments.of("another hold", plan().build(), false, false, true),
+                        false, false),
+                Arguments.of("an operator wait", plan().build(), false, true, false, false),
+                Arguments.of("a pause", plan().build(), true, false, false, false),
+                Arguments.of("another hold", plan().build(), false, false, true, false),
                 Arguments.of("a workspace scope", status(JournalScopeType.WORKSPACE, null).build(), false, false,
-                        false),
+                        false, false),
                 Arguments.of("an ended plan", plan().phase("completed").state("completed").build(), false, false,
-                        false),
+                        false, false),
                 Arguments.of("an aborted plan", plan().phase("aborted").state("plan.aborted").build(), false, false,
-                        false));
+                        false, false));
     }
 
     @ParameterizedTest(name = "not stalled: {0}")
     @MethodSource("awaitedEvents")
     @DisplayName("a scope that awaits an event, waits, is paused, is held, or ended is never stalled, however idle")
     void shouldNotHoldScopeAwaitingAnEvent(String ignored, WorkflowStatus status, boolean paused, boolean operatorWait,
-            boolean otherHold) {
-        var activity = detector().detect(new View(PROJECT, status, paused, operatorWait, otherHold),
+            boolean otherHold, boolean awaitsExternalEvent) {
+        var activity = detector().detect(new View(PROJECT, status, paused, operatorWait, otherHold, awaitsExternalEvent),
                 LAST_PROGRESS.plusSeconds(86_400));
 
         assertAll(
@@ -214,6 +218,20 @@ class StalledScopeDetectorTest {
                 () -> assertEquals(Map.of("scope_type", "plan", "scope_id", PLAN_ID, "state", "execute.review",
                                 "cause", "no_progress", "idle_since", LAST_PROGRESS.toString(), "idle_seconds", 610L),
                         record.details()));
+    }
+
+    @Test
+    @DisplayName("a further detection of one episode reports the idle span of that read")
+    void shouldReportTheSpanOfTheRead() {
+        var detector = detector();
+
+        var first = detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
+        var second = detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(800));
+
+        assertAll(
+                () -> assertEquals(700, first.hold().orElseThrow().idleSeconds()),
+                () -> assertEquals(800, second.hold().orElseThrow().idleSeconds()),
+                () -> assertEquals(1, records.size()));
     }
 
     @Test
@@ -343,7 +361,8 @@ class StalledScopeDetectorTest {
         var detector = detector();
         detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
 
-        var activity = detector.detect(new View(PROJECT, plan().build(), true, false, false), LAST_PROGRESS.plusSeconds(710));
+        var activity = detector.detect(new View(PROJECT, plan().build(), true, false, false, false),
+                LAST_PROGRESS.plusSeconds(710));
 
         assertAll(
                 () -> assertTrue(activity.hold().isEmpty()),
@@ -381,8 +400,8 @@ class StalledScopeDetectorTest {
         var status = plan().build();
 
         assertAll(
-                () -> assertThrows(NullPointerException.class, () -> new View(null, status, false, false, false)),
-                () -> assertThrows(NullPointerException.class, () -> new View(PROJECT, null, false, false, false)),
+                () -> assertThrows(NullPointerException.class, () -> new View(null, status, false, false, false, false)),
+                () -> assertThrows(NullPointerException.class, () -> new View(PROJECT, null, false, false, false, false)),
                 () -> assertThrows(NullPointerException.class,
                         () -> detector().detect(View.of(PROJECT, status), null)),
                 () -> assertThrows(NullPointerException.class,

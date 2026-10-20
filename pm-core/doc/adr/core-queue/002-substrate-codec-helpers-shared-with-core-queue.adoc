@@ -11,7 +11,7 @@ Accepted; the record whose codec motivated it was removed by the work package `r
 
 == Context
 
-The first codec of `core.queue` lives there. Every store of the runtime is read with one
+The first codec of `core.queue` lived there until the work package `removed-concepts` removed the record it read. Every store of the runtime is read with one
 strictness (exactly the current `format_version`, only declared members, each once, every required member, one wire
 shape per instant) and refused with a `StoreRefusal` naming the file. That strictness is implemented once, in
 `StrictJson` of `core.store`, which was package-private. The store also needs the directory `projects/<project_id>/`

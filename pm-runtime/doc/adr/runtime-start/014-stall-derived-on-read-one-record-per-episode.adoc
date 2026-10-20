@@ -30,9 +30,12 @@ knows:
    operator wait, or is held for another kind. The status supplies the state, the phase, the update instant, the
    active job, the active tasks and the pending condition; the workspace scope and an ended scope never stall.
 2. A scope is held when it awaits no event and has been idle for at least `StalledScopeDetector.THRESHOLD`, the
-   compiled `600` seconds of the timeouts specification. The hold is a `StalledHold` with kind `stalled`, the closed
-   cause `NO_PROGRESS` (`no_progress`), the state, the instant of the last progress and the idle seconds; its
-   `needsOperator()` is `1`, so a caller counts it in the `needs_operator` summary.
+   compiled `600` seconds of the timeouts specification, and the view names the waits the status does not carry: a
+   pause, an operator wait, another hold and an external wait (an open CI, merge-queue or review-bot wait, a
+   prerequisite wait). The hold is a `StalledHold` with kind `stalled`, the closed cause `NO_PROGRESS`
+   (`no_progress`), the state, the instant of the last progress and the idle seconds of the read; `Activity`
+   offers the `needs_operator` count of the scope (1 with a hold, 0 without), and the summary that lists it is the
+   process-and-overview package's.
 3. The detector keeps the open episodes in memory, keyed by project, scope type and scope id. The first detection of an
    episode hands one `AuditEvent.planStalled` record (`transition`, `warning`, `details{scope_type, scope_id, state,
    cause, idle_since, idle_seconds}`) to the `AuditSink` and announces the opened hold on the `OperatorPort`; every

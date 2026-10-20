@@ -175,7 +175,7 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-8[PM-ARCH-8
 
 Implementation (of the third bullet, with the hold of a stalled scope as far as the library module `pm-runtime` carries
 it, and not yet wired into the runtime `pm-mcpd`: the detection of a plan or an epic that awaits no event and has made
-no transition and no task progress for longer than the compiled threshold, with the cause `no_progress` and the idle
+no transition and no task progress for at least the compiled threshold, with the cause `no_progress` and the idle
 span, the one `plan_stalled` audit record of an episode and the release of a hold that clears by itself; the acts of
 the hold and the pause the same bullet names are other work packages'): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java[StalledScopeDetector]
 

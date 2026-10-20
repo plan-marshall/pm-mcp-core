@@ -25,7 +25,7 @@ Checking that would need a git interface in `runtime.job`, and it would not prot
 
 3. **Pinned files**: every file pinned to the wrapper at enrolment must match its digest; a recorded file that is missing or differs, and a file recorded as must-stay-absent that now exists, each count as changed.
 
-4. **One refusal for every change**: any change refuses the job as `build_config_changed`, naming every changed repository-relative path, sorted, and the command `pm-operator enrol <project_id>` that records the new configuration once the operator reviewed it.
+4. **One refusal for every change**: any change refuses the job as `build_config_changed`, naming every changed repository-relative path, sorted. The refusal names no operator act; what the operator does about a changed wrapper is a hold or an operator wait of the scope (work package `removed-concepts`, 2026-10-20).
 
 5. **No git**: `WrapperVerification` checks neither whether git tracks the wrapper nor whether it is committed, and `runtime.job` has no git interface. The linked-worktree check of the working directory (PM-SEC-2) is unchanged: the caller verifies the live linked worktrees and passes them in.
 
