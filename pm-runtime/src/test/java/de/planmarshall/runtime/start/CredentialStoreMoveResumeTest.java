@@ -43,6 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.EnrolmentStore;
+import de.planmarshall.core.store.TransactionId;
 import de.planmarshall.runtime.audit.AuditHead;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.credentials.CredentialStoreChoice;
@@ -51,6 +52,7 @@ import de.planmarshall.runtime.credentials.CredentialStoreChoice.Writer;
 import de.planmarshall.runtime.credentials.CredentialStoreChoiceFixture;
 import de.planmarshall.runtime.credentials.CredentialStoreMove;
 import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord;
+import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Operation;
 import de.planmarshall.runtime.credentials.CredentialStoreMoveRecord.Phase;
 import de.planmarshall.runtime.credentials.FileSecretStore;
 import de.planmarshall.runtime.credentials.SecretStore;
@@ -79,6 +81,7 @@ class CredentialStoreMoveResumeTest {
     private static final String GITHUB_SECRET = "ghp-secret-of-the-github-entry";
     private static final String SONAR_SECRET = "squ-secret-of-the-sonar-entry";
     private static final Instant STARTED = Instant.parse("2026-10-17T15:00:00Z");
+    private static final TransactionId TRANSACTION = new TransactionId("018f0000-0000-7000-8000-000000000001");
     private static final byte[] HARNESSES = """
             {"format_version":1,"harnesses":{}}""".getBytes(StandardCharsets.UTF_8);
 
@@ -134,7 +137,8 @@ class CredentialStoreMoveResumeTest {
     }
 
     private void openMove(Phase phase) throws IOException {
-        write(recordFile(), new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase, false).write());
+        write(recordFile(), new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase, false, Operation.MOVE,
+                TRANSACTION).write());
     }
 
     private Path recordFile() {
@@ -153,8 +157,8 @@ class CredentialStoreMoveResumeTest {
     /** Asserts the end state of a move from the OS store into the file store that the resume completed. */
     private void assertCompleted(Optional<CredentialStoreMoveRecord> resumed, Phase phase, SecretKey key) {
         assertAll(
-                () -> assertEquals(Optional.of(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase, false)),
-                        resumed),
+                () -> assertEquals(Optional.of(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase,
+                        false, Operation.MOVE, TRANSACTION)), resumed),
                 () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                 () -> assertEquals(Optional.of(GITHUB_SECRET), fileStore.get(GITHUB)),
                 () -> assertEquals(Optional.of(SONAR_SECRET), fileStore.get(SONAR)),
@@ -164,7 +168,7 @@ class CredentialStoreMoveResumeTest {
                 () -> assertEquals(List.of(new AuditEvent(CredentialStoreMove.EVENT, AuditEvent.CATEGORY_OPERATOR,
                                 AuditEvent.OUTCOME_SUCCEEDED, Map.of(CredentialStoreMove.DETAIL_FROM, Store.OS.value(),
                                         CredentialStoreMove.DETAIL_TO, Store.FILE.value(), CredentialStoreMove.DETAIL_ENTRIES,
-                                        2L))),
+                                        2L, AuditEvent.DETAIL_TRANSACTION_ID, TRANSACTION.value()))),
                         movedEvents()),
                 () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
                         INFO.CREDENTIAL_STORE_MOVE_RESUMED.resolveIdentifierString()),
@@ -321,6 +325,131 @@ class CredentialStoreMoveResumeTest {
                     () -> assertTrue(Files.exists(recordFile())),
                     () -> assertTrue(movedEvents().isEmpty()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO, CredentialStoreMoveResume.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("a first recording cut by a stop")
+    class FirstRecording {
+
+        /** The machine before the choice: the key and the sidecars in the OS store, no store recorded. */
+        private SecretKey machineBeforeTheChoice() throws IOException {
+            var key = keyIn(osStore).readOrCreate();
+            write(base.resolve(HarnessesSidecarCheck.FILE_NAME), HARNESSES);
+            write(base.resolve(HarnessesSidecarCheck.FILE_NAME + EnrolmentSidecar.SUFFIX),
+                    EnrolmentHmac.sidecar(key, HARNESSES).write());
+            return key;
+        }
+
+        /** Writes the record of a first recording of the file store, as the stopped recording left it. */
+        private void openFirstRecording(Phase phase, boolean targetHeldKey) throws IOException {
+            write(recordFile(), new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase, targetHeldKey,
+                    Operation.FIRST_RECORDING, TRANSACTION).write());
+        }
+
+        private void assertRecorded(Optional<CredentialStoreMoveRecord> resumed, Phase phase, SecretKey key) {
+            assertAll(
+                    () -> assertEquals(Optional.of(new CredentialStoreMoveRecord(Store.OS, Store.FILE, STARTED, phase,
+                            false, Operation.FIRST_RECORDING, TRANSACTION)), resumed),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(keyIn(osStore).read().isEmpty(), "the key of the OS store is deleted"),
+                    () -> assertFalse(Files.exists(recordFile())),
+                    () -> assertTrue(movedEvents().isEmpty(), "a first recording appends no move audit record"),
+                    () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.INFO,
+                            INFO.CREDENTIAL_STORE_FIRST_RECORDING_RESUMED.resolveIdentifierString()),
+                    () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.INFO,
+                            INFO.CREDENTIAL_STORE_MOVE_RESUMED.resolveIdentifierString()));
+        }
+
+        @Test
+        @DisplayName("cut before the switch: the copy is removed from the file store, the recording starts again and "
+                + "records the store")
+        void cutBeforeTheSwitch() throws Exception {
+            var key = machineBeforeTheChoice();
+            keyIn(fileStore).write(key);
+            openFirstRecording(Phase.COPYING, false);
+
+            var resumed = resume.run();
+
+            assertRecorded(resumed, Phase.COPYING, key);
+        }
+
+        @Test
+        @DisplayName("cut between the switch and the rewrite of the record: the switch is read as done and the key is "
+                + "deleted from the OS store")
+        void cutBetweenTheSwitchAndTheRecord() throws Exception {
+            var key = machineBeforeTheChoice();
+            keyIn(fileStore).write(key);
+            openFirstRecording(Phase.COPYING, false);
+            recordStore(Store.FILE, Writer.STORE_MOVE);
+
+            var resumed = resume.run();
+
+            assertRecorded(resumed, Phase.COPYING, key);
+        }
+
+        @Test
+        @DisplayName("cut after the rewrite of the record: the key is deleted from the OS store and the record ends")
+        void cutAfterTheSwitch() throws Exception {
+            var key = machineBeforeTheChoice();
+            keyIn(fileStore).write(key);
+            openFirstRecording(Phase.SWITCHED, false);
+            recordStore(Store.FILE, Writer.STORE_MOVE);
+
+            var resumed = resume.run();
+
+            assertRecorded(resumed, Phase.SWITCHED, key);
+        }
+
+        @Test
+        @DisplayName("a second resume on the finished state does nothing")
+        void idempotent() throws Exception {
+            var key = machineBeforeTheChoice();
+            keyIn(fileStore).write(key);
+            openFirstRecording(Phase.SWITCHED, false);
+            recordStore(Store.FILE, Writer.STORE_MOVE);
+            resume.run();
+
+            var second = resume.run();
+
+            assertAll(
+                    () -> assertTrue(second.isEmpty()),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(keyIn(osStore).read().isEmpty()));
+        }
+
+        @Test
+        @DisplayName("a first recording in phase switched without the store it records is refused and deletes nothing")
+        void switchedWithoutTheRecordedStore() throws Exception {
+            var key = machineBeforeTheChoice();
+            keyIn(fileStore).write(key);
+            openFirstRecording(Phase.SWITCHED, false);
+
+            var failure = assertThrows(IllegalStateException.class, resume::run);
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("nothing was deleted"), failure.getMessage()),
+                    () -> assertTrue(choice.recorded().isEmpty()),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
+                    () -> assertArrayEquals(key.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(Files.exists(recordFile())));
+        }
+
+        @Test
+        @DisplayName("while the record of a first recording exists the aspect records no store")
+        void aspectRefusedUntilTheResume() throws Exception {
+            machineBeforeTheChoice();
+            openFirstRecording(Phase.COPYING, false);
+
+            var refusal = assertThrows(CredentialStoreChoice.Refusal.class,
+                    () -> choice.record(locks, USER, Store.FILE));
+
+            assertAll(
+                    () -> assertEquals(CredentialStoreChoice.Refusal.Reason.ASPECT_OWNED, refusal.reason()),
+                    () -> assertTrue(choice.recorded().isEmpty()),
+                    () -> assertTrue(Files.exists(recordFile())));
         }
     }
 

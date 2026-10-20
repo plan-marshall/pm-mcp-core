@@ -1,0 +1,62 @@
+= ADR 009: The Operation Carries the Transaction Id of Its Audit Record
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+`AuditSink` requires the record of a completed store mutation to be delivered at least once: the producer keeps a
+durable intent until the sink accepted the record, and hands the record over again after a failure or a stop. A record
+handed over again carries the same `transaction_id` (`AuditEvent.DETAIL_TRANSACTION_ID`), which is the deduplication
+key of the reader of the audit log.
+
+The move follows the at-least-once rule — it appends `credential_store_moved` before it deletes its record, so a stop
+or a failing sink leaves the record and the next start appends the record then — but it built the audit record with the
+details `from`, `to` and `entries` only, and no `transaction_id`. A reader therefore could not tell the two deliveries
+of one completed move from two completed moves, and the audit log of a machine that stopped once between the append
+and the end of the record held the record twice with nothing that named it as the same one. PLAN-74 recorded that as an
+advisory; PLAN-82 closed it.
+
+== Decision
+
+* `CredentialStoreMoveRecord` carries `transaction_id`, a `TransactionId` of `pm-core` (a lower-case UUID of version 7),
+  issued once when the record is written from the clock the operation holds, persisted in the record, and kept across
+  every resume.
+* The `credential_store_moved` audit record carries it as `details.transaction_id` beside `from`, `to` and `entries`.
+  Two deliveries of one completed move carry the same id; two moves carry different ids, since each write issues one.
+* The codec refuses a record whose `transaction_id` is not the one written form, as it refuses any other field outside
+  the record's shape. Format version stays 1.
+* A first recording writes a record with an id of its own although it appends no audit record today: the id is the
+  identity of the operation the record drives, and the record of the choice's audit event (the specification names
+  `credential_store_chosen`) can be handed over with it once the assembly wires the sink.
+
+== Alternatives Considered
+
+* Deriving the id from `from`, `to` and `started_at` instead of persisting it: not taken, since two operations can share
+  a start instant in a test with a fixed clock, and the specification requires that no two distinct records share an
+  id. A persisted id is also what every other producer of an owed record does.
+* Carrying the id only in the audit event and not in the record: not taken, since a re-delivery after a stop runs in a
+  new process and has no memory of the first delivery; the record is the durable intent that names it.
+* Letting the reader deduplicate without an id, by comparing the whole record: not taken, since `AuditLog` writes the
+  event with an event id of its own and the chain differs per delivery, so the record's details are the only part that
+  is comparable, and the specification names the transaction id for exactly that.
+
+== Consequences
+
+* The audit log of a completed move can hold the record twice, and a reader that drops a duplicate by
+  `details.transaction_id` counts the move once; `CredentialStoreMoveTest` proves that rule with a reader of its own.
+* A record written by an earlier version has no `transaction_id` and is refused as unreadable; nothing is released yet.
+* The deduplication by the audit log store itself remains unimplemented, as the specification states; this change gives
+  the move the id that the reader needs.
+
+== Source
+
+* Plan: `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-82-credential-store-move-advisories.md` (deliverable 3)
+* Advisory: landing message `plan-74-credential-store-choice-036`
+* link:../../../../doc/specification/store-schemas/12-machine-stores.adoc#audit-log[Store Schemas § Security & Transition Audit Log]
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc[Store Schemas § Format Versioning & Atomic Write Discipline]

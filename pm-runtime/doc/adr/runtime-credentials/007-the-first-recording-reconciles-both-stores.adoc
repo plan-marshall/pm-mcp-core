@@ -1,0 +1,77 @@
+= ADR 007: The First Recording Reconciles the Integrity Key of Both Stores
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+PLAN-74 shipped the first recording of a credential store with a carry that looks only at the store the running
+instance found (`CredentialStoreChoice.integrityKeyStore()`: the OS store where one is available, else the file store,
+found once per instance) and at the store being recorded. Where the store being recorded is the store the instance
+found, the recording wrote `credentials.store` and returned before it looked at the other store at all.
+
+The integrity key is not bound to one store: `EnrolmentKey.readOrCreate()` creates it in the store the instance finds,
+so a key file written while the OS store was unavailable, or a keyring entry left behind by a recording whose deletion
+failed, is a key of the machine too. Recording the found store while the key lies in the other one therefore left the
+recorded store without any key and the key stranded in a store nothing reads from any more:
+`EnrolmentKey.readOrCreate()` then created a second key in the recorded store and every sidecar signed under the first
+one failed as `enrolment_tampered`. The same recording left a duplicate behind where both stores held the same key.
+
+The landing message `plan-74-credential-store-choice-036` recorded this as an advisory; PLAN-82 closed it. The operator
+chose the direction at the start of the plan: reconcile the two stores rather than refuse a first recording that finds
+a key in the other store, or carry only the found store's key.
+
+== Decision
+
+* The first recording reads both stores. The key it keeps is the one the machine's HMAC sidecars verify under
+  (`IntegrityKeyCarry.failureUnder`, one verification per candidate key, in a transaction of its own).
+* Only one store holds a key: that key is kept. Both hold the same key: it is kept, and the duplicate in the store that
+  is not recorded is deleted after the switch. Both hold different keys: the one under which every sidecar verifies is
+  kept, the other one is deleted from the store that is not recorded after the switch, and the store being recorded
+  receives the kept key (a differing key of that store is removed before the copy, since it verified nothing).
+* Both hold different keys and the sidecars decide nothing — no sidecar exists, so both verify, or the sidecars verify
+  under neither — the recording is refused with `credential_store_failed`, naming both stores and what each key
+  verifies. Nothing is written or deleted, so the operator removes the key of one store by hand.
+* A store that cannot be read is taken as holding no key, with the warning `PM_RUNTIME-134`: the operator records the
+  file store exactly when the OS store is broken, and a first recording may not be blocked by a store the machine does
+  not serve from. Where the store being recorded is the unreadable one and the other store holds a key, the recording
+  is refused instead, since carrying the key into that store is the point of the recording.
+* The store being recorded holds the kept key before `credentials.store` names it, no second key is created there, and
+  the key of the other store is deleted after the switch.
+
+== Alternatives Considered
+
+* Carry only, never delete from the other store: not taken, since a duplicate key stays in a store the machine does not
+  serve from, and a later move into that store refuses the leftover key as another key of the target.
+* Refuse whenever the other store holds any key: not taken, since the operator would have to remove the key by hand
+  before an onboarding the machine can finish by itself.
+* Prefer the store the instance found unless the other store's key verifies: not taken, since a found key that verifies
+  nothing signs nothing either, and the sidecar verification answers the question for both stores symmetrically.
+* Decide from `targetKey` alone and refuse a target that holds another key, as the move does: not taken for the first
+  recording, since the sidecars name the key to keep, and the recording is the one moment at which the machine may
+  reconcile two keys without losing a signature.
+
+== Consequences
+
+* The recorded store holds the key every sidecar was signed under whichever store the key was created in, so the
+  limitation ADR 006 recorded is closed.
+* A machine with two different keys fails its first recording, naming both stores, until the operator removes one of
+  them; the message says which key verifies the sidecars.
+* The reconcile costs one sidecar verification per candidate key; a machine with one key, the common case, verifies
+  under that key once, as before.
+* A key of the store being recorded that fails the sidecar verification is deleted before the copy and is not restored
+  if the recording fails afterwards; it signed no sidecar, so nothing verifiable is lost.
+* The key of a store that cannot be read stays where it is; the move into that store refuses it by name later.
+
+== Source
+
+* Plan: `.plan/orchestrator/pm-mcp-core-m2-m4/plans/PLAN-82-credential-store-move-advisories.md` (deliverable 1)
+* Advisory: landing message `plan-74-credential-store-choice-036`
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment § Credential Store as an Operator Choice]
+* link:006-the-first-recording-carries-the-integrity-key.adoc[ADR 006: The First Recording Carries the Integrity Key]
+* link:004-move-copies-the-key-last-and-switches-once.adoc[ADR 004: The Move Copies the Key Last and Switches Once]

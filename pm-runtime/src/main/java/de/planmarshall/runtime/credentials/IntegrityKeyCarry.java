@@ -150,14 +150,26 @@ final class IntegrityKeyCarry {
      * @throws UncheckedIOException if the enrolment directory cannot be listed or a file cannot be read
      */
     void verifySidecars(SecretKey key) {
-        Optional<EnrolmentSidecars.Failure> failure;
-        try (var verification = locks.openTransaction()) {
-            failure = sidecars.verify(verification, key);
-        }
+        var failure = failureUnder(key);
         if (failure.isPresent()) {
             throw new SecretStoreException(SecretStoreException.Reason.FAILED,
                     "%s does not verify under the moved integrity key: %s".formatted(failure.get().file(),
                             failure.get().reason()));
+        }
+    }
+
+    /**
+     * The sidecars of the machine under one key, in a transaction of its own, so a caller that weighs two candidate
+     * keys can tell under which of them every sidecar verifies.
+     *
+     * @param key the key the sidecars are verified under
+     * @return the first sidecar that does not verify under the key; empty if every sidecar verifies
+     * @throws UncheckedIOException if the enrolment directory cannot be listed or a file cannot be read
+     */
+    Optional<EnrolmentSidecars.Failure> failureUnder(SecretKey key) {
+        Objects.requireNonNull(key, "key");
+        try (var verification = locks.openTransaction()) {
+            return sidecars.verify(verification, key);
         }
     }
 
