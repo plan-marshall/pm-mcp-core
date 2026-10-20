@@ -146,3 +146,34 @@ Sections of `epic.md` whose subject is closed, moved here verbatim by `cleanup` 
   `docs(plans)` change — source: landing PLAN-74.
 
 Closed by `plan-marshall-mcp` #88 (`8137c9e`, 2026-10-18, `fix(credentials): serve the recorded credential store, not a selection`): `SecretStoreProducer` produces the runtime's `CredentialStoreChoice` and a `SecretStore` that resolves `choice.activeStore()` at every call; no reference to `SecretStoreSelector` remains in the checkout at `9bbe852` (verified 2026-10-19 by grep). The follow-up `plan-marshall-mcp` #90 (`91b60d5`, 2026-10-19) maps the store's refusal to `409 onboarding_incomplete` in `CredentialsResource` (verified in the merged diff and by `ci pr queue-state`: merged); what remains open is the writer of the choice, an Open Defect of `epic.md`.
+
+## Defect: new specification obligations that no package file owns
+
+- **New specification obligations that no package file owned (pm-mcp-core #84, merged `5197490`; documentation #84, merged).** Operator said yes on
+  2026-10-17: staged as PLAN-78 `spec-obligation-owners`, docs only. The change added to the engine specifications: the worker egress proxy and macOS
+  (Seatbelt) confinement (`job-runtime/02`); the launcher staying as the job's process (step 3a) and the refusal reason `harness_update_unverified`
+  (`job-runtime/01`, `store-schemas/10`); update evidence, `endpoints`, `extension_isolation` and the `egress` and `isolation` profile stages
+  (`client-profiles/01`); the writing skill, the byte-identical shared launch prefix and harness-extension isolation (`model-work/04`); the
+  `agent_started` signal (`model-work/03`, `store-schemas/16`, `timeouts/01`); navigation figures (`model-work/09`); the comparison footprint
+  (`workflow-dsl/07`); the upgrade checked against the build attestation (`runtime-lifecycle/01`). Only `runtime-control.adoc` was amended by #84
+  — source: analysis of 2026-10-17.
+
+Closed by pm-mcp-core #111 (`72aec5c`, 2026-10-20, `docs(plans): give the new specification obligations an owner (PLAN-78)`), run in the runbook lane
+on opencode: the obligations of #84, #95 to #98, #101, #109 and documentation #94 are bullets of eleven package files or are listed in its body
+(No owner found, Owed to a staged plan, Owed outside); `epic-decomposition` was split into `epic-decomposition` and `epic-review` by the
+operator's decision. Verified 2026-10-20 against `main` at `72aec5c`: the terms and anchors named by the landing are in `doc/plans/` and were in none
+of it at `993a7e7`; `trace.py` reports `BROKEN LINKS 0`. What stays open: the specs of the plans of the amended packages (an Open Defect of
+`epic.md`), and the remainders the landing lists (`landings/PLAN-78.md`).
+
+## Defect: no package owns the pm-runtime adapter for QuestionRecordReader
+
+- **No package owns the `pm-runtime` adapter for `QuestionRecordReader`** (found by the landing of PLAN-14, 2026-10-18; verified: no file of
+  `doc/plans/` names `QuestionRecordReader`). PLAN-14 delivered the store in `pm-core` and states that the adapter is not part of it; the
+  module structure places the question records in `pm-workflow` `workflow.question` and the port in `pm-core`. Candidates to take it:
+  `question-continuation` (PLAN-73), `task-queue-and-protocol` (PLAN-28) or a bullet of `runtime-control`. **Staged on 2026-10-19 as PLAN-88 `question-record-reader-adapter`** (its own plan, sequenced against PLAN-73 by the disjointness check).
+
+Closed by pm-mcp-core #116 (`c39ce3b`, 2026-10-20, `feat(runtime): read question records through a runtime adapter`), run in the runbook lane on opencode:
+`QuestionLogRecordReader` in the new package `de.planmarshall.runtime.question` implements the port over `QuestionLog`; it is the only product
+implementation (verified 2026-10-20 at `c39ce3b`; the two others are `pm-workflow` test fixtures). It needed no package file: the plan carried no row
+in `doc/plans/` and none was added. What stays open: the CDI producer and the end-to-end `question` state path (`plan-marshall-mcp`), the
+pending-entry addressing the port lacks (an Open Defect of `epic.md`), and the concept and user documentation at the milestone exit.

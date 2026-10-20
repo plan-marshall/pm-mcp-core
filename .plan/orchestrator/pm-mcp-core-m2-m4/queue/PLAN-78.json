@@ -2,10 +2,10 @@
   "id": "PLAN-78",
   "slug": "spec-obligation-owners",
   "workstream": "WS-10",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-78-spec-obligation-owners",
+  "pr": "#111",
+  "landing": "landings/PLAN-78.md",
   "seq": 78
 }

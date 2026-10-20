@@ -2,10 +2,10 @@
   "id": "PLAN-81",
   "slug": "unit-frontmatter-hardening",
   "workstream": "WS-03",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-81-unit-frontmatter-hardening",
+  "pr": "#114",
+  "landing": "landings/PLAN-81.md",
   "seq": 81
 }

@@ -2,10 +2,10 @@
   "id": "PLAN-88",
   "slug": "question-record-reader-adapter",
   "workstream": "WS-02",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-88-question-record-reader-adapter",
+  "pr": "#116",
+  "landing": "landings/PLAN-88.md",
   "seq": 88
 }
