@@ -117,7 +117,7 @@ class PeriodicSweepTest {
     @DisplayName("the steps of the sweep are the technical residue removals, and no step of fenced generations")
     void shouldRegisterOnlyResidueSteps() {
         // PM-ARCH-10 bullet 4: the periodic sweep removes technical residue and never work history. The pending entry
-        // records are the residue of a start; the session generation record of the removed concept is no step.
+        // records are the residue of a start, and no step removes anything else.
         var names = Arrays.stream(SweepStep.Name.values()).map(Enum::name).toList();
 
         assertEquals(List.of("PENDING_ENTRY_RECORDS"), names);

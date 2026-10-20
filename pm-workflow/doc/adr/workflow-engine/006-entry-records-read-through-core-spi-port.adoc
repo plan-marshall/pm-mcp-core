@@ -47,7 +47,7 @@ refinement of PLAN-21 (question q3).
 == Amendment (2026-10-13): The Port Is Implemented Over `core.store.PendingEntryStore`
 
 The context above states that the pending entry store belongs to `pm-runtime`, and the decision that the store of
-`pm-runtime` implements the port. Both are refuted: the session log and generations work (pm-mcp-core#51) added the
+`pm-runtime` implements the port. Both are refuted: the work of pm-mcp-core#51 added the
 store to `pm-core` as `core.store.PendingEntryStore`, with the record `PendingEntryRecord` and the typed id `EntryId`.
 `PendingEntryStore.read(EntryId)` returns an `Optional<PendingEntryRecord>` and throws `StoreRefusal` for a record in
 another format version, an unreadable record, or one that states another `entry_id` than its file name. The decision

@@ -11,7 +11,7 @@ Accepted
 
 == Context
 
-A `pm-mcp enter` on a plan or an epic that does not exist yet runs a bootstrap that may ask questions before the scope
+A client that opens an entry for a plan or an epic that does not exist yet runs a bootstrap that may ask questions before the scope
 exists. Those questions are kept in `pending/<entry_id>/questions.jsonl` of the workspace scope. When the bootstrap
 creates the scope, its questions belong to the new scope's `questions.jsonl`. A `ScopeTransaction` writes only the
 stores of its own scope, so one transaction cannot both remove the entry's log and write the new scope's log. The

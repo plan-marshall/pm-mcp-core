@@ -59,8 +59,8 @@ class PendingEntryCodecTest {
             + "\"integrity\":null,\"facts\":{ \"reason\" : \"config_dirty\" },\"raised_at\":\"2026-10-13T08:02:00Z\"}";
 
     /**
-     * A complete entry row of the removed scope session log, as the former {@code ScopeSessionRowCodec} wrote it: the
-     * value a record that still carries the removed member is stored with.
+     * A complete entry row of the removed store, with every member it declared: the value a record that still carries
+     * the removed member is stored with.
      */
     private static final String SESSION_ROW = "{\"format_version\":1,\"client_session_id\":\"sess-1\","
             + "\"client\":\"claude\",\"client_detected\":\"claude\",\"environment_match_tier\":\"MATCHED\","

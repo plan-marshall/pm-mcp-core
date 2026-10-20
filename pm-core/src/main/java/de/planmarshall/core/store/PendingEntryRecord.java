@@ -22,8 +22,8 @@ import de.planmarshall.core.store.WorkflowStatus.CallFrame;
 import de.planmarshall.core.store.WorkflowStatus.PendingCondition;
 
 /**
- * The pending entry record {@code pending/<entry_id>.json} of the workspace scope (PM-CLIENT-1): what the user named at
- * {@code pm-mcp enter} on a scope that does not exist yet, and the state store of that entry's bootstrap until a
+ * The pending entry record {@code pending/<entry_id>.json} of the workspace scope (PM-CLIENT-1): what a client named
+ * when it opened an entry for a scope that does not exist yet, and the state store of that entry's bootstrap until a
  * terminal of the bootstrap deletes it.
  * <p>
  * The envelope is typed: the id, the kind, what the user named ({@code requested_id}, {@code hint}, recorded as given

@@ -23,7 +23,7 @@ This package implements link:../specification/filesystem-layout/03-project-store
 * *An epic's sources in its ledger* (`.marshall/epics/<epic_id>/sources/`, committed and landed), so that adoption and every decomposition read them.
 * *Entries addressed like plans and epics*: created under their project (`POST /api/v1/projects/{project_id}/entries`, the kind `plan` or `epic`), addressed at the top level by id (`/api/v1/entries/{entry_id}`, its events at `/api/v1/entries/{entry_id}/events`); `POST /api/v1/entries` goes.
 * *Loopback only*: the listing of files, a move, and documents outside the checkout only from the terminal client and the loopback listener.
-* *Schema parity*: `PendingEntrySchemaParityTest` reads the schema of the entry's directory form and is re-enabled, and so is `AuditSchemaParityTest.enums` with the scope `entry` of the audit record (the category `identity` is gone with link:removed-concepts.adoc[`removed-concepts`]).
+* *Schema parity*: `PendingEntrySchemaParityTest` reads the schema of the entry's directory form and is re-enabled, and `AuditSchemaParityTest.enums` is already enabled and green with the scope `entry` of the audit record (the category `identity` and the entry row of the pending entry record are gone).
 
 == Trace
 

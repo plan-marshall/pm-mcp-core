@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 
 /**
  * The {@code entry_id} of a pending entry record (PM-CLIENT-1): {@code ent-} and 8 to 32 lower-case hexadecimal
- * digits, printed by {@code pm-mcp enter} and the entity id of the entry's bootstrap.
+ * digits, the id a client's entry is named by and the entity id of its bootstrap.
  * <p>
  * The id is the name of its record {@code pending/<entry_id>.json}. A file name that does not parse as an id is never
  * an entry id ({@link #ofFileName(String)}): a listing of {@code pending/} skips it, and no sweep selects it. A new id

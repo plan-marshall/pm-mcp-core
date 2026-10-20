@@ -15,9 +15,9 @@ An owed audit record is delivered at least once: the journal of a scope transact
 it, and the recovery hands it over again after a stop. A reader of the audit log drops a record handed over twice by
 its `transaction_id`. Until this package every record a `ScopeTransaction` owed carried `transactionId()` of the
 transaction, so two different records of one transaction shared the key: two `pending_entry_removed` records of one
-sweep run, and a `cross_scope_reconciled` or `entry_client_changed` record and the `transaction_rolled_forward` record
-of the same journal. A reader that drops by that key loses all but one of them. The operator decided the point as
-decision q3 of the work package.
+sweep run, and a `cross_scope_reconciled` record and the `transaction_rolled_forward` record of the same journal. A
+reader that drops by that key loses all but one of them. The operator decided the point as decision q3 of the work
+package.
 
 == Decision
 
@@ -25,8 +25,8 @@ decision q3 of the work package.
   `transactionId()` and from every other record's id. The id travels with the record into the journal, so a record
   the recovery hands over again keeps it.
 * The transaction's own id stays the id of its journal, its staged files and its `transaction_rolled_forward` record.
-* `OrderedWrite` (`cross_scope_reconciled`), `ScopeSessionLog` (`entry_client_changed`) and the pending-record sweep of
-  `runtime.start` (`pending_entry_removed`) owe their records with such an id.
+* `OrderedWrite` (`cross_scope_reconciled`) and the pending-record sweep of `runtime.start`
+  (`pending_entry_removed`) owe their records with such an id.
 * The `transaction_id` of a record is the deduplication key of the audit log, unique per record. `PM_CORE-100` names
   the record by it (`Audit record '%s' with transaction id '%s' not handed over, kept owed in '%s': %s`).
 

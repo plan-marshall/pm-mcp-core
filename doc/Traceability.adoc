@@ -98,7 +98,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its two steps, which remove the old pending entry records and the old fenced session generations, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, with the bounded verification of the audit chain through a seam (the audit chain itself is not implemented yet); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -116,8 +116,7 @@ link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JournalRollForwar
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/CrossScopeReconciliationStep.java[CrossScopeReconciliationStep],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/SweepStep.java[SweepStep],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/FencedSessionGenerationsSweep.java[FencedSessionGenerationsSweep]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
 Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/ServiceUnitFileTest.java[ServiceUnitFileTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/ServiceManagerTest.java[ServiceManagerTest],
@@ -139,7 +138,6 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/RecoveryStepsKill
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepKilledRuntimeIT.java[PeriodicSweepKilledRuntimeIT],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/FencedSessionGenerationsSweepTest.java[FencedSessionGenerationsSweepTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StartupColdStartIT.java[StartupColdStartIT]
 
 Implementation (the jobs part of recovery step 3 and the jobs' participant of the drain, as far as the library module `pm-runtime` carries them and not yet wired into the runtime `pm-mcpd`: every job record of a project left `queued` or `running` by a previous runtime instance settled `killed` by outcome row 4, by the first matching rule, an in-process operation, a spawn before the system boot and a record without a PID settled without any signal, the last with the audit note `orphan unidentifiable`, and a live process group of this boot probed and terminated, never adopted or executed again, the slot the caller names released after the fate; the step placed as step 3 of the per-project recovery; the stop of the job runner's admission under its admission lock, the wait for the running jobs up to the drain timeout, the termination of the jobs still running settled `killed`, and every job still `queued` settled `killed` without a signal. Not implemented yet: the worker part of step 3, the fence of a worker's generation, the revocation of its token, the release of its task lease and the removal of its job-private directory, which the step reports as a seam, and the boot time and the slots of the jobs, which the caller supplies): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java[JobRecoveryStep],
@@ -169,6 +167,36 @@ link:../../plan-marshall-documentation/doc/user/operator.adoc#relay-version-mism
 link:../pm-runtime/doc/developer/runtime-start.adoc[Sweep Steps Developer Guide],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_jobs_recovery_step[Runtime Start Developer Guide § The Jobs Part of Step 3],
 link:../pm-runtime/doc/developer/runtime-start.adoc#_job_drain_participant[Runtime Start Developer Guide § The Job Drain Participant]
+
+[#PM-ARCH-8]
+=== PM-ARCH-8: Server-Driven Continuation & Connection Independence
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-8[PM-ARCH-8]
+
+Implementation (of the third bullet, with the hold of a stalled scope as far as the library module `pm-runtime` carries
+it, and not yet wired into the runtime `pm-mcpd`: the detection of a plan or an epic that awaits no event and has made
+no transition and no task progress for longer than the compiled threshold, with the cause `no_progress` and the idle
+span, the one `plan_stalled` audit record of an episode and the release of a hold that clears by itself; the acts of
+the hold and the pause the same bullet names are other work packages'): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java[StalledScopeDetector]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/StalledScopeDetectorTest.java[StalledScopeDetectorTest] (the threshold from one second below to past it, every awaited event, a pause, an operator wait and another hold, one record per episode, the release by itself, and the threshold read from the timeouts specification)
+
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_stalled_scope_detection[Runtime Start Developer Guide § The Stalled-Scope Detection], link:../pm-runtime/doc/adr/runtime-start/014-stall-derived-on-read-one-record-per-episode.adoc[ADR runtime-start/014]
+
+[#PM-ARCH-10]
+=== PM-ARCH-10: One Cleanup of Work History & Automatic Removal of Residue
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10]
+
+Implementation (of the fourth bullet, the residue the periodic sweep removes: the pending entry records older than the
+pending entry record maximum age, in one workspace transaction with one `pending_entry_removed` record per record; the
+other residue kinds and the cleanup of the first three bullets are other work packages'): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_the_pending_record_step[Runtime Start Developer Guide § The Pending-Record Step], link:../pm-runtime/doc/adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR runtime-start/001]
 
 == link:../../plan-marshall-documentation/doc/requirements/02-workflow.adoc[Workflow]
 
@@ -358,6 +386,22 @@ link:../pm-workflow/doc/developer/workflow-ast.adoc[Workflow AST Developer Guide
 link:../pm-workflow/doc/developer/workflow-verify.adoc[Workflow Verification Developer Guide],
 link:../pm-workflow/doc/developer/workflow-verify.adoc#interface-rules[Workflow Verification Developer Guide § Interface Rules and Unit Types],
 link:../pm-core/doc/developer/core-store.adoc#_the_call_stack[Scope Stores Developer Guide § The Call Stack]
+
+[#PM-WF-20]
+=== PM-WF-20: Waiting for the Operator
+
+link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-20[PM-WF-20]
+
+Implementation (in part, of the bullets that nothing is decided by the passing of time and that no unit defines a
+deadline of its own: the scenario harness that drives operator waits resolves a question only by the answer a client
+gives and has no directive that fires a deadline, and a script that names the removed deadline directive is refused by
+name; the operator-wait states and their acts are other work packages'): link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java[ScenarioScript],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java[ScenarioReplayRunner]
+
+Verified by: link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScriptTest.java[ScenarioScriptTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDeterminismTest.java[ScenarioDeterminismTest]
+
+Documentation: link:../pm-workflow/doc/developer/workflow-scenario.adoc[Scenario Replay Harness Developer Guide]
 
 [#PM-WF-25]
 === PM-WF-25: Plan Behaviour Axes & Plan Overrides
@@ -780,7 +824,7 @@ Documentation: link:../../plan-marshall-documentation/doc/developer/workflow-dsl
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4]
 
-Implementation (the in-process scenario harness of the first bullet in the test scope of `pm-workflow`, without a live model and without starting a process: the scenario script read from text with the directives `start`, `complete_job`, `answer_question`, `expire_question`, `assert_state`, `assert_outcome` and `assert_task_outcome`, every other directive refused by name; the runner that replays a script against the real engine and status store over a fixture unit, with the stores in a temporary directory; and the scripted fixture worker that settles the queued task of its role with the task outcome the script declares; a worker that follows the offered links, the plan bootstrap through `finalize`, the hermetic fixture repositories, and the fault, recovery and benchmark scenarios of the further bullets are not implemented yet): link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java[ScenarioReplayRunner],
+Implementation (the in-process scenario harness of the first bullet in the test scope of `pm-workflow`, without a live model and without starting a process: the scenario script read from text with the directives `start`, `complete_job`, `answer_question`, `assert_state`, `assert_outcome` and `assert_task_outcome`, every other directive refused by name; the runner that replays a script against the real engine and status store over a fixture unit, with the stores in a temporary directory; and the scripted fixture worker that settles the queued task of its role with the task outcome the script declares; a worker that follows the offered links, the plan bootstrap through `finalize`, the hermetic fixture repositories, and the fault, recovery and benchmark scenarios of the further bullets are not implemented yet): link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java[ScenarioReplayRunner],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java[ScenarioScript],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioDirective.java[ScenarioDirective],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScriptedFixtureWorker.java[ScriptedFixtureWorker],
