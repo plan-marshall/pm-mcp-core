@@ -198,7 +198,7 @@ The packages listed serve roadmap Milestones 2 to 4, and the packages the client
 |link:epic-review.adoc[`epic-review`]
 |An epic's findings and watches, and their review
 |`open`
-|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archive check, next plan)
+|link:operator-wait-and-machine-scope.adoc[`operator-wait-and-machine-scope`]; link:chat.adoc[`chat`]; link:epic-resource-and-release.adoc[`epic-resource-and-release`] (the archive check reads its registers)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:epic-auto.adoc[`epic-auto`]
