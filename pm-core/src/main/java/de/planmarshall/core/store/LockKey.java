@@ -150,8 +150,7 @@ public record LockKey(LockLevel level, Path lockFile, String id) implements Comp
     /**
      * @param base      the base directory of the runtime
      * @param projectId the project
-     * @return the key of the lock of the project's task queue, its session generation record and its worker job
-     *         records
+     * @return the key of the lock of the project's task queue and its worker job records
      */
     public static LockKey queue(Path base, String projectId) {
         return ofProject(LockLevel.QUEUE, base, projectId, "queue");

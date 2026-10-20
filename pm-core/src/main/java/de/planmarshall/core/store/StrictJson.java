@@ -44,10 +44,10 @@ import lombok.experimental.UtilityClass;
  * differently) is refused, so what is read is written again byte for byte.
  * <p>
  * The reading entry {@link #read(Path, byte[], int, DocumentReader)}, the field helpers and the refusals they raise are
- * public API of {@code core.store}: the codec of a store of another package of {@code pm-core} (the session generation
- * record of {@code core.queue}) reads its document with them, so every store of the runtime is read with the one
- * strictness and refused with a {@link StoreRefusal} in the same shape. A {@link Malformed} thrown by a field helper is
- * caught by {@code read} and becomes the refusal naming the file; it never leaves {@code read} on its own.
+ * public API of {@code core.store}: the codec of a store of another package of {@code pm-core} reads its document with
+ * them, so every store of the runtime is read with the one strictness and refused with a {@link StoreRefusal} in the
+ * same shape. A {@link Malformed} thrown by a field helper is caught by {@code read} and becomes the refusal naming the
+ * file; it never leaves {@code read} on its own.
  *
  * @since 0.1
  */
