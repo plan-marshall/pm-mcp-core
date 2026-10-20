@@ -114,6 +114,7 @@ final class PortedFixtures {
      * @param grammar   the directives the primitive declares
      * @return the fixtures, sorted by name
      * @throws UncheckedIOException if the fixture directory cannot be listed or a fixture cannot be read
+     * @throws IllegalStateException if the fixture directory is not on the test class path as a directory
      */
     static List<Fixture> load(String directory, Map<String, Shape> grammar) {
         Path root = directory(directory);
@@ -139,6 +140,7 @@ final class PortedFixtures {
      * @param file      the file name
      * @return its content
      * @throws UncheckedIOException if the file cannot be read
+     * @throws IllegalStateException if the fixture directory is not on the test class path as a directory
      */
     static String read(String directory, String file) {
         try {
@@ -253,7 +255,7 @@ final class PortedFixtures {
      *
      * @param text the roster content
      * @return the suite and, per case, its fixtures or the reason of its exclusion, in file order
-     * @throws IllegalArgumentException if the roster is malformed, naming the roster and the line
+     * @throws IllegalArgumentException if the roster is malformed, naming the roster and the line where one applies
      */
     static Roster roster(String text) {
         String suite = null;
