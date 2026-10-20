@@ -130,48 +130,6 @@ class AuditEventTest {
     }
 
     @Nested
-    @DisplayName("client change of a session log")
-    class EntryClientChanged {
-
-        @Test
-        @DisplayName("is a succeeded identity event naming both clients, both session ids and the transaction")
-        void withSessionIds() {
-            var event = AuditEvent.entryClientChanged("claude", "opencode", "session-1", "session-2", TRANSACTION_ID);
-
-            assertAll(
-                    () -> assertEquals("entry_client_changed", event.event()),
-                    () -> assertEquals(AuditEvent.ENTRY_CLIENT_CHANGED, event.event()),
-                    () -> assertEquals("identity", event.category()),
-                    () -> assertEquals("succeeded", event.outcome()),
-                    () -> assertEquals(Map.of("previous_client", "claude", "client", "opencode",
-                            "previous_client_session_id", "session-1", "client_session_id", "session-2",
-                            "transaction_id", TRANSACTION_ID), event.details()));
-        }
-
-        /** The matched case to the one above: a host without a session id leaves its detail out. */
-        @Test
-        @DisplayName("leaves a session id out that the host did not provide")
-        void withoutSessionIds() {
-            var event = AuditEvent.entryClientChanged("codex", "neutral", null, null, TRANSACTION_ID);
-
-            assertEquals(Map.of("previous_client", "codex", "client", "neutral", "transaction_id", TRANSACTION_ID),
-                    event.details());
-        }
-
-        @Test
-        @DisplayName("refuses a missing client or transaction")
-        void missing() {
-            assertAll(
-                    () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.entryClientChanged(null, "claude", null, null, TRANSACTION_ID)),
-                    () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.entryClientChanged("claude", null, null, null, TRANSACTION_ID)),
-                    () -> assertThrows(NullPointerException.class,
-                            () -> AuditEvent.entryClientChanged("claude", "codex", null, null, null)));
-        }
-    }
-
-    @Nested
     @DisplayName("enrolment events")
     class Enrolment {
 

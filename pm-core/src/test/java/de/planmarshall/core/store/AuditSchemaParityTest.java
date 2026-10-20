@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -118,8 +117,6 @@ class AuditSchemaParityTest {
                     () -> assertEquals(AuditCodec.RECORD_REQUIRED, required(schema)));
         }
 
-        @Disabled("the specification dropped the category identity and added the scope entry; "
-                + "re-enabled by the work package start-source-intake")
         @Test
         @DisplayName("category, outcome and scope type have the values of the schema's enums")
         void enums() {
@@ -151,11 +148,13 @@ class AuditSchemaParityTest {
                     .actor("oliver").outcome(Outcome.SUCCEEDED)
                     .details(Map.of("targets", List.of("status.json"), "count", 1, "flag", true)).build();
             var machine = scoped.withScopeType(Scope.MACHINE).withScopeId(null);
+            var entry = scoped.withScopeType(Scope.ENTRY).withScopeId("ent-0123456789abcdef");
             var validator = validator(ANCHOR);
 
             assertAll(
                     () -> assertValid(validator, AuditCodec.writeRecord(scoped)),
-                    () -> assertValid(validator, AuditCodec.writeRecord(machine)));
+                    () -> assertValid(validator, AuditCodec.writeRecord(machine)),
+                    () -> assertValid(validator, AuditCodec.writeRecord(entry)));
         }
     }
 

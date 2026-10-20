@@ -149,27 +149,6 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
-     * The name of the event that records an entry row of a scope session log whose declared client differs from the
-     * client of the previous row.
-     */
-    public static final String ENTRY_CLIENT_CHANGED = "entry_client_changed";
-
-    /** The category of the events of the identity of the sessions that enter a scope. */
-    public static final String CATEGORY_IDENTITY = "identity";
-
-    /** The detail of a client change that names the client the previous row declared. */
-    public static final String DETAIL_PREVIOUS_CLIENT = "previous_client";
-
-    /** The detail of a client change that names the client the new row declares. */
-    public static final String DETAIL_CLIENT = "client";
-
-    /** The detail of a client change that holds the host session id of the previous row; left out when it had none. */
-    public static final String DETAIL_PREVIOUS_CLIENT_SESSION_ID = "previous_client_session_id";
-
-    /** The detail of a client change that holds the host session id of the new row; left out when it has none. */
-    public static final String DETAIL_CLIENT_SESSION_ID = "client_session_id";
-
-    /**
      * The name of the event that records a pending entry record removed by the pending-record sweep because it is
      * older than the pending entry record maximum age.
      */
@@ -252,35 +231,6 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
         return new AuditEvent(CROSS_SCOPE_RECONCILED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_RECONCILIATION, reconciliation, DETAIL_STORE, store, DETAIL_TRANSACTION_ID,
                         transactionId));
-    }
-
-    /**
-     * The {@code identity} record a scope session log owes when an entry row declares another client than the row
-     * before it. It changes nothing else; it is owed by the transaction that appends the row.
-     *
-     * @param previousClient          the client the previous row declared, by its wire name
-     * @param client                  the client the new row declares, by its wire name
-     * @param previousClientSessionId the host session id of the previous row; {@code null} leaves the detail out
-     * @param clientSessionId         the host session id of the new row; {@code null} leaves the detail out
-     * @param transactionId           the id of this one record, issued by the transaction that appends the row and
-     *                                distinct from its own id; the deduplication key by which a record handed over
-     *                                again is recognised as the same
-     * @return the record of the client change
-     * @throws NullPointerException if a client or the transaction id is {@code null}
-     */
-    public static AuditEvent entryClientChanged(String previousClient, String client, String previousClientSessionId,
-            String clientSessionId, String transactionId) {
-        var details = new HashMap<String, Object>();
-        details.put(DETAIL_PREVIOUS_CLIENT, Objects.requireNonNull(previousClient, "previousClient"));
-        details.put(DETAIL_CLIENT, Objects.requireNonNull(client, DETAIL_CLIENT));
-        if (previousClientSessionId != null) {
-            details.put(DETAIL_PREVIOUS_CLIENT_SESSION_ID, previousClientSessionId);
-        }
-        if (clientSessionId != null) {
-            details.put(DETAIL_CLIENT_SESSION_ID, clientSessionId);
-        }
-        details.put(DETAIL_TRANSACTION_ID, Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT));
-        return new AuditEvent(ENTRY_CLIENT_CHANGED, CATEGORY_IDENTITY, OUTCOME_SUCCEEDED, details);
     }
 
     /**

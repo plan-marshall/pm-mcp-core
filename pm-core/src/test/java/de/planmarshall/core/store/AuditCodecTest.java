@@ -170,6 +170,19 @@ class AuditCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(LOG.toString()), refusal::getMessage));
         }
 
+        @Test
+        @DisplayName("a stored line of the removed category identity is refused as unreadable")
+        void removedIdentityCategory() {
+            var line = PLAN_LINE.replace("\"category\":\"store\"", "\"category\":\"identity\"");
+            var input = bytes(line);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> AuditCodec.readRecord(LOG, input));
+
+            assertAll(
+                    () -> assertEquals(StoreRefusal.Outcome.UNREADABLE, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("identity"), refusal::getMessage));
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"event_id", "prev_hash", "timestamp", "category", "event", "actor", "outcome"})
         @DisplayName("a line without a required field is refused as unreadable")

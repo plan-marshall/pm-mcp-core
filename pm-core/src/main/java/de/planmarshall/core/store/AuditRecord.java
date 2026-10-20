@@ -75,8 +75,6 @@ Scope scopeType, String scopeId, String actor, Outcome outcome, Map<String, Obje
         OPERATOR("operator"),
         /** An integrity or per-use check. */
         SECURITY("security"),
-        /** The identity of a session that enters a scope. */
-        IDENTITY("identity"),
         /** A credential lookup or refresh. */
         CREDENTIAL("credential"),
         /** A store or one of its locks. */
@@ -151,6 +149,8 @@ Scope scopeType, String scopeId, String actor, Outcome outcome, Map<String, Obje
         EPIC("epic"),
         /** The workspace scope of a project. */
         WORKSPACE("workspace"),
+        /** An entry a client opened for a scope that does not exist yet. */
+        ENTRY("entry"),
         /** A project. */
         PROJECT("project"),
         /** The machine: the runtime, an operator verb, a sweep, a lease or the audit chain. */
