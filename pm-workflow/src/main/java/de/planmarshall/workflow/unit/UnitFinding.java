@@ -24,8 +24,8 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
  * @param code    the code: the name of the parser refusal or verification rule, the wire id of the invariant,
  *                {@value #FORMAT_OUTDATED} or {@value #FORMAT_NEWER}, {@code declaration_invalid}, the name of the
  *                pipeline rule, {@value #PROJECT_STEP_UNBOUND}, {@value #UNIT_MISSING}, {@value #UNIT_UNREADABLE},
- *                {@value #DUPLICATE_UNIT_ID}, {@value #AUTHOR_RESERVED}, {@code path_traversal_rejected} or a merge
- *                code of {@link PlanUnitMerger}
+ *                {@value #UNIT_TOO_LARGE}, {@value #DUPLICATE_UNIT_ID}, {@value #AUTHOR_RESERVED},
+ *                {@code path_traversal_rejected} or a merge code of {@link PlanUnitMerger}
  * @param file    the file the finding is located in, as the loader names it
  * @param line    the line, counted from 1; {@code 0} for a file that could not be read
  * @param message what is wrong
@@ -47,6 +47,9 @@ public record UnitFinding(Kind kind, String code, String file, int line, String 
 
     /** The code of a unit file that exists but cannot be read. */
     public static final String UNIT_UNREADABLE = "unit_unreadable";
+
+    /** The code of a unit file above the size bound, which is refused before it is read whole. */
+    public static final String UNIT_TOO_LARGE = "unit_too_large";
 
     /**
      * The code of a unit whose identifier an earlier file of the load already declares, or that declares the identifier

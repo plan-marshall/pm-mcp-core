@@ -13,12 +13,18 @@ import static de.planmarshall.workflow.log.WorkflowLogMessages.INFO;
 import static de.planmarshall.workflow.log.WorkflowLogMessages.WARN;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,6 +42,7 @@ import de.planmarshall.workflow.ast.StepCompletion;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
+import de.planmarshall.workflow.dsl.UnitFrontmatterReader;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.finalize.FinalizePipelineValidator;
 import de.planmarshall.workflow.finalize.FinalizeStepDescriptor;
@@ -56,12 +63,14 @@ import de.planmarshall.workflow.verify.DeclarationBounds;
  * an enrolled script. A load runs these stages and collects every finding:
  * <ol>
  * <li>Read {@code .marshall/config/<file>} for every project-ownable file; every path is confined to the workspace
- * ({@link PathConfinement}), a refused path is a {@link UnitFinding.Kind#CONFINEMENT} finding and a missing file a
+ * ({@link PathConfinement}), a file above {@value #MAX_UNIT_FILE_BYTES} bytes is refused before it is read whole, a
+ * refused path is a {@link UnitFinding.Kind#CONFINEMENT} finding and a missing file a
  * {@link UnitFinding.Kind#MISSING} finding.</li>
  * <li>Parse as a {@link UnitOrigin#PROJECT} unit and refuse a DSL format other than {@value #COMPILED_FORMAT_VERSION}
  * with {@value UnitFinding#FORMAT_OUTDATED} or {@value UnitFinding#FORMAT_NEWER}; a unit whose frontmatter names the
- * author {@value #RESERVED_AUTHOR} is a {@value UnitFinding#AUTHOR_RESERVED} finding at its author line, so a placed
- * unit never passes as a delivered one; a file that declares the identifier
+ * author {@value #RESERVED_AUTHOR} after NFKC normalisation, removal of its format characters, stripping of its
+ * surrounding whitespace and case folding is a {@value UnitFinding#AUTHOR_RESERVED} finding at its author line, so a
+ * placed unit never passes as a delivered one; a file that declares the identifier
  * of an earlier file, or {@value PlanUnitMerger#PLAN_UNIT}, is a {@value UnitFinding#DUPLICATE_UNIT_ID} finding and
  * never replaces the earlier unit.</li>
  * <li>Merge the phase files into the plan unit ({@link PlanUnitMerger}) and verify every unit with Rules 1-12, Rule 5
@@ -96,6 +105,9 @@ public final class ProjectUnitLoader {
 
     /** The author only a unit compiled into the binary names; a project unit that names it is refused. */
     public static final String RESERVED_AUTHOR = "plan-marshall";
+
+    /** The most bytes a project unit file may hold; a larger file is refused before it is read whole. */
+    public static final int MAX_UNIT_FILE_BYTES = 1_048_576;
 
     /** The line that opens and closes the frontmatter of a unit. */
     private static final String FRONTMATTER_DELIMITER = "---";
@@ -219,8 +231,15 @@ public final class ProjectUnitLoader {
                 yield Optional.empty();
             }
             case ConfinementOutcome.Confined(var confinedPath) -> {
-                try {
-                    yield Optional.of(Files.readString(confinedPath));
+                try (var source = Files.newInputStream(confinedPath)) {
+                    var bytes = source.readNBytes(MAX_UNIT_FILE_BYTES + 1);
+                    if (bytes.length > MAX_UNIT_FILE_BYTES) {
+                        findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_TOO_LARGE, path, 0,
+                                "the project unit '%s' holds more than %d bytes".formatted(path,
+                                        MAX_UNIT_FILE_BYTES)));
+                        yield Optional.empty();
+                    }
+                    yield Optional.of(decode(bytes));
                 } catch (NoSuchFileException _) {
                     findings.add(new UnitFinding(UnitFinding.Kind.MISSING, UnitFinding.UNIT_MISSING, path, 0,
                             "the project unit '%s' does not exist".formatted(path)));
@@ -235,6 +254,7 @@ public final class ProjectUnitLoader {
     }
 
     private static Optional<WorkflowDefinition> parse(String path, String source, List<UnitFinding> findings) {
+        checkAuthor(path, source, findings);
         return switch (WorkflowParser.parse(path, source, UnitOrigin.PROJECT)) {
             case ParseResult.Refused(var diagnostic) -> {
                 findings.add(new UnitFinding(UnitFinding.Kind.PARSE, diagnostic.rule().name(), path,
@@ -242,7 +262,6 @@ public final class ProjectUnitLoader {
                 yield Optional.empty();
             }
             case ParseResult.Parsed(var unit) -> {
-                checkAuthor(path, source, unit, findings);
                 if (unit.formatVersion() == COMPILED_FORMAT_VERSION) {
                     yield Optional.of(unit);
                 }
@@ -257,38 +276,82 @@ public final class ProjectUnitLoader {
     }
 
     /**
-     * Stage 2, the author: a project unit whose frontmatter names the author {@value #RESERVED_AUTHOR} is a
+     * Stage 2, the author: a project unit whose author equals {@value #RESERVED_AUTHOR} after NFKC normalisation,
+     * removal of its format characters, stripping of its surrounding whitespace and case folding is a
      * {@value UnitFinding#AUTHOR_RESERVED} finding at its author line; the unit is verified on, so the load reports
-     * every other finding of it as well.
+     * every other finding of it as well. The author is read from the raw head of the source before the parse, so a
+     * unit whose frontmatter is refused for a format character is still reported as naming the reserved author.
      */
-    private static void checkAuthor(String path, String source, WorkflowDefinition unit, List<UnitFinding> findings) {
-        var frontmatter = unit.frontmatter();
-        if (RESERVED_AUTHOR.equals(frontmatter.author())) {
-            findings.add(new UnitFinding(UnitFinding.Kind.RULE, UnitFinding.AUTHOR_RESERVED, path,
-                    authorLine(source, frontmatter.location().line()),
-                    "the project unit '%s' names the author '%s', which only a delivered unit carries"
-                            .formatted(path, RESERVED_AUTHOR)));
-        }
+    /** An author value and the line it stands on, read from the raw source. */
+    private record RawAuthor(int line, String value) {
+    }
+
+    private static void checkAuthor(String path, String source, List<UnitFinding> findings) {
+        rawAuthor(source).filter(author -> RESERVED_AUTHOR.equals(normalised(author.value())))
+                .ifPresent(author -> findings.add(new UnitFinding(UnitFinding.Kind.RULE,
+                        UnitFinding.AUTHOR_RESERVED, path, author.line(),
+                        "the project unit '%s' names the author '%s', which only a delivered unit carries"
+                                .formatted(path, RESERVED_AUTHOR))));
     }
 
     /**
-     * @param source  the text of the unit file
-     * @param opening the line of the opening {@code ---} of the frontmatter, counted from 1
-     * @return the line of the {@code author} key of the frontmatter, counted from 1; the opening line when there is
-     *         none
+     * @param source the text of the unit file
+     * @return the author of the frontmatter with its line, read from the raw head of the source; empty when the file
+     *         does not open with {@code ---}, or has no author before the closing delimiter or the line cap
      */
-    private static int authorLine(String source, int opening) {
-        var lines = source.lines().toList();
-        for (var index = opening; index < lines.size(); index++) {
-            var line = lines.get(index);
-            if (FRONTMATTER_DELIMITER.equals(line.strip())) {
-                break;
+    private static Optional<RawAuthor> rawAuthor(String source) {
+        var iterator = source.lines().iterator();
+        if (!iterator.hasNext() || !FRONTMATTER_DELIMITER.equals(iterator.next())) {
+            return Optional.empty();
+        }
+        var number = 1;
+        while (iterator.hasNext() && ++number <= UnitFrontmatterReader.MAX_FRONTMATTER_LINES) {
+            var line = iterator.next();
+            if (FRONTMATTER_DELIMITER.equals(line)) {
+                return Optional.empty();
             }
             if (line.startsWith(AUTHOR_KEY)) {
-                return index + 1;
+                return Optional.of(new RawAuthor(number, rawValue(line.substring(AUTHOR_KEY.length()))));
             }
         }
-        return opening;
+        return Optional.empty();
+    }
+
+    /**
+     * @param raw the raw value of an author line
+     * @return the value without its surrounding whitespace and, for a double-quoted value, without the quotes
+     */
+    private static String rawValue(String raw) {
+        var value = raw.strip();
+        if (value.length() >= 2 && value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
+    }
+
+    /**
+     * @param author the author of a frontmatter
+     * @return the author NFKC normalised, with its format characters removed, its surrounding whitespace stripped and
+     *         its case folded, the form the reserved author is compared on
+     */
+    private static String normalised(String author) {
+        var withoutFormat = new StringBuilder();
+        Normalizer.normalize(author, Normalizer.Form.NFKC).codePoints()
+                .filter(codePoint -> Character.getType(codePoint) != Character.FORMAT)
+                .forEach(withoutFormat::appendCodePoint);
+        return withoutFormat.toString().strip().toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * @param bytes the bytes read from a unit file
+     * @return their text, decoded as UTF-8
+     * @throws CharacterCodingException if the bytes are not UTF-8
+     */
+    private static String decode(byte[] bytes) throws CharacterCodingException {
+        return StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes)).toString();
     }
 
     /**

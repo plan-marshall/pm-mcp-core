@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -138,11 +140,30 @@ class WorkflowParserRefusalTest {
         }
 
         @Test
-        @DisplayName("finds one fixture per refusal class: 14 of the body, 14 of the frontmatter, 2 of the entries")
+        @DisplayName("finds one fixture per refusal class: 14 of the body, 17 of the frontmatter, 2 of the entries")
         void fixturesPresent() {
             assertAll(
-                    () -> assertEquals(30, malformedFixtures().size()),
-                    () -> assertEquals(16, frontmatterAndEntryFixtures().size()));
+                    () -> assertEquals(33, malformedFixtures().size()),
+                    () -> assertEquals(19, frontmatterAndEntryFixtures().size()));
+        }
+
+        static Set<RefusalRule> statedRules() {
+            var rules = EnumSet.noneOf(RefusalRule.class);
+            for (var resource : malformedFixtures()) {
+                var expectation = EXPECTATION.matcher(DslFixtures.read(resource));
+                assertTrue(expectation.find(), () -> resource + " states no '# expect: <RULE> line <n>' comment");
+                rules.add(RefusalRule.valueOf(expectation.group(1)));
+            }
+            return rules;
+        }
+
+        @Test
+        @DisplayName("states every constant of RefusalRule, the expected set derived from the enum at run time")
+        void everyRefusalRuleHasAFixture() {
+            var stated = statedRules();
+
+            assertEquals(EnumSet.allOf(RefusalRule.class), stated,
+                    () -> "the malformed fixtures state " + stated);
         }
 
         @ParameterizedTest(name = "{0}")
@@ -174,6 +195,26 @@ class WorkflowParserRefusalTest {
 
             assertTrue(expectation.find() && expectation.group(3) != null,
                     () -> resource + " states no '# expect: <RULE> line <n> column <c>' comment");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("malformedFixtures")
+        @DisplayName("refuses the CRLF twin of every malformed fixture with the same rule, line and stated column")
+        void refusesCrlfTwin(String resource) {
+            var lf = DslFixtures.read(resource);
+            var expectation = EXPECTATION.matcher(lf);
+            assertTrue(expectation.find(), () -> resource + " states no '# expect: <RULE> line <n>' comment");
+            var expectedRule = RefusalRule.valueOf(expectation.group(1));
+            var expectedLine = Integer.parseInt(expectation.group(2));
+            var expectedColumn = Optional.ofNullable(expectation.group(3)).map(Integer::parseInt);
+
+            var diagnostic = refuse(resource + "-crlf", lf.replace("\n", "\r\n"));
+
+            assertAll(
+                    () -> assertEquals(expectedRule, diagnostic.rule(), diagnostic::message),
+                    () -> assertEquals(expectedLine, diagnostic.line(), diagnostic::message),
+                    () -> assertEquals(expectedColumn.orElse(diagnostic.column()), diagnostic.column(),
+                            diagnostic::message));
         }
 
         @ParameterizedTest(name = "{0}")

@@ -42,11 +42,16 @@ import de.planmarshall.workflow.ast.UnitType;
  * refused. Every line is {@code key: value} at column 1. The value is plain (no leading or trailing blank, no YAML indicator
  * character at its start, neither {@code ": "} nor {@code " #"} inside) or double-quoted with the escapes {@code \"}
  * and {@code \\} only. The reader refuses, and the first refusal wins: a missing frontmatter, a tag, an anchor, an
- * alias, a merge key, a flow collection, a block scalar, a comment, a blank or indented line, a control character, an
- * unknown key, a key of its own missing ({@code name}, {@code description}, {@code type},
+ * alias, a merge key, a flow collection, a block scalar, a comment, a blank or indented line, a control character, a
+ * format character (Cf, such as a bidi override or a zero-width space), a line separator (Zl), a paragraph separator
+ * (Zp), an unknown key, a key of its own missing ({@code name}, {@code description}, {@code type},
  * {@code modification_date}, {@code version}, {@code author}) or repeated (those and {@code signature}), a value that
  * is neither plain nor double-quoted, and an {@code entry_description} or {@code exit_description} that does not stand
  * directly below its {@code entry} or {@code exit} line, or is the second description of one element.
+ * <p>
+ * The reader reads the frontmatter from the head of the source alone and never the body. A frontmatter holds at most
+ * {@value #MAX_FRONTMATTER_LINES} lines, its two delimiters included; the text a refusal echoes from the source is
+ * cut at {@value #MAX_ECHO_LENGTH} characters and marked with {@code ...}.
  * <p>
  * It checks every field: {@code name} 3 to 100 characters, {@code description} 1 to 1000, each entry and exit
  * description 1 to 500, {@code type} one of the {@link UnitType} wire names, an entry an identifier and an exit an
@@ -64,6 +69,15 @@ public final class UnitFrontmatterReader {
 
     /** The line that opens and closes the frontmatter. */
     static final String DELIMITER = "---";
+
+    /** The most lines a frontmatter holds, its two {@code ---} delimiters included. */
+    public static final int MAX_FRONTMATTER_LINES = 200;
+
+    /**
+     * The most characters of the source a refusal echoes; a longer text is cut at this bound and marked with
+     * {@code ...}.
+     */
+    public static final int MAX_ECHO_LENGTH = 80;
 
     private static final String KEY_NAME = "name";
     private static final String KEY_DESCRIPTION = "description";
@@ -102,8 +116,8 @@ public final class UnitFrontmatterReader {
 
     private static final Pattern DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
-    /** The characters a plain YAML scalar may not start with. */
-    private static final String INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
+    /** The characters a plain YAML scalar may not start with, the one definition the reader and the printer share. */
+    static final String INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
 
     private static final String VALUE_TYPES = Arrays.stream(UnitType.values()).map(UnitType::wireName)
             .collect(Collectors.joining(", "));
@@ -123,7 +137,7 @@ public final class UnitFrontmatterReader {
         Objects.requireNonNull(resourceName, "resourceName");
         Objects.requireNonNull(source, "source");
         try {
-            return new Fields(resourceName).read(source.replace("\r\n", "\n").split("\n", -1));
+            return new Fields(resourceName).read(source);
         } catch (Refusal refusal) {
             return new Result.Refused(new Diagnostic(RefusalRule.FRONTMATTER, resourceName, refusal.line,
                     refusal.column, refusal.getMessage()));
@@ -171,25 +185,42 @@ public final class UnitFrontmatterReader {
             this.resourceName = resourceName;
         }
 
-        private Result.Read read(String[] lines) {
-            if (!DELIMITER.equals(lines[0])) {
-                throw new Refusal(1, 1, "the unit does not open with its frontmatter, a line '---'");
-            }
-            for (var index = 1; index < lines.length; index++) {
-                var number = index + 1;
-                if (DELIMITER.equals(lines[index])) {
+        private Result.Read read(String source) {
+            var start = 0;
+            var number = 1;
+            while (true) {
+                if (number > MAX_FRONTMATTER_LINES) {
+                    throw new Refusal(number, 1,
+                            "the frontmatter holds more than %d lines".formatted(MAX_FRONTMATTER_LINES));
+                }
+                var end = source.indexOf('\n', start);
+                var last = end < 0;
+                var text = last ? source.substring(start) : source.substring(start, end);
+                if (!last && !text.isEmpty() && text.charAt(text.length() - 1) == '\r') {
+                    text = text.substring(0, text.length() - 1);
+                }
+                rejectForbiddenCharacter(text, number);
+                if (number == 1 && !DELIMITER.equals(text)) {
+                    throw new Refusal(1, 1, "the unit does not open with its frontmatter, a line '---'");
+                }
+                if (number > 1 && DELIMITER.equals(text)) {
                     return new Result.Read(complete(number), number + 1);
                 }
-                if (index == lines.length - 1 && lines[index].isEmpty()) {
-                    break;
+                if (last && text.isEmpty() && number > 1) {
+                    throw new Refusal(number, 1, "the frontmatter is not closed by a line '---'");
                 }
-                line(lines[index], number);
+                if (number > 1) {
+                    line(text, number);
+                }
+                if (last) {
+                    throw new Refusal(number, 1, "the frontmatter is not closed by a line '---'");
+                }
+                start = end + 1;
+                number++;
             }
-            throw new Refusal(lines.length, 1, "the frontmatter is not closed by a line '---'");
         }
 
         private void line(String text, int number) {
-            rejectControlCharacter(text, number);
             if (text.isEmpty()) {
                 throw new Refusal(number, 1, "a blank line in the frontmatter");
             }
@@ -206,7 +237,7 @@ public final class UnitFrontmatterReader {
             }
             var key = text.substring(0, colon);
             if (!KEYS.contains(key)) {
-                throw new Refusal(number, 1, "the unknown key '%s' in the frontmatter".formatted(key));
+                throw new Refusal(number, 1, "the unknown key '%s' in the frontmatter".formatted(echo(key)));
             }
             var rest = text.substring(colon + 1);
             String value;
@@ -215,7 +246,7 @@ public final class UnitFrontmatterReader {
                 value = "";
                 column = colon + 2;
             } else if (rest.charAt(0) != ' ') {
-                throw new Refusal(number, colon + 2, "the key '%s' is not followed by ': '".formatted(key));
+                throw new Refusal(number, colon + 2, "the key '%s' is not followed by ': '".formatted(echo(key)));
             } else {
                 column = colon + 3;
                 value = value(rest.substring(1), number, column);
@@ -226,13 +257,13 @@ public final class UnitFrontmatterReader {
 
         private void field(String key, String value, int number, int column) {
             if (SINGLE_KEYS.contains(key) && singles.containsKey(key)) {
-                throw new Refusal(number, 1, "the key '%s' is repeated in the frontmatter".formatted(key));
+                throw new Refusal(number, 1, "the key '%s' is repeated in the frontmatter".formatted(echo(key)));
             }
             switch (key) {
                 case KEY_NAME -> checkLength(key, value, 3, 100, number, column);
                 case KEY_DESCRIPTION -> checkLength(key, value, 1, 1000, number, column);
                 case KEY_TYPE -> type = UnitType.fromWireName(value).orElseThrow(() -> new Refusal(number, column,
-                        "the type '%s' is none of %s".formatted(value, VALUE_TYPES)));
+                        "the type '%s' is none of %s".formatted(echo(value), VALUE_TYPES)));
                 case KEY_ENTRY -> entries.add(element(KEY_ENTRY, value, entryNames, number, column));
                 case KEY_EXIT -> {
                     if (STEPPED_OUT.equals(value)) {
@@ -258,10 +289,10 @@ public final class UnitFrontmatterReader {
         private Element element(String kind, String name, Set<String> names, int number, int column) {
             if (!IDENTIFIER.matcher(name).matches()) {
                 throw new Refusal(number, column,
-                        "the %s '%s' is no identifier of at most 32 characters".formatted(kind, name));
+                        "the %s '%s' is no identifier of at most 32 characters".formatted(kind, echo(name)));
             }
             if (!names.add(name)) {
-                throw new Refusal(number, column, "the %s '%s' is declared twice".formatted(kind, name));
+                throw new Refusal(number, column, "the %s '%s' is declared twice".formatted(kind, echo(name)));
             }
             return new Element(name);
         }
@@ -271,7 +302,7 @@ public final class UnitFrontmatterReader {
             var descriptionKey = elementKey + "_description";
             if (descriptionKey.equals(previousKey)) {
                 throw new Refusal(number, 1, "a second description of the %s '%s'".formatted(elementKey,
-                        elements.getLast().name));
+                        echo(elements.getLast().name)));
             }
             if (!elementKey.equals(previousKey)) {
                 throw new Refusal(number, 1,
@@ -282,7 +313,7 @@ public final class UnitFrontmatterReader {
         }
 
         private static LocalDate date(String value, int number, int column) {
-            var invalid = "the modification_date '%s' is no valid calendar date YYYY-MM-DD".formatted(value);
+            var invalid = "the modification_date '%s' is no valid calendar date YYYY-MM-DD".formatted(echo(value));
             if (!DATE.matcher(value).matches()) {
                 throw new Refusal(number, column, invalid);
             }
@@ -294,7 +325,7 @@ public final class UnitFrontmatterReader {
             }
             if (date.isAfter(LocalDate.now(ZoneOffset.UTC))) {
                 throw new Refusal(number, column,
-                        "the modification_date '%s' lies after the day of the validation".formatted(value));
+                        "the modification_date '%s' lies after the day of the validation".formatted(echo(value)));
             }
             return date;
         }
@@ -323,7 +354,7 @@ public final class UnitFrontmatterReader {
         private static void checkVersion(String value, int number, int column) {
             if (value.length() > MAX_RELEASE_VERSION || !RELEASE_VERSION.matcher(value).matches()) {
                 throw new Refusal(number, column,
-                        "the version '%s' is no release version such as 1.0.0".formatted(value));
+                        "the version '%s' is no release version such as 1.0.0".formatted(echo(value)));
             }
         }
 
@@ -402,13 +433,43 @@ public final class UnitFrontmatterReader {
             }
         }
 
-        private static void rejectControlCharacter(String text, int number) {
+        private static void rejectForbiddenCharacter(String text, int number) {
             for (var index = 0; index < text.length(); index++) {
-                if (Character.isISOControl(text.charAt(index))) {
+                var codePoint = text.codePointAt(index);
+                var category = category(codePoint);
+                if (category != null) {
                     throw new Refusal(number, index + 1,
-                            "the control character U+%04X in the frontmatter".formatted((int) text.charAt(index)));
+                            "the %s U+%04X in the frontmatter".formatted(category, codePoint));
                 }
             }
+        }
+
+        /**
+         * @return what the character cannot be used for in a frontmatter shown to the operator, or {@code null} when it
+         *         is admitted: an ISO control character, a format character (Cf, such as a bidi override or a
+         *         zero-width space), a line separator (Zl) or a paragraph separator (Zp)
+         */
+        private static String category(int codePoint) {
+            if (Character.isISOControl(codePoint)) {
+                return "control character";
+            }
+            return switch (Character.getType(codePoint)) {
+                case Character.FORMAT -> "format character";
+                case Character.LINE_SEPARATOR -> "line separator";
+                case Character.PARAGRAPH_SEPARATOR -> "paragraph separator";
+                default -> null;
+            };
+        }
+
+        /**
+         * @param text a text of the source a refusal echoes
+         * @return the text, cut at {@value #MAX_ECHO_LENGTH} characters and marked with {@code ...} when it is longer
+         */
+        private static String echo(String text) {
+            if (text.codePointCount(0, text.length()) <= MAX_ECHO_LENGTH) {
+                return text;
+            }
+            return text.substring(0, text.offsetByCodePoints(0, MAX_ECHO_LENGTH)) + "...";
         }
     }
 

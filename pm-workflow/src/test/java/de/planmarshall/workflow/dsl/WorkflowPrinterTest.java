@@ -14,6 +14,7 @@ import static de.planmarshall.workflow.dsl.AstWithoutLocations.strip;
 import static de.planmarshall.workflow.dsl.WorkflowParserTest.FRONTMATTER_LINES;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -314,6 +315,30 @@ class WorkflowPrinterTest {
                             lineStartingWith(printed, "description: ")),
                     () -> assertEquals("signature: sig-1", lineStartingWith(printed, "signature: ")),
                     () -> assertEquals(strip(definition), strip(parse("quoted.pmwf", printed))));
+        }
+
+        static Stream<String> valuesPlainRefuses() {
+            var indicators = UnitFrontmatterReader.INDICATORS.chars().mapToObj(character ->
+                    (char) character + "value");
+            return Stream.concat(indicators, Stream.of("a: b", "a #b", " leading", "trailing "));
+        }
+
+        @ParameterizedTest(name = "[{0}]")
+        @MethodSource("valuesPlainRefuses")
+        @DisplayName("quotes every value the reader's isPlain refuses and reads it back unchanged, so the printer "
+                + "never emits a value the reader refuses")
+        void quotesEveryValuePlainRefuses(String value) {
+            var frontmatter = new UnitFrontmatter("Demo unit", value, UnitType.SYSTEM, List.of(), List.of(),
+                    FIXTURE_DATE, "0.1.0", "plan-marshall", Optional.empty(), NOWHERE);
+            var definition = unitWith(frontmatter, link(LinkRelation.NEXT, LinkForm.NOOP, Optional.empty()));
+
+            var printed = WorkflowPrinter.print(definition);
+            var reparsed = parse("quoted-value.pmwf", printed);
+
+            assertAll(
+                    () -> assertFalse(UnitFrontmatterReader.isPlain(value), "isPlain accepted: " + value),
+                    () -> assertTrue(printed.contains("description: \""), printed),
+                    () -> assertEquals(value, reparsed.frontmatter().description()));
         }
     }
 

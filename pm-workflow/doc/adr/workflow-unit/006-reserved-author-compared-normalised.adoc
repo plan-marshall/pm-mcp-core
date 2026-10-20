@@ -1,0 +1,61 @@
+= ADR 006: The Reserved Author Is Compared Normalised and a Unit File Is Bounded in Size
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+`ProjectUnitLoader.checkAuthor` compared the reserved author `plan-marshall` by exact equals, so `Plan-Marshall`,
+`PLAN-MARSHALL`, a full-width form or a name with a zero-width space displayed like the delivered author and was
+accepted. `ProjectUnitLoader.read` read every unit file with `Files.readString` without a size limit, so a
+`.marshall/config/` file from a repository cloned from an untrusted source could be arbitrarily large. The frontmatter
+reader refuses a zero-width character in the author (ADR 007 of `workflow.dsl`), which would refuse such a unit before
+the author check ran.
+
+== Decision
+
+* `ProjectUnitLoader` reads the raw `author` value from the head of the source before it parses the unit, without the
+  quotes of a double-quoted value.
+* It compares that value with `ProjectUnitLoader.RESERVED_AUTHOR` after NFKC normalising it, removing its format
+  characters, stripping its surrounding whitespace and folding its case. A match is a `RULE` finding
+  `author_reserved` at the author line, whether or not the frontmatter reader also refuses the unit for a character.
+* `ProjectUnitLoader.read` reads at most `ProjectUnitLoader.MAX_UNIT_FILE_BYTES + 1` bytes from a project unit file and
+  refuses a file that needs more as a `MISSING` finding with the new code `unit_too_large` at line `0`, so no project
+  unit file above the bound is read whole. The bound is that of the project level only: the compiled default units are
+  read from the binary's classpath, which is not untrusted input.
+
+Rationale: the reserved name identifies a delivered unit, so a displayed look-alike must be refused; and a bound on the
+file protects the loader from a file it would otherwise read whole.
+
+== Alternatives Considered
+
+* *Keep the exact comparison and rely on the frontmatter reader's character refusal.* Not taken: case, whitespace and
+  compatibility forms are not characters the reader refuses, and a spoofed author that is not the reserved name would
+  still pass.
+* *Check the author only on a successfully parsed unit.* Not taken: a unit whose frontmatter is refused for a zero-width
+  character would then never be reported as naming the reserved author, and the two findings are both wanted.
+* *Stream the file into the parser instead of a size check.* Not taken: the reader needs the text for the frontmatter
+  and the parser for the body, so the bound is stated at the read, where the file is named.
+
+== Consequences
+
+* A project unit copied from a default unit must change its author, and a look-alike of the reserved name is refused
+  with `author_reserved` at its author line. The no-break, figure and narrow no-break spaces NFKC folds to a blank and
+  the long s the case folding turns into `s` are look-alikes too.
+* A unit file above the bound is never read whole; the load reports `unit_too_large` and, like every finding, refuses
+  the lifecycle with `config_invalid`.
+* `ProjectUnitLoaderTest` covers the normalised forms, the near misses, the author read before the parse, the file at
+  the cap and one and four times past it. The number is stated in the specification part and a test reads it from it.
+
+== Source
+
+* Pull request `fix(workflow): harden the unit frontmatter reader and the project unit loader` (PLAN-81)
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:005-author-plan-marshall-reserved-to-the-binary.adoc[ADR 005 of `workflow.unit`]
+* link:../../developer/workflow-unit.adoc#_the_author_of_a_unit[Workflow Units Developer Guide § The Author of a Unit]

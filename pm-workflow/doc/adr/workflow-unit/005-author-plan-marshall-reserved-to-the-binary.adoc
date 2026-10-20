@@ -40,6 +40,8 @@ Alternatives not recorded.
 * A project unit copied from a default unit must change its author before it loads; the copy keeps its other fields.
 * `ProjectUnitLoaderTest` refuses a project unit with the author `plan-marshall` with `author_reserved` at its file and
   line, and loads one with a person's name.
+* The comparison is refined by link:006-reserved-author-compared-normalised.adoc[ADR 006]: it now runs on the author's
+  NFKC-normalised, format-character-free, stripped and case-folded form, and the unit file is bounded in size.
 
 == Source
 

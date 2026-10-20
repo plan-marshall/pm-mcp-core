@@ -11,14 +11,20 @@ package de.planmarshall.workflow.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 
@@ -34,6 +40,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.UnitFrontmatter.InterfaceElement;
 import de.planmarshall.workflow.ast.UnitType;
+import de.planmarshall.workflow.unit.ProjectUnitLoader;
 
 /**
  * The reader of the unit frontmatter (PM-IMPL-5): a valid frontmatter is read field by field, and every form outside
@@ -304,6 +311,14 @@ class UnitFrontmatterReaderTest {
             assertRefused(diagnostic, APPENDED_LINE, 1);
         }
 
+        @Test
+        @DisplayName("refuses a frontmatter whose last line is unclosed without a trailing line feed")
+        void refusesUnclosedWithoutTrailingLineFeed() {
+            var diagnostic = refuse("---\nname: Commit and Push");
+
+            assertRefused(diagnostic, 2, 1);
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"name", "description", "type", "modification_date", "version", "author"})
         @DisplayName("refuses a frontmatter that lacks a required key at its closing line")
@@ -438,6 +453,228 @@ class UnitFrontmatterReaderTest {
             var diagnostic = refuse(unit(lines));
 
             assertRefused(diagnostic, 8, 7);
+        }
+    }
+
+    @Nested
+    @DisplayName("The refused characters")
+    class RefusedCharacters {
+
+        /** The fields a refused character is tried in, with the line of the valid frontmatter it replaces. */
+        private static final List<String> FIELDS = List.of("name", "description", "author", "entry_description",
+                "exit_description");
+
+        /** The characters the decision refuses beside the ISO control characters, with their category. */
+        private static final List<String[]> CHARACTERS = List.of(
+                new String[]{"bidi override", "\u202E"},
+                new String[]{"zero width space", "\u200B"},
+                new String[]{"byte order mark", "\uFEFF"},
+                new String[]{"line separator", "\u2028"},
+                new String[]{"paragraph separator", "\u2029"},
+                new String[]{"supplementary language tag", "\uDB40\uDC01"},
+                new String[]{"control", "\u0007"});
+
+        static Stream<Arguments> refusedCharacters() {
+            var arguments = Stream.<Arguments>builder();
+            for (var field : FIELDS) {
+                for (var character : CHARACTERS) {
+                    arguments.add(Arguments.of(field, character[0], character[1]));
+                }
+            }
+            return arguments.build();
+        }
+
+        @ParameterizedTest(name = "{1} in {0}")
+        @MethodSource("refusedCharacters")
+        @DisplayName("refuses the character in every field with its code point and its line, also in a CRLF unit")
+        void refusesCharacter(String field, String category, String character) {
+            var line = field + ": " + character + "x";
+            var lines = replaced(field, line);
+            var expectedLine = lines.indexOf(line) + 2;
+            var expectedColumn = field.length() + 3;
+            var codePoint = "U+%04X".formatted(character.codePointAt(0));
+
+            var lf = refuse(unit(lines));
+            var crlf = refuse(unit(lines).replace("\n", "\r\n"));
+
+            assertAll(
+                    () -> assertRefused(lf, expectedLine, expectedColumn),
+                    () -> assertTrue(lf.message().contains(codePoint), lf::message),
+                    () -> assertRefused(crlf, expectedLine, expectedColumn),
+                    () -> assertTrue(crlf.message().contains(codePoint), crlf::message));
+        }
+
+        static Stream<Arguments> acceptedLetters() {
+            return FIELDS.stream().flatMap(field -> Stream.of("a", "\u00E4").map(letter ->
+                    Arguments.of(field, letter)));
+        }
+
+        @ParameterizedTest(name = "{0} with {1}")
+        @MethodSource("acceptedLetters")
+        @DisplayName("accepts a plain ASCII and a plain non-ASCII letter in every field")
+        void acceptsLetter(String field, String letter) {
+            var value = switch (field) {
+                case "name" -> "n" + letter + "me";
+                case "description" -> "d" + letter;
+                case "author" -> "Erik" + letter;
+                default -> "Eintr" + letter + "g";
+            };
+            var frontmatter = read(unit(replaced(field, field + ": " + value))).frontmatter();
+
+            var actual = switch (field) {
+                case "name" -> frontmatter.name();
+                case "description" -> frontmatter.description();
+                case "author" -> frontmatter.author();
+                case "entry_description" -> frontmatter.entries().getFirst().description().orElseThrow();
+                default -> frontmatter.exits().getFirst().description().orElseThrow();
+            };
+            assertEquals(value, actual);
+        }
+    }
+
+    @Nested
+    @DisplayName("The bounds")
+    class Bounds {
+
+        /** The field lines of a frontmatter of exactly {@code total} lines, the two delimiters included. */
+        private static List<String> fieldLines(int total) {
+            var lines = new ArrayList<>(VALID);
+            for (var index = 1; lines.size() < total - 2; index++) {
+                lines.add("entry: e" + index);
+            }
+            return lines;
+        }
+
+        @Test
+        @DisplayName("reads a frontmatter at the line cap, both delimiters included, on lines 1 and 200")
+        void acceptsTheLineCap() {
+            var lines = fieldLines(UnitFrontmatterReader.MAX_FRONTMATTER_LINES);
+
+            var result = read(unit(lines));
+
+            assertAll(
+                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES, lines.size() + 2),
+                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1, result.bodyLine()));
+        }
+
+        @Test
+        @DisplayName("refuses a frontmatter of one more line than the cap, at the first line past it")
+        void refusesOnePastTheLineCap() {
+            var lines = fieldLines(UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1);
+
+            var diagnostic = refuse(unit(lines));
+
+            assertRefused(diagnostic, UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1, 1);
+            assertTrue(diagnostic.message().contains(Integer.toString(UnitFrontmatterReader.MAX_FRONTMATTER_LINES)),
+                    diagnostic::message);
+        }
+
+        @Test
+        @DisplayName("refuses a frontmatter that never closes within the line cap, also far past it")
+        void refusesUnclosedBeyondTheLineCap() {
+            var field = "entry: e";
+            var lines = new ArrayList<String>();
+            for (var index = 1; lines.size() <= UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 100; index++) {
+                lines.add(field + index);
+            }
+            var source = "---\n" + String.join("\n", lines) + "\n";
+
+            var diagnostic = refuse(source);
+
+            assertRefused(diagnostic, UnitFrontmatterReader.MAX_FRONTMATTER_LINES + 1, 1);
+        }
+
+        @Test
+        @DisplayName("echoes an unknown key at the cap in full and truncates it one past the cap")
+        void boundsTheUnknownKeyEcho() {
+            var atCap = "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH);
+            var onePast = atCap + "k";
+
+            var inFull = refuse(unit(appended(atCap + ": x")));
+            var truncated = refuse(unit(appended(onePast + ": x")));
+
+            assertAll(
+                    () -> assertRefused(inFull, APPENDED_LINE, 1),
+                    () -> assertTrue(inFull.message().contains("'" + atCap + "'"), inFull::message),
+                    () -> assertFalse(inFull.message().contains("..."), inFull::message),
+                    () -> assertRefused(truncated, APPENDED_LINE, 1),
+                    () -> assertTrue(truncated.message().contains("'" + atCap + "...'"), truncated::message),
+                    () -> assertFalse(truncated.message().contains(onePast), truncated::message));
+        }
+
+        @Test
+        @DisplayName("truncates the unknown version echoed into the refusal to the cap")
+        void boundsTheVersionEcho() {
+            var value = "1.0.0-" + "r".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH);
+            var echoed = value.substring(0, UnitFrontmatterReader.MAX_ECHO_LENGTH);
+
+            var diagnostic = refuse(unit(replaced("version", "version: " + value)));
+
+            assertAll(
+                    () -> assertRefused(diagnostic, 10, 10),
+                    () -> assertTrue(diagnostic.message().contains(echoed + "..."), diagnostic::message),
+                    () -> assertFalse(diagnostic.message().contains(value), diagnostic::message));
+        }
+
+        @Test
+        @DisplayName("truncates an echo far past the cap and counts the cap in code points")
+        void boundsAnEchoFarPastTheCap() {
+            var far = "k".repeat(1000);
+            var supplement = "\uD83D\uDE00";
+            var codePoints = "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH - 1) + supplement + "k";
+
+            var farDiagnostic = refuse(unit(appended(far + ": x")));
+            var codePointDiagnostic = refuse(unit(appended(codePoints + ": x")));
+
+            assertAll(
+                    () -> assertTrue(farDiagnostic.message().contains(
+                            "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH) + "..."), farDiagnostic::message),
+                    () -> assertFalse(farDiagnostic.message().contains(far), farDiagnostic::message),
+                    () -> assertTrue(codePointDiagnostic.message().contains(
+                                    "k".repeat(UnitFrontmatterReader.MAX_ECHO_LENGTH - 1) + supplement + "..."),
+                            codePointDiagnostic::message),
+                    () -> assertFalse(codePointDiagnostic.message().contains(codePoints),
+                            codePointDiagnostic::message));
+        }
+
+        @Test
+        @DisplayName("reads the frontmatter of a unit whose body after the closing line would not be accepted, "
+                + "without reading the body")
+        void neverReadsTheBody() {
+            var source = "---\n" + String.join("\n", VALID) + "\n---\n\u0007 no unit at all\n";
+
+            var result = read(source);
+
+            assertAll(
+                    () -> assertEquals("Commit and Push", result.frontmatter().name()),
+                    () -> assertEquals(APPENDED_LINE + 1, result.bodyLine()));
+        }
+
+        @Test
+        @DisplayName("enforces the numbers the specification part states")
+        void constantsAreTheSpecificationValues() throws Exception {
+            var specification = specificationPart();
+
+            assertAll(
+                    () -> assertEquals(ProjectUnitLoader.MAX_UNIT_FILE_BYTES,
+                            number(specification, "at most (\\d+) bytes")),
+                    () -> assertEquals(UnitFrontmatterReader.MAX_FRONTMATTER_LINES,
+                            number(specification, "at most (\\d+) lines")),
+                    () -> assertEquals(UnitFrontmatterReader.MAX_ECHO_LENGTH,
+                            number(specification, "at most (\\d+) characters")));
+        }
+
+        private static String specificationPart() throws IOException {
+            var property = System.getProperty("pm.specification.root");
+            var root = property == null || property.isBlank() ? Path.of("..") : Path.of(property);
+            return Files.readString(root.toAbsolutePath().normalize()
+                    .resolve("doc/specification/workflow-dsl/01-grammar.adoc"), StandardCharsets.UTF_8);
+        }
+
+        private static int number(String text, String regex) {
+            var matcher = Pattern.compile(regex).matcher(text);
+            assertTrue(matcher.find(), () -> "the specification states no '" + regex + "'");
+            return Integer.parseInt(matcher.group(1));
         }
     }
 }

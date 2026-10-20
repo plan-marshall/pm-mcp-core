@@ -1,0 +1,62 @@
+= ADR 007: The Frontmatter Refuses Format, Line and Paragraph Separators and Is Bounded
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-20
+
+== Context
+
+The frontmatter carries `name`, `description`, `author` and the entry and exit descriptions, which a list of units, a
+catalogue or a process view shows to the operator. The reader refused only ISO control characters, so a bidi override
+(U+202E), a zero-width space (U+200B), a byte order mark (U+FEFF) or a line or paragraph separator (U+2028, U+2029)
+passed in those values and could reorder or hide what the operator sees. The reader also split the whole source into
+lines although it reads only the frontmatter, and it echoed an unknown key, an unknown type or an out-of-grammar
+version into a refusal message without a bound, so a repository cloned from an untrusted source could place a very
+large unit whose frontmatter is never closed and whose text is echoed back at length.
+
+== Decision
+
+* `UnitFrontmatterReader` refuses a control character, a format character (category Cf), a line separator (Zl) and a
+  paragraph separator (Zp) on every frontmatter line. The refusal names the category, the code point and the line.
+* A frontmatter holds at most `UnitFrontmatterReader.MAX_FRONTMATTER_LINES` (200) lines, its two `---` delimiters
+  included; a frontmatter that does not close within them is refused at the first line past the cap.
+* The text a refusal echoes from the source is cut at `UnitFrontmatterReader.MAX_ECHO_LENGTH` (80) characters and
+  marked with `...`.
+* The reader reads the frontmatter from the head of the source and never reads the body.
+* `UnitFrontmatterReader.isPlain` stays the one definition of the plain-scalar rule that `WorkflowPrinter` calls; it
+  decides the YAML form only, not which characters are admitted.
+
+Rationale: the frontmatter is a display surface for the operator, and a unit may come from a clone the operator does
+not trust.
+
+== Alternatives Considered
+
+* *Refuse the characters in `name`, `description` and the descriptions only, and leave `author` to the loader.* Not
+  taken: a zero-width character in an author that is not the reserved name would then display as a different author
+  and be accepted. The reserved author's normalised comparison is a second check, not a substitute (ADR 006 of
+  `workflow.unit`).
+* *Quote a refused value instead of refusing it.* Not taken: the closed frontmatter admits the escapes `\"` and `\\`
+  only, so no escape can carry the character, and a quoted value would still display it.
+
+== Consequences
+
+* A unit whose frontmatter carries one of the characters cannot be written at all; a project unit that wants the
+  character in a display value must leave it out.
+* `WorkflowPrinter` writes a value the reader's `isPlain` refuses double-quoted and the reader reads it back
+  unchanged; the printer never needs an escape for a refused character because such a value never enters a tree.
+* `UnitFrontmatterReaderTest` covers every refused category in every field, with its CRLF twin, and the cap, the echo
+  bound and the head read. `WorkflowParserRefusalTest` covers one malformed fixture per category.
+* The three numbers are stated in the specification part and a test reads them from it; changing one means changing
+  both.
+
+== Source
+
+* Pull request `fix(workflow): harden the unit frontmatter reader and the project unit loader` (PLAN-81)
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#unit-frontmatter[Workflow DSL § Unit Frontmatter]
+* link:../../developer/workflow-dsl.adoc#unit-frontmatter[Workflow DSL Developer Guide § The Unit Frontmatter]
+* link:004-instance-header-json-kept-as-a-string.adoc[ADR 004 of `workflow.dsl`], link:005-frontmatter-read-by-its-own-line-parser.adoc[ADR 005 of `workflow.dsl`]
