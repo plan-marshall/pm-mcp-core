@@ -1,6 +1,7 @@
 original: plan-marshall@297ae30661ab0001c92ab4d9b008cdec1c514758 test/plan-marshall/script-shared/test_worktree_sha.py::test_unstaged_edit_changes_digest
-# Rule 6: non-ASCII paths count. An edit of a tracked non-ASCII path and a new untracked non-ASCII path each change
-# the digest. The original sees both (git diff HEAD and the quoted ls-files path), so this is no deliberate change.
+# Job Runtime Specification, Working-Tree Hash (`worktree_sha`, `PM-SVC-1`): non-ASCII paths count. An edit of a
+# tracked non-ASCII path and a new untracked non-ASCII path each change the digest. The original sees both (git diff
+# HEAD and the quoted ls-files path), so this is no deliberate change.
 repository initial
 write grüße.txt erste\n
 commit add a non-ASCII path
