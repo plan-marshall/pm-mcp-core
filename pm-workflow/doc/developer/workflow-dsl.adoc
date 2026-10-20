@@ -96,8 +96,16 @@ anchor, alias or merge key is ever resolved
 (link:../adr/workflow-dsl/005-frontmatter-read-by-its-own-line-parser.adoc[ADR 005]).
 
 * *One field per line*: every line is `key: value` at column 1. There is no blank line, comment, indentation, nesting,
-  flow collection, block scalar or document marker other than the two delimiters, and no value contains a control
-  character.
+  flow collection, block scalar or document marker other than the two delimiters, and no line contains a control
+  character, a format character (category Cf, a bidi override or a zero-width space among them), a line separator (Zl)
+  or a paragraph separator (Zp). A frontmatter with one is refused with its category, its code point and its line, so a
+  display value cannot reorder or hide what the operator sees
+  (link:../adr/workflow-dsl/007-refused-characters-and-frontmatter-bounds.adoc[ADR 007]).
+* *Bounds*: a unit file holds at most 1048576 bytes (`ProjectUnitLoader.MAX_UNIT_FILE_BYTES`), a frontmatter holds at
+  most 200 lines including its two `---` delimiters (`UnitFrontmatterReader.MAX_FRONTMATTER_LINES`), and a refusal
+  echoes at most 80 characters of the source, marked with `...` where it cuts
+  (`UnitFrontmatterReader.MAX_ECHO_LENGTH`). The reader reads the frontmatter from the head of the source and never
+  the body.
 * *Line endings*: a line ends with a line feed (LF) or with a carriage return and a line feed (CRLF). The line ending is
   not part of the line, so a CRLF unit reads to the same frontmatter, with the same line and column numbers, as its LF
   twin. A carriage return anywhere else is a control character and refused.
@@ -170,8 +178,8 @@ revision, which the `version` of the `workflow` header counts.
 |`author`
 |1
 |Who made the unit, 1 to 100 characters: `plan-marshall` for the units compiled into the binary and only for them. The
-reader checks the length; the reserved name is checked per level by the loader
-(link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
+reader checks the length; the reserved name is checked per level by the loader, on the author's stripped,
+NFKC-normalised, case-folded form (link:workflow-unit.adoc#_the_author_of_a_unit[Workflow Units § The Author of a Unit]).
 
 |`signature`
 |0..1
@@ -205,8 +213,11 @@ or another YAML indicator at the start of a line or of a value
 content after the closing quote, an unclosed double-quoted value
 |the line, the column of the offending character
 
-|A control character
+|A control character, a format character (Cf), a line separator (Zl) or a paragraph separator (Zp)
 |the line, its column
+
+|A frontmatter of more than 200 lines, the two delimiters included
+|the first line past the cap, column 1
 
 |A field outside its bounds: a length, an unknown type, an entry or exit that is no identifier or is declared twice, the
 exit `stepped_out`, an invalid or future date, a version outside the release version grammar
@@ -294,7 +305,11 @@ _Requirements: link:{docs}/requirements/14-implementation.adoc#PM-IMPL-5[PM-IMPL
 |`UnitFrontmatterReaderTest`
 |Every field read, three entries kept in order with their descriptions, every refused form and every field bound with
 rule, line and column, a future and an invalid calendar date, the signature carried and not verified, the
-frontmatter of a text whose body does not parse, a CRLF unit read like its LF twin, and a lone carriage return refused.
+frontmatter of a text whose body does not parse, a CRLF unit read like its LF twin, and a lone carriage return refused;
+each refused character category (control, Cf, Zl, Zp) in `name`, `description`, `author` and both descriptions with its
+code point and its CRLF twin, a plain ASCII and a non-ASCII letter accepted in every field, the line cap at and one past
+it, a frontmatter never closed within the cap, the echo bound at and one past it, the body never read, and the three
+numbers read from the specification part.
 
 |`WorkflowParserTest`
 |The frontmatter read into the tree, entry bindings and `call … entry` parsed, a unit with three entries, and a unit with
@@ -302,9 +317,12 @@ declared entries and a `start` line, or a binding of an undeclared name, parsed 
 as a declared value and as a call argument, printed back as `[]`, with its CRLF twin and a non-empty list as control.
 
 |`WorkflowParserRefusalTest`
-|Every fixture of `dsl/malformed/`, among them one per refused form of the frontmatter (`frontmatter-*.pmwf`),
-`start-beside-entry-binding.pmwf` (`STRUCTURE`) and `entry-binding-repeated.pmwf` (`DUPLICATE_ID`), refused with its
-rule, file, line and column; the list refusals that stay beside the empty list (`[`, `[a, b`, `[a,]`, `[,]`).
+|Every fixture of `dsl/malformed/`, among them one per refused form of the frontmatter (`frontmatter-*.pmwf`) and one
+per refused character category (`frontmatter-format-character.pmwf`, `frontmatter-line-separator.pmwf`,
+`frontmatter-paragraph-separator.pmwf`), `start-beside-entry-binding.pmwf` (`STRUCTURE`) and
+`entry-binding-repeated.pmwf` (`DUPLICATE_ID`), refused with its rule, file, line and column; the list refusals that
+stay beside the empty list (`[`, `[a, b`, `[a,]`, `[,]`); and one fixture for every constant of `RefusalRule`, the
+expected set derived from the enum at run time.
 
 |`WorkflowPrinterTest`
 |Parse, print and parse again to the same tree, for a unit with descriptions, quoted values, a signature and three

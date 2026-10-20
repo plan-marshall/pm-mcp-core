@@ -1,0 +1,15 @@
+---
+name: Malformed unit
+description: d‎
+type: workflow
+modification_date: 2026-01-15
+version: 0.1.0
+author: plan-marshall
+---
+# expect: FRONTMATTER line 3 column 15
+# The description holds a format character, U+200E LEFT-TO-RIGHT MARK.
+workflow demo version 1 format 1
+scope plan
+start demo.begin
+state demo.begin terminal done success
+    phase init
