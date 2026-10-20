@@ -100,8 +100,11 @@ link:{test}/QuestionLogRecordReaderTest.java[`QuestionLogRecordReaderTest`]:: `O
 delivery; `Resolved` for every closing event, the set derived from the enum at run time; `Unreadable` for an absent
 log, an empty log, an unparseable line, a record of another class, a store that cannot be read and a torn tail, each
 also asserted not to be `Open`; the mixed content of an open record followed by an unparseable line and a resolved
-record followed by a refused line, the latter also proving that ADR core-store/039 refuses the append; the workspace,
-epic, absent, ambiguous and invalid scope; the agreement with `QuestionLog` on every record both see.
+record followed by a refused line, the latter also proving that ADR core-store/039 refuses the append; a torn tail at
+byte zero, a refused line before a torn tail and the first of several refused lines; the construction refusals (null
+base, project id and request, a project id that is no identifier) and a base that does not exist; the workspace, epic,
+absent, ambiguous and invalid scope; the agreement with `QuestionLog` on every record both see, the expectation named
+per question.
 link:{test}/QuestionLogRecordReaderReadTest.java[`QuestionLogRecordReaderReadTest`]:: the file tree (names, sizes,
 modification times) is identical before and after a read; a read returns within a bounded wait while another thread
 holds the append lock and does not block the append that follows; a path outside the confinement, an uncanonicalizable

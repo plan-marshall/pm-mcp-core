@@ -66,7 +66,7 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     public QuestionLogRecordReader(Path base, String projectId) {
         this.base = canonical(base);
         this.projectId = Objects.requireNonNull(projectId, "projectId");
-        LockKey.workspace(this.base, this.projectId);
+        requireProjectId(this.base, this.projectId);
         this.confinement = new WorkspaceConfinement(new WorkspaceRoots(this.base, Set.of()));
     }
 
@@ -82,8 +82,17 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     QuestionLogRecordReader(Path base, String projectId, WorkspaceConfinement confinement) {
         this.base = canonical(base);
         this.projectId = Objects.requireNonNull(projectId, "projectId");
-        LockKey.workspace(this.base, this.projectId);
+        requireProjectId(this.base, this.projectId);
         this.confinement = Objects.requireNonNull(confinement, "confinement");
+    }
+
+    /**
+     * The project id is validated here, before a read, so a misconfigured project fails at construction and not as an
+     * {@code Unreadable} that looks like a missing store. {@link LockKey#workspace(Path, String)} is the one owner of
+     * the identifier rule of a project, plan and epic.
+     */
+    private static void requireProjectId(Path base, String projectId) {
+        LockKey.workspace(base, projectId);
     }
 
     /**

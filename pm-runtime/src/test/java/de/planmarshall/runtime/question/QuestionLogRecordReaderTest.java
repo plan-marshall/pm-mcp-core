@@ -326,21 +326,23 @@ class QuestionLogRecordReaderTest {
             assertEquals(new Unreadable("the question log ends in a torn tail at byte 0"), read);
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("names the refused line before a torn tail that follows it")
-        void readsTheRefusedLineBeforeTheTornTail() {
-            QuestionFixtures.writeTorn(plan, EndOfLine.LF, "{\"format_version\":2}");
+        void readsTheRefusedLineBeforeTheTornTail(EndOfLine endOfLine) {
+            QuestionFixtures.writeTorn(plan, endOfLine, "{\"format_version\":2}");
 
             var read = reader.read(request(QUESTION));
 
             assertEquals(new Unreadable("the question log holds a refused line 1"), read);
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("names the first of several refused lines")
-        void readsTheFirstOfSeveralRefusedLines() {
-            QuestionFixtures.appendLine(plan, EndOfLine.LF, "{\"format_version\":2}");
-            QuestionFixtures.appendLine(plan, EndOfLine.LF, "{\"format_version\":3}");
+        void readsTheFirstOfSeveralRefusedLines(EndOfLine endOfLine) {
+            QuestionFixtures.appendLine(plan, endOfLine, "{\"format_version\":2}");
+            QuestionFixtures.appendLine(plan, endOfLine, "{\"format_version\":3}");
 
             var read = reader.read(request(QUESTION));
 
@@ -404,10 +406,11 @@ class QuestionLogRecordReaderTest {
             assertEquals("the scope is not an identifier: ../../escape", unreadable.reason());
         }
 
-        @Test
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
         @DisplayName("reads Unreadable for a question absent from a log that has others")
-        void readsUnreadableForANeverAskedQuestion() {
-            append(plan, EndOfLine.LF, asked("Q-002"));
+        void readsUnreadableForANeverAskedQuestion(EndOfLine endOfLine) {
+            append(plan, endOfLine, asked("Q-002"));
 
             assertEquals(new Unreadable("the question Q-001 is not in the log"),
                     reader.read(request(QUESTION)));

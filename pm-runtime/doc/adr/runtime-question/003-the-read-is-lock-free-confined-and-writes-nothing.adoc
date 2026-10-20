@@ -45,6 +45,11 @@ and the adapter is specified to read over `QuestionLog`.
 _Not taken_: that is a check-then-act on two different paths; the path the check approved must be the path that is read
 or the read must be refused.
 
+4. *Passing the enrolled repository roots, as the other readers of `runtime.workspace` do.*
+_Not taken_: the question store is no repository file — it lies in the per-project machine store below the runtime base
+— so the repository roots would refuse every log, and the read would be dead in production. The adapter therefore fixes
+the root to the runtime base and offers no public way to pass another.
+
 == Consequences
 
 * An append and a read never wait for each other.
