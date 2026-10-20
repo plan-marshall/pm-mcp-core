@@ -750,32 +750,37 @@ decision or a dependency outside this repository.
   as ordinary text — source: landing PLAN-02 and lesson 2026-10-10-07-010.
 > ↪ Relocated to `settled.md` § "Defect: corpus-overlay-extensions outlived its implementation" — closed by pm-mcp-core #94 (ab308ad) on 2026-10-18; retroactive row PLAN-79
 > ↪ Relocated to `settled.md` § "Defect: watch link of stalled-scope-detection.adoc" — the package file was merged into removed-concepts and deleted by PLAN-75 (#85)
-- **No package owns the `pm-runtime` adapter for `QuestionRecordReader`** (found by the landing of PLAN-14, 2026-10-18; verified: no file of
-  `doc/plans/` names `QuestionRecordReader`). PLAN-14 delivered the store in `pm-core` and states that the adapter is not part of it; the
-  module structure places the question records in `pm-workflow` `workflow.question` and the port in `pm-core`. Candidates to take it:
-  `question-continuation` (PLAN-73), `task-queue-and-protocol` (PLAN-28) or a bullet of `runtime-control`. **Staged on 2026-10-19 as PLAN-88 `question-record-reader-adapter`** (its own plan, sequenced against PLAN-73 by the disjointness check).
+> ↪ Relocated to `settled.md` § "Defect: no package owns the pm-runtime adapter for QuestionRecordReader" — closed by pm-mcp-core #116 (`c39ce3b`); retroactive row PLAN-88
 - **`doc/Traceability.adoc` cites two tests that do not prove the spend removal.** Lines 247 and 248 list `CompositionRulesTest`
   and `PlanInstanceComposerTest` under PM-WF-14 "Verified by (no spend limit)", although #83 only renamed a gate name in their
   fixtures. Two entries to remove: the advisory code-review finding PLAN-72 left open (verified on acb5bba). Fold it into the next
   plan that edits the PM-WF-14 block (PLAN-61 `token-usage` implements PM-WF-14) or into a one-line `docs` change — source:
   landing PLAN-72. **Staged on 2026-10-19 as item 3 of PLAN-89** (the lines are 279-280 at 98ce971).
-- **New specification obligations that no package file owns (pm-mcp-core #84, merged `5197490`; documentation #84, merged). Operator
-  said yes on 2026-10-17: staged as PLAN-78 `spec-obligation-owners`, docs only, ready, not yet emitted (no free slot).** The change adds
-  to the engine specifications: the worker egress proxy and macOS (Seatbelt) confinement (`job-runtime/02`); the launcher staying
-  as the job's process with descendants ended (step 3a) and the refusal reason `harness_update_unverified` (`job-runtime/01`,
-  `store-schemas/10`); update evidence, `endpoints`, `extension_isolation` and the `egress` and `isolation` profile stages
-  (`client-profiles/01`); the writing skill, the byte-identical shared launch prefix and harness-extension isolation
-  (`model-work/04`); the `agent_started` signal (`model-work/03`, `store-schemas/16`, `timeouts/01`); navigation figures
-  (`model-work/09`); the comparison footprint (`workflow-dsl/07`); the upgrade checked against the build attestation
-  (`runtime-lifecycle/01`). Only `runtime-control.adoc` was amended. A search of `doc/plans/` finds none of `egress`, update
-  evidence, `agent_started`, navigation figures, the writing skill or the attestation in any other package file. Likely owners:
-  `job-confinement-and-environment` (27: Seatbelt and egress, probably the largest growth, may need a split to stay within 12
-  deliverables), `profile-loader` (19), `worker-launch` (29), `supervisor` (30) with `worker-activity` (66) and
-  `task-queue-and-protocol` (28), `token-usage` (61), `role-qualification` (34) with `differential-test-harness` (37). The git
-  identity check of PM-WATCH-GEN-59 (documentation watch, PM-EXEC-5) has no owner either (27 and 49 cite PM-EXEC-5). For the
-  operator: one `docs(plans)` change that adds the obligations to those package files; then `cleanup` regenerates the specs.
-  Without it the specs of these plans are regenerated from package files that omit the new scope — source: analysis of
-  2026-10-17.
+> ↪ Relocated to `settled.md` § "Defect: new specification obligations that no package file owns" — closed by pm-mcp-core #111 (72aec5c, PLAN-78), verified 2026-10-20
+- **The specs of the plans of the packages amended by #111 are behind their package files (found by the landing of PLAN-78, 2026-10-20).**
+  Eleven package files gained bullets, `epic-decomposition` was split and `epic-review.adoc` is new, so the specs written from the old
+  files omit the new scope. Staged: PLAN-27 (`job-confinement-and-environment`), 28 (`task-queue-and-protocol`), 29 (`worker-launch`),
+  30 (`supervisor`), 34 (`role-qualification`), 35 (`supervision-scenarios`), 66 (`worker-activity`). Parked: PLAN-19 (`profile-loader`),
+  43 (`phase-sub-workflows`), 53 (`epic-decomposition`), 58 (`operator-reports`), 68 (`chat-plan-revision`). PLAN-53's scope now covers only
+  half of what its package file said: the review of an epic's findings and watches is the package `epic-review`, which no row owns. Run
+  `cleanup` (it flags every spec whose declared surface moved), then regenerate the specs of those plans and add the row for `epic-review`
+  before any of them is emitted. Not done by the landing; the operator's word is owed. Remainders the landing lists for the operator:
+  two figures of `model-work/09` § Navigation Figures that no package names (`Most expensive turns`, `Largest tool results`; `worker-activity`
+  has room, 9 bullets), the truncation rule and the two `DRAFT` use cases (no owner, operator decision), and the items owed to
+  `plan-marshall-mcp` and `pm-mcp-clients` (`landings/PLAN-78.md`) — source: landing PLAN-78, corroborated 2026-10-20.
+- **The landing of PLAN-78 is incomplete: `total_tokens` is `unknown` (`inbox landing-check`, `rb-78-spec-obligation-owners-001.md`).** The opencode
+  harness measured none and the runbook lane writes `unknown` rather than a guess. Every landing of the runbook lane on opencode will carry it
+  (PLAN-81 and PLAN-88 next): fold the recurrence here and read tokens as unobserved. The same landing reports a build gate that was not run
+  (see the watch on the executor) and a merge without a required review (see PLAN-78's landing report).
+  **Recurred on 2026-10-20 (PLAN-88, `rb-88-question-record-reader-adapter-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same
+  cause. Expect it from PLAN-81 too; treat it as a fixed property of the opencode runbook landing until the harness measures tokens.
+  **Recurred on 2026-10-20 (PLAN-81, `rb-81-unit-frontmatter-hardening-001.md`):** `total_tokens=unknown`, same cause; all three opencode runbook
+  landings carry it. Kept open as a standing property, not per landing.
+- **The port `QuestionRecordReader` cannot address a pending entry.** `ReadRequest(Optional<String> scopeId, String questionId)` names a plan, an
+  epic or the workspace, nothing else, so a `question` state of a pending entry (an entity of the workspace scope) cannot be resolved through the
+  adapter PLAN-88 shipped. Reported by the lane and corroborated against the record's two components (`pm-core` `core.spi`). No package owns it: a
+  change of the port belongs to `pm-core`, its adapter to `pm-runtime`, the engine side to `question-continuation` (PLAN-73) — the operator
+  decides the owner. Source: landing PLAN-88, corroborated 2026-10-20.
 - **Two decisions of 2026-10-18 reached the specifications after the last reconciliation: pm-mcp-core #101 (`98ce971`, 21:49 local) and
   documentation #94 (`273171d`); analysed on 2026-10-19 and reconciled the same day.** PLAN-37 re-written (the differential harness is gone; the
   package is the tests of the ported scripts, `open`, no dependency; unparked to `staged`); PLAN-60 (Micrometer decided, dependency
@@ -815,7 +820,9 @@ decision or a dependency outside this repository.
   `docs(plans)` change in `plan-marshall-mcp`); no issue was filed and none is needed before the package starts. (2) Two audit
   anti-pattern findings (info) stay `pending` because each needs a decision in the specification first (Unicode format characters in
   the frontmatter and a case-sensitive comparison of the reserved author; no size bound on the unit file, the frontmatter lines and
-  the echoed text): staged as PLAN-81 `unit-frontmatter-hardening`. (3) Deliverable 9 landed partly by design: the six
+  the echoed text): staged as PLAN-81 `unit-frontmatter-hardening` — **both closed by pm-mcp-core #114 (`afc918b`, 2026-10-20)**: the frontmatter refuses
+  Cf, Zl and Zp characters with code point and line, the reserved author is compared NFKC-normalised and case-folded, the unit file (1 MiB),
+  the frontmatter (200 lines) and the echoed text (80 characters) are bounded; verified, `landings/PLAN-81.md`. (3) Deliverable 9 landed partly by design: the six
   specification files keep their anchors `#unit-frontmatter`, `#unit-types`, `#interface-rules` as short sections.
 - The link check left this repository (#88): a plan that deletes a package file linked from `plan-marshall-documentation` (today only
   `roadmap.adoc:233` -> `plan-instance-alignment.adoc`, PLAN-70) now breaks the documentation repository's check after its merge, not its
@@ -848,6 +855,29 @@ decision or a dependency outside this repository.
 - **Non-Claude-Code runs (Antigravity, opencode) need the extended landing verification** (code-vs-package audit, build-log and
   gate check, review trail), because the plan's self-report was unreliable on its first run (seven
   high-priority findings at plan-marshall). Retire when an Antigravity landing passes it cleanly.
+  First opencode runbook landing (PLAN-78, #111, 2026-10-20), verified: the deliverables and the link check held (`BROKEN LINKS 0`), but two
+  absolute bullet counts in the report and in the squash message are one too low (`supervision-scenarios`, `chat-plan-revision`), the build
+  gate was not run (stale executor, see the watch above), no required reviewer reviewed the head and the merge went in on the operator's
+  selection (the spec's own `skip-bot-review` standing constraint against the lane's rule; only PLAN-78's spec carries it), and the token
+  total is `unknown`. Keep the watch open for PLAN-81 and PLAN-88.
+  Second opencode runbook landing (PLAN-88, #116, 2026-10-20), verified: the deliverables held, the adapter is the only product implementation of
+  the port, both required reviewers cover the merged head, the four Maven gates ran (plan-reported; the merge-group run is green) and the
+  orchestrator's own run of the three new test classes passed (69 tests); `trace.py` reports `BROKEN LINKS 0`. Still found: the lane had read
+  access to the documentation checkout and recorded no link-check run; the per-class method counts are off (37 reported, 34 counted; the 69
+  invocations hold); the gate path needed two operator decisions (the `resolve` verb's build names rejected, a CI substitution for the local
+  `verify` that the final local `verify` made unnecessary); `total_tokens` is `unknown`. The pass is clean in substance.
+  Third opencode runbook landing (PLAN-81, #114, 2026-10-20), verified: the seven deliverables held against the merged source and the specification
+  (constants equal the specification's numbers, the author comparison is NFKC first), the orchestrator's run of the four touched test classes passed
+  (550 tests), `trace.py` reports `BROKEN LINKS 0`, the main checkout is clean. Found: the lane edited six files in the main checkout before the
+  worktree and corrected it by hand (no guard on opencode to stop it); it ran no link check although it had read access; `cuioss-review-bot` covers
+  `5ca7772`, not the merged head `ead74de`, and the merge went in on the operator's selected "Merge with the gap"; `total_tokens` unknown. Two lane-contract
+  lessons are for plan-marshall's lessons-routing inbox. Retire the watch's "unreliable self-report" half after PLAN-81 and PLAN-88 only if the
+  operator agrees; the Antigravity case stays open.
+- **The trust assumptions of the question reader before it is wired (unverified lead).** CodeRabbit's architecture review of #116 says the
+  confinement keeps the check-time limitation of `WorkspaceConfinement` (the snapshot opens the path after the check) and that an out-of-band
+  change of `questions.jsonl` that is still syntactically valid is not detected (no digest, no replay). It proposes fixing the ownership and
+  recovery guarantees of the runtime store before the production wiring. Inferred by the bot, not verified here. Re-read when the CDI producer
+  is planned in `plan-marshall-mcp`.
 > ↪ Relocated to `settled.md` § "Watch: documentation #36 during PLAN-41" — PLAN-44 shipped as #38 against the current specification
 
 
@@ -897,6 +927,14 @@ decision or a dependency outside this repository.
   run met `unknown_verb` for `git-workflow commit` and `manage-solution-outline deliverable-hashes` and committed with plain `git`
   (lesson forwarded to plan-marshall). The same skew keeps the restart verdict `indeterminate`. Regenerate the executor before the
   next plan starts; PLAN-20 and PLAN-69 inherit the pin otherwise.
+  **Recurred on 2026-10-20 (PLAN-78, runbook lane on opencode):** the executor maps `plan-marshall:runbook-lane:runbook_lane` to `0.1.1961`
+  (only `resolve`), while the lane skill the opencode run read is newer (`build-classify` exists from `0.1.1969`; `0.1.1971` is installed).
+  The lane met `unknown_verb`, asked, and the operator chose "docs-only by inspection", so the plan's Maven gates never ran. PLAN-81 and
+  PLAN-88 are running on the same executor and will meet it at their gate step. Regenerate the executor (operator) before they get there.
+  **Recurred on 2026-10-20 (PLAN-88):** `build-classify` was `unknown_verb` again, and the build names the `resolve` verb supplied
+  (`quality-gate`, `module-tests`, `verify`, `test-compile`) were rejected by the executor, so the operator chose the literal commands of
+  `CLAUDE.md`; plan-reported, the `resolve` symptom not re-run here. PLAN-81 landed with no `unknown_verb` reported and its gates run. The executor
+  of this checkout still maps `runbook_lane` to `0.1.1961` (0.1.1971 installed); regenerate it before the next runbook plan is emitted.
 - The check command of `CLAUDE.md` (`../plan-marshall-documentation/…`) does not resolve inside a plan worktree, three
   directories deeper: PLAN-72's functional review graded the link criteria on indirect evidence until the command was run by hand.
   The Standing Constraints of PLAN-20 and PLAN-69 now carry the absolute-path command; add the same bullet to every other spec
