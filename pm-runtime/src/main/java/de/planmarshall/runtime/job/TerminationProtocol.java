@@ -168,9 +168,24 @@ public final class TerminationProtocol {
      * @throws IllegalArgumentException if the id is no PID of a job
      */
     public Report terminate(long pid) {
+        return terminate(pid, true);
+    }
+
+    /**
+     * Terminates the process group of a job, steps 1 to 4, for a caller that knows whether the job's process still
+     * lives.
+     *
+     * @param pid           the job PID, which is its process-group id
+     * @param leaderMayLive whether the job's process may still live; {@code false} skips step 4, the {@code SIGTERM} to
+     *                      the bare PID, because a PID whose process ended may have been reused by another process
+     * @return how the termination ended
+     * @throws IllegalArgumentException if the id is no PID of a job
+     */
+    public Report terminate(long pid, boolean leaderMayLive) {
         var answer = signals.signalGroup(pid, Signal.SIGTERM);
         if (answer instanceof NoSuchProcess) {
-            return cancelBeforeGroup(pid);
+            return leaderMayLive ? cancelBeforeGroup(pid)
+                    : new Report(Ending.GROUP_NOT_REACHED, false, OptionalInt.empty());
         }
         if (answer instanceof Refused(var errno)) {
             return refused(errno, false);

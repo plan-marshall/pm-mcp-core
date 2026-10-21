@@ -71,10 +71,10 @@ Alternatives not recorded beyond those of ADR core-service/001 of `pm-core`.
   until then the port refuses it with `primitive_without_job`, and no job is recorded.
 * A job started through either port is the same job: one record, one log, one cancel.
 * A later supervisor launches workers itself and records them in the same job record store.
-* `recordOf(jobId)` and `awaitSettled(jobId, timeout)` answer the settled record of every job that left the running
-  jobs, unless its fate could not be written or the lock manager failed inside its settlement; no record stays
-  `running` until the next runtime start because one post-spawn write failed, the output parser threw or the
-  termination protocol failed.
+* `recordOf(jobId)` and `awaitSettled(jobId, timeout)` answer the settled record of a job that left the running jobs,
+  from a bounded window of the most recent settled records (ADR 012); the durable record of an older one is read from
+  its store. A record whose fate could not be written, or whose settlement met a fault of the lock manager, stays
+  `running` until the next runtime start.
 * A job whose output parser fails is settled without the parser's finding: an exit `0` is then `indeterminate` by
   row 8, a non-zero exit decided by row 10.
 

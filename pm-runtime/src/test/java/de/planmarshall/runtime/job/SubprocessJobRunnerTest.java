@@ -1339,12 +1339,40 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
-        @DisplayName("the process the runner started is not a reused PID; a PID no process owns is not either")
+        @DisplayName("a reused PID is not signalled, at the primitive; the started process and an unowned PID are")
         void pidReuse() throws Exception {
             var first = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
                     "30").start();
+            // the start instant has the clock tick's granularity: a later start makes the two distinguishable
+            Thread.sleep(50);
+            var second = new ProcessBuilder(FakePmExec.tool("setsid").toString(), FakePmExec.tool("sleep").toString(),
+                    "30").start();
             try {
+                var recorded = new CopyOnWriteArrayList<Long>();
+                ProcessGroupSignals signals = new ProcessGroupSignals() {
+
+                    @Override
+                    public Answer signalGroup(long pgid, Signal signal) {
+                        recorded.add(pgid);
+                        return new NoSuchProcess();
+                    }
+
+                    @Override
+                    public Answer signalProcess(long pid, Signal signal) {
+                        recorded.add(pid);
+                        return new NoSuchProcess();
+                    }
+                };
+                runner = runner(new TerminationProtocol(signals), request -> Optional.empty());
+                var reused = new PmExecLauncher.Launched(second, first.pid());
+
+                var cancelBeforeGroup = runner.terminateByHandle(JobId.random(JobId.Kind.GIT), reused);
+
                 assertAll(
+                        () -> assertTrue(SubprocessJobRunner.pidReused(reused),
+                                "the PID of the first is owned by the first, not by the second's handle"),
+                        () -> assertFalse(cancelBeforeGroup),
+                        () -> assertTrue(recorded.isEmpty(), "a reused PID is never signalled: " + recorded),
                         () -> assertFalse(SubprocessJobRunner.pidReused(
                                         new PmExecLauncher.Launched(first, first.pid())),
                                 "the process the runner started is not a reused PID"),
@@ -1353,7 +1381,9 @@ class SubprocessJobRunnerTest {
                                 "a PID no process owns leaves a surviving group to be terminated"));
             } finally {
                 first.destroyForcibly();
+                second.destroyForcibly();
                 first.waitFor(10, TimeUnit.SECONDS);
+                second.waitFor(10, TimeUnit.SECONDS);
             }
         }
 

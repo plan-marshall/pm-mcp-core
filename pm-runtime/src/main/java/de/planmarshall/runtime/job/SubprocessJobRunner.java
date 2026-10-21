@@ -143,8 +143,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * A job leaves the running jobs only once its settlement has run, on every path the runner owns: an exception of the
  * {@link OutputParser}, of the derivation of the settled record or of the {@link TerminationProtocol}, also an
  * {@link Error} on the thread that waits for the job, is followed by a fallback settlement from what the runner observed
- * before the exception is passed on. A fallback that fails as well is followed by a last-resort ended record
- * ({@code indeterminate}, row 5), so the job does not stay {@code running}. What is guaranteed is that a settlement was
+ * before the exception is passed on. A fallback that fails as well is followed by a last-resort attempt: the record the
+ * fallback was about to write is written again, and a minimal ended record ({@code indeterminate}, row 5) is written
+ * when the derivation itself failed, so the job does not stay {@code running}. What is guaranteed is that a settlement was
  * attempted: the job is settled, or its settlement stopped at a failed step ({@code PM_RUNTIME-207}), or a fault of the
  * lock manager inside the settlement itself was passed on; in the last two cases the record stays {@code running} and
  * the recovery of the next runtime start settles it. The failure is logged with {@code PM_RUNTIME-208}, which names the
@@ -682,10 +683,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /**
-     * Reads the record of a job this runner started, from its store.
+     * Reads the record of a job this runner started: a settled record from the runner's bounded window of them, a job
+     * whose fate is not recorded yet from its store.
      *
      * @param jobId the job
-     * @return the record; empty for a job this runner did not start
+     * @return the record; empty for a job this runner did not start, or for a settled one outside the window
      * @throws StoreRefusal         if the record is unreadable
      * @throws UncheckedIOException if the record cannot be read
      */
@@ -940,11 +942,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Terminates the process group of a job by the PID of its process handle, never by the one its log reports: this
      * path must end the process the runner started, and a report that differs would leave it running while the wait
-     * that follows has no bound. A process that ended by itself in the meantime is not signalled, because its PID may
-     * have been reused by now. When the termination protocol does not reach the job (its signal is refused, or it
-     * fails with an exception or an error), the process is destroyed through its handle, so it is never left running;
-     * the failure of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not replace a
-     * failure this path follows.
+     * that follows has no bound. A PID whose live process started elsewhere was reused and is not signalled; a group
+     * that outlived its leader is still the job's and is terminated with steps 1 to 3, and step 4 (the bare PID) is
+     * skipped because the leader has ended. When the termination protocol does not reach the job (its signal is
+     * refused, or it fails with an exception or an error), the process is destroyed through its handle, so it is never
+     * left running; the failure of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not
+     * replace a failure this path follows.
      *
      * @return whether the termination reached the job before its group existed
      */
@@ -954,7 +957,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         try {
             // A PID reused by another process is not signalled; a group that outlived its leader is still the job's.
             if (!pidReused(launched)) {
-                var report = termination.terminate(launched.pid());
+                var report = termination.terminate(launched.pid(), launched.process().isAlive());
                 reached = report.ending() != Ending.SIGNAL_REFUSED;
                 cancelBeforeGroup = report.cancelBeforeGroup();
             }
@@ -976,12 +979,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * started at another instant is a reused PID.
      */
     static boolean pidReused(Launched launched) {
-        var current = ProcessHandle.of(launched.pid()).flatMap(handle -> handle.info().startInstant());
-        if (current.isEmpty()) {
+        var handle = ProcessHandle.of(launched.pid());
+        if (handle.isEmpty()) {
             return false;
         }
+        var current = handle.flatMap(found -> found.info().startInstant());
         var own = launched.process().toHandle().info().startInstant();
-        return own.isEmpty() || !own.get().equals(current.get());
+        return current.isEmpty() || own.isEmpty() || !own.get().equals(current.get());
     }
 
     /**
@@ -989,7 +993,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * a job's process tree, with its PID and executable. A record the sink refuses is logged and does not stop the
      * settlement.
      */
-    void auditSurvivors(RunningJob job, List<ProcessTreeTracker.Survivor> survivors) {        for (var survivor : survivors) {
+    void auditSurvivors(RunningJob job, List<ProcessTreeTracker.Survivor> survivors) {
+        for (var survivor : survivors) {
             var details = new HashMap<String, Object>();
             details.put(DETAIL_JOB_ID, job.latest.jobId().value());
             details.put(DETAIL_PID, survivor.pid());
@@ -997,7 +1002,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             try {
                 audit.append(new AuditEvent(JOB_DESCENDANT_SURVIVED, AuditEvent.CATEGORY_SECURITY,
                         AuditEvent.OUTCOME_FAILED, details));
-            } catch (UncheckedIOException e) {
+            } catch (RuntimeException | Error e) {
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
             }
         }
@@ -1090,14 +1095,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 var pid = launched.pid();
                 // a PID reused by another process is not signalled; a group that outlived its leader is still the job's
                 if (!pidReused(launched)) {
-                    report = termination.terminate(pid);
+                    report = termination.terminate(pid, process.isAlive());
                     if (report.ending() == Ending.GROUP_KILLED) {
                         LOGGER.warn(WARN.JOB_TERMINATION_ESCALATED, job.latest.jobId(), pid, cause.name());
                     } else if (report.ending() == Ending.SIGNAL_REFUSED) {
                         process.destroyForcibly();
                     }
                 }
-                auditSurvivors(job, job.sweepTree());
+                job.sweepTree();
             }
             var exit = waitFor(process);
             interrupted |= exit.interrupted();

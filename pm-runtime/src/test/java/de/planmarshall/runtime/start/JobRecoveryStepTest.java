@@ -387,8 +387,7 @@ class JobRecoveryStepTest {
         @DisplayName("a record with a PID but no process start is refused, so the guard cannot be reached from it")
         void recordWithPidWithoutAProcessStartIsRefused() {
             // The record refuses a PID without the process start it was spawned with, so the guard's
-            // "no start recorded" branch cannot be reached from a stored record; the guard still treats it as
-            // unidentifiable, and the record's own invariant is asserted by JobRecordTest.
+            // "no start recorded" branch cannot be reached from a stored record.
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
                             () -> postSpawn(ownPid(), null, BOOT.plusSeconds(60))));

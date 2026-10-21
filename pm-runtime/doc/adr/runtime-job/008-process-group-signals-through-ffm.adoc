@@ -48,9 +48,9 @@ cannot be settled from this repository.
 * `ProcessGroupSignals.system()` binds `kill(2)` of the C library through FFM (`Linker`, `captureCallState("errno")`),
   no JNI library, in the package-private class `KillBinding`. It refuses a PID of 1 or less and one above the range of `pid_t` with `IllegalArgumentException`,
   because such an id would address every process, the caller's own group or `init`.
-* Everything that signals a job goes through the interface: `TerminationProtocol`, and the recovery step of
-  `runtime.start`. A test replaces it with a recording fake and asserts at the lowest signalling call, also that none was
-  made.
+* Everything that signals a job goes through the interface: `TerminationProtocol`, the process-tree sweep
+  (`ProcessTreeTracker`), and the recovery step of `runtime.start`. A test replaces it with a recording fake and asserts
+  at the lowest signalling call, also that none was made.
 * `TerminationProtocol` reads `ESRCH` as a fact: `ESRCH` from the group and then from the PID means the process has
   already ended, so nothing further is signalled and the report ends `GROUP_NOT_REACHED`; `ESRCH` from the group alone is
   the window before `setpgid`, retried against the group.

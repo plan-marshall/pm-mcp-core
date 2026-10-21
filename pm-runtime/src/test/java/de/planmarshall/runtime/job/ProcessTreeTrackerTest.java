@@ -118,18 +118,19 @@ class ProcessTreeTrackerTest {
     class Sweeps {
 
         @Test
-        @DisplayName("a member that left the tree after a refresh is ended by SIGTERM")
+        @DisplayName("a member that left the tree after a refresh is ended by SIGTERM and is no survivor")
         void detachedMemberIsEnded() {
             member(11);
             var tracker = tracker();
             tracker.refresh();
             tree.clear();
 
-            tracker.sweep();
+            var survivors = tracker.sweep();
 
             assertAll(
                     () -> assertEquals(List.of(new Call(11, Signal.SIGTERM)), signals.calls),
-                    () -> assertEquals(0, starts.size(), "the member ended"));
+                    () -> assertEquals(0, starts.size(), "the member ended"),
+                    () -> assertEquals(List.of(), survivors));
         }
 
         @Test
@@ -154,12 +155,14 @@ class ProcessTreeTrackerTest {
             tracker.refresh();
             tree.clear();
 
-            tracker.sweep();
+            var survivors = tracker.sweep();
 
             assertAll(
                     () -> assertEquals(List.of(new Call(11, Signal.SIGTERM), new Call(11, Signal.SIGKILL)),
                             signals.calls),
-                    () -> assertEquals(ProcessTreeTracker.SWEEP_GRACE, Duration.between(START, time.instant())));
+                    () -> assertEquals(List.of(new ProcessTreeTracker.Survivor(11, Optional.empty())), survivors),
+                    () -> assertEquals(ProcessTreeTracker.SWEEP_GRACE.plus(ProcessTreeTracker.POLL_INTERVAL),
+                            Duration.between(START, time.instant())));
         }
 
         @Test

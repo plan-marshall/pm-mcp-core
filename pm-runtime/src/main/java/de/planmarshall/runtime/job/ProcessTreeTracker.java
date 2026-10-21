@@ -186,6 +186,10 @@ public final class ProcessTreeTracker {
         for (var pid : left) {
             signals.signalProcess(pid, Signal.SIGKILL);
         }
+        if (!left.isEmpty()) {
+            // give SIGKILL a moment, so a process it ended is not reported as a survivor
+            interrupted |= !sleep(POLL_INTERVAL);
+        }
         if (interrupted) {
             Thread.currentThread().interrupt();
         }

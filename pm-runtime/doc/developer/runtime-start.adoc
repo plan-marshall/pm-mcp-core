@@ -221,14 +221,14 @@ signalled. A record left `running` is settled by the first matching rule:
 
 |(a) |its `execution` is `in_process`: the operation died with the previous runtime |nothing; no orphan note
 |(b) |its `spawned_at` lies before the boot time of the system: the process cannot have survived the reboot |nothing
-|(c) |its `pid` is `null`, or the process the recorded `pid` names today did not start at the recorded
+|(c) |its `pid` is `null`, or the PID is held by a live process that started at another instant than the recorded
 `process_started_at` (within one second): the runtime ended between the spawn and the post-spawn replace, or the PID was
 reused |nothing; the step hands the
 audit sink one `job_recovered` record (category `store`, outcome `succeeded`, details `project_id`, `job_id` and
 `note: orphan unidentifiable`), which it builds itself
-|(d) |otherwise |the group is probed with `kill(-pgid, 0)`; a live group, whose leader's recorded start proves it is the
-job's group, is terminated with steps 1 to 3 of the `TerminationProtocol`; a group that no longer exists needs no
-termination
+|(d) |otherwise |the group is probed with `kill(-pgid, 0)`; a live group is terminated with steps 1 to 3 of the
+`TerminationProtocol`, also when no process owns the PID any more, because a group that still lives under that id is the
+job's; a group that no longer exists needs no termination
 |===
 
 The settled record carries the signal `runtime_restart` for a job nothing was sent to, the signal the termination
@@ -236,7 +236,7 @@ ended with for a terminated group (`SIGTERM` for a group that exited, `SIGKILL` 
 when no signal reached it or one was refused), and none for an in-process operation. The settlement runs through
 `JobSettlement`: the fate first, then the release of the slot that the caller's `JobRecoveryStep.Slots` names for the
 job; `Slots.NONE` names none. Every signal goes through `ProcessGroupSignals`, so a test asserts at the lowest signalling
-call that rules (a) to (c) send none.
+call that rules (a) to (c), and a reused PID, send none.
 
 The step reports the jobs settled per rule, the groups terminated and the workers among them. The *worker part* of the
 step (the fence of a worker's generation, the revocation of its token, the release of its task lease and the removal of

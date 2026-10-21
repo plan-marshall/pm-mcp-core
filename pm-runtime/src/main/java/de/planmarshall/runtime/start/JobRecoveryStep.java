@@ -69,8 +69,8 @@ import de.planmarshall.runtime.job.TerminationProtocol;
  * directory) belongs to the launch of workers and is a seam: a worker's record is settled like every other, and the
  * report names the seam.
  * <p>
- * Every signal goes through {@link ProcessGroupSignals}, so a test asserts at the lowest signalling call that the rules
- * which send none, and a reused PID, send none. A step that cannot read the job records, hand over the orphan note or record a fate fails, and
+ * Every signal goes through {@link ProcessGroupSignals}, so a test asserts at the lowest signalling call that rules
+ * (a) to (c), and a reused PID, send none. A step that cannot read the job records, hand over the orphan note or record a fate fails, and
  * the recovery of its project stops there; a job whose fate was not recorded is settled by the next recovery.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Process Termination &
