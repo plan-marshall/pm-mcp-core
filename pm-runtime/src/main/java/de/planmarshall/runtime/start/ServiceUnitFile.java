@@ -26,6 +26,11 @@ import java.util.Objects;
  * {@code ~/.config/systemd/user/}). The home directory and the value of {@code XDG_CONFIG_HOME} are inputs, never
  * read from the environment here, so the unit can be rendered and written for any home. The unit names the
  * daemon by its absolute path, never through {@code PATH}.
+ * <p>
+ * A reinstall keeps what it replaces beside the unit, so a failed load can be undone: {@code <unit>.previous} holds
+ * the bytes of the unit in force and {@code <unit>.reinstall} marks a reinstall whose load has not completed. Both are
+ * written before the new unit is loaded; they are dropped after a successful load, before the restore's own load, and
+ * by an uninstall. Neither is a unit file.
  *
  * @param platform      the service manager the unit is for
  * @param home          the user's home directory
@@ -41,6 +46,12 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
 
     /** The name of the {@code systemd} user unit. */
     public static final String SYSTEMD_UNIT = "pm-mcpd.service";
+
+    /** The suffix of the sibling that keeps the bytes of the unit a reinstall replaces. */
+    private static final String PREVIOUS_SUFFIX = ".previous";
+
+    /** The suffix of the sibling that marks a reinstall whose load has not completed. */
+    private static final String REINSTALL_SUFFIX = ".reinstall";
 
     private static final String LAUNCHD_TEMPLATE = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -165,16 +176,113 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
      */
     public void write() {
         var file = path();
-        var tmp = file.resolveSibling(file.getFileName() + ".tmp");
         try {
             Files.createDirectories(file.getParent(), PosixModes.directoryAttribute());
-            Files.deleteIfExists(tmp);
-            Files.createFile(tmp, PosixModes.fileAttribute());
-            Files.writeString(tmp, render(), StandardCharsets.UTF_8);
-            Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            writeAtomically(file, render().getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new ServiceUnitException("Service unit '" + file + "' could not be written", e);
         }
+    }
+
+    /**
+     * @return the sibling that keeps the bytes of the unit a reinstall replaces
+     */
+    Path previousPath() {
+        var file = path();
+        return file.resolveSibling(file.getFileName() + PREVIOUS_SUFFIX);
+    }
+
+    /**
+     * @return the sibling that marks a reinstall whose load has not completed
+     */
+    Path reinstallPath() {
+        var file = path();
+        return file.resolveSibling(file.getFileName() + REINSTALL_SUFFIX);
+    }
+
+    /**
+     * @return whether a reinstall left a kept pair that a start restores, because its load did not complete or its
+     *         drop did not finish
+     */
+    boolean restorePending() {
+        return Files.exists(reinstallPath());
+    }
+
+    /**
+     * Keeps what a failed load restores: the bytes of the unit in force, or, when no unit is installed, the absence of
+     * a kept unit. A reinstall whose load did not complete already keeps the unit in force, so its pair is copied from
+     * neither the unit file nor dropped: the copy in place is the unit in force, and the unit file holds the new unit
+     * that never loaded. For a fresh reinstall the copy is written before the marker, so a stop between the two leaves
+     * no marker and nothing to restore; a pair left without a marker is overwritten by the next install.
+     *
+     * @return {@code true} when this call wrote the pair, {@code false} when a pending pair was left untouched
+     * @throws ServiceUnitException if the kept unit or the marker cannot be written
+     */
+    public boolean keepForRestore() {
+        var file = path();
+        try {
+            if (restorePending()) {
+                return false;
+            }
+            Files.createDirectories(file.getParent(), PosixModes.directoryAttribute());
+            if (exists()) {
+                writeAtomically(previousPath(), Files.readAllBytes(file));
+            } else {
+                Files.deleteIfExists(previousPath());
+            }
+            writeAtomically(reinstallPath(), new byte[0]);
+            return true;
+        } catch (IOException e) {
+            throw new ServiceUnitException(
+                    "What an install of service unit '" + file + "' restores could not be kept", e);
+        }
+    }
+
+    /**
+     * Writes the kept bytes of the unit back, or removes the unit when no unit was kept. The kept pair stays until
+     * {@link #discardRestore()} is called; the caller decides when, because its load can end the caller.
+     *
+     * @return {@code true} when the kept unit was written back, {@code false} when the unit was removed because no
+     *         unit was kept
+     * @throws ServiceUnitException if the kept unit cannot be read, written back or removed
+     */
+    public boolean restore() {
+        var file = path();
+        try {
+            if (Files.exists(previousPath())) {
+                Files.createDirectories(file.getParent(), PosixModes.directoryAttribute());
+                writeAtomically(file, Files.readAllBytes(previousPath()));
+                return true;
+            }
+            Files.deleteIfExists(file);
+            return false;
+        } catch (IOException e) {
+            throw new ServiceUnitException("Service unit '" + file + "' could not be restored", e);
+        }
+    }
+
+    /**
+     * Forgets the kept unit of a reinstall whose load succeeded or whose restore completed. The marker goes before
+     * the copy, so a stop between the two leaves no marker and a copy nobody restores.
+     *
+     * @throws ServiceUnitException if the marker or the kept unit cannot be deleted
+     */
+    public void discardRestore() {
+        var file = path();
+        try {
+            Files.deleteIfExists(reinstallPath());
+            Files.deleteIfExists(previousPath());
+        } catch (IOException e) {
+            throw new ServiceUnitException("The kept state of service unit '" + file + "' could not be removed", e);
+        }
+    }
+
+    private static void writeAtomically(Path file, byte[] bytes) throws IOException {
+        var tmp = file.resolveSibling(file.getFileName() + ".tmp");
+        Files.deleteIfExists(tmp);
+        Files.createFile(tmp, PosixModes.fileAttribute());
+        Files.write(tmp, bytes);
+        Files.move(tmp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 
     /**

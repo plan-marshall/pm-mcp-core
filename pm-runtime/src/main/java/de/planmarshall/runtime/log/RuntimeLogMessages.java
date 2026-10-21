@@ -325,6 +325,26 @@ public final class RuntimeLogMessages {
                 .identifier(32)
                 .template("First recording of credential store '%s' from '%s' resumed from phase '%s' and completed")
                 .build();
+
+        /**
+         * Logged when a restore wrote the kept unit of a reinstall back and loaded it, or when the restore of a start
+         * did so after an interrupted reinstall; names the unit file.
+         */
+        public static final LogRecord SERVICE_UNIT_RESTORED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(33)
+                .template("Service unit '%s' restored and loaded from the copy a reinstall kept")
+                .build();
+
+        /**
+         * Logged when a restore removes the new unit file instead of writing a kept one back, because the reinstall
+         * found no unit installed; nothing is unloaded.
+         */
+        public static final LogRecord SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(34)
+                .template("Service unit '%s' removed, the reinstall kept no previous unit")
+                .build();
     }
 
     /** WARN level messages. */
@@ -660,6 +680,31 @@ public final class RuntimeLogMessages {
                 .prefix(PREFIX)
                 .identifier(134)
                 .template("Credential store '%s' cannot be read while a store is recorded, taken as holding no integrity key: %s")
+                .build();
+
+        /**
+         * Logged when the marker or the kept copy of a reinstall cannot be deleted before a restore's load, or when the
+         * kept unit cannot be read, written back or removed; names the unit file and the failure. A marker that stayed,
+         * and any failure before the drop, leave the pair for the next start, which tries the restore again; a copy
+         * that alone stayed, and a load that failed after the drop, are not retried. `install` reports the restore's
+         * failure suppressed under the load's failure.
+         */
+        public static final LogRecord SERVICE_UNIT_RESTORE_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(135)
+                .template("Service unit '%s' could not be restored: %s")
+                .build();
+
+        /**
+         * Logged when the kept pair of a reinstall whose load succeeded cannot be dropped; names the unit file and the
+         * failure. The install stays a success. When the marker stays, the next start treats the reinstall as
+         * unfinished and restores the kept unit, or removes the unit file when none was kept; when only the copy
+         * stays, the next start does nothing and the next install overwrites the copy.
+         */
+        public static final LogRecord SERVICE_UNIT_KEPT_NOT_DROPPED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(136)
+                .template("The kept state of service unit '%s' could not be removed after a successful load: %s")
                 .build();
     }
 
