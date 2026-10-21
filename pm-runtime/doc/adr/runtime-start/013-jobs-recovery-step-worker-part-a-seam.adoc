@@ -24,10 +24,13 @@ repository builds against the deployed `SNAPSHOT` of this one.
 * `JobRecoveryStep` is the jobs part of `JOBS_AND_WORKERS`: every job left `queued` or `running` in the project's job
   records is settled `ended`/`killed` by outcome row 4, never adopted and never executed again. A queued job is not
   signalled; a running one is settled by the first matching rule: (a) an in-process operation, not signalled and no
-  orphan note; (b) spawned before the boot time of the system, not signalled; (c) no recorded PID, not signalled, with
-  the audit record `job_recovered` noting `orphan unidentifiable`, which the step builds itself
-  (`JobRecoveryStep.orphanNote`); (d) otherwise the group is probed with `kill(-pgid, 0)` and a live group terminated with
-  steps 1 to 3 of the termination protocol.
+  orphan note; (b) spawned before the boot time of the system, not signalled; (c) no recorded PID, or a recorded PID
+  whose process today started at another instant than the recorded `process_started_at`: not signalled, with the audit
+  record `job_recovered` noting `orphan unidentifiable`, which the step builds itself (`JobRecoveryStep.orphanNote`);
+  (d) otherwise the group is probed with `kill(-pgid, 0)` and a live group terminated with steps 1 to 3 of the
+  termination protocol. Rule (c)'s PID-reuse guard was added by PLAN-84 (amended 2026-10-21): a PID may be reused after
+  the job ended, and a group of the recorded id is the job's group only while its process started when the job spawned
+  (within one second, the precision of the launch report).
 * The settlement runs through `JobSettlement`: the fate first, then the slot the caller's `JobRecoveryStep.Slots` names;
   `Slots.NONE` names none. The boot time and the slots are the caller's.
 * The worker part of the step stays a seam: a worker's record is settled like every other job's, and the report of the
@@ -58,6 +61,7 @@ there (finding 3f46fc); further reasons not recorded.
 * Work package link:https://github.com/plan-marshall/pm-mcp-core/blob/065001e/doc/plans/job-runner.adoc[`job-runner`] (PLAN-20)
 * Q-Gate finding 3f46fc of PLAN-20 (the contract of `ProjectRecovery.withEnrolment`)
 * link:006-lifecycle-engines-behind-narrow-seams.adoc[ADR 006]
+* PLAN-84 `job-runner-residuals` (the PID-reuse guard of rule (c), 2026-10-21)
 * link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#per-project-recovery[Runtime Model § Per-Project Recovery] (step 3)
 * link:../../../../doc/specification/store-schemas/10-job-and-lesson-records.adoc#job-record[Store Schemas § Job Record] (Recovery)
 * `pm-runtime/src/main/java/de/planmarshall/runtime/start/JobRecoveryStep.java`, `ProjectRecovery.java`,

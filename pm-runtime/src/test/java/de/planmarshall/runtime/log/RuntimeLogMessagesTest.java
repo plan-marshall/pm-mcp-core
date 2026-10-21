@@ -183,7 +183,7 @@ class RuntimeLogMessagesTest {
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SETTLEMENT_STEP_FAILED, "PM_RUNTIME-207",
                         "Settlement of job '%s' stopped at step '%s': %s"),
                 Arguments.of(RuntimeLogMessages.ERROR.JOB_SUPERVISION_FAILED, "PM_RUNTIME-208",
-                        "Supervision of job '%s' failed, its settlement ran from what the runner observed: %s"));
+                        "Supervision of job '%s' failed: %s"));
     }
 
     @ParameterizedTest(name = "{1}")

@@ -773,13 +773,15 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the virtual thread that waits for a job fails with an exception or an error, after its fallback
-         * settlement from what the runner observed has run; names the job and the failure.
+         * Logged when the virtual thread that waits for a job fails with an exception or an error; names the job and the
+         * failure. A settlement from what the runner observed may have run before it, but it need not have: a fault of
+         * the lock manager can be the failure itself or precede the fallback, and a job whose fate was not recorded is
+         * settled by the recovery of the next runtime start.
          */
         public static final LogRecord JOB_SUPERVISION_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(208)
-                .template("Supervision of job '%s' failed, its settlement ran from what the runner observed: %s")
+                .template("Supervision of job '%s' failed: %s")
                 .build();
     }
 }

@@ -221,11 +221,14 @@ signalled. A record left `running` is settled by the first matching rule:
 
 |(a) |its `execution` is `in_process`: the operation died with the previous runtime |nothing; no orphan note
 |(b) |its `spawned_at` lies before the boot time of the system: the process cannot have survived the reboot |nothing
-|(c) |its `pid` is `null`: the runtime ended between the spawn and the post-spawn replace |nothing; the step hands the
+|(c) |its `pid` is `null`, or the process the recorded `pid` names today did not start at the recorded
+`process_started_at` (within one second): the runtime ended between the spawn and the post-spawn replace, or the PID was
+reused |nothing; the step hands the
 audit sink one `job_recovered` record (category `store`, outcome `succeeded`, details `project_id`, `job_id` and
 `note: orphan unidentifiable`), which it builds itself
-|(d) |otherwise |the group is probed with `kill(-pgid, 0)`; a live group, which within one boot is the job's group, is
-terminated with steps 1 to 3 of the `TerminationProtocol`; a group that no longer exists needs no termination
+|(d) |otherwise |the group is probed with `kill(-pgid, 0)`; a live group, whose leader's recorded start proves it is the
+job's group, is terminated with steps 1 to 3 of the `TerminationProtocol`; a group that no longer exists needs no
+termination
 |===
 
 The settled record carries the signal `runtime_restart` for a job nothing was sent to, the signal the termination
@@ -430,8 +433,9 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
    two racing reads append one record and announce no transition twice. A refused record leaves the episode open for the
    next read.
 6. **Never signal a job nobody can identify**: an in-process operation, a job spawned before the boot and a job whose
-   record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
-   recorded PID of an earlier boot may belong to anyone now.
+   record carries no PID are settled without a signal. Only a group probed live within this boot is terminated, and only
+   while the process the recorded PID names today started at the recorded `process_started_at`; a PID of an earlier boot,
+   or one reused since, may belong to anyone now and gets the orphan note instead.
 7. **Never adopt a job of a previous runtime**: every unsettled job is settled `killed`, never resumed or started again.
 8. **Keep before the load; drop after the install's load, before the restore's**: the copy and the marker are file work
    and go before every command that can end the caller. An install drops the pair only after its load succeeded, because

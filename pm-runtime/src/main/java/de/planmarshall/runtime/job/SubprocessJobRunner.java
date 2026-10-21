@@ -136,10 +136,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * A job leaves the running jobs only once its settlement has run, on every path the runner owns: an exception of the
  * {@link OutputParser}, of the derivation of the settled record or of the {@link TerminationProtocol}, also an
  * {@link Error} on the thread that waits for the job, is followed by a fallback settlement from what the runner observed
- * before the exception is passed on. What is guaranteed is that the settlement ran: the job is settled, or its
- * settlement stopped at a failed step ({@code PM_RUNTIME-207}), or a fault of the lock manager inside the settlement
- * itself was passed on; in the last two cases the record stays {@code running} and the recovery of the next runtime
- * start settles it.
+ * before the exception is passed on. A fallback that fails as well is followed by a last-resort ended record
+ * ({@code indeterminate}, row 5), so the job does not stay {@code running}. What is guaranteed is that a settlement was
+ * attempted: the job is settled, or its settlement stopped at a failed step ({@code PM_RUNTIME-207}), or a fault of the
+ * lock manager inside the settlement itself was passed on; in the last two cases the record stays {@code running} and
+ * the recovery of the next runtime start settles it. The failure is logged with {@code PM_RUNTIME-208}, which names the
+ * failure and not a guarantee that the settlement ran.
  * <p>
  * Specification: {@code doc/specification/job-runtime/01-pipeline-and-subprocesses.adoc} (Subprocess Lifecycle &
  * Process-Group Isolation; Process Termination & Cancellation Protocol; Outcome Derivation);
@@ -780,8 +782,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * A job whose process was started leaves the running jobs only settled as well: when its post-spawn record cannot
      * be written, or the thread that waits for it cannot be started, its process group is terminated and the job is
      * settled from its observed end ({@code settleUnsupervised}) before the failure is passed on to the caller. A
-     * failure of the thread that waits for the job ({@code supervise}) is logged with {@code PM_RUNTIME-208} after
-     * that thread's fallback settlement has run.
+     * failure of the thread that waits for the job ({@code supervise}) is logged with {@code PM_RUNTIME-208} after that
+     * thread's fallback settlement has been attempted.
      */
     private JobRunner.StartResult run(RunningJob job, Function<Path, Launch> launchOf) {
         var jobId = job.latest.jobId();
@@ -900,10 +902,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     /**
      * Terminates the process group of a job by the PID of its process handle, never by the one its log reports: this
      * path must end the process the runner started, and a report that differs would leave it running while the wait
-     * that follows has no bound. When the termination protocol does not reach the job (its signal is refused, or it
-     * fails with an exception), the process is destroyed through its handle, so it is never left running; the failure
-     * of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not replace a failure this
-     * path follows.
+     * that follows has no bound. A process that ended by itself in the meantime is not signalled, because its PID may
+     * have been reused by now. When the termination protocol does not reach the job (its signal is refused, or it
+     * fails with an exception or an error), the process is destroyed through its handle, so it is never left running;
+     * the failure of the protocol is logged with {@code PM_RUNTIME-132} and not passed on, so it does not replace a
+     * failure this path follows.
      *
      * @return whether the termination reached the job before its group existed
      */
@@ -995,9 +998,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * observed then ({@code terminateAndSettle}). An {@link Error}, such as a {@link StackOverflowError} of a regular
      * expression in the parser, takes the same path, because only {@code finally} blocks carry it. The failure is
      * passed on to the thread's handler, which logs it with {@code PM_RUNTIME-208}; a failure of the fallback
-     * settlement itself replaces it. A fate that cannot be written stops the settlement at its failed step
-     * ({@code PM_RUNTIME-207}), and a fault of the lock manager inside the settlement is passed on: in both cases the
-     * record stays {@code running} and the recovery of the next runtime start settles it.
+     * settlement itself is followed by a last-resort ended record, so the job is not left {@code running}. A fate that
+     * cannot be written stops the settlement at its failed step ({@code PM_RUNTIME-207}), and a fault of the lock
+     * manager inside the settlement is passed on: in both cases the record stays {@code running} and the recovery of
+     * the next runtime start settles it.
      */
     private void supervise(RunningJob job, Launched launched, Instant spawnedAt, long observedLength) {
         var interrupted = false;
@@ -1122,7 +1126,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * Derives the fate of an ended process job and settles it. When the derivation fails before the settlement started
      * (the {@link OutputParser}, which this runner does not own, or the settled record), the job is settled from the
      * same observation without the parser's finding, so the parser is never called again, and the failure is passed on.
-     * A failure of that fallback replaces the failure it follows.
+     * A failure of that fallback is followed by a last-resort ended record.
      */
     private void settleEnded(RunningJob job, Ended ended, long observedLength) {
         try {
