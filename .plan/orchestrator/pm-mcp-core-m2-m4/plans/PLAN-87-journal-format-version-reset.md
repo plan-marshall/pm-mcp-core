@@ -22,7 +22,9 @@ The operator decided on 2026-10-13 that every versioned artifact stays at versio
 3. **The documents.** `pm-core/doc/developer/core-store.adoc` (the passages "The journal is written in `format_version` 3", the version-2 refusal row and the test line), ADR `pm-core/doc/adr/core-store/007-delete-mode-of-the-transaction-journal.adoc` (it records the bump: record the decision that the journal's shape is version 1 instead, in the form of the ADR template and without a bump; the number of the ADR does not change), and the Store Schemas specification part that shows `"format_version"` for the journal (`store-schemas/01-format-and-session-log.adoc` and what `git grep` finds).
 4. **The same sweep for the others.** `git grep` the repository for `format_version` and `FORMAT_VERSION` with a value other than 1 in code, fixtures, schemas, specification examples and ADRs; report each in the pull request body, and fix those the operator's decision of 2026-10-13 covers.
 
-**Done when:** `TransactionJournal.FORMAT_VERSION` is 1; no file of the repository states a journal `format_version` of 2 or 3 except as the refused example of a test; the journal tests, the recovery tests and `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green; the pull request body lists the sweep of Deliverable 4.
+5. **The open SonarCloud issues of the landed pull requests #120, #121 and #122 (added by the operator on 2026-10-21).** Fix the 29 issues the landings left untriaged, in the code, not with a suppression (a rename, a method reference, a constant, an unnamed pattern, a split lambda, a simpler expression, a removed parameter): #120 one (`java:S7467`, `PortedFixtures`); #121 ten (`S6213` x5 restricted identifiers, `S5961` too many assertions in one method, `S1130`, `S9358`, `S5778`, `S1172` unused parameter `from`); #122 eighteen (`S5778` x5, `S7467` x3, `S6213` x2, `S1612` x2, `S1192` x2 CRITICAL duplicate literals in `AuditEvent`, `S3400`, `S9358`, `S8786` a super-linear regex, `S1172` unused `projectId` in `WrapperVerification`). Re-list them first (the lines below are those of the pull-request heads; the files changed on `main` since), fix those still open on `main`, and report in the pull request body each issue as fixed, already gone, or dismissed with the reason — a dismissal (`wontfix`, `falsepositive`) needs a stated reason and is the exception. A behaviour change is out of scope: where a fix would alter what a test asserts or what a method returns, keep the behaviour and say so.
+
+**Done when:** `TransactionJournal.FORMAT_VERSION` is 1; every issue of Deliverable 5 is fixed or reported as gone or dismissed with a reason, and the SonarCloud analysis of the pull request lists none of them as new; no file of the repository states a journal `format_version` of 2 or 3 except as the refused example of a test; the journal tests, the recovery tests and `verify`, `verify -Ppre-commit`, `verify -Pcoverage` and `verify -Pintegration-tests` are green; the pull request body lists the sweep of Deliverable 4.
 
 **Trace starting set:**
 
@@ -63,6 +65,10 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
   - verdict: unverifiable | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
 - HYPOTHESIS: `store-schemas/01-format-and-session-log.adoc` is the only specification part that shows the journal version — confirm/refute with `git grep -n 'format_version' -- doc/specification` (verify-at-outline)
   - verdict: unverifiable | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan
+- OBSERVED: SonarCloud lists open issues on the pull requests #120 (1), #121 (10) and #122 (18), in 14 files that all exist on `main` — `https://sonarcloud.io/api/issues/search?componentKeys=plan-marshall_pm-mcp-core&pullRequest={120,121,122}&resolved=false` and `git cat-file -e origin/main:{file}` at c7780a0
+  - verdict: corroborated | checked_at: c7780a05ea58a266df83113ab35e3b8ab7c1bff5 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: the API returned totals 1, 10 and 18 on 2026-10-21; the 14 distinct files were each found at origin/main c7780a0
+- HYPOTHESIS: the issues are still open against `main` after the merge of the pull requests — confirm/refute with the SonarCloud issue search on the `main` branch (verify-at-outline)
+  - verdict: unverifiable | checked_at: c7780a05ea58a266df83113ab35e3b8ab7c1bff5 | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: hypothesis, verify-at-outline by the executing plan; the lines belong to the pull-request heads
 - Verify-first clause: before editing, list the open pull requests for one that touches `TransactionJournal`, and re-run the two greps of the hypotheses at `main`; a refutation of any claim above loops back to re-scope.
   - verdict: unverifiable | checked_at: 98ce971c84fefa9a4650a1e115274c257e61f3fb | by: pm-mcp-core-m2-m4/analyze | rescoped: n/a | evidence: procedural clause for the executing plan at refine, not evaluable now
 
@@ -78,6 +84,20 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - OBSERVED: `pm-core/doc/developer/core-store.adoc` — the journal passages
 - OBSERVED: `pm-core/doc/adr/core-store/007-delete-mode-of-the-transaction-journal.adoc` — records the decision without a bump
 - HYPOTHESIS: `doc/specification/store-schemas/01-format-and-session-log.adoc` — the journal version, if it shows one
+- OBSERVED: `pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/ported/PortedFixtures.java` — Deliverable 5 (#120)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/CredentialStoreChoice.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/CredentialStoreMoveResume.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreChoiceTest.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreMoveRecordParityTest.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreMoveRecordTest.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/credentials/CredentialStoreMoveTest.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/CredentialStoreMoveResumeTest.java` — Deliverable 5 (#121)
+- OBSERVED: `pm-core/src/main/java/de/planmarshall/core/service/AuditEvent.java` — Deliverable 5 (#122; shared hot file)
+- OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/AuditCodecTest.java` — Deliverable 5 (#122)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/job/WrapperVerification.java` — Deliverable 5 (#122; PLAN-84 may touch the job runner)
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/start/StalledScopeDetector.java` — Deliverable 5 (#122)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/job/JobRefusalTest.java` — Deliverable 5 (#122)
+- OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/start/StalledScopeDetectorTest.java` — Deliverable 5 (#122)
 
 ## Dependencies and Sequencing
 
