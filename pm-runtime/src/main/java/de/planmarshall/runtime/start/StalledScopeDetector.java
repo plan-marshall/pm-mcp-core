@@ -216,11 +216,14 @@ public final class StalledScopeDetector {
             opened.set(hold);
             return hold;
         });
-        if (ended.get() != null) {
-            operator.holdReleased(ended.get(), HOLD_RELEASED);
-        }
-        if (opened.get() != null) {
-            operator.holdOpened(opened.get());
+        try {
+            if (ended.get() != null) {
+                operator.holdReleased(ended.get(), HOLD_RELEASED);
+            }
+        } finally {
+            if (opened.get() != null) {
+                operator.holdOpened(opened.get());
+            }
         }
         return new Activity(Optional.of(hold));
     }

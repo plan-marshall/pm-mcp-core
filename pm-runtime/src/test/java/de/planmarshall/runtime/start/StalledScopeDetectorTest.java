@@ -385,6 +385,33 @@ class StalledScopeDetectorTest {
     }
 
     @Test
+    @DisplayName("a release announcement that fails still announces the hold of the new episode")
+    void shouldAnnounceTheNewHoldWhenTheReleaseFails() {
+        var detector = new StalledScopeDetector(records::add, new OperatorPort() {
+
+            @Override
+            public void holdOpened(StalledHold hold) {
+                opened.add(hold);
+            }
+
+            @Override
+            public void holdReleased(StalledHold hold, String report) {
+                throw new IllegalStateException("the operator stream is gone");
+            }
+        });
+        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
+        var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
+
+        var thrown = assertThrows(IllegalStateException.class,
+                () -> detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_400)));
+
+        assertAll(
+                () -> assertEquals("the operator stream is gone", thrown.getMessage()),
+                () -> assertEquals(2, records.size()),
+                () -> assertEquals(2, opened.size()));
+    }
+
+    @Test
     @DisplayName("a paused scope that has a stall episode open releases it by itself as well")
     void shouldReleaseWhenTheScopeIsPaused() {
         var detector = detector();

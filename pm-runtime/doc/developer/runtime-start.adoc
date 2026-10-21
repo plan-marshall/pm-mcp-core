@@ -28,7 +28,8 @@ one `transaction_id` per record the pending-record step owes. Last, it covers wh
   record maximum age.
 
 The periodic sweep has no seam factory any more: the steps are real classes, and the assembly `pm-mcp-server`
-registers them when it builds the `PeriodicSweep`
+must register `PendingEntryRecordsSweep` when it builds the `PeriodicSweep` — it still calls
+`SweepStep.notImplemented` and does not build against the current snapshot until its registration pull request lands
 (link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
 
 The work package `job-runner` added the jobs part of recovery step 3 (<<_jobs_recovery_step>>), whose worker part stays

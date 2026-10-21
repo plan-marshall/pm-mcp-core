@@ -18,9 +18,9 @@ import java.util.TreeSet;
  * Why the verify-not-resolve pipeline refused a job (PM-EXEC-2): a value, never an exception.
  * <p>
  * The detail is a diagnostic for the caller and the log; it never carries a value of the argument vector or a secret.
- * A refusal as {@link Reason#BUILD_CONFIG_CHANGED} names every changed repository-relative path. No refusal names an
- * operator act: what the operator must do is a hold or an operator wait of the scope, never text a caller relays
- * (Hypermedia Format Specification, No Operator Relay; PM-WF-20).
+ * A refusal as {@link Reason#BUILD_CONFIG_CHANGED} names every changed repository-relative path. A refusal has no
+ * operator-command component: what the operator must do is a hold or an operator wait of the scope, never text a
+ * caller relays (Hypermedia Format Specification, No Operator Relay; PM-WF-20).
  *
  * @param reason       why the job is refused
  * @param detail       the diagnostic, without a secret and without a value of the argument vector
