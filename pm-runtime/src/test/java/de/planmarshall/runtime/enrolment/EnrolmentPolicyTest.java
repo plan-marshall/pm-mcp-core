@@ -34,14 +34,14 @@ import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.ArgumentSchema;
 import de.planmarshall.core.store.ProjectEnrolment.Argv;
 import de.planmarshall.core.store.ProjectEnrolment.Binding;
-import de.planmarshall.core.store.ProjectEnrolment.Interpreter;
-import de.planmarshall.core.store.ProjectEnrolment.ProjectScript;
-import de.planmarshall.core.store.ProjectEnrolment.SchemaType;
-import de.planmarshall.core.store.ProjectEnrolment.WorkerKind;
 import de.planmarshall.core.store.ProjectEnrolment.Build;
 import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
+import de.planmarshall.core.store.ProjectEnrolment.Interpreter;
+import de.planmarshall.core.store.ProjectEnrolment.ProjectScript;
 import de.planmarshall.core.store.ProjectEnrolment.Provider;
 import de.planmarshall.core.store.ProjectEnrolment.ProviderVerification;
+import de.planmarshall.core.store.ProjectEnrolment.SchemaType;
+import de.planmarshall.core.store.ProjectEnrolment.WorkerKind;
 
 /**
  * The enrolment policy (PM-EXEC-1, PM-EXEC-2): the four rules the specification states in concrete terms, checked on

@@ -304,8 +304,9 @@ class EnrolmentsTest {
         void refusesPatternAboveCeiling() {
             var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
 
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> enrolments.enrol(withArgumentSchema(enrolment(false, null), patternSchema(above)), false));
+            var candidate = withArgumentSchema(enrolment(false, null), patternSchema(above));
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
 
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
@@ -322,8 +323,9 @@ class EnrolmentsTest {
             properties.put("100%s", patternSchema(above));
             var root = new ArgumentSchema(SchemaType.OBJECT, properties, null, false, null, null, null, null, null);
 
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> enrolments.enrol(withArgumentSchema(enrolment(false, null), root), false));
+            var candidate = withArgumentSchema(enrolment(false, null), root);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
 
             assertAll(
                     () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
@@ -340,8 +342,9 @@ class EnrolmentsTest {
             var objectSchema = new ArgumentSchema(SchemaType.OBJECT, new TreeMap<>(), null, false, null, "^[a-z]+$",
                     null, null, above);
 
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> enrolments.enrol(withArgumentSchema(enrolment(false, null), untyped), false));
+            var candidate = withArgumentSchema(enrolment(false, null), untyped);
+
+            var refusal = assertThrows(StoreRefusal.class, () -> enrolments.enrol(candidate, false));
             var written = enrolments.enrol(withArgumentSchema(enrolment(false, null), objectSchema), false);
 
             assertAll(
