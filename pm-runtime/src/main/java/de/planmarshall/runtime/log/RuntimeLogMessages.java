@@ -707,6 +707,16 @@ public final class RuntimeLogMessages {
                 .identifier(137)
                 .template("The surviving descendant of job '%s' could not be audited: %s")
                 .build();
+
+        /**
+         * Logged when the sweep of a job's remembered descendants fails; names the job and the failure. The sweep is
+         * not retried and the job is settled regardless, so the settlement is never blocked by a failing sweep.
+         */
+        public static final LogRecord JOB_DESCENDANT_SWEEP_FAILED = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(138)
+                .template("The descendant sweep of job '%s' failed, the job is settled without it: %s")
+                .build();
     }
 
     /** ERROR level messages. */

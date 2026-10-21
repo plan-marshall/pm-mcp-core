@@ -53,7 +53,8 @@ job spec its job would need: which build verb, which tool, which arguments.
 * What is guaranteed is that the settlement ran, not that it succeeded: the job is settled, or its settlement stopped
   at a failed step (a fate that cannot be written, `PM_RUNTIME-207`), or a fault of the lock manager inside the
   settlement was passed on. In the last two cases the record stays `running` and the recovery of the next runtime
-  start settles it. A failure of the fallback settlement itself replaces the failure it follows.
+  start settles it. A failure of the fallback settlement itself is added as suppressed to the failure it follows and is
+  followed by a last-resort attempt (`PM_RUNTIME-209` if that write fails too); the original failure is passed on.
 * No row of the outcome derivation names the termination of a job whose post-spawn record failed, and the runner
   invents none: it records no termination cause, and the evidence decides. A process ended by the runner's signal is
   `killed` by row 4, which the specification names for a process ended by any other signal and which is the closest
@@ -72,9 +73,9 @@ Alternatives not recorded beyond those of ADR core-service/001 of `pm-core`.
 * A job started through either port is the same job: one record, one log, one cancel.
 * A later supervisor launches workers itself and records them in the same job record store.
 * `recordOf(jobId)` and `awaitSettled(jobId, timeout)` answer the settled record of a job that left the running jobs,
-  from a bounded window of the most recent settled records (ADR 012); the durable record of an older one is read from
-  its store. A record whose fate could not be written, or whose settlement met a fault of the lock manager, stays
-  `running` until the next runtime start.
+  from a bounded window of the most recent settled records (ADR 012); the durable record of an older one the caller
+  reads from its store separately. A record whose fate could not be written, or whose settlement met a fault of the lock
+  manager, stays `running` until the next runtime start.
 * A job whose output parser fails is settled without the parser's finding: an exit `0` is then `indeterminate` by
   row 8, a non-zero exit decided by row 10.
 

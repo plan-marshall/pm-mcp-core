@@ -1442,6 +1442,45 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("a sweep that throws is logged and does not keep the job from being settled")
+        void failingSweepDoesNotAbortTheSettlement() {
+            var start = Instant.parse("2026-10-21T10:00:00Z");
+            ProcessGroupSignals throwing = new ProcessGroupSignals() {
+
+                @Override
+                public Answer signalGroup(long pgid, Signal signal) {
+                    throw new IllegalStateException("the primitive failed");
+                }
+
+                @Override
+                public Answer signalProcess(long pid, Signal signal) {
+                    throw new IllegalStateException("the primitive failed");
+                }
+            };
+            var tracker = new ProcessTreeTracker(4242, root -> Set.of(new ProcessTreeTracker.Member(11, start)),
+                    pid -> Optional.of(start), throwing, InstantSource.system(), duration -> {
+                    });
+            tracker.refresh();
+            var jobId = JobId.random(JobId.Kind.PROBE);
+            var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
+                    .scope(new Scope(Scope.Type.MACHINE, null)).status(Status.RUNNING).budgetKey(BUDGET_KEY)
+                    .budgetSeconds(30).budgetDerivation(FLOOR).argvDigest("ab".repeat(32))
+                    .confinement(JobRecord.Confinement.UNAVAILABLE).createdAt(Instant.now())
+                    .clampedValues(List.of()).build();
+            var job = new SubprocessJobRunner.RunningJob(jobRecord, null, new JobBudget(BUDGET_KEY, 30, FLOOR),
+                    Set.of());
+            job.tracks(tracker);
+
+            var survivors = job.sweepTree();
+
+            assertAll(
+                    () -> assertEquals(List.of(), survivors, "the sweep answers no survivor"),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "the test runner starts no job"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            "The descendant sweep of job '%s' failed".formatted(jobId)));
+        }
+
+        @Test
         @DisplayName("the child's wall time runs from its reported start and never exceeds the job's")
         void childWall() {
             var spawnedAt = Instant.parse("2026-10-17T10:00:00Z");
@@ -1708,10 +1747,12 @@ class SubprocessJobRunnerTest {
             Thread.currentThread().interrupt();
 
             var awaited = runner.awaitReport(job, process, new JobLog(logPath), Instant.now().plusSeconds(30));
+            var interruptStatus = Thread.interrupted();
 
             assertAll(
                     () -> assertTrue(awaited.report().isEmpty()),
-                    () -> assertEquals(0L, awaited.observedLength()));
+                    () -> assertEquals(0L, awaited.observedLength()),
+                    () -> assertTrue(interruptStatus, "the interrupt is restored for the caller"));
         }
     }
 

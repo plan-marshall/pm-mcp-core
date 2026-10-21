@@ -28,9 +28,10 @@ repository builds against the deployed `SNAPSHOT` of this one.
   whose process today started at another instant than the recorded `process_started_at`: not signalled, with the audit
   record `job_recovered` noting `orphan unidentifiable`, which the step builds itself (`JobRecoveryStep.orphanNote`);
   (d) otherwise the group is probed with `kill(-pgid, 0)` and a live group terminated with steps 1 to 3 of the
-  termination protocol. Rule (c)'s PID-reuse guard was added by PLAN-84 (amended 2026-10-21): a PID may be reused after
-  the job ended, and a group of the recorded id is the job's group only while its process started when the job spawned
-  (within one second, the precision of the launch report).
+  termination protocol. Rule (c)'s PID-reuse guard was added by PLAN-84 (amended 2026-10-21): a live process that holds
+  the recorded PID and started at another instant was reused, and neither its group nor the PID is signalled; a PID
+  that no process owns any more was not reused, and a group still living under it is the job's surviving group, which
+  steps 1 to 3 end.
 * The settlement runs through `JobSettlement`: the fate first, then the slot the caller's `JobRecoveryStep.Slots` names;
   `Slots.NONE` names none. The boot time and the slots are the caller's.
 * The worker part of the step stays a seam: a worker's record is settled like every other job's, and the report of the

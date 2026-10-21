@@ -433,9 +433,10 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
    two racing reads append one record and announce no transition twice. A refused record leaves the episode open for the
    next read.
 6. **Never signal a job nobody can identify**: an in-process operation, a job spawned before the boot and a job whose
-   record carries no PID are settled without a signal. Only a group probed live within this boot is terminated, and only
-   while the process the recorded PID names today started at the recorded `process_started_at`; a PID of an earlier boot,
-   or one reused since, may belong to anyone now and gets the orphan note instead.
+   record carries no PID are settled without a signal. Only a group probed live within this boot is terminated: while
+   the process the recorded PID names today started at the recorded `process_started_at`, or while no process owns the
+   PID any more (the group outlived its leader). A PID of an earlier boot, or one a live process with another start
+   holds now, may belong to anyone and gets the orphan note instead.
 7. **Never adopt a job of a previous runtime**: every unsettled job is settled `killed`, never resumed or started again.
 8. **Keep before the load; drop after the install's load, before the restore's**: the copy and the marker are file work
    and go before every command that can end the caller. An install drops the pair only after its load succeeded, because

@@ -120,6 +120,7 @@ public final class ProcessTreeTracker {
     private final InstantSource clock;
     private final TerminationProtocol.Pause pause;
     private final Map<Long, Instant> members = new ConcurrentHashMap<>();
+    private final Optional<Instant> rootStartedAt;
 
     /**
      * @param root     the job PID, the root of the tree
@@ -147,10 +148,18 @@ public final class ProcessTreeTracker {
         this.signals = Objects.requireNonNull(signals, "signals");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pause = Objects.requireNonNull(pause, "pause");
+        this.rootStartedAt = this.starts.of(root);
     }
 
-    /** Remembers the descendants the job has now; a member seen earlier stays remembered. */
+    /**
+     * Remembers the descendants the job has now; a member seen earlier stays remembered. Nothing is recorded once the
+     * root is gone or its PID belongs to a process that started at another instant: the descendants of a reused root are
+     * not the job's.
+     */
     public void refresh() {
+        if (!starts.of(root).equals(rootStartedAt)) {
+            return;
+        }
         for (var member : descendants.of(root)) {
             members.put(member.pid(), member.startedAt());
         }

@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
@@ -88,6 +89,7 @@ class ProcessTreeTrackerTest {
     }
 
     private void member(long pid) {
+        starts.put(ROOT, START);
         tree.add(new Member(pid, START));
         starts.put(pid, START);
     }
@@ -109,6 +111,21 @@ class ProcessTreeTrackerTest {
                     () -> assertEquals(Set.of(11L, 12L), tracker.members()),
                     () -> assertEquals(List.of(), signals.calls, "a refresh signals nothing"));
         }
+        @Test
+        @DisplayName("a reused root PID records nothing new: the descendants below it are not the job's")
+        void reusedRootRecordsNothing() {
+            member(11);
+            var tracker = tracker();
+            tracker.refresh();
+            starts.put(ROOT, START.plus(Duration.ofHours(1)));
+            tree.add(new Member(12, START));
+
+            tracker.refresh();
+
+            assertAll(
+                    () -> assertEquals(Set.of(11L), tracker.members()),
+                    () -> assertEquals(List.of(), signals.calls));
+        }
     }
 
     @Nested
@@ -127,8 +144,7 @@ class ProcessTreeTrackerTest {
 
             assertAll(
                     () -> assertEquals(List.of(new Call(11, Signal.SIGTERM)), signals.calls),
-                    () -> assertEquals(0, starts.size(), "the member ended"),
-                    () -> assertEquals(List.of(), survivors));
+                    () -> assertFalse(starts.containsKey(11L), "the member ended"),                    () -> assertEquals(List.of(), survivors));
         }
 
         @Test

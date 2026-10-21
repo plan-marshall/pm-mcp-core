@@ -1167,7 +1167,10 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var exit = process.onExit();
         var interrupted = false;
         while (true) {
-            job.refreshTree();
+            if (process.isAlive()) {
+                // only while the job's own process lives: a reused root PID would enrol the strangers below it
+                job.refreshTree();
+            }
             if (exit.isDone()) {
                 return new Awaited(job.closeCancelDoor(), interrupted);
             }
@@ -1536,9 +1539,19 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         }
 
         /** Ends the remembered descendants still alive; nothing for a job without a tree. */
+        // java:S1181 does not apply: a sweep that fails must not prevent the settlement; the failure is logged.
+        @SuppressWarnings("java:S1181")
         List<ProcessTreeTracker.Survivor> sweepTree() {
             var current = tree;
-            return current == null ? List.of() : current.sweep();
+            if (current == null) {
+                return List.of();
+            }
+            try {
+                return current.sweep();
+            } catch (RuntimeException | Error e) {
+                LOGGER.warn(e, WARN.JOB_DESCENDANT_SWEEP_FAILED, latest.jobId(), e.getMessage());
+                return List.of();
+            }
         }
 
         /**
