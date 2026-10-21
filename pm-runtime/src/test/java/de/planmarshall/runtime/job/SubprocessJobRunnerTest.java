@@ -65,6 +65,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -317,6 +318,41 @@ class SubprocessJobRunnerTest {
                     () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.INFO,
                             "Job '%s' of kind 'git' started (pid %s, budget 30 seconds)".formatted(jobId,
                                     running.pid())));
+        }
+
+        @Test
+        @DisplayName("the store map is pruned when the fate is recorded; the settled record stays readable")
+        void storeMapIsPruned() {
+            var jobId = started(runner.start(git(60, "sleep", "60")));
+            var heldWhileRunning = runner.storesHeld();
+
+            var cancelled = runner.cancel(jobId, CancelCause.ENGINE_CANCEL);
+            var settled = settled(jobId);
+
+            assertAll(
+                    () -> assertTrue(cancelled),
+                    () -> assertEquals(1, heldWhileRunning, "the running job's store is held"),
+                    () -> assertEquals(0, runner.storesHeld(), "the settled job's store is pruned"),
+                    () -> assertEquals(Optional.of(settled), runner.recordOf(jobId),
+                            "the settled record is still read"),
+                    () -> assertEquals(Optional.of(settled), runner.awaitSettled(jobId, Duration.ZERO)));
+        }
+
+        @Test
+        @DisplayName("a write-ahead record that cannot be written leaves no running job and no store")
+        void writeAheadFailureRegistersNothing() throws IOException {
+            var directory = Files.createDirectories(jobs.directoryPath());
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
+            try {
+                assertThrows(UncheckedIOException.class, () -> runner.start(git(30, "ok")));
+
+                assertAll(
+                        () -> assertTrue(runner.runningJobs().isEmpty(), "the job was never registered"),
+                        () -> assertEquals(0, runner.storesHeld(), "no store was left behind"),
+                        () -> assertTrue(jobs.records().isEmpty(), "no record was written"));
+            } finally {
+                Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+            }
         }
 
         @Test
@@ -1100,6 +1136,34 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("a thread that cannot be started terminates and settles the job before the failure is passed on")
+        void threadCannotBeStarted() throws IOException {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var failure = new IllegalStateException("no virtual thread");
+            runner = SubprocessJobRunner.builder().base(fixture.base).lockManager(locks)
+                    .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
+                    .termination(new TerminationProtocol(ProcessGroupSignals.system()))
+                    .environment(job -> ENVIRONMENT).probeEnvironment(candidate -> ENVIRONMENT)
+                    .parser((kind, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .supervision((name, onFailure, task) -> {
+                        throw failure;
+                    }).build();
+            var request = git(600, "sleep", "600");
+
+            var thrown = assertThrows(IllegalStateException.class, () -> runner.start(request));
+
+            var settled = jobs.records().getFirst();
+            assertAll(
+                    () -> assertEquals(failure, thrown, "the failure is passed on to the caller"),
+                    () -> assertEquals(Status.ENDED, settled.status(), "the job does not stay running"),
+                    () -> assertEquals(Fate.KILLED, settled.fate()),
+                    () -> assertEquals(4, settled.outcomeRow()),
+                    () -> assertEquals("SIGTERM", settled.signal(), "the started process was terminated"),
+                    () -> assertTrue(runner.runningJobs().isEmpty(), "no job is left running"),
+                    () -> assertEquals(0, runner.storesHeld(), "the settled job's store is pruned"));
+        }
+
+        @Test
         @DisplayName("matched control: a job whose parser and termination work is settled without a failure")
         void nothingFails() {
             var jobId = started(runner.start(git(30, "ok")));
@@ -1500,14 +1564,83 @@ class SubprocessJobRunnerTest {
         }
     }
 
+    @Nested
+    @DisplayName("keeps the interrupt status of every wait and ends the wait with it")
+    class Interrupts {
+
+        @TempDir
+        Path temp;
+
+        private SubprocessJobRunner.RunningJob job() {
+            return new SubprocessJobRunner.RunningJob(null, null, new JobBudget(BUDGET_KEY, 30, FLOOR), Set.of());
+        }
+
+        @Test
+        @DisplayName("the wait for the process reports the interrupt and still returns the exit")
+        void waitForReportsInterrupt() {
+            var exit = SubprocessJobRunner.waitFor(new StubProcess(() -> true, true));
+
+            assertAll(
+                    () -> assertEquals(7, exit.value()),
+                    () -> assertTrue(exit.interrupted()));
+        }
+
+        @Test
+        @DisplayName("the wait for the end of the process reports the interrupt; the exit still ends it")
+        void awaitEndOrCauseReportsInterrupt() {
+            var process = new StubProcess(() -> true);
+            var job = job();
+            job.launched(process);
+            Thread.currentThread().interrupt();
+            var ending = CompletableFuture.runAsync(() -> {
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException _) {
+                    Thread.currentThread().interrupt();
+                }
+                process.ended();
+            });
+
+            var awaited = runner.awaitEndOrCause(job, process, Instant.now().plusSeconds(30));
+            ending.join();
+
+            assertAll(
+                    () -> assertTrue(awaited.interrupted()),
+                    () -> assertEquals(Optional.empty(), awaited.cause()));
+        }
+
+        @Test
+        @DisplayName("the wait for the launch report reports the interrupt by ending without one")
+        void awaitReportReportsInterrupt() throws IOException {
+            var logPath = temp.resolve("job.log");
+            Files.writeString(logPath, "");
+            var process = new StubProcess(() -> true);
+            var job = job();
+            job.launched(process);
+            Thread.currentThread().interrupt();
+
+            var awaited = runner.awaitReport(job, process, new JobLog(logPath), Instant.now().plusSeconds(30));
+
+            assertAll(
+                    () -> assertTrue(awaited.report().isEmpty()),
+                    () -> assertEquals(0L, awaited.observedLength()));
+        }
+    }
+
     /** A process whose exit and liveness the test controls. */
     private static final class StubProcess extends Process {
-
         private final CompletableFuture<Process> exit = new CompletableFuture<>();
         private final BooleanSupplier alive;
+        private final boolean interruptOnFirstWait;
+        private int waits;
 
         StubProcess(BooleanSupplier alive) {
+            this(alive, false);
+        }
+
+        StubProcess(BooleanSupplier alive, boolean interruptOnFirstWait) {
             this.alive = alive;
+            this.interruptOnFirstWait = interruptOnFirstWait;
         }
 
         /** Completes the exit of the process. */
@@ -1541,8 +1674,11 @@ class SubprocessJobRunnerTest {
         }
 
         @Override
-        public int waitFor() {
-            return 0;
+        public int waitFor() throws InterruptedException {
+            if (interruptOnFirstWait && waits++ == 0) {
+                throw new InterruptedException("the test interrupts the wait");
+            }
+            return 7;
         }
 
         @Override

@@ -24,7 +24,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,6 +39,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import lombok.Builder;
 
@@ -203,6 +206,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private static final SignalTable SIGNALS = SignalTable.of(System.getProperty("os.name", ""));
 
     /**
+     * How many settled records the runner keeps after it pruned their store: {@link #recordOf(JobId)} answers a
+     * settled job of this window, and the durable record of an older one is read from its store by the caller.
+     */
+    static final int SETTLED_RECORD_CACHE = 1024;
+
+    /**
      * The closed tables of the names of the signals 1 to 31 by their numbers. The two systems agree on 19 numbers, 1
      * to 6, 8, 9, 11, 13 to 15, 21, 22 and 24 to 28, and name the other 12 differently: 7, 10, 12, 16 to 20, 23 and
      * 29 to 31 (on macOS, for example, 7 is {@code SIGEMT}, 10 {@code SIGBUS}, 12 {@code SIGSYS}, and 30 and 31 are
@@ -253,13 +262,26 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     private final OutputParser parser;
     private final PrimitiveJobs primitives;
     private final InstantSource clock;
+    private final Supervision supervision;
 
     /**
-     * The store of every job this runner started, kept after the job is settled and never pruned, because
-     * {@link #recordOf(JobId)} and {@link #awaitSettled(JobId, Duration)} read a settled job through it once it has left
-     * the running jobs.
+     * The store of every job this runner started and whose settlement has not recorded its fate yet. A job whose fate
+     * is recorded leaves this map: its record is kept in {@link #settledRecords}, so the map does not grow with every
+     * settled job.
      */
     private final Map<JobId, JobRecordStore> stores = new ConcurrentHashMap<>();
+
+    /**
+     * The most settled records of jobs whose store was pruned, newest last, read by {@link #recordOf(JobId)}. Bounded:
+     * the durable record stays in the job's store, which a caller that needs an older one reads itself.
+     */
+    private final Map<JobId, JobRecord> settledRecords =
+            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<JobId, JobRecord> eldest) {
+                    return size() > SETTLED_RECORD_CACHE;
+                }
+            });
     private final Map<JobId, RunningJob> running = new ConcurrentHashMap<>();
     private final Map<JobId, QueuedJob> queued = new ConcurrentHashMap<>();
 
@@ -288,12 +310,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * @param parser           the parser of the job log of an ended job that is no probe
      * @param primitives       the jobs of the primitives the engine port starts
      * @param clock            the clock of the records and the budgets; {@code null} for the system clock
+     * @param supervision      how the thread that waits for a job is started; {@code null} for a virtual thread per job
      * @throws NullPointerException if an argument other than the clock is {@code null}
      */
     @Builder
     private SubprocessJobRunner(Path base, LockManager lockManager, VerifyNotResolvePipeline pipeline,
             PmExecLauncher launcher, TerminationProtocol termination, Environment environment,
-            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock) {
+            ProbeEnvironment probeEnvironment, OutputParser parser, PrimitiveJobs primitives, InstantSource clock,
+            Supervision supervision) {
         this.base = Objects.requireNonNull(base, "base").toAbsolutePath().normalize();
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
         this.pipeline = Objects.requireNonNull(pipeline, "pipeline");
@@ -304,6 +328,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         this.parser = Objects.requireNonNull(parser, "parser");
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.clock = clock == null ? InstantSource.system() : clock;
+        this.supervision = supervision == null ? Supervision.VIRTUAL_THREADS : supervision;
     }
 
     /**
@@ -352,6 +377,27 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
          * @return what the parser found
          */
         ParseResult parse(JobId.Kind kind, String output);
+    }
+
+    /**
+     * How the thread that waits for a job is started. It is a seam for the failure of the start itself, whose path
+     * terminates the started process and settles the job before the failure is passed on to the caller.
+     *
+     * @since 0.1
+     */
+    @FunctionalInterface
+    public interface Supervision {
+
+        /** Starts one virtual thread per job; the only implementation the runtime uses. */
+        Supervision VIRTUAL_THREADS = (name, onFailure, task) -> Thread.ofVirtual().name(name)
+                .uncaughtExceptionHandler((thread, failure) -> onFailure.accept(failure)).start(task);
+
+        /**
+         * @param name       the name of the thread
+         * @param onFailure  what the thread's uncaught-exception handler runs, with the failure
+         * @param task       what the thread runs
+         */
+        void start(String name, Consumer<Throwable> onFailure, Runnable task);
     }
 
     /**
@@ -463,7 +509,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     first = draft.status(Status.REFUSED).fate(outcome.fate()).outcomeRow(outcome.row())
                             .refusalReason(refusal.reason().code()).endedAt(now).build();
                     store.writeFate(transaction, first);
-                    stores.put(jobId, store);
+                    settledRecords.put(jobId, first);
                 } else {
                     draft.argvDigest(argvDigest(((ProbeVerification.Verified) verification).argv()));
                     first = admit(transaction, store, draft);
@@ -595,8 +641,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     private void settleQueued(QueuedJob waiting, OutcomeDerivation.Outcome outcome) {
-        settleRecord(waiting.store(), waiting.job().toBuilder().status(Status.ENDED).fate(outcome.fate())
-                .outcomeRow(outcome.row()).endedAt(clock.instant()).build());
+        var settled = waiting.job().toBuilder().status(Status.ENDED).fate(outcome.fate())
+                .outcomeRow(outcome.row()).endedAt(clock.instant()).build();
+        if (settleRecord(waiting.store(), settled)) {
+            settledRecords.put(settled.jobId(), settled);
+            stores.remove(settled.jobId());
+        }
     }
 
     /**
@@ -610,7 +660,16 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     @Override
     public Optional<JobRecord> recordOf(JobId jobId) {
         Objects.requireNonNull(jobId, ARG_JOB_ID);
+        var settled = settledRecords.get(jobId);
+        if (settled != null) {
+            return Optional.of(settled);
+        }
         return Optional.ofNullable(stores.get(jobId)).flatMap(store -> store.read(jobId));
+    }
+
+    /** @return the stores the runner holds for jobs whose settlement has not recorded their fate yet */
+    int storesHeld() {
+        return stores.size();
     }
 
     /**
@@ -676,10 +735,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                     .fate(outcome.fate()).outcomeRow(outcome.row()).refusalReason(reason).endedAt(now).build();
             store.writeFate(transaction, settled);
         }
-        stores.put(settled.jobId(), store);
+        settledRecords.put(settled.jobId(), settled);
         LOGGER.info(INFO.JOB_SETTLED, settled.jobId(), settled.fate().wireName(), settled.outcomeRow());
-        return new JobRunner.StartResult.Refused(reason);
-    }
+        return new JobRunner.StartResult.Refused(reason);    }
 
     /**
      * Writes the write-ahead record, launches the job and, when its launch report arrives in time, writes its
@@ -760,10 +818,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 writePostSpawn(job, reported);
             }
             var length = observedLength;
-            Thread.ofVirtual().name("job-" + jobId)
-                    .uncaughtExceptionHandler((thread, failure) -> LOGGER.error(failure,
-                            ERROR.JOB_SUPERVISION_FAILED, jobId, failure))
-                    .start(() -> supervise(job, launched, spawnedAt, length));
+            supervision.start("job-" + jobId,
+                    failure -> LOGGER.error(failure, ERROR.JOB_SUPERVISION_FAILED, jobId, failure),
+                    () -> supervise(job, launched, spawnedAt, length));
             supervised = true;
         } finally {
             if (!supervised) {
@@ -874,7 +931,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /** Takes a job out of the running jobs and completes the wait for its settlement with its record. */
     private void leave(RunningJob job, boolean interrupted) {
-        running.remove(job.latest.jobId());
+        var jobId = job.latest.jobId();
+        running.remove(jobId);
+        if (job.latest.status().isSettled()) {
+            settledRecords.put(jobId, job.latest);
+            stores.remove(jobId);
+        }
         job.settled.complete(job.latest);
         if (interrupted) {
             Thread.currentThread().interrupt();
@@ -882,7 +944,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /** The launch report and how much of the log was read for it. */
-    private record AwaitedReport(Optional<LaunchReport> report, long observedLength) {
+    record AwaitedReport(Optional<LaunchReport> report, long observedLength) {
     }
 
     /**
@@ -897,7 +959,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * has passed. The deadline is that of the report wait, not the budget of the job: a launcher that hangs before it
      * writes its report must not hold the start for the whole budget, and a cancel ends the wait at once.
      */
-    private AwaitedReport awaitReport(RunningJob job, Process process, JobLog log, Instant deadline) {
+    AwaitedReport awaitReport(RunningJob job, Process process, JobLog log, Instant deadline) {
         var interrupted = false;
         try {
             while (true) {
@@ -1025,14 +1087,14 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /** The exit value of an ended process. */
-    private record Exit(int value, boolean interrupted) {
+    record Exit(int value, boolean interrupted) {
     }
 
     // java:S2142 does not apply: the interrupt is deferred, not swallowed. Re-interrupting inside the loop would make the
     // next waitFor throw at once, so the wait for the process end would never complete; the flag is returned in
     // Exit.interrupted() and every caller passes it to leave(), which restores it once the job is settled.
     @SuppressWarnings("java:S2142")
-    private static Exit waitFor(Process process) {
+    static Exit waitFor(Process process) {
         var interrupted = false;
         while (true) {
             try {
