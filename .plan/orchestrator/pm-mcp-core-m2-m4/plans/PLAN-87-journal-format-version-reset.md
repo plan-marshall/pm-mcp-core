@@ -72,7 +72,6 @@ Set by the operator for every plan of this epic on 2026-10-09, beside the rules 
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/TransactionJournalTest.java` — the version cases
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/JournalRecoveryTest.java` — journal fixtures
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/ScopeTransactionTest.java` — journal fixtures
-- HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/ScopeSessionLogTest.java` — journal fixtures
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/PendingEntryStoreTest.java` — journal fixtures
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/ScopeIntegrityTest.java` — journal fixtures
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/EnrolmentStoreTest.java` — journal fixtures

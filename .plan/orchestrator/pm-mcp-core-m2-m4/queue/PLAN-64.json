@@ -2,10 +2,10 @@
   "id": "PLAN-64",
   "slug": "removed-concepts",
   "workstream": "WS-02",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-64-removed-concepts",
+  "pr": "#122",
+  "landing": "landings/PLAN-64.md",
   "seq": 64
 }
