@@ -776,6 +776,8 @@ decision or a dependency outside this repository.
   cause. Expect it from PLAN-81 too; treat it as a fixed property of the opencode runbook landing until the harness measures tokens.
   **Recurred on 2026-10-20 (PLAN-81, `rb-81-unit-frontmatter-hardening-001.md`):** `total_tokens=unknown`, same cause; all three opencode runbook
   landings carry it. Kept open as a standing property, not per landing.
+  **Recurred on 2026-10-21 (PLAN-90, `rb-90-ported-tests-advisories-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same cause; the
+  fourth opencode runbook landing.
 - **The port `QuestionRecordReader` cannot address a pending entry.** `ReadRequest(Optional<String> scopeId, String questionId)` names a plan, an
   epic or the workspace, nothing else, so a `question` state of a pending entry (an entity of the workspace scope) cannot be resolved through the
   adapter PLAN-88 shipped. Reported by the lane and corroborated against the record's two components (`pm-core` `core.spi`). No package owns it: a
@@ -873,6 +875,13 @@ decision or a dependency outside this repository.
   `5ca7772`, not the merged head `ead74de`, and the merge went in on the operator's selected "Merge with the gap"; `total_tokens` unknown. Two lane-contract
   lessons are for plan-marshall's lessons-routing inbox. Retire the watch's "unreliable self-report" half after PLAN-81 and PLAN-88 only if the
   operator agrees; the Antigravity case stays open.
+  Fourth opencode runbook landing (PLAN-90, #120, 2026-10-21), verified: the squash `73ec37a` is on `main`, 30 checks pass, and the eight merged files
+  match the four deliverables (no production code; fixtures, two `.adoc` files, three test-tree Java files). The `run` advisory is refuted as the
+  landing says (both `@throws` present at `WorktreeShaScenario.java:126-127`). One file was beyond the declared surface (`WorktreeShaPortedTest.java`,
+  one added probe). The lane's own test, link and Sonar claims were not re-run here; `total_tokens` unknown; the landing again reports the stale
+  executor (`build-classify` unknown, canonical build names rejected).
+- **One SonarCloud issue on PR #120 is untriaged (unverified lead).** The landing reports quality gate passed and 1 new issue it did not read; the
+  orchestrator did not read it either. Check the PR's Sonar page before the next change to `pm-provider-git` tests.
 - **The trust assumptions of the question reader before it is wired (unverified lead).** CodeRabbit's architecture review of #116 says the
   confinement keeps the check-time limitation of `WorkspaceConfinement` (the snapshot opens the path after the check) and that an out-of-band
   change of `questions.jsonl` that is still syntactically valid is not detected (no digest, no replay). It proposes fixing the ownership and
@@ -935,6 +944,9 @@ decision or a dependency outside this repository.
   (`quality-gate`, `module-tests`, `verify`, `test-compile`) were rejected by the executor, so the operator chose the literal commands of
   `CLAUDE.md`; plan-reported, the `resolve` symptom not re-run here. PLAN-81 landed with no `unknown_verb` reported and its gates run. The executor
   of this checkout still maps `runbook_lane` to `0.1.1961` (0.1.1971 installed); regenerate it before the next runbook plan is emitted.
+  **Recurred on 2026-10-21 (PLAN-90):** `build-classify` is `unknown_verb`, `resolve` omits `base_branch`, `build_timeout_seconds` and `guard_log`, and
+  the canonical build names were rejected again (plan-reported); the operator chose the executor with real Maven arguments. PLAN-64 and PLAN-82
+  were emitted on the same executor.
 - The check command of `CLAUDE.md` (`../plan-marshall-documentation/…`) does not resolve inside a plan worktree, three
   directories deeper: PLAN-72's functional review graded the link criteria on indirect evidence until the command was run by hand.
   The Standing Constraints of PLAN-20 and PLAN-69 now carry the absolute-path command; add the same bullet to every other spec
