@@ -27,9 +27,9 @@ engine.
 * `ArgumentSchema` of `core.store` states one global ceiling, `PATTERN_MAX_LENGTH_CEILING`, 256 code points. It is a
   property of the schema type, so every reader of the admission sees the same number.
 * The runtime's enrolment policy refuses, before an enrolment is signed and at the re-baseline alike, an argument
-  schema of type `string` that carries a `pattern` and admits a `maxLength` above the ceiling, at its root or in one
-  of its properties. The refusal is a value in the policy's `violations()` list, like every other refusal there, and
-  the store refuses it as `enrolment_invalid`.
+  schema that matches a string by a pattern — a schema of type `string` or an untyped one — that admits a `maxLength`
+  above the ceiling, at its root or in one of its properties. The refusal is a value in the policy's `violations()`
+  list, like every other refusal there, and the store refuses it as `enrolment_invalid`.
 * The ceiling applies only to a schema that matches a string by a pattern: a non-string schema never reaches the
   engine, and its `maxLength`, if any, is not a regex cost.
 * The Job Runtime specification and the enrolment-store specification state the ceiling, so the rule and the code

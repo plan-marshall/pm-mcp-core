@@ -159,12 +159,14 @@ class EnrolmentPolicy {
     }
 
     /**
-     * Refuses a schema, at its root or in one of its properties, that matches a string by a pattern and admits a
+     * Refuses a schema, at its root or in one of its properties, that matches a string by a pattern — a schema of type
+     * {@code string} or an untyped one, both of which the validator applies its pattern to — and admits a
      * {@code maxLength} above {@link ArgumentSchema#PATTERN_MAX_LENGTH_CEILING}.
      */
     private static void schema(String place, ArgumentSchema schema, List<String> violations) {
         var maxLength = schema.maxLength();
-        if (schema.type() == ProjectEnrolment.SchemaType.STRING && schema.pattern() != null && maxLength != null
+        var matchesStrings = schema.type() == null || schema.type() == ProjectEnrolment.SchemaType.STRING;
+        if (matchesStrings && schema.pattern() != null && maxLength != null
                 && maxLength > ArgumentSchema.PATTERN_MAX_LENGTH_CEILING) {
             violations.add(place + ABOVE_CEILING.formatted(maxLength, ArgumentSchema.PATTERN_MAX_LENGTH_CEILING));
         }

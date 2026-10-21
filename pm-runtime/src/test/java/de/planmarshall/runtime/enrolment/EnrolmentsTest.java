@@ -331,6 +331,25 @@ class EnrolmentsTest {
                     () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
                     () -> assertFalse(Files.exists(store.file(PROJECT))));
         }
+
+        @Test
+        @DisplayName("refuses an untyped schema above the ceiling and admits a non-string one")
+        void untypedAndNonStringSchemas() {
+            var above = ArgumentSchema.PATTERN_MAX_LENGTH_CEILING + 1;
+            var untyped = new ArgumentSchema(null, null, null, false, null, "^[a-z]+$", null, null, above);
+            var objectSchema = new ArgumentSchema(SchemaType.OBJECT, new TreeMap<>(), null, false, null, "^[a-z]+$",
+                    null, null, above);
+
+            var refusal = assertThrows(StoreRefusal.class,
+                    () -> enrolments.enrol(withArgumentSchema(enrolment(false, null), untyped), false));
+            var written = enrolments.enrol(withArgumentSchema(enrolment(false, null), objectSchema), false);
+
+            assertAll(
+                    () -> assertEquals(Outcome.ENROLMENT_INVALID, refusal.outcome()),
+                    () -> assertTrue(refusal.getMessage().contains("maxLength " + above), refusal.getMessage()),
+                    () -> assertEquals(above,
+                            written.projectScripts().get("parse-log").argumentSchema().maxLength().longValue()));
+        }
     }
 
     @Nested
