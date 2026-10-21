@@ -27,7 +27,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * failure is then reported with the restore's own failure suppressed, so the installation in force is unchanged and
  * install can be run again. A reinstall that the end of the caller cuts between the unload and the load, as on macOS,
  * leaves the kept unit beside the unit, and {@link #restore()}, the restore step a start runs first, writes it back
- * and loads it. Uninstall
+ * and loads it (the assembly does not wire that step yet). Uninstall
  * drops what an earlier reinstall kept, disables the unit, removes the file and unloads the unit; when disabling or
  * unloading fails the file is still removed, so a later install starts clean, and the failure is reported. Uninstall
  * without a unit issues no command and is no failure. A failing command of the service manager is logged as
@@ -60,15 +60,23 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     /**
      * Keeps the unit in force, writes the unit and loads it. When loading the new unit fails, the kept unit is written
      * back and loaded again, or, when no unit was installed, the new unit file is removed; the load failure is thrown
-     * with the restore's own failure suppressed.
+     * with the restore's own failure suppressed. A unit that cannot be written drops a pair this call kept, and
+     * leaves a pending pair of an interrupted reinstall as it is.
      *
      * @throws ServiceUnitException if the unit cannot be written or the service manager fails; the load failure is
      *                              thrown with a failing restore suppressed
      */
     public void install() {
-        unit.keepForRestore();
+        var kept = unit.keepForRestore();
         var path = unit.path();
-        unit.write();
+        try {
+            unit.write();
+        } catch (ServiceUnitException e) {
+            if (kept) {
+                throw discardAfter(e);
+            }
+            throw e;
+        }
         try {
             manager.load(path);
         } catch (ServiceUnitException e) {
@@ -121,8 +129,9 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
      *
      * @return {@code true} when a reinstall was pending and its kept unit was restored or removed, {@code false} when
      *         no reinstall was pending
-     * @throws ServiceUnitException if the kept unit cannot be restored; the unit file in force is the previous one,
-     *                              and a load that fails is reported but not retried by a later start
+     * @throws ServiceUnitException if the kept unit cannot be read, written back or removed, which leaves the pair
+     *                              for the next start, or if the restored unit cannot be loaded after the pair was
+     *                              dropped
      */
     public boolean restore() {
         if (!unit.restorePending()) {
@@ -164,8 +173,8 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
     }
 
     /**
-     * Drops the kept unit after a load that succeeded. A failure to drop it never fails the install: the new unit is
-     * loaded, and the next start rolls the unit file back, which the warning names.
+     * Drops the kept pair after a load that succeeded. A failure never fails the install: the warning names that the
+     * pair stayed, and a marker that stayed makes the next start treat the reinstall as unfinished.
      *
      * @param path the unit file that was loaded
      */
@@ -175,6 +184,22 @@ public record ServiceUnitInstaller(ServiceUnitFile unit, ServiceManager manager)
         } catch (ServiceUnitException e) {
             LOGGER.warn(e, WARN.SERVICE_UNIT_KEPT_NOT_DROPPED, path, e.getMessage());
         }
+    }
+
+    /**
+     * Drops the pair that this install kept when the unit itself cannot be written, and answers the failure the
+     * caller rethrows with the drop's own failure suppressed.
+     *
+     * @param failure the failure of the write
+     * @return {@code failure}, with the drop's failure suppressed when it had one
+     */
+    private ServiceUnitException discardAfter(ServiceUnitException failure) {
+        try {
+            unit.discardRestore();
+        } catch (ServiceUnitException discardFailure) {
+            failure.addSuppressed(discardFailure);
+        }
+        return failure;
     }
 
     /**

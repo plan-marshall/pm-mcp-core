@@ -48,10 +48,10 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     public static final String SYSTEMD_UNIT = "pm-mcpd.service";
 
     /** The suffix of the sibling that keeps the bytes of the unit a reinstall replaces. */
-    public static final String PREVIOUS_SUFFIX = ".previous";
+    private static final String PREVIOUS_SUFFIX = ".previous";
 
     /** The suffix of the sibling that marks a reinstall whose load has not completed. */
-    public static final String REINSTALL_SUFFIX = ".reinstall";
+    private static final String REINSTALL_SUFFIX = ".reinstall";
 
     private static final String LAUNCHD_TEMPLATE = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -187,7 +187,7 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     /**
      * @return the sibling that keeps the bytes of the unit a reinstall replaces
      */
-    public Path previousPath() {
+    Path previousPath() {
         var file = path();
         return file.resolveSibling(file.getFileName() + PREVIOUS_SUFFIX);
     }
@@ -195,7 +195,7 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     /**
      * @return the sibling that marks a reinstall whose load has not completed
      */
-    public Path reinstallPath() {
+    Path reinstallPath() {
         var file = path();
         return file.resolveSibling(file.getFileName() + REINSTALL_SUFFIX);
     }
@@ -203,24 +203,25 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     /**
      * @return whether a reinstall left its load unfinished, so what it kept is still to be restored
      */
-    public boolean restorePending() {
+    boolean restorePending() {
         return Files.exists(reinstallPath());
     }
 
     /**
-     * Keeps what a failed load restores: the bytes of the unit in force, or, when no unit is installed, the absence
-     * of a kept unit. A reinstall whose load did not complete already keeps the unit in force, so its pair is left
-     * untouched: copying the unit file then would keep the unit that never loaded instead. For a fresh reinstall the
-     * copy is written before the marker, so a stop between the two leaves no marker and nothing to restore; a pair
-     * left without a marker is overwritten by the next install.
+     * Keeps what a failed load restores: the bytes of the unit in force, or, when no unit is installed, the absence of
+     * a kept unit. A reinstall whose load did not complete already keeps the unit in force, so its pair is copied from
+     * neither the unit file nor dropped: the copy in place is the unit in force, and the unit file holds the new unit
+     * that never loaded. For a fresh reinstall the copy is written before the marker, so a stop between the two leaves
+     * no marker and nothing to restore; a pair left without a marker is overwritten by the next install.
      *
+     * @return {@code true} when this call wrote the pair, {@code false} when a pending pair was left untouched
      * @throws ServiceUnitException if the kept unit or the marker cannot be written
      */
-    public void keepForRestore() {
+    public boolean keepForRestore() {
         var file = path();
         try {
             if (restorePending()) {
-                return;
+                return false;
             }
             Files.createDirectories(file.getParent(), PosixModes.directoryAttribute());
             if (exists()) {
@@ -229,6 +230,7 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
                 Files.deleteIfExists(previousPath());
             }
             writeAtomically(reinstallPath(), new byte[0]);
+            return true;
         } catch (IOException e) {
             throw new ServiceUnitException(
                     "What an install of service unit '" + file + "' restores could not be kept", e);
@@ -236,12 +238,11 @@ public record ServiceUnitFile(Platform platform, Path home, String xdgConfigHome
     }
 
     /**
-     * Writes the kept bytes of the unit back, or removes the unit when no unit was installed. The kept state stays
-     * until {@link #discardRestore()} succeeds, so a restore whose load fails again is tried once more by the next
-     * start.
+     * Writes the kept bytes of the unit back, or removes the unit when no unit was kept. The kept pair stays until
+     * {@link #discardRestore()} is called; the caller decides when, because its load can end the caller.
      *
      * @return {@code true} when the kept unit was written back, {@code false} when the unit was removed because no
-     *         unit was installed
+     *         unit was kept
      * @throws ServiceUnitException if the kept unit cannot be read, written back or removed
      */
     public boolean restore() {

@@ -32,23 +32,24 @@ work package leaves the decision about that path open and asks for it in this AD
   force to `<unit>.previous` and then writes the marker `<unit>.reinstall`; a machine without a unit gets the marker
   but no copy. A pair an interrupted reinstall already keeps is left untouched, because the unit in force is then the
   kept one, not the new unit that never loaded on disk. The copy precedes the marker, so a stop between the two leaves
-  no restore to do.
+  no restore to do. A unit that cannot be written drops the pair this call kept; a pending pair is left as it is.
 * When loading the new unit fails, `install` calls the restore: `ServiceUnitFile.restore()` writes the kept bytes back
   and `ServiceManager.load` loads them again; with no kept copy it removes the new unit file and unloads nothing. The
   load failure is thrown with the restore's own failure suppressed, as `uninstall` reports its first failure.
 * The kept pair is dropped by `ServiceUnitFile.discardRestore()`, whose marker goes before the copy so a stop between
   the two leaves a copy nobody restores. `install` drops it after a successful load, and a drop that fails warns
-  (`PM_RUNTIME-136`) without failing the install. The restore drops it before its own load, because that load can end
-  the caller (macOS); a restore whose load then fails is reported and not retried, and the unit file in force is the
-  previous one.
+  (`PM_RUNTIME-136`) without failing the install: a marker that stays makes the next start treat the reinstall as
+  unfinished, while a copy that alone stays is overwritten by the next install. The restore drops the pair before its
+  own load, because that load can end the caller (macOS); a restore whose load then fails is reported and not retried,
+  and the unit file in force is the previous one.
 * **Plain install restores as well.** `pm-operator runtime install` uses the same `ServiceUnitInstaller.install`, so a
   failed load of a plain install undoes itself and the installation in force stays unchanged; "run it again" stays the
   way to retry an install, and it is now also the way back to the new unit. There is one behaviour, not a restoring
   upgrade path beside a reporting install path, and the file work is the same for both.
 * On macOS, where the caller ends inside the load, the kept pair is what survives. `ServiceUnitInstaller.restore()` is
-  the restore step a start runs first: it finds the marker, writes the kept unit back and loads it, or removes the new
-  unit file when there was none, and answers whether a reinstall was pending. A start without the marker issues no
-  command.
+  the restore step a start runs first (the assembly does not wire it yet): it finds the marker, writes the kept unit
+  back and loads it, or removes the new unit file when none was kept, and answers whether a reinstall was pending. A
+  start without the marker issues no command.
 * `uninstall` drops the kept pair first, so a unit the operator removed is never restored by a later start. A pair that
   cannot be dropped fails the uninstall while the unit is still installed, which is the safe direction.
 * The file work stays before every command that can end the caller: keep, copy and marker before the load; the kept
@@ -76,7 +77,11 @@ work package leaves the decision about that path open and asks for it in this AD
 * A restore whose load fails is reported (`PM_RUNTIME-135`) and not retried: the unit file in force is the previous
   one, and the next login loads it.
 * A reinstall whose load succeeds but whose pair cannot be dropped stays a success with a warning
-  (`PM_RUNTIME-136`); the next start restores the previous unit, because the marker is what it decides on.
+  (`PM_RUNTIME-136`). A marker that stays makes the next start restore the kept unit, or remove the unit file when the
+  reinstall kept none; a copy that alone stays is overwritten by the next install.
+* The kept copy is the unit in force unless an earlier load succeeded and only its drop failed; then the copy is the
+  unit that was in force before that load, and a later failed install restores that older unit. The marker cannot tell
+  the two states apart, and no state beyond the pair is kept.
 * A start that runs after a machine booted into the new unit also restores, because it cannot tell that load from an
   interrupted one; the reinstall never finished, so the rollback is the intended direction, and on macOS the restore's
   `bootout` ends that runtime and the next login loads the previous unit.

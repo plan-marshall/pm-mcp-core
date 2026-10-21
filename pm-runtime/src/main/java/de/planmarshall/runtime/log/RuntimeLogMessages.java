@@ -327,23 +327,23 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when a failed load of a new service unit was undone: the bytes of the unit in force were written
-         * back and the unit was loaded again.
+         * Logged when a restore wrote the kept unit of a reinstall back and loaded it, or when the restore of a start
+         * did so after an interrupted reinstall; names the unit file.
          */
         public static final LogRecord SERVICE_UNIT_RESTORED = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(33)
-                .template("Service unit '%s' restored and loaded after the new unit did not load")
+                .template("Service unit '%s' restored and loaded from the copy a reinstall kept")
                 .build();
 
         /**
-         * Logged when a failed load of a new service unit was undone on a machine that had no unit installed: the
-         * new unit file was removed and nothing was unloaded.
+         * Logged when a restore removes the new unit file instead of writing a kept one back, because the reinstall
+         * found no unit installed; nothing is unloaded.
          */
         public static final LogRecord SERVICE_UNIT_RESTORE_WITHOUT_PREVIOUS = LogRecordModel.builder()
                 .prefix(PREFIX)
                 .identifier(34)
-                .template("Service unit '%s' removed after the new unit did not load, no previous unit was installed")
+                .template("Service unit '%s' removed, the reinstall kept no previous unit")
                 .build();
     }
 
@@ -683,8 +683,9 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the unit a failed load kept could not be restored, or the restored unit could not be loaded
-         * again; names the unit file and the failure. The kept unit stays, so the next start tries the restore again.
+         * Logged when a restore fails: the kept unit cannot be read, written back or removed (the kept pair stays and
+         * the next start tries again), or the restored unit cannot be loaded (the kept pair is already gone and no
+         * later start retries it). Names the unit file and the failure.
          */
         public static final LogRecord SERVICE_UNIT_RESTORE_FAILED = LogRecordModel.builder()
                 .prefix(PREFIX)
@@ -693,8 +694,10 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the kept unit of a reinstall whose load succeeded cannot be dropped; names the unit file and the
-         * failure. The install stays a success, and the next start rolls the unit file back to the kept unit.
+         * Logged when the kept pair of a reinstall whose load succeeded cannot be dropped; names the unit file and the
+         * failure. The install stays a success. When the marker stays, the next start treats the reinstall as
+         * unfinished and restores the kept unit, or removes the unit file when none was kept; when only the copy
+         * stays, the next start does nothing and the next install overwrites the copy.
          */
         public static final LogRecord SERVICE_UNIT_KEPT_NOT_DROPPED = LogRecordModel.builder()
                 .prefix(PREFIX)

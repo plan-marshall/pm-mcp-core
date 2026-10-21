@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -293,12 +294,11 @@ class ServiceUnitInstallerTest {
         private static final String PREVIOUS_UNIT = "a unit of an older version";
 
         private static String restored(Path unitFile) {
-            return "Service unit '%s' restored and loaded after the new unit did not load".formatted(unitFile);
+            return "Service unit '%s' restored and loaded from the copy a reinstall kept".formatted(unitFile);
         }
 
         private static String removedWithoutPrevious(Path unitFile) {
-            return "Service unit '%s' removed after the new unit did not load, no previous unit was installed"
-                    .formatted(unitFile);
+            return "Service unit '%s' removed, the reinstall kept no previous unit".formatted(unitFile);
         }
 
         private static String restoreFailed(Path unitFile) {
@@ -468,15 +468,79 @@ class ServiceUnitInstallerTest {
         }
 
         @Test
-        @DisplayName("keeps the unit in force and its marker with mode 0600")
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("keeps the unit in force and its marker with mode rw-------")
         void shouldKeepWithRestrictedModes() throws IOException {
             var file = unitFile(home, Platform.SYSTEMD);
             unit(Platform.SYSTEMD).write();
             unit(Platform.SYSTEMD).keepForRestore();
 
             assertAll(
-                    () -> assertEquals(PosixModes.FILE, Files.getPosixFilePermissions(previous(file))),
-                    () -> assertEquals(PosixModes.FILE, Files.getPosixFilePermissions(reinstall(file))));
+                    () -> assertEquals("rw-------", PosixFilePermissions.toString(
+                            Files.getPosixFilePermissions(previous(file)))),
+                    () -> assertEquals("rw-------", PosixFilePermissions.toString(
+                            Files.getPosixFilePermissions(reinstall(file)))));
+        }
+
+        @Test
+        @DisplayName("drops the pair it kept when the unit cannot be written")
+        void shouldDropKeptPairOnWriteFailure() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            var tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.createDirectories(tmp);
+            Files.writeString(tmp.resolve("child"), "keeps the directory non-empty");
+            var call = new RecordingProcessCall(file);
+
+            assertThrows(ServiceUnitException.class, installer(unit(Platform.LAUNCHD), call)::install);
+
+            assertAll(
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertEquals(List.of(), call.calls()),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("leaves a pending pair when the unit cannot be written")
+        void shouldLeavePendingPairOnWriteFailure() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, PREVIOUS_UNIT);
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            var tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.createDirectories(tmp);
+            Files.writeString(tmp.resolve("child"), "keeps the directory non-empty");
+
+            assertThrows(ServiceUnitException.class,
+                    installer(unit(Platform.LAUNCHD), new RecordingProcessCall(file))::install);
+
+            assertAll(
+                    () -> assertTrue(Files.exists(previous(file))),
+                    () -> assertTrue(Files.exists(reinstall(file))));
+        }
+
+        @Test
+        @DisplayName("drops the kept pair when the start's restore load fails, so no later start retries it")
+        void shouldNotRetryAFailedRestoreLoad() throws IOException {
+            var file = unitFile(home, Platform.LAUNCHD);
+            Files.createDirectories(file.getParent());
+            Files.writeString(previous(file), PREVIOUS_UNIT);
+            Files.writeString(reinstall(file), "");
+            var restoreFailure = new ServiceUnitException("load could not run");
+            var call = new RecordingProcessCall(file).thenFail(restoreFailure);
+
+            var thrown = assertThrows(ServiceUnitException.class,
+                    installer(unit(Platform.LAUNCHD), call)::restore);
+
+            assertAll(
+                    () -> assertSame(restoreFailure, thrown),
+                    () -> assertEquals(PREVIOUS_UNIT, Files.readString(file)),
+                    () -> assertFalse(Files.exists(previous(file))),
+                    () -> assertFalse(Files.exists(reinstall(file))),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, restoreFailed(file)));
         }
 
         @Test

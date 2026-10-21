@@ -274,24 +274,27 @@ Stop & Upgrade], Upgrade). `ServiceUnitInstaller` does that for a reinstall.
 
 [horizontal]
 `ServiceUnitFile.keepForRestore()`:: Copies the bytes of the unit in force to `<unit>.previous` and then writes the
-marker `<unit>.reinstall`; with no unit it writes only the marker. A pair an earlier reinstall already keeps is left
-untouched, because the unit in force is then the kept one, not the new unit on disk that never loaded. Install calls it
-before it writes the new unit.
+marker `<unit>.reinstall`; with no unit it writes only the marker, and it answers whether it wrote the pair. A pair an
+earlier reinstall already keeps is left untouched, because the unit in force is then the kept one, not the new unit on
+disk that never loaded. Install calls it before it writes the new unit, and drops a pair this call kept when the unit
+cannot be written.
 `ServiceUnitFile.restore()`:: Writes the kept bytes back and answers `true`, or removes the unit file and answers
-`false` when no unit was installed. The kept pair stays until `discardRestore()`.
+`false` when no unit was kept. The kept pair stays until `discardRestore()`.
 `ServiceUnitFile.discardRestore()`:: Deletes the marker first and the copy second, so a stop between the two leaves a
 copy nobody restores. Install calls it after a load that succeeded, the restore before its own load, uninstall before
 it touches the unit.
 `ServiceUnitInstaller.install()`:: Loads the new unit; on a failed load it restores and loads the kept unit, or removes
 the new file, and throws the load failure with the restore's failure suppressed. A pair that cannot be dropped after a
-successful load warns (`PM_RUNTIME-136`) and leaves the install a success. Plain
+successful load warns (`PM_RUNTIME-136`) and leaves the install a success; a marker that stays makes the next start
+treat the reinstall as unfinished, while a copy that alone stays is overwritten by the next install. Plain
 `pm-operator runtime install` restores as well; there is one path, not a restoring upgrade path beside a reporting
 install path (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]).
 `ServiceUnitInstaller.restore()`:: The restore step a start runs first: with a marker present it restores the kept unit
 (or removes the new file), drops the pair, loads the unit and answers `true`; without a marker it answers `false` and
-issues no command. On macOS a reinstall issued from the runtime the unit started ends that runtime inside the load, so
-this step is what restores the unit (link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR
-014]). The assembly does not wire the step yet.
+issues no command. A load that fails after the drop is reported and not retried. On macOS a reinstall issued from the
+runtime the unit started ends that runtime inside the load, so this step is what restores the unit
+(link:../adr/runtime-start/014-previous-service-unit-kept-and-restored.adoc[ADR 014]). The assembly does not wire the
+step yet.
 
 === Crash Windows
 
@@ -304,6 +307,7 @@ unambiguous:
 |the copy and the marker |no marker, a copy nobody restores |nothing; the next install overwrites both
 |the marker and the new unit |marker, copy, the old unit |writes the old bytes over themselves and loads them
 |the new unit and its load |marker, copy, the new unit |restores the kept unit and loads it, or removes the new file
+|the failed write of the new unit |no marker, no copy (the pair this call kept is dropped), the old unit |nothing
 |the load and the drop |marker, copy, the loaded new unit |restores the kept unit and loads it, so an install whose
 caller ended right after its load is undone; the window is the drop's own length
 |the drop of the restore and its load |no marker, the kept (previous) unit |nothing; the next login loads the previous
@@ -314,8 +318,8 @@ restores the unit in force, never the unit that never loaded
 |===
 
 The third row is the macOS case: the `bootout` of the load ends the runtime the unit started before the `bootstrap`.
-The fourth row is the price of that case and is accepted: on Linux the load does not end the caller, so the window
-needs a `SIGKILL` of the caller between the load and the drop. The fifth row is why the restore drops the pair before
+The fifth row is the price of that case and is accepted: on Linux the load does not end the caller, so the window
+needs a `SIGKILL` of the caller between the load and the drop. The sixth row is why the restore drops the pair before
 its load: the load can end the caller too, and a marker left behind would make every later start restore and boot
 itself out.
 
@@ -365,10 +369,11 @@ link:{test}/ServiceUnitInstallerTest.java[`ServiceUnitInstallerTest`]:: Install,
 load over the recording fake of the service manager: a failed load after replacing a unit leaves the previous bytes in
 place and loaded, at the first and at the second command of the load, a failed load on a machine without a unit leaves
 no unit file, a failed restore is reported with both failures and drops the pair, the kept pair exists at every command
-of the load and is gone before every command of the restore's load, the kept unit and its marker have mode `0600`, a
-second install keeps the pending unit in force, a pair that cannot be dropped warns without failing the install, the
-start after an interrupted reinstall restores the kept LaunchAgent, a start without a marker issues no command, and
-uninstall drops the pair.
+of the load and is gone before every command of the restore's load, the kept unit and its marker have mode `rw-------`,
+a second install keeps the pending unit in force, a unit that cannot be written drops the pair it kept and leaves a
+pending pair, a pair that cannot be dropped warns without failing the install, a failed restore load drops the pair and
+is not retried, the start after an interrupted reinstall restores the kept LaunchAgent, a start without a marker issues
+no command, and uninstall drops the pair.
 link:{test}/CredentialStoreMoveResumeTest.java[`CredentialStoreMoveResumeTest`]:: No record; a move cut before the
 switch, with a copy and with a stale copy in the target, completed from the first entry; a move cut between the switch
 and the rewrite of the record, treated as switched without touching the recorded target; a move cut after the switch
@@ -407,9 +412,11 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
    record carries no PID are settled without a signal. Only a group probed live within this boot is terminated; a
    recorded PID of an earlier boot may belong to anyone now.
 7. **Never adopt a job of a previous runtime**: every unsettled job is settled `killed`, never resumed or started again.
-8. **Keep before the load, drop after it**: the copy and the marker are file work and go before every command that can
-   end the caller; the drop goes after the load. A drop before the load would make the macOS interrupted reinstall
-   unrecoverable, and a keep after the load would keep the new unit instead of the previous one.
+8. **Keep before the load; drop after the install's load, before the restore's**: the copy and the marker are file work
+   and go before every command that can end the caller. An install drops the pair only after its load succeeded, because
+   a drop before it would make the macOS interrupted reinstall unrecoverable; the restore drops it before its own load,
+   because that load can end the caller and a marker left behind would make every later start restore and boot itself
+   out. A keep after the load would keep the new unit instead of the previous one.
 9. **The marker decides, the copy says what**: a start restores only when the marker is present, and the copy only
    names the bytes; an absent copy with a present marker means "there was no unit", never "nothing to do".
 10. **Uninstall drops the pair first**: a unit the operator removed must not come back at the next start.
