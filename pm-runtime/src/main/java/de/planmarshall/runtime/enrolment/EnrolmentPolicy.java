@@ -164,7 +164,7 @@ class EnrolmentPolicy {
      */
     private static void schema(String place, ArgumentSchema schema, List<String> violations) {
         var maxLength = schema.maxLength();
-        if (schema.pattern() != null && maxLength != null
+        if (schema.type() == ProjectEnrolment.SchemaType.STRING && schema.pattern() != null && maxLength != null
                 && maxLength > ArgumentSchema.PATTERN_MAX_LENGTH_CEILING) {
             violations.add(place + ABOVE_CEILING.formatted(maxLength, ArgumentSchema.PATTERN_MAX_LENGTH_CEILING));
         }

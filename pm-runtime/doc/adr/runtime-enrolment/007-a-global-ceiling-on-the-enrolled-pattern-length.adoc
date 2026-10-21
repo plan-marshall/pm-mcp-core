@@ -1,0 +1,66 @@
+= ADR 007: A Global Ceiling Bounds the `maxLength` of an Enrolled Pattern
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-10-21
+
+== Context
+
+Decision 7 of link:../runtime-job/001-argument-check-last.adoc[`runtime-job` ADR 001] bounds a `pattern` by the
+`maxLength` of the same argument schema and refuses a `pattern` without `maxLength`. That bounds the length of the
+string handed to the backtracking engine — but only by a number the enrolling project chooses. `ProjectEnrolment`'s
+`ArgumentSchema` admitted any non-negative `maxLength`, so a project could enrol a pattern with `maxLength` in the
+millions and hand `ArgumentSchemaValidator` a string whose matching cost grows with its length. The rule bounded the
+input; nothing bounded the bound.
+
+A review of the change that stated the rule in the Job Runtime specification raised this as a denial-of-service gap
+(CWE-400): either the ceiling is bounded globally, or the expression is evaluated by a linear-time or time-limited
+engine.
+
+== Decision
+
+* `ArgumentSchema` of `core.store` states one global ceiling, `PATTERN_MAX_LENGTH_CEILING`, 256 code points. It is a
+  property of the schema type, so every reader of the admission sees the same number.
+* The runtime's enrolment policy refuses, before an enrolment is signed and at the re-baseline alike, an argument
+  schema of type `string` that carries a `pattern` and admits a `maxLength` above the ceiling, at its root or in one
+  of its properties. The refusal is a value in the policy's `violations()` list, like every other refusal there, and
+  the store refuses it as `enrolment_invalid`.
+* The ceiling applies only to a schema that matches a string by a pattern: a non-string schema never reaches the
+  engine, and its `maxLength`, if any, is not a regex cost.
+* The Job Runtime specification and the enrolment-store specification state the ceiling, so the rule and the code
+  agree.
+
+256 is chosen as a bound that admits every enrolled expression the runtime's own parsers and the projects seen so far
+need — argument words, log lines, identifiers — while keeping the worst-case backtracking cost of a single match
+small. It is deliberately a ceiling on the INPUT, not a promise about a pathological expression: a catastrophic
+pattern still costs more than a linear one at any length. The decision is two-sided on purpose (bounded input now,
+engine choice later), and a future linear-time or time-limited engine can relax it without weakening this rule.
+
+== Alternatives Considered
+
+* **No ceiling, `maxLength` alone** — the state before this ADR. Rejected: the bound is the enrolling project's
+  choice, and the admission then constrains nothing an attacker respects.
+* **A time-limited matcher** — rejection is deferred: it moves the guarantee from the schema's admission to the
+  evaluation, needs a per-match budget and its own failure mode, and does not remove the want of an input bound. It
+  remains a valid later hardening; this ceiling does not preclude it.
+* **Refuse a pattern outright** — rejected: patterns are a supported schema keyword and the runtime already refuses
+  the dangerous shape (a pattern with no bound at all).
+* **A per-project configured ceiling** — rejected: it makes the machine's bound a per-enrolment decision and leaves
+  the default unbounded.
+
+== Consequences
+
+A project that legitimately needs to match a longer string than 256 code points cannot enrol that schema until the
+ceiling is raised here, which is a deliberate, reviewable change to this ADR and to the constant together. The
+enrolment refusal names the path and the two numbers, so the operator sees which schema and which bound. Existing
+enrolments are not rewritten: a schema above the ceiling is refused by the next enrolment or re-baseline.
+
+== Source
+
+The operator's scope decision of 2026-10-21 on the CodeRabbit finding on PR #126, and the review finding itself
+(`ArgumentSchemaValidator` bounded only by the enrolled `maxLength`).

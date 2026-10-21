@@ -44,7 +44,10 @@ import java.util.regex.Pattern;
  * enrolment is signed, a template or provider argument vector with a placeholder other than {@code {module}} or with
  * {@code {module}} outside its module-argument group, a write path that is, lies below or contains the base directory,
  * and a build environment name that is a credential variable or one of {@code DBUS_SESSION_BUS_ADDRESS},
- * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}. The shell-metacharacter and forbidden-flag rules apply to
+ * {@code XDG_RUNTIME_DIR}, {@code MVND_DAEMON_STORAGE}; and an argument schema that matches a string by a
+ * {@code pattern} and admits a {@code maxLength} above {@link ArgumentSchema#PATTERN_MAX_LENGTH_CEILING}, at its root
+ * or in one of its properties, so the string handed to the backtracking engine is bounded by the schema's admission as
+ * well as by the enrolling project's choice. The shell-metacharacter and forbidden-flag rules apply to
  * what a caller supplies to a job and are applied at job time by the runtime's argument check, the last stage of its
  * verify-not-resolve pipeline.
  *
@@ -661,9 +664,9 @@ SortedMap<String, String> buildEnvironment) {
      * @param pattern    the pattern a string matches; {@code null} if absent
      * @param minimum    the least admitted number; {@code null} if absent
      * @param maximum    the greatest admitted number; {@code null} if absent
-     * @param maxLength  the greatest admitted length of a string, not negative; a schema that constrains a string by
-     *                   a {@code pattern} admits at most {@value #PATTERN_MAX_LENGTH_CEILING}, which the enrolment
-     *                   policy refuses; {@code null} if absent
+     * @param maxLength  the greatest admitted length of a string, not negative; a schema of type {@code string} that
+     *                   constrains a string by a {@code pattern} admits at most {@value #PATTERN_MAX_LENGTH_CEILING},
+     *                   and the enrolment policy refuses one above it; {@code null} if absent
      * @since 0.1
      */
     public record ArgumentSchema(SchemaType type, SortedMap<String, ArgumentSchema> properties,
