@@ -533,6 +533,9 @@ public final class CredentialStoreChoice {
             }
             return Optional.empty();
         }
+        if (targetKey.key().isEmpty() && sourceKey.key().isEmpty()) {
+            return Optional.empty();
+        }
         var keptInTarget = reconciles(keyCarry, store, targetKey.key(), sourceStore, sourceKey.key());
         return Optional.of(CredentialStoreMoveRecord.copying(Operation.FIRST_RECORDING, sourceStore, store,
                 clock.instant(), keptInTarget, TransactionId.generate(clock)));
@@ -623,7 +626,13 @@ public final class CredentialStoreChoice {
         try {
             var targetKey = keyCarry.keyIn(target).read();
             if (firstRecording.targetHeldKey()) {
-                if (targetKey.isPresent() && sourceKey.key().isPresent()) {
+                if (targetKey.isEmpty()) {
+                    throw new SecretStoreException(SecretStoreException.Reason.FAILED,
+                            ("the first recording of '%s' cannot be completed: it held the key it keeps when it "
+                                    + "started and holds none now; nothing was recorded")
+                                    .formatted(firstRecording.to().value()));
+                }
+                if (sourceKey.key().isPresent()) {
                     keyCarry.verifySidecars(targetKey.get());
                 }
             } else if (sourceKey.key().isPresent()) {
@@ -726,12 +735,18 @@ public final class CredentialStoreChoice {
         if (sourceKey.isEmpty()) {
             return;
         }
-        if (!firstRecording.targetHeldKey()
-                && (targetKey.isEmpty() || !IntegrityKeyCarry.sameKey(sourceKey.get(), targetKey.get()))) {
+        if (targetKey.isEmpty()) {
             throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but '%s' "
-                    + "holds no key or another one than '%s'; nothing was deleted and the record is kept")
+                    + "holds no integrity key while '%s' does; nothing was deleted and the record is kept")
                     .formatted(moveRecord.store(), firstRecording.to().value(), firstRecording.phase().value(),
                             firstRecording.to().value(), firstRecording.from().value()));
+        }
+        if (!IntegrityKeyCarry.sameKey(sourceKey.get(), targetKey.get())
+                && keyCarry.failureUnder(targetKey.get()).isPresent()) {
+            throw new IllegalStateException(("the record %s of the first recording of '%s' is in phase '%s' but '%s' "
+                    + "holds a key the sidecars do not verify under, beside another key in '%s'; nothing was deleted "
+                    + "and the record is kept").formatted(moveRecord.store(), firstRecording.to().value(),
+                    firstRecording.phase().value(), firstRecording.to().value(), firstRecording.from().value()));
         }
         try {
             keyCarry.keyIn(backendOf(firstRecording.from())).delete();

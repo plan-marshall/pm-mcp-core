@@ -912,7 +912,9 @@ class CredentialStoreChoiceTest {
             assertAll(
                     () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
                     () -> assertTrue(keyIn(secretService).read().isEmpty()),
-                    () -> assertFalse(Files.exists(stateDirectory.resolve(EnrolmentKey.FILE_NAME))));
+                    () -> assertFalse(Files.exists(stateDirectory.resolve(EnrolmentKey.FILE_NAME))),
+                    () -> assertFalse(Files.exists(CredentialStoreMoveRecord.file(base)),
+                            "no key moves, so the recording writes no record"));
         }
 
         @Test

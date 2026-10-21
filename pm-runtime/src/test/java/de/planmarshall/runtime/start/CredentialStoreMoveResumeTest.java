@@ -500,6 +500,26 @@ class CredentialStoreMoveResumeTest {
                     () -> assertTrue(keyIn(osStore).read().isEmpty()));
         }
 
+        @Test
+        @DisplayName("a first recording whose recorded store holds a key the sidecars do not verify under beside another "
+                + "key in the other store is refused and deletes nothing")
+        void anotherKeyBesideOneTheSidecarsDoNotVerifyUnder() throws Exception {
+            var kept = machineBeforeTheChoice();
+            var other = keyIn(fileStore).readOrCreate();
+            openFirstRecording(Phase.SWITCHED, true);
+            switchStore(Store.FILE);
+
+            var failure = assertThrows(IllegalStateException.class, resume::run);
+
+            assertAll(
+                    () -> assertTrue(failure.getMessage().contains("the sidecars do not verify under"),
+                            failure.getMessage()),
+                    () -> assertEquals(Optional.of(Store.FILE), choice.recorded()),
+                    () -> assertArrayEquals(kept.getEncoded(), keyIn(osStore).read().orElseThrow().getEncoded()),
+                    () -> assertArrayEquals(other.getEncoded(), keyIn(fileStore).read().orElseThrow().getEncoded()),
+                    () -> assertTrue(Files.exists(recordFile())));
+        }
+
         private CredentialStoreMove resumeMove() {
             return new CredentialStoreMove(base, choice, locks, events::add, USER,
                     Clock.fixed(STARTED, ZoneOffset.UTC));

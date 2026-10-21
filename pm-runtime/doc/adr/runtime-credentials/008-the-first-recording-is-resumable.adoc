@@ -33,8 +33,12 @@ actually recorded; item 3: the record that drives recovery is deleted last).
   `credential_store_failed`; where the copy cannot be removed the record is kept, so the next start removes it and
   records again (the same discipline the failure of a move follows).
 * A failure after the switch keeps the record in phase `switched`: the recording stands, the key is in both stores, and
-  the next start deletes it from the store that is not recorded. While the record exists the aspect is refused with
-  `aspect_owned` and the move is refused with an `IllegalStateException`, as while a move is open.
+  the next start deletes it from the store that is not recorded. That deletion is authorised by durable state, never by
+  the record's flag alone: the store being recorded must hold a key, and a differing key of the other store is deleted
+  only once the recorded store's key verifies every sidecar. The record also refuses a store being recorded that holds
+  no key while the other one does, so the only key the machine is signed under is never the one deleted. While the record
+  exists the aspect is refused with `aspect_owned` and the move is refused with an `IllegalStateException`, as while a
+  move is open.
 * The resume finishes a first recording from the pair of the record's phase and `credentials.store`: `copying` with the
   store being recorded already recorded is read as the switch (a stop between the switch and the rewrite of the record)
   and only finished; `copying` with no store recorded removes the copy and records again; `switched` with the store
