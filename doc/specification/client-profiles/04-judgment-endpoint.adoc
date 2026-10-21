@@ -1,0 +1,89 @@
+= Client Profiles Specification: Judgment Endpoint
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../client-profiles.adoc[Client Profiles Specification] » Judgment Endpoint
+
+[#judgment-endpoint]
+== A First-Level Thinker as an Endpoint
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2: Data-Driven On-the-Fly Profile Translation], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-18[PM-WF-18: Question Recommendation Score & Decision Quorum], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5: Outbound Domain Scoping & Output Secret Redaction]_
+
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-15[PM-WATCH-CLIENT-15]_
+
+A *first-level thinker* is a small model that answers narrow typed questions about a state with a probability for each answer and writes no text. The protocol `system_one` of the endpoint harness (link:03-endpoint-harness.adoc#endpoint-profile-schema[Endpoint Profile Schema]) speaks to one: a hosted service, or a model that a program of the machine serves in the same request format. A role of the class `zero_tool` whose harness is such an endpoint is a *judgment role*. It has no worker, no tool, and no session: a task of it is two HTTP requests composed by the server.
+
+* *Serves typed entity kinds only*: a judgment role serves the entity kinds that declare a typed form, today the kind `vote` of the question adjudication (link:../model-work/10-decision-quorum.adoc#judgment-vote[Ask or Quorum, Judgment Votes]). A kind of the text form (the screener's `screen`, the grading kind `zero_tool`) on a judgment role, and a typed kind on a role of the protocol `openai_chat`, is `class_mismatch` (link:../model-work/01-roles-and-configuration.adoc#role-composition[Model Work Specification, Composition Check]).
+* *No shipped profile and no shipped role*: the release ships no endpoint profile with the protocol `system_one` and no judgment role. The operator adds the profile through the onboarding's `harness.add` in the endpoint form, defines the role artifact, and lists the role in a quorum declaration; the role is graded and the declaration calibrated before they decide (link:../model-work/10-decision-quorum.adoc#quorum-calibration[Ask or Quorum, Quorum Calibration]).
+* *One contract, several models*: the request and answer below are the whole contract. The same adapter serves a hosted service (remote form) and an open model that a loopback program serves in this format (loopback form, enrolled like every serving program, link:03-endpoint-harness.adoc#endpoint-enrolment[Enrolment]).
+
+[#system-one-request]
+=== The Request and the Answer
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-15[PM-WATCH-CLIENT-15], link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-63[PM-WATCH-DISP-63]_
+
+A task is two requests, `POST <base_url>/v1/systemone` with `Authorization: Bearer <secret>` (remote form), `Content-Type: application/json`, no compression, and the profile's `request_timeout_seconds`:
+
+[source,json]
+----
+{
+  "model": "<versioned model id of the role>",
+  "state": { "...": "the facts of the vote entity" },
+  "questions": {
+    "<question_id>": {
+      "type": "choice",
+      "instructions": "<question_text>",
+      "criteria": { "<branch_key>": { "label": "...", "description": "...", "consequences": "..." } }
+    }
+  }
+}
+----
+
+* *What it sends*: the `facts` of the vote entity as `state`, and one question of the type `choice` per question of the entity, keyed by its `question_id`, with its options as `criteria` keyed by `branch_key`. It sends nothing else: no `recommendation`, no answer of another role, no tools. The first request lists the options sorted by `branch_key`, the second in the opposite order (link:../model-work/10-decision-quorum.adoc#judgment-vote[Ask or Quorum, Judgment Votes]). It never sends a header that opts into a slower or less accurate mode (long context, images); the entity is packed to `context_tokens` less `answer_reserve_tokens`, the lower of the service's per-request and per-question limit being the value the profile declares.
+* *What it reads*: `answers.<question_id>` with `choice` and `probabilities`, the member `model`, and `usage` (`input_tokens`, `output_tokens`), recorded per task like the usage of any endpoint. It never reads the `confidence` member as a score: that member describes how concentrated the distribution is, not how likely the option is right.
+* *What it accepts*: an answer is valid when its `model` equals the requested id, it holds an answer for every question, each `choice` is a `branch_key` of the question, and its `probabilities` name only the question's options, each between `0` and `1`, with a sum within `0.01` of `1`. An answer that is not valid, an HTTP error (`401`, `422`, `429`, `529`, a timeout, a body the runtime did not expect), and a refusal end the attempt like a worker without a valid result, and the task's own rules apply (re-offer within the self-remedy budget, then the conservative fallback); the runtime retries nothing inside an attempt.
+* *Versioned ids only*: a service moves its alias to a new release without a change of the caller, so its answers change under an unchanged qualification record. The verification (<<judgment-verification>>) sends the model id of the role and compares the `model` of the answer with it; an id the service answers with another id is refused (`model_alias`), and the model catalogue holds the versioned id. A new release is another id, unqualified until it is graded.
+* *The request body is never logged*: logs and the audit record hold the endpoint, the model id, the status, the token counts, and the duration. The body carries the facts of the task.
+
+[#remote-form]
+=== Remote Form
+_See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-2[PM-ARCH-2: Local-by-Design & Zero External Cloud Dependency], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-1[PM-CRED-1: Dual-Lane Credential Separation (System vs Token Lane)]_
+_Implementation watch: link:../../implementation-watch/client-profiles.adoc#PM-WATCH-CLIENT-15[PM-WATCH-CLIENT-15]_
+
+The remote form (`locality: "remote"`) names the HTTPS origin of one service. It is an outbound request of the runtime that the operator enrolled, which `PM-ARCH-2` names beside the fetch of an icon and the check for a newer release.
+
+* *Enrolled by the operator only*: the profile is added by the operator's act (`harness.add`, `pm-operator profile`); a project's configuration can neither add one nor change its `base_url`.
+* *Token Lane*: the secret is the credential entry `credential_key` (link:../credentials-and-enrolment/01-provider-credentials.adoc[Credentials & Enrolment Specification]), entered by the operator only, read at the moment of a request, and sent only to the origin of the entry's `url`; the profile's `base_url` must equal that origin, a redirect to another origin or to `http` ends the attempt, and the secret is registered with the redaction registry. TLS and hostname verification are those of every Token Lane request.
+* *What leaves the machine*: the `state` and the questions of a vote task, that is, the facts and options the asking state shows. The role views of both clients mark an endpoint as remote wherever its assignment is shown, and the user documentation tells the operator to read the service's terms for retention and training on inputs before the first enrolment; a profile claims nothing about what the service does with its input.
+* *No screener*: untrusted text is screened on a loopback endpoint or a harness only; the `screen` kind has a text form that no `system_one` endpoint serves, so no external text is sent to a service for screening.
+* *No enrolment of a program*: there is no serving program, so `executable`, `identity`, and `update_evidence` are `null` and no owner check of a socket applies. The harness enrolment records the origin and the credential key (link:../store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas Specification, Harness Enrolment Store]). An unreachable origin, a refused key, or a failed verification is a start failure of the role on the endpoint (link:../model-work/03-supervision-and-recycling.adoc#start-failure-guard[Start-Failure Guard]).
+
+[#judgment-verification]
+=== Verification of a Judgment Endpoint
+
+`pm-operator profile verify` and the onboarding's `harness.verify-profile` verify a `system_one` draft by the stages of an endpoint (link:03-endpoint-harness.adoc#endpoint-verification[Verification of an Endpoint]) with these differences, decided from what the runtime observes:
+
+[cols="1,4,3"]
+|===
+|Stage |What it does |Profile values it settles
+
+|`identity`
+|Reads the models listing at `models_path` with the credential (remote form: the credential authenticates), and checks that the role's model is listed. A loopback form also runs the version probe and the owner check.
+|`endpoint.models_path`, `models_pointer`, and for a loopback form `identity`, `executable`, `weights_probe`
+
+|`launch`
+|Sends one typed request of two options in both orders; checks that the answer validates, that its `model` equals the requested id, and that the probabilities of the two orders name the same options. Sends a request whose criteria the instructions contradict and a request with one option only, and records the answers.
+|`result_schema` (`enforced`: the service answers typed answers by construction; a service that answers free text is refused)
+
+|`classes`
+|Not applicable: the server never sends tools.
+|none
+
+|`limits`
+|Finds the largest accepted request by bisection between `1024` tokens and the service's refusal (`400` with `max_tokens_exceeded`), counting with `usage.input_tokens`. On a remote form the bisection is the operator's explicit choice, because every request is billed.
+|`endpoint.context_tokens`
+|===
+
+A failed `identity` or `launch` stage refuses the draft; `limits` records what it found.
