@@ -470,7 +470,7 @@ public final class QuestionLog {
                 }
                 if (!named.questionSet.equals(line.questionSet())) {
                     throw new IllegalArgumentException(
-                            ("The question %s names %s as its set, which is no first question of a set")
+                            "The question %s names %s as its set, which is no first question of a set"
                                     .formatted(id, line.questionSet()));
                 }
             }
