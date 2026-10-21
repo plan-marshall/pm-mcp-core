@@ -661,12 +661,24 @@ SortedMap<String, String> buildEnvironment) {
      * @param pattern    the pattern a string matches; {@code null} if absent
      * @param minimum    the least admitted number; {@code null} if absent
      * @param maximum    the greatest admitted number; {@code null} if absent
-     * @param maxLength  the greatest admitted length of a string, not negative; {@code null} if absent
+     * @param maxLength  the greatest admitted length of a string, not negative; a schema that constrains a string by
+     *                   a {@code pattern} admits at most {@value #PATTERN_MAX_LENGTH_CEILING}, which the enrolment
+     *                   policy refuses; {@code null} if absent
      * @since 0.1
      */
     public record ArgumentSchema(SchemaType type, SortedMap<String, ArgumentSchema> properties,
     List<String> required, boolean closed, List<EnumValue> enumValues, String pattern, BigDecimal minimum,
     BigDecimal maximum, Long maxLength) {
+
+        /**
+         * The greatest {@code maxLength} a schema that matches a string by a {@code pattern} admits: 256 code points.
+         * A pattern is evaluated by a backtracking engine whose cost grows with the length of the string it is matched
+         * against, so the bound an enrolling project chooses is itself bounded rather than left to that project; an
+         * enrolment of a schema whose {@code maxLength} lies above this ceiling is refused, at the enrolment and at
+         * the re-baseline alike. A schema without a {@code pattern} is not bounded by it, because it never reaches the
+         * engine.
+         */
+        public static final long PATTERN_MAX_LENGTH_CEILING = 256;
 
         /**
          * @throws NullPointerException     if a key or an element is {@code null}
