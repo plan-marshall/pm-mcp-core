@@ -384,7 +384,8 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7], link:{req}
   link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002],
   link:../adr/runtime-start/011-broken-chain-outcome-carries-reason-and-line.adoc[ADR 011],
   link:../adr/runtime-start/012-store-move-resumed-machine-wide-after-the-bind.adoc[ADR 012],
-  link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013]
+  link:../adr/runtime-start/013-jobs-recovery-step-worker-part-a-seam.adoc[ADR 013],
+  link:../adr/runtime-start/014-stall-derived-on-read-one-record-per-episode.adoc[ADR 014]
 * Audit trail: link:runtime-audit.adoc[`runtime.audit`]
 * Credential store move: link:runtime-credentials.adoc[`runtime.credentials`],
   link:{spec}/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials & Enrolment §
