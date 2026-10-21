@@ -74,8 +74,9 @@ Alternatives not recorded beyond those of ADR core-service/001 of `pm-core`.
 * A later supervisor launches workers itself and records them in the same job record store.
 * `recordOf(jobId)` and `awaitSettled(jobId, timeout)` answer the settled record of a job that left the running jobs,
   from a bounded window of the most recent settled records (ADR 012); the durable record of an older one the caller
-  reads from its store separately. A record whose fate could not be written, or whose settlement met a fault of the lock
-  manager, stays `running` until the next runtime start.
+  reads from its store separately. A record whose settlement cannot record a fate remains `running` until the next
+  runtime start, unless a fallback failure is recovered by the last-resort write in the current runtime; a lock-manager
+  fault during the fallback does not by itself require next-start recovery.
 * A job whose output parser fails is settled without the parser's finding: an exit `0` is then `indeterminate` by
   row 8, a non-zero exit decided by row 10.
 

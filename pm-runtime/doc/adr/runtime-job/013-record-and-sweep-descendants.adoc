@@ -34,9 +34,9 @@ starts every probe itself; a worker is started by the supervisor, which does not
   `Survivor`, and the runner writes it as the security audit record `job_descendant_survived` with its PID and
   executable; a sink that refuses the record is logged and does not stop the settlement.
 * `SubprocessJobRunner` wires the tracker for a probe right after the process is started, so the report wait and every
-  fallback path are covered, refreshes it from the waiting loop (whose wait is therefore bounded by `REFRESH_INTERVAL`,
-  not only by the budget) and sweeps it on the normal end, on the cause path and in the fallback path. It starts no
-  worker, so the supervisor wires the same tracker for a worker.
+  fallback path are covered, refreshes it at least once per second during the report wait and from the waiting loop
+  (whose wait is therefore bounded by `REFRESH_INTERVAL`, not only by the budget) and sweeps it on the normal end, on the
+  cause path and in the fallback path. It starts no worker, so the supervisor wires the same tracker for a worker.
 * The Linux subreaper change in `pm-exec` is owed to the repository that builds the launcher; until it ships, this
   sweep is the only protection on every platform, and it is not a substitute for the subreaper: a descendant that
   appears and detaches between two refreshes is missed.

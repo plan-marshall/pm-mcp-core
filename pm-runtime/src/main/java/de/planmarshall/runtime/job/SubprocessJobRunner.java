@@ -1061,9 +1061,15 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      */
     AwaitedReport awaitReport(RunningJob job, Process process, JobLog log, Instant deadline) {
         var interrupted = false;
+        var nextRefresh = clock.instant().plus(ProcessTreeTracker.REFRESH_INTERVAL);
         try {
             while (true) {
                 var alive = process.isAlive();
+                // a descendant may detach during the report wait: refresh at least once per second, as the sweep expects
+                if (alive && !clock.instant().isBefore(nextRefresh)) {
+                    job.refreshTree();
+                    nextRefresh = clock.instant().plus(ProcessTreeTracker.REFRESH_INTERVAL);
+                }
                 if (log.readLines(0) instanceof JobLog.Lines(var lines, var nextOffset, var report)
                         && (report.isPresent() || !lines.isEmpty())) {
                     return new AwaitedReport(report, nextOffset);
