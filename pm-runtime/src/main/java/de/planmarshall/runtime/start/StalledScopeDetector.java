@@ -212,12 +212,12 @@ public final class StalledScopeDetector {
             if (previous != null && !status.updatedAt().isAfter(previous.hold().idleSince())) {
                 return previous;
             }
+            auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(), hold.state(),
+                    hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
             if (previous != null) {
                 pendingReleases.computeIfAbsent(key, ignoredKey -> new ConcurrentLinkedQueue<>())
                         .add(previous.hold());
             }
-            auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(), hold.state(),
-                    hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
             return new Episode(hold, false);
         });
         announcePending(key);

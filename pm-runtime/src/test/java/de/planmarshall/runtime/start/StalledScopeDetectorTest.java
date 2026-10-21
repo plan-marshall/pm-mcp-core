@@ -448,6 +448,41 @@ class StalledScopeDetectorTest {
     }
 
     @Test
+    @DisplayName("a refused replacement record queues no release until the append succeeds")
+    void shouldNotQueueAReleaseForARefusedReplacementRecord() {
+        var fail = new AtomicBoolean(false);
+        var detector = new StalledScopeDetector(event -> {
+            if (fail.getAndSet(false)) {
+                throw new UncheckedIOException(new IOException("audit log unavailable"));
+            }
+            records.add(event);
+        }, new OperatorPort() {
+
+            @Override
+            public void holdOpened(StalledHold hold) {
+                opened.add(hold);
+            }
+
+            @Override
+            public void holdReleased(StalledHold hold, String report) {
+                released.add(hold);
+            }
+        });
+        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
+        var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
+        fail.set(true);
+
+        assertThrows(UncheckedIOException.class,
+                () -> detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_400)));
+        detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_500));
+
+        assertAll(
+                () -> assertEquals(2, records.size()),
+                () -> assertEquals(1, released.size()),
+                () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince()));
+    }
+
+    @Test
     @DisplayName("a paused scope that has a stall episode open releases it by itself as well")
     void shouldReleaseWhenTheScopeIsPaused() {
         var detector = detector();

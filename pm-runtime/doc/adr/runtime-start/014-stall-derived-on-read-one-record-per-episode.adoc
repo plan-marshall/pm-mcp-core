@@ -73,8 +73,9 @@ knows:
   not carry them yet; `plan-and-epic-control` supplies them when it builds the activity and the holds.
 * The open episodes are a concurrent map keyed by project, scope type and scope id, and `detect` (with the release it
   may cause) is synchronized on the detector: the first detection of an episode appends the record inside the per-key
-  computation, and no two reads announce one transition twice. A record the sink refuses leaves the episode closed
-  again (the computation did not store), and the next detection retries.
+  computation, and no two reads announce one transition twice. If the sink refuses a first record, no episode is
+  stored. If it refuses a replacement record, the previous episode stays active and its release is not queued; the
+  release is queued only after the record is appended, and the next detection retries both.
 * The `needs_operator` summary itself is not built here: `Activity.needsOperator()` offers the count (1 with a hold,
   0 without), and the summary that lists the hold's kind and link is the process-and-overview package's.
 * `StalledScopeDetectorTest` covers the threshold from one second below to past it, every awaited event, a pause, an
