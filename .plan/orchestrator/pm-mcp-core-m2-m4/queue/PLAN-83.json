@@ -2,10 +2,10 @@
   "id": "PLAN-83",
   "slug": "service-unit-restore",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-83-service-unit-restore",
+  "pr": "#125",
+  "landing": "landings/PLAN-83.md",
   "seq": 83
 }

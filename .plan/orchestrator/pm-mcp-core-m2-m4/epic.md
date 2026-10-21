@@ -779,6 +779,8 @@ decision or a dependency outside this repository.
   **Recurred on 2026-10-21 (PLAN-90, `rb-90-ported-tests-advisories-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same cause; the
   fourth opencode runbook landing.
   **Recurred on 2026-10-21 (PLAN-82, `rb-82-credential-store-move-advisories-001.md`):** `total_tokens=unknown`, same cause; the fifth.
+  **Recurred on 2026-10-21 (PLAN-83, `rb-83-service-unit-restore-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same cause; the sixth.
+  **Recurred on 2026-10-21 (PLAN-64, `rb-64-removed-concepts-001.md`):** `total_tokens=unknown`, `missing_keys: [total_tokens]`, same cause; the seventh.
 - **The port `QuestionRecordReader` cannot address a pending entry.** `ReadRequest(Optional<String> scopeId, String questionId)` names a plan, an
   epic or the workspace, nothing else, so a `question` state of a pending entry (an entity of the workspace scope) cannot be resolved through the
   adapter PLAN-88 shipped. Reported by the lane and corroborated against the record's two components (`pm-core` `core.spi`). No package owns it: a
@@ -807,7 +809,8 @@ decision or a dependency outside this repository.
 ## Watches
 
 - Owed to the milestone exit after PLAN-70 (#107, 2026-10-19), written in plan-marshall-documentation and not by any plan here: the roadmap check-off of the plan-instance item (`roadmap.adoc` line 233 still lists the prune reasons `plan_default` and `merge_by_operator`, the override event and `diff_summary` under "Remaining") and the documentation parts of PM-IMPL-5. The plan's statement that its change breaks `plan-marshall-mcp` was REFUTED on 2026-10-19 (`grep` finds no Java file there naming `CompositionRecord`, `CompiledInvariants`, `PlanFacts` or `RECIPE_ID_FACT` at `91b60d5`); it holds only for whoever first wires the composer into the assembly. Retire this watch when the roadmap line is updated.
-- plan-marshall-documentation PR #95 (the pin advance of the migration inventory to `297ae30`, opened by PLAN-37) is open on 2026-10-19 and is the operator's to merge. PLAN-37's own message says it was meant to land first; #106 landed without it (`ci pr queue-state --pr-number 95` in that repository: `open`). Retire this watch when #95 has merged and the inventory pin names `297ae30`.
+- RETIRED 2026-10-21: plan-marshall-documentation PR #95 (the pin advance of the migration inventory to `297ae30`, opened by PLAN-37) was merged on the operator's word as `963e879`; the roadmap on `origin/main` names `297ae30661ab…`. The sibling repository has no CI configuration for the `ci` abstraction (`CI provider not configured`), so the pull request was read and merged with `gh` in that checkout (no checks and no rulesets exist there); the gap is filed as a finding in the `live-blockers` inbox.
+- Filed 2026-10-21 in plan-marshall's `live-blockers` inbox (`pm-mcp-core-m2-m4-001` to `-004`, queued and uncommitted in that ledger worktree until its `land`): the executor-skew evidence of five runbook landings, the `total_tokens=unknown` recurrence (seven landings), the lane edit of the main checkout and the bot silence on a merge head (PLAN-81, the two unfiled lane-contract lessons), and the `ci` abstraction's lack of a repository selector.
 - The Secret Service path (Linux) is unproven end to end (stated on plan-marshall-mcp #88 and #90; the Keychain path was measured on macOS). In this repository `SecretServiceIT` of `pm-runtime` is `@EnabledOnOs(LINUX)` and skips itself by `assumeTrue` when there is no session bus address or the default collection is locked, so a CI run proves nothing for it. Proving it takes a Linux desktop session with an unlocked default collection running `verify -Pintegration-tests -pl pm-runtime -am`; that is plan work or the operator's, not an orchestrator read. Retire this watch when a run on such a session shows the test executed and green.
 - The native build of `pm-mcpd` in `plan-marshall-mcp` against the deployed SNAPSHOT has not run since #90 and #92. It is the only check of
   the `kill` downcall descriptor of PLAN-20 and of the Keychain and Secret Service paths of PLAN-74, and `SecretStoreProducer` there compiles
@@ -887,12 +890,54 @@ decision or a dependency outside this repository.
   declared surface (the record class, its three tests, the log holder, `EnrolmentKey`, three `.adoc` files). The lane reports T1 (test first) as not met
   (`mutation-after`) and a self-review round 2 that was skipped for budget; the landing says so itself. Its rule breaks (first edits in the main
   checkout, a `python3 -c` probe) are plan-reported; the main checkout is clean here. Build, test count and the Sonar claim were not re-run.
+  Sixth opencode runbook landing (PLAN-83, #125, 2026-10-21), verified: the squash `7d980c1` is on `main`, 30 checks pass, SonarCloud reports 0 new
+  issues, the nine named commits exist, the progress file agrees with the landing, and `keepForRestore`, `restoreKept`, `restore` and the log ids
+  33/34/135/136 are in the merged code and in `doc/LogMessages.adoc`. The one replaced test (`shouldKeepUnitOnManagerFailure`) inverts its
+  assertions by the decision of ADR 014; nothing is weakened. Six files lay outside the declared surface (`LogMessages.adoc`, `Traceability.adoc`, the
+  log holder and its test, two Javadoc paragraphs) and one declared file was untouched (the Upgrade section of `01-startup-recovery-drain.adoc`, kept
+  because only the unit part of the rollback exists). The macOS clause is met only at the library level (the operator accepted that; see the Watch).
+  Same stale-executor defect as before (canonical build names rejected, the lane read `~/.config/opencode/skills/`). Build and test counts were not re-run.
+  Seventh opencode runbook landing (PLAN-64, #122, 2026-10-21), verified: the squash `c6da0e2` is on `main`, 30 checks pass, the 18 review threads are all
+  resolved, and no Java file at `origin/main` names the removed types (`ScopeSession*`, `SessionGeneration*`, `FencedSessionGenerations*`,
+  `operatorCommand`, `CATEGORY_IDENTITY`, `entryClientChanged`); `expire_question` survives only in the refusal test the lane's matrix requires.
+  `StalledScopeDetector` is new with the 600 s threshold of the timeouts specification; `AuditRecord.Scope.ENTRY` exists (the operator's D4 decision).
+  D7 is not fully met, as the landing says: the roadmap `_Remaining_` update is owed in `plan-marshall-documentation`. Fifteen files lay outside the
+  declared surface (the log holder and its test, rows and files that named the package, two workflow ADRs, three new or changed tests) and ten declared
+  entries were untouched (mostly specification parts that were already corrected). The follow-up #127 (`c7780a0`) is the explanation of the uncommitted
+  `ServiceUnitInstallerTest` edit: 14 lines `throws IOException` to `throws Exception`, nothing else, merged with `skip-bot-review` on the operator's
+  word (plan-reported). The detector has no production caller: the stalled hold does not exist end to end until the assembly wires it. Build and test
+  counts were not re-run.
+- **Eighteen SonarCloud issues on PR #122 are untriaged (observed through the SonarCloud API, 2026-10-21).** The gate is OK, the landing says "quality
+  gate passed" and does not mention them. Twelve are in `StalledScopeDetectorTest` (S5778 x5, S7467 x3, S6213, S1612, S9358, S8786), two are CRITICAL
+  `S1192` duplicate literals in `AuditEvent.java:305-306`, one is `S1172` (unused parameter `projectId`, `WrapperVerification.java:52`), one `S3400`
+  (`StalledScopeDetector.java:146`), one each in `AuditCodecTest` (S6213) and `JobRefusalTest` (S1612). **Decision 2026-10-21 (operator): the fixes of
+  all 29 open issues (#120: 1, #121: 10, #122: 18) are Deliverable 5 of PLAN-87**, not a plan of their own; the other watches on #120 and #121 below stay
+  as the record of where they were found.
+- **Owed outside PLAN-64 (plan-reported, corroborated by the Javadoc):** the `pm-mcp-server` assembly in `plan-marshall-mcp` registers `PendingEntryRecordsSweep`
+  and wires `StalledScopeDetector` with an `OperatorPort`; `process-and-overview` serves the `needs_operator` summary; the removed public `JobRefusal` API
+  is a change the clients' build meets. The roadmap `_Remaining_` update and the concept and user documentation belong to the milestone exit.
+- **#125 reached `main` without a rewrite the pre-commit gate applies (observed).** #127 carries it (declaration-only). PLAN-83's lane ran on the stale
+  executor that rejected the canonical build names; whether `verify -Ppre-commit` ran there is not in its landing. Regenerating the executor is the
+  remedy already owed.
 - **Ten SonarCloud issues on PR #121 are untriaged (unverified lead).** The PR's Sonar comment says quality gate passed and 10 new issues; the lane
   did not read them and the orchestrator did not open them. Check the PR's Sonar page before the next change to the credentials package.
-- **PLAN-64 will meet #121 in two files (observed).** `corpus declaration-currency` against `15fbe6f`: `doc/specification/store-schemas/12-machine-stores.adoc`
-  and `pm-runtime/doc/developer/runtime-start.adoc` are in PLAN-64's declared surface and in #121's squash; the branch `feature/64-removed-concepts`
-  (`a562098`) does not contain `15fbe6f`. Expect a conflict resolution when it merges `origin/main`; PLAN-83 (`runtime-start.adoc`), PLAN-84
-  (`doc/LogMessages.adoc`, `CredentialStoreMoveResumeTest.java`) and PLAN-85 (`doc/Traceability.adoc`) overlap the landed footprint too.
+- **PLAN-64 met #121 and #125 and landed (closed 2026-10-21).** `corpus declaration-currency` predicted the overlap; the branch merged both squashes
+  (`da892e9`) and renumbered its ADR to `runtime-start/015`, and #122 merged as `c6da0e2`. The uncommitted `ServiceUnitInstallerTest.java` edit seen in
+  its worktree was a build rewrite of #125's file, landed apart as #127 (`c7780a0`), not part of #122 (`landings/PLAN-64.md`). PLAN-84 (`doc/LogMessages.adoc`,
+  the directory `runtime/start/` of its test surface), PLAN-85 and PLAN-89 (`doc/Traceability.adoc`, `README.adoc`) overlap the landed footprints too. PLAN-87's
+  hypothesis `ScopeSessionLogTest.java` no longer exists (the spec is corrected); PLAN-28 and PLAN-73 declare `core-queue.adoc` and `core/queue/`, which
+  PLAN-28 recreates.
+- **Owed outside PLAN-83 (plan-reported, accepted by the operator):** `ServiceUnitInstaller.restore()` is implemented and tested, but no production
+  start calls it; the `pm-mcp-server` assembly in `plan-marshall-mcp` must run it first (like `CredentialStoreChoice.record` below). Until then the
+  macOS recovery after an interrupted reinstall does not exist end to end. The concept and user documentation and the roadmap check-off belong to the
+  milestone exit; the rest of the upgrade rollback (staged installation directory, the switch) is not implemented, so the Upgrade section stays.
+- **Install, restore and uninstall share the kept pair with no cross-process owner (plan-reported, corroborated in the code).** No production caller
+  exists yet. CodeRabbit raised it; the lane answered on the PR. The serialization belongs to the change that wires `pm-operator runtime install|uninstall`
+  and the start.
+- **A failed drop after a successful load can restore an OLDER unit later (unverified lead from the bot, behaviour corroborated).** CodeRabbit's
+  security-architecture note on #125: when the load succeeds and the marker cannot be deleted, `install` stays a success (WARN `PM_RUNTIME-136`,
+  `dropAfterLoad`), and a later start or failed install restores the kept, older unit. The design documents it; the bot proposes separating the install's
+  commit state from the cleanup of the pair. Not in the landing's Residue. Re-read when the start is wired.
 - **Owed outside PLAN-82 (plan-reported):** the `pm-mcp-server` assembly in `plan-marshall-mcp` has to call `CredentialStoreChoice.record(LockManager, user, store)`;
   the concept and user documentation and the roadmap check-off belong to the milestone exit in `plan-marshall-documentation`.
 - **One SonarCloud issue on PR #120 is untriaged (unverified lead).** The landing reports quality gate passed and 1 new issue it did not read; the
@@ -966,6 +1011,9 @@ decision or a dependency outside this repository.
   build's working directory in the `in_process` fallback, so the lane passed `-f {worktree}/pom.xml` (plan-reported). `cleanup restart-check` now
   reads: the registry pins 0.1.1977, the executor is still 0.1.1961 (`registry_parity: indeterminate`). PLAN-64 (runbook, opencode) is still running on
   it; regenerate the executor (operator) before the next runbook plan is emitted.
+  **Recurred on 2026-10-21 (PLAN-83):** the resolved build names (`quality-gate`, `module-tests`, `test-compile`) reached Maven and failed ("Unknown lifecycle phase"),
+  and the lane read the installed skill documentation under `~/.config/opencode/skills/` to find the invocation surfaces (plan-reported, no guard on
+  opencode). PLAN-83 was emitted on the same executor, as were PLAN-64's and PLAN-90's. Still pinned 0.1.1961 against registry 0.1.1977.
 - The check command of `CLAUDE.md` (`../plan-marshall-documentation/…`) does not resolve inside a plan worktree, three
   directories deeper: PLAN-72's functional review graded the link criteria on indirect evidence until the command was run by hand.
   The Standing Constraints of PLAN-20 and PLAN-69 now carry the absolute-path command; add the same bullet to every other spec
