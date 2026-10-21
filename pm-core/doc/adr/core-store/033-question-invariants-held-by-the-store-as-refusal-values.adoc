@@ -35,8 +35,9 @@ only a check made under the scope lock, right before the append, sees every line
   line, and on a `revised` line, a decision on the line of another question is a fault of the caller and an
   `IllegalArgumentException`.
 * A refusal is a value the method returns, and nothing of the append is added to the transaction. A line that is
-  malformed for the log (a question asked twice, a line about a question the log does not have, a set revised in part)
-  is a fault of the caller and an `IllegalArgumentException`.
+  malformed for the log (a question asked twice, a part asked into a set the log holds, a part whose `question_set` is
+  no first question of a set, a line about a question the log does not have, a set revised in part, a decision on a
+  revised line of another question than the first) is a fault of the caller and an `IllegalArgumentException`.
 
 The rationale beyond the need for a check under the lock is not recorded.
 

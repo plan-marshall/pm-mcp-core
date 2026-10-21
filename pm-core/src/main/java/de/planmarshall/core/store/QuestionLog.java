@@ -62,9 +62,10 @@ import de.planmarshall.core.store.QuestionRefusal.Unreadable;
  * part into a set the log already holds is a fault of the caller; a change of the decision is a revision of its open
  * questions.
  * Whether an answer fits its part is checked by the engine, not here. A line that is malformed for the log (a question
- * asked twice, a part asked into a set the log holds, a line about a question the log does not have, a revision that is
- * not the next one, a set revised in part, a decision on a revised line of another question than the first) is a fault
- * of the caller and is refused with an {@link IllegalArgumentException}.
+ * asked twice, a part asked into a set the log holds, a part whose {@code question_set} is no first question of a set,
+ * a line about a question the log does not have, a revision that is not the next one, a set revised in part, a decision
+ * on a revised line of another question than the first) is a fault of the caller and is refused with an
+ * {@link IllegalArgumentException}.
  * <p>
  * A read without the lock ({@link #read()}) reports the log as it is at that moment: an append in progress shows as a
  * torn tail and never as a line, and a refused line keeps its line number while the lines around it stay readable. The
@@ -468,8 +469,9 @@ public final class QuestionLog {
                             .formatted(id, line.questionSet()));
                 }
                 if (!named.questionSet.equals(line.questionSet())) {
-                    throw new IllegalArgumentException("The question %s names %s as its set, which is no first"
-                            + " question of a set".formatted(id, line.questionSet()));
+                    throw new IllegalArgumentException(
+                            ("The question %s names %s as its set, which is no first question of a set")
+                                    .formatted(id, line.questionSet()));
                 }
             }
             questions.put(id, new Question(line.questionSet(), line.revision()));

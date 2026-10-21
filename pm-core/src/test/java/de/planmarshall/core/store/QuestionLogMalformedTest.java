@@ -88,6 +88,8 @@ class QuestionLogMalformedTest extends QuestionLogFixture {
 
         assertAll(
                 () -> assertTrue(fault.getMessage().contains("no first question of a set"), fault.getMessage()),
+                () -> assertTrue(fault.getMessage().contains("Q-005"), fault.getMessage()),
+                () -> assertTrue(fault.getMessage().contains("Q-002"), fault.getMessage()),
                 () -> assertArrayEquals(before, content()));
     }
 
