@@ -81,12 +81,17 @@ class QuestionRecordRefusalsTest {
 
     /** @return the members the codec requires of every asked line, never a conditionally required one */
     static Stream<String> requiredOfAsked() {
-        return QuestionRecordCodec.REQUIRED_BY_EVENT.get(QuestionEvent.ASKED).stream();
+        return requiredOf(QuestionEvent.ASKED);
     }
 
     /** @return the members the codec requires of every answered line, never a conditionally required one */
     static Stream<String> requiredOfAnswered() {
-        return QuestionRecordCodec.REQUIRED_BY_EVENT.get(QuestionEvent.ANSWERED).stream();
+        return requiredOf(QuestionEvent.ANSWERED);
+    }
+
+    private static Stream<String> requiredOf(QuestionEvent event) {
+        return Stream.concat(QuestionRecordCodec.REQUIRED_BY_RECORD.stream(),
+                QuestionRecordCodec.REQUIRED_BY_EVENT.get(event).stream());
     }
 
     @ParameterizedTest(name = "{0}")
