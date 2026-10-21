@@ -582,9 +582,10 @@ proposes (`submit:simplify`, proposal records with `file`, `change`, `rationale`
 of the writer role `implement` applies the subset it accepts in `finalize.simplify-apply`, and the applied result goes
 through `finalize.settle-commit` (footprint check, `freshness_reconcile`) and the following gates like any change.
 The restraint ladder ("does it need to exist → already in the codebase → standard library → native platform feature
-→ installed dependency → one line → only then the minimum") and an in-code marker for deliberate corner-cuts are
-wording candidates only, adopted when `PM-TEST-6` evidence on more than one client supports them; if the marker is
-adopted, the self-review surfacer treats marked lines as intentional.
+→ installed dependency → one line → only then the minimum") and the marker for deliberate corner-cuts are guidance in
+the domain standards (`PM-SKILL-1`, items 4 and 5) and measurement subjects of `PM-TEST-6`; the share of runs that
+write the marker is measured by the Shortcut Marker scenario of the harness. That the self-review surfacer treats
+marked lines as intentional is not specified until that share shows the marker is written.
 Fixture:: a deliberate `set(offerable) | always_on_set` removed by simplify.
 Source:: design review; plan-marshall defect truthful-signals (quality-aspect) PLAN-219 D3; instrumentation-substrate
 inbox other-approaches-001 § Candidate changes items 1 and 3.
