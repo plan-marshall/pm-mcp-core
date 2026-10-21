@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -204,18 +204,23 @@ public final class StalledScopeDetector {
         }
         var hold = new StalledHold(scopeType(status.scopeType()), status.scopeId(), status.state(), Cause.NO_PROGRESS,
                 status.updatedAt(), idleSeconds);
-        var opened = new AtomicBoolean();
+        var opened = new AtomicReference<StalledHold>();
+        var ended = new AtomicReference<StalledHold>();
         stalled.compute(key, (ignored, previous) -> {
-            if (previous != null) {
+            if (previous != null && !status.updatedAt().isAfter(previous.idleSince())) {
                 return previous;
             }
+            ended.set(previous);
             auditSink.append(AuditEvent.planStalled(hold.scopeType().wireName(), hold.scopeId(), hold.state(),
                     hold.cause().wireName(), hold.idleSince(), hold.idleSeconds()));
-            opened.set(true);
+            opened.set(hold);
             return hold;
         });
-        if (opened.get()) {
-            operator.holdOpened(hold);
+        if (ended.get() != null) {
+            operator.holdReleased(ended.get(), HOLD_RELEASED);
+        }
+        if (opened.get() != null) {
+            operator.holdOpened(opened.get());
         }
         return new Activity(Optional.of(hold));
     }

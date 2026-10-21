@@ -97,7 +97,7 @@
  * least the compiled threshold (600 seconds), while it is neither paused, nor in an operator wait, nor under a hold of
  * another kind. The hold is never stored; its first detection in an episode hands one {@code plan_stalled} audit
  * record over and announces the hold, a detection that finds the scope moved on announces the report
- * {@code plan.hold_released}, and the hold's count is what the scope's {@code needs_operator} summary counts on read.
+ * {@code plan.hold_released}, and the hold's count is what a {@code needs_operator} summary counts on read.
  * Its acts are {@code plan-and-epic-control}'s.
  * <p>
  * The version-mismatch detection ({@link de.planmarshall.runtime.start.RelayVersionCheck}) compares the

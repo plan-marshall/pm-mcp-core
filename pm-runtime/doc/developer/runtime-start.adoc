@@ -111,7 +111,7 @@ Specification, Stalled Threshold]; the test reads the value from the specificati
 `StalledHold`:: The hold: its kind `stalled`, the closed cause `NO_PROGRESS` (`no_progress`), the scope, the state the
 scope rests in, the instant of the last transition or task progress and the idle seconds.
 `Activity`:: What the detection found: the hold, or nothing, and its `needs_operator()` count (1 with a hold, 0
-without), which the scope's `needs_operator` summary counts on read.
+without), which a `needs_operator` summary counts on read.
 `OperatorPort`:: Where the hold is announced: `holdOpened` when an episode begins, `holdReleased` when it clears by
 itself, with the report `plan.hold_released`.
 

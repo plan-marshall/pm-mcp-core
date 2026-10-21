@@ -16,6 +16,7 @@ import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_ID;
 import static de.planmarshall.runtime.job.JobEnrolmentFixture.SCRIPT_PATH;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -121,6 +122,7 @@ class VerifyNotResolvePipelineTest {
             assertAll(
                     () -> assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason()),
                     () -> assertTrue(refusal.changedPaths().isEmpty()),
+                    () -> assertFalse(refusal.detail().contains("pm-operator"), refusal.detail()),
                     () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
                             WARN.ENROLMENT_TAMPERED.resolveIdentifierString()),
                     () -> LogAsserts.assertNoLogMessagePresent(TestLogLevel.WARN,

@@ -13,7 +13,7 @@ Accepted
 
 A non-terminal plan or epic is `stalled` when it is neither paused nor pausing, is in no operator wait and under no
 hold of another kind, has no pending condition, awaits no event (no running job, no task, no open wait), and its last
-transition or task progress is older than the compiled stalled threshold
+transition or task progress is at least the compiled stalled threshold
 (link:../../../../doc/specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime
 Lifecycle Specification, Stalled Plans]). Stalled is derived from persisted state on read and is never stored as
 workflow state; the first detection of an episode appends one `plan_stalled` audit record, the hold clears by itself

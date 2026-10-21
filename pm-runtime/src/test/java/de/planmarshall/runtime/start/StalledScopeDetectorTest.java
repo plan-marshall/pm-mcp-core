@@ -221,6 +221,35 @@ class StalledScopeDetectorTest {
     }
 
     @Test
+    @DisplayName("two scopes of one project, and the same plan id of another project, keep their own episodes")
+    void shouldKeepEpisodesPerScope() {
+        var detector = detector();
+
+        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
+        detector.detect(View.of(PROJECT, epic().build()), LAST_PROGRESS.plusSeconds(710));
+        detector.detect(View.of("another-project", plan().build()), LAST_PROGRESS.plusSeconds(720));
+
+        assertEquals(3, records.size());
+    }
+
+    @Test
+    @DisplayName("a progress no read observed ends the episode and starts a new one")
+    void shouldStartANewEpisodeAfterUnobservedProgress() {
+        var detector = detector();
+        detector.detect(View.of(PROJECT, plan().build()), LAST_PROGRESS.plusSeconds(700));
+
+        var progressed = plan().updatedAt(LAST_PROGRESS.plusSeconds(800)).build();
+        var activity = detector.detect(View.of(PROJECT, progressed), LAST_PROGRESS.plusSeconds(1_400));
+
+        assertAll(
+                () -> assertEquals(2, records.size()),
+                () -> assertEquals(1, released.size()),
+                () -> assertEquals(LAST_PROGRESS, released.getFirst().idleSince()),
+                () -> assertEquals(LAST_PROGRESS.plusSeconds(800), activity.hold().orElseThrow().idleSince()),
+                () -> assertEquals(600, activity.hold().orElseThrow().idleSeconds()));
+    }
+
+    @Test
     @DisplayName("a further detection of one episode reports the idle span of that read")
     void shouldReportTheSpanOfTheRead() {
         var detector = detector();
